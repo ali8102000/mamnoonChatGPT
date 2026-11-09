@@ -17,7 +17,7 @@ const taxiRequestInput = z.object({
 
 export const createTaxiRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => taxiRequestInput.parse(data))
+  .validator((data) => taxiRequestInput.parse(data))
   .handler(async ({ data, context }) => {
     const { data: isCustomer, error: roleError } = await context.supabase.rpc("has_role", {
       _user_id: context.userId,
