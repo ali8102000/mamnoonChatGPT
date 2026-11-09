@@ -8,7 +8,9 @@ const SEND_EVERY_MS = 30_000;
 export function ProviderPresence() {
   const { session, roles } = useAuth();
   const uid = session?.user.id;
-  const isProvider = roles.includes("driver") || roles.includes("worker");
+  const hasDriverRole = roles.includes("driver");
+  const hasWorkerRole = roles.includes("worker");
+  const isProvider = hasDriverRole || hasWorkerRole;
 
   useEffect(() => {
     if (!uid || !isProvider || typeof navigator === "undefined" || !navigator.geolocation) return;
@@ -18,10 +20,10 @@ export function ProviderPresence() {
 
     async function isAvailable() {
       const [d, w] = await Promise.all([
-        roles.includes("driver")
+        hasDriverRole
           ? supabase.from("driver_profiles").select("available").eq("user_id", uid!).maybeSingle()
           : Promise.resolve({ data: null }),
-        roles.includes("worker")
+        hasWorkerRole
           ? supabase.from("worker_profiles").select("available").eq("user_id", uid!).maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
@@ -55,7 +57,7 @@ export function ProviderPresence() {
       navigator.geolocation.clearWatch(watch);
       clearInterval(timer);
     };
-  }, [uid, isProvider, roles.join(",")]);
+  }, [uid, hasDriverRole, hasWorkerRole]);
 
   return null;
 }
