@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 /** Dispatch creates offers for nearby/available drivers and advances stage */
 export const dispatchRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ requestId: z.string().min(1) }).parse(d))
+  .inputValidator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: request, error } = await context.supabase
       .from("service_requests")
@@ -14,16 +14,22 @@ export const dispatchRequest = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (error || !request) throw new Error("الطلب غير موجود");
-    if (request.customer_id !== context.userId) {
-      throw new Error("ليس لديك صلاحية لهذا الطلب");
-    }
-    if (request.type !== "taxi") {
-      throw new Error("هذا المسار مخصص لطلبات التكسي فقط");
+    if (request.customer_id !== context.userId) throw new Error("ليس لديك صلاحية لهذا الطلب");
+    if (request.type !== "taxi") return { offers: 0, reason: "not_taxi" };
+    if (!["pending", "searching"].includes(request.status)) {
+      throw new Error("لا يمكن إعادة توزيع هذا الطلب بهذه الحالة");
     }
 
-    // Taxi offers are created by the database dispatch trigger and its
-    // scheduled worker. Do not duplicate offers from the browser request.
-    return { offers: 0, reason: request.status };
+    // The database locks the request, enforces ownership, and reuses active offers.
+    const { data: offers, error: dispatchError } = await (context.supabase as any).rpc(
+      "retry_taxi_dispatch",
+      { _request_id: request.id },
+    );
+    if (dispatchError) throw new Error("تعذّر توزيع الطلب: " + dispatchError.message);
+    return {
+      offers: Number(offers ?? 0),
+      reason: Number(offers ?? 0) > 0 ? "ok" : "no_drivers",
+    };
   });
 
 /**
@@ -132,16 +138,29 @@ export const providerCancelRequest = createServerFn({ method: "POST" })
 /** Compatibility read: client retries never reset offers or dispatch deadlines. */
 export const retryDispatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ requestId: z.string().min(1) }).parse(d))
+  .inputValidator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: req, error } = await context.supabase
+    const { data: request, error } = await context.supabase
       .from("service_requests")
-      .select("id, customer_id, status")
+      .select("id, customer_id, status, type")
       .eq("id", data.requestId)
-      .single();
-    if (error || !req) throw new Error("الطلب غير موجود");
-    if (req.customer_id !== context.userId) throw new Error("ليس لديك صلاحية لهذا الطلب");
-    return { offers: 0, reason: req.status };
+      .maybeSingle();
+
+    if (error || !request) throw new Error("الطلب غير موجود");
+    if (request.customer_id !== context.userId) throw new Error("ليس لديك صلاحية لهذا الطلب");
+    if (request.type !== "taxi" || !["pending", "searching"].includes(request.status)) {
+      throw new Error("لا يمكن إعادة توزيع هذا الطلب بهذه الحالة");
+    }
+
+    const { data: offers, error: dispatchError } = await (context.supabase as any).rpc(
+      "retry_taxi_dispatch",
+      { _request_id: request.id },
+    );
+    if (dispatchError) throw new Error("تعذّر إعادة توزيع الطلب: " + dispatchError.message);
+    return {
+      offers: Number(offers ?? 0),
+      reason: Number(offers ?? 0) > 0 ? "ok" : "no_drivers",
+    };
   });
 
 /**
@@ -198,9 +217,8 @@ export const findNearbyProviderPins = createServerFn({ method: "POST" })
       })
       .parse(d),
   )
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await (supabaseAdmin as any).rpc("find_nearby_provider_pins", {
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await (context.supabase as any).rpc("find_nearby_provider_pins", {
       _lat: data.lat,
       _lng: data.lng,
       _type: data.type,
