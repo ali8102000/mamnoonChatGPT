@@ -11,6 +11,8 @@
 
 <!-- LOVABLE:END -->
 
+- Keep a public-only backend configuration fallback in `config/public-backend.json` and inject it via Vite; deployment may omit the generated environment file, and environment values must take precedence.
+
 # Architecture
 
 - Resolve technician service illustrations through the shared slug-to-asset registry with an illustrated fallback, so selection and summary displays stay consistent.
