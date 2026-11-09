@@ -43,3 +43,64 @@ $taxi_rate_limit$;
 
 REVOKE ALL ON FUNCTION public.consume_taxi_request_slot(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.consume_taxi_request_slot(uuid) TO service_role;
+
+-- Authenticated customers may safely request an immediate retry only for their own
+-- still-searching taxi request. Active offers are reused; no duplicate fan-out.
+CREATE OR REPLACE FUNCTION public.retry_taxi_dispatch(_request_id uuid)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $retry_taxi_dispatch$
+DECLARE
+  v_request public.service_requests%ROWTYPE;
+  v_active_count integer := 0;
+  v_offers integer := 0;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'unauthorized';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended(_request_id::text, 0));
+
+  SELECT * INTO v_request
+  FROM public.service_requests
+  WHERE id = _request_id
+  FOR UPDATE;
+
+  IF NOT FOUND OR v_request.customer_id <> auth.uid() THEN
+    RAISE EXCEPTION 'request_not_found';
+  END IF;
+  IF v_request.type <> 'taxi'::public.request_type
+     OR v_request.status NOT IN ('pending'::public.request_status, 'searching'::public.request_status)
+     OR v_request.provider_id IS NOT NULL THEN
+    RAISE EXCEPTION 'invalid_request_status';
+  END IF;
+
+  SELECT count(*) INTO v_active_count
+  FROM public.request_offers
+  WHERE request_id = _request_id
+    AND status = 'pending'
+    AND expires_at > now();
+
+  IF v_active_count > 0 THEN
+    RETURN v_active_count;
+  END IF;
+
+  UPDATE public.request_offers
+  SET status = 'expired', responded_at = now()
+  WHERE request_id = _request_id
+    AND status = 'pending'
+    AND expires_at <= now();
+
+  INSERT INTO public.taxi_dispatch_queue(request_id, stage, next_at)
+  VALUES (_request_id, 0, now())
+  ON CONFLICT (request_id) DO UPDATE SET next_at = now();
+
+  v_offers := public.advance_taxi_dispatch(_request_id);
+  RETURN v_offers;
+END;
+$retry_taxi_dispatch$;
+
+REVOKE ALL ON FUNCTION public.retry_taxi_dispatch(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.retry_taxi_dispatch(uuid) TO authenticated;
