@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,7 +97,7 @@ function RequestDetail() {
     active: trackingActive,
   });
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     try {
       const { data: r } = await supabase
         .from("service_requests")
@@ -152,11 +152,11 @@ function RequestDetail() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id, session?.user.id, getRepFn]);
 
   useEffect(() => {
-    if (session) loadAll();
-  }, [session, id]);
+    if (session) void loadAll();
+  }, [session, loadAll]);
 
   useEffect(() => {
     if (!chat) return;
@@ -190,7 +190,7 @@ function RequestDetail() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [req?.id]);
+  }, [req?.id, id, loadAll]);
 
   useEffect(() => {
     if (!req || myRole !== "customer") return;
@@ -200,8 +200,9 @@ function RequestDetail() {
       loadAll();
     }, 5000);
     return () => clearInterval(t);
-  }, [req?.id, req?.status, myRole]);
+  }, [req?.id, req?.status, myRole, loadAll, retryFn]);
 
+  const lastMessageId = messages[messages.length - 1]?.id;
   useEffect(() => {
     const go = () => {
       const el = scrollRef.current;
@@ -213,7 +214,7 @@ function RequestDetail() {
       cancelAnimationFrame(raf);
       clearTimeout(t);
     };
-  }, [messages.length, messages[messages.length - 1]?.id, chat?.id, req?.status, loading]);
+  }, [messages.length, lastMessageId, chat?.id, req?.status, loading]);
 
   if (authLoading || loading)
     return (
