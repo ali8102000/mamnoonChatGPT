@@ -1,31 +1,58 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-export const lookupAuthEmail = createServerFn({ method: "POST" })
+export const loginWithIdentifier = createServerFn({ method: "POST" })
   .inputValidator((d) =>
-    z
-      .object({
-        identifier: z.string().trim().min(3).max(255),
-      })
-      .parse(d),
+    z.object({
+      identifier: z.string().trim().min(3).max(255),
+      password: z.string().min(6).max(128),
+    }).parse(d),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const id = data.identifier.trim();
-    const isEmail = id.includes("@");
+    let email = id.toLowerCase();
 
-    if (isEmail) {
-      return { email: id.toLowerCase() };
+    if (!id.includes("@")) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: foundEmail, error: lookupError } = await supabaseAdmin.rpc(
+        "lookup_email_by_phone",
+        { _phone: id },
+      );
+      if (lookupError) throw new Error("تعذر التحقق من بيانات الدخول");
+      const digits = id.replace(/[^\\d]/g, "");
+      email = foundEmail ? String(foundEmail).toLowerCase() : `phone${digits}@mamnoon.app`;
     }
 
-    const { data: email } = await (supabaseAdmin as any).rpc("lookup_email_by_phone", {
-      _phone: id,
+    const supabaseUrl = process.env["SUPABASE_URL"] || import.meta.env["VITE_SUPABASE_URL"];
+    const publishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"] || import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+    if (!supabaseUrl || !publishableKey) {
+      throw new Error("إعدادات تسجيل الدخول غير مكتملة على الخادم");
+    }
+
+    const authFetch: typeof fetch = (input, init) => {
+      const headers = new Headers(
+        typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
+      );
+      if (init?.headers) new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+      if (
+        (publishableKey.startsWith("sb_publishable_") || publishableKey.startsWith("sb_secret_")) &&
+        headers.get("Authorization") === `Bearer ${publishableKey}`
+      ) headers.delete("Authorization");
+      headers.set("apikey", publishableKey);
+      return fetch(input, { ...init, headers });
+    };
+
+    const authClient = createClient(supabaseUrl, publishableKey, {
+      global: { fetch: authFetch },
+      auth: { persistSession: false, autoRefreshToken: false },
     });
-
-    if (email) return { email: String(email).toLowerCase() };
-
-    const digits = id.replace(/[^\d]/g, "");
-    return { email: `phone${digits}@mamnoon.app` };
+    const { data: authData, error } = await authClient.auth.signInWithPassword({
+      email,
+      password: data.password,
+    });
+    if (error || !authData.session) throw new Error("بيانات الدخول غير صحيحة");
+    return { session: authData.session };
   });
 
 export const sendPasswordReset = createServerFn({ method: "POST" })
