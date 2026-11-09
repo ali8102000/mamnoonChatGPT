@@ -95,7 +95,7 @@ export function useNearbyProviders(opts: {
       clearTimeout(debounceRef.current);
       supabase.removeChannel(ch);
     };
-  }, [center?.lat, center?.lng, type, category, serviceId, radiusKm, enabled, intervalMs]);
+  }, [center, center?.lat, center?.lng, findPinsFn, type, category, serviceId, radiusKm, enabled, intervalMs]);
 
   return pins;
 }
