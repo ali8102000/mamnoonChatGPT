@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async ({ data }) => {
         setSession(data.session);
         if (data.session?.user) {
-          await loadProfile(data.session.user.id, data.session.user.email);
+          await loadProfile(data.session.user.id);
         }
         setLoading(false);
       })
