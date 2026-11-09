@@ -1,0 +1,36 @@
+name: Android production AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Mamnoon Android App Bundle
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo-app
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set Git default branch for clean CI logs
+        run: git config --global init.defaultBranch main && git config --global advice.defaultBranchName false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Validate EAS token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "GitHub secret EXPO_TOKEN is required."
+            exit 1
+          fi
+      - name: Build production AAB with EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: bunx eas-cli@latest build --platform android --profile production --non-interactive
