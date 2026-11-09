@@ -54,6 +54,7 @@ Set the variables listed in the root `.env.example`, including:
 - `LOVABLE_API_KEY`
 - `GOOGLE_MAPS_API_KEY`
 - `LOVABLE_DB_MIGRATION_URL` (migration execution only)
+- `APP_URL` and `ALLOWED_REDIRECT_ORIGINS` (password-reset redirect allowlist)
 
 ### Supabase Edge Function secrets
 
@@ -65,7 +66,7 @@ Configure the target project's secrets for:
 - `GOOGLE_MAPS_API_KEY`
 - `ALLOWED_ORIGIN` and `ALLOWED_REDIRECT_ORIGINS` where required by the deployment domains
 
-Deploy `auth-proxy` and `create-taxi-request` only after the target database migrations and secrets are ready.
+Deploy `auth-proxy`, `create-taxi-request` and `subscription-cron` only after the target database migrations and secrets are ready.
 
 ### Expo EAS production environment
 
