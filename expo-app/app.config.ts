@@ -4,7 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const mapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  const easProjectId = process.env.EAS_PROJECT_ID;
+  const easProjectId = process.env.EAS_PROJECT_ID ?? process.env.EAS_BUILD_PROJECT_ID;
   const isProduction = process.env.APP_ENV === "production";
   const isEasBuild = process.env.EAS_BUILD === "true";
 
