@@ -73,32 +73,37 @@ export const sendPasswordReset = createServerFn({ method: "POST" })
     if (isEmail) {
       email = id.toLowerCase();
     } else {
-      const { data: emailResult } = await (supabaseAdmin as any).rpc("lookup_email_by_phone", {
+      const { data: emailResult } = await supabaseAdmin.rpc("lookup_email_by_phone", {
         _phone: id,
       });
       email = emailResult ? String(emailResult) : null;
     }
 
     if (!email) {
-      return { ok: true, hasEmail: false };
+      return { ok: true };
     }
 
     try {
       const redirectUrl = new URL(data.redirectTo);
-      const allowedOrigins = (process.env.ALLOWED_REDIRECT_ORIGINS ?? "")
+      const configuredOrigins = (process.env.ALLOWED_REDIRECT_ORIGINS ?? "")
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      if (allowedOrigins.length && !allowedOrigins.includes(redirectUrl.origin)) {
-        return { ok: true, hasEmail: false };
-      }
+      const appUrl = process.env.APP_URL || import.meta.env["VITE_APP_URL"];
+      const fallbackOrigin = appUrl ? new URL(appUrl).origin : null;
+      const allowedOrigins = configuredOrigins.length
+        ? configuredOrigins
+        : fallbackOrigin
+          ? [fallbackOrigin]
+          : [];
+      if (!allowedOrigins.includes(redirectUrl.origin)) return { ok: true };
     } catch {
-      return { ok: true, hasEmail: false };
+      return { ok: true };
     }
 
     const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
       redirectTo: data.redirectTo,
     });
     if (error) console.error("[sendPasswordReset]", error.message);
-    return { ok: true, hasEmail: true };
+    return { ok: true };
   });
