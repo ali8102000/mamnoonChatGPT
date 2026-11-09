@@ -377,46 +377,6 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
     };
   }, [session, type, table]);
 
-  useEffect(() => {
-    if (!session || !available || !verified) return;
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      toast.error("المتصفح لا يدعم مشاركة الموقع؛ أوقفنا التوفر");
-      setAvailable(false);
-      void supabase.from(table).update({ available: false }).eq("user_id", session.user.id);
-      return;
-    }
-    const userId = session.user.id;
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        void supabase
-          .from("provider_presence")
-          .upsert(
-            {
-              user_id: userId,
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              heading: position.coords.heading,
-            },
-            { onConflict: "user_id" },
-          )
-          .then(({ error }) => {
-            if (error) {
-              toast.error("تعذّر تحديث موقعك؛ أوقفنا التوفر");
-              setAvailable(false);
-              void supabase.from(table).update({ available: false }).eq("user_id", userId);
-            }
-          });
-      },
-      () => {
-        toast.error("تعذّر الوصول إلى موقعك؛ أوقفنا التوفر");
-        setAvailable(false);
-        void supabase.from(table).update({ available: false }).eq("user_id", userId);
-      },
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
-    );
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [session, available, verified, table]);
-
   async function toggleAvail() {
     playClick("toggle");
     if (!session) return;
