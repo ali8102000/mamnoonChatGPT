@@ -17,6 +17,7 @@ All ported changes are kept on the working branch until CI and backend compatibi
 - Updated mobile presence publishing to use the target database's `provider_presence` table.
 - Updated mobile fare estimates to the target tariff: 400 IQD/km, minimum 1,000 IQD, rounded to 250 IQD.
 - Added the mobile `auth-proxy` and `create-taxi-request` Edge Functions.
+- Ported `subscription-cron` with target-compatible expiry notifications and monthly counter reset.
 - Updated the Edge Functions and Expo Supabase client for opaque Supabase publishable keys; service-role keys remain server-only.
 - Routed web taxi request creation through a server function that calculates a trusted road route and fare.
 - Replaced the old `dispatch_request` calls with the target's owner-checked `retry_taxi_dispatch` RPC.
@@ -80,7 +81,7 @@ Never put `SUPABASE_SERVICE_ROLE_KEY` in Expo variables.
 ## Deliberately deferred
 
 - OTP/SMS verification remains deferred as requested.
-- `subscription-cron` was not ported because the target migration set does not yet include its required expiry-notification table and monthly-counter reset function.
+- `subscription-cron` is included, but no daily scheduler has been configured yet. It must be invoked by a trusted scheduler using the service-role bearer secret.
 - A production AAB has not yet been built or signed. The Expo CI job checks TypeScript and Expo configuration; an EAS production build still requires the EAS environment and credentials.
 - No database migration has been applied to the live target project.
 
