@@ -310,6 +310,8 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
   const navigate = useNavigate();
   const acceptFn = useServerFn(acceptServiceRequest);
   const [available, setAvailable] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState("pending");
   const [requests, setRequests] = useState<any[]>([]);
   const [stats, setStats] = useState({ jobs: 0 });
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
@@ -318,12 +320,14 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
     if (!session) return;
     supabase
       .from(table)
-      .select("*")
+      .select("available, is_verified, verification_status, status, completed_jobs, completed_rides")
       .eq("user_id", session.user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setAvailable(data.available);
+          setVerified(Boolean(data.is_verified && data.verification_status === "approved" && data.status === "approved"));
+          setVerificationStatus(data.verification_status ?? "pending");
           const d: any = data;
           setStats({ jobs: d.completed_jobs ?? d.completed_rides ?? 0 });
         }
@@ -367,10 +371,43 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
     };
   }, [session, type, table]);
 
+  useEffect(() => {
+    if (!session || !available || !verified || typeof navigator === "undefined" || !navigator.geolocation) return;
+    const userId = session.user.id;
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        void supabase.from("provider_presence").upsert({
+          user_id: userId,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          heading: position.coords.heading,
+        }, { onConflict: "user_id" }).then(({ error }) => {
+          if (error) {
+            toast.error("تعذّر تحديث موقعك؛ أوقفنا التوفر");
+            setAvailable(false);
+            void supabase.from(table).update({ available: false }).eq("user_id", userId);
+          }
+        });
+      },
+      () => {
+        toast.error("تعذّر الوصول إلى موقعك؛ أوقفنا التوفر");
+        setAvailable(false);
+        void supabase.from(table).update({ available: false }).eq("user_id", userId);
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [session, available, verified, table]);
+
   async function toggleAvail() {
     playClick("toggle");
+    if (!session) return;
     const prev = available;
     const next = !prev;
+    if (next && !verified) {
+      toast.error("حسابك بانتظار توثيق الإدارة قبل استقبال الطلبات");
+      return;
+    }
     setAvailable(next);
     const { error } = await supabase
       .from(table)
