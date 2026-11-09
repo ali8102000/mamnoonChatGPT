@@ -18,26 +18,70 @@ type SubscriptionAdminClient = {
   rpc<T>(name: string, args?: Record<string, unknown>): Promise<DbResponse<T>>;
   from<T>(table: string): SubscriptionQuery<T>;
 };
-type AllowedRow = { allowed: boolean; reason: string; plan_code: string; requests_used: number; requests_limit: number | null };
+type AllowedRow = {
+  allowed: boolean;
+  reason: string;
+  plan_code: string;
+  requests_used: number;
+  requests_limit: number | null;
+};
 type UserSubscriptionSummary = {
-  plan_code: string; plan_name_ar: string; tier: number; max_requests_per_month: number | null;
-  priority_weight: number; offer_priority: number; badge_label: string | null; badge_color: string | null;
-  show_stats: boolean; priority_support: boolean; status: string; current_period_end: string | null;
-  request_count: number; auto_renew: boolean; subscription_enabled: boolean;
+  plan_code: string;
+  plan_name_ar: string;
+  tier: number;
+  max_requests_per_month: number | null;
+  priority_weight: number;
+  offer_priority: number;
+  badge_label: string | null;
+  badge_color: string | null;
+  show_stats: boolean;
+  priority_support: boolean;
+  status: string;
+  current_period_end: string | null;
+  request_count: number;
+  auto_renew: boolean;
+  subscription_enabled: boolean;
 };
 type PlanRow = {
-  id: string; code: string; name_ar: string; name_en: string; description_ar: string | null; tier: number;
-  max_requests_per_month: number | null; priority_weight: number; offer_priority: number; badge_label: string | null;
-  badge_color: string | null; show_stats: boolean; priority_support: boolean; monthly_price: number;
-  yearly_price: number; currency: string; is_active: boolean; sort_order: number;
+  id: string;
+  code: string;
+  name_ar: string;
+  name_en: string;
+  description_ar: string | null;
+  tier: number;
+  max_requests_per_month: number | null;
+  priority_weight: number;
+  offer_priority: number;
+  badge_label: string | null;
+  badge_color: string | null;
+  show_stats: boolean;
+  priority_support: boolean;
+  monthly_price: number;
+  yearly_price: number;
+  currency: string;
+  is_active: boolean;
+  sort_order: number;
 };
 type SubscriptionStatsRow = {
-  total_subscribers: number; active_subscriptions: number; expired_subscriptions: number; monthly_revenue: number;
-  yearly_revenue: number; free_count: number; silver_count: number; gold_count: number;
+  total_subscribers: number;
+  active_subscriptions: number;
+  expired_subscriptions: number;
+  monthly_revenue: number;
+  yearly_revenue: number;
+  free_count: number;
+  silver_count: number;
+  gold_count: number;
 };
 type SubscriptionListRow = {
-  id: string; user_id: string; status: string; billing_cycle: string; current_period_start: string;
-  current_period_end: string | null; request_count: number; auto_renew: boolean; created_at: string;
+  id: string;
+  user_id: string;
+  status: string;
+  billing_cycle: string;
+  current_period_start: string;
+  current_period_end: string | null;
+  request_count: number;
+  auto_renew: boolean;
+  created_at: string;
   plan: { code: string; name_ar: string; tier: number } | null;
 };
 
@@ -51,7 +95,13 @@ export const checkSubscriptionAllowed = createServerFn({ method: "GET" })
       _user_id: userId,
     });
     if (error || !data || data.length === 0) {
-      return { allowed: true, reason: "system_disabled", planCode: "free", requestsUsed: 0, requestsLimit: null };
+      return {
+        allowed: true,
+        reason: "system_disabled",
+        planCode: "free",
+        requestsUsed: 0,
+        requestsLimit: null,
+      };
     }
     const row = data[0];
     return {
@@ -152,10 +202,12 @@ const planSchema = z.object({
 export const adminSavePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({
-      id: z.string().uuid().optional(),
-      plan: planSchema,
-    }).parse(d),
+    z
+      .object({
+        id: z.string().uuid().optional(),
+        plan: planSchema,
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
@@ -185,9 +237,7 @@ export const adminSavePlan = createServerFn({ method: "POST" })
 
 export const adminTogglePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(d),
-  )
+  .inputValidator((d) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -207,7 +257,9 @@ export const adminGetSettings = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const adminDb = supabaseAdmin as unknown as SubscriptionAdminClient;
     const { data, error } = await adminDb
-      .from<{ subscription_enabled: boolean; minimum_downloads_before_activation: number }>("subscription_settings")
+      .from<{ subscription_enabled: boolean; minimum_downloads_before_activation: number }>(
+        "subscription_settings",
+      )
       .select("*")
       .eq("id", 1)
       .maybeSingle();
@@ -218,10 +270,12 @@ export const adminGetSettings = createServerFn({ method: "GET" })
 export const adminSaveSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({
-      subscription_enabled: z.boolean(),
-      minimum_downloads_before_activation: z.number().int().min(0),
-    }).parse(d),
+    z
+      .object({
+        subscription_enabled: z.boolean(),
+        minimum_downloads_before_activation: z.number().int().min(0),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
@@ -246,7 +300,16 @@ export const adminGetStats = createServerFn({ method: "GET" })
     const adminDb = supabaseAdmin as unknown as SubscriptionAdminClient;
     const { data, error } = await adminDb.rpc<SubscriptionStatsRow[]>("get_subscription_stats");
     if (error || !data || data.length === 0) {
-      return { totalSubscribers: 0, activeSubscriptions: 0, expiredSubscriptions: 0, monthlyRevenue: 0, yearlyRevenue: 0, freeCount: 0, silverCount: 0, goldCount: 0 };
+      return {
+        totalSubscribers: 0,
+        activeSubscriptions: 0,
+        expiredSubscriptions: 0,
+        monthlyRevenue: 0,
+        yearlyRevenue: 0,
+        freeCount: 0,
+        silverCount: 0,
+        goldCount: 0,
+      };
     }
     const r = data[0];
     return {
@@ -269,11 +332,13 @@ export const adminGetSubscriptions = createServerFn({ method: "GET" })
     const adminDb = supabaseAdmin as unknown as SubscriptionAdminClient;
     const { data, error } = await adminDb
       .from<SubscriptionListRow[]>("user_subscriptions")
-      .select(`
+      .select(
+        `
         id, user_id, status, billing_cycle, current_period_start, current_period_end,
         request_count, auto_renew, created_at,
         plan:subscription_plans(code, name_ar, tier)
-      `)
+      `,
+      )
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error("Failed to load subscriptions");
@@ -283,12 +348,14 @@ export const adminGetSubscriptions = createServerFn({ method: "GET" })
 export const adminAssignSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({
-      user_id: z.string().uuid(),
-      plan_id: z.string().uuid(),
-      billing_cycle: z.enum(["monthly", "yearly"]).default("monthly"),
-      period_days: z.number().int().min(1).max(365).default(30),
-    }).parse(d),
+    z
+      .object({
+        user_id: z.string().uuid(),
+        plan_id: z.string().uuid(),
+        billing_cycle: z.enum(["monthly", "yearly"]).default("monthly"),
+        period_days: z.number().int().min(1).max(365).default(30),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
@@ -298,9 +365,8 @@ export const adminAssignSubscription = createServerFn({ method: "POST" })
     const periodEnd = new Date();
     periodEnd.setDate(periodEnd.getDate() + data.period_days);
 
-    const { error: upErr } = await adminDb
-      .from("user_subscriptions")
-      .upsert({
+    const { error: upErr } = await adminDb.from("user_subscriptions").upsert(
+      {
         user_id: data.user_id,
         plan_id: data.plan_id,
         status: "active",
@@ -310,7 +376,9 @@ export const adminAssignSubscription = createServerFn({ method: "POST" })
         request_count: 0,
         resets_count_period_start: new Date().toISOString(),
         auto_renew: false,
-      }, { onConflict: "user_id" });
+      },
+      { onConflict: "user_id" },
+    );
 
     if (upErr) throw new Error("Failed to assign subscription: " + upErr.message);
 
@@ -320,7 +388,8 @@ export const adminAssignSubscription = createServerFn({ method: "POST" })
       .eq("id", data.plan_id)
       .maybeSingle();
 
-    const amount = data.billing_cycle === "yearly" ? (plan?.yearly_price ?? 0) : (plan?.monthly_price ?? 0);
+    const amount =
+      data.billing_cycle === "yearly" ? (plan?.yearly_price ?? 0) : (plan?.monthly_price ?? 0);
     if (amount > 0) {
       await adminDb.from<unknown[]>("subscription_payments").insert({
         user_id: data.user_id,

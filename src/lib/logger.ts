@@ -52,13 +52,19 @@ function log(level: LogLevel, message: string, data?: unknown) {
   const entry: LogEntry = {
     level,
     message,
-    data: data instanceof Error ? { name: data.name, message: data.message, stack: data.stack } : data,
+    data:
+      data instanceof Error ? { name: data.name, message: data.message, stack: data.stack } : data,
     timestamp: new Date().toISOString(),
     url: typeof window !== "undefined" ? window.location.href : undefined,
     userId: userId ?? undefined,
   };
 
-  const fn = level === "error" || level === "fatal" ? console.error : level === "warn" ? console.warn : console.log;
+  const fn =
+    level === "error" || level === "fatal"
+      ? console.error
+      : level === "warn"
+        ? console.warn
+        : console.log;
   fn(`[${level.toUpperCase()}] ${message}`, data ?? "");
 
   const buffer = getBuffer();
@@ -93,7 +99,11 @@ export const logger = {
 
 if (typeof window !== "undefined") {
   window.addEventListener("error", (e) => {
-    log("error", `Uncaught error: ${e.message}`, { filename: e.filename, line: e.lineno, col: e.colno });
+    log("error", `Uncaught error: ${e.message}`, {
+      filename: e.filename,
+      line: e.lineno,
+      col: e.colno,
+    });
   });
   window.addEventListener("unhandledrejection", (e) => {
     log("error", `Unhandled rejection: ${describeUnknown(e.reason)}`, e.reason);

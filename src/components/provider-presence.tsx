@@ -18,8 +18,12 @@ export function ProviderPresence() {
 
     async function isAvailable() {
       const [d, w] = await Promise.all([
-        roles.includes("driver") ? supabase.from("driver_profiles").select("available").eq("user_id", uid!).maybeSingle() : Promise.resolve({ data: null }),
-        roles.includes("worker") ? supabase.from("worker_profiles").select("available").eq("user_id", uid!).maybeSingle() : Promise.resolve({ data: null }),
+        roles.includes("driver")
+          ? supabase.from("driver_profiles").select("available").eq("user_id", uid!).maybeSingle()
+          : Promise.resolve({ data: null }),
+        roles.includes("worker")
+          ? supabase.from("worker_profiles").select("available").eq("user_id", uid!).maybeSingle()
+          : Promise.resolve({ data: null }),
       ]);
       return !!(d.data as any)?.available || !!(w.data as any)?.available;
     }
@@ -38,12 +42,19 @@ export function ProviderPresence() {
     }
 
     const watch = navigator.geolocation.watchPosition(
-      (pos) => { last = pos; void send(); },
+      (pos) => {
+        last = pos;
+        void send();
+      },
       () => {},
       { enableHighAccuracy: true, maximumAge: 15_000, timeout: 20_000 },
     );
     const timer = setInterval(() => void send(true), SEND_EVERY_MS);
-    return () => { stopped = true; navigator.geolocation.clearWatch(watch); clearInterval(timer); };
+    return () => {
+      stopped = true;
+      navigator.geolocation.clearWatch(watch);
+      clearInterval(timer);
+    };
   }, [uid, isProvider, roles.join(",")]);
 
   return null;

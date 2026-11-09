@@ -78,7 +78,8 @@ export function updateVerificationStatus(
     const updated: VerificationDocument = {
       ...current,
       status,
-      rejectionReason: rejectionReason ?? (status === "approved" ? undefined : current.rejectionReason),
+      rejectionReason:
+        rejectionReason ?? (status === "approved" ? undefined : current.rejectionReason),
       verifiedAt: new Date().toISOString(),
     };
     saveProviderVerification(updated);

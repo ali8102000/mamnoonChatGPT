@@ -30,7 +30,11 @@ function saveQueue(queue: QueuedAction[]) {
   }
 }
 
-export function enqueueAction(type: QueuedAction["type"], payload: unknown, maxRetries = MAX_RETRIES) {
+export function enqueueAction(
+  type: QueuedAction["type"],
+  payload: unknown,
+  maxRetries = MAX_RETRIES,
+) {
   const queue = loadQueue();
   const action: QueuedAction = {
     id: Math.random().toString(36).slice(2) + Date.now().toString(36),

@@ -326,15 +326,14 @@ export function MapPicker({
     const timer = setTimeout(async () => {
       if (!sessionTokenRef.current) sessionTokenRef.current = crypto.randomUUID();
       const center = mapRef.current?.getCenter?.() as unknown as
-        | { lat: number | (() => number); lng: number | (() => number) }
-        | undefined;
+        { lat: number | (() => number); lng: number | (() => number) } | undefined;
       const readCoordinate = (coordinate: number | (() => number)) =>
         typeof coordinate === "function" ? coordinate() : coordinate;
       const c = center
         ? { lat: readCoordinate(center.lat), lng: readCoordinate(center.lng) }
         : (value ?? getGovernorate(governorateKey) ?? DEFAULT_CENTER);
       try {
-        const res = await lookupMapPlace({
+        const res = (await lookupMapPlace({
           data: {
             action: "autocomplete",
             input: q,
@@ -342,7 +341,9 @@ export function MapPicker({
             center: c,
             governorateKey,
           },
-        }) as { suggestions?: Array<{ id: string; text: string; address?: string; coords?: Coords }> };
+        })) as {
+          suggestions?: Array<{ id: string; text: string; address?: string; coords?: Coords }>;
+        };
         if (stale) return;
         if (res.suggestions?.length) {
           setSuggestions(
@@ -373,13 +374,13 @@ export function MapPicker({
     let place = placeCacheRef.current.get(id);
     if (!place && id.startsWith("g:")) {
       try {
-        const res = await lookupMapPlace({
+        const res = (await lookupMapPlace({
           data: {
             action: "details",
             placeId: id.slice(2),
             sessionToken: sessionTokenRef.current ?? crypto.randomUUID(),
           },
-        }) as { coords: Coords; address?: string };
+        })) as { coords: Coords; address?: string };
         place = { coords: res.coords, address: res.address || label };
       } catch {
         setGeoError("تعذّر فتح هذا المكان، جرّب مكان ثاني");

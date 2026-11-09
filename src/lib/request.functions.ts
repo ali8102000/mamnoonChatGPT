@@ -32,9 +32,12 @@ export const createTaxiRequest = createServerFn({ method: "POST" })
     );
     const fare = taxiFare(data.vehicleCategory, route.distanceKm);
 
-    const { data: allowed, error: rateLimitError } = await supabaseAdmin.rpc("consume_taxi_request_slot", {
-      _user_id: context.userId,
-    });
+    const { data: allowed, error: rateLimitError } = await supabaseAdmin.rpc(
+      "consume_taxi_request_slot",
+      {
+        _user_id: context.userId,
+      },
+    );
     if (rateLimitError) throw new Error("تعذر التحقق من عدد الطلبات؛ حاول مرة أخرى.");
     if (!allowed) throw new Error("وصلت للحد المؤقت لطلبات التكسي. انتظر دقيقة وحاول مجدداً.");
 

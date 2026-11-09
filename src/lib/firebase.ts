@@ -11,21 +11,23 @@ const firebaseConfig: FirebaseOptions = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as string | undefined,
 };
 
-const hasFirebaseConfig = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);
+const hasFirebaseConfig = Boolean(
+  firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId,
+);
 
 export const firebaseApp: FirebaseApp | null =
-  typeof window !== "undefined" && hasFirebaseConfig
-    ? initializeApp(firebaseConfig)
-    : null;
+  typeof window !== "undefined" && hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
 
 if (typeof window !== "undefined" && firebaseApp) {
   import("firebase/analytics")
     .then(({ getAnalytics, isSupported }) =>
       isSupported().then((ok) => {
         if (ok) getAnalytics(firebaseApp!);
-      })
+      }),
     )
-    .catch((error: unknown) => { console.warn("[firebase] analytics initialization failed", error); });
+    .catch((error: unknown) => {
+      console.warn("[firebase] analytics initialization failed", error);
+    });
 }
 
 export async function getFCM(): Promise<import("firebase/messaging").Messaging | null> {
@@ -55,7 +57,9 @@ export async function requestNotificationPermission(): Promise<string | null> {
   }
 }
 
-export async function onForegroundMessage(cb: (payload: MessagePayload) => void): Promise<(() => void) | null> {
+export async function onForegroundMessage(
+  cb: (payload: MessagePayload) => void,
+): Promise<(() => void) | null> {
   if (!firebaseApp) return null;
   const fcm = await getFCM();
   if (!fcm) return null;
@@ -67,7 +71,10 @@ export async function onForegroundMessage(cb: (payload: MessagePayload) => void)
   }
 }
 
-export async function logAnalyticsEvent(eventName: string, params?: Record<string, string | number | boolean | Array<string | number | boolean>>): Promise<void> {
+export async function logAnalyticsEvent(
+  eventName: string,
+  params?: Record<string, string | number | boolean | Array<string | number | boolean>>,
+): Promise<void> {
   if (typeof window === "undefined" || !firebaseApp) return;
   try {
     const { getAnalytics, logEvent } = await import("firebase/analytics");
@@ -78,14 +85,24 @@ export async function logAnalyticsEvent(eventName: string, params?: Record<strin
   }
 }
 
-export async function startPerformanceTrace(traceName: string): Promise<{ stop: () => void } | null> {
+export async function startPerformanceTrace(
+  traceName: string,
+): Promise<{ stop: () => void } | null> {
   if (typeof window === "undefined" || !firebaseApp) return null;
   try {
     const { getPerformance, trace } = await import("firebase/performance");
     const perf = getPerformance(firebaseApp);
     const t = trace(perf, traceName);
     t.start();
-    return { stop: () => { try { t.stop(); } catch (error) { console.warn("[firebase] performance trace stop failed", error); } } };
+    return {
+      stop: () => {
+        try {
+          t.stop();
+        } catch (error) {
+          console.warn("[firebase] performance trace stop failed", error);
+        }
+      },
+    };
   } catch {
     return null;
   }

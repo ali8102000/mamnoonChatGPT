@@ -64,10 +64,12 @@ Deno.serve(async (req: Request) => {
 
       const { data: expiring } = await supabase
         .from("user_subscriptions")
-        .select(`
+        .select(
+          `
           id, user_id, current_period_end,
           plan:subscription_plans(name_ar)
-        `)
+        `,
+        )
         .eq("status", "active")
         .not("current_period_end", "is", null)
         .gte("current_period_end", targetStart.toISOString())
@@ -124,9 +126,9 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err) {
     console.error("[subscription-cron]", err instanceof Error ? err.message : "unknown error");
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

@@ -26,10 +26,9 @@ export const dispatchRequest = createServerFn({ method: "POST" })
 
     // The database function locks the request row, verifies ownership,
     // selects eligible nearby drivers and creates 45-second offers atomically.
-    const { data: offers, error: dispatchError } = await supabase.rpc(
-      "retry_taxi_dispatch",
-      { _request_id: req.id },
-    );
+    const { data: offers, error: dispatchError } = await supabase.rpc("retry_taxi_dispatch", {
+      _request_id: req.id,
+    });
     if (dispatchError) throw new Error("تعذر توزيع الطلب: " + dispatchError.message);
     return { offers: Number(offers ?? 0), reason: Number(offers ?? 0) > 0 ? "ok" : "no_drivers" };
   });
@@ -41,8 +40,15 @@ export const acceptServiceRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.rpc("accept_service_request", { _request_id: data.requestId });
-    if (error) throw new Error(error.message.includes("request_unavailable") ? "العميل ألغى الطلب أو قبله فني ثاني" : error.message);
+    const { error } = await context.supabase.rpc("accept_service_request", {
+      _request_id: data.requestId,
+    });
+    if (error)
+      throw new Error(
+        error.message.includes("request_unavailable")
+          ? "العميل ألغى الطلب أو قبله فني ثاني"
+          : error.message,
+      );
     return { ok: true };
   });
 
@@ -70,17 +76,20 @@ export const respondToOffer = createServerFn({ method: "POST" })
       .single();
     if (error || !offer) throw new Error("Offer not found");
     if (offer.provider_id !== userId) throw new Error("Forbidden");
-    
 
     if (data.action === "accept") {
-      const { error: accErr } = await supabase.rpc("accept_service_request", { _request_id: offer.request_id });
-      if (accErr) throw new Error(accErr.message.includes("request_unavailable") ? "العميل ألغى الطلب أو قبله كابتن ثاني" : accErr.message);
+      const { error: accErr } = await supabase.rpc("accept_service_request", {
+        _request_id: offer.request_id,
+      });
+      if (accErr)
+        throw new Error(
+          accErr.message.includes("request_unavailable")
+            ? "العميل ألغى الطلب أو قبله كابتن ثاني"
+            : accErr.message,
+        );
       return { ok: true, action: "accepted", accepted: true, requestId: offer.request_id };
     } else {
-      await supabaseAdmin
-        .from("request_offers")
-        .delete()
-        .eq("id", data.offerId);
+      await supabaseAdmin.from("request_offers").delete().eq("id", data.offerId);
       return { ok: true, action: "rejected" };
     }
   });
@@ -91,14 +100,25 @@ export const respondToOffer = createServerFn({ method: "POST" })
 export const cancelRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({
-      requestId: z.string().uuid(),
-      reason: z.string().max(500).optional(),
-    }).parse(d),
+    z
+      .object({
+        requestId: z.string().uuid(),
+        reason: z.string().max(500).optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.rpc("transition_service_request", { _request_id: data.requestId, _status: "cancelled", _reason: data.reason });
-    if (error) throw new Error(error.message.includes("request_finished") ? "الطلب منتهي أصلاً" : "تعذّر الإلغاء: " + error.message);
+    const { error } = await context.supabase.rpc("transition_service_request", {
+      _request_id: data.requestId,
+      _status: "cancelled",
+      _reason: data.reason,
+    });
+    if (error)
+      throw new Error(
+        error.message.includes("request_finished")
+          ? "الطلب منتهي أصلاً"
+          : "تعذّر الإلغاء: " + error.message,
+      );
     return { ok: true };
   });
 
@@ -108,14 +128,25 @@ export const cancelRequest = createServerFn({ method: "POST" })
 export const providerCancelRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({
-      requestId: z.string().uuid(),
-      reason: z.string().max(500).optional(),
-    }).parse(d),
+    z
+      .object({
+        requestId: z.string().uuid(),
+        reason: z.string().max(500).optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.rpc("transition_service_request", { _request_id: data.requestId, _status: "cancelled", _reason: data.reason });
-    if (error) throw new Error(error.message.includes("request_finished") ? "الطلب منتهي أصلاً" : "تعذّر الإلغاء: " + error.message);
+    const { error } = await context.supabase.rpc("transition_service_request", {
+      _request_id: data.requestId,
+      _status: "cancelled",
+      _reason: data.reason,
+    });
+    if (error)
+      throw new Error(
+        error.message.includes("request_finished")
+          ? "الطلب منتهي أصلاً"
+          : "تعذّر الإلغاء: " + error.message,
+      );
     return { ok: true };
   });
 
@@ -143,10 +174,9 @@ export const retryDispatch = createServerFn({ method: "POST" })
 
     // Reuse the same atomic database dispatcher; never create long-lived
     // offers or bypass the server-side 60-second expiry.
-    const { data: offers, error: dispatchError } = await supabase.rpc(
-      "retry_taxi_dispatch",
-      { _request_id: req.id },
-    );
+    const { data: offers, error: dispatchError } = await supabase.rpc("retry_taxi_dispatch", {
+      _request_id: req.id,
+    });
     if (dispatchError) throw new Error("تعذر إعادة توزيع الطلب: " + dispatchError.message);
     return { offers: Number(offers ?? 0), reason: Number(offers ?? 0) > 0 ? "ok" : "no_drivers" };
   });
@@ -162,9 +192,12 @@ export const startRide = createServerFn({ method: "POST" })
       _request_id: data.requestId,
       _status: "in_progress",
     });
-    if (error) throw new Error(error.message.includes("invalid_status_transition")
-      ? "لا يمكن بدء الرحلة بهذه الحالة"
-      : error.message);
+    if (error)
+      throw new Error(
+        error.message.includes("invalid_status_transition")
+          ? "لا يمكن بدء الرحلة بهذه الحالة"
+          : error.message,
+      );
     return { ok: true };
   });
 
@@ -179,9 +212,12 @@ export const completeRide = createServerFn({ method: "POST" })
       _request_id: data.requestId,
       _status: "completed",
     });
-    if (error) throw new Error(error.message.includes("invalid_status_transition")
-      ? "لا يمكن إنهاء الرحلة بهذه الحالة"
-      : error.message);
+    if (error)
+      throw new Error(
+        error.message.includes("invalid_status_transition")
+          ? "لا يمكن إنهاء الرحلة بهذه الحالة"
+          : error.message,
+      );
     return { ok: true };
   });
 
@@ -208,18 +244,15 @@ export const findNearbyProviderPins = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase.rpc(
-      "find_nearby_provider_pins",
-      {
-        _lat: data.lat,
-        _lng: data.lng,
-        _type: data.type,
-        _category: data.category ?? undefined,
-        _service_id: data.serviceId ?? undefined,
-        _radius_km: data.radiusKm,
-        _limit: data.limit,
-      },
-    );
+    const { data: rows, error } = await context.supabase.rpc("find_nearby_provider_pins", {
+      _lat: data.lat,
+      _lng: data.lng,
+      _type: data.type,
+      _category: data.category ?? undefined,
+      _service_id: data.serviceId ?? undefined,
+      _radius_km: data.radiusKm,
+      _limit: data.limit,
+    });
     if (error) return [];
     return (rows ?? []) as ProviderPin[];
   });

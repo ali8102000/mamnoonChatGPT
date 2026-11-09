@@ -1,8 +1,8 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { Session, User } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
 
-export type AppRole = 'customer' | 'driver' | 'worker';
+export type AppRole = "customer" | "driver" | "worker";
 
 export interface Profile {
   id: string;
@@ -31,8 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadProfile(uid: string) {
     const [{ data: prof }, { data: roleRows }] = await Promise.all([
-      supabase.from('profiles').select('id, phone, full_name, avatar_url').eq('id', uid).maybeSingle(),
-      supabase.from('user_roles').select('role').eq('user_id', uid),
+      supabase
+        .from("profiles")
+        .select("id, phone, full_name, avatar_url")
+        .eq("id", uid)
+        .maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", uid),
     ]);
     setProfile(prof ?? null);
     setRoles((roleRows ?? []).map((r) => r.role as AppRole));
@@ -71,7 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ session, user: session?.user ?? null, profile, roles, loading, refresh, signOut }}>
+    <Ctx.Provider
+      value={{ session, user: session?.user ?? null, profile, roles, loading, refresh, signOut }}
+    >
       {children}
     </Ctx.Provider>
   );
@@ -79,6 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }

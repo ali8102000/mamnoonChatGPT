@@ -32,9 +32,14 @@ export const getReputation = createServerFn({ method: "GET" })
   })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rep, error } = await (supabaseAdmin as unknown as {
-      rpc: (name: string, args: Record<string, string>) => Promise<{ data: unknown; error: { message: string } | null }>;
-    }).rpc("get_provider_reputation", { p_user_id: data.userId });
+    const { data: rep, error } = await (
+      supabaseAdmin as unknown as {
+        rpc: (
+          name: string,
+          args: Record<string, string>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>;
+      }
+    ).rpc("get_provider_reputation", { p_user_id: data.userId });
     if (error || !rep) {
       return {
         score: 0,

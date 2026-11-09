@@ -11,14 +11,15 @@ function createSupabaseFetch(apiKey: string): typeof fetch {
     if (
       (apiKey.startsWith("sb_publishable_") || apiKey.startsWith("sb_secret_")) &&
       headers.get("Authorization") === `Bearer ${apiKey}`
-    ) headers.delete("Authorization");
+    )
+      headers.delete("Authorization");
     headers.set("apikey", apiKey);
     return fetch(input, { ...init, headers });
   };
 }
 const corsHeaders = {
   ...(allowedOrigin ? { "Access-Control-Allow-Origin": allowedOrigin } : {}),
-  "Vary": "Origin",
+  Vary: "Origin",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, Apikey, X-Client-Info",
 };
@@ -78,16 +79,23 @@ Deno.serve(async (req: Request) => {
     const destinationLat = body?.destinationLat;
     const destinationLng = body?.destinationLng;
     const pickupText = typeof body?.pickupText === "string" ? body.pickupText.trim() : "";
-    const destinationText = typeof body?.destinationText === "string" ? body.destinationText.trim() : "";
+    const destinationText =
+      typeof body?.destinationText === "string" ? body.destinationText.trim() : "";
     const category = body?.vehicleCategory;
     const notes = typeof body?.notes === "string" ? body.notes.trim() : "";
 
-    if (!validCoordinate(pickupLat, -90, 90) || !validCoordinate(pickupLng, -180, 180)
-      || !validCoordinate(destinationLat, -90, 90) || !validCoordinate(destinationLng, -180, 180)
-      || pickupText.length < 2 || pickupText.length > 300
-      || destinationText.length < 2 || destinationText.length > 300
-      || !["economy", "premium", "luxury"].includes(category)
-      || notes.length > 500) {
+    if (
+      !validCoordinate(pickupLat, -90, 90) ||
+      !validCoordinate(pickupLng, -180, 180) ||
+      !validCoordinate(destinationLat, -90, 90) ||
+      !validCoordinate(destinationLng, -180, 180) ||
+      pickupText.length < 2 ||
+      pickupText.length > 300 ||
+      destinationText.length < 2 ||
+      destinationText.length > 300 ||
+      !["economy", "premium", "luxury"].includes(category) ||
+      notes.length > 500
+    ) {
       return json({ error: "بيانات الانطلاق أو الوجهة غير صحيحة." }, 400);
     }
 
@@ -100,7 +108,9 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         origin: { location: { latLng: { latitude: pickupLat, longitude: pickupLng } } },
-        destination: { location: { latLng: { latitude: destinationLat, longitude: destinationLng } } },
+        destination: {
+          location: { latLng: { latitude: destinationLat, longitude: destinationLng } },
+        },
         travelMode: "DRIVE",
         regionCode: "IQ",
         languageCode: "ar",
@@ -112,8 +122,14 @@ Deno.serve(async (req: Request) => {
     const route = routeData?.routes?.[0];
     const distanceKm = Number(route?.distanceMeters ?? 0) / 1000;
     const durationMin = Number.parseFloat(String(route?.duration ?? "0s")) / 60;
-    if (!Number.isFinite(distanceKm) || distanceKm <= 0 || distanceKm > 1500
-      || !Number.isFinite(durationMin) || durationMin <= 0 || durationMin > 2880) {
+    if (
+      !Number.isFinite(distanceKm) ||
+      distanceKm <= 0 ||
+      distanceKm > 1500 ||
+      !Number.isFinite(durationMin) ||
+      durationMin <= 0 ||
+      durationMin > 2880
+    ) {
       return json({ error: "لم نحصل على مسار طريق صالح؛ تحقق من الوجهة." }, 422);
     }
 
@@ -125,7 +141,8 @@ Deno.serve(async (req: Request) => {
       _user_id: authData.user.id,
     });
     if (rateLimitError) return json({ error: "تعذر التحقق من عدد الطلبات؛ حاول مرة أخرى." }, 500);
-    if (!allowed) return json({ error: "وصلت للحد المؤقت لطلبات التكسي. انتظر دقيقة وحاول مجدداً." }, 429);
+    if (!allowed)
+      return json({ error: "وصلت للحد المؤقت لطلبات التكسي. انتظر دقيقة وحاول مجدداً." }, 429);
 
     const { data: request, error: insertError } = await admin
       .from("service_requests")
@@ -160,7 +177,10 @@ Deno.serve(async (req: Request) => {
       fare,
     });
   } catch (error) {
-    console.error("[create-taxi-request]", error instanceof Error ? error.message : "unknown error");
+    console.error(
+      "[create-taxi-request]",
+      error instanceof Error ? error.message : "unknown error",
+    );
     return json({ error: "تعذر إنشاء طلب التكسي حالياً." }, 500);
   }
 });

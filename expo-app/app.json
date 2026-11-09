@@ -30,12 +30,7 @@
       },
       "package": "com.mamnoon.app",
       "config": {},
-      "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "VIBRATE",
-        "INTERNET"
-      ]
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "VIBRATE", "INTERNET"]
     },
     "web": {
       "bundler": "metro",

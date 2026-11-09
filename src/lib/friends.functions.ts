@@ -21,17 +21,22 @@ const friendStatusSchema = z.object({
   full_name: z.string().nullable().optional(),
   avatar_url: z.string().nullable().optional(),
 });
-const profileSearchSchema = z.array(z.object({
-  id: z.string().uuid(),
-  phone: z.string(),
-  full_name: z.string().nullable(),
-  avatar_url: z.string().nullable(),
-}));
+const profileSearchSchema = z.array(
+  z.object({
+    id: z.string().uuid(),
+    phone: z.string(),
+    full_name: z.string().nullable(),
+    avatar_url: z.string().nullable(),
+  }),
+);
 
 type FriendsAdminClient = {
   from: (table: "friends") => {
     select: (columns: "friend_id") => {
-      eq: (column: "user_id", value: string) => Promise<{
+      eq: (
+        column: "user_id",
+        value: string,
+      ) => Promise<{
         data: Array<{ friend_id: string }> | null;
         error: { message: string } | null;
       }>;
@@ -84,17 +89,14 @@ export const getFriendsStatuses = createServerFn({ method: "GET" })
 
 export const searchProfileByPhone = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z.object({ phone: z.string().trim().min(1).max(50) }).parse(d),
-  )
+  .inputValidator((d) => z.object({ phone: z.string().trim().min(1).max(50) }).parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as unknown as FriendsAdminClient;
-    const { data: rows, error } = await admin.rpc(
-      "search_profile_by_phone",
-      { _phone: data.phone },
-    );
+    const { data: rows, error } = await admin.rpc("search_profile_by_phone", {
+      _phone: data.phone,
+    });
     if (error || !rows) return [];
     const parsed = profileSearchSchema.safeParse(rows);
     if (!parsed.success) return [];

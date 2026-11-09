@@ -1,12 +1,12 @@
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { I18nManager, LogBox } from 'react-native';
-import { AuthProvider } from '@/lib/auth-context';
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { I18nManager, LogBox } from "react-native";
+import { AuthProvider } from "@/lib/auth-context";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
 
-LogBox.ignoreLogs(['Setting a timer', 'AsyncStorage']);
+LogBox.ignoreLogs(["Setting a timer", "AsyncStorage"]);
 
 export default function RootLayout() {
   return (
@@ -15,7 +15,7 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#f9fafb' },
+          contentStyle: { backgroundColor: "#f9fafb" },
         }}
       >
         <Stack.Screen name="index" />

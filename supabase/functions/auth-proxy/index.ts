@@ -11,14 +11,15 @@ function createSupabaseFetch(apiKey: string): typeof fetch {
     if (
       (apiKey.startsWith("sb_publishable_") || apiKey.startsWith("sb_secret_")) &&
       headers.get("Authorization") === `Bearer ${apiKey}`
-    ) headers.delete("Authorization");
+    )
+      headers.delete("Authorization");
     headers.set("apikey", apiKey);
     return fetch(input, { ...init, headers });
   };
 }
 const corsHeaders = {
   ...(allowedOrigin ? { "Access-Control-Allow-Origin": allowedOrigin } : {}),
-  "Vary": "Origin",
+  Vary: "Origin",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
@@ -43,7 +44,9 @@ function safeError(msg: string): string {
 function isAllowedRedirect(url: string): boolean {
   try {
     const parsed = new URL(url);
-    const allowed = (Deno.env.get("ALLOWED_REDIRECT_ORIGINS") ?? "").split(",").map((s) => s.trim());
+    const allowed = (Deno.env.get("ALLOWED_REDIRECT_ORIGINS") ?? "")
+      .split(",")
+      .map((s) => s.trim());
     if (allowed.length === 1 && allowed[0] === "") return false;
     return allowed.some((o) => parsed.origin === o);
   } catch {
@@ -58,7 +61,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const anonKey = (Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY"))!;
+    const anonKey = (Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
+      Deno.env.get("SUPABASE_ANON_KEY"))!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     if (!supabaseUrl || !anonKey || !serviceRoleKey) {
@@ -75,10 +79,28 @@ Deno.serve(async (req: Request) => {
 
     if (path === "/signup" && req.method === "POST") {
       const body = await req.json();
-      const email = typeof body?.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email) ? body.email : null;
-      const password = typeof body?.password === "string" && body.password.length >= 6 && body.password.length <= 128 ? body.password : null;
-      const phone = typeof body?.phone === "string" && body.phone.trim().length >= 3 && body.phone.trim().length <= 255 ? body.phone.trim() : null;
-      const full_name = typeof body?.full_name === "string" && body.full_name.trim().length >= 2 && body.full_name.trim().length <= 255 ? body.full_name.trim() : null;
+      const email =
+        typeof body?.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)
+          ? body.email
+          : null;
+      const password =
+        typeof body?.password === "string" &&
+        body.password.length >= 6 &&
+        body.password.length <= 128
+          ? body.password
+          : null;
+      const phone =
+        typeof body?.phone === "string" &&
+        body.phone.trim().length >= 3 &&
+        body.phone.trim().length <= 255
+          ? body.phone.trim()
+          : null;
+      const full_name =
+        typeof body?.full_name === "string" &&
+        body.full_name.trim().length >= 2 &&
+        body.full_name.trim().length <= 255
+          ? body.full_name.trim()
+          : null;
       if (!email || !password || !phone || !full_name) return json({ error: "Invalid input" }, 400);
 
       const client = createClient(supabaseUrl, anonKey, {
@@ -88,7 +110,13 @@ Deno.serve(async (req: Request) => {
       // Do not use the admin API to auto-confirm synthetic phone emails:
       // that would let anyone claim a phone number without proving ownership.
       if (email.endsWith("@mamnoon.app")) {
-        return json({ error: "Phone verification is not configured. Register with a real email address until SMS verification is enabled." }, 503);
+        return json(
+          {
+            error:
+              "Phone verification is not configured. Register with a real email address until SMS verification is enabled.",
+          },
+          503,
+        );
       }
 
       const { data, error } = await client.auth.signUp({
@@ -111,18 +139,28 @@ Deno.serve(async (req: Request) => {
 
     if (path === "/login" && req.method === "POST") {
       const body = await req.json();
-      const suppliedEmail = typeof body?.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)
-        ? body.email.trim().toLowerCase()
-        : null;
-      const phone = typeof body?.phone === "string" && /^\+\d{8,15}$/.test(body.phone.trim())
-        ? body.phone.trim()
-        : null;
-      const password = typeof body?.password === "string" && body.password.length >= 6 && body.password.length <= 128 ? body.password : null;
+      const suppliedEmail =
+        typeof body?.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)
+          ? body.email.trim().toLowerCase()
+          : null;
+      const phone =
+        typeof body?.phone === "string" && /^\+\d{8,15}$/.test(body.phone.trim())
+          ? body.phone.trim()
+          : null;
+      const password =
+        typeof body?.password === "string" &&
+        body.password.length >= 6 &&
+        body.password.length <= 128
+          ? body.password
+          : null;
       if ((!suppliedEmail && !phone) || !password) return json({ error: "Invalid input" }, 400);
 
       let email = suppliedEmail;
       if (phone) {
-        const { data: foundEmail, error: lookupError } = await supabase.rpc("lookup_email_by_phone", { _phone: phone });
+        const { data: foundEmail, error: lookupError } = await supabase.rpc(
+          "lookup_email_by_phone",
+          { _phone: phone },
+        );
         if (lookupError) return json({ error: safeError(lookupError.message) }, 400);
         const digits = phone.replace(/[^\d]/g, "");
         email = foundEmail ? String(foundEmail).toLowerCase() : `phone${digits}@mamnoon.app`;
@@ -139,7 +177,10 @@ Deno.serve(async (req: Request) => {
 
     if (path === "/reset-password" && req.method === "POST") {
       const body = await req.json();
-      const email = typeof body?.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email) ? body.email : null;
+      const email =
+        typeof body?.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)
+          ? body.email
+          : null;
       const redirectTo = typeof body?.redirectTo === "string" ? body.redirectTo : null;
       if (!email || !redirectTo) return json({ error: "Invalid input" }, 400);
       if (!isAllowedRedirect(redirectTo)) return json({ error: "Invalid redirect URL" }, 400);

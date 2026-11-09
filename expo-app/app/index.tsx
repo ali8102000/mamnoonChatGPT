@@ -1,6 +1,6 @@
-import { Redirect } from 'expo-router';
-import { useAuth } from '@/lib/auth-context';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Redirect } from "expo-router";
+import { useAuth } from "@/lib/auth-context";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
 
 export default function Index() {
   const { session, loading, roles } = useAuth();
@@ -19,5 +19,5 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

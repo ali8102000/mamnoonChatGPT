@@ -326,7 +326,13 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
       .then(({ data }) => {
         if (data) {
           setAvailable(data.available);
-          setVerified(Boolean(data.is_verified && data.verification_status === "approved" && data.status === "approved"));
+          setVerified(
+            Boolean(
+              data.is_verified &&
+              data.verification_status === "approved" &&
+              data.status === "approved",
+            ),
+          );
           setVerificationStatus(data.verification_status ?? "pending");
           const d: any = data;
           setStats({ jobs: d.completed_jobs ?? d.completed_rides ?? 0 });
@@ -382,18 +388,24 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
     const userId = session.user.id;
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        void supabase.from("provider_presence").upsert({
-          user_id: userId,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          heading: position.coords.heading,
-        }, { onConflict: "user_id" }).then(({ error }) => {
-          if (error) {
-            toast.error("تعذّر تحديث موقعك؛ أوقفنا التوفر");
-            setAvailable(false);
-            void supabase.from(table).update({ available: false }).eq("user_id", userId);
-          }
-        });
+        void supabase
+          .from("provider_presence")
+          .upsert(
+            {
+              user_id: userId,
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              heading: position.coords.heading,
+            },
+            { onConflict: "user_id" },
+          )
+          .then(({ error }) => {
+            if (error) {
+              toast.error("تعذّر تحديث موقعك؛ أوقفنا التوفر");
+              setAvailable(false);
+              void supabase.from(table).update({ available: false }).eq("user_id", userId);
+            }
+          });
       },
       () => {
         toast.error("تعذّر الوصول إلى موقعك؛ أوقفنا التوفر");

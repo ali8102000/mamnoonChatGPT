@@ -4,10 +4,12 @@ import { z } from "zod";
 
 export const loginWithIdentifier = createServerFn({ method: "POST" })
   .inputValidator((d) =>
-    z.object({
-      identifier: z.string().trim().min(3).max(255),
-      password: z.string().min(6).max(128),
-    }).parse(d),
+    z
+      .object({
+        identifier: z.string().trim().min(3).max(255),
+        password: z.string().min(6).max(128),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const id = data.identifier.trim();
@@ -25,7 +27,8 @@ export const loginWithIdentifier = createServerFn({ method: "POST" })
     }
 
     const supabaseUrl = process.env["SUPABASE_URL"] || import.meta.env["VITE_SUPABASE_URL"];
-    const publishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"] || import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+    const publishableKey =
+      process.env["SUPABASE_PUBLISHABLE_KEY"] || import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
     if (!supabaseUrl || !publishableKey) {
       throw new Error("إعدادات تسجيل الدخول غير مكتملة على الخادم");
     }
@@ -38,7 +41,8 @@ export const loginWithIdentifier = createServerFn({ method: "POST" })
       if (
         (publishableKey.startsWith("sb_publishable_") || publishableKey.startsWith("sb_secret_")) &&
         headers.get("Authorization") === `Bearer ${publishableKey}`
-      ) headers.delete("Authorization");
+      )
+        headers.delete("Authorization");
       headers.set("apikey", publishableKey);
       return fetch(input, { ...init, headers });
     };

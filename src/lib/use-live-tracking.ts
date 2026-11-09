@@ -31,32 +31,38 @@ export function useLiveTracking(opts: {
   const lastPushRef = useRef<Coords | null>(null);
   const lastPushTimeRef = useRef(0);
 
-  const push = useCallback((lat: number, lng: number, heading: number | null) => {
-    if (!requestId || !myUserId) return;
-    const now = Date.now();
-    const coords: Coords = { lat, lng, heading };
-    if (lastPushRef.current) {
-      const distance = distanceMeters(lastPushRef.current, coords);
-      const elapsed = now - lastPushTimeRef.current;
-      if (distance < MIN_DISTANCE_M && elapsed < MAX_INTERVAL_MS) return;
-    }
-    lastPushRef.current = coords;
-    lastPushTimeRef.current = now;
-    void supabase
-      .from("live_locations")
-      .upsert({
-        request_id: requestId,
-        user_id: myUserId,
-        role: myRole,
-        lat,
-        lng,
-        heading,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "request_id,user_id" })
-      .then(({ error }) => {
-        if (error) console.warn("[live-tracking] upsert error:", error.message);
-      });
-  }, [requestId, myUserId, myRole]);
+  const push = useCallback(
+    (lat: number, lng: number, heading: number | null) => {
+      if (!requestId || !myUserId) return;
+      const now = Date.now();
+      const coords: Coords = { lat, lng, heading };
+      if (lastPushRef.current) {
+        const distance = distanceMeters(lastPushRef.current, coords);
+        const elapsed = now - lastPushTimeRef.current;
+        if (distance < MIN_DISTANCE_M && elapsed < MAX_INTERVAL_MS) return;
+      }
+      lastPushRef.current = coords;
+      lastPushTimeRef.current = now;
+      void supabase
+        .from("live_locations")
+        .upsert(
+          {
+            request_id: requestId,
+            user_id: myUserId,
+            role: myRole,
+            lat,
+            lng,
+            heading,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "request_id,user_id" },
+        )
+        .then(({ error }) => {
+          if (error) console.warn("[live-tracking] upsert error:", error.message);
+        });
+    },
+    [requestId, myUserId, myRole],
+  );
 
   useEffect(() => {
     if (!active || !navigator.geolocation) return;
@@ -88,7 +94,12 @@ export function useLiveTracking(opts: {
       .channel(`live-${requestId}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "live_locations", filter: `request_id=eq.${requestId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "live_locations",
+          filter: `request_id=eq.${requestId}`,
+        },
         (payload) => {
           const row = payload.new as Tables<"live_locations">;
           if (row.user_id === otherUserId) {

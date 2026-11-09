@@ -2,7 +2,11 @@
 // Falls back to Leaflet/OpenStreetMap if no API key is available.
 
 type GoogleMapsApi = typeof google;
-type BrowserWindow = Window & { google?: GoogleMapsApi; L?: LeafletNamespace; gm_authFailure?: () => void };
+type BrowserWindow = Window & {
+  google?: GoogleMapsApi;
+  L?: LeafletNamespace;
+  gm_authFailure?: () => void;
+};
 type LeafletPoint = { lat: number; lng: number };
 type LeafletCallback = (...args: unknown[]) => void;
 type LeafletBounds = {
@@ -35,7 +39,10 @@ type LeafletNamespace = {
   tileLayer(url: string, options: { maxZoom: number }): LeafletLayer;
   marker(position: [number, number], options: { icon: unknown }): LeafletMarker;
   divIcon(options: { className: string; html: string; iconSize: [number, number] }): unknown;
-  polyline(points: Array<[number, number]>, options: { color: string; weight: number; opacity: number }): LeafletPolyline;
+  polyline(
+    points: Array<[number, number]>,
+    options: { color: string; weight: number; opacity: number },
+  ): LeafletPolyline;
   latLngBounds(points: Array<[number, number]>): LeafletBounds;
 };
 type AdapterMap = { _map: LeafletMap };
@@ -58,11 +65,15 @@ if (typeof window !== "undefined") {
   const originalAuthFailure = browser.gm_authFailure;
   browser.gm_authFailure = () => {
     provider = "leaflet";
-    try { originalAuthFailure?.(); } catch {}
-    document.querySelectorAll(".gm-err-container, .gm-err-content, .dismissButton").forEach((element) => {
-      element.closest(".gm-err-container")?.remove();
-      element.remove();
-    });
+    try {
+      originalAuthFailure?.();
+    } catch {}
+    document
+      .querySelectorAll(".gm-err-container, .gm-err-content, .dismissButton")
+      .forEach((element) => {
+        element.closest(".gm-err-container")?.remove();
+        element.remove();
+      });
   };
 }
 
@@ -82,7 +93,8 @@ export function loadGoogleMaps(): Promise<GoogleMapsApi> {
   const key =
     (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ||
     (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined);
-  const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
+  const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as
+    string | undefined;
 
   if (!key) {
     loaderPromise = loadLeafletFallback();
@@ -174,7 +186,9 @@ function createLeafletAdapter(L: LeafletNamespace): GoogleMapsApi {
     readonly _listeners: Record<string, LeafletCallback[]> = {};
 
     constructor(element: HTMLElement, options: google.maps.MapOptions) {
-      const center = options.center ? coordinates(options.center) : [33.3152, 44.3661] as [number, number];
+      const center = options.center
+        ? coordinates(options.center)
+        : ([33.3152, 44.3661] as [number, number]);
       const map = L.map(element, {
         center,
         zoom: options.zoom || 14,
@@ -229,7 +243,7 @@ function createLeafletAdapter(L: LeafletNamespace): GoogleMapsApi {
           html: '<div style="width:20px;height:20px;background:#0ea5e9;border:2px solid white;border-radius:50%;"></div>',
           iconSize: [20, 20],
         }),
-      }).addTo(map?._map ?? options.map as unknown as LeafletMap);
+      }).addTo(map?._map ?? (options.map as unknown as LeafletMap));
     }
 
     addListener(event: string, callback: LeafletCallback): void {
@@ -271,10 +285,15 @@ function createLeafletAdapter(L: LeafletNamespace): GoogleMapsApi {
         color: options.strokeColor || "#0284c7",
         weight: options.strokeWeight || 3,
         opacity: options.strokeOpacity || 0.5,
-      }).addTo(map?._map ?? options.map as unknown as LeafletMap);
+      }).addTo(map?._map ?? (options.map as unknown as LeafletMap));
     }
 
-    setPath(path: google.maps.MVCArray<google.maps.LatLng> | google.maps.LatLng[] | google.maps.LatLngLiteral[]): void {
+    setPath(
+      path:
+        | google.maps.MVCArray<google.maps.LatLng>
+        | google.maps.LatLng[]
+        | google.maps.LatLngLiteral[],
+    ): void {
       const points = Array.isArray(path) ? path : path.getArray();
       this._line.setLatLngs(points.map((point) => coordinates(point)));
     }
@@ -287,18 +306,25 @@ function createLeafletAdapter(L: LeafletNamespace): GoogleMapsApi {
   class GeocoderAdapter {
     geocode(
       request: google.maps.GeocoderRequest,
-      callback: (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus) => void,
+      callback: (
+        results: google.maps.GeocoderResult[] | null,
+        status: google.maps.GeocoderStatus,
+      ) => void,
     ): void {
       if (!request.location) {
         callback(null, "INVALID_REQUEST" as google.maps.GeocoderStatus);
         return;
       }
       const [lat, lng] = coordinates(request.location);
-      void fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`)
+      void fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`,
+      )
         .then((response) => response.json())
         .then((data: unknown) => {
           const record = data as { display_name?: string };
-          const results = [{ formatted_address: record.display_name ?? "" }] as unknown as google.maps.GeocoderResult[];
+          const results = [
+            { formatted_address: record.display_name ?? "" },
+          ] as unknown as google.maps.GeocoderResult[];
           callback(results, "OK" as google.maps.GeocoderStatus);
         })
         .catch(() => callback(null, "ERROR" as google.maps.GeocoderStatus));
@@ -308,12 +334,24 @@ function createLeafletAdapter(L: LeafletNamespace): GoogleMapsApi {
   class AutocompleteAdapter {
     getPlacePredictions(
       request: google.maps.places.AutocompletionRequest,
-      callback: (predictions: google.maps.places.AutocompletePrediction[] | null, status: google.maps.places.PlacesServiceStatus) => void,
+      callback: (
+        predictions: google.maps.places.AutocompletePrediction[] | null,
+        status: google.maps.places.PlacesServiceStatus,
+      ) => void,
     ): void {
-      void fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(request.input)}&countrycodes=iq&accept-language=ar&limit=6`)
+      void fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(request.input)}&countrycodes=iq&accept-language=ar&limit=6`,
+      )
         .then((response) => response.json())
         .then((data: unknown) => {
-          const rows = Array.isArray(data) ? data as Array<{ place_id?: number; osm_id?: number; display_name?: string; name?: string }> : [];
+          const rows = Array.isArray(data)
+            ? (data as Array<{
+                place_id?: number;
+                osm_id?: number;
+                display_name?: string;
+                name?: string;
+              }>)
+            : [];
           const predictions = rows.map((row) => ({
             place_id: row.place_id?.toString() ?? row.osm_id?.toString() ?? "",
             description: row.display_name ?? "",
@@ -335,12 +373,19 @@ function createLeafletAdapter(L: LeafletNamespace): GoogleMapsApi {
 
     getDetails(
       request: google.maps.places.PlaceDetailsRequest,
-      callback: (place: google.maps.places.PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => void,
+      callback: (
+        place: google.maps.places.PlaceResult | null,
+        status: google.maps.places.PlacesServiceStatus,
+      ) => void,
     ): void {
-      void fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(request.placeId)}&accept-language=ar&limit=1`)
+      void fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(request.placeId)}&accept-language=ar&limit=1`,
+      )
         .then((response) => response.json())
         .then((data: unknown) => {
-          const rows = Array.isArray(data) ? data as Array<{ lat: string; lon: string; display_name?: string; name?: string }> : [];
+          const rows = Array.isArray(data)
+            ? (data as Array<{ lat: string; lon: string; display_name?: string; name?: string }>)
+            : [];
           const first = rows[0];
           if (!first) {
             callback(null, "ZERO_RESULTS" as google.maps.places.PlacesServiceStatus);

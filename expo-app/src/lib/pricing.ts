@@ -8,7 +8,10 @@ export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function estimateFare(km: number, category: 'economy' | 'premium' | 'luxury' = 'economy'): number {
+export function estimateFare(
+  km: number,
+  category: "economy" | "premium" | "luxury" = "economy",
+): number {
   void category;
   const raw = Math.max(1000, km * 400);
   return Math.round(raw / 250) * 250;

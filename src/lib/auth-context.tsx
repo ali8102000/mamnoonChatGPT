@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-
 export type AppRole = "customer" | "driver" | "worker" | "admin";
 
 export interface Profile {
@@ -59,7 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadProfile(uid: string) {
     try {
-
       const [{ data: prof }, { data: roleRows }, { data: blockRow }] = await Promise.all([
         supabase
           .from("profiles")
@@ -73,8 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const isSuper = (roleRows ?? []).some((r) => r.role === "super_admin");
       const mappedRoles = (roleRows ?? [])
         .map((r) => r.role)
-        .filter((role): role is AppRole =>
-          role === "customer" || role === "driver" || role === "worker" || role === "admin",
+        .filter(
+          (role): role is AppRole =>
+            role === "customer" || role === "driver" || role === "worker" || role === "admin",
         );
       if (isSuper && !mappedRoles.includes("admin")) mappedRoles.push("admin");
       setIsSuperAdmin(isSuper);

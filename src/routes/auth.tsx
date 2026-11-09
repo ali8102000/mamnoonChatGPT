@@ -234,13 +234,7 @@ function AuthPage() {
                   className="input-base text-left"
                 />
               </Field>
-              <Field
-                label={t(
-                  "البريد الإلكتروني",
-                  "Email",
-                )}
-                icon={<Mail className="h-4 w-4" />}
-              >
+              <Field label={t("البريد الإلكتروني", "Email")} icon={<Mail className="h-4 w-4" />}>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

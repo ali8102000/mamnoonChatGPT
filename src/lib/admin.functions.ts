@@ -150,9 +150,7 @@ export const adminBlockUser = createServerFn({ method: "POST" })
         user_id: z.string().min(1),
         reason: z.string().max(500).optional(),
         expires_at: z.string().optional().nullable(),
-        duration: z
-          .enum(["1_hour", "1_day", "1_week", "1_month", "permanent"])
-          .optional(),
+        duration: z.enum(["1_hour", "1_day", "1_week", "1_month", "permanent"]).optional(),
       })
       .parse(d),
   )
@@ -163,9 +161,12 @@ export const adminBlockUser = createServerFn({ method: "POST" })
     if (data.duration) {
       const now = Date.now();
       if (data.duration === "1_hour") computedExpiresAt = new Date(now + 3600 * 1000).toISOString();
-      else if (data.duration === "1_day") computedExpiresAt = new Date(now + 86400 * 1000).toISOString();
-      else if (data.duration === "1_week") computedExpiresAt = new Date(now + 7 * 86400 * 1000).toISOString();
-      else if (data.duration === "1_month") computedExpiresAt = new Date(now + 30 * 86400 * 1000).toISOString();
+      else if (data.duration === "1_day")
+        computedExpiresAt = new Date(now + 86400 * 1000).toISOString();
+      else if (data.duration === "1_week")
+        computedExpiresAt = new Date(now + 7 * 86400 * 1000).toISOString();
+      else if (data.duration === "1_month")
+        computedExpiresAt = new Date(now + 30 * 86400 * 1000).toISOString();
       else if (data.duration === "permanent") computedExpiresAt = null;
     }
     const { error } = await (supabase as any).rpc("admin_block_user", {
