@@ -1,10 +1,12 @@
 name: Android production AAB
 
 on:
-  workflow_run:
-    workflows: ["Mamnoon mobile CI"]
-    types: [completed]
+  push:
     branches: [main]
+    paths:
+      - "expo-app/**"
+      - ".github/workflows/android-aab.yml"
+      - ".github/workflows/mobile-ci.yml"
   workflow_dispatch:
 
 permissions:
@@ -16,8 +18,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
-    name: Build and export Mamnoon Android App Bundle
+    name: Validate and build Mamnoon Android App Bundle
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -32,6 +33,12 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: TypeScript check
+        run: bunx tsc --noEmit
+      - name: Expo Doctor
+        run: bunx expo-doctor
+      - name: Export Android JavaScript bundle
+        run: bunx expo export --platform android
       - name: Validate build credentials and EAS project
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
