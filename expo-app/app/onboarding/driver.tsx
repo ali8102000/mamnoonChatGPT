@@ -42,7 +42,7 @@ export default function DriverOnboarding() {
       Alert.alert("خطأ", "انتهت جلسة الدخول. سجّل الدخول مرة أخرى.");
       return;
     }
-    if (!selectedModel || !/^\\d{4}$/.test(year.trim()) || !plate.trim()) {
+    if (!selectedModel || !/^\d{4}$/.test(year.trim()) || !plate.trim()) {
       Alert.alert("خطأ", "اختر السيارة وأدخل سنة الصنع ورقم اللوحة بصورة صحيحة.");
       return;
     }
