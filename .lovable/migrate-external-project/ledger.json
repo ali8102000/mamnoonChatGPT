@@ -1,5 +1,5 @@
 {
-  "source": "code archive (-Mmnon-main_2.zip) — Mamnoon taxi & home-services app",
+  "source": "code archive (Mumnun-main_1.zip) — Mamnoon taxi & home-services app",
   "capabilities": [
     {
       "capability": "web app code (TanStack Start pages, components, server functions)",
@@ -13,7 +13,7 @@
       "source": "supabase/migrations + drizzle/migrations + code-referenced tables missing from migrations",
       "outcome": "migrate",
       "status": "migrated",
-      "next_action": "none; tables missing from the source migrations were rebuilt from how the code uses them"
+      "next_action": "none; all source migrations applied to the new Lovable Cloud database"
     },
     {
       "capability": "existing records",
@@ -82,8 +82,15 @@
       "capability": "verification",
       "source": "-",
       "outcome": "verify",
-      "status": "verified",
-      "next_action": "signup, phone sign-in, role pick and a service request checked in preview"
+      "status": "partial",
+      "next_action": "welcome and sign-in screens load without errors; signed-in flows not yet re-checked on the new database"
+    },
+    {
+      "capability": "public admin quick-login button with fixed password",
+      "source": "src/routes/auth.tsx",
+      "outcome": "removed (security risk)",
+      "status": "accepted",
+      "next_action": "first staff member uses /admin/bootstrap"
     }
   ]
 }
