@@ -205,6 +205,8 @@ function RequestDetail() {
     return () => clearInterval(t);
   }, [requestId, requestStatus, myRole, retryFn, loadAll]);
 
+  const lastMessageId = messages[messages.length - 1]?.id;
+
   useEffect(() => {
     const go = () => {
       const el = scrollRef.current;
@@ -216,7 +218,7 @@ function RequestDetail() {
       cancelAnimationFrame(raf);
       clearTimeout(t);
     };
-  }, [messages.length, messages[messages.length - 1]?.id, chat?.id, req?.status, loading]);
+  }, [messages.length, lastMessageId, chat?.id, req?.status, loading]);
 
   if (authLoading || loading)
     return (
