@@ -556,3 +556,21 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.reset_monthly_request_counters() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reset_monthly_request_counters() TO service_role;
+-- An expired or rejected offer must not keep a taxi request visible to a driver.
+CREATE OR REPLACE FUNCTION public.has_offer(_request_id uuid, _user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.request_offers
+    WHERE request_id = _request_id
+      AND provider_id = _user_id
+      AND status = 'pending'
+      AND expires_at > now()
+  )
+$$;
+REVOKE ALL ON FUNCTION public.has_offer(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_offer(uuid, uuid) TO authenticated, service_role;
