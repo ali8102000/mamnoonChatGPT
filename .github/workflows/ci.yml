@@ -13,10 +13,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: mamnoon-ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   web:
     name: Web lint, typecheck, tests and production build
