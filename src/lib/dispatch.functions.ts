@@ -198,17 +198,21 @@ export const findNearbyProviderPins = createServerFn({ method: "POST" })
       })
       .parse(d),
   )
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await (supabaseAdmin as any).rpc("find_nearby_provider_pins", {
-      _lat: data.lat,
-      _lng: data.lng,
-      _type: data.type,
-      _category: data.category ?? null,
-      _service_id: data.serviceId ?? null,
-      _radius_km: data.radiusKm,
-      _limit: data.limit,
-    });
-    if (error) return [];
+  .handler(async ({ data, context }) => {
+    // Use the caller's JWT-backed client so auth.uid() is enforced by Postgres.
+    // Never use the service-role client for user-scoped location discovery.
+    const { data: rows, error } = await (context.supabase as any).rpc(
+      "find_nearby_provider_pins",
+      {
+        _lat: data.lat,
+        _lng: data.lng,
+        _type: data.type,
+        _category: data.category ?? null,
+        _service_id: data.serviceId ?? null,
+        _radius_km: data.radiusKm,
+        _limit: data.limit,
+      },
+    );
+    if (error) throw new Error("تعذّر تحميل مقدمي الخدمة القريبين");
     return (rows ?? []) as ProviderPin[];
   });
