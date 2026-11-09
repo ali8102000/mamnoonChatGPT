@@ -4,7 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const SUPER_ADMIN_EMAIL = "a7md0555666@gmail.com";
 
-export type AppRole = "customer" | "driver" | "worker" | "admin";
+export type AppRole =
+  | "customer"
+  | "driver"
+  | "worker"
+  | "admin"
+  | "super_admin"
+  | "support"
+  | "finance"
+  | "moderator";
 
 export interface Profile {
   id: string;
@@ -57,15 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isSuperAdmin = Boolean(
-    session?.user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase(),
-  );
+  const isSuperAdmin = roles.includes("super_admin");
 
-  const loadProfile = useCallback(async (uid: string, userEmail?: string | null) => {
+  const loadProfile = useCallback(async (uid: string) => {
     try {
-      const email = userEmail;
-      const isSuper = email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
-
       const [{ data: prof }, { data: roleRows }, { data: blockRow }] = await Promise.all([
         supabase
           .from("profiles")
@@ -77,9 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]);
 
       const mappedRoles = (roleRows ?? []).map((r: any) => r.role as AppRole);
-      if (isSuper && !mappedRoles.includes("admin")) {
-        mappedRoles.push("admin");
-      }
       if (!mappedRoles.includes("customer")) {
         mappedRoles.unshift("customer");
       }
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles(mappedRoles);
 
       // Check Ban (Super Admin cannot be banned)
-      if (!isSuper && blockRow) {
+      if (!mappedRoles.includes("super_admin") && blockRow) {
         const isExpired = blockRow.expires_at && new Date(blockRow.expires_at) < new Date();
         if (!isExpired) {
           setBanStatus({
@@ -105,7 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setActiveRoleState((current) => {
-        if (isSuper) return "admin";
         if (current && mappedRoles.includes(current)) return current;
         const saved =
           typeof window !== "undefined"
@@ -126,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await supabase.auth.getSession();
       setSession(data.session);
       if (data.session?.user) {
-        await loadProfile(data.session.user.id, data.session.user.email);
+        await loadProfile(data.session.user.id);
       } else {
         setProfile(null);
         setRoles([]);
@@ -143,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       if (s?.user) {
-        setTimeout(() => loadProfile(s.user.id, s.user.email), 0);
+        setTimeout(() => loadProfile(s.user.id), 0);
       } else {
         setProfile(null);
         setRoles([]);
@@ -155,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async ({ data }) => {
         setSession(data.session);
         if (data.session?.user) {
-          await loadProfile(data.session.user.id, data.session.user.email);
+          await loadProfile(data.session.user.id);
         }
         setLoading(false);
       })

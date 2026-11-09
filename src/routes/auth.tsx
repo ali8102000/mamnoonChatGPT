@@ -46,7 +46,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
-  const { refresh, setActiveRole } = useAuth();
+  const { refresh } = useAuth();
   const signIn = useServerFn(signInWithIdentifier);
 
   const isTargetAdmin =
@@ -86,7 +86,7 @@ function AuthPage() {
             emailRedirectTo: `${window.location.origin}/`,
             data: {
               phone: normalized,
-              full_name: isSuperAdminEmail ? "أحمد (المدير العام)" : name.trim(),
+              full_name: name.trim(),
             },
           },
         });
@@ -96,25 +96,15 @@ function AuthPage() {
           const { error: pErr } = await supabase.from("profiles").upsert({
             id: uid,
             phone: normalized,
-            full_name: isSuperAdminEmail ? "أحمد (المدير العام)" : name.trim(),
+            full_name: name.trim(),
             email: realEmail || null,
           });
           if (pErr) throw pErr;
-
-          if (isSuperAdminEmail) {
-            await supabase.from("user_roles").upsert([
-              { user_id: uid, role: "super_admin" },
-              { user_id: uid, role: "admin" },
-              { user_id: uid, role: "customer" },
-            ]);
-            localStorage.setItem("mumnun-active-role", "admin");
-            setActiveRole("admin");
-          }
         }
         await refresh();
         if (isSuperAdminEmail) {
-          toast.success("تم إنشاء حساب الإدارة العليا بنجاح! أهلاً بك يا أحمد 👑");
-          navigate({ to: "/admin" });
+          toast.success("تم إنشاء الحساب. أكمل إعداد المدير الأعلى برمز التهيئة الآمن.");
+          navigate({ to: "/admin/bootstrap" });
         } else {
           toast.success(t("تم إنشاء الحساب", "Account created"));
           navigate({ to: "/select-role" });
@@ -146,18 +136,9 @@ function AuthPage() {
         const authenticatedEmail = data.user?.email?.toLowerCase();
 
         if (isSuper || authenticatedEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
-          const uid = data.user?.id;
-          if (uid) {
-            await supabase.from("user_roles").upsert([
-              { user_id: uid, role: "super_admin" },
-              { user_id: uid, role: "admin" },
-            ]);
-          }
-          localStorage.setItem("mumnun-active-role", "admin");
-          setActiveRole("admin");
           await refresh();
-          toast.success("أهلاً بعودتك يا مديرنا العام أحمد 👑");
-          navigate({ to: "/admin" });
+          toast.success("أهلاً بعودتك. أكمل التحقق من إعداد المدير الأعلى.");
+          navigate({ to: "/admin/bootstrap" });
           return;
         }
 

@@ -25,6 +25,7 @@ function BootstrapPage() {
   const { session, loading } = useAuth();
   const [exists, setExists] = useState<boolean | null>(null);
   const [bootstrapping, setBootstrapping] = useState(false);
+  const [secret, setSecret] = useState("");
   const checkExists = useServerFn(checkSuperAdminExists);
   const bootstrap = useServerFn(bootstrapSuperAdmin);
 
@@ -71,7 +72,8 @@ function BootstrapPage() {
   async function handleBootstrap() {
     setBootstrapping(true);
     try {
-      await bootstrap();
+      await bootstrap({ data: { secret } });
+      setSecret("");
       toast.success("تم إنشاء المدير الأعلى بنجاح");
       setTimeout(() => (window.location.href = "/admin"), 1500);
     } catch (e: any) {
@@ -98,9 +100,24 @@ function BootstrapPage() {
             </span>
           </div>
         </div>
+        <label className="block text-right mb-4">
+          <span className="block text-xs font-bold text-muted-foreground mb-2">
+            رمز التهيئة السري من إعدادات الاستضافة
+          </span>
+          <input
+            type="password"
+            autoComplete="off"
+            value={secret}
+            onChange={(event) => setSecret(event.target.value)}
+            minLength={32}
+            maxLength={256}
+            className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm"
+            placeholder="أدخل الرمز السري"
+          />
+        </label>
         <button
           onClick={handleBootstrap}
-          disabled={bootstrapping}
+          disabled={bootstrapping || secret.length < 32}
           className="w-full py-3.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {bootstrapping ? (
