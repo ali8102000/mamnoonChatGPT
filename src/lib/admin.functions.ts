@@ -33,13 +33,28 @@ export const checkSuperAdminExists = createServerFn({ method: "GET" })
 
 export const bootstrapSuperAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase, userId } = context;
-    const { data, error } = await (supabase as any).rpc("bootstrap_first_super_admin", {
-      p_user_id: userId,
-    });
+  .inputValidator((d) => z.object({ secret: z.string().min(32).max(256) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const expectedEmail = process.env.MAMNOON_BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
+    const expectedSecret = process.env.MAMNOON_BOOTSTRAP_SECRET;
+
+    if (!expectedEmail || !expectedSecret || expectedSecret.length < 32) {
+      throw new Error("إعداد التهيئة الآمنة غير مكتمل على الخادم");
+    }
+    if (String(context.claims.email ?? "").toLowerCase() !== expectedEmail) {
+      throw new Error("هذا الحساب غير مخوّل لإعداد المدير الأعلى");
+    }
+    if (data.secret !== expectedSecret) {
+      throw new Error("رمز التهيئة غير صحيح");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: created, error } = await (supabaseAdmin as any).rpc(
+      "bootstrap_first_super_admin",
+      { p_user_id: context.userId },
+    );
     if (error) throw new Error("فشل إنشاء المدير الأعلى: " + error.message);
-    if (!data) throw new Error("يوجد مدير أعلى بالفعل");
+    if (!created) throw new Error("يوجد مدير أعلى بالفعل");
     return { ok: true };
   });
 
