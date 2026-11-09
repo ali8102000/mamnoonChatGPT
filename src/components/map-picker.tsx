@@ -69,10 +69,11 @@ export function MapPicker({
   };
   const reverseFallback = (c: Coords) => {
     lookupMapPlace({ data: { action: "reverse", center: c } })
-      .then((r: { address?: string }) => {
-        if (r.address) {
-          setAddress(r.address);
-          onChangeRef.current(c, r.address);
+      .then((result) => {
+        const response = result as { address?: string };
+        if (response.address) {
+          setAddress(response.address);
+          onChangeRef.current(c, response.address);
         }
       })
       .catch(() => {});
@@ -324,12 +325,13 @@ export function MapPicker({
     const q = searchQuery.trim();
     const timer = setTimeout(async () => {
       if (!sessionTokenRef.current) sessionTokenRef.current = crypto.randomUUID();
-      const center = mapRef.current?.getCenter?.();
+      const center = mapRef.current?.getCenter?.() as unknown as
+        | { lat: number | (() => number); lng: number | (() => number) }
+        | undefined;
+      const readCoordinate = (coordinate: number | (() => number)) =>
+        typeof coordinate === "function" ? coordinate() : coordinate;
       const c = center
-        ? {
-            lat: typeof center.lat === "function" ? center.lat() : center.lat,
-            lng: typeof center.lng === "function" ? center.lng() : center.lng,
-          }
+        ? { lat: readCoordinate(center.lat), lng: readCoordinate(center.lng) }
         : (value ?? getGovernorate(governorateKey) ?? DEFAULT_CENTER);
       try {
         const res = await lookupMapPlace({
