@@ -3,7 +3,7 @@
 type QueuedAction = {
   id: string;
   type: "message" | "request" | "location" | "generic";
-  payload: any;
+  payload: unknown;
   createdAt: number;
   retries: number;
   maxRetries: number;
@@ -16,7 +16,7 @@ const BASE_DELAY = 2000;
 function loadQueue(): QueuedAction[] {
   try {
     const raw = localStorage.getItem(QUEUE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? (JSON.parse(raw) as QueuedAction[]) : [];
   } catch {
     return [];
   }
@@ -25,10 +25,12 @@ function loadQueue(): QueuedAction[] {
 function saveQueue(queue: QueuedAction[]) {
   try {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(0, 100)));
-  } catch {}
+  } catch {
+    // Storage may be unavailable; queued work can be retried on the next session.
+  }
 }
 
-export function enqueueAction(type: QueuedAction["type"], payload: any, maxRetries = MAX_RETRIES) {
+export function enqueueAction(type: QueuedAction["type"], payload: unknown, maxRetries = MAX_RETRIES) {
   const queue = loadQueue();
   const action: QueuedAction = {
     id: Math.random().toString(36).slice(2) + Date.now().toString(36),
@@ -87,6 +89,7 @@ export async function processQueue() {
           success = await processor(action);
           if (success) break;
         } catch {
+          // Try the next registered processor for this action.
           continue;
         }
       }
