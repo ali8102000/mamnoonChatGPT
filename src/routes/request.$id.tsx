@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,7 +97,7 @@ function RequestDetail() {
     active: trackingActive,
   });
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     try {
       const { data: r } = await supabase
         .from("service_requests")
@@ -152,11 +152,11 @@ function RequestDetail() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id, session?.user?.id, getRepFn]);
 
   useEffect(() => {
     if (session) loadAll();
-  }, [session, id]);
+  }, [session, id, loadAll]);
 
   useEffect(() => {
     if (!chat) return;
@@ -177,30 +177,33 @@ function RequestDetail() {
     };
   }, [chat, session?.user?.id]);
 
+  const requestId = req?.id ?? null;
+  const requestStatus = req?.status;
+
   useEffect(() => {
-    if (!req) return;
+    if (!requestId) return;
     const ch = supabase
-      .channel(`req-${id}`)
+      .channel(`req-${requestId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "service_requests", filter: `id=eq.${id}` },
+        { event: "UPDATE", schema: "public", table: "service_requests", filter: `id=eq.${requestId}` },
         () => loadAll(),
       )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [req?.id]);
+  }, [requestId, loadAll]);
 
   useEffect(() => {
-    if (!req || myRole !== "customer") return;
-    if (!["pending", "searching"].includes(req.status as string)) return;
+    if (!requestId || myRole !== "customer") return;
+    if (!["pending", "searching"].includes(requestStatus as string)) return;
     const t = setInterval(() => {
-      retryFn({ data: { requestId: req.id } }).catch(() => {});
+      retryFn({ data: { requestId } }).catch(() => {});
       loadAll();
     }, 5000);
     return () => clearInterval(t);
-  }, [req?.id, req?.status, myRole]);
+  }, [requestId, requestStatus, myRole, retryFn, loadAll]);
 
   useEffect(() => {
     const go = () => {
