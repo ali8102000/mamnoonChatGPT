@@ -210,7 +210,7 @@ export function MapPicker({
 
   useEffect(() => {
     if (!nearby?.length || !mapRef.current) return;
-    const g = window.google;
+    const g = (window as Window & { google?: typeof google }).google;
     if (!g) return;
 
     nearby.forEach((pin) => {
