@@ -69,6 +69,7 @@ function SupportCenter() {
   const [adminViewAll, setAdminViewAll] = useState(false);
 
   const supportScrollRef = useRef<HTMLDivElement>(null);
+  const userId = session?.user.id ?? null;
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
@@ -79,21 +80,21 @@ function SupportCenter() {
   }, [messages.length, selected?.id]);
 
   const loadTickets = useCallback(async () => {
-    if (!session) return;
+    if (!userId) return;
     setLoadingTickets(true);
     let query = (supabase as any).from("support_tickets").select("*");
     if (!adminViewAll || !isSuperAdmin) {
-      query = query.eq("user_id", session!.user.id);
+      query = query.eq("user_id", userId);
     }
     const { data } = await query.order("created_at", { ascending: false });
     setTickets(data ?? []);
     setLoadingTickets(false);
-  }, [session?.user.id, adminViewAll, isSuperAdmin]);
+  }, [userId, adminViewAll, isSuperAdmin]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!userId) return;
     void loadTickets();
-  }, [session?.user.id, loadTickets]);
+  }, [userId, loadTickets]);
 
   async function loadMessages(ticketId: string) {
     const { data } = await (supabase as any)
