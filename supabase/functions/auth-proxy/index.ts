@@ -130,6 +130,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const client = createClient(supabaseUrl, anonKey, {
+        global: { fetch: createSupabaseFetch(anonKey) },
         auth: { persistSession: false, autoRefreshToken: false },
       });
       const { data, error } = await client.auth.signInWithPassword({ email: email!, password });
@@ -145,6 +146,7 @@ Deno.serve(async (req: Request) => {
       if (!isAllowedRedirect(redirectTo)) return json({ error: "Invalid redirect URL" }, 400);
 
       const client = createClient(supabaseUrl, anonKey, {
+        global: { fetch: createSupabaseFetch(anonKey) },
         auth: { persistSession: false, autoRefreshToken: false },
       });
       const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
