@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { loginWithIdentifier } from "@/lib/auth.functions";
 import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User } from "lucide-react";
@@ -72,7 +72,12 @@ function AuthPage() {
         }
         const normalized = normalizePhone(phone);
         const realEmail = email.trim().toLowerCase();
-        const authEmail = realEmail || phoneToEmail(normalized);
+        if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(realEmail)) {
+          toast.error("حالياً يلزم بريد إلكتروني حقيقي للتسجيل إلى أن يتم تفعيل التحقق برسالة SMS");
+          setBusy(false);
+          return;
+        }
+        const authEmail = realEmail;
         const { data, error } = await supabase.auth.signUp({
           email: authEmail,
           password,
