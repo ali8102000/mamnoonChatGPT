@@ -66,6 +66,7 @@
 - `0003_secure_super_admin_bootstrap.sql`
 - `0004_bound_provider_map_discovery.sql`
 - `0005_provider_presence_for_mobile.sql` — ينشئ جدول آخر موقع للسائق/الفني بصلاحيات مقيدة، ويحدّث RPC اكتشاف النقاط القريبة.
+- `0006_secure_taxi_dispatch_retry.sql` — يضيف RPC آمن لإعادة توزيع طلب التاكسي لصاحب الطلب فقط.
 
 وجود ملف migration في GitHub لا يثبت أنه طُبق على قاعدة الإنتاج. قبل أي ترحيل:
 
