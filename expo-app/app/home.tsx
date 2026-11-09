@@ -72,7 +72,7 @@ export default function HomeScreen() {
     const table = activeRole === "driver" ? "driver_profiles" : "worker_profiles";
     supabase
       .from(table)
-      .select("available, is_verified, verification_status")
+      .select("available, status")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -80,9 +80,10 @@ export default function HomeScreen() {
           Alert.alert("تعذر تحميل الحالة", "حاول تحديث الصفحة");
           return;
         }
+        const status = String(data?.status ?? "pending");
         setAvailable(Boolean(data?.available));
-        setVerified(Boolean(data?.is_verified));
-        setVerificationStatus(data?.verification_status ?? "pending");
+        setVerified(status === "approved");
+        setVerificationStatus(status);
       });
   }, [activeRole, user]);
 
