@@ -329,6 +329,13 @@ CREATE POLICY "Workers see nearby verified service requests" ON public.service_r
     type = 'service' AND public.worker_is_near_service_request(id)
   );
 
+-- Offers and requests are mutated only through guarded server functions.
+REVOKE UPDATE ON public.request_offers FROM authenticated;
+GRANT SELECT ON public.request_offers TO authenticated;
+DROP POLICY IF EXISTS "Provider updates own offer" ON public.request_offers;
+REVOKE UPDATE ON public.service_requests FROM authenticated;
+GRANT SELECT, INSERT ON public.service_requests TO authenticated;
+
 -- 5) Prevent direct status/provider mutation and restrict customer inserts to home services.
 DROP POLICY IF EXISTS "Customer updates own request" ON public.service_requests;
 DROP POLICY IF EXISTS "Provider updates assigned request" ON public.service_requests;
