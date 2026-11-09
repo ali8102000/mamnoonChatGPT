@@ -25,7 +25,7 @@ jobs:
         working-directory: expo-app
     env:
       APP_ENV: production
-      EAS_PROJECT_ID: \${{ vars.EAS_PROJECT_ID }}
+      EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
@@ -41,7 +41,7 @@ jobs:
         run: bunx expo export --platform android
       - name: Validate build credentials and EAS project
         env:
-          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           missing=0
           if [ -z "$EXPO_TOKEN" ]; then
@@ -64,18 +64,18 @@ jobs:
           fi
       - name: Validate production EAS environment variables
         env:
-          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs'
       - name: Build signed production AAB and wait for completion
         env:
-          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           bunx eas-cli@latest env:exec --environment production 'bunx eas-cli@latest build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"'
       - name: Download the finished AAB
         id: download
         env:
-          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           BUILD_ID="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; if(!b?.id) process.exit(2); process.stdout.write(b.id)')"
           echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
@@ -98,5 +98,5 @@ jobs:
           retention-days: 14
       - name: Build summary
         run: |
-          echo "AAB build completed. EAS build ID: \${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "AAB build completed. EAS build ID: ${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
           echo "The signed AAB is attached as the mamnoon-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
