@@ -320,7 +320,7 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
     if (!session) return;
     supabase
       .from(table)
-      .select("available, is_verified, verification_status, status, completed_jobs, completed_rides")
+      .select("*")
       .eq("user_id", session.user.id)
       .maybeSingle()
       .then(({ data }) => {
