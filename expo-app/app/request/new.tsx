@@ -208,15 +208,8 @@ export default function NewRequest() {
         if (!taxiRequest?.requestId) throw new Error("تعذّر إنشاء طلب التكسي.");
         requestId = taxiRequest.requestId;
 
-        const { error: dispatchError } = await supabase.rpc("retry_taxi_dispatch", {
-          _request_id: requestId,
-        });
-        if (dispatchError) {
-          Alert.alert(
-            "تم إنشاء الطلب",
-            "تعذر توزيع الطلب على السائقين الآن. افتح تفاصيل الطلب وحاول إعادة المحاولة لاحقاً.",
-          );
-        }
+        // The database insert trigger starts taxi dispatch atomically.
+        // The retry RPC is reserved for an explicit customer retry after offers expire.
       } else {
         const { data: serviceRow, error: serviceError } = await supabase
           .from("services")
