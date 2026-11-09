@@ -89,7 +89,7 @@ export const getFriendsStatuses = createServerFn({ method: "GET" })
 
 export const searchProfileByPhone = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ phone: z.string().trim().min(1).max(50) }).parse(d))
+  .validator((d) => z.object({ phone: z.string().trim().min(1).max(50) }).parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
