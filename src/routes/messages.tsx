@@ -48,7 +48,7 @@ function MessagesPage() {
     );
   }, [userId]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!session) return;
     loadChats();
 
