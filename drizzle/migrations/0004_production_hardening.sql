@@ -514,3 +514,37 @@ CREATE INDEX IF NOT EXISTS idx_service_requests_customer_type_created
   ON public.service_requests(customer_id, type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_provider_presence_updated_at
   ON public.provider_presence(updated_at DESC);
+
+-- Subscription cron support: one reminder per subscription and warning window.
+CREATE TABLE IF NOT EXISTS public.subscription_expiry_notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  subscription_id uuid NOT NULL REFERENCES public.user_subscriptions(id) ON DELETE CASCADE,
+  days_before integer NOT NULL CHECK (days_before IN (7, 3, 1)),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (subscription_id, days_before)
+);
+ALTER TABLE public.subscription_expiry_notifications ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.subscription_expiry_notifications FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.subscription_expiry_notifications TO service_role;
+
+CREATE OR REPLACE FUNCTION public.reset_monthly_request_counters()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_count integer;
+BEGIN
+  UPDATE public.user_subscriptions
+  SET request_count = 0,
+      resets_count_period_start = now(),
+      updated_at = now()
+  WHERE status = 'active'
+    AND (resets_count_period_start IS NULL
+      OR resets_count_period_start < date_trunc('month', now()));
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END $$;
+REVOKE ALL ON FUNCTION public.reset_monthly_request_counters() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reset_monthly_request_counters() TO service_role;
