@@ -372,7 +372,13 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
   }, [session, type, table]);
 
   useEffect(() => {
-    if (!session || !available || !verified || typeof navigator === "undefined" || !navigator.geolocation) return;
+    if (!session || !available || !verified) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("المتصفح لا يدعم مشاركة الموقع؛ أوقفنا التوفر");
+      setAvailable(false);
+      void supabase.from(table).update({ available: false }).eq("user_id", session.user.id);
+      return;
+    }
     const userId = session.user.id;
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
