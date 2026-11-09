@@ -4,18 +4,20 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const mapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  const easProjectId = process.env.EAS_PROJECT_ID;
+  const easProjectId = process.env.EAS_PROJECT_ID ?? process.env.EAS_BUILD_PROJECT_ID;
   const isProduction = process.env.APP_ENV === "production";
+  const isEasBuild = process.env.EAS_BUILD === "true";
 
-  // Fail closed: never produce a store build that silently ships without its
-  // backend, native Maps key, or EAS project association.
+  // EAS env:exec must be able to resolve the project before it can inject
+  // remote production variables. Validate those values in the env:exec
+  // preflight script and again on the remote production build worker.
   const missingProductionConfig = [
     ...(!supabaseUrl ? ["EXPO_PUBLIC_SUPABASE_URL"] : []),
     ...(!supabasePublishableKey ? ["EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] : []),
     ...(!mapsKey ? ["EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"] : []),
     ...(!easProjectId ? ["EAS_PROJECT_ID"] : []),
   ];
-  if (isProduction && missingProductionConfig.length) {
+  if (isProduction && isEasBuild && missingProductionConfig.length) {
     throw new Error(
       `Production build is missing required Expo environment variables: ${missingProductionConfig.join(", ")}`,
     );
@@ -26,7 +28,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   if (
     isProduction &&
     easProjectId &&
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(easProjectId)
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      easProjectId,
+    )
   ) {
     throw new Error("EAS_PROJECT_ID must be a valid Expo project UUID.");
   }

@@ -7,8 +7,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:android": "eas build -p android --profile production",
-    "build:ios": "eas build -p ios --profile production"
+    "build:android": "bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs && bunx eas-cli@latest build -p android --profile production'",
+    "build:ios": "bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs && bunx eas-cli@latest build -p ios --profile production'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",

@@ -36,8 +36,18 @@ jobs:
         run: bun install --frozen-lockfile
       - name: TypeScript
         run: bunx tsc --noEmit
-      - name: Validate Expo config
-        run: bunx expo config --type public
+      - name: Validate production configuration guards
+        env:
+          APP_ENV: production
+          EAS_BUILD: "true"
+          EAS_PROJECT_ID: "00000000-0000-4000-8000-000000000000"
+          EXPO_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_ci_placeholder"
+          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: "ci-placeholder"
+        run: |
+          node scripts/validate-production-env.mjs
+          bunx expo config --type public
+          env -u EAS_PROJECT_ID EAS_BUILD_PROJECT_ID="00000000-0000-4000-8000-000000000000" bunx expo config --type public
       - name: Expo Doctor
         run: bunx expo-doctor
       - name: Export Android bundle

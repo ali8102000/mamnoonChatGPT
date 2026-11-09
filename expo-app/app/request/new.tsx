@@ -46,11 +46,13 @@ const VEHICLE_CATS: { key: VehicleCategory; label: string; emoji: string }[] = [
   { key: "luxury", label: "VIP", emoji: "🚘" },
 ];
 
-const BAGHDAD_REGION = {
-  latitude: 33.3152,
-  longitude: 44.3661,
-  latitudeDelta: 0.035,
-  longitudeDelta: 0.035,
+// Start with an Iraq-wide view when location permission is unavailable.
+// A successful GPS lookup immediately zooms the map to the user's position.
+const IRAQ_REGION = {
+  latitude: 33.2,
+  longitude: 43.8,
+  latitudeDelta: 9,
+  longitudeDelta: 11,
 };
 
 function formatAddress(parts: Location.LocationGeocodedAddress[] | null | undefined) {
@@ -71,7 +73,7 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
-  const [region, setRegion] = useState(BAGHDAD_REGION);
+  const [region, setRegion] = useState(IRAQ_REGION);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>("economy");
   const [workerLevel, setWorkerLevel] = useState<"fani" | "khabir">("fani");
@@ -206,15 +208,8 @@ export default function NewRequest() {
         if (!taxiRequest?.requestId) throw new Error("تعذّر إنشاء طلب التكسي.");
         requestId = taxiRequest.requestId;
 
-        const { error: dispatchError } = await supabase.rpc("retry_taxi_dispatch", {
-          _request_id: requestId,
-        });
-        if (dispatchError) {
-          Alert.alert(
-            "تم إنشاء الطلب",
-            "تعذر توزيع الطلب على السائقين الآن. افتح تفاصيل الطلب وحاول إعادة المحاولة لاحقاً.",
-          );
-        }
+        // The database insert trigger starts taxi dispatch atomically.
+        // The retry RPC is reserved for an explicit customer retry after offers expire.
       } else {
         const { data: serviceRow, error: serviceError } = await supabase
           .from("services")

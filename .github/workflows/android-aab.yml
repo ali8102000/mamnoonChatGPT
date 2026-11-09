@@ -13,24 +13,39 @@ jobs:
     defaults:
       run:
         working-directory: expo-app
+    env:
+      APP_ENV: production
+      EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v5
-      - name: Set Git default branch for clean CI logs
-        run: git config --global init.defaultBranch main && git config --global advice.defaultBranchName false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Validate EAS token
+      - name: Validate build credentials and EAS project
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "GitHub secret EXPO_TOKEN is required."
+            echo "::error::GitHub Actions secret EXPO_TOKEN is required."
             exit 1
           fi
+          if [ -z "$EAS_PROJECT_ID" ]; then
+            echo "::error::Add EAS_PROJECT_ID as a GitHub Actions repository variable (not a secret)."
+            exit 1
+          fi
+          if ! printf '%s' "$EAS_PROJECT_ID" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'; then
+            echo "::error::EAS_PROJECT_ID must be a valid Expo project UUID."
+            exit 1
+          fi
+      - name: Validate production EAS environment variables
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs'
       - name: Build production AAB with EAS
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: bunx eas-cli@latest build --platform android --profile production --non-interactive
+        run: |
+          bunx eas-cli@latest env:exec --environment production 'bunx eas-cli@latest build --platform android --profile production --non-interactive'
