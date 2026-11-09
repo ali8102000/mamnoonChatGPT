@@ -4,7 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const SUPER_ADMIN_EMAIL = "a7md0555666@gmail.com";
 
-export type AppRole = "customer" | "driver" | "worker" | "admin" | "super_admin" | "support" | "finance" | "moderator";
+export type AppRole =
+  | "customer"
+  | "driver"
+  | "worker"
+  | "admin"
+  | "super_admin"
+  | "support"
+  | "finance"
+  | "moderator";
 
 export interface Profile {
   id: string;
@@ -146,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async ({ data }) => {
         setSession(data.session);
         if (data.session?.user) {
-          await loadProfile(data.session.user.id, data.session.user.email);
+          await loadProfile(data.session.user.id);
         }
         setLoading(false);
       })
