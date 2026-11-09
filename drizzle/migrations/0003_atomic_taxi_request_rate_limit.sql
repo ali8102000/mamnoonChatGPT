@@ -95,7 +95,7 @@ BEGIN
 
   INSERT INTO public.taxi_dispatch_queue(request_id, stage, next_at)
   VALUES (_request_id, 0, now())
-  ON CONFLICT (request_id) DO UPDATE SET next_at = now();
+  ON CONFLICT (request_id) DO NOTHING;
 
   v_offers := public.advance_taxi_dispatch(_request_id);
   RETURN v_offers;
