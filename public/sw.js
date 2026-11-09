@@ -1,4 +1,4 @@
-const CACHE_NAME = "mumnun-v1";
+const CACHE_NAME = "mamnoon-v2";
 const STATIC_ASSETS = ["/", "/manifest.json", "/favicon.ico"];
 
 self.addEventListener("notificationclick", (event) => {
@@ -35,12 +35,15 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        .then(async (response) => {
+          // Cache only the public app shell, never authenticated route responses.
+          if (response.ok && url.pathname === "/") {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put("/", response.clone());
+          }
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("/"))),
+        .catch(() => caches.match("/")),
     );
     return;
   }
