@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -78,12 +78,8 @@ function SupportCenter() {
     return () => cancelAnimationFrame(raf);
   }, [messages.length, selected?.id]);
 
-  useEffect(() => {
+  const loadTickets = useCallback(async () => {
     if (!session) return;
-    loadTickets();
-  }, [session, adminViewAll]);
-
-  async function loadTickets() {
     setLoadingTickets(true);
     let query = (supabase as any).from("support_tickets").select("*");
     if (!adminViewAll || !isSuperAdmin) {
@@ -92,7 +88,12 @@ function SupportCenter() {
     const { data } = await query.order("created_at", { ascending: false });
     setTickets(data ?? []);
     setLoadingTickets(false);
-  }
+  }, [session?.user.id, adminViewAll, isSuperAdmin]);
+
+  useEffect(() => {
+    if (!session) return;
+    void loadTickets();
+  }, [session?.user.id, loadTickets]);
 
   async function loadMessages(ticketId: string) {
     const { data } = await (supabase as any)
