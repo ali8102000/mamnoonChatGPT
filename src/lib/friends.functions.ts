@@ -9,37 +9,73 @@ export interface FriendStatus {
   avatar_url: string | null;
 }
 
+export interface ProfileSearchResult {
+  id: string;
+  phone: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
+const friendStatusSchema = z.object({
+  status: z.enum(["available", "on_job", "inactive", "not_provider", "not_friend"]).optional(),
+  full_name: z.string().nullable().optional(),
+  avatar_url: z.string().nullable().optional(),
+});
+const profileSearchSchema = z.array(z.object({
+  id: z.string().uuid(),
+  phone: z.string(),
+  full_name: z.string().nullable(),
+  avatar_url: z.string().nullable(),
+}));
+
+type FriendsAdminClient = {
+  from: (table: "friends") => {
+    select: (columns: "friend_id") => {
+      eq: (column: "user_id", value: string) => Promise<{
+        data: Array<{ friend_id: string }> | null;
+        error: { message: string } | null;
+      }>;
+    };
+  };
+  rpc: (
+    name: "get_friend_status" | "search_profile_by_phone",
+    args: { p_friend_id: string } | { _phone: string },
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
+
 export const getFriendsStatuses = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as unknown as FriendsAdminClient;
 
-    const { data: friends } = await (supabaseAdmin as any)
+    const { data: friends, error: friendsError } = await admin
       .from("friends")
       .select("friend_id")
       .eq("user_id", userId);
-
-    if (!friends || friends.length === 0) return [];
+    if (friendsError) throw new Error("فشل تحميل قائمة الأصدقاء");
+    if (!friends?.length) return [];
 
     const results: FriendStatus[] = [];
-    for (const f of friends) {
-      const { data, error } = await (supabaseAdmin as any).rpc("get_friend_status", {
-        p_friend_id: f.friend_id,
+    for (const friend of friends) {
+      const { data, error } = await admin.rpc("get_friend_status", {
+        p_friend_id: friend.friend_id,
       });
-      if (error || !data) {
+      const parsed = friendStatusSchema.safeParse(data);
+      if (error || !parsed.success) {
         results.push({
-          friend_id: f.friend_id,
+          friend_id: friend.friend_id,
           status: "inactive",
           full_name: null,
           avatar_url: null,
         });
       } else {
         results.push({
-          friend_id: f.friend_id,
-          status: data.status ?? "inactive",
-          full_name: data.full_name ?? null,
-          avatar_url: data.avatar_url ?? null,
+          friend_id: friend.friend_id,
+          status: parsed.data.status ?? "inactive",
+          full_name: parsed.data.full_name ?? null,
+          avatar_url: parsed.data.avatar_url ?? null,
         });
       }
     }
@@ -48,13 +84,19 @@ export const getFriendsStatuses = createServerFn({ method: "GET" })
 
 export const searchProfileByPhone = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ phone: z.string().trim().min(1).max(50) }).parse(d))
+  .inputValidator((d) =>
+    z.object({ phone: z.string().trim().min(1).max(50) }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await (supabaseAdmin as any).rpc("search_profile_by_phone", {
-      _phone: data.phone,
-    });
+    const admin = supabaseAdmin as unknown as FriendsAdminClient;
+    const { data: rows, error } = await admin.rpc(
+      "search_profile_by_phone",
+      { _phone: data.phone },
+    );
     if (error || !rows) return [];
-    return (rows as any[]).filter((r) => r.id !== userId).slice(0, 10);
+    const parsed = profileSearchSchema.safeParse(rows);
+    if (!parsed.success) return [];
+    return parsed.data.filter((row) => row.id !== userId).slice(0, 10);
   });
