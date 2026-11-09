@@ -42,6 +42,12 @@ They add atomic taxi rate limiting, safe retry dispatch, provider verification, 
 
 These migrations are committed but have **not been applied to the live database**. Before applying them, verify that `LOVABLE_DB_MIGRATION_URL` points to the target project database, not the old project. Then use the repository's `bun run db:migrate` command after taking a database backup and confirming the target migration history.
 
+## Latest CI status
+
+The latest branch CI run is green: web TypeScript, lint command, tests and production build passed; Expo TypeScript/config validation passed; all three Edge Functions passed Deno typechecking.
+
+This is not a zero-warning certification. ESLint still reports 42 non-blocking React Hook/Fast Refresh warnings. The Prettier rule is temporarily disabled in CI because the repository has a large pre-existing formatting backlog; formatting cleanup remains separate work.
+
 ## Required deployment configuration
 
 ### Web/server environment
