@@ -23,7 +23,7 @@ export interface ReputationData {
 
 export const getReputation = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => {
+  .validator((d: unknown) => {
     const obj = d as { userId: string };
     if (!obj?.userId || typeof obj.userId !== "string") {
       throw new Error("userId is required");
@@ -61,7 +61,7 @@ export const getReputation = createServerFn({ method: "GET" })
 
 export const getProviderReviews = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => {
+  .validator((d: unknown) => {
     const obj = d as { userId: string };
     if (!obj?.userId || typeof obj.userId !== "string") {
       throw new Error("userId is required");
