@@ -46,7 +46,7 @@ export function ProviderPresence() {
     );
     const timer = setInterval(() => void send(true), SEND_EVERY_MS);
     return () => { stopped = true; navigator.geolocation.clearWatch(watch); clearInterval(timer); };
-  }, [uid, isDriver, isWorker]);
+  }, [uid, isDriver, isWorker, isProvider]);
 
   return null;
 }
