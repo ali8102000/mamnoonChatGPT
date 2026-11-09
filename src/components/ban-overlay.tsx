@@ -55,7 +55,7 @@ export function BanOverlay() {
             مراسلة الإدارة العامة والدعم
           </Link>
 
-        <button
+          <button
             onClick={() => signOut()}
             className="w-full py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 text-xs font-bold flex items-center justify-center gap-1.5 transition"
           >
