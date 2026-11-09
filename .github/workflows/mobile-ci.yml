@@ -1,0 +1,44 @@
+name: Mamnoon mobile CI
+
+on:
+  push:
+    branches: [main, integrate-expo-mobile-safe]
+    paths:
+      - "expo-app/**"
+      - ".github/workflows/mobile-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "expo-app/**"
+      - ".github/workflows/mobile-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mamnoon-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  expo:
+    name: Expo typecheck, doctor and Android export
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo-app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: TypeScript
+        run: bunx tsc --noEmit
+      - name: Validate Expo config
+        run: bunx expo config --type public
+      - name: Expo Doctor
+        run: bunx expo-doctor
+      - name: Export Android bundle
+        run: bunx expo export --platform android
