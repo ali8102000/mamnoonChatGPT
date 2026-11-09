@@ -19,6 +19,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Reject tracked local environment files
+        run: |
+          if git ls-files | grep -E '(^|/)\.env(\.local|\.development|\.production)?        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Validate Drizzle migration journal
+        run: bunx drizzle-kit check
+      - run: bunx tsc --noEmit
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
+
+  mobile:
+    name: Expo mobile typecheck and config validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - run: bunx expo config --type public
+
+  edge-functions:
+    name: Supabase Edge Function typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/auth-proxy/index.ts supabase/functions/create-taxi-request/index.ts supabase/functions/subscription-cron/index.ts
+; then
+            echo "Local environment files must never be committed."
+            exit 1
+          fi
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
