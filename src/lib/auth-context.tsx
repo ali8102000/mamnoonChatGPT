@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles(mappedRoles);
 
       // Check Ban (Super Admin cannot be banned)
-      if (!isSuper && blockRow) {
+      if (!mappedRoles.includes("super_admin") && blockRow) {
         const isExpired = blockRow.expires_at && new Date(blockRow.expires_at) < new Date();
         if (!isExpired) {
           setBanStatus({
