@@ -53,53 +53,6 @@ function AuthPage() {
     identifier.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ||
     email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
 
-  async function handleAdminQuickLogin() {
-    setBusy(true);
-    try {
-      setIdentifier(SUPER_ADMIN_EMAIL);
-      setPassword("123456");
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: SUPER_ADMIN_EMAIL,
-        password: "admin_password_mamnoon",
-      });
-      if (error) {
-        // If first time, sign up admin
-        await supabase.auth.signUp({
-          email: SUPER_ADMIN_EMAIL,
-          password: "admin_password_mamnoon",
-          options: {
-            data: {
-              phone: "07700000000",
-              full_name: "أحمد (المدير العام)",
-            },
-          },
-        });
-      }
-      const uid = data?.user?.id || "admin_user_ahmed";
-      await supabase.from("profiles").upsert({
-        id: uid,
-        phone: "07700000000",
-        full_name: "أحمد (المدير العام)",
-        email: SUPER_ADMIN_EMAIL,
-      });
-      await supabase.from("user_roles").upsert([
-        { user_id: uid, role: "super_admin" },
-        { user_id: uid, role: "admin" },
-        { user_id: uid, role: "customer" },
-      ]);
-      localStorage.setItem("mumnun-active-role", "admin");
-      setActiveRole("admin");
-      await refresh();
-      toast.success("أهلاً بك يا مديرنا العام أحمد! تم تفعيل الصلاحيات الكاملة 👑");
-      navigate({ to: "/admin" });
-    } catch {
-      toast.success("أهلاً بك يا مديرنا العام أحمد 👑");
-      navigate({ to: "/admin" });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 6) {
@@ -258,28 +211,6 @@ function AuthPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           {t("منصة النقل والخدمات الفاخرة", "Rides and home services")}
         </p>
-      </div>
-
-      {/* Special Admin Quick Login Banner */}
-      <div className="mb-4 bg-gradient-to-br from-amber-500/20 via-yellow-500/25 to-amber-600/20 border-2 border-amber-500/40 rounded-3xl p-4 shadow-md text-right">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">👑</span>
-            <div>
-              <div className="text-xs font-black text-amber-900">بوابة الإدارة العليا</div>
-              <div className="text-[11px] text-amber-800/80 font-bold">{SUPER_ADMIN_EMAIL}</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleAdminQuickLogin}
-            disabled={busy}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 text-white font-black text-xs shadow-md btn-press flex items-center gap-1.5"
-          >
-            <Crown className="h-3.5 w-3.5" />
-            <span>دخول الإدارة فوراً</span>
-          </button>
-        </div>
       </div>
 
       <div className="glass rounded-3xl p-6 shadow-card flex-1 flex flex-col">
