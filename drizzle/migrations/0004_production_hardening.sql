@@ -384,6 +384,14 @@ CREATE POLICY "Participants update own active location" ON public.live_locations
 CREATE POLICY "Owner deletes own location" ON public.live_locations FOR DELETE TO authenticated
   USING (auth.uid() = user_id);
 
+-- Notification recipients may only update the read marker, never notification content.
+REVOKE UPDATE ON public.notifications FROM authenticated;
+GRANT UPDATE (read_at) ON public.notifications TO authenticated;
+DROP POLICY IF EXISTS "User marks own notifications read" ON public.notifications;
+CREATE POLICY "User marks own notifications read" ON public.notifications
+  FOR UPDATE TO authenticated USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid() AND read_at IS NOT NULL);
+
 -- Chat recipients may only update the read marker, never rewrite message content or sender identity.
 REVOKE UPDATE ON public.messages FROM authenticated;
 GRANT UPDATE (read_at) ON public.messages TO authenticated;
