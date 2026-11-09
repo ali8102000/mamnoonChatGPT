@@ -7,79 +7,23 @@ export const dispatchRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ requestId: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: req, error } = await supabase
+    const { data: request, error } = await context.supabase
       .from("service_requests")
-      .select("*")
+      .select("id, customer_id, status, type")
       .eq("id", data.requestId)
       .maybeSingle();
 
-    if (error || !req) throw new Error("الطلب غير موجود");
-    if (req.customer_id !== userId) throw new Error("ليس لديك صلاحية لهذا الطلب");
-
-    // Update status to searching
-    await (supabase as any)
-      .from("service_requests")
-      .update({ status: "searching" })
-      .eq("id", req.id);
-
-    // Find all driver accounts to dispatch the ride offer to
-    let driverIds: string[] = [];
-    try {
-      const { data: roleDrivers } = await (supabase as any)
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "driver");
-
-      if (roleDrivers && roleDrivers.length > 0) {
-        driverIds = roleDrivers
-          .map((r: any) => r.user_id)
-          .filter((id: string) => id && id !== req.customer_id);
-      }
-    } catch {}
-
-    // Also look up driver profiles
-    try {
-      const { data: driverProfs } = await (supabase as any)
-        .from("driver_profiles")
-        .select("user_id");
-
-      if (driverProfs && driverProfs.length > 0) {
-        for (const dp of driverProfs) {
-          if (dp.user_id && dp.user_id !== req.customer_id && !driverIds.includes(dp.user_id)) {
-            driverIds.push(dp.user_id);
-          }
-        }
-      }
-    } catch {}
-
-    const expiresAt = new Date(Date.now() + 60 * 1000).toISOString();
-    let createdOffers = 0;
-
-    for (const driverId of driverIds) {
-      try {
-        const offerId = `offer_${req.id.slice(0, 8)}_${driverId.slice(0, 8)}`;
-        await (supabase as any).from("request_offers").upsert({
-          id: offerId,
-          request_id: req.id,
-          provider_id: driverId,
-          distance_km: req.distance_km || 1.8,
-          status: "pending",
-          sent_at: new Date().toISOString(),
-          expires_at: expiresAt,
-        });
-        createdOffers++;
-      } catch (err) {
-        console.warn("[dispatchRequest] offer creation failed for driver", driverId, err);
-      }
+    if (error || !request) throw new Error("الطلب غير موجود");
+    if (request.customer_id !== context.userId) {
+      throw new Error("ليس لديك صلاحية لهذا الطلب");
+    }
+    if (request.type !== "taxi") {
+      throw new Error("هذا المسار مخصص لطلبات التكسي فقط");
     }
 
-    // Try database RPC if available
-    try {
-      await (supabase as any).rpc("advance_taxi_dispatch", { _request_id: req.id });
-    } catch {}
-
-    return { offers: createdOffers, reason: "searching" };
+    // Taxi offers are created by the database dispatch trigger and its
+    // scheduled worker. Do not duplicate offers from the browser request.
+    return { offers: 0, reason: request.status };
   });
 
 /**
