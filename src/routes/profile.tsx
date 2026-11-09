@@ -101,7 +101,7 @@ function ProfilePage() {
         .then((rep) => setReputation(rep))
         .catch(() => {});
     }
-  }, [uid, isDriver, isProvider]);
+  }, [uid, isDriver, isProvider, getRepFn]);
 
   async function loadReviews() {
     if (!uid) return;
