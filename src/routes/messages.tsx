@@ -30,7 +30,7 @@ function MessagesPage() {
     loadChats();
 
     const ch = supabase
-      .channel(`chats-${session.user.id}`)
+      .channel(`chats-${userId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () =>
         loadChats(),
       )
@@ -44,11 +44,11 @@ function MessagesPage() {
     const { data } = await supabase
       .from("chats")
       .select("id, request_id, customer_id, provider_id, created_at")
-      .or(`customer_id.eq.${session!.user.id},provider_id.eq.${session!.user.id}`)
+      .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
       .order("created_at", { ascending: false });
     if (!data) return;
     const otherIds = data
-      .map((c) => (c.customer_id === session!.user.id ? c.provider_id : c.customer_id))
+      .map((c) => (c.customer_id === userId ? c.provider_id : c.customer_id))
       .filter((id): id is string => !!id);
     const { data: profs } =
       otherIds.length > 0
@@ -58,10 +58,10 @@ function MessagesPage() {
     setChats(
       data.map((c) => ({
         ...c,
-        other: map.get(c.customer_id === session!.user.id ? c.provider_id : c.customer_id),
+        other: map.get(c.customer_id === userId ? c.provider_id : c.customer_id),
       })),
     );
-  }, [session?.user.id]);
+  }, [userId]);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
