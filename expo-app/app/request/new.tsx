@@ -203,7 +203,7 @@ export default function NewRequest() {
         if (!taxiRequest?.requestId) throw new Error('تعذّر إنشاء طلب التكسي.');
         requestId = taxiRequest.requestId;
 
-        const { error: dispatchError } = await supabase.rpc('dispatch_request', {
+        const { error: dispatchError } = await supabase.rpc('retry_taxi_dispatch', {
           _request_id: requestId,
         });
         if (dispatchError) {
