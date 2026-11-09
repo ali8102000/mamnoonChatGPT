@@ -54,6 +54,7 @@ function SupportCenter() {
   const [adminViewAll, setAdminViewAll] = useState(false);
 
   const supportScrollRef = useRef<HTMLDivElement>(null);
+  const userId = session?.user.id;
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
@@ -67,12 +68,12 @@ function SupportCenter() {
     setLoadingTickets(true);
     let query = (supabase as any).from("support_tickets").select("*");
     if (!adminViewAll || !isSuperAdmin) {
-      query = query.eq("user_id", session!.user.id);
+      query = query.eq("user_id", userId!);
     }
     const { data } = await query.order("created_at", { ascending: false });
     setTickets(data ?? []);
     setLoadingTickets(false);
-  }, [adminViewAll, isSuperAdmin, session?.user.id]);
+  }, [adminViewAll, isSuperAdmin, userId]);
 
   useEffect(() => {
     if (!session) return;
