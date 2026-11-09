@@ -26,41 +26,41 @@ function MessagesPage() {
 
   const loadChats = useCallback(async () => {
     if (!session) return;
-    loadChats();
-
-    const ch = supabase
-      .channel(`chats-${session.user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () =>
-        loadChats(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    const userId = session.user.id;
+    const { data } = await supabase
+      .from("chats")
+      .select("id, request_id, customer_id, provider_id, created_at")
+      .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
+    if (!data) return;
+    const otherIds = data
+      .map((chat) => (chat.customer_id === userId ? chat.provider_id : chat.customer_id))
+      .filter((id): id is string => !!id);
+    const { data: profiles } =
+      otherIds.length > 0
+        ? await supabase.from("profiles").select("id, full_name, phone").in("id", otherIds)
+        : { data: [] };
+    const profilesById = new Map(profiles?.map((profile) => [profile.id, profile]) ?? []);
+    setChats(
+      data.map((chat) => ({
+        ...chat,
+        other: profilesById.get(chat.customer_id === userId ? chat.provider_id : chat.customer_id),
+      })),
+    );
   }, [session?.user.id]);
 
   useEffect(() => {
     if (!session) return;
-    const { data } = await supabase
-      .from("chats")
-      .select("id, request_id, customer_id, provider_id, created_at")
-      .or(`customer_id.eq.${session!.user.id},provider_id.eq.${session!.user.id}`)
-      .order("created_at", { ascending: false });
-    if (!data) return;
-    const otherIds = data
-      .map((c) => (c.customer_id === session!.user.id ? c.provider_id : c.customer_id))
-      .filter((id): id is string => !!id);
-    const { data: profs } =
-      otherIds.length > 0
-        ? await supabase.from("profiles").select("id, full_name, phone").in("id", otherIds)
-        : { data: [] };
-    const map = new Map(profs?.map((p) => [p.id, p]) ?? []);
-    setChats(
-      data.map((c) => ({
-        ...c,
-        other: map.get(c.customer_id === session!.user.id ? c.provider_id : c.customer_id),
-      })),
-    );
+    void loadChats();
+    const channel = supabase
+      .channel(`chats-${session.user.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () => {
+        void loadChats();
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [session?.user.id, loadChats]);
 
   if (loading) return null;
