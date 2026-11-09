@@ -97,7 +97,7 @@ export function ProviderPresence() {
       navigator.geolocation.clearWatch(watch);
       clearInterval(timer);
     };
-  }, [uid, hasDriverRole, hasWorkerRole]);
+  }, [uid, hasDriverRole, hasWorkerRole, isProvider]);
 
   return null;
 }
