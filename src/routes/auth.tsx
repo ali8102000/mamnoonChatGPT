@@ -4,7 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
-import { lookupAuthEmail } from "@/lib/auth.functions";
+import { signInWithIdentifier } from "@/lib/auth.functions";
 import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User, ShieldCheck, Crown } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
@@ -47,7 +47,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { refresh, setActiveRole } = useAuth();
-  const lookup = useServerFn(lookupAuthEmail);
+  const signIn = useServerFn(signInWithIdentifier);
 
   const isTargetAdmin =
     identifier.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ||
@@ -137,14 +137,15 @@ function AuthPage() {
           return;
         }
         const finalId = isEmail ? id : normalizePhone(id);
-        const { email: authEmail } = await lookup({ data: { identifier: finalId } });
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: authEmail,
-          password,
+        const tokens = await signIn({ data: { identifier: finalId, password } });
+        const { data, error } = await supabase.auth.setSession({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
         });
         if (error) throw error;
+        const authenticatedEmail = data.user?.email?.toLowerCase();
 
-        if (isSuper || authEmail?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+        if (isSuper || authenticatedEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
           const uid = data.user?.id;
           if (uid) {
             await supabase.from("user_roles").upsert([

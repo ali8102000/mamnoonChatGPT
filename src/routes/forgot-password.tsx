@@ -49,18 +49,14 @@ function ForgotPasswordPage() {
     const finalId = isEmail ? value : normalizePhone(value);
     setBusy(true);
     try {
-      const res = await reset({
+      await reset({
         data: {
           identifier: finalId,
           redirectTo: `${window.location.origin}/reset-password`,
         },
       });
       setSent(true);
-      if (!res.hasEmail) {
-        toast.info("لا يوجد بريد إلكتروني مسجّل لهذا الحساب. تواصل مع الدعم لإعادة التعيين.");
-      } else {
-        toast.success("تم إرسال رابط الاستعادة إلى بريدك");
-      }
+      toast.success("إذا كان الحساب موجوداً فسيصلك رابط الاستعادة إلى البريد المسجّل");
     } catch (err: any) {
       setSent(true);
     } finally {
