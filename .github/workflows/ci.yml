@@ -23,6 +23,8 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
+      - name: Validate Drizzle migration journal
+        run: bunx drizzle-kit check
       - run: bunx tsc --noEmit
       - run: bun run lint
       - run: bun run test
