@@ -42,7 +42,7 @@ export function DriverOfferPopup() {
 
     async function refreshOffer() {
       // 1. Look for targeted offers in request_offers
-      let { data: fetchedOffers } = await supabase
+      const { data: fetchedOffers } = await supabase
         .from("request_offers")
         .select("*")
         .eq("provider_id", uid ?? "")
