@@ -46,11 +46,13 @@ const VEHICLE_CATS: { key: VehicleCategory; label: string; emoji: string }[] = [
   { key: "luxury", label: "VIP", emoji: "🚘" },
 ];
 
-const BAGHDAD_REGION = {
-  latitude: 33.3152,
-  longitude: 44.3661,
-  latitudeDelta: 0.035,
-  longitudeDelta: 0.035,
+// Start with an Iraq-wide view when location permission is unavailable.
+// A successful GPS lookup immediately zooms the map to the user's position.
+const IRAQ_REGION = {
+  latitude: 33.2,
+  longitude: 43.8,
+  latitudeDelta: 9,
+  longitudeDelta: 11,
 };
 
 function formatAddress(parts: Location.LocationGeocodedAddress[] | null | undefined) {
@@ -71,7 +73,7 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
-  const [region, setRegion] = useState(BAGHDAD_REGION);
+  const [region, setRegion] = useState(IRAQ_REGION);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>("economy");
   const [workerLevel, setWorkerLevel] = useState<"fani" | "khabir">("fani");
