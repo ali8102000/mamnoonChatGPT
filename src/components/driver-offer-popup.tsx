@@ -50,6 +50,7 @@ export function DriverOfferPopup() {
         .gt("expires_at", new Date().toISOString())
         .order("sent_at")
         .limit(10);
+      let offers: Offer[] | null = fetchedOffers;
 
       // 2. If no direct offer exists, check for unassigned pending taxi requests
       if (!offers || offers.length === 0) {

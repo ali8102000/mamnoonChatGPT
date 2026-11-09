@@ -41,7 +41,7 @@ export function ActiveRequestBanner() {
           .select(
             "id, type, status, pickup_text, dest_text, price_estimate, customer_price, created_at",
           )
-          .eq("customer_id", uid)
+          .eq("customer_id", uid ?? "")
           .in("status", ["pending", "searching", "accepted", "in_progress"])
           .order("created_at", { ascending: false })
           .limit(1)
