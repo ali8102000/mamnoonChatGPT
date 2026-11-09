@@ -4,14 +4,19 @@ import { Platform } from "react-native";
 import "react-native-url-polyfill/auto";
 
 // These are public client values only. Never place a Supabase service-role key here.
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+const configuredUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ?? "";
+const configuredPublishableKey =
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "إعدادات الاتصال غير مكتملة. أضف EXPO_PUBLIC_SUPABASE_URL و EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY إلى بيئة البناء.",
-  );
-}
+export const isSupabaseConfigured = Boolean(
+  configuredUrl && configuredPublishableKey,
+);
+
+// Keep the app shell renderable when a developer preview is missing its
+// environment. Requests will fail against this reserved invalid host rather
+// than crashing the entire app during module initialization.
+const supabaseUrl = configuredUrl || "https://missing-config.invalid";
+const supabaseAnonKey = configuredPublishableKey || "missing-publishable-key";
 
 const storageAdapter =
   Platform.OS === "web"
@@ -50,6 +55,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 export async function authProxy<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  if (!isSupabaseConfigured) {
+    throw new Error(
+      "إعدادات الاتصال غير مكتملة. أضف رابط Supabase ومفتاح النشر إلى بيئة التطبيق ثم أعد تشغيله.",
+    );
+  }
   const response = await fetch(`${supabaseUrl}/functions/v1/auth-proxy${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: supabaseAnonKey },
