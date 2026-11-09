@@ -48,6 +48,24 @@ The latest branch CI run is green: web TypeScript, lint command, tests and produ
 
 This is not a zero-warning certification. ESLint still reports 40 non-blocking React Hook/Fast Refresh warnings. The Prettier rule is temporarily disabled in CI because the repository has a large pre-existing formatting backlog; formatting cleanup remains separate work.
 
+## Automated verification completed on the transfer branch
+
+The latest completed GitHub Actions run passed:
+
+- Web TypeScript check.
+- ESLint with `--max-warnings=0` (zero lint warnings).
+- Vitest suite.
+- Web production build.
+- Expo TypeScript check and public config validation.
+- Expo Doctor (18/18 checks).
+- Android JavaScript bundle export.
+- Supabase Edge Function Deno typecheck.
+- Drizzle migration journal consistency check.
+
+One non-blocking upstream bundler warning remains in the Nitro/Vite 8 build: `inlineDynamicImports` is ignored when `codeSplitting` is set. The app build succeeds; this warning originates in the build toolchain rather than an ESLint finding. It has not been hidden or suppressed.
+
+These are automated build and static checks, not a live-device acceptance test or a live Supabase migration test.
+
 ## Required deployment configuration
 
 ### Web/server environment
