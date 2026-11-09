@@ -15,6 +15,8 @@ jobs:
         working-directory: expo-app
     steps:
       - uses: actions/checkout@v5
+      - name: Set Git default branch for clean CI logs
+        run: git config --global init.defaultBranch main
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
