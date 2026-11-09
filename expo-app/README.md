@@ -25,6 +25,8 @@ Then run:
 bun run build:android
 ```
 
+For the GitHub Android AAB workflow, add the GitHub Actions secret `EXPO_TOKEN`.
+
 The app intentionally does not contain a Supabase service-role key. Authentication and taxi-request creation use the deployed Edge Functions.
 
 Phone OTP/SMS verification is not enabled in this port; until SMS is configured, account registration requires a real email address. Do not treat a phone number alone as verified.
