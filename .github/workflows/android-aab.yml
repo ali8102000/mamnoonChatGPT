@@ -1,10 +1,12 @@
 name: Android production AAB
 
 on:
-  workflow_run:
-    workflows: ["Mamnoon mobile CI"]
-    types: [completed]
+  push:
     branches: [main]
+    paths:
+      - "expo-app/**"
+      - ".github/workflows/android-aab.yml"
+      - ".github/workflows/mobile-ci.yml"
   workflow_dispatch:
 
 permissions:
@@ -16,8 +18,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
-    name: Build and export Mamnoon Android App Bundle
+    name: Validate and build Mamnoon Android App Bundle
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -32,20 +33,33 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: TypeScript check
+        run: bunx tsc --noEmit
+      - name: Expo Doctor
+        run: bunx expo-doctor
+      - name: Export Android JavaScript bundle
+        run: bunx expo export --platform android
       - name: Validate build credentials and EAS project
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
+          missing=0
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::GitHub Actions secret EXPO_TOKEN is required."
-            exit 1
+            echo "::error::Missing GitHub Actions secret: EXPO_TOKEN"
+            echo "- Missing GitHub secret EXPO_TOKEN" >> "$GITHUB_STEP_SUMMARY"
+            missing=1
           fi
           if [ -z "$EAS_PROJECT_ID" ]; then
-            echo "::error::Add EAS_PROJECT_ID as a GitHub Actions repository variable (not a secret)."
-            exit 1
-          fi
-          if ! printf '%s' "$EAS_PROJECT_ID" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'; then
+            echo "::error::Missing GitHub Actions repository variable: EAS_PROJECT_ID"
+            echo "- Missing GitHub variable EAS_PROJECT_ID" >> "$GITHUB_STEP_SUMMARY"
+            missing=1
+          elif ! printf '%s' "$EAS_PROJECT_ID" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'; then
             echo "::error::EAS_PROJECT_ID must be a valid Expo project UUID."
+            echo "- Invalid GitHub variable EAS_PROJECT_ID" >> "$GITHUB_STEP_SUMMARY"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "AAB build stopped before contacting EAS because required GitHub credentials or project configuration are missing." >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
       - name: Validate production EAS environment variables
