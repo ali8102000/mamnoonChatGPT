@@ -146,6 +146,10 @@ export type Database = {
       driver_profiles: {
         Row: {
           available: boolean
+          is_verified: boolean
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
           completed_rides: number
           created_at: string
           id: string
@@ -165,6 +169,10 @@ export type Database = {
         }
         Insert: {
           available?: boolean
+          is_verified?: boolean
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
           completed_rides?: number
           created_at?: string
           id?: string
@@ -184,6 +192,10 @@ export type Database = {
         }
         Update: {
           available?: boolean
+          is_verified?: boolean
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
           completed_rides?: number
           created_at?: string
           id?: string
@@ -1368,6 +1380,10 @@ export type Database = {
       worker_profiles: {
         Row: {
           available: boolean
+          is_verified: boolean
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
           bio: string | null
           completed_jobs: number
           created_at: string
@@ -1381,6 +1397,10 @@ export type Database = {
         }
         Insert: {
           available?: boolean
+          is_verified?: boolean
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
           bio?: string | null
           completed_jobs?: number
           created_at?: string
@@ -1394,6 +1414,10 @@ export type Database = {
         }
         Update: {
           available?: boolean
+          is_verified?: boolean
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
           bio?: string | null
           completed_jobs?: number
           created_at?: string
@@ -1594,6 +1618,14 @@ export type Database = {
       admin_set_provider_status: {
         Args: { p_status: string; p_type: string; p_user_id: string }
         Returns: undefined
+      }
+      admin_set_provider_verification: {
+        Args: { _provider_id: string; _provider_type: string; _verified: boolean }
+        Returns: undefined
+      }
+      worker_is_near_service_request: {
+        Args: { _request_id: string }
+        Returns: boolean
       }
       admin_unblock_user: { Args: { p_user_id: string }; Returns: undefined }
       advance_taxi_dispatch: { Args: { _request_id: string }; Returns: number }
