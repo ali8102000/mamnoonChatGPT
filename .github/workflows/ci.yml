@@ -42,3 +42,13 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx tsc --noEmit
       - run: bunx expo config --type public
+
+  edge-functions:
+    name: Supabase Edge Function typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/auth-proxy/index.ts supabase/functions/create-taxi-request/index.ts supabase/functions/subscription-cron/index.ts
