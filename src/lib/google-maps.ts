@@ -1,108 +1,139 @@
-// Lightweight Google Maps JS API loader (singleton)
-// Falls back to Leaflet/OpenStreetMap if no valid authorized Google Maps API key is available,
-// or if Google Maps fails authentication (e.g. RefererNotAllowedMapError).
+// Lightweight Google Maps JS API loader (singleton).
+// Falls back to Leaflet/OpenStreetMap if no API key is available.
 
-let loaderPromise: Promise<any> | null = null;
+type GoogleMapsApi = typeof google;
+type BrowserWindow = Window & { google?: GoogleMapsApi; L?: LeafletNamespace; gm_authFailure?: () => void };
+type LeafletPoint = { lat: number; lng: number };
+type LeafletCallback = (...args: unknown[]) => void;
+type LeafletBounds = {
+  extend(position: [number, number]): void;
+  getSouthWest(): LeafletPoint;
+  getNorthEast(): LeafletPoint;
+};
+type LeafletMap = {
+  getCenter(): LeafletPoint;
+  panTo(position: [number, number]): void;
+  setZoom(zoom: number): void;
+  fitBounds(bounds: LeafletBounds, options?: { padding?: [number, number] }): void;
+  on(event: string, callback: LeafletCallback): void;
+};
+type LeafletLayer = { addTo(map: LeafletMap): unknown };
+type LeafletMarker = {
+  addTo(map: LeafletMap): LeafletMarker;
+  on(event: string, callback: LeafletCallback): void;
+  setLatLng(position: [number, number]): void;
+  getLatLng(): LeafletPoint;
+  remove(): void;
+};
+type LeafletPolyline = {
+  addTo(map: LeafletMap): LeafletPolyline;
+  setLatLngs(points: Array<[number, number]>): void;
+  remove(): void;
+};
+type LeafletNamespace = {
+  map(element: HTMLElement, options: Record<string, unknown>): LeafletMap;
+  tileLayer(url: string, options: { maxZoom: number }): LeafletLayer;
+  marker(position: [number, number], options: { icon: unknown }): LeafletMarker;
+  divIcon(options: { className: string; html: string; iconSize: [number, number] }): unknown;
+  polyline(points: Array<[number, number]>, options: { color: string; weight: number; opacity: number }): LeafletPolyline;
+  latLngBounds(points: Array<[number, number]>): LeafletBounds;
+};
+type AdapterMap = { _map: LeafletMap };
+type LatLngInput = google.maps.LatLng | google.maps.LatLngLiteral;
+
+function coordinates(position: LatLngInput): [number, number] {
+  const LatLngConstructor = (window as BrowserWindow).google?.maps.LatLng;
+  if (LatLngConstructor && position instanceof LatLngConstructor) {
+    return [position.lat(), position.lng()];
+  }
+  const literal = position as google.maps.LatLngLiteral;
+  return [literal.lat, literal.lng];
+}
+
+let loaderPromise: Promise<GoogleMapsApi> | null = null;
 let provider: "google" | "leaflet" | null = null;
 
-// Restricted Lovable fallback key that is blocked on non-lovable domains (ais-dev-*.run.app)
-const RESTRICTED_FALLBACK_KEY = "AIzaSyBmvJph4LmrbtW7skeczzpBIyb9WWzFKo4";
+if (typeof window !== "undefined") {
+  const browser = window as BrowserWindow;
+  const originalAuthFailure = browser.gm_authFailure;
+  browser.gm_authFailure = () => {
+    provider = "leaflet";
+    try { originalAuthFailure?.(); } catch {}
+    document.querySelectorAll(".gm-err-container, .gm-err-content, .dismissButton").forEach((element) => {
+      element.closest(".gm-err-container")?.remove();
+      element.remove();
+    });
+  };
+}
 
 export function getMapProvider(): "google" | "leaflet" | null {
   return provider;
 }
 
-// Hook gm_authFailure early to suppress broken key popups and fallback seamlessly
-if (typeof window !== "undefined") {
-  const originalAuthFailure = (window as any).gm_authFailure;
-  (window as any).gm_authFailure = () => {
-    console.warn("Google Maps authorization failed (RefererNotAllowedMapError); falling back to Leaflet/OpenStreetMap");
-    provider = "leaflet";
-    if (typeof originalAuthFailure === "function") {
-      try {
-        originalAuthFailure();
-      } catch {}
-    }
-    // Remove error overlays injected by Google Maps
-    const errorContainers = document.querySelectorAll(".gm-err-container, .gm-err-content, .dismissButton");
-    errorContainers.forEach((el) => {
-      el.closest(".gm-err-container")?.remove();
-      el.remove();
-    });
-  };
-}
-
-export function loadGoogleMaps(): Promise<any> {
+export function loadGoogleMaps(): Promise<GoogleMapsApi> {
   if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
-  if ((window as any).google?.maps) {
+  const browser = window as BrowserWindow;
+  if (browser.google?.maps) {
     provider = "google";
-    return Promise.resolve((window as any).google);
+    return Promise.resolve(browser.google);
   }
   if (loaderPromise) return loaderPromise;
 
-  const rawKey =
-    typeof import.meta !== "undefined" && import.meta.env
-      ? ((import.meta.env["VITE_GOOGLE_MAPS_API_KEY"] as string | undefined) ||
-         (import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined))
-      : undefined;
+  const key =
+    (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ||
+    (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined);
+  const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
 
-  // If no key or if the key is the restricted Lovable domain key that fails on AI Studio / custom domains:
-  const isKeyValidForDomain = Boolean(rawKey && rawKey !== RESTRICTED_FALLBACK_KEY);
-
-  if (!isKeyValidForDomain) {
+  if (!key) {
     loaderPromise = loadLeafletFallback();
     return loaderPromise;
   }
 
-  const key = rawKey!;
-  const channel =
-    typeof import.meta !== "undefined" && import.meta.env
-      ? (import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"] as string | undefined)
-      : undefined;
-
   loaderPromise = new Promise((resolve, reject) => {
-    const cbName = `__gmInit_${Date.now()}`;
+    const callbackName = `__gmInit_${Date.now()}`;
+    const callbackHost = window as unknown as Record<string, unknown>;
     let settled = false;
 
-    const fallback = () => {
+    const timeout = setTimeout(() => {
       if (settled) return;
       settled = true;
-      delete (window as any)[cbName];
-      loadLeafletFallback().then(resolve).catch(reject);
-    };
+      delete callbackHost[callbackName];
+      void loadLeafletFallback().then(resolve).catch(reject);
+    }, 6000);
 
-    const timeout = setTimeout(fallback, 4000);
-
-    (window as any).gm_authFailure = () => {
-      console.warn("Google Maps auth failure callback fired; falling back to Leaflet");
-      fallback();
-    };
-
-    (window as any)[cbName] = () => {
+    callbackHost[callbackName] = () => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
+      delete callbackHost[callbackName];
+      if (provider === "leaflet") {
+        void loadLeafletFallback().then(resolve).catch(reject);
+        return;
+      }
       provider = "google";
-      resolve((window as any).google);
-      delete (window as any)[cbName];
+      const api = (window as BrowserWindow).google;
+      if (api?.maps) resolve(api);
+      else void loadLeafletFallback().then(resolve).catch(reject);
     };
 
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=${cbName}&language=ar&region=IQ${channel ? `&channel=${channel}` : ""}`;
-    s.async = true;
-    s.defer = true;
-    s.onerror = () => {
-      fallback();
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&loading=async&callback=${callbackName}&language=ar&region=IQ${channel ? `&channel=${encodeURIComponent(channel)}` : ""}`;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      loaderPromise = null;
+      void loadLeafletFallback().then(resolve).catch(reject);
     };
-    document.head.appendChild(s);
+    document.head.appendChild(script);
   });
 
   return loaderPromise;
 }
 
-async function loadLeafletFallback(): Promise<any> {
-  if (typeof document === "undefined") return Promise.reject(new Error("SSR"));
-
+async function loadLeafletFallback(): Promise<GoogleMapsApi> {
   if (!document.querySelector('link[href*="leaflet"]')) {
     const link = document.createElement("link");
     link.rel = "stylesheet";
@@ -110,350 +141,269 @@ async function loadLeafletFallback(): Promise<any> {
     document.head.appendChild(link);
   }
 
-  if ((window as any).L) {
+  const browser = window as BrowserWindow;
+  if (browser.L) {
     provider = "leaflet";
-    return createLeafletAdapter((window as any).L);
+    return createLeafletAdapter(browser.L);
   }
 
   return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    s.async = true;
-    s.onload = () => {
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.async = true;
+    script.onload = () => {
+      const leaflet = (window as BrowserWindow).L;
+      if (!leaflet) {
+        reject(new Error("Leaflet script loaded without its API"));
+        return;
+      }
       provider = "leaflet";
-      resolve(createLeafletAdapter((window as any).L));
+      resolve(createLeafletAdapter(leaflet));
     };
-    s.onerror = () => {
+    script.onerror = () => {
       loaderPromise = null;
       reject(new Error("Failed to load map"));
     };
-    document.head.appendChild(s);
+    document.head.appendChild(script);
   });
 }
 
-function createLeafletAdapter(L: any): any {
-  class Point {
-    constructor(
-      public x: number,
-      public y: number,
-    ) {}
-  }
-  class Size {
-    constructor(
-      public width: number,
-      public height: number,
-    ) {}
-  }
-  class LatLng {
-    constructor(
-      public _lat: number,
-      public _lng: number,
-    ) {}
-    lat() {
-      return this._lat;
+function createLeafletAdapter(L: LeafletNamespace): GoogleMapsApi {
+  class MapAdapter {
+    readonly _map: LeafletMap;
+    readonly _listeners: Record<string, LeafletCallback[]> = {};
+
+    constructor(element: HTMLElement, options: google.maps.MapOptions) {
+      const center = options.center ? coordinates(options.center) : [33.3152, 44.3661] as [number, number];
+      const map = L.map(element, {
+        center,
+        zoom: options.zoom || 14,
+        zoomControl: options.zoomControl !== false,
+        attributionControl: false,
+      });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+      this._map = map;
     }
-    lng() {
-      return this._lng;
+
+    getCenter(): google.maps.LatLngLiteral {
+      const center = this._map.getCenter();
+      return { lat: center.lat, lng: center.lng };
+    }
+
+    panTo(position: LatLngInput): void {
+      this._map.panTo(coordinates(position));
+    }
+
+    setZoom(zoom: number): void {
+      this._map.setZoom(zoom);
+    }
+
+    fitBounds(bounds: google.maps.LatLngBounds, padding?: number): void {
+      const southWest = bounds.getSouthWest();
+      const northEast = bounds.getNorthEast();
+      const leafletBounds = L.latLngBounds([
+        [southWest.lat(), southWest.lng()],
+        [northEast.lat(), northEast.lng()],
+      ]);
+      this._map.fitBounds(leafletBounds, { padding: padding ? [padding, padding] : undefined });
+    }
+
+    addListener(event: string, callback: LeafletCallback): void {
+      const leafletEvent = event === "idle" ? "moveend" : event;
+      this._map.on(leafletEvent, callback);
+      (this._listeners[leafletEvent] ??= []).push(callback);
+    }
+  }
+
+  class MarkerAdapter {
+    readonly _marker: LeafletMarker;
+
+    constructor(options: google.maps.MarkerOptions) {
+      const position = options.position;
+      if (!position) throw new Error("Marker position is required");
+      const [lat, lng] = coordinates(position);
+      const map = options.map as unknown as AdapterMap | null;
+      this._marker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: "custom-marker",
+          html: '<div style="width:20px;height:20px;background:#0ea5e9;border:2px solid white;border-radius:50%;"></div>',
+          iconSize: [20, 20],
+        }),
+      }).addTo(map?._map ?? options.map as unknown as LeafletMap);
+    }
+
+    addListener(event: string, callback: LeafletCallback): void {
+      this._marker.on(event, callback);
+    }
+
+    setPosition(position: LatLngInput): void {
+      this._marker.setLatLng(coordinates(position));
+    }
+
+    getPosition(): google.maps.LatLng {
+      const point = this._marker.getLatLng();
+      return {
+        lat: () => point.lat,
+        lng: () => point.lng,
+        toJSON: () => ({ lat: point.lat, lng: point.lng }),
+      } as google.maps.LatLng;
+    }
+
+    setMap(map: google.maps.Map | null): void {
+      if (!map) this._marker.remove();
+    }
+
+    setIcon(icon: string | google.maps.Icon | google.maps.Symbol): void {
+      void icon;
+    }
+
+    getIcon(): string | google.maps.Icon | google.maps.Symbol | null {
+      return null;
+    }
+  }
+
+  class PolylineAdapter {
+    readonly _line: LeafletPolyline;
+
+    constructor(options: google.maps.PolylineOptions) {
+      const map = options.map as unknown as AdapterMap | null;
+      this._line = L.polyline([], {
+        color: options.strokeColor || "#0284c7",
+        weight: options.strokeWeight || 3,
+        opacity: options.strokeOpacity || 0.5,
+      }).addTo(map?._map ?? options.map as unknown as LeafletMap);
+    }
+
+    setPath(path: google.maps.MVCArray<google.maps.LatLng> | google.maps.LatLng[] | google.maps.LatLngLiteral[]): void {
+      const points = Array.isArray(path) ? path : path.getArray();
+      this._line.setLatLngs(points.map((point) => coordinates(point)));
+    }
+
+    setMap(map: google.maps.Map | null): void {
+      if (!map) this._line.remove();
+    }
+  }
+
+  class GeocoderAdapter {
+    geocode(
+      request: google.maps.GeocoderRequest,
+      callback: (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus) => void,
+    ): void {
+      if (!request.location) {
+        callback(null, "INVALID_REQUEST" as google.maps.GeocoderStatus);
+        return;
+      }
+      const [lat, lng] = coordinates(request.location);
+      void fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`)
+        .then((response) => response.json())
+        .then((data: unknown) => {
+          const record = data as { display_name?: string };
+          const results = [{ formatted_address: record.display_name ?? "" }] as unknown as google.maps.GeocoderResult[];
+          callback(results, "OK" as google.maps.GeocoderStatus);
+        })
+        .catch(() => callback(null, "ERROR" as google.maps.GeocoderStatus));
+    }
+  }
+
+  class AutocompleteAdapter {
+    getPlacePredictions(
+      request: google.maps.places.AutocompletionRequest,
+      callback: (predictions: google.maps.places.AutocompletePrediction[] | null, status: google.maps.places.PlacesServiceStatus) => void,
+    ): void {
+      void fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(request.input)}&countrycodes=iq&accept-language=ar&limit=6`)
+        .then((response) => response.json())
+        .then((data: unknown) => {
+          const rows = Array.isArray(data) ? data as Array<{ place_id?: number; osm_id?: number; display_name?: string; name?: string }> : [];
+          const predictions = rows.map((row) => ({
+            place_id: row.place_id?.toString() ?? row.osm_id?.toString() ?? "",
+            description: row.display_name ?? "",
+            structured_formatting: {
+              main_text: row.name ?? row.display_name?.split(",")[0] ?? "",
+              secondary_text: row.display_name?.split(",").slice(1).join(",").trim() ?? "",
+            },
+          })) as unknown as google.maps.places.AutocompletePrediction[];
+          callback(predictions, "OK" as google.maps.places.PlacesServiceStatus);
+        })
+        .catch(() => callback([], "ERROR" as google.maps.places.PlacesServiceStatus));
+    }
+  }
+
+  class PlacesServiceAdapter {
+    constructor(map: google.maps.Map) {
+      void map;
+    }
+
+    getDetails(
+      request: google.maps.places.PlaceDetailsRequest,
+      callback: (place: google.maps.places.PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => void,
+    ): void {
+      void fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(request.placeId)}&accept-language=ar&limit=1`)
+        .then((response) => response.json())
+        .then((data: unknown) => {
+          const rows = Array.isArray(data) ? data as Array<{ lat: string; lon: string; display_name?: string; name?: string }> : [];
+          const first = rows[0];
+          if (!first) {
+            callback(null, "ZERO_RESULTS" as google.maps.places.PlacesServiceStatus);
+            return;
+          }
+          const place = {
+            geometry: {
+              location: {
+                lat: () => Number.parseFloat(first.lat),
+                lng: () => Number.parseFloat(first.lon),
+              },
+            },
+            formatted_address: first.display_name ?? "",
+            name: first.name ?? first.display_name?.split(",")[0] ?? "",
+          } as unknown as google.maps.places.PlaceResult;
+          callback(place, "OK" as google.maps.places.PlacesServiceStatus);
+        })
+        .catch(() => callback(null, "ERROR" as google.maps.places.PlacesServiceStatus));
+    }
+  }
+
+  class LatLngBoundsAdapter {
+    readonly _bounds: LeafletBounds;
+
+    constructor() {
+      this._bounds = L.latLngBounds([]);
+    }
+
+    extend(position: LatLngInput): void {
+      const [lat, lng] = coordinates(position);
+      this._bounds.extend([lat, lng]);
+    }
+
+    getSouthWest(): google.maps.LatLng {
+      const point = this._bounds.getSouthWest();
+      return { lat: () => point.lat, lng: () => point.lng } as google.maps.LatLng;
+    }
+
+    getNorthEast(): google.maps.LatLng {
+      const point = this._bounds.getNorthEast();
+      return { lat: () => point.lat, lng: () => point.lng } as google.maps.LatLng;
     }
   }
 
   const adapter = {
     maps: {
-      Point,
-      Size,
-      LatLng,
-      Animation: {
-        DROP: 1,
-        BOUNCE: 2,
+      Map: MapAdapter,
+      Marker: MarkerAdapter,
+      Polyline: PolylineAdapter,
+      Geocoder: GeocoderAdapter,
+      places: {
+        AutocompleteService: AutocompleteAdapter,
+        AutocompleteSessionToken: class {},
+        PlacesService: PlacesServiceAdapter,
       },
       SymbolPath: {
-        CIRCLE: 0,
         FORWARD_CLOSED_ARROW: 1,
-        BACKWARD_CLOSED_ARROW: 2,
+        CIRCLE: 0,
       },
-      Map: class {
-        constructor(el: HTMLElement, opts: any) {
-          const lat =
-            typeof opts.center?.lat === "function" ? opts.center.lat() : opts.center?.lat ?? 33.3152;
-          const lng =
-            typeof opts.center?.lng === "function" ? opts.center.lng() : opts.center?.lng ?? 44.3661;
-          const map = L.map(el, {
-            center: [lat, lng],
-            zoom: opts.zoom || 14,
-            zoomControl: opts.zoomControl !== false,
-            attributionControl: false,
-          });
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            maxZoom: 19,
-          }).addTo(map);
-          this._map = map;
-          this._listeners = {};
-        }
-        _map: any;
-        _listeners: Record<string, Function[]>;
-        getCenter() {
-          const c = this._map.getCenter();
-          return {
-            lat: () => c.lat,
-            lng: () => c.lng,
-            _lat: c.lat,
-            _lng: c.lng,
-          };
-        }
-        panTo(pos: any) {
-          if (!pos) return;
-          const lat = typeof pos.lat === "function" ? pos.lat() : pos.lat;
-          const lng = typeof pos.lng === "function" ? pos.lng() : pos.lng;
-          this._map.panTo([lat, lng]);
-        }
-        setZoom(z: number) {
-          this._map.setZoom(z);
-        }
-        fitBounds(bounds: any, padding?: number | [number, number] | any) {
-          try {
-            const sw = bounds.getSouthWest();
-            const ne = bounds.getNorthEast();
-            const swLat = typeof sw.lat === "function" ? sw.lat() : sw.lat;
-            const swLng = typeof sw.lng === "function" ? sw.lng() : sw.lng;
-            const neLat = typeof ne.lat === "function" ? ne.lat() : ne.lat;
-            const neLng = typeof ne.lng === "function" ? ne.lng() : ne.lng;
-            const b = L.latLngBounds([
-              [swLat, swLng],
-              [neLat, neLng],
-            ]);
-            const padVal = typeof padding === "number" ? [padding, padding] : [50, 50];
-            this._map.fitBounds(b, { padding: padVal });
-          } catch {}
-        }
-        addListener(event: string, cb: Function) {
-          if (event === "click") {
-            const wrapped = (e: any) => {
-              cb({
-                latLng: {
-                  lat: () => e.latlng.lat,
-                  lng: () => e.latlng.lng,
-                },
-              });
-            };
-            this._map.on("click", wrapped);
-            return;
-          }
-          const leafletEvent = event === "idle" ? "moveend" : event;
-          this._map.on(leafletEvent, cb);
-          if (!this._listeners[leafletEvent]) this._listeners[leafletEvent] = [];
-          this._listeners[leafletEvent].push(cb);
-        }
-      },
-      Marker: class {
-        constructor(opts: any) {
-          const lat =
-            typeof opts.position?.lat === "function" ? opts.position.lat() : opts.position?.lat ?? 33.3152;
-          const lng =
-            typeof opts.position?.lng === "function" ? opts.position.lng() : opts.position?.lng ?? 44.3661;
-          const map = opts.map?._map || opts.map;
-          const isDraggable = Boolean(opts.draggable);
-
-          const marker = L.marker([lat, lng], {
-            draggable: isDraggable,
-            title: opts.title || "",
-            icon: L.divIcon({
-              className: "custom-leaflet-marker",
-              html: '<div style="width:24px;height:24px;background:#0ea5e9;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.35);"></div>',
-              iconSize: [24, 24],
-              iconAnchor: [12, 12],
-            }),
-          });
-          if (map) marker.addTo(map);
-          this._marker = marker;
-          if (opts.icon) this.setIcon(opts.icon);
-        }
-        _marker: any;
-        addListener(event: string, cb: Function) {
-          if (event === "dragend") {
-            this._marker.on("dragend", () => {
-              cb();
-            });
-            return;
-          }
-          this._marker.on(event, cb);
-        }
-        setPosition(pos: any) {
-          if (!pos) return;
-          const lat = typeof pos.lat === "function" ? pos.lat() : pos.lat;
-          const lng = typeof pos.lng === "function" ? pos.lng() : pos.lng;
-          this._marker.setLatLng([lat, lng]);
-        }
-        getPosition() {
-          const ll = this._marker.getLatLng();
-          return {
-            lat: () => ll.lat,
-            lng: () => ll.lng,
-          };
-        }
-        setMap(map: any) {
-          if (!map) {
-            this._marker?.remove?.();
-          } else {
-            this._marker?.addTo?.(map._map || map);
-          }
-        }
-        setIcon(icon: any) {
-          if (!icon) return;
-          const color = icon.fillColor || "#0ea5e9";
-          const rotation = icon.rotation || 0;
-          let innerHtml = "";
-          if (icon.path === 1 || rotation) {
-            innerHtml = `<div style="transform: rotate(${rotation}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; font-size: 20px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🚕</div>`;
-          } else if (color === "#e11d48") {
-            innerHtml = `<div style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; background: #e11d48; border: 2.5px solid white; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.35); font-size: 14px; color: white;">📍</div>`;
-          } else {
-            innerHtml = `<div style="display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: ${color}; border: 2.5px solid white; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>`;
-          }
-          this._marker.setIcon(
-            L.divIcon({
-              className: "custom-leaflet-marker",
-              html: innerHtml,
-              iconSize: [34, 34],
-              iconAnchor: [17, 17],
-            }),
-          );
-        }
-        getIcon() {
-          return {};
-        }
-      },
-      Polyline: class {
-        constructor(opts: any) {
-          const rawPath = opts.path || [];
-          const latlngs = rawPath.map((p: any) => [
-            typeof p.lat === "function" ? p.lat() : p.lat,
-            typeof p.lng === "function" ? p.lng() : p.lng,
-          ]);
-          this._line = L.polyline(latlngs, {
-            color: opts.strokeColor || "#0284c7",
-            weight: opts.strokeWeight || 4,
-            opacity: opts.strokeOpacity || 0.85,
-          });
-          const map = opts.map?._map || opts.map;
-          if (map) this._line.addTo(map);
-        }
-        _line: any;
-        setPath(path: any[]) {
-          const latlngs = (path || []).map((p: any) => [
-            typeof p.lat === "function" ? p.lat() : p.lat,
-            typeof p.lng === "function" ? p.lng() : p.lng,
-          ]);
-          this._line.setLatLngs(latlngs);
-        }
-        setMap(map: any) {
-          if (!map) {
-            this._line?.remove?.();
-          } else {
-            this._line?.addTo?.(map._map || map);
-          }
-        }
-      },
-      LatLngBounds: class {
-        constructor() {
-          this._points = [];
-        }
-        _points: any[];
-        extend(pos: any) {
-          if (!pos) return;
-          const lat = typeof pos.lat === "function" ? pos.lat() : pos.lat;
-          const lng = typeof pos.lng === "function" ? pos.lng() : pos.lng;
-          this._points.push([lat, lng]);
-        }
-        getSouthWest() {
-          if (!this._points.length) return { lat: () => 33.3, lng: () => 44.3 };
-          const minLat = Math.min(...this._points.map((p) => p[0]));
-          const minLng = Math.min(...this._points.map((p) => p[1]));
-          return { lat: () => minLat, lng: () => minLng };
-        }
-        getNorthEast() {
-          if (!this._points.length) return { lat: () => 33.4, lng: () => 44.4 };
-          const maxLat = Math.max(...this._points.map((p) => p[0]));
-          const maxLng = Math.max(...this._points.map((p) => p[1]));
-          return { lat: () => maxLat, lng: () => maxLng };
-        }
-      },
-      Geocoder: class {
-        geocode(req: any, cb: Function) {
-          const lat =
-            typeof req.location?.lat === "function" ? req.location.lat() : req.location?.lat;
-          const lng =
-            typeof req.location?.lng === "function" ? req.location.lng() : req.location?.lng;
-          fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`,
-          )
-            .then((r) => r.json())
-            .then((data) => {
-              if (data?.display_name) {
-                cb([{ formatted_address: data.display_name }], "OK");
-              } else {
-                cb(null, "ZERO_RESULTS");
-              }
-            })
-            .catch(() => cb(null, "ERROR"));
-        }
-      },
-      places: {
-        AutocompleteService: class {
-          getPlacePredictions(req: any, cb: Function) {
-            fetch(
-              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(req.input)}&countrycodes=iq&accept-language=ar&limit=6`,
-            )
-              .then((r) => r.json())
-              .then((data) => {
-                cb(
-                  (data || []).map((d: any) => ({
-                    place_id: d.place_id?.toString() || d.osm_id?.toString(),
-                    description: d.display_name,
-                    structured_formatting: {
-                      main_text: d.name || d.display_name?.split(",")[0] || "",
-                      secondary_text:
-                        d.display_name?.split(",").slice(1).join(",").trim() || "",
-                    },
-                  })),
-                  "OK",
-                );
-              })
-              .catch(() => cb([], "ERROR"));
-          }
-        },
-        AutocompleteSessionToken: class {},
-        PlacesService: class {
-          constructor(_map: any) {}
-          getDetails(req: any, cb: Function) {
-            fetch(
-              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(req.placeId)}&accept-language=ar&limit=1`,
-            )
-              .then((r) => r.json())
-              .then((data) => {
-                if (data && data[0]) {
-                  cb(
-                    {
-                      geometry: {
-                        location: {
-                          lat: () => parseFloat(data[0].lat),
-                          lng: () => parseFloat(data[0].lon),
-                        },
-                      },
-                      formatted_address: data[0].display_name,
-                      name: data[0].name || data[0].display_name?.split(",")[0],
-                    },
-                    "OK",
-                  );
-                } else {
-                  cb(null, "ZERO_RESULTS");
-                }
-              })
-              .catch(() => cb(null, "ERROR"));
-          }
-        },
-      },
+      LatLngBounds: LatLngBoundsAdapter,
+      Animation: { DROP: 1 },
     },
   };
-  (window as any).google = adapter;
-  return adapter;
+  (window as BrowserWindow).google = adapter as unknown as GoogleMapsApi;
+  return adapter as unknown as GoogleMapsApi;
 }
