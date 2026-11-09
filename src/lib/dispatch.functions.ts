@@ -188,13 +188,13 @@ export const findNearbyProviderPins = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
-        lat: z.number(),
-        lng: z.number(),
+        lat: z.number().finite().min(-90).max(90),
+        lng: z.number().finite().min(-180).max(180),
         type: z.enum(["taxi", "service"]),
-        category: z.string().nullable().optional(),
+        category: z.string().trim().max(80).nullable().optional(),
         serviceId: z.string().uuid().nullable().optional(),
-        radiusKm: z.number().min(0.1).max(100).default(5),
-        limit: z.number().int().min(1).max(100).default(30),
+        radiusKm: z.number().finite().min(0.1).max(15).default(5),
+        limit: z.number().int().min(1).max(30).default(30),
       })
       .parse(d),
   )
