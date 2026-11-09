@@ -23,6 +23,7 @@ export const Route = createFileRoute("/messages")({
 function MessagesPage() {
   const { session, loading } = useAuth();
   const [chats, setChats] = useState<any[]>([]);
+  const userId = session?.user.id;
 
   useEffect(() => {
     if (!session) return;
@@ -37,7 +38,7 @@ function MessagesPage() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [session]);
+  }, [session, loadChats]);
 
   const loadChats = useCallback(async () => {
     const { data } = await supabase
