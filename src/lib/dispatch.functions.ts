@@ -26,9 +26,8 @@ export const dispatchRequest = createServerFn({ method: "POST" })
 
     // The database function locks the request row, verifies ownership,
     // selects eligible nearby drivers and creates 45-second offers atomically.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: offers, error: dispatchError } = await supabaseAdmin.rpc(
-      "advance_taxi_dispatch",
+    const { data: offers, error: dispatchError } = await supabase.rpc(
+      "retry_taxi_dispatch",
       { _request_id: req.id },
     );
     if (dispatchError) throw new Error("تعذر توزيع الطلب: " + dispatchError.message);
@@ -143,10 +142,9 @@ export const retryDispatch = createServerFn({ method: "POST" })
     }
 
     // Reuse the same atomic database dispatcher; never create long-lived
-    // offers or bypass the server-side 45-second expiry.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: offers, error: dispatchError } = await supabaseAdmin.rpc(
-      "advance_taxi_dispatch",
+    // offers or bypass the server-side 60-second expiry.
+    const { data: offers, error: dispatchError } = await supabase.rpc(
+      "retry_taxi_dispatch",
       { _request_id: req.id },
     );
     if (dispatchError) throw new Error("تعذر إعادة توزيع الطلب: " + dispatchError.message);
