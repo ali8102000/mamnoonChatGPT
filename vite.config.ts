@@ -5,6 +5,11 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { loadEnv } from "vite";
+import publicBackend from "./config/public-backend.json";
+
+// Only public browser configuration belongs here; runtime secrets remain in Cloud.
+const env = loadEnv(process.env.NODE_ENV === "development" ? "development" : "production", process.cwd(), "VITE_");
 
 export default defineConfig({
   tanstackStart: {
@@ -12,5 +17,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  vite: {},
+  vite: {
+    define: {
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(env.VITE_SUPABASE_URL || publicBackend.VITE_SUPABASE_URL),
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(env.VITE_SUPABASE_PUBLISHABLE_KEY || publicBackend.VITE_SUPABASE_PUBLISHABLE_KEY),
+    },
+  },
 });

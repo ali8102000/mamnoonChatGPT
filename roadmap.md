@@ -2,7 +2,7 @@
 
 - [x] Redraw all technician service icons in the new illustrated style and verify all 19 available services on mobile and desktop.
 - [x] Remove customer navigation, offer optional full-screen location viewing, and simplify navigation labels.
-- [ ] Diagnose intermittent page-loading failure: signed-in /index, /home, and /messages load without errors; needs failing-page trace.
+- [x] Diagnose page-loading failure and restore public backend configuration when the generated environment file is omitted from deployment.
 - [x] Ensure pickup search names the selected governorate, including Najaf, and double technician reach only.
 - [x] Make all warning messages Arabic only.
 - [x] Price all taxi categories at exactly 400 IQD per real driving kilometer, without base/minimum surcharges.
