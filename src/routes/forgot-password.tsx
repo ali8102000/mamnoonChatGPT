@@ -56,11 +56,7 @@ function ForgotPasswordPage() {
         },
       });
       setSent(true);
-      if (!res.hasEmail) {
-        toast.info("لا يوجد بريد إلكتروني مسجّل لهذا الحساب. تواصل مع الدعم لإعادة التعيين.");
-      } else {
-        toast.success("تم إرسال رابط الاستعادة إلى بريدك");
-      }
+      toast.success("إذا كان الحساب موجوداً فسيصلك رابط الاستعادة إلى البريد المسجّل");
     } catch (err: any) {
       setSent(true);
     } finally {
