@@ -19,7 +19,25 @@ const storageAdapter = Platform.OS === 'web' ? undefined : {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
+function createSupabaseFetch(apiKey: string): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(
+      typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
+    );
+    if (init?.headers) new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+    if (
+      (apiKey.startsWith("sb_publishable_") || apiKey.startsWith("sb_secret_")) &&
+      headers.get("Authorization") === `Bearer ${apiKey}`
+    ) {
+      headers.delete("Authorization");
+    }
+    headers.set("apikey", apiKey);
+    return fetch(input, { ...init, headers });
+  };
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: createSupabaseFetch(supabaseAnonKey) },
   auth: {
     storage: storageAdapter,
     autoRefreshToken: true,
