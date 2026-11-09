@@ -109,7 +109,7 @@ function RequestDetail() {
         return;
       }
       setReq(r);
-      const otherId = session?.user.id === r.customer_id ? r.provider_id : r.customer_id;
+      const otherId = myUserId === r.customer_id ? r.provider_id : r.customer_id;
       if (otherId) {
         const { data: p } = await supabase
           .from("profiles")
@@ -137,12 +137,12 @@ function RequestDetail() {
           setMessages(m ?? []);
         }
       }
-      if (session?.user) {
+      if (myUserId) {
         const { data: rate } = await supabase
           .from("ratings")
           .select("*")
           .eq("request_id", id)
-          .eq("rater_id", session.user.id)
+          .eq("rater_id", myUserId)
           .maybeSingle();
         setMyRating(rate);
         if (r.status === "completed" && !rate) setShowRating(true);
@@ -152,11 +152,11 @@ function RequestDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id, session?.user?.id, getRepFn]);
+  }, [id, myUserId, getRepFn]);
 
   useEffect(() => {
-    if (session) loadAll();
-  }, [session, id, loadAll]);
+    if (myUserId) loadAll();
+  }, [myUserId, loadAll]);
 
   useEffect(() => {
     if (!chat) return;
