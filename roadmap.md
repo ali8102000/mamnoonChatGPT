@@ -1,0 +1,21 @@
+# Tasks
+
+- [x] Redraw all technician service icons in the new illustrated style and verify all 19 available services on mobile and desktop.
+- [x] Remove customer navigation, offer optional full-screen location viewing, and simplify navigation labels.
+- [ ] Diagnose intermittent page-loading failure: signed-in /index, /home, and /messages load without errors; needs failing-page trace.
+- [x] Ensure pickup search names the selected governorate, including Najaf, and double technician reach only.
+- [x] Make all warning messages Arabic only.
+- [x] Price all taxi categories at exactly 400 IQD per real driving kilometer, without base/minimum surcharges.
+- [x] Show driver request popup and notification for 60 seconds, widen search in timed stages, then cancel unanswered requests.
+- [x] Limit place suggestions to the selected governorate and price only confirmed Google road distances (17 tests passed; build OK).
+- [x] Add bilingual welcome before sign-in.
+- [x] Verify welcome navigation and returning visits.
+- [x] Apply required package security update.
+- [x] Diagnose uploaded error screenshot and verify preview readiness.
+- [x] Verify signed-in access and authentication error states (restored session; invalid-phone validation).
+- [ ] Restore Google map configuration and migrate place search.
+- [ ] Add always-visible automatic location control and prevent default-center selection.
+- [ ] Verify location success, refusal, and retry; Google rendering requires an authorized published origin.
+- [x] Admin CSV import helper with AI column mapping
+- [x] Fix maps so they work for real (Google Maps connector)
+- [x] Back arrow works on every screen
