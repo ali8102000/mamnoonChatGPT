@@ -45,18 +45,31 @@ BEGIN
     RETURN v_count;
   END IF;
 
+  -- Do not reset the dispatch stage or resend offers while the scheduled
+  -- worker is already waiting for its next 60-second offer window.
+  PERFORM 1
+  FROM public.taxi_dispatch_queue
+  WHERE request_id = _request_id
+    AND next_at > now()
+  FOR UPDATE;
+
+  IF FOUND THEN
+    RETURN 0;
+  END IF;
+
   INSERT INTO public.taxi_dispatch_queue (request_id, stage, next_at)
   VALUES (_request_id, 0, now())
-  ON CONFLICT (request_id)
-  DO UPDATE SET stage = 0, next_at = now();
+  ON CONFLICT (request_id) DO NOTHING;
 
   v_count := public.advance_taxi_dispatch(_request_id);
 
-  PERFORM cron.schedule(
-    'mamnoon-taxi-dispatch',
-    '5 seconds',
-    'SELECT public.process_taxi_dispatch()'
-  );
+  IF EXISTS (SELECT 1 FROM public.taxi_dispatch_queue WHERE request_id = _request_id) THEN
+    PERFORM cron.schedule(
+      'mamnoon-taxi-dispatch',
+      '5 seconds',
+      'SELECT public.process_taxi_dispatch()'
+    );
+  END IF;
 
   RETURN COALESCE(v_count, 0);
 END;
