@@ -36,6 +36,34 @@
       "when": 1794260000000,
       "tag": "0004_bound_provider_map_discovery",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794260100000,
+      "tag": "0004_bound_provider_map_discovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794260200000,
+      "tag": "0005_atomic_taxi_request_rate_limit",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794260300000,
+      "tag": "0006_production_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794260400000,
+      "tag": "0007_bound_provider_map_discovery",
+      "breakpoints": true
     }
   ]
 }
