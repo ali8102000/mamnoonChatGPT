@@ -364,7 +364,7 @@ function StatsSection() {
         setLoading(false);
       }
     })();
-  }, [getLocations, getRequests]);
+  }, [getStats]);
   if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
   if (!stats) return <div className="text-sm text-muted-foreground">تعذّر تحميل البيانات</div>;
   return (
@@ -1630,7 +1630,7 @@ function MapSection() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [getLocations, getRequests]);
   if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
   return (
     <div>
