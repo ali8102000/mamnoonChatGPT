@@ -102,7 +102,12 @@ export default function HomeScreen() {
           user_id: userId,
           lat: location.coords.latitude,
           lng: location.coords.longitude,
-          heading: location.coords.heading,
+          heading:
+            location.coords.heading != null &&
+            location.coords.heading >= 0 &&
+            location.coords.heading <= 360
+              ? location.coords.heading
+              : null,
         },
         { onConflict: "user_id" },
       );
