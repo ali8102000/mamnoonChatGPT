@@ -260,9 +260,12 @@ CREATE OR REPLACE FUNCTION public.find_nearby_provider_pins(
 )
 RETURNS TABLE(pin_id text, lat numeric, lng numeric, heading numeric)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT md5(pp.user_id::text), pp.lat::numeric, pp.lng::numeric, pp.heading::numeric
+  SELECT gen_random_uuid()::text, round(pp.lat::numeric, 2), round(pp.lng::numeric, 2), NULL::numeric
   FROM public.provider_presence pp
-  WHERE pp.updated_at > now() - interval '90 seconds'
+  WHERE auth.uid() IS NOT NULL
+    AND public.has_role(auth.uid(), 'customer'::public.app_role)
+    AND _lat BETWEEN -90 AND 90 AND _lng BETWEEN -180 AND 180
+    AND pp.updated_at > now() - interval '90 seconds'
     AND (
       (_type = 'taxi' AND EXISTS (SELECT 1 FROM public.driver_profiles dp
         WHERE dp.user_id = pp.user_id AND dp.available AND dp.status = 'approved'
@@ -284,12 +287,12 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
     AND 6371 * acos(LEAST(1.0, GREATEST(-1.0,
       cos(radians(_lat)) * cos(radians(pp.lat)) * cos(radians(pp.lng) - radians(_lng))
       + sin(radians(_lat)) * sin(radians(pp.lat))
-    ))) <= _radius_km
+    ))) <= LEAST(GREATEST(COALESCE(_radius_km, 5), 0), 20)
   ORDER BY 6371 * acos(LEAST(1.0, GREATEST(-1.0,
     cos(radians(_lat)) * cos(radians(pp.lat)) * cos(radians(pp.lng) - radians(_lng))
     + sin(radians(_lat)) * sin(radians(pp.lat))
   ))) ASC
-  LIMIT LEAST(GREATEST(_limit, 1), 100)
+  LIMIT LEAST(GREATEST(COALESCE(_limit, 30), 1), 50)
 $$;
 REVOKE ALL ON FUNCTION public.find_nearby_provider_pins(numeric,numeric,text,text,uuid,numeric,int) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.find_nearby_provider_pins(numeric,numeric,text,text,uuid,numeric,int) TO authenticated, service_role;
