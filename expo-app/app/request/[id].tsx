@@ -220,7 +220,7 @@ export default function RequestDetail() {
   }
 
   async function retryDispatch() {
-    const { data, error } = await supabase.rpc('dispatch_request', { _request_id: id });
+    const { data, error } = await supabase.rpc('retry_taxi_dispatch', { _request_id: id });
     if (error) {
       Alert.alert('تعذر إعادة البحث', 'حاول مرة أخرى بعد قليل.');
       return;
