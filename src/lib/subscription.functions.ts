@@ -201,7 +201,7 @@ const planSchema = z.object({
 
 export const adminSavePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         id: z.string().uuid().optional(),
@@ -237,7 +237,7 @@ export const adminSavePlan = createServerFn({ method: "POST" })
 
 export const adminTogglePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -269,7 +269,7 @@ export const adminGetSettings = createServerFn({ method: "GET" })
 
 export const adminSaveSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         subscription_enabled: z.boolean(),
@@ -347,7 +347,7 @@ export const adminGetSubscriptions = createServerFn({ method: "GET" })
 
 export const adminAssignSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         user_id: z.string().uuid(),
