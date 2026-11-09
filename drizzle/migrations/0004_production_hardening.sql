@@ -1,6 +1,10 @@
 -- Production hardening adapted to the mamnoonChatGPT schema.
 -- This is intentionally not a copy of the old project's Supabase migrations.
 
+-- Role membership is never queryable by anonymous clients.
+REVOKE ALL ON FUNCTION public.has_role(uuid, public.app_role) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated, service_role;
+
 -- 1) Provider verification: a role alone must never make a provider eligible.
 ALTER TABLE public.driver_profiles
   ADD COLUMN IF NOT EXISTS is_verified boolean NOT NULL DEFAULT false,
