@@ -25,7 +25,7 @@ export const dispatchRequest = createServerFn({ method: "POST" })
     }
 
     // The database function locks the request row, verifies ownership,
-    // selects eligible nearby drivers and creates 45-second offers atomically.
+    // selects eligible nearby drivers and creates 60-second offers atomically.
     const { data: offers, error: dispatchError } = await supabase.rpc("retry_taxi_dispatch", {
       _request_id: req.id,
     });
