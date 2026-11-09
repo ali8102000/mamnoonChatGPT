@@ -27,3 +27,18 @@ jobs:
       - run: bun run lint
       - run: bun run test
       - run: bun run build
+
+  mobile:
+    name: Expo mobile typecheck and config validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - run: bunx expo config --type public
