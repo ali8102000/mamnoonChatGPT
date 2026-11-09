@@ -25,7 +25,7 @@ jobs:
         working-directory: expo-app
     env:
       APP_ENV: production
-      EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      EAS_PROJECT_ID: \${{ vars.EAS_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
@@ -41,60 +41,21 @@ jobs:
         run: bunx expo export --platform android
       - name: Validate build credentials and EAS project
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
         run: |
           missing=0
           if [ -z "$EXPO_TOKEN" ]; then
             echo "::error::Missing GitHub Actions secret: EXPO_TOKEN"
-            echo "- Missing GitHub secret: `EXPO_TOKEN`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Missing GitHub secret EXPO_TOKEN" >> "$GITHUB_STEP_SUMMARY"
             missing=1
           fi
           if [ -z "$EAS_PROJECT_ID" ]; then
             echo "::error::Missing GitHub Actions repository variable: EAS_PROJECT_ID"
-            echo "- Missing GitHub variable: `EAS_PROJECT_ID`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Missing GitHub variable EAS_PROJECT_ID" >> "$GITHUB_STEP_SUMMARY"
             missing=1
-          elif ! printf '%s' "$EAS_PROJECT_ID" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}
-      - name: Validate production EAS environment variables
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs'
-      - name: Build signed production AAB and wait for completion
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          bunx eas-cli@latest env:exec --environment production 'bunx eas-cli@latest build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"'
-      - name: Download the finished AAB
-        id: download
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          BUILD_ID="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; if(!b?.id) process.exit(2); process.stdout.write(b.id)')"
-          echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
-          bunx eas-cli@latest env:exec --environment production "bunx eas-cli@latest build:download --build-id $BUILD_ID --json > \"$RUNNER_TEMP/eas-download.json\""
-          DOWNLOADED_PATH="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-download.json","utf8")); if(!v?.path) process.exit(2); process.stdout.write(v.path)')"
-          test -f "$DOWNLOADED_PATH"
-          case "$DOWNLOADED_PATH" in
-            *.aab) ;;
-            *) echo "::error::EAS artifact is not an Android App Bundle: $DOWNLOADED_PATH"; exit 1 ;;
-          esac
-          mkdir -p ../release-artifacts
-          cp "$DOWNLOADED_PATH" ../release-artifacts/mamnoon-production.aab
-          test -s ../release-artifacts/mamnoon-production.aab
-      - name: Upload AAB as a GitHub Actions artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mamnoon-production-aab
-          path: release-artifacts/mamnoon-production.aab
-          if-no-files-found: error
-          retention-days: 14
-      - name: Build summary
-        run: |
-          echo "AAB build completed. EAS build ID: ${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "The signed AAB is attached as the mamnoon-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
-; then
+          elif ! printf '%s' "$EAS_PROJECT_ID" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'; then
             echo "::error::EAS_PROJECT_ID must be a valid Expo project UUID."
-            echo "- Invalid GitHub variable: `EAS_PROJECT_ID` is not an Expo project UUID." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Invalid GitHub variable EAS_PROJECT_ID" >> "$GITHUB_STEP_SUMMARY"
             missing=1
           fi
           if [ "$missing" -ne 0 ]; then
@@ -103,18 +64,18 @@ jobs:
           fi
       - name: Validate production EAS environment variables
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
         run: |
           bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs'
       - name: Build signed production AAB and wait for completion
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
         run: |
           bunx eas-cli@latest env:exec --environment production 'bunx eas-cli@latest build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"'
       - name: Download the finished AAB
         id: download
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
         run: |
           BUILD_ID="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; if(!b?.id) process.exit(2); process.stdout.write(b.id)')"
           echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
@@ -137,5 +98,5 @@ jobs:
           retention-days: 14
       - name: Build summary
         run: |
-          echo "AAB build completed. EAS build ID: ${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "AAB build completed. EAS build ID: \${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
           echo "The signed AAB is attached as the mamnoon-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
