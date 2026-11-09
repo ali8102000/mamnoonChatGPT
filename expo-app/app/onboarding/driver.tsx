@@ -13,7 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui";
 
-type VehicleModel = { id: string; make: string; model: string; category: string };
+type VehicleModel = { id: string; make: string; model: string; category: string; min_year: number };
 
 export default function DriverOnboarding() {
   const { user } = useAuth();
@@ -37,17 +37,33 @@ export default function DriverOnboarding() {
   const makes = [...new Set(models.map((m) => m.make))];
 
   async function submit() {
-    if (!selectedModel || !year || !plate) {
-      Alert.alert("خطأ", "الرجاء تعبئة جميع الحقول");
+    const vehicleYear = Number(year.trim());
+    if (!user) {
+      Alert.alert("خطأ", "انتهت جلسة الدخول. سجّل الدخول مرة أخرى.");
+      return;
+    }
+    if (!selectedModel || !/^\\d{4}$/.test(year.trim()) || !plate.trim()) {
+      Alert.alert("خطأ", "اختر السيارة وأدخل سنة الصنع ورقم اللوحة بصورة صحيحة.");
+      return;
+    }
+    if (
+      !Number.isInteger(vehicleYear) ||
+      vehicleYear < selectedModel.min_year ||
+      vehicleYear > new Date().getFullYear() + 1
+    ) {
+      Alert.alert("سنة الصنع غير صحيحة", `سنة هذه السيارة يجب أن تكون بين ${selectedModel.min_year} و${new Date().getFullYear() + 1}.`);
       return;
     }
     setBusy(true);
     try {
       const { error } = await supabase.from("driver_profiles").upsert({
-        user_id: user?.id,
-        vehicle_model: `${selectedMake} ${selectedModel.model}`,
-        vehicle_plate: plate,
-        vehicle_color: color || null,
+        user_id: user.id,
+        vehicle_make: selectedMake,
+        vehicle_model: selectedModel.model,
+        vehicle_year: vehicleYear,
+        vehicle_category: selectedModel.category,
+        vehicle_plate: plate.trim(),
+        vehicle_color: color.trim() || null,
         available: false,
       });
       if (error) throw error;
