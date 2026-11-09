@@ -69,8 +69,8 @@ export function MapPicker({
   };
   const reverseFallback = (c: Coords) => {
     lookupMapPlace({ data: { action: "reverse", center: c } })
-      .then((r: any) => {
-        if (r?.address) {
+      .then((r: { address?: string }) => {
+        if (r.address) {
           setAddress(r.address);
           onChangeRef.current(c, r.address);
         }
@@ -79,9 +79,9 @@ export function MapPicker({
   };
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const mapRef = useRef<any>(null);
-  const geocoderRef = useRef<any>(null);
-  const idleTimerRef = useRef<any>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressIdleRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,14 +94,14 @@ export function MapPicker({
   const [suggestions, setSuggestions] = useState<
     Array<{ id: string; text: string; secondary: string }>
   >([]);
-  const sessionTokenRef = useRef<any>(null);
-  const acServiceRef = useRef<any>(null);
-  const placesSvcRef = useRef<any>(null);
+  const sessionTokenRef = useRef<string | null>(null);
+  const acServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesSvcRef = useRef<google.maps.places.PlacesService | null>(null);
   const nearbyMarkersRef = useRef<
     Map<
       string,
       {
-        marker: any;
+        marker: google.maps.Marker;
         anim: {
           from: Coords;
           to: Coords;
@@ -160,7 +160,7 @@ export function MapPicker({
           }, 300);
         });
 
-        map.addListener("click", (e: any) => {
+        map.addListener("click", (e: google.maps.MapMouseEvent) => {
           if (!e.latLng) return;
           const c = { lat: e.latLng.lat(), lng: e.latLng.lng() };
           marker.setPosition(e.latLng);
@@ -210,7 +210,7 @@ export function MapPicker({
 
   useEffect(() => {
     if (!nearby?.length || !mapRef.current) return;
-    const g = (window as any).google;
+    const g = window.google;
     if (!g) return;
 
     nearby.forEach((pin) => {
@@ -248,7 +248,7 @@ export function MapPicker({
         };
         existing.anim.raf = requestAnimationFrame(animate);
       } else {
-        const icon: any = {
+        const icon: google.maps.Symbol = {
           path: g.maps.SymbolPath.CIRCLE,
           scale: 8,
           fillColor: nearbyKind === "worker" ? "#10b981" : "#3b82f6",
@@ -332,7 +332,7 @@ export function MapPicker({
           }
         : (value ?? getGovernorate(governorateKey) ?? DEFAULT_CENTER);
       try {
-        const res: any = await lookupMapPlace({
+        const res = await lookupMapPlace({
           data: {
             action: "autocomplete",
             input: q,
@@ -340,11 +340,11 @@ export function MapPicker({
             center: c,
             governorateKey,
           },
-        });
+        }) as { suggestions?: Array<{ id: string; text: string; address?: string; coords?: Coords }> };
         if (stale) return;
         if (res.suggestions?.length) {
           setSuggestions(
-            res.suggestions.map((s: any) => {
+            res.suggestions.map((s) => {
               const id = "g:" + s.id;
               if (s.coords)
                 placeCacheRef.current.set(id, { coords: s.coords, address: s.address || s.text });
@@ -371,13 +371,13 @@ export function MapPicker({
     let place = placeCacheRef.current.get(id);
     if (!place && id.startsWith("g:")) {
       try {
-        const res: any = await lookupMapPlace({
+        const res = await lookupMapPlace({
           data: {
             action: "details",
             placeId: id.slice(2),
             sessionToken: sessionTokenRef.current ?? crypto.randomUUID(),
           },
-        });
+        }) as { coords: Coords; address?: string };
         place = { coords: res.coords, address: res.address || label };
       } catch {
         setGeoError("تعذّر فتح هذا المكان، جرّب مكان ثاني");
