@@ -43,24 +43,9 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          bunx eas-cli@latest env:exec production -- node -e '
-            const required = [
-              "EXPO_PUBLIC_SUPABASE_URL",
-              "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-              "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"
-            ];
-            const missing = required.filter((name) => !process.env[name]?.trim());
-            if (missing.length) {
-              console.error("Missing EAS production environment variables: " + missing.join(", "));
-              process.exit(1);
-            }
-            if (!process.env.EXPO_PUBLIC_SUPABASE_URL.startsWith("https://")) {
-              console.error("EXPO_PUBLIC_SUPABASE_URL must use HTTPS.");
-              process.exit(1);
-            }
-          '
+          bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs'
       - name: Build production AAB with EAS
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          bunx eas-cli@latest env:exec production -- bunx eas-cli@latest build --platform android --profile production --non-interactive
+          bunx eas-cli@latest env:exec --environment production 'bunx eas-cli@latest build --platform android --profile production --non-interactive'
