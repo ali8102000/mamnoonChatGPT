@@ -81,6 +81,7 @@ function RequestDetail() {
   const runCompleteRide = useServerFn(completeRide);
 
   const myUserId = session?.user.id ?? null;
+  const sessionUser = session?.user;
   const otherUserId = req
     ? myUserId === req.customer_id
       ? req.provider_id
@@ -109,7 +110,7 @@ function RequestDetail() {
         return;
       }
       setReq(r);
-      const otherId = session?.user.id === r.customer_id ? r.provider_id : r.customer_id;
+      const otherId = sessionUser?.id === r.customer_id ? r.provider_id : r.customer_id;
       if (otherId) {
         const { data: p } = await supabase
           .from("profiles")
@@ -137,12 +138,12 @@ function RequestDetail() {
           setMessages(m ?? []);
         }
       }
-      if (session?.user) {
+      if (sessionUser) {
         const { data: rate } = await supabase
           .from("ratings")
           .select("*")
           .eq("request_id", id)
-          .eq("rater_id", session.user.id)
+          .eq("rater_id", sessionUser.id)
           .maybeSingle();
         setMyRating(rate);
         if (r.status === "completed" && !rate) setShowRating(true);
@@ -152,7 +153,7 @@ function RequestDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id, session?.user.id, getRepFn]);
+  }, [id, sessionUser, getRepFn]);
 
   useEffect(() => {
     if (session) void loadAll();
@@ -177,8 +178,11 @@ function RequestDetail() {
     };
   }, [chat, session?.user?.id]);
 
+  const requestId = req?.id;
+  const requestStatus = req?.status;
+
   useEffect(() => {
-    if (!req) return;
+    if (!requestId) return;
     const ch = supabase
       .channel(`req-${id}`)
       .on(
@@ -190,17 +194,17 @@ function RequestDetail() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [req?.id, id, loadAll]);
+  }, [requestId, id, loadAll]);
 
   useEffect(() => {
-    if (!req || myRole !== "customer") return;
-    if (!["pending", "searching"].includes(req.status as string)) return;
+    if (!requestId || myRole !== "customer") return;
+    if (!["pending", "searching"].includes(requestStatus as string)) return;
     const t = setInterval(() => {
-      retryFn({ data: { requestId: req.id } }).catch(() => {});
+      retryFn({ data: { requestId } }).catch(() => {});
       loadAll();
     }, 5000);
     return () => clearInterval(t);
-  }, [req?.id, req?.status, myRole, loadAll, retryFn]);
+  }, [requestId, requestStatus, myRole, loadAll, retryFn]);
 
   const lastMessageId = messages[messages.length - 1]?.id;
   useEffect(() => {
