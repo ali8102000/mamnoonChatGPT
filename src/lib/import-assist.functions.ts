@@ -13,7 +13,7 @@ const Input = z.object({
 
 export const suggestCsvMapping = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => Input.parse(d))
+  .validator((d) => Input.parse(d))
   .handler(async ({ data, context }) => {
     const { data: isAdmin } = await (context.supabase as any).rpc("has_admin_access", {
       p_user_id: context.userId,
