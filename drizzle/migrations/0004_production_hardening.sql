@@ -384,6 +384,23 @@ CREATE POLICY "Participants update own active location" ON public.live_locations
 CREATE POLICY "Owner deletes own location" ON public.live_locations FOR DELETE TO authenticated
   USING (auth.uid() = user_id);
 
+-- Chat recipients may only update the read marker, never rewrite message content or sender identity.
+REVOKE UPDATE ON public.messages FROM authenticated;
+GRANT UPDATE (read_at) ON public.messages TO authenticated;
+DROP POLICY IF EXISTS "Receiver marks read" ON public.messages;
+CREATE POLICY "Receiver marks own chat messages read" ON public.messages
+  FOR UPDATE TO authenticated
+  USING (
+    sender_id <> auth.uid()
+    AND EXISTS (SELECT 1 FROM public.chats ch WHERE ch.id = chat_id
+      AND auth.uid() IN (ch.customer_id, ch.provider_id))
+  )
+  WITH CHECK (
+    sender_id <> auth.uid()
+    AND EXISTS (SELECT 1 FROM public.chats ch WHERE ch.id = chat_id
+      AND auth.uid() IN (ch.customer_id, ch.provider_id))
+  );
+
 -- 7) Ratings may only be submitted by a participant after the request is completed.
 DROP POLICY IF EXISTS "Participant rates counterparty" ON public.ratings;
 CREATE POLICY "Participant rates completed request counterpart" ON public.ratings
