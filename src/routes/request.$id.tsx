@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,7 +97,7 @@ function RequestDetail() {
     active: trackingActive,
   });
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     try {
       const { data: r } = await supabase
         .from("service_requests")
@@ -109,7 +109,7 @@ function RequestDetail() {
         return;
       }
       setReq(r);
-      const otherId = session?.user.id === r.customer_id ? r.provider_id : r.customer_id;
+      const otherId = myUserId === r.customer_id ? r.provider_id : r.customer_id;
       if (otherId) {
         const { data: p } = await supabase
           .from("profiles")
@@ -137,12 +137,12 @@ function RequestDetail() {
           setMessages(m ?? []);
         }
       }
-      if (session?.user) {
+      if (myUserId) {
         const { data: rate } = await supabase
           .from("ratings")
           .select("*")
           .eq("request_id", id)
-          .eq("rater_id", session.user.id)
+          .eq("rater_id", myUserId)
           .maybeSingle();
         setMyRating(rate);
         if (r.status === "completed" && !rate) setShowRating(true);
@@ -152,11 +152,11 @@ function RequestDetail() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id, myUserId, getRepFn]);
 
   useEffect(() => {
-    if (session) loadAll();
-  }, [session, id]);
+    if (myUserId) loadAll();
+  }, [myUserId, loadAll]);
 
   useEffect(() => {
     if (!chat) return;
@@ -177,30 +177,35 @@ function RequestDetail() {
     };
   }, [chat, session?.user?.id]);
 
+  const requestId = req?.id ?? null;
+  const requestStatus = req?.status;
+
   useEffect(() => {
-    if (!req) return;
+    if (!requestId) return;
     const ch = supabase
-      .channel(`req-${id}`)
+      .channel(`req-${requestId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "service_requests", filter: `id=eq.${id}` },
+        { event: "UPDATE", schema: "public", table: "service_requests", filter: `id=eq.${requestId}` },
         () => loadAll(),
       )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [req?.id]);
+  }, [requestId, loadAll]);
 
   useEffect(() => {
-    if (!req || myRole !== "customer") return;
-    if (!["pending", "searching"].includes(req.status as string)) return;
+    if (!requestId || myRole !== "customer") return;
+    if (!["pending", "searching"].includes(requestStatus as string)) return;
     const t = setInterval(() => {
-      retryFn({ data: { requestId: req.id } }).catch(() => {});
+      retryFn({ data: { requestId } }).catch(() => {});
       loadAll();
     }, 5000);
     return () => clearInterval(t);
-  }, [req?.id, req?.status, myRole]);
+  }, [requestId, requestStatus, myRole, retryFn, loadAll]);
+
+  const lastMessageId = messages[messages.length - 1]?.id;
 
   useEffect(() => {
     const go = () => {
@@ -213,7 +218,7 @@ function RequestDetail() {
       cancelAnimationFrame(raf);
       clearTimeout(t);
     };
-  }, [messages.length, messages[messages.length - 1]?.id, chat?.id, req?.status, loading]);
+  }, [messages.length, lastMessageId, chat?.id, req?.status, loading]);
 
   if (authLoading || loading)
     return (

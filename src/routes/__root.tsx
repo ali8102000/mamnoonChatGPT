@@ -3,7 +3,6 @@ import {
   Outlet,
   Link,
   createRootRouteWithContext,
-
   HeadContent,
   Scripts,
   type ErrorComponentProps,
@@ -44,7 +43,11 @@ function ErrorComponent({ error }: ErrorComponentProps) {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
     // After a new publish, old page files disappear; reload once to fetch the latest version.
     const msg = String((error as any)?.message ?? error);
-    if (/dynamically imported module|Importing a module script failed|Loading chunk|Failed to fetch/i.test(msg)) {
+    if (
+      /dynamically imported module|Importing a module script failed|Loading chunk|Failed to fetch/i.test(
+        msg,
+      )
+    ) {
       const key = "mamnoon-reloaded-at";
       const last = Number(sessionStorage.getItem(key) ?? 0);
       if (Date.now() - last > 30_000) {

@@ -17,7 +17,8 @@ export function getDeviceFingerprint(): string {
   parts.push(Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown");
   parts.push(navigator.language || "unknown");
   parts.push(String(navigator.hardwareConcurrency || 0));
-  parts.push(String((navigator as any).deviceMemory || 0));
+  const deviceMemory = Reflect.get(navigator, "deviceMemory");
+  parts.push(String(typeof deviceMemory === "number" ? deviceMemory : 0));
   parts.push(String(navigator.maxTouchPoints || 0));
 
   // Canvas fingerprint
@@ -35,7 +36,9 @@ export function getDeviceFingerprint(): string {
       ctx.fillText("mumnun-fp", 2, 2);
       parts.push(canvas.toDataURL().slice(-50));
     }
-  } catch {}
+  } catch {
+    // Canvas fingerprinting is optional and may be blocked by browser privacy settings.
+  }
 
   // Simple hash
   const str = parts.join("|");

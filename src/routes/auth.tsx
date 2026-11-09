@@ -2,10 +2,10 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
-import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
-import { lookupAuthEmail } from "@/lib/auth.functions";
-import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User, ShieldCheck, Crown } from "lucide-react";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { useAuth } from "@/lib/auth-context";
+import { loginWithIdentifier } from "@/lib/auth.functions";
+import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
 import { Button } from "@/components/ui/button";
@@ -47,11 +47,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { refresh, setActiveRole } = useAuth();
-  const lookup = useServerFn(lookupAuthEmail);
-
-  const isTargetAdmin =
-    identifier.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ||
-    email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+  const login = useServerFn(loginWithIdentifier);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,9 +72,12 @@ function AuthPage() {
         }
         const normalized = normalizePhone(phone);
         const realEmail = email.trim().toLowerCase();
-        const authEmail = realEmail || phoneToEmail(normalized);
-        const isSuperAdminEmail = realEmail === SUPER_ADMIN_EMAIL.toLowerCase();
-
+        if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(realEmail)) {
+          toast.error("حالياً يلزم بريد إلكتروني حقيقي للتسجيل إلى أن يتم تفعيل التحقق برسالة SMS");
+          setBusy(false);
+          return;
+        }
+        const authEmail = realEmail;
         const { data, error } = await supabase.auth.signUp({
           email: authEmail,
           password,
@@ -86,7 +85,7 @@ function AuthPage() {
             emailRedirectTo: `${window.location.origin}/`,
             data: {
               phone: normalized,
-              full_name: isSuperAdminEmail ? "أحمد (المدير العام)" : name.trim(),
+              full_name: name.trim(),
             },
           },
         });
@@ -96,29 +95,14 @@ function AuthPage() {
           const { error: pErr } = await supabase.from("profiles").upsert({
             id: uid,
             phone: normalized,
-            full_name: isSuperAdminEmail ? "أحمد (المدير العام)" : name.trim(),
+            full_name: name.trim(),
             email: realEmail || null,
           });
           if (pErr) throw pErr;
-
-          if (isSuperAdminEmail) {
-            await supabase.from("user_roles").upsert([
-              { user_id: uid, role: "super_admin" },
-              { user_id: uid, role: "admin" },
-              { user_id: uid, role: "customer" },
-            ]);
-            localStorage.setItem("mumnun-active-role", "admin");
-            setActiveRole("admin");
-          }
         }
         await refresh();
-        if (isSuperAdminEmail) {
-          toast.success("تم إنشاء حساب الإدارة العليا بنجاح! أهلاً بك يا أحمد 👑");
-          navigate({ to: "/admin" });
-        } else {
-          toast.success(t("تم إنشاء الحساب", "Account created"));
-          navigate({ to: "/select-role" });
-        }
+        toast.success(t("تم إنشاء الحساب", "Account created"));
+        navigate({ to: "/select-role" });
       } else {
         const id = identifier.trim();
         if (!id) {
@@ -129,38 +113,35 @@ function AuthPage() {
           return;
         }
         const isEmail = id.includes("@");
-        const isSuper = id.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
-
         if (!isEmail && !isValidPhone(id)) {
           toast.error(t("رقم الهاتف غير صالح", "Invalid phone number"));
           setBusy(false);
           return;
         }
         const finalId = isEmail ? id : normalizePhone(id);
-        const { email: authEmail } = await lookup({ data: { identifier: finalId } });
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: authEmail,
-          password,
+        const { session: authenticatedSession } = await login({
+          data: { identifier: finalId, password },
         });
-        if (error) throw error;
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: authenticatedSession.access_token,
+          refresh_token: authenticatedSession.refresh_token,
+        });
+        if (sessionError) throw sessionError;
 
-        if (isSuper || authEmail?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
-          const uid = data.user?.id;
-          if (uid) {
-            await supabase.from("user_roles").upsert([
-              { user_id: uid, role: "super_admin" },
-              { user_id: uid, role: "admin" },
-            ]);
-          }
-          localStorage.setItem("mumnun-active-role", "admin");
+        const { data: roleRows, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", authenticatedSession.user.id);
+        if (roleError) throw roleError;
+        const isSuperAdmin = (roleRows ?? []).some((row) => row.role === "super_admin");
+
+        await refresh();
+        if (isSuperAdmin) {
           setActiveRole("admin");
-          await refresh();
-          toast.success("أهلاً بعودتك يا مديرنا العام أحمد 👑");
+          toast.success("أهلاً بعودتك إلى لوحة الإدارة");
           navigate({ to: "/admin" });
           return;
         }
-
-        await refresh();
         toast.success(t("أهلاً بعودتك", "Welcome back"));
         navigate({ to: "/" });
       }
@@ -232,19 +213,6 @@ function AuthPage() {
           ))}
         </div>
 
-        {/* Distinctive Visual Card when entering Ahmed's Super Admin email */}
-        {isTargetAdmin && (
-          <div className="mb-4 rounded-2xl p-3.5 bg-amber-50 border-2 border-amber-500/60 text-right animate-in fade-in duration-200">
-            <div className="flex items-center gap-2 text-amber-800 font-black text-xs">
-              <Crown className="h-4 w-4 text-amber-600" />
-              <span>حساب المدير العام أحمد (صلاحيات كاملة)</span>
-            </div>
-            <p className="text-[11px] text-amber-700/90 mt-1 leading-relaxed">
-              سيتم تفعيل الصلاحية المطلقة: مراجعة طلبات السائقين والفنيين، الحظر، توزيع الخصومات، وإدارة الدعم.
-            </p>
-          </div>
-        )}
-
         <form noValidate onSubmit={onSubmit} className="space-y-4 flex-1 flex flex-col">
           {mode === "signup" ? (
             <>
@@ -266,13 +234,7 @@ function AuthPage() {
                   className="input-base text-left"
                 />
               </Field>
-              <Field
-                label={t(
-                  "البريد الإلكتروني",
-                  "Email",
-                )}
-                icon={<Mail className="h-4 w-4" />}
-              >
+              <Field label={t("البريد الإلكتروني", "Email")} icon={<Mail className="h-4 w-4" />}>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -321,22 +283,16 @@ function AuthPage() {
             <button
               type="submit"
               disabled={busy}
-              className={`w-full py-4 rounded-2xl font-black text-base shadow-lg transition btn-press flex items-center justify-center gap-2 ${
-                isTargetAdmin
-                  ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-amber-500/25"
-                  : "bg-primary text-primary-foreground shadow-primary/20"
-              }`}
+              className="w-full py-4 rounded-2xl font-black text-base shadow-lg transition btn-press flex items-center justify-center gap-2 bg-primary text-primary-foreground shadow-primary/20"
             >
               {busy ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <>
                   <span>
-                    {isTargetAdmin
-                      ? "دخول الإدارة العامة 👑"
-                      : mode === "signup"
-                        ? t("إنشاء الحساب والمتابعة", "Create account & continue")
-                        : t("تسجيل الدخول", "Sign in")}
+                    {mode === "signup"
+                      ? t("إنشاء الحساب والمتابعة", "Create account & continue")
+                      : t("تسجيل الدخول", "Sign in")}
                   </span>
                   <Forward className="h-5 w-5" />
                 </>

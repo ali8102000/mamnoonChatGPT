@@ -1,0 +1,72 @@
+name: Mamnoon CI
+
+on:
+  push:
+    branches:
+      - main
+      - merge-old-hardening-2026-11-09
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web lint, typecheck, tests and production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set Git default branch for clean CI logs
+        run: git config --global init.defaultBranch main && git config --global advice.defaultBranchName false
+      - name: Reject tracked local environment files
+        run: |
+          if git ls-files | grep -E '(^|/)[.]env$'; then
+            echo "Local .env files must never be committed."
+            exit 1
+          fi
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Validate Drizzle migration journal
+        run: bunx drizzle-kit check
+      - run: bunx tsc --noEmit
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
+
+  mobile:
+    name: Expo mobile typecheck and config validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo-app
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set Git default branch for clean CI logs
+        run: git config --global init.defaultBranch main && git config --global advice.defaultBranchName false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - run: bunx expo config --type public
+      - name: Check Expo package compatibility
+        run: bunx expo-doctor
+      - name: Export Android JavaScript bundle
+        run: bunx expo export --platform android
+
+  edge-functions:
+    name: Supabase Edge Function typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set Git default branch for clean CI logs
+        run: git config --global init.defaultBranch main && git config --global advice.defaultBranchName false
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/auth-proxy/index.ts supabase/functions/create-taxi-request/index.ts supabase/functions/subscription-cron/index.ts

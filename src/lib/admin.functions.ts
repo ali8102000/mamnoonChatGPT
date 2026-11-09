@@ -45,7 +45,7 @@ export const bootstrapSuperAdmin = createServerFn({ method: "POST" })
 
 export const adminGrantRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ target_user_id: z.string().uuid(), role: z.string() }).parse(d))
+  .validator((d) => z.object({ target_user_id: z.string().uuid(), role: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await requireSuperAdmin(context);
     const { supabase } = context;
@@ -59,7 +59,7 @@ export const adminGrantRole = createServerFn({ method: "POST" })
 
 export const adminRevokeRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ target_user_id: z.string().uuid(), role: z.string() }).parse(d))
+  .validator((d) => z.object({ target_user_id: z.string().uuid(), role: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await requireSuperAdmin(context);
     const { supabase } = context;
@@ -73,7 +73,7 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
 
 export const getStaffRoles = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ user_id: z.string().uuid().optional() }).parse(d))
+  .validator((d) => z.object({ user_id: z.string().uuid().optional() }).parse(d))
   .handler(async ({ data, context }) => {
     await requireStaff(context);
     const { supabase } = context;
@@ -87,7 +87,7 @@ export const getStaffRoles = createServerFn({ method: "GET" })
 
 export const adminSearchUsers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         query: z.string().min(1).max(100),
@@ -110,7 +110,7 @@ export const adminSearchUsers = createServerFn({ method: "POST" })
 
 export const adminListUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         page: z.number().int().min(1).default(1),
@@ -144,15 +144,13 @@ export const adminListUsers = createServerFn({ method: "GET" })
 
 export const adminBlockUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         user_id: z.string().min(1),
         reason: z.string().max(500).optional(),
         expires_at: z.string().optional().nullable(),
-        duration: z
-          .enum(["1_hour", "1_day", "1_week", "1_month", "permanent"])
-          .optional(),
+        duration: z.enum(["1_hour", "1_day", "1_week", "1_month", "permanent"]).optional(),
       })
       .parse(d),
   )
@@ -163,9 +161,12 @@ export const adminBlockUser = createServerFn({ method: "POST" })
     if (data.duration) {
       const now = Date.now();
       if (data.duration === "1_hour") computedExpiresAt = new Date(now + 3600 * 1000).toISOString();
-      else if (data.duration === "1_day") computedExpiresAt = new Date(now + 86400 * 1000).toISOString();
-      else if (data.duration === "1_week") computedExpiresAt = new Date(now + 7 * 86400 * 1000).toISOString();
-      else if (data.duration === "1_month") computedExpiresAt = new Date(now + 30 * 86400 * 1000).toISOString();
+      else if (data.duration === "1_day")
+        computedExpiresAt = new Date(now + 86400 * 1000).toISOString();
+      else if (data.duration === "1_week")
+        computedExpiresAt = new Date(now + 7 * 86400 * 1000).toISOString();
+      else if (data.duration === "1_month")
+        computedExpiresAt = new Date(now + 30 * 86400 * 1000).toISOString();
       else if (data.duration === "permanent") computedExpiresAt = null;
     }
     const { error } = await (supabase as any).rpc("admin_block_user", {
@@ -179,7 +180,7 @@ export const adminBlockUser = createServerFn({ method: "POST" })
 
 export const adminUnblockUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ user_id: z.string().min(1) }).parse(d))
+  .validator((d) => z.object({ user_id: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabase } = context;
@@ -192,7 +193,7 @@ export const adminUnblockUser = createServerFn({ method: "POST" })
 
 export const adminGetUserDetail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ user_id: z.string().min(1) }).parse(d))
+  .validator((d) => z.object({ user_id: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     await requireStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -244,7 +245,7 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
 
 export const adminListProviders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z.object({ type: z.enum(["driver", "worker"]).default("driver") }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -262,7 +263,7 @@ export const adminListProviders = createServerFn({ method: "GET" })
 
 export const adminSetProviderStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         user_id: z.string().min(1),
@@ -286,7 +287,7 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
 
 export const adminListRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         status: z.string().optional(),
@@ -312,7 +313,7 @@ export const adminListRequests = createServerFn({ method: "GET" })
 
 export const adminCancelRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z.object({ request_id: z.string().uuid(), reason: z.string().max(500).optional() }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -328,7 +329,7 @@ export const adminCancelRequest = createServerFn({ method: "POST" })
 
 export const adminReopenRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ request_id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ request_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabase } = context;
@@ -341,7 +342,7 @@ export const adminReopenRequest = createServerFn({ method: "POST" })
 
 export const adminAdjustWallet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         user_id: z.string().uuid(),
@@ -366,7 +367,7 @@ export const adminAdjustWallet = createServerFn({ method: "POST" })
 
 export const adminListTransactions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -396,7 +397,7 @@ export const adminListCoupons = createServerFn({ method: "GET" })
 
 export const adminSaveCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         id: z.string().uuid().optional(),
@@ -429,7 +430,7 @@ export const adminSaveCoupon = createServerFn({ method: "POST" })
 
 export const adminDeleteCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ coupon_id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ coupon_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabase } = context;
@@ -442,7 +443,7 @@ export const adminDeleteCoupon = createServerFn({ method: "POST" })
 
 export const adminListReports = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         status: z.string().optional(),
@@ -468,7 +469,7 @@ export const adminListReports = createServerFn({ method: "GET" })
 
 export const adminResolveReport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         report_id: z.string().uuid(),
@@ -491,7 +492,7 @@ export const adminResolveReport = createServerFn({ method: "POST" })
 
 export const adminListFriends = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -510,7 +511,7 @@ export const adminListFriends = createServerFn({ method: "GET" })
 
 export const adminListFriendRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -529,7 +530,7 @@ export const adminListFriendRequests = createServerFn({ method: "GET" })
 
 export const adminDeleteFriendship = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z.object({ user1_id: z.string().uuid(), user2_id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -545,7 +546,7 @@ export const adminDeleteFriendship = createServerFn({ method: "POST" })
 
 export const adminDeleteFriendRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ request_id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ request_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     await requireStaff(context);
     const { supabase } = context;
@@ -558,7 +559,7 @@ export const adminDeleteFriendRequest = createServerFn({ method: "POST" })
 
 export const adminListMessages = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         chat_id: z.string().uuid().optional(),
@@ -582,7 +583,7 @@ export const adminListMessages = createServerFn({ method: "GET" })
 
 export const adminDeleteMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ message_id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ message_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     await requireStaff(context);
     const { supabase } = context;
@@ -595,7 +596,7 @@ export const adminDeleteMessage = createServerFn({ method: "POST" })
 
 export const adminListChats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -614,7 +615,7 @@ export const adminListChats = createServerFn({ method: "GET" })
 
 export const adminBroadcastNotification = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         target: z.enum(["all", "drivers", "workers", "single"]),
@@ -639,7 +640,7 @@ export const adminBroadcastNotification = createServerFn({ method: "POST" })
 
 export const adminListAuditLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {

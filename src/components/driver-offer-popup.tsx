@@ -42,7 +42,7 @@ export function DriverOfferPopup() {
 
     async function refreshOffer() {
       // 1. Look for targeted offers in request_offers
-      let { data: fetchedOffers } = await supabase
+      const { data: fetchedOffers } = await supabase
         .from("request_offers")
         .select("*")
         .eq("provider_id", uid ?? "")
@@ -50,56 +50,7 @@ export function DriverOfferPopup() {
         .gt("expires_at", new Date().toISOString())
         .order("sent_at")
         .limit(10);
-      let offers: Offer[] | null = fetchedOffers;
-
-      // 2. If no direct offer exists, check for unassigned pending taxi requests
-      if (!offers || offers.length === 0) {
-        const { data: pendingReqs } = await supabase
-          .from("service_requests")
-          .select("*")
-          .eq("type", "taxi")
-          .in("status", ["pending", "searching"])
-          .neq("customer_id", uid ?? "")
-          .order("created_at", { ascending: false })
-          .limit(5);
-
-        if (pendingReqs && pendingReqs.length > 0) {
-          for (const req of pendingReqs) {
-            // Check if driver has already rejected this request
-            const { data: existingOffer } = await (supabase as any)
-              .from("request_offers")
-              .select("id, status")
-              .eq("request_id", req.id)
-              .eq("provider_id", uid)
-              .maybeSingle();
-
-            if (!existingOffer || existingOffer.status === "pending") {
-              const offerId =
-                existingOffer?.id || `offer_${req.id.slice(0, 8)}_${(uid ?? "").slice(0, 8)}`;
-              const syntheticOffer: Offer = {
-                id: offerId,
-                request_id: req.id,
-                distance_km: req.distance_km || 1.8,
-                expires_at: new Date(Date.now() + 60000).toISOString(),
-                status: "pending",
-              };
-              try {
-                await (supabase as any).from("request_offers").upsert({
-                  id: offerId,
-                  request_id: req.id,
-                  provider_id: uid,
-                  distance_km: syntheticOffer.distance_km,
-                  status: "pending",
-                  sent_at: new Date().toISOString(),
-                  expires_at: syntheticOffer.expires_at,
-                });
-              } catch {}
-              offers = [syntheticOffer];
-              break;
-            }
-          }
-        }
-      }
+      const offers: Offer[] | null = fetchedOffers;
 
       if (stopped) return;
       const current = offerRef.current;

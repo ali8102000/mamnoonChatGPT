@@ -310,6 +310,8 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
   const navigate = useNavigate();
   const acceptFn = useServerFn(acceptServiceRequest);
   const [available, setAvailable] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState("pending");
   const [requests, setRequests] = useState<any[]>([]);
   const [stats, setStats] = useState({ jobs: 0 });
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
@@ -324,6 +326,14 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
       .then(({ data }) => {
         if (data) {
           setAvailable(data.available);
+          setVerified(
+            Boolean(
+              data.is_verified &&
+              data.verification_status === "approved" &&
+              data.status === "approved",
+            ),
+          );
+          setVerificationStatus(data.verification_status ?? "pending");
           const d: any = data;
           setStats({ jobs: d.completed_jobs ?? d.completed_rides ?? 0 });
         }
@@ -369,8 +379,13 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
 
   async function toggleAvail() {
     playClick("toggle");
+    if (!session) return;
     const prev = available;
     const next = !prev;
+    if (next && !verified) {
+      toast.error("حسابك بانتظار توثيق الإدارة قبل استقبال الطلبات");
+      return;
+    }
     setAvailable(next);
     const { error } = await supabase
       .from(table)
@@ -418,6 +433,16 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
           </button>
         </div>
       </div>
+
+      {!verified && (
+        <div className="glass rounded-2xl p-3 text-xs text-muted-foreground">
+          {verificationStatus === "rejected"
+            ? "تم رفض توثيق الحساب. راجع الإدارة لتحديث بياناتك."
+            : verificationStatus === "suspended"
+              ? "تم تعليق حسابك مؤقتاً."
+              : "حسابك بانتظار توثيق الإدارة قبل استقبال الطلبات."}
+        </div>
+      )}
 
       <div className="glass rounded-2xl p-4 animate-pop-in" style={{ animationDelay: "0.05s" }}>
         <div className="text-xs text-muted-foreground">الطلبات المكتملة</div>

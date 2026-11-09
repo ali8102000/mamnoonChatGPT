@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { MapPicker } from "@/components/map-picker";
 import { dispatchRequest } from "@/lib/dispatch.functions";
+import { createTaxiRequest } from "@/lib/request.functions";
 import { useNearbyProviders } from "@/lib/use-nearby-providers";
 import { lookupMapPlace } from "@/lib/maps.functions";
 import {
@@ -111,6 +112,7 @@ function NewRequest() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const runDispatch = useServerFn(dispatchRequest);
+  const runCreateTaxiRequest = useServerFn(createTaxiRequest);
 
   // Common & Service State
   const [services, setServices] = useState<Service[]>([]);
@@ -186,15 +188,20 @@ function NewRequest() {
   const runLookup = useServerFn(lookupMapPlace);
   const [busy, setBusy] = useState(false);
 
+  const pickupLat = pickupCoords?.lat ?? null;
+  const pickupLng = pickupCoords?.lng ?? null;
+  const destLat = destCoords?.lat ?? null;
+  const destLng = destCoords?.lng ?? null;
+
   // Calculate distance whenever pickup and dest coords update
   useEffect(() => {
     setRouteKm(null);
     setRouteError(null);
-    if (type !== "taxi" || !destConfirmed || !pickupCoords || !destCoords) return;
+    if (type !== "taxi" || !destConfirmed || pickupLat == null || pickupLng == null || destLat == null || destLng == null) return;
     let stale = false;
 
     const t = setTimeout(() => {
-      runLookup({ data: { action: "route", from: pickupCoords, to: destCoords } })
+      runLookup({ data: { action: "route", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng } } })
         .then((r: any) => {
           if (!stale && Number.isFinite(r?.distanceKm) && r.distanceKm >= 0)
             setRouteKm(r.distanceKm);
@@ -211,21 +218,22 @@ function NewRequest() {
   }, [
     type,
     destConfirmed,
-    pickupCoords?.lat,
-    pickupCoords?.lng,
-    destCoords?.lat,
-    destCoords?.lng,
+    pickupLat,
+    pickupLng,
+    destLat,
+    destLng,
     routeRetry,
+    runLookup,
   ]);
 
   useEffect(() => {
-    if (!pickupCoords) return;
+    if (pickupLat == null || pickupLng == null) return;
     const controller = new AbortController();
-    detectWeatherCondition(pickupCoords.lat, pickupCoords.lng, controller.signal)
+    detectWeatherCondition(pickupLat, pickupLng, controller.signal)
       .then(setWeatherCondition)
       .catch(() => {});
     return () => controller.abort();
-  }, [pickupCoords?.lat, pickupCoords?.lng]);
+  }, [pickupLat, pickupLng]);
 
   const nearby = useNearbyProviders({
     center: pickupCoords,
@@ -293,14 +301,6 @@ function NewRequest() {
           : 1 + workersCount
         : workersCount;
 
-    let priceEstimate: number | null = null;
-    if (type === "taxi" && routeKm !== null) {
-      priceEstimate = taxiFare(vehicleCategory, routeKm, {
-        weather: "mild" as const,
-        roadCondition,
-      });
-    }
-
     const priceNum = parseInt(customerPrice.replace(/[^0-9]/g, ""), 10);
     if (type === "service" && pricingMode !== "negotiable" && !(priceNum > 0)) {
       toast.error("اكتب المبلغ اللي تريد تدفعه");
@@ -313,50 +313,65 @@ function NewRequest() {
 
     setBusy(true);
     try {
-      const { data, error } = await supabase
-        .from("service_requests")
-        .insert({
-          customer_id: session.user.id,
-          type,
-          status: "pending",
-          service_id: type === "service" ? serviceId : null,
-          level_required: type === "service" ? level : null,
-          workers_count: finalWorkers,
-          vehicle_category: type === "taxi" ? vehicleCategory : null,
-          price_estimate: priceEstimate,
-          pickup_text: pickupLabel || "موقع محدد على الخريطة",
-          pickup_lat: pickupCoords?.lat ?? null,
-          pickup_lng: pickupCoords?.lng ?? null,
-          dest_text: destLabel || null,
-          dest_lat: destCoords?.lat ?? null,
-          dest_lng: destCoords?.lng ?? null,
-          notes: notes || null,
-          distance_km: type === "taxi" ? routeKm : null,
-          ...(type === "service"
-            ? {
-                pricing_mode: pricingMode,
-                customer_price: pricingMode === "negotiable" ? null : priceNum,
-                work_hours: pricingMode === "hourly" && workHours ? Number(workHours) : null,
-                work_description: workDescription.trim() || null,
-              }
-            : {}),
-        } as any)
-        .select("id")
-        .single();
+      let requestId: string;
+      if (type === "taxi") {
+        const created = await runCreateTaxiRequest({
+          data: {
+            pickupLat: pickupCoords.lat,
+            pickupLng: pickupCoords.lng,
+            pickupText: pickupLabel || "موقع محدد على الخريطة",
+            destinationLat: destCoords!.lat,
+            destinationLng: destCoords!.lng,
+            destinationText: destLabel || "وجهة محددة على الخريطة",
+            vehicleCategory,
+            notes: notes || undefined,
+          },
+        });
+        requestId = created.requestId;
+      } else {
+        const { data, error } = await supabase
+          .from("service_requests")
+          .insert({
+            customer_id: session.user.id,
+            type: "service",
+            status: "pending",
+            service_id: serviceId,
+            level_required: level,
+            workers_count: finalWorkers,
+            vehicle_category: null,
+            price_estimate: null,
+            pickup_text: pickupLabel || "موقع محدد على الخريطة",
+            pickup_lat: pickupCoords.lat,
+            pickup_lng: pickupCoords.lng,
+            dest_text: destLabel || null,
+            dest_lat: destCoords?.lat ?? null,
+            dest_lng: destCoords?.lng ?? null,
+            notes: notes || null,
+            distance_km: null,
+            pricing_mode: pricingMode,
+            customer_price: pricingMode === "negotiable" ? null : priceNum,
+            work_hours: pricingMode === "hourly" && workHours ? Number(workHours) : null,
+            work_description: workDescription.trim() || null,
+          })
+          .select("id")
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
+        requestId = data.id;
+      }
+
       toast.success("تم إرسال الطلب بنجاح!");
       if (type === "taxi") {
-        runDispatch({ data: { requestId: data.id } }).catch((e) => console.warn("[dispatch]", e));
+        runDispatch({ data: { requestId } }).catch((e) => console.warn("[dispatch]", e));
         try {
           if (typeof BroadcastChannel !== "undefined") {
             const bc = new BroadcastChannel("mumnun-offers");
-            bc.postMessage({ type: "NEW_TAXI_REQUEST", requestId: data.id });
+            bc.postMessage({ type: "NEW_TAXI_REQUEST", requestId });
             setTimeout(() => bc.close(), 1000);
           }
         } catch {}
       }
-      navigate({ to: "/request/$id", params: { id: data.id } });
+      navigate({ to: "/request/$id", params: { id: requestId } });
     } catch (e: any) {
       toast.error(e.message ?? "تعذّر إرسال الطلب");
     } finally {

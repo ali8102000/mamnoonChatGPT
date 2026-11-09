@@ -2,8 +2,6 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export const SUPER_ADMIN_EMAIL = "a7md0555666@gmail.com";
-
 export type AppRole = "customer" | "driver" | "worker" | "admin";
 
 export interface Profile {
@@ -42,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [banStatus, setBanStatus] = useState<BanStatus | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [activeRole, setActiveRoleState] = useState<AppRole | null>(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("mumnun-active-role") as AppRole | null) || null;
@@ -57,15 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isSuperAdmin = Boolean(
-    session?.user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase(),
-  );
-
-  async function loadProfile(uid: string, userEmail?: string | null) {
+  async function loadProfile(uid: string) {
     try {
-      const email = userEmail || session?.user?.email;
-      const isSuper = email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
-
       const [{ data: prof }, { data: roleRows }, { data: blockRow }] = await Promise.all([
         supabase
           .from("profiles")
@@ -76,10 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from("user_blocks").select("*").eq("user_id", uid).maybeSingle(),
       ]);
 
-      const mappedRoles = (roleRows ?? []).map((r: any) => r.role as AppRole);
-      if (isSuper && !mappedRoles.includes("admin")) {
-        mappedRoles.push("admin");
-      }
+      const isSuper = (roleRows ?? []).some((r) => r.role === "super_admin");
+      const mappedRoles = (roleRows ?? [])
+        .map((r) => r.role)
+        .filter(
+          (role): role is AppRole =>
+            role === "customer" || role === "driver" || role === "worker" || role === "admin",
+        );
+      if (isSuper && !mappedRoles.includes("admin")) mappedRoles.push("admin");
+      setIsSuperAdmin(isSuper);
       if (!mappedRoles.includes("customer")) {
         mappedRoles.unshift("customer");
       }
@@ -118,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       setRoles([]);
       setBanStatus(null);
+      setIsSuperAdmin(false);
     }
   }
 
@@ -126,16 +124,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await supabase.auth.getSession();
       setSession(data.session);
       if (data.session?.user) {
-        await loadProfile(data.session.user.id, data.session.user.email);
+        await loadProfile(data.session.user.id);
       } else {
         setProfile(null);
         setRoles([]);
         setBanStatus(null);
+        setIsSuperAdmin(false);
       }
     } catch {
       setProfile(null);
       setRoles([]);
       setBanStatus(null);
+      setIsSuperAdmin(false);
     }
   }
 
@@ -143,11 +143,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       if (s?.user) {
-        setTimeout(() => loadProfile(s.user.id, s.user.email), 0);
+        setTimeout(() => loadProfile(s.user.id), 0);
       } else {
         setProfile(null);
         setRoles([]);
         setBanStatus(null);
+        setIsSuperAdmin(false);
       }
     });
     supabase.auth
@@ -155,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(async ({ data }) => {
         setSession(data.session);
         if (data.session?.user) {
-          await loadProfile(data.session.user.id, data.session.user.email);
+          await loadProfile(data.session.user.id);
         }
         setLoading(false);
       })
@@ -171,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRoles([]);
     setSession(null);
     setBanStatus(null);
+    setIsSuperAdmin(false);
   };
 
   return (

@@ -289,9 +289,7 @@ function OnboardingWorker() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">عدد الاختصاصات:</span>
-              <span className="font-bold">
-                {existingDoc.workerServices?.length || 0} مهنة
-              </span>
+              <span className="font-bold">{existingDoc.workerServices?.length || 0} مهنة</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">حالة الطلب:</span>
@@ -304,11 +302,7 @@ function OnboardingWorker() {
                       : "text-amber-600"
                 }`}
               >
-                {isApproved
-                  ? "مقبول ومعتمد ✓"
-                  : isRejected
-                    ? "مرفوض"
-                    : "بانتظار قرار الإدارة ⏳"}
+                {isApproved ? "مقبول ومعتمد ✓" : isRejected ? "مرفوض" : "بانتظار قرار الإدارة ⏳"}
               </span>
             </div>
           </div>

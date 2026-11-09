@@ -351,11 +351,7 @@ function OnboardingDriver() {
                       : "text-amber-600"
                 }`}
               >
-                {isApproved
-                  ? "مقبول ومعتمد ✓"
-                  : isRejected
-                    ? "مرفوض"
-                    : "بانتظار قرار الإدارة ⏳"}
+                {isApproved ? "مقبول ومعتمد ✓" : isRejected ? "مرفوض" : "بانتظار قرار الإدارة ⏳"}
               </span>
             </div>
           </div>

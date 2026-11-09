@@ -1,4 +1,4 @@
-import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { AlertOctagon, Mail, LogOut, Clock, ShieldAlert } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
@@ -52,15 +52,8 @@ export function BanOverlay() {
             className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-black text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition"
           >
             <Mail className="h-4 w-4" />
-            مراسلة الإدارة العامة والدعم ({SUPER_ADMIN_EMAIL})
+            مراسلة الإدارة العامة والدعم
           </Link>
-
-          <a
-            href={`mailto:${SUPER_ADMIN_EMAIL}?subject=طلب استئناف حظر حساب&body=مرحباً، أرجو مراجعة حظر حسابي المسجل في تطبيق ممنون.`}
-            className="w-full py-2.5 rounded-xl glass hover:bg-surface-2 text-xs font-bold flex items-center justify-center gap-1.5 transition text-muted-foreground"
-          >
-            إرسال بريد مباشر للمدير العام
-          </a>
 
           <button
             onClick={() => signOut()}

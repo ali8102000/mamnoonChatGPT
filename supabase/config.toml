@@ -1,1 +1,10 @@
 project_id = "tojqupbkqsnouhgioygq"
+
+[functions.auth-proxy]
+verify_jwt = false
+
+[functions.create-taxi-request]
+verify_jwt = true
+
+[functions.subscription-cron]
+verify_jwt = false

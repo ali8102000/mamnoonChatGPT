@@ -39,7 +39,7 @@ const input = z.discriminatedUnion("action", [
 
 export const lookupMapPlace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: z.infer<typeof input>) => input.parse(data))
+  .validator((data: z.infer<typeof input>) => input.parse(data))
   .handler(async ({ data }) => {
     const apiKey = process.env["GOOGLE_MAPS_API_KEY"];
     const lovableKey = process.env["LOVABLE_API_KEY"];

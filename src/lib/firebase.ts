@@ -1,6 +1,7 @@
-import { initializeApp, type FirebaseApp } from "firebase/app";
+import { initializeApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
+import type { MessagePayload } from "firebase/messaging";
 
-const firebaseConfig = {
+const firebaseConfig: FirebaseOptions = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined,
@@ -15,7 +16,7 @@ const hasFirebaseConfig = Boolean(
 );
 
 export const firebaseApp: FirebaseApp | null =
-  typeof window !== "undefined" && hasFirebaseConfig ? initializeApp(firebaseConfig as any) : null;
+  typeof window !== "undefined" && hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
 
 if (typeof window !== "undefined" && firebaseApp) {
   import("firebase/analytics")
@@ -24,7 +25,9 @@ if (typeof window !== "undefined" && firebaseApp) {
         if (ok) getAnalytics(firebaseApp!);
       }),
     )
-    .catch(() => {});
+    .catch((error: unknown) => {
+      console.warn("[firebase] analytics initialization failed", error);
+    });
 }
 
 export async function getFCM(): Promise<import("firebase/messaging").Messaging | null> {
@@ -55,7 +58,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
 }
 
 export async function onForegroundMessage(
-  cb: (payload: any) => void,
+  cb: (payload: MessagePayload) => void,
 ): Promise<(() => void) | null> {
   if (!firebaseApp) return null;
   const fcm = await getFCM();
@@ -70,14 +73,16 @@ export async function onForegroundMessage(
 
 export async function logAnalyticsEvent(
   eventName: string,
-  params?: Record<string, any>,
+  params?: Record<string, string | number | boolean | Array<string | number | boolean>>,
 ): Promise<void> {
   if (typeof window === "undefined" || !firebaseApp) return;
   try {
     const { getAnalytics, logEvent } = await import("firebase/analytics");
     const analytics = getAnalytics(firebaseApp);
     logEvent(analytics, eventName, params);
-  } catch {}
+  } catch (error) {
+    console.warn("[firebase] analytics event failed", error);
+  }
 }
 
 export async function startPerformanceTrace(
@@ -93,7 +98,9 @@ export async function startPerformanceTrace(
       stop: () => {
         try {
           t.stop();
-        } catch {}
+        } catch (error) {
+          console.warn("[firebase] performance trace stop failed", error);
+        }
       },
     };
   } catch {

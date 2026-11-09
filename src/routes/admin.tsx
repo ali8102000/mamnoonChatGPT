@@ -301,7 +301,7 @@ function OverviewSection() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [getStats]);
   if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
   if (!stats) return <div className="text-sm text-muted-foreground">تعذّر تحميل البيانات</div>;
   return (
@@ -364,7 +364,7 @@ function StatsSection() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [getStats]);
   if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
   if (!stats) return <div className="text-sm text-muted-foreground">تعذّر تحميل البيانات</div>;
   return (
@@ -462,7 +462,7 @@ function UsersSection() {
     } finally {
       setLoading(false);
     }
-  }, [page, searchQuery]);
+  }, [page, searchQuery, listUsers, searchUsers]);
   useEffect(() => {
     load();
   }, [load]);
@@ -786,7 +786,7 @@ function ProvidersSection() {
     } finally {
       setLoading(false);
     }
-  }, [type]);
+  }, [type, listProviders]);
   useEffect(() => {
     load();
   }, [load]);
@@ -881,7 +881,7 @@ function RequestsSection() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, listRequests]);
   useEffect(() => {
     load();
   }, [load]);
@@ -992,7 +992,7 @@ function ChatSection() {
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [tab, listChats, listMessages]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1080,7 +1080,7 @@ function FriendsSection() {
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [tab, listFriends, listFriendRequests]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1179,7 +1179,7 @@ function ReportsSection() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, listReports]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1300,7 +1300,7 @@ function CouponsSection() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [listCoupons]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1504,7 +1504,7 @@ function WalletSection() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [listTx]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1630,7 +1630,7 @@ function MapSection() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [getLocations, getRequests]);
   if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
   return (
     <div>
@@ -1781,7 +1781,7 @@ function RolesSection() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, listUsers, searchUsers]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1929,7 +1929,7 @@ function AuditSection() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [listLogs]);
   const actionLabels: Record<string, string> = {
     grant_role: "منح صلاحية",
     revoke_role: "إزالة صلاحية",

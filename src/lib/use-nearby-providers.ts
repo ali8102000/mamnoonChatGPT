@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { findNearbyProviderPins, type ProviderPin as ServerPin } from "@/lib/dispatch.functions";
 
@@ -28,14 +27,15 @@ export function useNearbyProviders(opts: {
     enabled = true,
     intervalMs = 15000,
   } = opts;
+  const centerLat = center?.lat ?? null;
+  const centerLng = center?.lng ?? null;
   const [pins, setPins] = useState<ProviderPin[]>([]);
   const timerRef = useRef<any>(null);
-  const debounceRef = useRef<any>(null);
   const inflightRef = useRef(false);
   const findPinsFn = useServerFn(findNearbyProviderPins);
 
   useEffect(() => {
-    if (!enabled || !center) {
+    if (!enabled || centerLat == null || centerLng == null) {
       setPins([]);
       return;
     }
@@ -48,8 +48,8 @@ export function useNearbyProviders(opts: {
       try {
         const rows = await findPinsFn({
           data: {
-            lat: center.lat,
-            lng: center.lng,
+            lat: centerLat,
+            lng: centerLng,
             type,
             category,
             serviceId,
@@ -77,25 +77,13 @@ export function useNearbyProviders(opts: {
 
     timerRef.current = setInterval(fetchPins, intervalMs);
 
-    const ch = supabase
-      .channel("provider-pins")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "live_locations", filter: `status=eq.online` },
-        () => {
-          clearTimeout(debounceRef.current);
-          debounceRef.current = setTimeout(fetchPins, 2000);
-        },
-      )
-      .subscribe();
+
 
     return () => {
       cancelled = true;
       clearInterval(timerRef.current);
-      clearTimeout(debounceRef.current);
-      supabase.removeChannel(ch);
     };
-  }, [center?.lat, center?.lng, type, category, serviceId, radiusKm, enabled, intervalMs]);
+  }, [centerLat, centerLng, type, category, serviceId, radiusKm, enabled, intervalMs, findPinsFn]);
 
   return pins;
 }

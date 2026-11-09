@@ -32,7 +32,7 @@ export default tseslint.config(
           ],
         },
       ],
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": ["warn", { allowConstantExport: true, allowExportNames: ["useAuth", "useGoBack"] }],
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unsafe-function-type": "off",
@@ -40,4 +40,9 @@ export default tseslint.config(
     },
   },
   eslintPluginPrettier,
+  {
+    rules: {
+      "prettier/prettier": "off",
+    },
+  },
 );

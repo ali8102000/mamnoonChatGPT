@@ -1,8 +1,17 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
-import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
+import { useCallback, useState, useEffect, useRef } from "react";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Headphones, Plus, MessageSquare, Send, Mail, Crown, CheckCircle2, ShieldCheck } from "lucide-react";
+import {
+  Loader2,
+  Headphones,
+  Plus,
+  MessageSquare,
+  Send,
+  Crown,
+  CheckCircle2,
+  ShieldCheck,
+} from "lucide-react";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/support")({
@@ -10,9 +19,15 @@ export const Route = createFileRoute("/support")({
   head: () => ({
     meta: [
       { title: "الدعم الفني | ممنون" },
-      { name: "description", content: "تواصل مع دعم ممنون بإشراف الإدارة العامة وتابع طلبات المساعدة." },
+      {
+        name: "description",
+        content: "تواصل مع دعم ممنون بإشراف الإدارة العامة وتابع طلبات المساعدة.",
+      },
       { property: "og:title", content: "الدعم الفني | ممنون" },
-      { property: "og:description", content: "تواصل مع دعم ممنون بإشراف الإدارة العامة وتابع طلبات المساعدة." },
+      {
+        property: "og:description",
+        content: "تواصل مع دعم ممنون بإشراف الإدارة العامة وتابع طلبات المساعدة.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -54,6 +69,7 @@ function SupportCenter() {
   const [adminViewAll, setAdminViewAll] = useState(false);
 
   const supportScrollRef = useRef<HTMLDivElement>(null);
+  const userId = session?.user.id ?? null;
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
@@ -63,21 +79,22 @@ function SupportCenter() {
     return () => cancelAnimationFrame(raf);
   }, [messages.length, selected?.id]);
 
-  useEffect(() => {
-    if (!session) return;
-    loadTickets();
-  }, [session, adminViewAll]);
-
-  async function loadTickets() {
+  const loadTickets = useCallback(async () => {
+    if (!userId) return;
     setLoadingTickets(true);
     let query = (supabase as any).from("support_tickets").select("*");
     if (!adminViewAll || !isSuperAdmin) {
-      query = query.eq("user_id", session!.user.id);
+      query = query.eq("user_id", userId);
     }
     const { data } = await query.order("created_at", { ascending: false });
     setTickets(data ?? []);
     setLoadingTickets(false);
-  }
+  }, [userId, adminViewAll, isSuperAdmin]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void loadTickets();
+  }, [userId, loadTickets]);
 
   async function loadMessages(ticketId: string) {
     const { data } = await (supabase as any)
@@ -194,25 +211,17 @@ function SupportCenter() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl">👑</span>
-            <span className="text-xs font-black text-amber-900">
-              الدعم المباشر تحت إشراف الإدارة العامة
-            </span>
+            <span className="text-xs font-black text-amber-900">دعم ممنون الرسمي</span>
           </div>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">
-            المدير العام أحمد
+            فريق ممنون
           </span>
         </div>
         <p className="text-xs text-amber-900/80 leading-relaxed font-medium">
-          يصل استفسارك وتذكرتك مباشرة إلى حساب الإدارة ({SUPER_ADMIN_EMAIL}) لضمان المتابعة وحل أي مشكلة تخص الرحلات أو الخدمات بأسرع وقت.
+          يصل استفسارك وتذكرتك مباشرة إلى فريق الدعم والإدارة لمتابعة أي مشكلة تخص الرحلات أو
+          الخدمات بأسرع وقت.
         </p>
         <div className="pt-1 flex flex-wrap gap-2">
-          <a
-            href={`mailto:${SUPER_ADMIN_EMAIL}?subject=استفسار تطبيق ممنون`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-border text-[11px] font-bold text-foreground shadow-sm hover:bg-muted btn-press"
-          >
-            <Mail className="h-3.5 w-3.5 text-primary" />
-            <span>راسل الإدارة بالبريد: {SUPER_ADMIN_EMAIL}</span>
-          </a>
           {isSuperAdmin && (
             <Link
               to="/admin"
@@ -261,9 +270,12 @@ function SupportCenter() {
                 {selected.status === "open" ? "مفتوحة ومتابعة" : "مغلقة"}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{selected.description}</p>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+              {selected.description}
+            </p>
             <div className="text-[10px] text-muted-foreground/70 mt-3 pt-2 border-t border-border/40">
-              القسم: {selected.category} · تاريخ الإنشاء: {new Date(selected.created_at).toLocaleDateString("ar-IQ")}
+              القسم: {selected.category} · تاريخ الإنشاء:{" "}
+              {new Date(selected.created_at).toLocaleDateString("ar-IQ")}
             </div>
           </div>
 
@@ -279,10 +291,7 @@ function SupportCenter() {
               messages.map((m) => {
                 const isMe = m.sender_id === session.user.id;
                 return (
-                  <div
-                    key={m.id}
-                    className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-                  >
+                  <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                     <div
                       className={`rounded-2xl px-4 py-3 max-w-[85%] text-xs shadow-sm leading-relaxed ${
                         isMe
@@ -294,8 +303,15 @@ function SupportCenter() {
                     >
                       <div>{m.message}</div>
                       <div className="text-[9px] opacity-75 mt-1 flex items-center justify-between gap-3">
-                        <span>{new Date(m.created_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })}</span>
-                        {m.is_staff && <span className="font-bold text-amber-700">👑 إدارة ممنون</span>}
+                        <span>
+                          {new Date(m.created_at).toLocaleTimeString("ar-IQ", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        {m.is_staff && (
+                          <span className="font-bold text-amber-700">👑 إدارة ممنون</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -334,7 +350,9 @@ function SupportCenter() {
             <div className="glass rounded-3xl p-5 mb-5 space-y-3.5 border border-primary/30 shadow-card animate-in fade-in duration-200">
               <h3 className="text-sm font-black text-foreground">تذكرة مساعدة جديدة</h3>
               <div>
-                <label className="block text-xs font-bold text-muted-foreground mb-1">نوع الاستفسار</label>
+                <label className="block text-xs font-bold text-muted-foreground mb-1">
+                  نوع الاستفسار
+                </label>
                 <select
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
@@ -349,7 +367,9 @@ function SupportCenter() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-muted-foreground mb-1">عنوان الموضوع</label>
+                <label className="block text-xs font-bold text-muted-foreground mb-1">
+                  عنوان الموضوع
+                </label>
                 <input
                   value={newSubject}
                   onChange={(e) => setNewSubject(e.target.value)}
@@ -358,7 +378,9 @@ function SupportCenter() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-muted-foreground mb-1">تفاصيل المشكلة أو الطلب</label>
+                <label className="block text-xs font-bold text-muted-foreground mb-1">
+                  تفاصيل المشكلة أو الطلب
+                </label>
                 <textarea
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
@@ -372,7 +394,11 @@ function SupportCenter() {
                 disabled={busy}
                 className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-black text-sm btn-press disabled:opacity-50 shadow-md"
               >
-                {busy ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "إرسال التذكرة للإدارة ✓"}
+                {busy ? (
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                ) : (
+                  "إرسال التذكرة للإدارة ✓"
+                )}
               </button>
             </div>
           )}
@@ -386,7 +412,8 @@ function SupportCenter() {
               <MessageSquare className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <div className="text-sm font-bold text-foreground">لا توجد تذاكر دعم سابقة</div>
               <p className="text-xs text-muted-foreground">
-                يمكنك الضغط على زر «فتح تذكرة دعم جديدة» أعلاه لمراسلة الإدارة والحصول على مساعدة سريعة.
+                يمكنك الضغط على زر «فتح تذكرة دعم جديدة» أعلاه لمراسلة الإدارة والحصول على مساعدة
+                سريعة.
               </p>
             </div>
           ) : (

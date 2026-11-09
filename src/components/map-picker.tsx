@@ -59,6 +59,10 @@ export function MapPicker({
 }) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const governorateKeyRef = useRef(governorateKey);
+  governorateKeyRef.current = governorateKey;
   const onSelectPlaceRef = useRef(onSelectPlace);
   onSelectPlaceRef.current = onSelectPlace;
   const [full, setFull] = useState(false);
@@ -69,19 +73,20 @@ export function MapPicker({
   };
   const reverseFallback = (c: Coords) => {
     lookupMapPlace({ data: { action: "reverse", center: c } })
-      .then((r: any) => {
-        if (r?.address) {
-          setAddress(r.address);
-          onChangeRef.current(c, r.address);
+      .then((result) => {
+        const response = result as { address?: string };
+        if (response.address) {
+          setAddress(response.address);
+          onChangeRef.current(c, response.address);
         }
       })
       .catch(() => {});
   };
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const mapRef = useRef<any>(null);
-  const geocoderRef = useRef<any>(null);
-  const idleTimerRef = useRef<any>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressIdleRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,14 +99,14 @@ export function MapPicker({
   const [suggestions, setSuggestions] = useState<
     Array<{ id: string; text: string; secondary: string }>
   >([]);
-  const sessionTokenRef = useRef<any>(null);
-  const acServiceRef = useRef<any>(null);
-  const placesSvcRef = useRef<any>(null);
+  const sessionTokenRef = useRef<string | null>(null);
+  const acServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesSvcRef = useRef<google.maps.places.PlacesService | null>(null);
   const nearbyMarkersRef = useRef<
     Map<
       string,
       {
-        marker: any;
+        marker: google.maps.Marker;
         anim: {
           from: Coords;
           to: Coords;
@@ -126,7 +131,7 @@ export function MapPicker({
       .then((g) => {
         clearTimeout(slow);
         if (cancelled || !containerRef.current) return;
-        const center = value ?? getGovernorate(governorateKey) ?? DEFAULT_CENTER;
+        const center = valueRef.current ?? getGovernorate(governorateKeyRef.current) ?? DEFAULT_CENTER;
         const map = new g.maps.Map(containerRef.current, {
           center,
           zoom: 14,
@@ -136,7 +141,7 @@ export function MapPicker({
         });
         mapRef.current = map;
         // Don't report the default city centre as the user's location.
-        if (!value) suppressIdleRef.current = true;
+        if (!valueRef.current) suppressIdleRef.current = true;
 
         const marker = new g.maps.Marker({
           position: center,
@@ -160,7 +165,7 @@ export function MapPicker({
           }, 300);
         });
 
-        map.addListener("click", (e: any) => {
+        map.addListener("click", (e: google.maps.MapMouseEvent) => {
           if (!e.latLng) return;
           const c = { lat: e.latLng.lat(), lng: e.latLng.lng() };
           marker.setPosition(e.latLng);
@@ -210,7 +215,7 @@ export function MapPicker({
 
   useEffect(() => {
     if (!nearby?.length || !mapRef.current) return;
-    const g = (window as any).google;
+    const g = (window as Window & { google?: typeof google }).google;
     if (!g) return;
 
     nearby.forEach((pin) => {
@@ -248,7 +253,7 @@ export function MapPicker({
         };
         existing.anim.raf = requestAnimationFrame(animate);
       } else {
-        const icon: any = {
+        const icon: google.maps.Symbol = {
           path: g.maps.SymbolPath.CIRCLE,
           scale: 8,
           fillColor: nearbyKind === "worker" ? "#10b981" : "#3b82f6",
@@ -324,15 +329,15 @@ export function MapPicker({
     const q = searchQuery.trim();
     const timer = setTimeout(async () => {
       if (!sessionTokenRef.current) sessionTokenRef.current = crypto.randomUUID();
-      const center = mapRef.current?.getCenter?.();
+      const center = mapRef.current?.getCenter?.() as unknown as
+        { lat: number | (() => number); lng: number | (() => number) } | undefined;
+      const readCoordinate = (coordinate: number | (() => number)) =>
+        typeof coordinate === "function" ? coordinate() : coordinate;
       const c = center
-        ? {
-            lat: typeof center.lat === "function" ? center.lat() : center.lat,
-            lng: typeof center.lng === "function" ? center.lng() : center.lng,
-          }
-        : (value ?? getGovernorate(governorateKey) ?? DEFAULT_CENTER);
+        ? { lat: readCoordinate(center.lat), lng: readCoordinate(center.lng) }
+        : (valueRef.current ?? getGovernorate(governorateKey) ?? DEFAULT_CENTER);
       try {
-        const res: any = await lookupMapPlace({
+        const res = (await lookupMapPlace({
           data: {
             action: "autocomplete",
             input: q,
@@ -340,11 +345,13 @@ export function MapPicker({
             center: c,
             governorateKey,
           },
-        });
+        })) as {
+          suggestions?: Array<{ id: string; text: string; address?: string; coords?: Coords }>;
+        };
         if (stale) return;
         if (res.suggestions?.length) {
           setSuggestions(
-            res.suggestions.map((s: any) => {
+            res.suggestions.map((s) => {
               const id = "g:" + s.id;
               if (s.coords)
                 placeCacheRef.current.set(id, { coords: s.coords, address: s.address || s.text });
@@ -371,13 +378,13 @@ export function MapPicker({
     let place = placeCacheRef.current.get(id);
     if (!place && id.startsWith("g:")) {
       try {
-        const res: any = await lookupMapPlace({
+        const res = (await lookupMapPlace({
           data: {
             action: "details",
             placeId: id.slice(2),
             sessionToken: sessionTokenRef.current ?? crypto.randomUUID(),
           },
-        });
+        })) as { coords: Coords; address?: string };
         place = { coords: res.coords, address: res.address || label };
       } catch {
         setGeoError("تعذّر فتح هذا المكان، جرّب مكان ثاني");
@@ -640,24 +647,27 @@ export function StaticMapPreview({
   accent?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const coordsLat = coords.lat;
+  const coordsLng = coords.lng;
 
   useEffect(() => {
     let cancelled = false;
+    const center = { lat: coordsLat, lng: coordsLng };
     loadGoogleMaps().then((g) => {
       if (cancelled || !containerRef.current) return;
       const map = new g.maps.Map(containerRef.current, {
-        center: coords,
+        center,
         zoom: 15,
         disableDefaultUI: true,
         gestureHandling: "none",
         clickableIcons: false,
       });
-      new g.maps.Marker({ position: coords, map });
+      new g.maps.Marker({ position: center, map });
     });
     return () => {
       cancelled = true;
     };
-  }, [coords.lat, coords.lng]);
+  }, [coordsLat, coordsLng]);
 
   return (
     <div

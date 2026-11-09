@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
@@ -23,44 +23,45 @@ export const Route = createFileRoute("/messages")({
 function MessagesPage() {
   const { session, loading } = useAuth();
   const [chats, setChats] = useState<any[]>([]);
+  const userId = session?.user.id ?? null;
 
-  useEffect(() => {
-    if (!session) return;
-    loadChats();
-
-    const ch = supabase
-      .channel(`chats-${session.user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () =>
-        loadChats(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [session]);
-
-  async function loadChats() {
+  const loadChats = useCallback(async () => {
+    if (!userId) return;
     const { data } = await supabase
       .from("chats")
       .select("id, request_id, customer_id, provider_id, created_at")
-      .or(`customer_id.eq.${session!.user.id},provider_id.eq.${session!.user.id}`)
+      .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
       .order("created_at", { ascending: false });
     if (!data) return;
     const otherIds = data
-      .map((c) => (c.customer_id === session!.user.id ? c.provider_id : c.customer_id))
+      .map((chat) => (chat.customer_id === userId ? chat.provider_id : chat.customer_id))
       .filter((id): id is string => !!id);
-    const { data: profs } =
+    const { data: profiles } =
       otherIds.length > 0
         ? await supabase.from("profiles").select("id, full_name, phone").in("id", otherIds)
         : { data: [] };
-    const map = new Map(profs?.map((p) => [p.id, p]) ?? []);
+    const profilesById = new Map(profiles?.map((profile) => [profile.id, profile]) ?? []);
     setChats(
-      data.map((c) => ({
-        ...c,
-        other: map.get(c.customer_id === session!.user.id ? c.provider_id : c.customer_id),
+      data.map((chat) => ({
+        ...chat,
+        other: profilesById.get(chat.customer_id === userId ? chat.provider_id : chat.customer_id),
       })),
     );
-  }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void loadChats();
+    const channel = supabase
+      .channel(`chats-${userId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () => {
+        void loadChats();
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [userId, loadChats]);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;

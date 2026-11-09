@@ -23,13 +23,13 @@ export function NotificationsBell() {
 
   useEffect(() => {
     if (!uid) return;
-    (supabase as any)
+    supabase
       .from("notifications")
       .select("*")
       .eq("user_id", uid)
       .order("created_at", { ascending: false })
       .limit(30)
-      .then(({ data, error }: any) => {
+      .then(({ data, error }) => {
         if (error) console.warn("[notifications] fetch error:", error.message);
         setItems(data ?? []);
       });
@@ -39,7 +39,7 @@ export function NotificationsBell() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
-        (payload: any) => {
+        (payload) => {
           const n = payload.new as Notif;
           setItems((cur) => [n, ...cur]);
           toast(n.title, { description: n.body ?? undefined });
@@ -48,8 +48,12 @@ export function NotificationsBell() {
               "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=",
             )
               .play()
-              .catch(() => {});
-          } catch {}
+              .catch((error: unknown) =>
+                console.warn("[notifications] sound playback failed:", error),
+              );
+          } catch (error: unknown) {
+            console.warn("[notifications] sound initialization failed:", error);
+          }
         },
       )
       .subscribe();
@@ -62,7 +66,7 @@ export function NotificationsBell() {
 
   async function markAll() {
     if (!uid) return;
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("notifications")
       .update({ read_at: new Date().toISOString() })
       .eq("user_id", uid)
@@ -121,7 +125,7 @@ export function NotificationsBell() {
                     className={`rounded-2xl border border-border p-3 ${!n.read_at ? "bg-primary/5" : "bg-card"}`}
                   >
                     {n.link && n.link.startsWith("/") ? (
-                      <Link to={n.link as any} onClick={() => setOpen(false)} className="block">
+                      <Link to={n.link as never} onClick={() => setOpen(false)} className="block">
                         <div className="font-bold text-sm">{n.title}</div>
                         {n.body && (
                           <div className="text-xs text-muted-foreground mt-1">{n.body}</div>
