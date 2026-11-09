@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,21 +25,6 @@ function MessagesPage() {
   const [chats, setChats] = useState<any[]>([]);
   const userId = session?.user.id;
 
-  useEffect(() => {
-    if (!session) return;
-    loadChats();
-
-    const ch = supabase
-      .channel(`chats-${userId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () =>
-        loadChats(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [session, userId, loadChats]);
-
   const loadChats = useCallback(async () => {
     const { data } = await supabase
       .from("chats")
@@ -62,6 +47,21 @@ function MessagesPage() {
       })),
     );
   }, [userId]);
+
+    useEffect(() => {
+    if (!session) return;
+    loadChats();
+
+    const ch = supabase
+      .channel(`chats-${userId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () =>
+        loadChats(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [session, userId, loadChats]);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
