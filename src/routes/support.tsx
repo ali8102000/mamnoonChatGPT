@@ -1,8 +1,8 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Headphones, Plus, MessageSquare, Send, Mail, Crown, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Loader2, Headphones, Plus, MessageSquare, Send, Crown, CheckCircle2, ShieldCheck } from "lucide-react";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/support")({
@@ -203,17 +203,10 @@ function SupportCenter() {
           </span>
         </div>
         <p className="text-xs text-amber-900/80 leading-relaxed font-medium">
-          يصل استفسارك وتذكرتك مباشرة إلى حساب الإدارة ({SUPER_ADMIN_EMAIL}) لضمان المتابعة وحل أي مشكلة تخص الرحلات أو الخدمات بأسرع وقت.
+          يصل استفسارك وتذكرتك مباشرة إلى فريق الدعم والإدارة لمتابعة أي مشكلة تخص الرحلات أو الخدمات بأسرع وقت.
         </p>
         <div className="pt-1 flex flex-wrap gap-2">
-          <a
-            href={`mailto:${SUPER_ADMIN_EMAIL}?subject=استفسار تطبيق ممنون`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-border text-[11px] font-bold text-foreground shadow-sm hover:bg-muted btn-press"
-          >
-            <Mail className="h-3.5 w-3.5 text-primary" />
-            <span>راسل الإدارة بالبريد: {SUPER_ADMIN_EMAIL}</span>
-          </a>
-          {isSuperAdmin && (
+       {isSuperAdmin && (
             <Link
               to="/admin"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 text-white text-[11px] font-black shadow-sm btn-press"
