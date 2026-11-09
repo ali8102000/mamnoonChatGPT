@@ -195,11 +195,11 @@ function SupportCenter() {
           <div className="flex items-center gap-2">
             <span className="text-xl">👑</span>
             <span className="text-xs font-black text-amber-900">
-              الدعم المباشر تحت إشراف الإدارة العامة
+              دعم ممنون الرسمي
             </span>
           </div>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">
-            المدير العام أحمد
+            فريق ممنون
           </span>
         </div>
         <p className="text-xs text-amber-900/80 leading-relaxed font-medium">
