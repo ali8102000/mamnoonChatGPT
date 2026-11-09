@@ -28,11 +28,13 @@ export function NavigationAppModal({
     defaultTarget === "dest" && destination ? "dest" : pickup ? "pickup" : "dest",
   );
   const [copied, setCopied] = useState(false);
+  const hasPickup = Boolean(pickup);
+  const hasDestination = Boolean(destination);
 
   useEffect(() => {
     if (isOpen)
-      setTargetType(defaultTarget === "dest" && destination ? "dest" : pickup ? "pickup" : "dest");
-  }, [isOpen, defaultTarget, !!pickup, !!destination]);
+      setTargetType(defaultTarget === "dest" && hasDestination ? "dest" : hasPickup ? "pickup" : "dest");
+  }, [isOpen, defaultTarget, hasPickup, hasDestination]);
 
   if (!isOpen) return null;
 
