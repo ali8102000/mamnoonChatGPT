@@ -3,7 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const grantProviderRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { role: "driver" | "worker" }) => {
+  .validator((input: { role: "driver" | "worker" }) => {
     if (input?.role !== "driver" && input?.role !== "worker") {
       throw new Error("Invalid role");
     }
