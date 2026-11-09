@@ -49,7 +49,7 @@ function ForgotPasswordPage() {
     const finalId = isEmail ? value : normalizePhone(value);
     setBusy(true);
     try {
-      const res = await reset({
+      await reset({
         data: {
           identifier: finalId,
           redirectTo: `${window.location.origin}/reset-password`,
