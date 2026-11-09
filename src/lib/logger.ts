@@ -5,7 +5,7 @@ export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 interface LogEntry {
   level: LogLevel;
   message: string;
-  data?: any;
+  data?: unknown;
   timestamp: string;
   url?: string;
   userId?: string;
@@ -24,7 +24,7 @@ export function configureLogging(opts: { endpoint?: string; userId?: string }) {
 function getBuffer(): LogEntry[] {
   try {
     const raw = sessionStorage.getItem(LOG_BUFFER_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? (JSON.parse(raw) as LogEntry[]) : [];
   } catch {
     return [];
   }
@@ -33,26 +33,32 @@ function getBuffer(): LogEntry[] {
 function saveBuffer(entries: LogEntry[]) {
   try {
     sessionStorage.setItem(LOG_BUFFER_KEY, JSON.stringify(entries.slice(-MAX_BUFFER)));
-  } catch {}
+  } catch {
+    // Storage may be unavailable in restricted browser contexts.
+  }
 }
 
-function log(level: LogLevel, message: string, data?: any) {
+function describeUnknown(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function log(level: LogLevel, message: string, data?: unknown) {
   const entry: LogEntry = {
     level,
     message,
-    data:
-      data instanceof Error ? { name: data.name, message: data.message, stack: data.stack } : data,
+    data: data instanceof Error ? { name: data.name, message: data.message, stack: data.stack } : data,
     timestamp: new Date().toISOString(),
     url: typeof window !== "undefined" ? window.location.href : undefined,
     userId: userId ?? undefined,
   };
 
-  const fn =
-    level === "error" || level === "fatal"
-      ? console.error
-      : level === "warn"
-        ? console.warn
-        : console.log;
+  const fn = level === "error" || level === "fatal" ? console.error : level === "warn" ? console.warn : console.log;
   fn(`[${level.toUpperCase()}] ${message}`, data ?? "");
 
   const buffer = getBuffer();
@@ -66,30 +72,30 @@ function log(level: LogLevel, message: string, data?: any) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entry),
         keepalive: true,
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => {
+        // Remote logging must never interrupt the application.
+      });
+    } catch {
+      // Remote logging is best-effort only.
+    }
   }
 }
 
 export const logger = {
-  debug: (msg: string, data?: any) => log("debug", msg, data),
-  info: (msg: string, data?: any) => log("info", msg, data),
-  warn: (msg: string, data?: any) => log("warn", msg, data),
-  error: (msg: string, data?: any) => log("error", msg, data),
-  fatal: (msg: string, data?: any) => log("fatal", msg, data),
+  debug: (msg: string, data?: unknown) => log("debug", msg, data),
+  info: (msg: string, data?: unknown) => log("info", msg, data),
+  warn: (msg: string, data?: unknown) => log("warn", msg, data),
+  error: (msg: string, data?: unknown) => log("error", msg, data),
+  fatal: (msg: string, data?: unknown) => log("fatal", msg, data),
   getBuffer: () => getBuffer(),
   clearBuffer: () => saveBuffer([]),
 };
 
 if (typeof window !== "undefined") {
   window.addEventListener("error", (e) => {
-    log("error", `Uncaught error: ${e.message}`, {
-      filename: e.filename,
-      line: e.lineno,
-      col: e.colno,
-    });
+    log("error", `Uncaught error: ${e.message}`, { filename: e.filename, line: e.lineno, col: e.colno });
   });
   window.addEventListener("unhandledrejection", (e) => {
-    log("error", `Unhandled rejection: ${e.reason?.message ?? e.reason}`, e.reason);
+    log("error", `Unhandled rejection: ${describeUnknown(e.reason)}`, e.reason);
   });
 }
