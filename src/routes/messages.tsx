@@ -38,7 +38,7 @@ function MessagesPage() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [session, loadChats]);
+  }, [session, userId, loadChats]);
 
   const loadChats = useCallback(async () => {
     const { data } = await supabase
