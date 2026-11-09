@@ -185,16 +185,20 @@ function NewRequest() {
   const [routeRetry, setRouteRetry] = useState(0);
   const runLookup = useServerFn(lookupMapPlace);
   const [busy, setBusy] = useState(false);
+  const pickupLat = pickupCoords?.lat;
+  const pickupLng = pickupCoords?.lng;
+  const destLat = destCoords?.lat;
+  const destLng = destCoords?.lng;
 
   // Calculate distance whenever pickup and dest coords update
   useEffect(() => {
     setRouteKm(null);
     setRouteError(null);
-    if (type !== "taxi" || !destConfirmed || !pickupCoords || !destCoords) return;
+    if (type !== "taxi" || !destConfirmed || pickupLat == null || pickupLng == null || destLat == null || destLng == null) return;
     let stale = false;
 
     const t = setTimeout(() => {
-      runLookup({ data: { action: "route", from: pickupCoords, to: destCoords } })
+      runLookup({ data: { action: "route", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng } } })
         .then((r: any) => {
           if (!stale && Number.isFinite(r?.distanceKm) && r.distanceKm >= 0)
             setRouteKm(r.distanceKm);
@@ -211,21 +215,22 @@ function NewRequest() {
   }, [
     type,
     destConfirmed,
-    pickupCoords?.lat,
-    pickupCoords?.lng,
-    destCoords?.lat,
-    destCoords?.lng,
+    pickupLat,
+    pickupLng,
+    destLat,
+    destLng,
     routeRetry,
+    runLookup,
   ]);
 
   useEffect(() => {
-    if (!pickupCoords) return;
+    if (pickupLat == null || pickupLng == null) return;
     const controller = new AbortController();
-    detectWeatherCondition(pickupCoords.lat, pickupCoords.lng, controller.signal)
+    detectWeatherCondition(pickupLat, pickupLng, controller.signal)
       .then(setWeatherCondition)
       .catch(() => {});
     return () => controller.abort();
-  }, [pickupCoords?.lat, pickupCoords?.lng]);
+  }, [pickupLat, pickupLng]);
 
   const nearby = useNearbyProviders({
     center: pickupCoords,

@@ -8,7 +8,9 @@ const SEND_EVERY_MS = 30_000;
 export function ProviderPresence() {
   const { session, roles } = useAuth();
   const uid = session?.user.id;
-  const isProvider = roles.includes("driver") || roles.includes("worker");
+  const isDriver = roles.includes("driver");
+  const isWorker = roles.includes("worker");
+  const isProvider = isDriver || isWorker;
 
   useEffect(() => {
     if (!uid || !isProvider || typeof navigator === "undefined" || !navigator.geolocation) return;
@@ -18,8 +20,8 @@ export function ProviderPresence() {
 
     async function isAvailable() {
       const [d, w] = await Promise.all([
-        roles.includes("driver") ? supabase.from("driver_profiles").select("available").eq("user_id", uid!).maybeSingle() : Promise.resolve({ data: null }),
-        roles.includes("worker") ? supabase.from("worker_profiles").select("available").eq("user_id", uid!).maybeSingle() : Promise.resolve({ data: null }),
+        isDriver ? supabase.from("driver_profiles").select("available").eq("user_id", uid!).maybeSingle() : Promise.resolve({ data: null }),
+        isWorker ? supabase.from("worker_profiles").select("available").eq("user_id", uid!).maybeSingle() : Promise.resolve({ data: null }),
       ]);
       return !!(d.data as any)?.available || !!(w.data as any)?.available;
     }
@@ -44,7 +46,7 @@ export function ProviderPresence() {
     );
     const timer = setInterval(() => void send(true), SEND_EVERY_MS);
     return () => { stopped = true; navigator.geolocation.clearWatch(watch); clearInterval(timer); };
-  }, [uid, isProvider, roles.join(",")]);
+  }, [uid, isDriver, isWorker, isProvider]);
 
   return null;
 }

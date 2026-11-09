@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -61,9 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session?.user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase(),
   );
 
-  async function loadProfile(uid: string, userEmail?: string | null) {
+  const loadProfile = useCallback(async (uid: string, userEmail?: string | null) => {
     try {
-      const email = userEmail || session?.user?.email;
+      const email = userEmail;
       const isSuper = email?.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
 
       const [{ data: prof }, { data: roleRows }, { data: blockRow }] = await Promise.all([
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles([]);
       setBanStatus(null);
     }
-  }
+  }, []);
 
   async function refresh() {
     try {
@@ -161,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => setLoading(false));
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [loadProfile]);
 
   const signOut = async () => {
     try {

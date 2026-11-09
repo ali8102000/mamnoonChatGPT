@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 type Coords = { lat: number; lng: number; heading?: number | null };
@@ -31,7 +31,7 @@ export function useLiveTracking(opts: {
   const lastPushTimeRef = useRef<number>(0);
   const channelRef = useRef<string>("");
 
-  const push = (lat: number, lng: number, heading: number | null) => {
+  const push = useCallback((lat: number, lng: number, heading: number | null) => {
     if (!requestId || !myUserId) return;
     const now = Date.now();
     const coords: Coords = { lat, lng, heading };
@@ -59,7 +59,7 @@ export function useLiveTracking(opts: {
       .then(({ error }: any) => {
         if (error) console.warn("[live-tracking] upsert error:", error.message);
       });
-  };
+  }, [requestId, myUserId, myRole]);
 
   useEffect(() => {
     if (!active || !navigator.geolocation) return;
@@ -85,7 +85,7 @@ export function useLiveTracking(opts: {
         watchRef.current = null;
       }
     };
-  }, [active, requestId, myUserId, myRole]);
+  }, [active, requestId, myUserId, myRole, push]);
 
   useEffect(() => {
     if (!active || !requestId || !otherUserId) return;

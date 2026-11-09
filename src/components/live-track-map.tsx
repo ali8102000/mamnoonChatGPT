@@ -129,13 +129,14 @@ export function LiveTrackMap({
         if (!cancelled) setMapError(true);
       });
 
+    const markerRefForCleanup = meMarkerRef;
     return () => {
       cancelled = true;
       readyRef.current = false;
       didInitialFitRef.current = false;
       if (pickupMarkerRef.current) pickupMarkerRef.current.setMap(null);
       if (destMarkerRef.current) destMarkerRef.current.setMap(null);
-      if (meMarkerRef.current) meMarkerRef.current.setMap(null);
+      if (markerRefForCleanup.current) markerRefForCleanup.current.setMap(null);
       if (driverMarkerRef.current) driverMarkerRef.current.setMap(null);
       if (routeLineRef.current) routeLineRef.current.setMap(null);
       mapRef.current = null;

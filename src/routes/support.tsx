@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Headphones, Plus, MessageSquare, Send, Mail, Crown, CheckCircle2, ShieldCheck } from "lucide-react";
@@ -54,6 +54,7 @@ function SupportCenter() {
   const [adminViewAll, setAdminViewAll] = useState(false);
 
   const supportScrollRef = useRef<HTMLDivElement>(null);
+  const userId = session?.user.id;
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
@@ -63,21 +64,21 @@ function SupportCenter() {
     return () => cancelAnimationFrame(raf);
   }, [messages.length, selected?.id]);
 
-  useEffect(() => {
-    if (!session) return;
-    loadTickets();
-  }, [session, adminViewAll]);
-
-  async function loadTickets() {
+  const loadTickets = useCallback(async () => {
     setLoadingTickets(true);
     let query = (supabase as any).from("support_tickets").select("*");
     if (!adminViewAll || !isSuperAdmin) {
-      query = query.eq("user_id", session!.user.id);
+      query = query.eq("user_id", userId!);
     }
     const { data } = await query.order("created_at", { ascending: false });
     setTickets(data ?? []);
     setLoadingTickets(false);
-  }
+  }, [adminViewAll, isSuperAdmin, userId]);
+
+  useEffect(() => {
+    if (!session) return;
+    void loadTickets();
+  }, [session, adminViewAll, loadTickets]);
 
   async function loadMessages(ticketId: string) {
     const { data } = await (supabase as any)
