@@ -81,7 +81,7 @@ Never put `SUPABASE_SERVICE_ROLE_KEY` in Expo variables.
 
 ## Deliberately deferred
 
-- OTP/SMS verification remains deferred as requested.
+- OTP/SMS verification remains deferred as requested. Until it is enabled, web and mobile signup require a real email address; phone login works only after a phone number has been attached to an account.
 - `subscription-cron` is included, but no daily scheduler has been configured yet. It must be invoked by a trusted scheduler using the service-role bearer secret.
 - A production AAB has not yet been built or signed. The Expo CI job checks TypeScript and Expo configuration; an EAS production build still requires the EAS environment and credentials.
 - No database migration has been applied to the live target project.
