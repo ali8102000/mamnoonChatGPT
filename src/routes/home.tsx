@@ -456,6 +456,16 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
         </div>
       </div>
 
+      {!verified && (
+        <div className="glass rounded-2xl p-3 text-xs text-muted-foreground">
+          {verificationStatus === "rejected"
+            ? "تم رفض توثيق الحساب. راجع الإدارة لتحديث بياناتك."
+            : verificationStatus === "suspended"
+              ? "تم تعليق حسابك مؤقتاً."
+              : "حسابك بانتظار توثيق الإدارة قبل استقبال الطلبات."}
+        </div>
+      )}
+
       <div className="glass rounded-2xl p-4 animate-pop-in" style={{ animationDelay: "0.05s" }}>
         <div className="text-xs text-muted-foreground">الطلبات المكتملة</div>
         <div className="font-black text-lg mt-1">{stats.jobs}</div>
