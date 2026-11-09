@@ -6,11 +6,13 @@ on:
     paths:
       - "expo-app/**"
       - ".github/workflows/mobile-ci.yml"
+      - ".github/workflows/android-aab.yml"
   pull_request:
     branches: [main]
     paths:
       - "expo-app/**"
       - ".github/workflows/mobile-ci.yml"
+      - ".github/workflows/android-aab.yml"
   workflow_dispatch:
 
 permissions:
