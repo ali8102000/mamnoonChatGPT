@@ -46,7 +46,7 @@ These migrations are committed but have **not been applied to the live database*
 
 The latest branch CI run is green: web TypeScript, lint command, tests and production build passed; Expo TypeScript/config validation passed; all three Edge Functions passed Deno typechecking.
 
-This is not a zero-warning certification. ESLint still reports 42 non-blocking React Hook/Fast Refresh warnings. The Prettier rule is temporarily disabled in CI because the repository has a large pre-existing formatting backlog; formatting cleanup remains separate work.
+This is not a zero-warning certification. ESLint still reports 40 non-blocking React Hook/Fast Refresh warnings. The Prettier rule is temporarily disabled in CI because the repository has a large pre-existing formatting backlog; formatting cleanup remains separate work.
 
 ## Required deployment configuration
 
