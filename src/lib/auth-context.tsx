@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const SUPER_ADMIN_EMAIL = "a7md0555666@gmail.com";
 
-export type AppRole = "customer" | "driver" | "worker" | "admin";
+export type AppRole = "customer" | "driver" | "worker" | "admin" | "super_admin" | "support" | "finance" | "moderator";
 
 export interface Profile {
   id: string;
