@@ -52,10 +52,10 @@ CREATE POLICY "Providers update own presence"
     )
   );
 
-DROP TRIGGER IF EXISTS provider_presence_updated_at ON public.provider_presence;
-CREATE TRIGGER provider_presence_updated_at
-  BEFORE UPDATE ON public.provider_presence
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS provider_presence_touch ON public.provider_presence;
+CREATE TRIGGER provider_presence_touch
+  BEFORE INSERT OR UPDATE ON public.provider_presence
+  FOR EACH ROW EXECUTE FUNCTION public.touch_provider_presence();
 
 CREATE OR REPLACE FUNCTION public.find_nearby_provider_pins(
   _lat numeric,
