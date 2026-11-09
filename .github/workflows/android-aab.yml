@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Set Git default branch for clean CI logs
-        run: git config --global init.defaultBranch main
+        run: git config --global init.defaultBranch main && git config --global advice.defaultBranchName false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
