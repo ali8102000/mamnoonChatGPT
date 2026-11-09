@@ -399,6 +399,7 @@ CREATE POLICY "Receiver marks own chat messages read" ON public.messages
     sender_id <> auth.uid()
     AND EXISTS (SELECT 1 FROM public.chats ch WHERE ch.id = chat_id
       AND auth.uid() IN (ch.customer_id, ch.provider_id))
+      AND read_at IS NOT NULL
   );
 
 -- 7) Ratings may only be submitted by a participant after the request is completed.
@@ -457,7 +458,8 @@ BEGIN
   IF v_updated = 0 THEN RAISE EXCEPTION 'request_unavailable'; END IF;
 
   INSERT INTO public.chats(request_id, customer_id, provider_id)
-  VALUES (_request_id, v_customer, auth.uid()) ON CONFLICT (request_id) DO NOTHING;
+  VALUES (_request_id, v_customer, auth.uid()) ON CONFLICT (request_id) DO UPDATE
+    SET customer_id = EXCLUDED.customer_id, provider_id = EXCLUDED.provider_id, updated_at = now();
   UPDATE public.request_offers SET status = 'accepted', responded_at = now()
     WHERE request_id = _request_id AND provider_id = auth.uid() AND status = 'pending';
   UPDATE public.request_offers SET status = 'cancelled', responded_at = now()
