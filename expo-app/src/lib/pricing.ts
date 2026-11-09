@@ -9,9 +9,8 @@ export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: numb
 }
 
 export function estimateFare(km: number, category: 'economy' | 'premium' | 'luxury' = 'economy'): number {
-  const baseFare = category === 'luxury' ? 8000 : category === 'premium' ? 5000 : 3000;
-  const perKm = category === 'luxury' ? 1500 : category === 'premium' ? 1000 : 700;
-  const raw = baseFare + km * perKm;
+  void category;
+  const raw = Math.max(1000, km * 400);
   return Math.round(raw / 250) * 250;
 }
 
