@@ -59,6 +59,10 @@ export function MapPicker({
 }) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const governorateKeyRef = useRef(governorateKey);
+  governorateKeyRef.current = governorateKey;
   const onSelectPlaceRef = useRef(onSelectPlace);
   onSelectPlaceRef.current = onSelectPlace;
   const [full, setFull] = useState(false);
@@ -127,7 +131,7 @@ export function MapPicker({
       .then((g) => {
         clearTimeout(slow);
         if (cancelled || !containerRef.current) return;
-        const center = value ?? getGovernorate(governorateKey) ?? DEFAULT_CENTER;
+        const center = valueRef.current ?? getGovernorate(governorateKeyRef.current) ?? DEFAULT_CENTER;
         const map = new g.maps.Map(containerRef.current, {
           center,
           zoom: 14,
@@ -137,7 +141,7 @@ export function MapPicker({
         });
         mapRef.current = map;
         // Don't report the default city centre as the user's location.
-        if (!value) suppressIdleRef.current = true;
+        if (!valueRef.current) suppressIdleRef.current = true;
 
         const marker = new g.maps.Marker({
           position: center,
@@ -331,7 +335,7 @@ export function MapPicker({
         typeof coordinate === "function" ? coordinate() : coordinate;
       const c = center
         ? { lat: readCoordinate(center.lat), lng: readCoordinate(center.lng) }
-        : (value ?? getGovernorate(governorateKey) ?? DEFAULT_CENTER);
+        : (valueRef.current ?? getGovernorate(governorateKey) ?? DEFAULT_CENTER);
       try {
         const res = (await lookupMapPlace({
           data: {
@@ -643,24 +647,27 @@ export function StaticMapPreview({
   accent?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const coordsLat = coords.lat;
+  const coordsLng = coords.lng;
 
   useEffect(() => {
     let cancelled = false;
+    const center = { lat: coordsLat, lng: coordsLng };
     loadGoogleMaps().then((g) => {
       if (cancelled || !containerRef.current) return;
       const map = new g.maps.Map(containerRef.current, {
-        center: coords,
+        center,
         zoom: 15,
         disableDefaultUI: true,
         gestureHandling: "none",
         clickableIcons: false,
       });
-      new g.maps.Marker({ position: coords, map });
+      new g.maps.Marker({ position: center, map });
     });
     return () => {
       cancelled = true;
     };
-  }, [coords.lat, coords.lng]);
+  }, [coordsLat, coordsLng]);
 
   return (
     <div
