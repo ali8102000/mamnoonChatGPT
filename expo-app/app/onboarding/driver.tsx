@@ -43,15 +43,13 @@ export default function DriverOnboarding() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase
-        .from("driver_profiles")
-        .upsert({
-          user_id: user?.id,
-          vehicle_model: `${selectedMake} ${selectedModel.model}`,
-          vehicle_plate: plate,
-          vehicle_color: color || null,
-          available: false,
-        });
+      const { error } = await supabase.from("driver_profiles").upsert({
+        user_id: user?.id,
+        vehicle_model: `${selectedMake} ${selectedModel.model}`,
+        vehicle_plate: plate,
+        vehicle_color: color || null,
+        available: false,
+      });
       if (error) throw error;
       const { error: roleError } = await supabase.rpc("grant_provider_role_safe", {
         _role: "driver",
