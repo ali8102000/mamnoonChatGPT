@@ -38,7 +38,7 @@ function BootstrapPage() {
         setExists(false);
       }
     })();
-  }, [session]);
+  }, [session, checkExists]);
 
   if (loading || !session) return <Navigate to="/auth" />;
   if (exists === null)
