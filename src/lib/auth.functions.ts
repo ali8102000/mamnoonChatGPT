@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 export const loginWithIdentifier = createServerFn({ method: "POST" })
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         identifier: z.string().trim().min(3).max(255),
@@ -60,7 +60,7 @@ export const loginWithIdentifier = createServerFn({ method: "POST" })
   });
 
 export const sendPasswordReset = createServerFn({ method: "POST" })
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         identifier: z.string().trim().min(3).max(255),
