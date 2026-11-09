@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { findNearbyProviderPins, type ProviderPin as ServerPin } from "@/lib/dispatch.functions";
 
@@ -32,7 +31,6 @@ export function useNearbyProviders(opts: {
   const centerLng = center?.lng ?? null;
   const [pins, setPins] = useState<ProviderPin[]>([]);
   const timerRef = useRef<any>(null);
-  const debounceRef = useRef<any>(null);
   const inflightRef = useRef(false);
   const findPinsFn = useServerFn(findNearbyProviderPins);
 
@@ -79,23 +77,11 @@ export function useNearbyProviders(opts: {
 
     timerRef.current = setInterval(fetchPins, intervalMs);
 
-    const ch = supabase
-      .channel("provider-pins")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "live_locations", filter: `status=eq.online` },
-        () => {
-          clearTimeout(debounceRef.current);
-          debounceRef.current = setTimeout(fetchPins, 2000);
-        },
-      )
-      .subscribe();
+
 
     return () => {
       cancelled = true;
       clearInterval(timerRef.current);
-      clearTimeout(debounceRef.current);
-      supabase.removeChannel(ch);
     };
   }, [centerLat, centerLng, type, category, serviceId, radiusKm, enabled, intervalMs, findPinsFn]);
 
