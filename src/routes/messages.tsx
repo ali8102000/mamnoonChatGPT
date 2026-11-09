@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
@@ -24,7 +24,7 @@ function MessagesPage() {
   const { session, loading } = useAuth();
   const [chats, setChats] = useState<any[]>([]);
 
-  useEffect(() => {
+  const loadChats = useCallback(async () => {
     if (!session) return;
     loadChats();
 
@@ -37,9 +37,10 @@ function MessagesPage() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [session]);
+  }, [session?.user.id]);
 
-  async function loadChats() {
+  useEffect(() => {
+    if (!session) return;
     const { data } = await supabase
       .from("chats")
       .select("id, request_id, customer_id, provider_id, created_at")
@@ -60,7 +61,7 @@ function MessagesPage() {
         other: map.get(c.customer_id === session!.user.id ? c.provider_id : c.customer_id),
       })),
     );
-  }
+  }, [session?.user.id, loadChats]);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
