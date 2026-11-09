@@ -216,6 +216,7 @@ function NewRequest() {
     destCoords?.lat,
     destCoords?.lng,
     routeRetry,
+    runLookup,
   ]);
 
   useEffect(() => {
