@@ -1631,6 +1631,7 @@ export type Database = {
       advance_taxi_dispatch: { Args: { _request_id: string }; Returns: number }
       consume_taxi_request_slot: { Args: { _user_id: string }; Returns: boolean }
       retry_taxi_dispatch: { Args: { _request_id: string }; Returns: number }
+      reset_monthly_request_counters: { Args: Record<PropertyKey, never>; Returns: number }
       assert_staff: { Args: { p_level: string }; Returns: undefined }
       bootstrap_first_super_admin: {
         Args: { p_user_id: string }
