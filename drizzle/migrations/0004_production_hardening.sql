@@ -69,7 +69,7 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_rows integer;
 BEGIN
   IF auth.uid() IS NULL OR NOT public.has_admin_access(auth.uid()) THEN RAISE EXCEPTION 'admin_required'; END IF;
-  IF p_status NOT IN ('approved', 'suspended', 'rejected') THEN RAISE EXCEPTION 'invalid_provider_status'; END IF;
+  IF p_status NOT IN ('pending', 'approved', 'suspended', 'rejected') THEN RAISE EXCEPTION 'invalid_provider_status'; END IF;
   IF p_type = 'driver' THEN
     UPDATE public.driver_profiles
     SET status = p_status, verification_status = p_status, is_verified = (p_status = 'approved'),
