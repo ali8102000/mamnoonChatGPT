@@ -8,7 +8,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  */
 export const dispatchRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: req, error } = await supabase
@@ -38,7 +38,7 @@ export const dispatchRequest = createServerFn({ method: "POST" })
  */
 export const acceptServiceRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.rpc("accept_service_request", {
       _request_id: data.requestId,
@@ -57,7 +57,7 @@ export const acceptServiceRequest = createServerFn({ method: "POST" })
  */
 export const respondToOffer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         offerId: z.string().uuid(),
@@ -99,7 +99,7 @@ export const respondToOffer = createServerFn({ method: "POST" })
  */
 export const cancelRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         requestId: z.string().uuid(),
@@ -127,7 +127,7 @@ export const cancelRequest = createServerFn({ method: "POST" })
  */
 export const providerCancelRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         requestId: z.string().uuid(),
@@ -155,7 +155,7 @@ export const providerCancelRequest = createServerFn({ method: "POST" })
  */
 export const retryDispatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: req, error } = await supabase
@@ -186,7 +186,7 @@ export const retryDispatch = createServerFn({ method: "POST" })
  */
 export const startRide = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.rpc("transition_service_request", {
       _request_id: data.requestId,
@@ -206,7 +206,7 @@ export const startRide = createServerFn({ method: "POST" })
  */
 export const completeRide = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ requestId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.rpc("transition_service_request", {
       _request_id: data.requestId,
@@ -230,7 +230,7 @@ export type ProviderPin = {
 
 export const findNearbyProviderPins = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         lat: z.number().min(-90).max(90),
