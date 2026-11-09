@@ -23,10 +23,10 @@ export const Route = createFileRoute("/messages")({
 function MessagesPage() {
   const { session, loading } = useAuth();
   const [chats, setChats] = useState<any[]>([]);
+  const userId = session?.user.id ?? null;
 
   const loadChats = useCallback(async () => {
-    if (!session) return;
-    const userId = session.user.id;
+    if (!userId) return;
     const { data } = await supabase
       .from("chats")
       .select("id, request_id, customer_id, provider_id, created_at")
@@ -47,13 +47,13 @@ function MessagesPage() {
         other: profilesById.get(chat.customer_id === userId ? chat.provider_id : chat.customer_id),
       })),
     );
-  }, [session?.user.id]);
+  }, [userId]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!userId) return;
     void loadChats();
     const channel = supabase
-      .channel(`chats-${session.user.id}`)
+      .channel(`chats-${userId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () => {
         void loadChats();
       })
@@ -61,7 +61,7 @@ function MessagesPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [session?.user.id, loadChats]);
+  }, [userId, loadChats]);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
