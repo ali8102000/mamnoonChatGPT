@@ -96,11 +96,10 @@ function AuthPage() {
           const { error: pErr } = await supabase.from("profiles").upsert({
             id: uid,
             phone: normalized,
-            full_name: isSuperAdminEmail ? "أحمد (المدير العام)" : name.trim(),
+            full_name: name.trim(),
             email: realEmail || null,
           });
           if (pErr) throw pErr;
-
         }
         await refresh();
         if (isSuperAdminEmail) {
