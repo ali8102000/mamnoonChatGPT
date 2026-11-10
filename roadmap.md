@@ -13,7 +13,8 @@
 - [x] Apply required package security update.
 - [x] Diagnose uploaded error screenshot and verify preview readiness.
 - [x] Verify signed-in access and authentication error states (restored session; invalid-phone validation).
-- [ ] Restore Google map configuration and migrate place search.
+- [x] Restore Google Maps connection for authenticated place search and route calculation.
+- [ ] Enable Routes API access for the linked Google Maps connection; Google returns ACCESS_DENIED for routes.googleapis.com, so the connection owner must enable/authorize the service.
 - [ ] Add always-visible automatic location control and prevent default-center selection.
 - [ ] Verify location success, refusal, and retry; Google rendering requires an authorized published origin.
 - [x] Admin CSV import helper with AI column mapping
