@@ -12,6 +12,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/lib/toast";
+import { arabicWarning } from "@/lib/arabic-errors";
 import {
   Loader as Loader2,
   ArrowLeft,
@@ -204,7 +205,7 @@ function NewRequest() {
             setRouteKm(r.distanceKm);
         })
         .catch((e) => {
-          if (!stale) setRouteError(e instanceof Error ? e.message : "تعذّر حساب مسافة الطريق");
+          if (!stale) setRouteError(arabicWarning(e));
         });
     }, 400);
 

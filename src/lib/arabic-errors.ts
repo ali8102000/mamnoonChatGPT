@@ -28,6 +28,10 @@ const knownErrors: Array<[RegExp, string]> = [
   [/request_unavailable|offer_expired/i, "انتهت مهلة الطلب أو قبله سائق آخر أو ألغاه الزبون"],
   [/request_not_found|Request not found|Offer not found/i, "الطلب غير موجود أو لم يعد متاحاً"],
   [/unauthorized|jwt.*expired|not authenticated/i, "انتهت جلسة الدخول؛ سجّل الدخول مرة أخرى"],
+  [
+    /routes\.googleapis\.com|MAPS_ROUTES_ACCESS_DENIED/i,
+    "خدمة حساب مسافة الطريق غير متاحة لهذا الاتصال؛ يجب تفعيل خدمة المسارات والسماح بها في إعدادات Google قبل حساب السعر",
+  ],
   [/forbidden|permission denied/i, "ليس لديك صلاحية لتنفيذ هذه العملية"],
   [/email.*not confirmed/i, "يرجى تأكيد البريد الإلكتروني قبل تسجيل الدخول"],
   [/invalid.*email|email.*invalid/i, "البريد الإلكتروني غير صالح"],
