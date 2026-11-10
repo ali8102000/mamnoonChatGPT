@@ -19,7 +19,7 @@
 - Database schema lives in `drizzle/migrations` (consolidated from the imported project); add changes as new migrations, never edit applied ones.
 - Admin/staff checks run in database functions (`has_staff_role`, `has_admin_access`, `is_super_admin`, `assert_staff`); server functions call them before using the privileged client, so never query `client.server` from route components.
 - User-linked tables reference `public.profiles(id)` so admin views can embed profile names via `<table>_<column>_fkey`.
-- Phone-only accounts sign in with a synthetic `phone<digits>@mamnoon.app` email, which is why email auto-confirm stays on.
+- Preserve synthetic-email sign-in for legacy phone-only accounts; new signups use validated real emails and confirmation, so legacy users remain supported without bypassing verification.
 - Subscription expiry runs as a daily database job calling `handle_expired_subscriptions()`; it replaced the old scheduled function.
 - Keep the welcome flow in `/welcome` with browser-persisted language preferences; language selection covers welcome and auth screens.
 - Governorate-scoped place search uses one bounded Google Text Search request with local administrative-polygon filtering, never nearest-city classification or per-result requests, to exclude neighboring provinces without fan-out.
@@ -36,7 +36,7 @@
 - Database schema lives in `drizzle/migrations` (consolidated from the imported project); add changes as new migrations, never edit applied ones.
 - Admin/staff checks run in database functions (`has_staff_role`, `has_admin_access`, `is_super_admin`, `assert_staff`); server functions call them before using the privileged client, so never query `client.server` from route components.
 - User-linked tables reference `public.profiles(id)` so admin views can embed profile names via `<table>_<column>_fkey`.
-- Phone-only accounts sign in with a synthetic `phone<digits>@mamnoon.app` email, which is why email auto-confirm stays on.
+- Signup validation lives in a shared schema; unauthenticated signups rely on the existing profile-creation trigger and never write profiles without a session, because confirmation leaves signup signed out.
 - Subscription expiry runs as a daily database job calling `handle_expired_subscriptions()`; it replaced the old scheduled function.
 - Keep the welcome flow in `/welcome` with browser-persisted language preferences; language selection covers welcome and auth screens.
 - Governorate-scoped place search uses one bounded Google Text Search request with local administrative-polygon filtering, never nearest-city classification or per-result requests, to exclude neighboring provinces without fan-out.

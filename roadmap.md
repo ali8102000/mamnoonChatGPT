@@ -1,5 +1,8 @@
 # Tasks
 
+- [x] Require real email, enable signup confirmation, and enlarge registration fields; four tests pass and mobile/desktop confirmation-pending behavior verified with a simulated signup response.
+- [ ] Verify receipt and confirmation link with a user-owned mailbox; confirmation sending is enabled but inbox delivery cannot be checked without the user's email test.
+
 - [x] Redraw all technician service icons in the new illustrated style and verify all 19 available services on mobile and desktop.
 - [x] Remove customer navigation, offer optional full-screen location viewing, and simplify navigation labels.
 - [x] Diagnose page-loading failure and restore public backend configuration when the generated environment file is omitted from deployment.

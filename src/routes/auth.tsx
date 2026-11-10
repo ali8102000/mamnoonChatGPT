@@ -2,13 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
 import { signInWithIdentifier } from "@/lib/auth.functions";
-import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User, ShieldCheck, Crown } from "lucide-react";
+import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
 import { Button } from "@/components/ui/button";
+import { signupSchema, requiresEmailConfirmation } from "@/lib/signup-validation";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -45,13 +46,10 @@ function AuthPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
   const navigate = useNavigate();
   const { refresh } = useAuth();
   const signIn = useServerFn(signInWithIdentifier);
-
-  const isTargetAdmin =
-    identifier.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ||
-    email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,42 +62,30 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        if (name.trim().length < 2) {
-          toast.error(t("الرجاء إدخال الاسم", "Please enter your full name"));
-          setBusy(false);
+        const parsed = signupSchema.safeParse({ name, phone, email, password });
+        if (!parsed.success) {
+          toast.error(parsed.error.issues[0]?.message || "تحقق من بيانات التسجيل");
           return;
         }
-        if (!isValidPhone(phone)) {
-          toast.error(t("رقم الهاتف غير صالح", "Invalid phone number"));
-          setBusy(false);
-          return;
-        }
-        const normalized = normalizePhone(phone);
-        const realEmail = email.trim().toLowerCase();
-        const authEmail = realEmail || phoneToEmail(normalized);
+        const { phone: normalized, email: realEmail, name: fullName } = parsed.data;
         const isSuperAdminEmail = realEmail === SUPER_ADMIN_EMAIL.toLowerCase();
 
         const { data, error } = await supabase.auth.signUp({
-          email: authEmail,
+          email: realEmail,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
             data: {
               phone: normalized,
-              full_name: name.trim(),
+              full_name: fullName,
             },
           },
         });
         if (error) throw error;
-        const uid = data.user?.id;
-        if (uid) {
-          const { error: pErr } = await supabase.from("profiles").upsert({
-            id: uid,
-            phone: normalized,
-            full_name: name.trim(),
-            email: realEmail || null,
-          });
-          if (pErr) throw pErr;
+        if (requiresEmailConfirmation(data.session)) {
+          setConfirmationEmail(realEmail);
+          setPassword("");
+          return;
         }
         await refresh();
         if (isSuperAdminEmail) {
@@ -180,12 +166,12 @@ function AuthPage() {
     <div
       dir={language === "ar" ? "rtl" : "ltr"}
       lang={language}
-      className="min-h-screen flex flex-col px-5 pt-8 pb-8 max-w-md mx-auto"
+      className="min-h-screen flex flex-col px-5 pt-6 pb-10 w-full max-w-lg mx-auto"
     >
       <Button asChild variant="link" className="self-start mb-3">
         <Link to="/welcome">{t("اللغة والترحيب", "Language & welcome")}</Link>
       </Button>
-      <div className="text-center mb-8">
+      <div className="text-center mb-6">
         <div className="inline-flex items-center justify-center h-20 w-20 rounded-3xl bg-gradient-to-br from-primary to-primary-glow glow-primary mb-4 shadow-elegant">
           <span className="text-3xl font-black text-primary-foreground">م</span>
         </div>
@@ -195,15 +181,15 @@ function AuthPage() {
         </p>
       </div>
 
-      <div className="glass rounded-3xl p-6 shadow-card flex-1 flex flex-col">
-        <div className="flex bg-surface-2 rounded-2xl p-1 mb-5">
+      <div className="flex flex-col">
+        <div className="flex bg-surface-2 border border-border rounded-xl p-1.5 mb-7">
           {(["signup", "login"] as Mode[]).map((m) => (
             <Button
               key={m}
               type="button"
               variant={mode === m ? "default" : "ghost"}
-              onClick={() => setMode(m)}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition btn-press tap-highlight-none ${
+              onClick={() => { setMode(m); setConfirmationEmail(""); }}
+              className={`flex-1 h-12 rounded-lg text-base font-bold transition btn-press tap-highlight-none ${
                 mode === m
                   ? "bg-primary text-primary-foreground shadow-card"
                   : "text-muted-foreground"
@@ -214,32 +200,39 @@ function AuthPage() {
           ))}
         </div>
 
-        {/* Distinctive Visual Card when entering Ahmed's Super Admin email */}
-        {isTargetAdmin && (
-          <div className="mb-4 rounded-2xl p-3.5 bg-amber-50 border-2 border-amber-500/60 text-right animate-in fade-in duration-200">
-            <div className="flex items-center gap-2 text-amber-800 font-black text-xs">
-              <Crown className="h-4 w-4 text-amber-600" />
-              <span>حساب المدير العام أحمد (صلاحيات كاملة)</span>
+        {confirmationEmail ? (
+          <section className="py-8 text-center flex flex-col items-center gap-5" aria-live="polite">
+            <div className="h-20 w-20 rounded-full bg-primary/10 grid place-items-center">
+              <Mail className="h-9 w-9 text-primary" />
             </div>
-            <p className="text-[11px] text-amber-700/90 mt-1 leading-relaxed">
-              سيتم تفعيل الصلاحية المطلقة: مراجعة طلبات السائقين والفنيين، الحظر، توزيع الخصومات، وإدارة الدعم.
-            </p>
-          </div>
-        )}
-
-        <form noValidate onSubmit={onSubmit} className="space-y-4 flex-1 flex flex-col">
+            <h2 className="text-2xl font-bold">{t("أكّد بريدك الإلكتروني", "Confirm your email")}</h2>
+            <p className="text-muted-foreground leading-7">{t("أرسلنا رابط تأكيد إلى", "We sent a confirmation link to")}</p>
+            <p dir="ltr" className="font-semibold break-all w-full">{confirmationEmail}</p>
+            <p className="text-muted-foreground leading-7">{t("افتح الرابط لإكمال التسجيل. راجع البريد الوارد ومجلد الرسائل غير المرغوب فيها.", "Open the link to complete registration. Check your inbox and spam folder.")}</p>
+            <Button className="w-full h-14 text-base rounded-xl" onClick={() => { setIdentifier(confirmationEmail); setConfirmationEmail(""); setMode("login"); }}>{t("العودة لتسجيل الدخول", "Back to sign in")}</Button>
+            <Button variant="ghost" onClick={() => setConfirmationEmail("")}>{t("تعديل البريد الإلكتروني", "Edit email")}</Button>
+          </section>
+        ) : (
+        <form noValidate onSubmit={onSubmit} className="space-y-5 flex flex-col">
           {mode === "signup" ? (
             <>
-              <Field label={t("الاسم الكامل", "Full name")} icon={<User className="h-4 w-4" />}>
+              <Field label={t("الاسم الكامل", "Full name")} icon={<User className="h-5 w-5" />}>
                 <input
+                  required
+                  autoComplete="name"
+                  maxLength={100}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={t("مثال: أحمد محمد", "e.g. Ahmed Mohammed")}
                   className="input-base"
                 />
               </Field>
-              <Field label={t("رقم الهاتف", "Phone number")} icon={<Phone className="h-4 w-4" />}>
+              <Field label={t("رقم الهاتف", "Phone number")} icon={<Phone className="h-5 w-5" />}>
                 <input
+                  required
+                  type="tel"
+                  autoComplete="tel"
+                  maxLength={30}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   dir="ltr"
@@ -250,12 +243,16 @@ function AuthPage() {
               </Field>
               <Field
                 label={t(
-                  "البريد الإلكتروني",
-                  "Email",
+                  "البريد الإلكتروني (مطلوب)",
+                  "Email (required)",
                 )}
-                icon={<Mail className="h-4 w-4" />}
+                icon={<Mail className="h-5 w-5" />}
               >
                 <input
+                  required
+                  type="email"
+                  autoComplete="email"
+                  maxLength={255}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   dir="ltr"
@@ -268,7 +265,7 @@ function AuthPage() {
           ) : (
             <Field
               label={t("رقم الهاتف أو البريد", "Phone number or email")}
-              icon={<Phone className="h-4 w-4" />}
+              icon={<Phone className="h-5 w-5" />}
             >
               <input
                 value={identifier}
@@ -280,8 +277,12 @@ function AuthPage() {
             </Field>
           )}
 
-          <Field label={t("كلمة المرور", "Password")} icon={<Lock className="h-4 w-4" />}>
+          <Field label={t("كلمة المرور", "Password")} icon={<Lock className="h-5 w-5" />}>
             <input
+              required
+              minLength={6}
+              maxLength={128}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -300,32 +301,19 @@ function AuthPage() {
           )}
 
           <div className="pt-2">
-            <button
+            <Button
               type="submit"
               disabled={busy}
-              className={`w-full py-4 rounded-2xl font-black text-base shadow-lg transition btn-press flex items-center justify-center gap-2 ${
-                isTargetAdmin
-                  ? "bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-amber-500/25"
-                  : "bg-primary text-primary-foreground shadow-primary/20"
-              }`}
+              className="w-full h-14 rounded-xl font-bold text-base shadow-elegant"
             >
-              {busy ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <>
-                  <span>
-                    {isTargetAdmin
-                      ? "دخول الإدارة العامة 👑"
-                      : mode === "signup"
-                        ? t("إنشاء الحساب والمتابعة", "Create account & continue")
-                        : t("تسجيل الدخول", "Sign in")}
-                  </span>
-                  <Forward className="h-5 w-5" />
-                </>
-              )}
-            </button>
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <>
+                <span>{mode === "signup" ? t("إنشاء الحساب", "Create account") : t("تسجيل الدخول", "Sign in")}</span>
+                <Forward className="h-5 w-5" />
+              </>}
+            </Button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );
@@ -341,14 +329,14 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <label className="block text-xs font-bold text-muted-foreground mb-1.5">{label}</label>
+    <label className="block">
+      <span className="block text-sm font-bold text-foreground mb-2.5">{label}</span>
       <div className="relative">
-        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+        <div className="absolute end-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
           {icon}
         </div>
-        <div className="[&>input]:pr-10">{children}</div>
+        <div className="[&>input]:w-full [&>input]:h-16 [&>input]:ps-12 [&>input]:pe-4 [&>input]:rounded-xl [&>input]:border [&>input]:border-border [&>input]:bg-input [&>input]:text-foreground [&>input]:text-base [&>input]:outline-none [&>input]:transition [&>input:focus]:border-primary [&>input:focus]:ring-4 [&>input:focus]:ring-primary/10">{children}</div>
       </div>
-    </div>
+    </label>
   );
 }
