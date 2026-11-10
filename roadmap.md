@@ -1,5 +1,8 @@
 # Tasks
 
+- [x] Cancel SMS setup at the user's request; the connection card was cancelled and no SMS connection or code was added.
+- [ ] Resolve password-recovery email delivery and choose the replacement for the link; SMS was cancelled, and the delivery logs do not establish inbox receipt.
+
 - [x] Require real email, enable signup confirmation, and enlarge registration fields; four tests pass and mobile/desktop confirmation-pending behavior verified with a simulated signup response.
 - [ ] Verify receipt and confirmation link with a user-owned mailbox; confirmation sending is enabled but inbox delivery cannot be checked without the user's email test.
 
