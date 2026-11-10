@@ -315,7 +315,7 @@ function AuthPage() {
         </form>
         )}
       </div>
-    </label>
+    </div>
   );
 }
 
