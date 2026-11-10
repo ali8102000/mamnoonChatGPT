@@ -11,7 +11,6 @@ export default function ProfileScreen() {
   const { user, profile, roles, signOut } = useAuth();
   const [wallet, setWallet] = useState<DriverWallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -30,11 +29,6 @@ export default function ProfileScreen() {
           .limit(10);
         setTransactions(txns || []);
       }
-      const { data: adminCheck } = await supabase.rpc("has_role", {
-        _user_id: user?.id,
-        _role: "admin",
-      });
-      setIsAdmin(!!adminCheck);
     }
     load();
   }, [user?.id, roles]);
@@ -63,7 +57,7 @@ export default function ProfileScreen() {
         <Text style={styles.phone}>{profile?.phone}</Text>
       </View>
       <View style={styles.rolesRow}>
-        {roles.map((r) => (
+        {roles.filter((r) => ["customer", "driver", "worker"].includes(r)).map((r) => (
           <View key={r} style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>
               {r === "customer" ? "زبون" : r === "driver" ? "سائق" : "فني"}
@@ -112,7 +106,7 @@ export default function ProfileScreen() {
           ))}
         </>
       )}
-      {isAdmin && (
+      {roles.includes("super_admin") && (
         <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/admin")}>
           <Text style={styles.menuItemText}>لوحة التحكم</Text>
           <Text style={styles.menuArrow}>←</Text>
