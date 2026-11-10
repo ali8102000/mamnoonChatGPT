@@ -1,5 +1,7 @@
 # Tasks
 
+- [ ] Require real email, enable signup confirmation, and enlarge registration fields; verify confirmation-pending behavior.
+
 - [x] Redraw all technician service icons in the new illustrated style and verify all 19 available services on mobile and desktop.
 - [x] Remove customer navigation, offer optional full-screen location viewing, and simplify navigation labels.
 - [x] Diagnose page-loading failure and restore public backend configuration when the generated environment file is omitted from deployment.
