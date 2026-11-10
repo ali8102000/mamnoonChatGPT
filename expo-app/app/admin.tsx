@@ -32,13 +32,13 @@ export default function AdminScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const { data: adminCheck } = await supabase.rpc("has_role", {
-      _user_id: user?.id,
-      _role: "admin",
+    const { data: superAdminCheck, error: permissionError } = await supabase.rpc("is_super_admin", {
+      p_user_id: user?.id,
     });
-    if (!adminCheck) {
-      Alert.alert("خطأ", "ليس لديك صلاحية للوصول");
-      router.back();
+    if (permissionError || superAdminCheck !== true) {
+      Alert.alert("غير مصرّح", "هذه الإدارة العليا مخصصة لصاحب الحساب فقط");
+      router.replace("/home");
+      setLoading(false);
       return;
     }
     const [reqs, users, drivers, pricingRules, recentReqs] = await Promise.all([
