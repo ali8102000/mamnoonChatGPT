@@ -113,10 +113,10 @@ export default function AuthScreen() {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.logoWrap}>
         <View style={styles.logo}>
-          <Text style={styles.logoText}>م</Text>
+          <Text style={styles.logoText}>ك</Text>
         </View>
-        <Text style={styles.title}>ممنون</Text>
-        <Text style={styles.subtitle}>منصة النقل والخدمات الفاخرة</Text>
+        <Text style={styles.title}>كفو</Text>
+        <Text style={styles.subtitle}>منصة النقل والخدمات</Text>
       </View>
       <View style={styles.card}>
         <View style={styles.tabs}>
