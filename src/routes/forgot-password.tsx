@@ -10,8 +10,8 @@ export const Route = createFileRoute("/forgot-password")({
     meta: [
       { title: "استعادة كلمة المرور | ممنون" },
       { name: "description", content: "استعد حسابك في ممنون باستخدام رمز تحقق عبر البريد الإلكتروني." },
-      { property: "og:title", content: "استعادة كلمة المرور | كفو" },
-      { property: "og:description", content: "استعد حسابك في كفو باستخدام رمز تحقق عبر البريد الإلكتروني." },
+      { property: "og:title", content: "استعادة كلمة المرور | ممنون" },
+      { property: "og:description", content: "استعد حسابك في ممنون باستخدام رمز تحقق عبر البريد الإلكتروني." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
