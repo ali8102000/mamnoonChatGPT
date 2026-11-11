@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
 import { signInWithIdentifier } from "@/lib/auth.functions";
 import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User } from "lucide-react";
@@ -46,7 +46,6 @@ function AuthPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [confirmationEmail, setConfirmationEmail] = useState("");
   const navigate = useNavigate();
   const { refresh } = useAuth();
   const signIn = useServerFn(signInWithIdentifier);
@@ -67,25 +66,25 @@ function AuthPage() {
           toast.error(parsed.error.issues[0]?.message || "تحقق من بيانات التسجيل");
           return;
         }
-        const { phone: normalized, email: realEmail, name: fullName } = parsed.data;
-        const isSuperAdminEmail = realEmail === SUPER_ADMIN_EMAIL.toLowerCase();
+        const { phone: normalized, email: contactEmail, name: fullName } = parsed.data;
+        const isSuperAdminEmail = contactEmail === SUPER_ADMIN_EMAIL.toLowerCase();
+        const accountEmail = phoneToEmail(normalized);
 
         const { data, error } = await supabase.auth.signUp({
-          email: realEmail,
+          email: accountEmail,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: {
               phone: normalized,
               full_name: fullName,
+              contact_email: contactEmail || null,
             },
           },
         });
         if (error) throw error;
         if (requiresEmailConfirmation(data.session)) {
-          setConfirmationEmail(realEmail);
-          setPassword("");
-          return;
+          throw new Error("تأكيد البريد ما زال مفعّلاً في إعدادات الخادم. عطّله حتى يدخل المستخدم مباشرة بدون رمز.");
         }
         await refresh();
         if (isSuperAdminEmail) {
@@ -188,7 +187,7 @@ function AuthPage() {
               key={m}
               type="button"
               variant={mode === m ? "default" : "ghost"}
-              onClick={() => { setMode(m); setConfirmationEmail(""); }}
+              onClick={() => setMode(m)}
               className={`flex-1 h-12 rounded-lg text-base font-bold transition btn-press tap-highlight-none ${
                 mode === m
                   ? "bg-primary text-primary-foreground shadow-card"
@@ -200,33 +199,6 @@ function AuthPage() {
           ))}
         </div>
 
-        {confirmationEmail ? (
-          <section className="py-8 text-center flex flex-col items-center gap-5" aria-live="polite">
-            <div className="h-20 w-20 rounded-full bg-primary/10 grid place-items-center">
-              <Mail className="h-9 w-9 text-primary" />
-            </div>
-            <h2 className="text-2xl font-bold">{t("أكّد بريدك الإلكتروني", "Confirm your email")}</h2>
-            <p className="text-muted-foreground leading-7">{t("أرسلنا رابط تأكيد إلى", "We sent a confirmation link to")}</p>
-            <p dir="ltr" className="font-semibold break-all w-full">{confirmationEmail}</p>
-            <p className="text-muted-foreground leading-7">{t("افتح الرابط لإكمال التسجيل. راجع البريد الوارد ومجلد الرسائل غير المرغوب فيها.", "Open the link to complete registration. Check your inbox and spam folder.")}</p>
-            <Button className="w-full h-14 text-base rounded-xl" onClick={() => { setIdentifier(confirmationEmail); setConfirmationEmail(""); setMode("login"); }}>{t("العودة لتسجيل الدخول", "Back to sign in")}</Button>
-            <Button className="w-full" variant="outline" disabled={busy} onClick={async () => {
-              setBusy(true);
-              try {
-                const { error } = await supabase.auth.resend({
-                  type: "signup",
-                  email: confirmationEmail,
-                  options: { emailRedirectTo: window.location.origin + "/auth/callback" },
-                });
-                if (error) throw error;
-                toast.success(t("أعدنا إرسال رابط التأكيد. افحص الوارد والرسائل غير المرغوب فيها.", "Confirmation email resent. Check inbox and spam."));
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : t("تعذر إعادة إرسال الرابط", "Could not resend the link"));
-              } finally { setBusy(false); }
-            }}>{t("إعادة إرسال رابط التأكيد", "Resend confirmation link")}</Button>
-            <Button variant="ghost" onClick={() => setConfirmationEmail("")}>{t("تعديل البريد الإلكتروني", "Edit email")}</Button>
-          </section>
-        ) : (
         <form noValidate onSubmit={onSubmit} className="space-y-5 flex flex-col">
           {mode === "signup" ? (
             <>
@@ -257,13 +229,12 @@ function AuthPage() {
               </Field>
               <Field
                 label={t(
-                  "البريد الإلكتروني (مطلوب)",
-                  "Email (required)",
+                  "البريد الإلكتروني (اختياري)",
+                  "Email (optional)",
                 )}
                 icon={<Mail className="h-5 w-5" />}
               >
                 <input
-                  required
                   type="email"
                   autoComplete="email"
                   maxLength={255}
