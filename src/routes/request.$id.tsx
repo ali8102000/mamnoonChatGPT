@@ -33,21 +33,21 @@ import { NavigationAppModal } from "@/components/navigation-app-modal";
 import { Button } from "@/components/ui/button";
 
 const VEHICLE_CAT_META: Record<string, { label: string; emoji: string; gradient: string }> = {
-  economy: { label: "كفو اقتصادي", emoji: "🚗", gradient: "from-emerald-400 to-teal-500" },
-  premium: { label: "كفو المتميز", emoji: "🚙", gradient: "from-sky-500 to-indigo-600" },
-  luxury: { label: "كفو فاخر", emoji: "🏎️", gradient: "from-amber-400 to-orange-500" },
+  economy: { label: "ممنون اقتصادي", emoji: "🚗", gradient: "from-emerald-400 to-teal-500" },
+  premium: { label: "ممنون المتميز", emoji: "🚙", gradient: "from-sky-500 to-indigo-600" },
+  luxury: { label: "ممنون فاخر", emoji: "🏎️", gradient: "from-amber-400 to-orange-500" },
 };
 
 export const Route = createFileRoute("/request/$id")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "تفاصيل الطلب | كفو" },
-      { name: "description", content: "تابع حالة طلبك وموقع مزود الخدمة وتواصل معه في كفو." },
-      { property: "og:title", content: "تفاصيل الطلب | كفو" },
+      { title: "تفاصيل الطلب | ممنون" },
+      { name: "description", content: "تابع حالة طلبك وموقع مزود الخدمة وتواصل معه في ممنون." },
+      { property: "og:title", content: "تفاصيل الطلب | ممنون" },
       {
         property: "og:description",
-        content: "تابع حالة طلبك وموقع مزود الخدمة وتواصل معه في كفو.",
+        content: "تابع حالة طلبك وموقع مزود الخدمة وتواصل معه في ممنون.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
