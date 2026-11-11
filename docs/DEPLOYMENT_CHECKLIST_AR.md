@@ -4,11 +4,14 @@
 
 ## 1. ربط Supabase — تحقق من الزوج الصحيح قبل النشر
 
-توجد قيمتان مختلفتان في ملفات المستودع:
+تم توحيد إعدادات المستودع العامة مع مشروع Supabase المعتمد:
 - `supabase/config.toml` يشير إلى المشروع `hvfiwjryffjwaynkpgar`.
-- `config/public-backend.json` يحتوي عنوان مشروع آخر `tojqupbkqsnouhgioygq` ومفتاحاً عاماً تابعاً لذلك العنوان.
+- `config/public-backend.json` يشير أيضاً إلى `https://hvfiwjryffjwaynkpgar.supabase.co` ويحتوي Publishable key الذي زوّد به صاحب المشروع.
+- فحص GitHub Actions للويب نجح على commit `bd8e6fed531a1c322d531cfe4adf709486dd19ab`.
 
-اعتمد مشروع Supabase الذي يحتوي بيانات كفو الفعلية. المرجع المستخدم في إعداد CLI الحالي هو `hvfiwjryffjwaynkpgar`، لكن ملف `config/public-backend.json` لا يزال يحمل زوج URL/Key قديماً. لم أغيّر المفتاح أو العنوان لأن المفتاح العام الحالي لا يمكن نقله بين المشاريع. استبدل الزوج كاملاً من إعدادات المشروع الصحيح قبل أي نشر من Lovable أو بناء ويب يعتمد هذا الملف.
+هذه المطابقة تثبت اتساق ملفات المستودع فقط، ولا تثبت أن إعدادات Lovable Cloud أو Supabase المستضافة أو متغيرات الخادم قد تم ضبطها. تطبيق الويب يحتاج أيضاً إلى متغيرات الخادم `SUPABASE_URL` و`SUPABASE_SERVICE_ROLE_KEY` لأن البحث الآمن عن البريد بواسطة الهاتف مقيّد بدور `service_role` في migration `0011_normalize_phone_login.sql`. يجب ضبط المفتاح السري في بيئة الخادم فقط، وعدم وضعه في GitHub أو المتصفح أو تطبيق الهاتف. لا تشارك هذا المفتاح في المحادثة.
+
+إذا تغيّر مشروع Supabase لاحقاً، حدّث URL والمفتاح العام معاً، ثم حدّث مرجع المشروع في `supabase/config.toml` و`expo-app/scripts/validate-production-env.mjs` بعد التحقق من نقل البيانات والترحيلات.
 
 لا تضع كلمة مرور أو `service_role` أو أي سر في GitHub أو داخل تطبيق الهاتف.
 
