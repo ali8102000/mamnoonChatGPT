@@ -15,11 +15,15 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
     const isEmail = identifier.includes("@");
 
     let email = identifier.toLowerCase();
+    let legacyPhoneEmail: string | null = null;
     if (!isEmail) {
       const normalizedPhone = normalizePhone(identifier);
       if (!/^\+\d{8,15}$/.test(normalizedPhone)) {
         throw new Error("أدخل رقم هاتف صحيحاً مع رمز البلد أو بدونه");
       }
+      const normalizedDigits = normalizedPhone.replace(/\\D/g, "");
+      const legacyDigits = identifier.replace(/\\D/g, "");
+      legacyPhoneEmail = `phone${legacyDigits}@mamnoon.app`;
       const { data: mappedEmail, error: lookupError } = await (supabaseAdmin as any).rpc(
         "lookup_email_by_phone",
         { _phone: normalizedPhone },
@@ -50,10 +54,18 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: authData, error } = await supabaseAdmin.auth.signInWithPassword({
+    let { data: authData, error } = await supabaseAdmin.auth.signInWithPassword({
       email,
       password: data.password,
     });
+    if ((error || !authData.session) && legacyPhoneEmail && legacyPhoneEmail !== email) {
+      const legacyAttempt = await supabaseAdmin.auth.signInWithPassword({
+        email: legacyPhoneEmail,
+        password: data.password,
+      });
+      authData = legacyAttempt.data;
+      error = legacyAttempt.error;
+    }
     if (error || !authData.session) {
       throw new Error("رقم الهاتف أو البريد الإلكتروني أو كلمة المرور غير صحيحة");
     }
