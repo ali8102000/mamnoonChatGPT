@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { normalizePhone } from "@/lib/phone";
 
 const credentialsSchema = z.object({
   identifier: z.string().trim().min(3).max(255),
@@ -15,9 +16,13 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
 
     let email = identifier.toLowerCase();
     if (!isEmail) {
+      const normalizedPhone = normalizePhone(identifier);
+      if (!/^\\+\\d{8,15}$/.test(normalizedPhone)) {
+        throw new Error("أدخل رقم هاتف صحيحاً مع رمز البلد أو بدونه");
+      }
       const { data: mappedEmail, error: lookupError } = await (supabaseAdmin as any).rpc(
         "lookup_email_by_phone",
-        { _phone: identifier },
+        { _phone: normalizedPhone },
       );
       if (lookupError) {
         // The RPC may be missing if the database migration has not been applied.
@@ -30,7 +35,7 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
         const { data: profile, error: profileLookupError } = await supabaseAdmin
           .from("profiles")
           .select("email")
-          .eq("phone", identifier)
+          .in("phone", [identifier, normalizedPhone])
           .maybeSingle();
         if (profileLookupError) {
           console.error("[signInWithIdentifier] Profile phone lookup failed:", profileLookupError.message);
