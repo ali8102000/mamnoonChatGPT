@@ -18,14 +18,34 @@ export default function MessagesScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadChats = useCallback(async () => {
-    const { data } = await supabase
+    if (!user?.id) {
+      setChats([]);
+      setLoading(false);
+      return;
+    }
+    const { data, error } = await supabase
       .from("chats")
-      .select(
-        "*, other:profiles!chats_other_user_id_fkey(full_name, phone), request:service_requests(type, status)",
-      )
-      .or(`customer_id.eq.${user?.id},provider_id.eq.${user?.id}`)
+      .select("id, request_id, customer_id, provider_id, request:service_requests(type, status)")
+      .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
       .order("updated_at", { ascending: false });
-    setChats(data || []);
+    if (error || !data) {
+      setChats([]);
+      setLoading(false);
+      return;
+    }
+    const otherIds = [...new Set(data.map((chat) =>
+      chat.customer_id === user.id ? chat.provider_id : chat.customer_id
+    ))];
+    const { data: profiles } = otherIds.length
+      ? await supabase.from("profiles").select("id, full_name, phone").in("id", otherIds)
+      : { data: [] };
+    const profileById = new Map((profiles || []).map((profile) => [profile.id, profile]));
+    setChats(data.map((chat) => ({
+      id: chat.id,
+      request_id: chat.request_id,
+      request: Array.isArray(chat.request) ? chat.request[0] ?? null : chat.request,
+      other: profileById.get(chat.customer_id === user.id ? chat.provider_id : chat.customer_id) ?? null,
+    })));
     setLoading(false);
   }, [user?.id]);
 
