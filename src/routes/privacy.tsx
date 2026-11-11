@@ -4,10 +4,10 @@ export const Route = createFileRoute("/privacy")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "سياسة الخصوصية | ممنون" },
-      { name: "description", content: "تعرّف على استخدام بياناتك وحماية خصوصيتك في ممنون." },
-      { property: "og:title", content: "سياسة الخصوصية | ممنون" },
-      { property: "og:description", content: "تعرّف على استخدام بياناتك وحماية خصوصيتك في ممنون." },
+      { title: "سياسة الخصوصية | كفو" },
+      { name: "description", content: "تعرّف على استخدام بياناتك وحماية خصوصيتك في كفو." },
+      { property: "og:title", content: "سياسة الخصوصية | كفو" },
+      { property: "og:description", content: "تعرّف على استخدام بياناتك وحماية خصوصيتك في كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -23,7 +23,7 @@ function PrivacyPage() {
         <section>
           <h2 className="font-black text-foreground mb-2">مقدمة</h2>
           <p>
-            تطبيق "ممنون" منصة لنقل الأشخاص وطلب الخدمات المنزلية. نحن نحترم خصوصيتك ونلتزم بحماية
+            تطبيق "كفو" منصة لنقل الأشخاص وطلب الخدمات المنزلية. نحن نحترم خصوصيتك ونلتزم بحماية
             بياناتك الشخصية.
           </p>
         </section>
