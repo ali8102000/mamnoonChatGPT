@@ -37,6 +37,10 @@ export default function WorkerOnboarding() {
   }
 
   async function submit() {
+    if (!user) {
+      Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول أولاً ثم أكمل تسجيل الفني.");
+      return;
+    }
     if (selected.length === 0) {
       Alert.alert("خطأ", "الرجاء اختيار خدمة واحدة على الأقل");
       return;
@@ -47,10 +51,15 @@ export default function WorkerOnboarding() {
         .from("worker_profiles")
         .upsert({ user_id: user?.id, level, bio: bio || null, available: false });
       if (error) throw error;
-      await supabase.from("worker_services").delete().eq("worker_id", user?.id);
-      await supabase
+      const { error: deleteServicesError } = await supabase
         .from("worker_services")
-        .insert(selected.map((serviceId) => ({ worker_id: user?.id, service_id: serviceId })));
+        .delete()
+        .eq("worker_id", user.id);
+      if (deleteServicesError) throw deleteServicesError;
+      const { error: insertServicesError } = await supabase
+        .from("worker_services")
+        .insert(selected.map((serviceId) => ({ worker_id: user.id, service_id: serviceId })));
+      if (insertServicesError) throw insertServicesError;
       const { error: roleError } = await supabase.rpc("grant_provider_role_safe", {
         _role: "worker",
       });
