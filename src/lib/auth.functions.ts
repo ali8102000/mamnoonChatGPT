@@ -21,8 +21,7 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
       if (!/^\+\d{8,15}$/.test(normalizedPhone)) {
         throw new Error("أدخل رقم هاتف صحيحاً مع رمز البلد أو بدونه");
       }
-      const normalizedDigits = normalizedPhone.replace(/\\D/g, "");
-      const legacyDigits = identifier.replace(/\\D/g, "");
+      const legacyDigits = identifier.replace(/\D/g, "");
       legacyPhoneEmail = `phone${legacyDigits}@mamnoon.app`;
       const { data: mappedEmail, error: lookupError } = await (supabaseAdmin as any).rpc(
         "lookup_email_by_phone",
