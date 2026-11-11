@@ -1,10 +1,9 @@
 import { useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { router } from "expo-router";
-import * as Linking from "expo-linking";
 import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import { authProxy, supabase } from "@/lib/supabase";
-import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
 
@@ -19,7 +18,6 @@ export default function AuthScreen() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [confirmationEmail, setConfirmationEmail] = useState("");
   const { refresh } = useAuth();
 
   async function onSubmit() {
@@ -41,28 +39,21 @@ export default function AuthScreen() {
           return;
         }
         const normalized = normalizePhone(phone);
-        const realEmail = email.trim().toLowerCase();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(realEmail)) {
-          Alert.alert(
-            "تنبيه",
-            "حالياً يلزم بريد إلكتروني حقيقي للتسجيل إلى أن يتم تفعيل التحقق برسالة SMS.",
-          );
+        const contactEmail = email.trim().toLowerCase();
+        if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+          Alert.alert("خطأ", "البريد الإلكتروني غير صالح");
           setBusy(false);
           return;
         }
-        const authEmail = realEmail;
         const result = await authProxy<{ session: AuthSessionTokens | null }>("/signup", {
-          email: authEmail,
+          email: phoneToEmail(normalized),
           password,
           phone: normalized,
           full_name: name.trim(),
-          emailRedirectTo: Linking.createURL("/auth/callback"),
+          contact_email: contactEmail || null,
         });
         if (!result.session) {
-          setConfirmationEmail(authEmail);
-          Alert.alert("تم التسجيل", "تحقق من بريدك الإلكتروني. افتح رابط التأكيد لإكمال التسجيل.");
-          setMode("login");
-          return;
+          throw new Error("تأكيد البريد ما زال مفعّلاً في إعدادات الخادم. عطّله حتى يدخل المستخدم مباشرة بدون رمز.");
         }
         const { error } = await supabase.auth.setSession(result.session);
         if (error) throw error;
@@ -142,7 +133,7 @@ export default function AuthScreen() {
               placeholder="07XXXXXXXXX"
               keyboardType="phone-pad"
             />
-            <Text style={styles.label}>البريد الإلكتروني (مطلوب حالياً إلى حين تفعيل SMS)</Text>
+            <Text style={styles.label}>البريد الإلكتروني (اختياري)</Text>
             <RealInput
               value={email}
               onChangeText={setEmail}
@@ -179,31 +170,6 @@ export default function AuthScreen() {
           onPress={onSubmit}
           loading={busy}
         />
-        {confirmationEmail ? (
-          <View style={{ marginTop: 16 }}>
-            <Text style={styles.terms}>بانتظار تأكيد البريد: {confirmationEmail}</Text>
-            <Text
-              style={[styles.forgotLink, { textAlign: "center" }]}
-              onPress={async () => {
-                if (busy) return;
-                setBusy(true);
-                try {
-                  const { error } = await supabase.auth.resend({
-                    type: "signup",
-                    email: confirmationEmail,
-                    options: { emailRedirectTo: Linking.createURL("/auth/callback") },
-                  });
-                  if (error) throw error;
-                  Alert.alert("تم", "أعدنا إرسال رابط التأكيد. افحص الوارد والرسائل غير المرغوب فيها.");
-                } catch (e) {
-                  Alert.alert("تعذر الإرسال", e instanceof Error ? e.message : "حاول مرة أخرى لاحقاً");
-                } finally { setBusy(false); }
-              }}
-            >
-              إعادة إرسال رابط التأكيد
-            </Text>
-          </View>
-        ) : null}
         <Text style={styles.terms}>بمتابعتك أنت توافق على الشروط والأحكام وسياسة الخصوصية</Text>
       </View>
     </ScrollView>
