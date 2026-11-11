@@ -70,12 +70,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles([]);
       }
     });
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) await loadProfile(data.session.user.id);
-      setLoading(false);
-    });
-    return () => sub.subscription.unsubscribe();
+    let active = true;
+    supabase.auth
+      .getSession()
+      .then(async ({ data, error }) => {
+        if (error) throw error;
+        if (!active) return;
+        setSession(data.session);
+        if (data.session?.user) await loadProfile(data.session.user.id);
+      })
+      .catch(() => {
+        if (!active) return;
+        setSession(null);
+        setProfile(null);
+        setRoles([]);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
