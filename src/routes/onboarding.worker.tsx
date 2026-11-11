@@ -28,15 +28,15 @@ export const Route = createFileRoute("/onboarding/worker")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "تسجيل الفني وتأكيد الهوية | كفو" },
+      { title: "تسجيل الفني وتأكيد الهوية | ممنون" },
       {
         name: "description",
-        content: "سجل اختصاصاتك المهنية وأكد هويتك للانضمام إلى فنيي كفو المعتمدين.",
+        content: "سجل اختصاصاتك المهنية وأكد هويتك للانضمام إلى فنيي ممنون المعتمدين.",
       },
-      { property: "og:title", content: "تسجيل الفني وتأكيد الهوية | كفو" },
+      { property: "og:title", content: "تسجيل الفني وتأكيد الهوية | ممنون" },
       {
         property: "og:description",
-        content: "سجل اختصاصاتك المهنية وأكد هويتك للانضمام إلى فنيي كفو المعتمدين.",
+        content: "سجل اختصاصاتك المهنية وأكد هويتك للانضمام إلى فنيي ممنون المعتمدين.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
