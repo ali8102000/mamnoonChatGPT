@@ -10,7 +10,7 @@ export default function ForgotPassword() {
 
   async function submit() {
     const value = email.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       Alert.alert("تنبيه", "أدخل بريداً إلكترونياً صحيحاً");
       return;
     }
