@@ -57,6 +57,13 @@
       "when": 1794358200000,
       "tag": "0007_sync_verified_auth_contacts",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794361800000,
+      "tag": "0008_secure_friend_workflows",
+      "breakpoints": true
     }
   ]
 }
