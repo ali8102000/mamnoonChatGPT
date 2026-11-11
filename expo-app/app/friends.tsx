@@ -26,20 +26,31 @@ export default function FriendsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadFriends = useCallback(async () => {
-    const { data } = await supabase
-      .from("friends")
-      .select("friend:profiles!friends_friend_id_fkey(id, full_name, phone)")
-      .eq("user_id", user?.id);
-    setFriends((data ?? []).flatMap((row) => row.friend ?? []));
+    const { data, error } = await supabase.rpc("list_my_friends");
+    if (error) {
+      Alert.alert("تعذر تحميل الأصدقاء", error.message);
+      return;
+    }
+    setFriends(data ?? []);
   }, [user?.id]);
 
   const loadPending = useCallback(async () => {
-    const { data } = await supabase
-      .from("friend_requests")
-      .select("*, sender:profiles!friend_requests_sender_id_fkey(id, full_name, phone)")
-      .eq("receiver_id", user?.id)
-      .eq("status", "pending");
-    setPendingRequests(data || []);
+    const { data, error } = await supabase.rpc("list_pending_friend_requests");
+    if (error) {
+      Alert.alert("تعذر تحميل طلبات الصداقة", error.message);
+      return;
+    }
+    setPendingRequests(
+      (data ?? []).map((request) => ({
+        id: request.id,
+        sender_id: request.sender_id,
+        sender: {
+          id: request.sender_id,
+          full_name: request.sender_full_name,
+          phone: request.sender_phone,
+        },
+      })),
+    );
   }, [user?.id]);
 
   const loadAll = useCallback(async () => {
@@ -80,13 +91,14 @@ export default function FriendsScreen() {
   async function searchByPhone() {
     if (!searchPhone.trim()) return;
     const normalized = normalizePhone(searchPhone);
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name, phone")
-      .ilike("phone", `%${normalized.replace("+", "")}%`)
-      .neq("id", user?.id)
-      .limit(10);
-    setSearchResults(data || []);
+    const { data, error } = await supabase.rpc("search_profiles_for_friend", {
+      _phone: normalized,
+    });
+    if (error) {
+      Alert.alert("تعذر البحث", error.message);
+      return;
+    }
+    setSearchResults(data ?? []);
   }
 
   async function sendRequest(receiverId: string) {
@@ -101,18 +113,28 @@ export default function FriendsScreen() {
     }
   }
 
-  async function acceptRequest(reqId: string, senderId: string) {
-    await supabase.from("friend_requests").update({ status: "accepted" }).eq("id", reqId);
-    await supabase.from("friends").insert([
-      { user_id: user?.id, friend_id: senderId },
-      { user_id: senderId, friend_id: user?.id },
-    ]);
-    loadAll();
+  async function acceptRequest(reqId: string) {
+    const { error } = await supabase.rpc("respond_friend_request", {
+      _request_id: reqId,
+      _accept: true,
+    });
+    if (error) {
+      Alert.alert("تعذر قبول الطلب", error.message);
+      return;
+    }
+    await loadAll();
   }
 
   async function rejectRequest(reqId: string) {
-    await supabase.from("friend_requests").update({ status: "rejected" }).eq("id", reqId);
-    loadAll();
+    const { error } = await supabase.rpc("respond_friend_request", {
+      _request_id: reqId,
+      _accept: false,
+    });
+    if (error) {
+      Alert.alert("تعذر رفض الطلب", error.message);
+      return;
+    }
+    await loadAll();
   }
 
   return (
@@ -136,7 +158,7 @@ export default function FriendsScreen() {
                 </View>
                 <TouchableOpacity
                   style={styles.acceptBtn}
-                  onPress={() => acceptRequest(req.id, req.sender_id)}
+                  onPress={() => acceptRequest(req.id)}
                 >
                   <Text style={styles.acceptBtnText}>قبول</Text>
                 </TouchableOpacity>
