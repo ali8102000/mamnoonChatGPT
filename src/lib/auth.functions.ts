@@ -46,59 +46,20 @@ export const sendPasswordReset = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
-        identifier: z.string().trim().min(3).max(255),
-        redirectTo: z.string().url().max(500),
+        identifier: z.string().trim().email().max(255),
       })
       .parse(d),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const identifier = data.identifier.trim();
-    const isEmail = identifier.includes("@");
+    const email = data.identifier.trim().toLowerCase();
 
-    let email: string | null = isEmail ? identifier.toLowerCase() : null;
-    if (!isEmail) {
-      const { data: mappedEmail, error: lookupError } = await (supabaseAdmin as any).rpc(
-        "lookup_email_by_phone",
-        { _phone: identifier },
-      );
-      if (lookupError) {
-        console.error("[sendPasswordReset] phone lookup failed:", lookupError.message);
-        throw new Error("تعذّر العثور على البريد المرتبط برقم الهاتف. جرّب إدخال البريد المسجّل مباشرةً.");
-      }
-      email = mappedEmail ? String(mappedEmail).trim().toLowerCase() : null;
-    }
-
-    if (!email) {
-      // Avoid revealing whether a phone number belongs to an account.
-      return { ok: true };
-    }
-
-    const { getRequest } = await import("@tanstack/react-start/server");
-    const request = getRequest();
-    const requestOrigin = request?.url ? new URL(request.url).origin : null;
-    const redirectUrl = new URL(data.redirectTo);
-    const configuredOrigins = (process.env.ALLOWED_REDIRECT_ORIGINS ?? "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
-    const allowedOrigins = configuredOrigins.length
-      ? configuredOrigins
-      : requestOrigin
-        ? [requestOrigin]
-        : [];
-
-    if (!allowedOrigins.includes(redirectUrl.origin)) {
-      console.error("[sendPasswordReset] redirect origin is not allow-listed:", redirectUrl.origin);
-      throw new Error("رابط العودة غير مسموح به. راجع إعداد ALLOWED_REDIRECT_ORIGINS وإعدادات Redirect URLs في Supabase.");
-    }
-
-    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: data.redirectTo,
-    });
+    // A recovery OTP uses the Supabase Reset Password email template's {{ .Token }}.
+    // No redirect URL is needed for the OTP verification flow.
+    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email);
     if (error) {
       console.error("[sendPasswordReset] Supabase rejected recovery email:", error.message);
-      throw new Error("تعذّر إرسال رسالة الاستعادة من خدمة البريد. تحقق من إعداد SMTP في Supabase ثم حاول مجدداً.");
+      throw new Error("تعذّر إرسال رمز الاستعادة. تحقق من إعدادات البريد في Supabase ثم حاول مجدداً.");
     }
 
     return { ok: true };
