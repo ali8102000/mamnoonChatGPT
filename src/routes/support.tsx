@@ -9,10 +9,10 @@ export const Route = createFileRoute("/support")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "الدعم الفني | كفو" },
-      { name: "description", content: "تواصل مع دعم كفو بإشراف الإدارة العامة وتابع طلبات المساعدة." },
-      { property: "og:title", content: "الدعم الفني | كفو" },
-      { property: "og:description", content: "تواصل مع دعم كفو بإشراف الإدارة العامة وتابع طلبات المساعدة." },
+      { title: "الدعم الفني | ممنون" },
+      { name: "description", content: "تواصل مع دعم ممنون بإشراف الإدارة العامة وتابع طلبات المساعدة." },
+      { property: "og:title", content: "الدعم الفني | ممنون" },
+      { property: "og:description", content: "تواصل مع دعم ممنون بإشراف الإدارة العامة وتابع طلبات المساعدة." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -208,7 +208,7 @@ function SupportCenter() {
         </p>
         <div className="pt-1 flex flex-wrap gap-2">
           <a
-            href={`mailto:${SUPER_ADMIN_EMAIL}?subject=استفسار تطبيق كفو`}
+            href={`mailto:${SUPER_ADMIN_EMAIL}?subject=استفسار تطبيق ممنون`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-border text-[11px] font-bold text-foreground shadow-sm hover:bg-muted btn-press"
           >
             <Mail className="h-3.5 w-3.5 text-primary" />
@@ -296,7 +296,7 @@ function SupportCenter() {
                       <div>{m.message}</div>
                       <div className="text-[9px] opacity-75 mt-1 flex items-center justify-between gap-3">
                         <span>{new Date(m.created_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })}</span>
-                        {m.is_staff && <span className="font-bold text-amber-700">👑 إدارة كفو</span>}
+                        {m.is_staff && <span className="font-bold text-amber-700">👑 إدارة ممنون</span>}
                       </div>
                     </div>
                   </div>
