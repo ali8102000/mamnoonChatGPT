@@ -13,7 +13,7 @@ DECLARE
   v_digits text;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
-  v_digits := regexp_replace(COALESCE(_phone, ''), '\\D', '', 'g');
+  v_digits := regexp_replace(COALESCE(_phone, ''), '[^0-9]', '', 'g');
   IF length(v_digits) < 8 OR length(v_digits) > 15 THEN
     RAISE EXCEPTION 'invalid_phone';
   END IF;
@@ -23,8 +23,8 @@ BEGIN
   FROM public.profiles p
   WHERE p.id <> v_uid
     AND (
-      regexp_replace(p.phone, '\\D', '', 'g') = v_digits
-      OR regexp_replace(p.phone, '\\D', '', 'g') = right(v_digits, 10)
+      regexp_replace(p.phone, '[^0-9]', '', 'g') = v_digits
+      OR regexp_replace(p.phone, '[^0-9]', '', 'g') = right(v_digits, 10)
     )
     AND NOT EXISTS (
       SELECT 1 FROM public.friends f
