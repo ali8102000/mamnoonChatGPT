@@ -174,12 +174,6 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
-  '/auth/callback': typeof AuthCallbackRoute
-  '/account-settings': typeof AccountSettingsRoute
-  '/auth/callback': typeof AuthCallbackRoute
-  '/account-settings': typeof AccountSettingsRoute
-  '/auth/callback': typeof AuthCallbackRoute
-  '/account-settings': typeof AccountSettingsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/friends': typeof FriendsRoute
   '/history': typeof HistoryRoute
@@ -202,6 +196,8 @@ export interface FileRoutesByFullPath {
   '/request/new': typeof RequestNewRoute
 }
 export interface FileRoutesByTo {
+  '/auth/callback': typeof AuthCallbackRoute
+  '/account-settings': typeof AccountSettingsRoute
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/admin': typeof AdminRouteWithChildren
@@ -228,6 +224,8 @@ export interface FileRoutesByTo {
   '/request/new': typeof RequestNewRoute
 }
 export interface FileRoutesById {
+  '/auth/callback': typeof AuthCallbackRoute
+  '/account-settings': typeof AccountSettingsRoute
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
@@ -261,6 +259,8 @@ export interface FileRouteTypes {
     | '/$'
     | '/admin'
     | '/auth'
+    | '/auth/callback'
+    | '/account-settings'
     | '/forgot-password'
     | '/friends'
     | '/history'
@@ -284,6 +284,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth/callback'
+    | '/account-settings'
     | '/$'
     | '/admin'
     | '/auth'
@@ -309,6 +311,8 @@ export interface FileRouteTypes {
     | '/request/new'
   id:
     | '__root__'
+    | '/auth/callback'
+    | '/account-settings'
     | '/'
     | '/$'
     | '/admin'
@@ -385,7 +389,21 @@ declare module '@tanstack/react-router' {
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
-      id: '/auth'
+      id: '/auth'    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-settings': {
+      id: '/account-settings'
+      path: '/account-settings'
+      fullPath: '/account-settings'
+      preLoaderRoute: typeof AccountSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
