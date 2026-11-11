@@ -13,8 +13,7 @@ export function estimateFare(
   category: "economy" | "premium" | "luxury" = "economy",
 ): number {
   void category;
-  const raw = Math.max(1000, km * 400);
-  return Math.round(raw / 250) * 250;
+  return Math.max(0, Math.round(km * 400));
 }
 
 export function estimateEtaMinutes(km: number): number {
