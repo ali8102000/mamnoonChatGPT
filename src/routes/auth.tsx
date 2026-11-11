@@ -68,7 +68,7 @@ function AuthPage() {
         }
         const { phone: normalized, email: contactEmail, name: fullName } = parsed.data;
         const isSuperAdminEmail = contactEmail === SUPER_ADMIN_EMAIL.toLowerCase();
-        const accountEmail = phoneToEmail(normalized);
+        const accountEmail = isSuperAdminEmail ? contactEmail : phoneToEmail(normalized);
 
         const { data, error } = await supabase.auth.signUp({
           email: accountEmail,
