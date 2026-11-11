@@ -10,6 +10,7 @@ export function normalizePhone(raw: string): string {
   const digits = trimmed.replace(/[^\d]/g, "");
   if (digits.startsWith("964")) return "+" + digits;
   if (digits.startsWith("0")) return "+964" + digits.slice(1);
+  if (digits.startsWith("7") && digits.length === 10) return "+964" + digits;
   return "+" + digits;
 }
 
