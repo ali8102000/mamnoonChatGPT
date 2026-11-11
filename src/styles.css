@@ -345,3 +345,35 @@
   background-size: 200% 100%;
   animation: shimmer 3s linear infinite;
 }
+
+
+/* Night mode readability: keep the classic blue identity without washed-out text. */
+.dark body {
+  background-image:
+    radial-gradient(ellipse 85% 55% at 75% 0%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 58%),
+    radial-gradient(ellipse 70% 45% at 15% 100%, color-mix(in oklab, var(--accent) 6%, transparent), transparent 55%);
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  color: var(--color-foreground);
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--color-muted-foreground);
+  opacity: 1;
+}
+
+.dark button:disabled,
+.dark [aria-disabled="true"] {
+  opacity: 0.68;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--primary) 28%, transparent);
+  color: var(--color-foreground);
+}
