@@ -57,6 +57,12 @@ export default function AuthScreen() {
         }
         const { error } = await supabase.auth.setSession(result.session);
         if (error) throw error;
+        if (contactEmail) {
+          const { error: metadataError } = await supabase.auth.updateUser({
+            data: { contact_email: contactEmail },
+          });
+          if (metadataError) throw metadataError;
+        }
         await refresh();
         router.replace("/select-role");
       } else {
