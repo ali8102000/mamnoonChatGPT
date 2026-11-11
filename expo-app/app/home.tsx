@@ -253,7 +253,7 @@ export default function HomeScreen() {
 
 function CustomerHome() {
   const tiles = [
-    { key: "taxi", label: "سيارة", emoji: "🚕", color: "#2563eb" },
+    { key: "taxi", label: "سيارة", emoji: "🚕", color: "#0f766e" },
     { key: "build", label: "بناء", emoji: "🧱", color: "#ea580c" },
     { key: "plaster", label: "لبخ", emoji: "🪣", color: "#d97706" },
     { key: "carpentry_form", label: "نجارة وقالب", emoji: "📐", color: "#a16207" },
@@ -385,7 +385,7 @@ function TabBtn({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb" },
+  container: { flex: 1, backgroundColor: "#f7f8f5" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#0f766e",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#e2e8f0",
   },
-  roleChipActive: { backgroundColor: "#2563eb" },
+  roleChipActive: { backgroundColor: "#0f766e" },
   roleChipText: { fontSize: 13, fontWeight: "700", color: "#64748b" },
   roleChipTextActive: { color: "#fff" },
   sectionTitle: { fontSize: 18, fontWeight: "800", color: "#1e293b", marginBottom: 16 },
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   },
   requestCustomer: { fontSize: 16, fontWeight: "700", color: "#1e293b" },
   requestType: { fontSize: 14, color: "#64748b", marginTop: 2 },
-  requestPrice: { fontSize: 14, fontWeight: "700", color: "#2563eb", marginTop: 4 },
+  requestPrice: { fontSize: 14, fontWeight: "700", color: "#0f766e", marginTop: 4 },
   requestArrow: { fontSize: 20, color: "#94a3b8" },
   bottomTabs: {
     flexDirection: "row",
@@ -476,5 +476,5 @@ const styles = StyleSheet.create({
   tabIcon: { fontSize: 22 },
   tabIconActive: {},
   tabLabel: { fontSize: 10, color: "#94a3b8", marginTop: 2, fontWeight: "600" },
-  tabLabelActive: { color: "#2563eb" },
+  tabLabelActive: { color: "#0f766e" },
 });
