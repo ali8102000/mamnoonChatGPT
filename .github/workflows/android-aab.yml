@@ -69,31 +69,27 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           bunx eas-cli@latest env:exec production 'bunx eas-cli@latest build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"'
-      - name: Download the finished AAB
+      - name: Download the finished AAB directly from Expo
         id: download
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
+          BUILD_JSON="$RUNNER_TEMP/eas-build.json"
           BUILD_ID="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; if(!b?.id) process.exit(2); process.stdout.write(b.id)')"
+          BUILD_URL="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; const u=b?.artifacts?.buildUrl || b?.artifacts?.applicationArchiveUrl; if(!u || !/^https:\\/\\//.test(u)) process.exit(2); process.stdout.write(u)')"
           echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
-          bunx eas-cli@latest env:exec production "bunx eas-cli@latest build:download --build-id $BUILD_ID --json > \\"$RUNNER_TEMP/eas-download.json\\""
-          DOWNLOADED_PATH="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-download.json","utf8")); if(!v?.path) process.exit(2); process.stdout.write(v.path)')"
-          test -f "$DOWNLOADED_PATH"
-          case "$DOWNLOADED_PATH" in
-            *.aab) ;;
-            *) echo "::error::EAS artifact is not an Android App Bundle: $DOWNLOADED_PATH"; exit 1 ;;
-          esac
           mkdir -p ../release-artifacts
-          cp "$DOWNLOADED_PATH" ../release-artifacts/mamnoon-production.aab
-          test -s ../release-artifacts/mamnoon-production.aab
+          curl --fail --location --retry 3 --retry-delay 2 "$BUILD_URL" --output ../release-artifacts/kafo-production.aab
+          test -s ../release-artifacts/kafo-production.aab
+          node -e 'const fs=require("fs"); const p="../release-artifacts/kafo-production.aab"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid ZIP-based Android App Bundle"); process.exit(1); }'
       - name: Upload AAB as a GitHub Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mamnoon-production-aab
-          path: release-artifacts/mamnoon-production.aab
+          name: kafo-production-aab
+          path: release-artifacts/kafo-production.aab
           if-no-files-found: error
           retention-days: 14
       - name: Build summary
         run: |
           echo "AAB build completed. EAS build ID: ${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "The signed AAB is attached as the mamnoon-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
+          echo "The signed AAB is attached as the kafo-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
