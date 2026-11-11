@@ -10,13 +10,13 @@ export const Route = createFileRoute("/welcome")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "أهلاً بك | ممنون" },
+      { title: "أهلاً بك | كفو" },
       {
         name: "description",
-        content: "اختر لغتك وتعرّف على النقل والخدمات المنزلية وتتبع الطلب في ممنون.",
+        content: "اختر لغتك وتعرّف على النقل والخدمات المنزلية وتتبع الطلب في كفو.",
       },
-      { property: "og:title", content: "أهلاً بك | ممنون" },
-      { property: "og:description", content: "رحلتك وخدمات بيتك في مكان واحد مع ممنون." },
+      { property: "og:title", content: "أهلاً بك | كفو" },
+      { property: "og:description", content: "رحلتك وخدمات بيتك في مكان واحد مع كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -26,8 +26,8 @@ export const Route = createFileRoute("/welcome")({
 
 const copy = {
   ar: {
-    brand: "ممنون",
-    greeting: "أهلاً بيك في ممنون",
+    brand: "كفو",
+    greeting: "أهلاً بيك في كفو",
     tagline: "مشاويرك وخدمات بيتك، بمكان واحد.",
     skip: "تخطي",
     next: "التالي",
@@ -58,8 +58,8 @@ const copy = {
     ],
   },
   en: {
-    brand: "Mumnun",
-    greeting: "Welcome to Mumnun",
+    brand: "Kafo",
+    greeting: "Welcome to Kafo",
     tagline: "Your rides and home services, all in one place.",
     skip: "Skip",
     next: "Next",
