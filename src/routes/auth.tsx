@@ -298,7 +298,6 @@ function AuthPage() {
             </Button>
           </div>
         </form>
-        )}
       </div>
     </div>
   );
