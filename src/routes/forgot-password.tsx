@@ -34,7 +34,7 @@ function ForgotPasswordPage() {
   async function requestCode(e: React.FormEvent) {
     e.preventDefault();
     const value = email.trim().toLowerCase();
-    if (!value || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) {
+    if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       toast.error("أدخل بريداً إلكترونياً صحيحاً");
       return;
     }
@@ -52,7 +52,7 @@ function ForgotPasswordPage() {
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (!/^\\d{6}$/.test(token.trim())) {
+    if (!/^\d{6}$/.test(token.trim())) {
       toast.error("أدخل رمز التحقق المكوّن من 6 أرقام");
       return;
     }
@@ -122,7 +122,7 @@ function ForgotPasswordPage() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground"><Mail className="h-4 w-4" /><span dir="ltr">{email}</span></div>
             <label className="block">
               <div className="text-xs font-bold text-muted-foreground mb-2">رمز التحقق (6 أرقام)</div>
-              <input value={token} onChange={(e) => setToken(e.target.value.replace(/\\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" dir="ltr" className="w-full bg-input border border-border text-foreground px-4 py-3.5 rounded-2xl text-lg font-bold tracking-[0.4em] outline-none focus:border-ring focus:ring-4 focus:ring-ring text-center" />
+              <input value={token} onChange={(e) => setToken(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" dir="ltr" className="w-full bg-input border border-border text-foreground px-4 py-3.5 rounded-2xl text-lg font-bold tracking-[0.4em] outline-none focus:border-ring focus:ring-4 focus:ring-ring text-center" />
             </label>
             <label className="block">
               <div className="text-xs font-bold text-muted-foreground mb-2">كلمة المرور الجديدة</div>
