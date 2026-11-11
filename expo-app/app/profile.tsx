@@ -91,16 +91,21 @@ export default function ProfileScreen() {
           {transactions.map((txn) => (
             <View key={txn.id} style={styles.txnCard}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.txnType}>{txn.type === "credit" ? "إضافة" : "خصم"}</Text>
+                <Text style={styles.txnType}>
+                  {txn.type === "earning" ? "أرباح" :
+                    txn.type === "commission" ? "عمولة" :
+                    txn.type === "withdrawal" ? "سحب" :
+                    txn.type === "refund" ? "استرجاع" : "تسوية"}
+                </Text>
                 <Text style={styles.txnDate}>
                   {new Date(txn.created_at).toLocaleDateString("ar")}
                 </Text>
               </View>
               <Text
-                style={[styles.txnAmount, { color: txn.type === "credit" ? "#16a34a" : "#dc2626" }]}
+                style={[styles.txnAmount, { color: txn.amount >= 0 ? "#16a34a" : "#dc2626" }]}
               >
-                {txn.type === "credit" ? "+" : "-"}
-                {(txn.amount || 0).toLocaleString("en")} د.ع
+                {txn.amount >= 0 ? "+" : "-"}
+                {Math.abs(txn.amount || 0).toLocaleString("en")} د.ع
               </Text>
             </View>
           ))}
