@@ -66,7 +66,6 @@ export default function ForgotPassword() {
         onChangeText={setIdentifier}
         placeholder="البريد الإلكتروني أو 07XXXXXXXXX"
         keyboardType={identifier.includes("@") ? "email-address" : "default"}
-        autoCapitalize="none"
       />
       <View style={{ height: 24 }} />
       <Button title="إرسال رابط الاستعادة" onPress={submit} loading={busy} />
