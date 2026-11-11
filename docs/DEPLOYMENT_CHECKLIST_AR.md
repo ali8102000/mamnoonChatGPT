@@ -34,7 +34,7 @@
 
 من المستودع افتح `Settings → Secrets and variables → Actions` وأضف Secret باسم `EXPO_TOKEN` وقيمته رمز Expo.
 
-الـ workflow يثبت EAS project ID الحالي ويتحقق من مطابقته مع `expo-app/app.json`، ثم يفحص TypeScript وExpo Doctor ويصدر Android bundle ويبني AAB موقّعاً. اسم artifact الصحيح هو `kafo-production-aab` ومدته 14 يوماً.
+الـ workflow يثبت EAS project ID الحالي ويتحقق من مطابقته مع `expo-app/app.json`، ثم يفحص TypeScript وفحص توافق حزم Expo (`expo install --check`) ويصدر Android bundle ويبني AAB موقّعاً. اسم artifact الصحيح هو `kafo-production-aab` ومدته 14 يوماً.
 
 ## 3. إعداد الويب والخادم
 
@@ -66,8 +66,9 @@
 - `0008_secure_friend_workflows.sql`
 - `0009_secure_phone_search_and_verified_email_sync.sql`
 - `0010_exact_taxi_km_pricing.sql`
+- `0011_normalize_phone_login.sql`
 
-تمت إضافة migration 0008 إلى سجل Drizzle المحلي، ثم أضيف migration 0009 لإصلاح مطابقة أرقام العراق في البحث عن الأصدقاء ومزامنة البريد المؤكد فقط، وmigration 0010 لإزالة الحد الأدنى والتقريب القديم من أجرة التكسي وتثبيت 400 دينار لكل كيلومتر قيادة مؤكد. هذا لا يثبت أن أياً منهما طُبق على قاعدة الإنتاج. كذلك snapshots من `0004` إلى `0007` غير موجودة حالياً؛ لذلك لا تشغّل `drizzle-kit generate` قبل استعادة snapshots الصحيحة أو اعتماد مسار SQL migrations موثق.
+تمت إضافة migration 0008 إلى سجل Drizzle المحلي، ثم أضيف migration 0009 لإصلاح مطابقة أرقام العراق في البحث عن الأصدقاء ومزامنة البريد المؤكد فقط، وmigration 0010 لإزالة الحد الأدنى والتقريب القديم من أجرة التكسي وتثبيت 400 دينار لكل كيلومتر قيادة مؤكد، وmigration 0011 لتوحيد مطابقة أرقام الهاتف عند تسجيل الدخول بصيغ 07 و+964. هذا لا يثبت أن أياً منهما طُبق على قاعدة الإنتاج. كذلك snapshots من `0004` إلى `0007` غير موجودة حالياً؛ لذلك لا تشغّل `drizzle-kit generate` قبل استعادة snapshots الصحيحة أو اعتماد مسار SQL migrations موثق.
 
 قبل تطبيق أي ترحيل على الإنتاج:
 1. تأكد من مشروع Supabase الصحيح.

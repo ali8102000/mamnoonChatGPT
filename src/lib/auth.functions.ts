@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { normalizePhone } from "@/lib/phone";
 
 const credentialsSchema = z.object({
   identifier: z.string().trim().min(3).max(255),
@@ -14,10 +15,17 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
     const isEmail = identifier.includes("@");
 
     let email = identifier.toLowerCase();
+    let legacyPhoneEmail: string | null = null;
     if (!isEmail) {
+      const normalizedPhone = normalizePhone(identifier);
+      if (!/^\+\d{8,15}$/.test(normalizedPhone)) {
+        throw new Error("أدخل رقم هاتف صحيحاً مع رمز البلد أو بدونه");
+      }
+      const legacyDigits = identifier.replace(/\D/g, "");
+      legacyPhoneEmail = `phone${legacyDigits}@mamnoon.app`;
       const { data: mappedEmail, error: lookupError } = await (supabaseAdmin as any).rpc(
         "lookup_email_by_phone",
-        { _phone: identifier },
+        { _phone: normalizedPhone },
       );
       if (lookupError) {
         // The RPC may be missing if the database migration has not been applied.
@@ -30,7 +38,7 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
         const { data: profile, error: profileLookupError } = await supabaseAdmin
           .from("profiles")
           .select("email")
-          .eq("phone", identifier)
+          .in("phone", [identifier, normalizedPhone])
           .maybeSingle();
         if (profileLookupError) {
           console.error("[signInWithIdentifier] Profile phone lookup failed:", profileLookupError.message);
@@ -39,16 +47,24 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
         if (profile?.email) {
           email = profile.email.toLowerCase();
         } else {
-          const digits = identifier.replace(/\D/g, "");
+          const digits = normalizedPhone.replace(/\D/g, "");
           email = `phone${digits}@mamnoon.app`;
         }
       }
     }
 
-    const { data: authData, error } = await supabaseAdmin.auth.signInWithPassword({
+    let { data: authData, error } = await supabaseAdmin.auth.signInWithPassword({
       email,
       password: data.password,
     });
+    if ((error || !authData.session) && legacyPhoneEmail && legacyPhoneEmail !== email) {
+      const legacyAttempt = await supabaseAdmin.auth.signInWithPassword({
+        email: legacyPhoneEmail,
+        password: data.password,
+      });
+      authData = legacyAttempt.data;
+      error = legacyAttempt.error;
+    }
     if (error || !authData.session) {
       throw new Error("رقم الهاتف أو البريد الإلكتروني أو كلمة المرور غير صحيحة");
     }
