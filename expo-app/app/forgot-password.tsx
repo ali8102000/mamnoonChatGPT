@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { router } from "expo-router";
+import * as Linking from "expo-linking";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
@@ -18,27 +19,39 @@ export default function ForgotPassword() {
     setBusy(true);
     try {
       const isEmail = id.includes("@");
-      let email = id;
+      let email = id.toLowerCase();
       if (!isEmail) {
         const normalized = normalizePhone(id);
         if (!isValidPhone(id)) {
-          Alert.alert("خطأ", "رقم الهاتف غير صالح");
-          setBusy(false);
-          return;
+          throw new Error("رقم الهاتف غير صالح");
         }
-        const { data: emailResult } = await supabase.rpc("lookup_email_by_phone", {
-          _phone: normalized,
-        });
-        email = emailResult
-          ? String(emailResult)
-          : `phone${normalized.replace(/[^\d]/g, "")}@mamnoon.app`;
+        const { data: emailResult, error: lookupError } = await supabase.rpc(
+          "lookup_email_by_phone",
+          { _phone: normalized },
+        );
+        if (lookupError) throw lookupError;
+        if (!emailResult || !String(emailResult).includes("@")) {
+          throw new Error("لم نعثر على بريد مرتبط بهذا الرقم. أدخل البريد الإلكتروني المسجل بالحساب.");
+        }
+        email = String(emailResult).trim().toLowerCase();
       }
-      await supabase.auth.resetPasswordForEmail(email);
-      Alert.alert("تم", "إذا كان الحساب موجوداً، ستصل رسالة استعادة كلمة المرور");
+
+      const redirectTo = Linking.createURL("/auth/callback");
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+      if (error) throw error;
+
+      Alert.alert(
+        "تم إرسال الطلب",
+        "إذا كان البريد مسجلاً، ستصلك رسالة استعادة. افحص الوارد والرسائل غير المرغوب فيها.",
+      );
       router.back();
-    } catch {
-      Alert.alert("تم", "إذا كان الحساب موجوداً، ستصل رسالة استعادة كلمة المرور");
-      router.back();
+    } catch (error: unknown) {
+      Alert.alert(
+        "تعذر إرسال رابط الاستعادة",
+        error instanceof Error ? error.message : "حدث خطأ غير معروف. حاول مرة أخرى.",
+      );
     } finally {
       setBusy(false);
     }
@@ -47,15 +60,16 @@ export default function ForgotPassword() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>استعادة كلمة المرور</Text>
-      <Text style={styles.subtitle}>أدخل رقم هاتفك أو بريدك الإلكتروني</Text>
+      <Text style={styles.subtitle}>أدخل البريد الإلكتروني المسجل بحسابك أو رقم الهاتف المرتبط به</Text>
       <RealInput
         value={identifier}
         onChangeText={setIdentifier}
-        placeholder="07XXXXXXXXX أو you@example.com"
-        keyboardType="phone-pad"
+        placeholder="البريد الإلكتروني أو 07XXXXXXXXX"
+        keyboardType={identifier.includes("@") ? "email-address" : "default"}
+        autoCapitalize="none"
       />
       <View style={{ height: 24 }} />
-      <Button title="إرسال" onPress={submit} loading={busy} />
+      <Button title="إرسال رابط الاستعادة" onPress={submit} loading={busy} />
     </View>
   );
 }
