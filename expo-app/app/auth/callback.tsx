@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
+import * as Linking from "expo-linking";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 
@@ -14,14 +15,22 @@ export default function AuthCallbackScreen() {
     let active = true;
     async function complete() {
       try {
-        if (params.error_description) throw new Error(params.error_description);
-        if (params.code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(params.code);
+        const initialUrl = await Linking.getInitialURL();
+        const parsed = initialUrl ? new URL(initialUrl) : null;
+        const hashParams = new URLSearchParams((parsed?.hash ?? "").replace(/^#/, ""));
+        const queryParams = parsed?.searchParams;
+        const code = params.code || queryParams?.get("code") || undefined;
+        const accessToken = params.access_token || hashParams.get("access_token") || queryParams?.get("access_token") || undefined;
+        const refreshToken = params.refresh_token || hashParams.get("refresh_token") || queryParams?.get("refresh_token") || undefined;
+        const callbackError = params.error_description || queryParams?.get("error_description") || hashParams.get("error_description");
+        if (callbackError) throw new Error(callbackError);
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
-        } else if (params.access_token && params.refresh_token) {
+        } else if (accessToken && refreshToken) {
           const { error } = await supabase.auth.setSession({
-            access_token: params.access_token,
-            refresh_token: params.refresh_token,
+            access_token: accessToken,
+            refresh_token: refreshToken,
           });
           if (error) throw error;
         } else {
