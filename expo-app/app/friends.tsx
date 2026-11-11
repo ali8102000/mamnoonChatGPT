@@ -32,7 +32,7 @@ export default function FriendsScreen() {
       return;
     }
     setFriends(data ?? []);
-  }, [user?.id]);
+  }, []);
 
   const loadPending = useCallback(async () => {
     const { data, error } = await supabase.rpc("list_pending_friend_requests");
@@ -56,7 +56,7 @@ export default function FriendsScreen() {
         },
       })),
     );
-  }, [user?.id]);
+  }, []);
 
   const loadAll = useCallback(async () => {
     await Promise.all([loadFriends(), loadPending()]);
