@@ -10,15 +10,15 @@ export const Route = createFileRoute("/forgot-password")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "استعادة كلمة المرور | ممنون" },
+      { title: "استعادة كلمة المرور | كفو" },
       {
         name: "description",
-        content: "استعد الوصول إلى حساب ممنون باستخدام الهاتف أو البريد الإلكتروني.",
+        content: "استعد الوصول إلى حساب كفو باستخدام الهاتف أو البريد الإلكتروني.",
       },
-      { property: "og:title", content: "استعادة كلمة المرور | ممنون" },
+      { property: "og:title", content: "استعادة كلمة المرور | كفو" },
       {
         property: "og:description",
-        content: "استعد الوصول إلى حساب ممنون باستخدام الهاتف أو البريد الإلكتروني.",
+        content: "استعد الوصول إلى حساب كفو باستخدام الهاتف أو البريد الإلكتروني.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -46,7 +46,7 @@ function ForgotPasswordPage() {
       toast.error("رقم هاتف غير صالح");
       return;
     }
-    const finalId = isEmail ? value : normalizePhone(value);
+    const finalId = isEmail ? value.toLowerCase() : normalizePhone(value);
     setBusy(true);
     try {
       await reset({
@@ -56,9 +56,10 @@ function ForgotPasswordPage() {
         },
       });
       setSent(true);
-      toast.success("إذا كان الحساب موجوداً فسيصلك رابط الاستعادة إلى البريد المسجّل");
-    } catch (err: any) {
-      setSent(true);
+      toast.success("إذا كان الحساب موجوداً فسيصلك رابط الاستعادة إلى البريد المسجّل. افحص الوارد والبريد المهمل.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "تعذّر إرسال رابط الاستعادة. حاول مرة أخرى.";
+      toast.error(message);
     } finally {
       setBusy(false);
     }
