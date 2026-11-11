@@ -19,11 +19,12 @@ function AccountSettingsPage() {
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
+  const currentUser = session.user;
 
   async function changeEmail() {
     const next = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) { toast.error("أدخل بريداً إلكترونياً صحيحاً"); return; }
-    if (next === session.user.email?.toLowerCase()) { toast.error("هذا هو بريدك الحالي"); return; }
+    if (next === currentUser.email?.toLowerCase()) { toast.error("هذا هو بريدك الحالي"); return; }
     setBusy(true);
     try {
       const { error } = await supabase.auth.updateUser({ email: next }, { emailRedirectTo: `${window.location.origin}/auth/callback` });
