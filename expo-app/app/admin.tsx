@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number };
 type PricingRule = {
   id: string;
-  category: string;
+  vehicle_category: string;
   base_fare: number | null;
   per_km: number | null;
 };
@@ -45,7 +45,7 @@ export default function AdminScreen() {
       supabase.from("service_requests").select("id", { count: "exact", head: true }),
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("driver_profiles").select("id", { count: "exact", head: true }),
-      supabase.from("pricing_rules").select("*").order("category"),
+      supabase.from("pricing_rules").select("*").order("vehicle_category"),
       supabase
         .from("service_requests")
         .select("*, customer:profiles!service_requests_customer_id_fkey(full_name)")
@@ -102,7 +102,7 @@ export default function AdminScreen() {
       <Text style={styles.sectionTitle}>قواعد التسعير</Text>
       {pricing.map((p) => (
         <View key={p.id} style={styles.pricingCard}>
-          <Text style={styles.pricingCategory}>{p.category}</Text>
+          <Text style={styles.pricingCategory}>{p.vehicle_category}</Text>
           <Text style={styles.pricingValues}>
             {p.base_fare?.toLocaleString("en")} + {p.per_km?.toLocaleString("en")}/كم
           </Text>
