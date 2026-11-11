@@ -41,7 +41,12 @@ export default function FriendsScreen() {
       return;
     }
     setPendingRequests(
-      (data ?? []).map((request) => ({
+      (data ?? []).map((request: {
+        id: string;
+        sender_id: string;
+        sender_full_name: string | null;
+        sender_phone: string;
+      }) => ({
         id: request.id,
         sender_id: request.sender_id,
         sender: {
