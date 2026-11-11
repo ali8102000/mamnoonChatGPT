@@ -115,7 +115,7 @@ export default function AuthScreen() {
         <View style={styles.logo}>
           <Text style={styles.logoText}>ك</Text>
         </View>
-        <Text style={styles.title}>كفو</Text>
+        <Text style={styles.title}>ممنون</Text>
         <Text style={styles.subtitle}>منصة النقل والخدمات</Text>
       </View>
       <View style={styles.card}>
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 24,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#0f766e",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -244,14 +244,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   tab: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: "center" },
-  tabActive: { backgroundColor: "#2563eb" },
+  tabActive: { backgroundColor: "#0f766e" },
   tabText: { fontSize: 14, fontWeight: "700", color: "#64748b" },
   tabTextActive: { color: "#fff" },
   label: { fontSize: 12, fontWeight: "700", color: "#64748b", marginBottom: 8, marginTop: 16 },
   forgotLink: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#0f766e",
     marginTop: 12,
     textAlign: "left",
   },
