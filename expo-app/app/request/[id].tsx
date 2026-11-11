@@ -179,7 +179,7 @@ export default function RequestDetail() {
         },
         { onConflict: "request_id,user_id" },
       );
-      if (error) console.warn("[Mamnoon] location update failed:", error.message);
+      if (error) console.warn("[Kafo] location update failed:", error.message);
     }
 
     async function startTracking() {
