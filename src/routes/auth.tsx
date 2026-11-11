@@ -74,7 +74,7 @@ function AuthPage() {
           email: realEmail,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`,
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: {
               phone: normalized,
               full_name: fullName,
@@ -210,6 +210,20 @@ function AuthPage() {
             <p dir="ltr" className="font-semibold break-all w-full">{confirmationEmail}</p>
             <p className="text-muted-foreground leading-7">{t("افتح الرابط لإكمال التسجيل. راجع البريد الوارد ومجلد الرسائل غير المرغوب فيها.", "Open the link to complete registration. Check your inbox and spam folder.")}</p>
             <Button className="w-full h-14 text-base rounded-xl" onClick={() => { setIdentifier(confirmationEmail); setConfirmationEmail(""); setMode("login"); }}>{t("العودة لتسجيل الدخول", "Back to sign in")}</Button>
+            <Button className="w-full" variant="outline" disabled={busy} onClick={async () => {
+              setBusy(true);
+              try {
+                const { error } = await supabase.auth.resend({
+                  type: "signup",
+                  email: confirmationEmail,
+                  options: { emailRedirectTo: window.location.origin + "/auth/callback" },
+                });
+                if (error) throw error;
+                toast.success(t("أعدنا إرسال رابط التأكيد. افحص الوارد والرسائل غير المرغوب فيها.", "Confirmation email resent. Check inbox and spam."));
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : t("تعذر إعادة إرسال الرابط", "Could not resend the link"));
+              } finally { setBusy(false); }
+            }}>{t("إعادة إرسال رابط التأكيد", "Resend confirmation link")}</Button>
             <Button variant="ghost" onClick={() => setConfirmationEmail("")}>{t("تعديل البريد الإلكتروني", "Edit email")}</Button>
           </section>
         ) : (
