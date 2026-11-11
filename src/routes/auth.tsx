@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
 import { signInWithIdentifier, signUpWithPhone } from "@/lib/auth.functions";
 import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User } from "lucide-react";
@@ -48,7 +48,8 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { refresh } = useAuth();
-  const signIn = useServerFn(signInWithIdentifier);\n  const signUp = useServerFn(signUpWithPhone);
+  const signIn = useServerFn(signInWithIdentifier);
+  const signUp = useServerFn(signUpWithPhone);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,10 +81,6 @@ function AuthPage() {
           toast.success("تم إنشاء الحساب. أكمل إعداد المدير الأعلى برمز التهيئة الآمن.");
           navigate({ to: "/admin/bootstrap" });
         } else {
-          toast.success(t("تم إنشاء الحساب", "Account created"));
-          navigate({ to: "/select-role" });
-        }
-      } else {
           toast.success(t("تم إنشاء الحساب", "Account created"));
           navigate({ to: "/select-role" });
         }
