@@ -1,9 +1,9 @@
-# Authentication setup for Mamnoon
+# Authentication setup for Kafo
 
-The app now handles confirmation callbacks at these paths:
+The Kafo app handles confirmation callbacks at these paths:
 
 - Web: `https://YOUR_PRODUCTION_DOMAIN/auth/callback`
-- Expo app: `mamnoon://auth/callback`
+- Expo app: `mamnoon://auth/callback` (legacy scheme retained for installed-app compatibility)
 
 ## Supabase Auth URL configuration
 

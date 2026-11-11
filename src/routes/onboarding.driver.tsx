@@ -30,15 +30,15 @@ export const Route = createFileRoute("/onboarding/driver")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "تسجيل الكابتن وتأكيد الهوية | ممنون" },
+      { title: "تسجيل الكابتن وتأكيد الهوية | كفو" },
       {
         name: "description",
-        content: "سجل بيانات سيارتك وأكد هويتك للانضمام إلى كباتن ممنون المعتمدين.",
+        content: "سجل بيانات سيارتك وأكد هويتك للانضمام إلى كباتن كفو المعتمدين.",
       },
-      { property: "og:title", content: "تسجيل الكابتن وتأكيد الهوية | ممنون" },
+      { property: "og:title", content: "تسجيل الكابتن وتأكيد الهوية | كفو" },
       {
         property: "og:description",
-        content: "سجل بيانات سيارتك وأكد هويتك للانضمام إلى كباتن ممنون المعتمدين.",
+        content: "سجل بيانات سيارتك وأكد هويتك للانضمام إلى كباتن كفو المعتمدين.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -79,19 +79,19 @@ const CATEGORY_META: Record<
   { label: string; emoji: string; gradient: string; desc: string }
 > = {
   economy: {
-    label: "ممنون اقتصادي",
+    label: "كفو اقتصادي",
     emoji: "🚗",
     gradient: "from-emerald-400 to-teal-500",
     desc: "سيارات موفرة وعملية للمشاوير اليومية",
   },
   premium: {
-    label: "ممنون المتميز",
+    label: "كفو المتميز",
     emoji: "🚙",
     gradient: "from-sky-500 to-indigo-600",
     desc: "سيارات حديثة ومكيفة برحابة عالية",
   },
   luxury: {
-    label: "ممنون فاخر",
+    label: "كفو فاخر",
     emoji: "🏎️",
     gradient: "from-amber-400 to-orange-500",
     desc: "أحدث الموديلات والفئات الراقية",

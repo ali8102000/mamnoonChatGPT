@@ -25,10 +25,10 @@ export const Route = createFileRoute("/profile")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "الملف الشخصي | ممنون" },
-      { name: "description", content: "إدارة معلومات حسابك وتقييماتك في ممنون." },
-      { property: "og:title", content: "الملف الشخصي | ممنون" },
-      { property: "og:description", content: "إدارة معلومات حسابك وتقييماتك في ممنون." },
+      { title: "الملف الشخصي | كفو" },
+      { name: "description", content: "إدارة معلومات حسابك وتقييماتك في كفو." },
+      { property: "og:title", content: "الملف الشخصي | كفو" },
+      { property: "og:description", content: "إدارة معلومات حسابك وتقييماتك في كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -371,7 +371,7 @@ function ProfilePage() {
             <span className="flex-1 font-bold text-sm">تسجيل الخروج</span>
           </button>
         </div>
-        <div className="mt-6 text-center text-[11px] text-muted-foreground">ممنون · v2.0</div>
+        <div className="mt-6 text-center text-[11px] text-muted-foreground">كفو · v2.0</div>
       </div>
     </MobileShell>
   );

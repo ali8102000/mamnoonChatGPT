@@ -64,8 +64,10 @@
 - `0006_secure_taxi_dispatch_retry.sql`
 - `0007_sync_verified_auth_contacts.sql`
 - `0008_secure_friend_workflows.sql`
+- `0009_secure_phone_search_and_verified_email_sync.sql`
+- `0010_exact_taxi_km_pricing.sql`
 
-تمت إضافة migration 0008 إلى سجل Drizzle المحلي حتى لا يبقى ملف SQL خارج ترتيب الترحيلات. هذا لا يثبت أنه طُبق على قاعدة الإنتاج. كذلك snapshots من `0004` إلى `0007` غير موجودة حالياً؛ لذلك لا تشغّل `drizzle-kit generate` قبل استعادة snapshots الصحيحة أو اعتماد مسار SQL migrations موثق.
+تمت إضافة migration 0008 إلى سجل Drizzle المحلي، ثم أضيف migration 0009 لإصلاح مطابقة أرقام العراق في البحث عن الأصدقاء ومزامنة البريد المؤكد فقط، وmigration 0010 لإزالة الحد الأدنى والتقريب القديم من أجرة التكسي وتثبيت 400 دينار لكل كيلومتر قيادة مؤكد. هذا لا يثبت أن أياً منهما طُبق على قاعدة الإنتاج. كذلك snapshots من `0004` إلى `0007` غير موجودة حالياً؛ لذلك لا تشغّل `drizzle-kit generate` قبل استعادة snapshots الصحيحة أو اعتماد مسار SQL migrations موثق.
 
 قبل تطبيق أي ترحيل على الإنتاج:
 1. تأكد من مشروع Supabase الصحيح.

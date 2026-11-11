@@ -27,9 +27,9 @@ export const FARE_TABLE: Record<
   VehicleCategory,
   { base: number; perKm: number; minimum: number; titleAr: string }
 > = {
-  economy: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون اقتصادي" },
-  premium: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون المتميز" },
-  luxury: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون فاخر" },
+  economy: { base: 0, perKm: 400, minimum: 0, titleAr: "كفو اقتصادي" },
+  premium: { base: 0, perKm: 400, minimum: 0, titleAr: "كفو المتميز" },
+  luxury: { base: 0, perKm: 400, minimum: 0, titleAr: "كفو فاخر" },
 };
 
 export const WEATHER_RATES: Record<
@@ -47,7 +47,7 @@ export const ROAD_RATES: Record<RoadCondition, { extra: number; label: string; i
   congested: { extra: 750, label: "طريق مزدحم وساعات ذروة", icon: "🟡" },
 };
 
-export const MIN_TAXI_FARE = 1000;
+export const MIN_TAXI_FARE = 0;
 
 export function roundTo250(n: number): number {
   return Math.round(n / 250) * 250;
@@ -69,16 +69,16 @@ export function calculateFareBreakdown(
 
   const distanceFare = t.perKm * km;
   const subtotal = distanceFare;
-  const finalTotal = Math.max(MIN_TAXI_FARE, roundTo250(subtotal));
+  const finalTotal = Math.max(MIN_TAXI_FARE, Math.round(subtotal));
 
   return {
     category,
     distanceKm: km,
     baseFare: t.base,
-    distanceFare: finalTotal,
+    distanceFare: Math.round(distanceFare),
     weatherAllowance: 0,
     trafficAllowance: 0,
-    subtotal: finalTotal,
+    subtotal,
     minimumFare: t.minimum,
     total: finalTotal,
     weatherDescription: weatherData.label,

@@ -29,10 +29,10 @@ export const Route = createFileRoute("/home")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "الرئيسية | ممنون" },
-      { name: "description", content: "اطلب تاكسي أو خدمات منزلية وتابع طلباتك في ممنون." },
-      { property: "og:title", content: "الرئيسية | ممنون" },
-      { property: "og:description", content: "اطلب تاكسي أو خدمات منزلية وتابع طلباتك في ممنون." },
+      { title: "الرئيسية | كفو" },
+      { name: "description", content: "اطلب تاكسي أو خدمات منزلية وتابع طلباتك في كفو." },
+      { property: "og:title", content: "الرئيسية | كفو" },
+      { property: "og:description", content: "اطلب تاكسي أو خدمات منزلية وتابع طلباتك في كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -161,7 +161,7 @@ function CustomerHome() {
             اطلب الآن، ادفع للمزوّد مباشرة
           </div>
           <div className="text-xs opacity-90 mt-1">
-            ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك
+            كفو منصّة مجانية وسريعة — بدون أي نسبة على طلبك
           </div>
         </div>
       </div>
@@ -195,7 +195,7 @@ function CustomerHome() {
 
       <div className="mt-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-black text-sm text-foreground">لماذا ممنون؟</h3>
+          <h3 className="font-black text-sm text-foreground">لماذا كفو؟</h3>
           <span className="text-[11px] text-muted-foreground font-medium">مميّزاتنا</span>
         </div>
         <div className="space-y-2.5">

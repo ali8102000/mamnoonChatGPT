@@ -38,10 +38,10 @@ export const Route = createFileRoute("/admin/subscriptions")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "إدارة الاشتراكات | ممنون" },
-      { name: "description", content: "إدارة خطط واشتراكات منصة ممنون." },
-      { property: "og:title", content: "إدارة الاشتراكات | ممنون" },
-      { property: "og:description", content: "إدارة خطط واشتراكات منصة ممنون." },
+      { title: "إدارة الاشتراكات | كفو" },
+      { name: "description", content: "إدارة خطط واشتراكات منصة كفو." },
+      { property: "og:title", content: "إدارة الاشتراكات | كفو" },
+      { property: "og:description", content: "إدارة خطط واشتراكات منصة كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

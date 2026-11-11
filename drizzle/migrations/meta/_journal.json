@@ -64,6 +64,20 @@
       "when": 1794361800000,
       "tag": "0008_secure_friend_workflows",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794365400000,
+      "tag": "0009_secure_phone_search_and_verified_email_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794369000000,
+      "tag": "0010_exact_taxi_km_pricing",
+      "breakpoints": true
     }
   ]
 }

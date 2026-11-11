@@ -1,14 +1,21 @@
-# ممنون (Mamnoon)
+# كفو (Kafo)
 
-منصة عراقية لطلبات سيارات الأجرة والخدمات المنزلية، مبنية باستخدام React وTanStack Start وSupabase.
+منصة عراقية لطلبات سيارات الأجرة والخدمات المنزلية، مبنية باستخدام React وTanStack Start وSupabase، ويحتوي المستودع أيضاً على تطبيق Android/iOS باستخدام Expo Router.
+
+## مكونات المشروع
+
+- تطبيق الويب وPWA في جذر المستودع.
+- تطبيق الهاتف الأصلي في `expo-app/` باستخدام Expo Router.
+- ترحيلات قاعدة البيانات في `drizzle/migrations/` وإعداد Supabase في `supabase/`.
 
 ## المتطلبات
 
 - Bun 1.4 أو أحدث
-- حساب Supabase للمشروع
+- حساب Supabase للمشروع الصحيح
 - مفاتيح Google Maps وFirebase عند تفعيل ميزاتهما
+- حساب Expo/EAS لبناء نسخة Android الإنتاجية
 
-## التشغيل المحلي
+## تشغيل الويب محلياً
 
 ```bash
 git clone https://github.com/ali8102000/mamnoonChatGPT.git
@@ -20,7 +27,19 @@ bun run dev
 
 املأ المتغيرات المطلوبة في `.env` من إعدادات الاستضافة وSupabase. لا ترفع ملف `.env` أو أي مفاتيح خدمة إلى GitHub.
 
+## تشغيل تطبيق الهاتف
+
+```bash
+cd expo-app
+bun install --frozen-lockfile
+bunx expo start
+```
+
+لإنتاج Android App Bundle استخدم ملف `expo-app/eas.json` وسير عمل GitHub Actions المسمى `Kafo Android production AAB`. يتطلب ذلك إعداد `EXPO_TOKEN` في GitHub وإعداد متغيرات EAS production.
+
 ## فحوصات الجودة
+
+من جذر المستودع:
 
 ```bash
 bun run lint
@@ -29,7 +48,7 @@ bun run test
 bun run build
 ```
 
-GitHub Actions يشغّل هذه الفحوصات تلقائياً عند الدفع إلى `main` أو فتح Pull Request.
+ويشغّل GitHub Actions فحوصات مستقلة لتطبيق Expo أيضاً.
 
 ## ترحيلات قاعدة البيانات
 
@@ -48,8 +67,14 @@ bun run db:migrate
 - `MAMNOON_BOOTSTRAP_ADMIN_EMAIL`
 - `MAMNOON_BOOTSTRAP_SECRET` — قيمة عشوائية لا تقل عن 32 حرفاً
 
-يجب تطبيق ترحيل `0003_secure_super_admin_bootstrap.sql` على قاعدة Supabase قبل استخدام صفحة `/admin/bootstrap`. لا ترسل الرمز السري في المحادثات ولا تضعه في كود الواجهة.
+هذه أسماء متغيرات خادم قديمة محفوظة للتوافق مع قاعدة البيانات والوظائف الحالية؛ لا تعني أن اسم التطبيق المعروض ما زال ممنون. يجب تطبيق ترحيل `0003_secure_super_admin_bootstrap.sql` على قاعدة Supabase قبل استخدام صفحة `/admin/bootstrap`. لا ترسل الرمز السري في المحادثات ولا تضعه في كود الواجهة.
 
-## حالة Android
+## هوية تطبيق الهاتف
 
-المستودع الحالي يحتوي تطبيق ويب وملفات PWA. لا يحتوي حالياً مشروع Android أصلياً أو إعداد Capacitor/Gradle، لذلك نجاح بناء الويب لا يعني أن ملف AAB جاهز للنشر.
+- الاسم المعروض: كفو.
+- Expo slug: `kfw`.
+- Android package: `com.mamnoon.app` محفوظ للتوافق مع التثبيتات الحالية.
+- Deep-link scheme: `mamnoon` محفوظ للتوافق مع روابط المصادقة الحالية.
+- EAS project ID: `a6c763c4-3a5c-4725-b370-81967e3c0aab`.
+
+راجع `docs/DEPLOYMENT_CHECKLIST_AR.md` قبل الإطلاق؛ نجاح الفحوصات أو البناء لا يغني عن اختبار المصادقة والخرائط وGPS والطلبات على جهاز حقيقي.

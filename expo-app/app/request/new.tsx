@@ -133,7 +133,7 @@ export default function NewRequest() {
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
-        Alert.alert("إذن الموقع مطلوب", "اسمح لممنون باستخدام الموقع أو اختر النقطة يدوياً.");
+        Alert.alert("إذن الموقع مطلوب", "اسمح لكفو باستخدام الموقع أو اختر النقطة يدوياً.");
         return;
       }
       const position = await Location.getCurrentPositionAsync({

@@ -7,10 +7,10 @@ export const Route = createFileRoute("/")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "ممنون | النقل والخدمات" },
-      { name: "description", content: "رحلات التاكسي والخدمات المنزلية في تطبيق ممنون." },
-      { property: "og:title", content: "ممنون | النقل والخدمات" },
-      { property: "og:description", content: "رحلات التاكسي والخدمات المنزلية في تطبيق ممنون." },
+      { title: "كفو | النقل والخدمات" },
+      { name: "description", content: "رحلات التاكسي والخدمات المنزلية في تطبيق كفو." },
+      { property: "og:title", content: "كفو | النقل والخدمات" },
+      { property: "og:description", content: "رحلات التاكسي والخدمات المنزلية في تطبيق كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -26,7 +26,7 @@ function Index() {
     return (
       <div className="min-h-screen grid place-items-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="text-5xl font-black text-gradient">ممنون</div>
+          <div className="text-5xl font-black text-gradient">كفو</div>
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       </div>

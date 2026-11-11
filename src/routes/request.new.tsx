@@ -47,9 +47,9 @@ export const Route = createFileRoute("/request/new")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "طلب جديد | ممنون" },
+      { title: "طلب جديد | كفو" },
       { name: "description", content: "حدد موقعك ووجهتك لطلب سيارة أو خدمة بسهولة وسرعة." },
-      { property: "og:title", content: "طلب جديد | ممنون" },
+      { property: "og:title", content: "طلب جديد | كفو" },
       { property: "og:description", content: "حدد موقعك ووجهتك لطلب سيارة أو خدمة بسهولة وسرعة." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -72,7 +72,7 @@ const VEHICLE_CATS: {
 }[] = [
   {
     key: "economy",
-    label: "ممنون اقتصادي",
+    label: "كفو اقتصادي",
     emoji: "🚗",
     gradient: "from-emerald-400 to-teal-500",
     eta: "3-5 د",
@@ -80,7 +80,7 @@ const VEHICLE_CATS: {
   },
   {
     key: "premium",
-    label: "ممنون المتميز",
+    label: "كفو المتميز",
     emoji: "🚙",
     gradient: "from-sky-500 to-indigo-600",
     eta: "4-6 د",
@@ -88,7 +88,7 @@ const VEHICLE_CATS: {
   },
   {
     key: "luxury",
-    label: "ممنون فاخر",
+    label: "كفو فاخر",
     emoji: "🏎️",
     gradient: "from-amber-400 to-orange-500",
     eta: "5-8 د",

@@ -4,10 +4,10 @@ export const Route = createFileRoute("/terms")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "الشروط والأحكام | ممنون" },
-      { name: "description", content: "اطلع على شروط استخدام منصة ممنون للنقل والخدمات." },
-      { property: "og:title", content: "الشروط والأحكام | ممنون" },
-      { property: "og:description", content: "اطلع على شروط استخدام منصة ممنون للنقل والخدمات." },
+      { title: "الشروط والأحكام | كفو" },
+      { name: "description", content: "اطلع على شروط استخدام منصة كفو للنقل والخدمات." },
+      { property: "og:title", content: "الشروط والأحكام | كفو" },
+      { property: "og:description", content: "اطلع على شروط استخدام منصة كفو للنقل والخدمات." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -23,14 +23,14 @@ function TermsPage() {
         <section>
           <h2 className="font-black text-foreground mb-2">قبول الشروط</h2>
           <p>
-            باستخدامك تطبيق "ممنون"، فإنك توافق على هذه الشروط والأحكام. إذا لم توافق، يرجى عدم
+            باستخدامك تطبيق "كفو"، فإنك توافق على هذه الشروط والأحكام. إذا لم توافق، يرجى عدم
             استخدام التطبيق.
           </p>
         </section>
         <section>
           <h2 className="font-black text-foreground mb-2">الخدمات</h2>
           <p>
-            يوفر "ممنون" منصة لربط المستخدمين بمزودي الخدمات (سائقين وفنيين). التطبيق وسيط بين
+            يوفر "كفو" منصة لربط المستخدمين بمزودي الخدمات (سائقين وفنيين). التطبيق وسيط بين
             الأطراف ولا يتحمل مسؤولية جودة الخدمة المقدمة من طرف ثالث.
           </p>
         </section>

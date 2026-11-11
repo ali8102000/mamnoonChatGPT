@@ -13,12 +13,12 @@ export const Route = createFileRoute("/admin_/import")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "مساعد استيراد البيانات | ممنون" },
+      { title: "مساعد استيراد البيانات | كفو" },
       {
         name: "description",
         content: "ارفع ملفات CSV ودع الذكاء الاصطناعي يقترح ربط الأعمدة ويشرح المشاكل.",
       },
-      { property: "og:title", content: "مساعد استيراد البيانات | ممنون" },
+      { property: "og:title", content: "مساعد استيراد البيانات | كفو" },
       { property: "og:description", content: "اقتراح ربط أعمدة ملفات CSV وكشف تناقضات البيانات." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

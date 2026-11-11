@@ -30,10 +30,10 @@ export const Route = createFileRoute("/admin/monitoring")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "المراقبة المباشرة | ممنون" },
-      { name: "description", content: "مراقبة نشاط منصة ممنون مباشرة." },
-      { property: "og:title", content: "المراقبة المباشرة | ممنون" },
-      { property: "og:description", content: "مراقبة نشاط منصة ممنون مباشرة." },
+      { title: "المراقبة المباشرة | كفو" },
+      { name: "description", content: "مراقبة نشاط منصة كفو مباشرة." },
+      { property: "og:title", content: "المراقبة المباشرة | كفو" },
+      { property: "og:description", content: "مراقبة نشاط منصة كفو مباشرة." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
