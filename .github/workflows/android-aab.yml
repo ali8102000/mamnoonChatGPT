@@ -26,7 +26,7 @@ jobs:
         working-directory: expo-app
     env:
       APP_ENV: production
-      EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      EAS_PROJECT_ID: 236e49b2-665f-4dce-ad67-bc0c90f86503
     steps:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
