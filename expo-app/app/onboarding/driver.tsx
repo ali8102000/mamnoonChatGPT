@@ -170,9 +170,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "transparent",
   },
-  chipActive: { borderColor: "#2563eb", backgroundColor: "#2563eb10" },
+  chipActive: { borderColor: "#0f766e", backgroundColor: "#0f766e10" },
   chipText: { fontSize: 14, fontWeight: "600", color: "#64748b" },
-  chipTextActive: { color: "#2563eb" },
+  chipTextActive: { color: "#0f766e" },
   input: {
     borderWidth: 1,
     borderColor: "rgba(30,41,59,0.1)",
