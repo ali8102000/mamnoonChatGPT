@@ -51,6 +51,6 @@ jobs:
           bunx expo config --type public
           env -u EAS_PROJECT_ID EAS_BUILD_PROJECT_ID="00000000-0000-4000-8000-000000000000" bunx expo config --type public
       - name: Expo Doctor
-        run: bunx expo-doctor
+        run: NODE_PATH="$PWD/node_modules" bunx expo-doctor
       - name: Export Android bundle
         run: bunx expo export --platform android
