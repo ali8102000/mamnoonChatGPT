@@ -40,7 +40,7 @@ function ForgotPasswordPage() {
     }
     setBusy(true);
     try {
-      await reset({ data: { identifier: value, redirectTo: `${window.location.origin}/reset-password` } });
+      await reset({ data: { identifier: value } });
       setSent(true);
       toast.success("إذا كان البريد مرتبطاً بحساب، فسيصلك رمز التحقق. افحص الوارد والرسائل المهملة.");
     } catch (err: unknown) {
