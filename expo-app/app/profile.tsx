@@ -142,13 +142,13 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb", paddingHorizontal: 20, paddingTop: 50 },
+  container: { flex: 1, backgroundColor: "#f7f8f5", paddingHorizontal: 20, paddingTop: 50 },
   header: { alignItems: "center", marginBottom: 24 },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#0f766e",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
@@ -158,13 +158,13 @@ const styles = StyleSheet.create({
   phone: { fontSize: 14, color: "#64748b", marginTop: 4 },
   rolesRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 24 },
   roleBadge: {
-    backgroundColor: "#2563eb10",
+    backgroundColor: "#0f766e10",
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
-  roleBadgeText: { fontSize: 13, fontWeight: "700", color: "#2563eb" },
-  walletCard: { backgroundColor: "#2563eb", borderRadius: 20, padding: 20, marginBottom: 24 },
+  roleBadgeText: { fontSize: 13, fontWeight: "700", color: "#0f766e" },
+  walletCard: { backgroundColor: "#0f766e", borderRadius: 20, padding: 20, marginBottom: 24 },
   walletTitle: { fontSize: 14, color: "rgba(255,255,255,0.8)", fontWeight: "600" },
   walletBalance: { fontSize: 32, fontWeight: "900", color: "#fff", marginTop: 4 },
   walletStats: { flexDirection: "row", gap: 16, marginTop: 16 },
