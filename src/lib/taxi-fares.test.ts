@@ -9,12 +9,13 @@ describe("400 IQD per actual driving kilometer", () => {
     },
   );
   it("has no minimum or base fare", () => {
-    expect(taxiFare("economy", 1)).toBe(1000);
-    expect(taxiFare("economy", 0.5)).toBe(1000);
+    expect(taxiFare("economy", 1)).toBe(400);
+    expect(taxiFare("economy", 0.5)).toBe(200);
+    expect(taxiFare("economy", 0)).toBe(0);
   });
-  it("rounds to the nearest 250 IQD", () => {
-    expect(taxiFare("economy", 8.501)).toBe(3500);
-    expect(taxiFare("economy", 8.3)).toBe(3250);
+  it("does not round to 250 IQD", () => {
+    expect(taxiFare("economy", 8.501)).toBe(3400);
+    expect(taxiFare("economy", 8.3)).toBe(3320);
   });
   it("adds no traffic or weather surcharges", () => {
     const fare = calculateFareBreakdown("luxury", 5, {
@@ -31,7 +32,8 @@ describe("400 IQD per actual driving kilometer", () => {
 });
 
 describe("minimum fare", () => {
-  it("never charges less than 1000 IQD", () => {
-    expect(taxiFare("economy", 0)).toBe(1000);
+  it("does not impose a minimum charge", () => {
+    expect(taxiFare("economy", 0)).toBe(0);
+    expect(taxiFare("economy", 0.25)).toBe(100);
   });
 });
