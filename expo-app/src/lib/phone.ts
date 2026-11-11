@@ -1,5 +1,6 @@
 export function phoneToEmail(rawPhone: string): string {
-  const digits = rawPhone.replace(/[^\d]/g, "");
+  const normalized = normalizePhone(rawPhone);
+  const digits = normalized.replace(/[^\d]/g, "");
   return `phone${digits}@mamnoon.app`;
 }
 
