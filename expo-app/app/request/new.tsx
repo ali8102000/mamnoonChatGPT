@@ -21,7 +21,7 @@ type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury";
 
 const SERVICES = [
-  { slug: "taxi", label: "سيارة", emoji: "🚕", color: "#2563eb" },
+  { slug: "taxi", label: "سيارة", emoji: "🚕", color: "#0f766e" },
   { slug: "build", label: "بناء", emoji: "🧱", color: "#ea580c" },
   { slug: "plaster", label: "لبخ", emoji: "🪣", color: "#d97706" },
   { slug: "carpentry_form", label: "نجارة وقالب", emoji: "📐", color: "#a16207" },
@@ -133,7 +133,7 @@ export default function NewRequest() {
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
-        Alert.alert("إذن الموقع مطلوب", "اسمح لكفو باستخدام الموقع أو اختر النقطة يدوياً.");
+        Alert.alert("إذن الموقع مطلوب", "اسمح لممنون باستخدام الموقع أو اختر النقطة يدوياً.");
         return;
       }
       const position = await Location.getCurrentPositionAsync({
@@ -330,7 +330,7 @@ export default function NewRequest() {
           loadingEnabled
         >
           {pickupCoords && (
-            <Marker coordinate={pickupCoords} title="نقطة الانطلاق" pinColor="#2563eb" />
+            <Marker coordinate={pickupCoords} title="نقطة الانطلاق" pinColor="#0f766e" />
           )}
           {destinationCoords && isTaxi && (
             <Marker coordinate={destinationCoords} title="الوجهة" pinColor="#16a34a" />
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#e2e8f0",
     alignItems: "center",
   },
-  mapModeButtonActive: { backgroundColor: "#1e40af" },
+  mapModeButtonActive: { backgroundColor: "#115e59" },
   mapModeText: { color: "#64748b", fontWeight: "700", fontSize: 12 },
   mapModeTextActive: { color: "#fff" },
   locateButton: {
@@ -523,10 +523,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "transparent",
   },
-  catChipActive: { borderColor: "#2563eb", backgroundColor: "#2563eb10" },
+  catChipActive: { borderColor: "#0f766e", backgroundColor: "#0f766e10" },
   catEmoji: { fontSize: 18 },
   catLabel: { fontSize: 14, fontWeight: "700", color: "#64748b" },
-  catLabelActive: { color: "#2563eb" },
+  catLabelActive: { color: "#0f766e" },
   stepperRow: { flexDirection: "row", alignItems: "center", gap: 20 },
   stepperBtn: {
     width: 44,
@@ -538,16 +538,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(30,41,59,0.1)",
   },
-  stepperText: { fontSize: 24, fontWeight: "900", color: "#2563eb" },
+  stepperText: { fontSize: 24, fontWeight: "900", color: "#0f766e" },
   stepperValue: { fontSize: 20, fontWeight: "800", color: "#1e293b" },
   priceBox: {
-    backgroundColor: "#2563eb10",
+    backgroundColor: "#0f766e10",
     borderRadius: 16,
     padding: 16,
     alignItems: "center",
     marginTop: 20,
   },
   priceLabel: { fontSize: 14, color: "#64748b", fontWeight: "600" },
-  priceValue: { fontSize: 24, fontWeight: "900", color: "#2563eb", marginTop: 4 },
+  priceValue: { fontSize: 24, fontWeight: "900", color: "#0f766e", marginTop: 4 },
   priceNote: { fontSize: 11, color: "#64748b", marginTop: 6, textAlign: "center" },
 });
