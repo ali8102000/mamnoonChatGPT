@@ -18,13 +18,13 @@ export default function ProfileScreen() {
         const { data } = await supabase
           .from("driver_wallets")
           .select("*")
-          .eq("driver_id", user?.id)
+          .eq("user_id", user?.id)
           .maybeSingle();
         setWallet(data);
         const { data: txns } = await supabase
           .from("transactions")
           .select("*")
-          .eq("driver_id", user?.id)
+          .eq("user_id", user?.id)
           .order("created_at", { ascending: false })
           .limit(10);
         setTransactions(txns || []);
