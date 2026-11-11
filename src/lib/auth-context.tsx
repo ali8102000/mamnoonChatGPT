@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const { data } = await supabase.auth.getSession();
       setSession(data.session);
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles([]);
       setBanStatus(null);
     }
-  }
+  }, [loadProfile]);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
