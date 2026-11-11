@@ -156,8 +156,8 @@ export default function AuthScreen() {
             <RealInput
               value={identifier}
               onChangeText={setIdentifier}
-              placeholder="07XXXXXXXXX"
-              keyboardType="phone-pad"
+              placeholder="07XXXXXXXXX أو name@example.com"
+              autoCapitalize="none"
             />
           </>
         )}
