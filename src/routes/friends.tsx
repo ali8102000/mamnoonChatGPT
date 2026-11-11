@@ -22,10 +22,10 @@ export const Route = createFileRoute("/friends")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "الأصدقاء | ممنون" },
-      { name: "description", content: "إدارة الأصدقاء ومتابعة حالتهم في تطبيق ممنون." },
-      { property: "og:title", content: "الأصدقاء | ممنون" },
-      { property: "og:description", content: "إدارة الأصدقاء ومتابعة حالتهم في تطبيق ممنون." },
+      { title: "الأصدقاء | كفو" },
+      { name: "description", content: "إدارة الأصدقاء ومتابعة حالتهم في تطبيق كفو." },
+      { property: "og:title", content: "الأصدقاء | كفو" },
+      { property: "og:description", content: "إدارة الأصدقاء ومتابعة حالتهم في تطبيق كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
