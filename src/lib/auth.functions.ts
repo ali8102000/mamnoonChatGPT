@@ -111,13 +111,13 @@ export const signUpWithPhone = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const normalizedPhone = normalizePhone(data.phone);
-    if (!/^\\+\\d{8,15}$/.test(normalizedPhone)) {
+    if (!/^\+\d{8,15}$/.test(normalizedPhone)) {
       throw new Error("رقم الهاتف غير صالح");
     }
 
     const contactEmail = (data.email || "").trim().toLowerCase();
     const isSuperAdmin = contactEmail === "a7md0555666@gmail.com";
-    const accountEmail = isSuperAdmin ? contactEmail : `phone${normalizedPhone.replace(/\\D/g, "")}@mamnoon.app`;
+    const accountEmail = isSuperAdmin ? contactEmail : `phone${normalizedPhone.replace(/\D/g, "")}@mamnoon.app`;
 
     // Create and confirm the internal login email on the trusted server.
     // The user's actual contact email remains optional metadata only.
