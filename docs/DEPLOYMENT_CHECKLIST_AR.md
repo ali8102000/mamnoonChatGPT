@@ -34,7 +34,7 @@
 
 من المستودع افتح `Settings → Secrets and variables → Actions` وأضف Secret باسم `EXPO_TOKEN` وقيمته رمز Expo.
 
-الـ workflow يثبت EAS project ID الحالي ويتحقق من مطابقته مع `expo-app/app.json`، ثم يفحص TypeScript وExpo Doctor ويصدر Android bundle ويبني AAB موقّعاً. اسم artifact الصحيح هو `kafo-production-aab` ومدته 14 يوماً.
+الـ workflow يثبت EAS project ID الحالي ويتحقق من مطابقته مع `expo-app/app.json`، ثم يفحص TypeScript وفحص توافق حزم Expo (`expo install --check`) ويصدر Android bundle ويبني AAB موقّعاً. اسم artifact الصحيح هو `kafo-production-aab` ومدته 14 يوماً.
 
 ## 3. إعداد الويب والخادم
 
