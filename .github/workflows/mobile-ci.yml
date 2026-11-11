@@ -1,4 +1,4 @@
-name: Mamnoon mobile CI
+name: Kafo mobile CI
 
 on:
   push:

@@ -1,5 +1,5 @@
-# Rebuild against the latest reviewed mobile fixes on main.
-name: Android production AAB
+# Build the Kafo Android App Bundle from the Expo project in expo-app.
+name: Kafo Android production AAB
 
 on:
   push:
@@ -15,18 +15,20 @@ permissions:
   contents: read
 
 concurrency:
-  group: mamnoon-android-aab
+  group: kafo-android-aab
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Validate and build Mamnoon Android App Bundle
+    name: Validate and build Kafo Android App Bundle
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: expo-app
     env:
       APP_ENV: production
+      # This is the EAS project ID already linked in app.json and verified by
+      # the successful production AAB workflow. Keep it in sync with app.json.
       EAS_PROJECT_ID: a6c763c4-3a5c-4725-b370-81967e3c0aab
     steps:
       - uses: actions/checkout@v5
@@ -49,15 +51,15 @@ jobs:
             echo "::error::Missing GitHub Actions secret EXPO_TOKEN."
             exit 1
           fi
-      - name: Check EAS_PROJECT_ID repository variable
-        if: always()
+      - name: Validate linked EAS project ID
         run: |
-          if [ -z "$EAS_PROJECT_ID" ]; then
-            echo "::error::Missing GitHub Actions repository variable EAS_PROJECT_ID."
-            exit 1
-          fi
           if ! printf '%s' "$EAS_PROJECT_ID" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'; then
             echo "::error::EAS_PROJECT_ID must be a valid Expo project UUID."
+            exit 1
+          fi
+          APP_PROJECT_ID="$(node -e 'const c=require("./app.json"); process.stdout.write(c.expo.extra.eas.projectId)')"
+          if [ "$APP_PROJECT_ID" != "$EAS_PROJECT_ID" ]; then
+            echo "::error::EAS_PROJECT_ID does not match expo-app/app.json extra.eas.projectId."
             exit 1
           fi
       - name: Validate production EAS environment variables
@@ -80,16 +82,16 @@ jobs:
           echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
           mkdir -p ../release-artifacts
           curl --fail --location --retry 3 --retry-delay 2 "$BUILD_URL" --output ../release-artifacts/kafo-production.aab
-          test -s ../release-artifacts/kafo-production.aab
-          node -e 'const fs=require("fs"); const p="../release-artifacts/kafo-production.aab"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid ZIP-based Android App Bundle"); process.exit(1); }'
+          test -s ../release-artifacts/mamnoon-production.aab
+          node -e 'const fs=require("fs"); const p="../release-artifacts/mamnoon-production.aab"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid ZIP-based Android App Bundle"); process.exit(1); }'
       - name: Upload AAB as a GitHub Actions artifact
         uses: actions/upload-artifact@v4
         with:
           name: kafo-production-aab
-          path: release-artifacts/kafo-production.aab
+          path: release-artifacts/mamnoon-production.aab
           if-no-files-found: error
           retention-days: 14
       - name: Build summary
         run: |
-          echo "AAB build completed. EAS build ID: ${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Mamnoon AAB build completed. EAS build ID: ${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
           echo "The signed AAB is attached as the kafo-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
