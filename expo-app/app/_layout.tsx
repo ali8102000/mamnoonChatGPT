@@ -11,11 +11,11 @@ LogBox.ignoreLogs(["Setting a timer", "AsyncStorage"]);
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: "#f7f8f5" },
+          contentStyle: { backgroundColor: "#f8fafc" },
         }}
       >
         <Stack.Screen name="index" />
