@@ -74,9 +74,8 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          BUILD_JSON="$RUNNER_TEMP/eas-build.json"
           BUILD_ID="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; if(!b?.id) process.exit(2); process.stdout.write(b.id)')"
-          BUILD_URL="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; const u=b?.artifacts?.buildUrl || b?.artifacts?.applicationArchiveUrl; if(!u || !/^https:\\/\\//.test(u)) process.exit(2); process.stdout.write(u)')"
+          BUILD_URL="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; const u=b?.artifacts?.buildUrl || b?.artifacts?.applicationArchiveUrl; if(!u || !u.startsWith("https://")) process.exit(2); process.stdout.write(u)')"
           echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
           mkdir -p ../release-artifacts
           curl --fail --location --retry 3 --retry-delay 2 "$BUILD_URL" --output ../release-artifacts/kafo-production.aab
