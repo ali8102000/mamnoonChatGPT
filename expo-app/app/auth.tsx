@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { router } from "expo-router";
+import * as Linking from "expo-linking";
 import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import { authProxy, supabase } from "@/lib/supabase";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
@@ -18,6 +19,7 @@ export default function AuthScreen() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
   const { refresh } = useAuth();
 
   async function onSubmit() {
@@ -54,9 +56,11 @@ export default function AuthScreen() {
           password,
           phone: normalized,
           full_name: name.trim(),
+          emailRedirectTo: Linking.createURL("/auth/callback"),
         });
         if (!result.session) {
-          Alert.alert("تم التسجيل", "تحقق من بريدك الإلكتروني ثم سجل الدخول");
+          setConfirmationEmail(authEmail);
+          Alert.alert("تم التسجيل", "تحقق من بريدك الإلكتروني. افتح رابط التأكيد لإكمال التسجيل.");
           setMode("login");
           return;
         }
@@ -175,6 +179,31 @@ export default function AuthScreen() {
           onPress={onSubmit}
           loading={busy}
         />
+        {confirmationEmail ? (
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.terms}>بانتظار تأكيد البريد: {confirmationEmail}</Text>
+            <Text
+              style={[styles.forgotLink, { textAlign: "center" }]}
+              onPress={async () => {
+                if (busy) return;
+                setBusy(true);
+                try {
+                  const { error } = await supabase.auth.resend({
+                    type: "signup",
+                    email: confirmationEmail,
+                    options: { emailRedirectTo: Linking.createURL("/auth/callback") },
+                  });
+                  if (error) throw error;
+                  Alert.alert("تم", "أعدنا إرسال رابط التأكيد. افحص الوارد والرسائل غير المرغوب فيها.");
+                } catch (e) {
+                  Alert.alert("تعذر الإرسال", e instanceof Error ? e.message : "حاول مرة أخرى لاحقاً");
+                } finally { setBusy(false); }
+              }}
+            >
+              إعادة إرسال رابط التأكيد
+            </Text>
+          </View>
+        ) : null}
         <Text style={styles.terms}>بمتابعتك أنت توافق على الشروط والأحكام وسياسة الخصوصية</Text>
       </View>
     </ScrollView>
