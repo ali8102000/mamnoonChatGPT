@@ -13,8 +13,28 @@ if (missing.length) {
   process.exit(1);
 }
 
-if (!process.env.EXPO_PUBLIC_SUPABASE_URL.startsWith("https://")) {
-  console.error("EXPO_PUBLIC_SUPABASE_URL يجب أن يبدأ بـ https://");
+let supabaseHost;
+try {
+  const parsed = new URL(process.env.EXPO_PUBLIC_SUPABASE_URL);
+  if (parsed.protocol !== "https:") throw new Error("protocol");
+  supabaseHost = parsed.hostname;
+} catch {
+  console.error("EXPO_PUBLIC_SUPABASE_URL يجب أن يكون رابط HTTPS صالحاً.");
+  process.exit(1);
+}
+
+// Prevent a valid-looking but unrelated legacy Supabase project from shipping
+// in the production mobile app. Update this ref only after an explicit backend migration.
+const expectedSupabaseProjectRef = "hvfiwjryffjwaynkpgar";
+if (supabaseHost.split(".")[0] !== expectedSupabaseProjectRef) {
+  console.error(
+    `EXPO_PUBLIC_SUPABASE_URL يجب أن يشير إلى مشروع كفو الصحيح: ${expectedSupabaseProjectRef}.`,
+  );
+  process.exit(1);
+}
+
+if (process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
+  console.error("لا يجوز وضع Supabase secret key داخل تطبيق الهاتف؛ استخدم Publishable key.");
   process.exit(1);
 }
 
