@@ -97,3 +97,67 @@ export const sendPasswordReset = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+
+const signupCredentialsSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  phone: z.string().trim().min(8).max(30),
+  email: z.string().trim().email().max(255).optional().or(z.literal("")),
+  password: z.string().min(6).max(128),
+});
+
+export const signUpWithPhone = createServerFn({ method: "POST" })
+  .inputValidator((d) => signupCredentialsSchema.parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const normalizedPhone = normalizePhone(data.phone);
+    if (!/^\\+\\d{8,15}$/.test(normalizedPhone)) {
+      throw new Error("رقم الهاتف غير صالح");
+    }
+
+    const contactEmail = (data.email || "").trim().toLowerCase();
+    const isSuperAdmin = contactEmail === "a7md0555666@gmail.com";
+    const accountEmail = isSuperAdmin ? contactEmail : `phone${normalizedPhone.replace(/\\D/g, "")}@mamnoon.app`;
+
+    // Create and confirm the internal login email on the trusted server.
+    // The user's actual contact email remains optional metadata only.
+    const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: accountEmail,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: {
+        phone: normalizedPhone,
+        full_name: data.name.trim(),
+        contact_email: contactEmail || null,
+      },
+    });
+
+    if (createError || !created.user) {
+      console.error("[signUpWithPhone] Account creation failed:", createError?.message);
+      if (/already been registered|already exists|duplicate/i.test(createError?.message || "")) {
+        throw new Error("هذا الرقم مسجّل مسبقاً. انتقل إلى تسجيل الدخول.");
+      }
+      throw new Error("تعذّر إنشاء الحساب حالياً. حاول مرة أخرى.");
+    }
+
+    const { data: signedIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+      email: accountEmail,
+      password: data.password,
+    });
+
+    if (signInError || !signedIn.session) {
+      // Avoid leaving an unusable account if session issuance unexpectedly fails.
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+      if (deleteError) {
+        console.error("[signUpWithPhone] Cleanup failed:", deleteError.message);
+      }
+      console.error("[signUpWithPhone] Immediate sign-in failed:", signInError?.message);
+      throw new Error("تم إنشاء الحساب لكن تعذّر تسجيل الدخول تلقائياً. حاول تسجيل الدخول.");
+    }
+
+    return {
+      accessToken: signedIn.session.access_token,
+      refreshToken: signedIn.session.refresh_token,
+      isSuperAdmin,
+    };
+  });
