@@ -137,9 +137,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "transparent",
   },
-  serviceChipActive: { borderColor: "#2563eb", backgroundColor: "#2563eb10" },
+  serviceChipActive: { borderColor: "#0f766e", backgroundColor: "#0f766e10" },
   serviceChipText: { fontSize: 14, fontWeight: "600", color: "#64748b" },
-  serviceChipTextActive: { color: "#2563eb" },
+  serviceChipTextActive: { color: "#0f766e" },
   levelRow: { flexDirection: "row", gap: 10 },
   levelChip: {
     flex: 1,
@@ -150,9 +150,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "transparent",
   },
-  levelChipActive: { borderColor: "#2563eb", backgroundColor: "#2563eb10" },
+  levelChipActive: { borderColor: "#0f766e", backgroundColor: "#0f766e10" },
   levelText: { fontSize: 15, fontWeight: "700", color: "#64748b" },
-  levelTextActive: { color: "#2563eb" },
+  levelTextActive: { color: "#0f766e" },
   input: {
     borderWidth: 1,
     borderColor: "rgba(30,41,59,0.1)",
