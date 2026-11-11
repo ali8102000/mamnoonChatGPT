@@ -9,12 +9,12 @@ export const Route = createFileRoute("/history")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "سجل الطلبات | ممنون" },
-      { name: "description", content: "تابع طلبات النقل والخدمات السابقة والنشطة في ممنون." },
-      { property: "og:title", content: "سجل الطلبات | ممنون" },
+      { title: "سجل الطلبات | كفو" },
+      { name: "description", content: "تابع طلبات النقل والخدمات السابقة والنشطة في كفو." },
+      { property: "og:title", content: "سجل الطلبات | كفو" },
       {
         property: "og:description",
-        content: "تابع طلبات النقل والخدمات السابقة والنشطة في ممنون.",
+        content: "تابع طلبات النقل والخدمات السابقة والنشطة في كفو.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
