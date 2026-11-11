@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mamnoon-mobile-${{ github.ref }}
+  group: kafo-mobile-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
