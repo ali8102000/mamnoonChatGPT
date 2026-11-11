@@ -9,7 +9,7 @@ type HistoryRequest = {
   type: string;
   status: string;
   created_at: string;
-  estimated_price: number | null;
+  price_estimate: number | null;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -100,9 +100,9 @@ export default function HistoryScreen() {
                 <Text style={styles.cardDate}>
                   {new Date(req.created_at).toLocaleDateString("ar")}
                 </Text>
-                {req.estimated_price && (
+                {req.price_estimate && (
                   <Text style={styles.cardPrice}>
-                    {req.estimated_price.toLocaleString("en")} د.ع
+                    {req.price_estimate.toLocaleString("en")} د.ع
                   </Text>
                 )}
               </View>
