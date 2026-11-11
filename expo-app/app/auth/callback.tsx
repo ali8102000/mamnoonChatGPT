@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function AuthCallbackScreen() {
   const params = useLocalSearchParams<{ code?: string; access_token?: string; refresh_token?: string; error_description?: string }>();
+  const incomingUrl = Linking.useURL();
   const [message, setMessage] = useState("جارٍ تأكيد حسابك...");
   const [busy, setBusy] = useState(true);
   const { refresh } = useAuth();
@@ -15,7 +16,7 @@ export default function AuthCallbackScreen() {
     let active = true;
     async function complete() {
       try {
-        const initialUrl = await Linking.getInitialURL();
+        const initialUrl = incomingUrl || await Linking.getInitialURL();
         const parsed = initialUrl ? new URL(initialUrl) : null;
         const hashParams = new URLSearchParams((parsed?.hash ?? "").replace(/^#/, ""));
         const queryParams = parsed?.searchParams;
@@ -49,7 +50,7 @@ export default function AuthCallbackScreen() {
     }
     complete();
     return () => { active = false; };
-  }, [params.code, params.access_token, params.refresh_token, params.error_description]);
+  }, [incomingUrl, params.code, params.access_token, params.refresh_token, params.error_description]);
 
   return <View style={styles.container}>
     {busy ? <ActivityIndicator size="large" color="#2563eb" /> : null}
