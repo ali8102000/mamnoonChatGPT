@@ -1,5 +1,8 @@
 project_id = "hvfiwjryffjwaynkpgar"
 
+[auth.email]
+enable_confirmations = false
+
 [auth.email.template.recovery]
 subject = "رمز استعادة كلمة المرور | ممنون Mamnoon"
 content_path = "./supabase/templates/recovery.html"
