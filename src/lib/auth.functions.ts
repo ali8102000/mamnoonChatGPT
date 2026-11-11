@@ -23,7 +23,7 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
       if (mappedEmail) {
         email = String(mappedEmail).toLowerCase();
       } else {
-        const digits = identifier.replace(/[^\\d]/g, "");
+        const digits = identifier.replace(/\\D/g, "");
         email = `phone${digits}@mamnoon.app`;
       }
     }
