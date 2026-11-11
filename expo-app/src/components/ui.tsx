@@ -57,6 +57,7 @@ export function RealInput({
   keyboardType,
   style,
   autoFocus,
+  autoCapitalize,
 }: {
   value: string;
   onChangeText: (v: string) => void;
@@ -65,6 +66,7 @@ export function RealInput({
   keyboardType?: "default" | "phone-pad" | "email-address" | "numeric";
   style?: ViewStyle;
   autoFocus?: boolean;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
 }) {
   return (
     <TextInput
@@ -75,6 +77,7 @@ export function RealInput({
       secureTextEntry={secureTextEntry}
       keyboardType={keyboardType || "default"}
       autoFocus={autoFocus}
+      autoCapitalize={autoCapitalize}
       style={[styles.realInput, style]}
     />
   );
