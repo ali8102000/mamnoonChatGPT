@@ -50,7 +50,7 @@ jobs:
           node scripts/validate-production-env.mjs
           bunx expo config --type public
           env -u EAS_PROJECT_ID EAS_BUILD_PROJECT_ID="00000000-0000-4000-8000-000000000000" bunx expo config --type public
-      - name: Expo Doctor
-        run: NODE_PATH="$PWD/node_modules" bunx expo-doctor
+      - name: Expo dependency compatibility
+        run: bunx expo install --check
       - name: Export Android bundle
         run: bunx expo export --platform android
