@@ -4,5 +4,5 @@ project_id = "hvfiwjryffjwaynkpgar"
 enable_confirmations = false
 
 [auth.email.template.recovery]
-subject = "رمز استعادة كلمة المرور | ممنون Mamnoon"
+subject = "رمز استعادة كلمة المرور | كفو Kafo"
 content_path = "./supabase/templates/recovery.html"
