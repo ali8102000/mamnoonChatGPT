@@ -94,12 +94,12 @@ export default function AccountSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 22, paddingTop: 54, backgroundColor: "#f9fafb" },
+  container: { flexGrow: 1, padding: 22, paddingTop: 54, backgroundColor: "#f7f8f5" },
   title: { fontSize: 26, fontWeight: "900", color: "#1e293b", marginBottom: 8 },
   note: { color: "#64748b", lineHeight: 22, marginBottom: 22 },
   label: { fontSize: 13, fontWeight: "800", color: "#475569", marginTop: 16, marginBottom: 8 },
   current: { color: "#64748b", fontSize: 14, paddingVertical: 8 },
   separator: { height: 1, backgroundColor: "#e2e8f0", marginVertical: 26 },
   hint: { color: "#64748b", fontSize: 12, lineHeight: 20, marginTop: 10 },
-  back: { textAlign: "center", color: "#2563eb", fontWeight: "800", padding: 24 },
+  back: { textAlign: "center", color: "#0f766e", fontWeight: "800", padding: 24 },
 });
