@@ -62,10 +62,10 @@ export const Route = createFileRoute("/admin")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "إدارة كفو | كفو" },
-      { name: "description", content: "إدارة مستخدمي وطلبات منصة كفو." },
-      { property: "og:title", content: "إدارة كفو | كفو" },
-      { property: "og:description", content: "إدارة مستخدمي وطلبات منصة كفو." },
+      { title: "إدارة ممنون | ممنون" },
+      { name: "description", content: "إدارة مستخدمي وطلبات منصة ممنون." },
+      { property: "og:title", content: "إدارة ممنون | ممنون" },
+      { property: "og:description", content: "إدارة مستخدمي وطلبات منصة ممنون." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
