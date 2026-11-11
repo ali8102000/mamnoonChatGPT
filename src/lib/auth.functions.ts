@@ -134,7 +134,7 @@ export const signUpWithPhone = createServerFn({ method: "POST" })
 
     if (createError || !created.user) {
       console.error("[signUpWithPhone] Account creation failed:", createError?.message);
-      if (/already been registered|already exists|duplicate/i.test(createError?.message || "")) {
+      if (/already registered|already been registered|already exists|duplicate/i.test(createError?.message || "")) {
         throw new Error("هذا الرقم مسجّل مسبقاً. انتقل إلى تسجيل الدخول.");
       }
       throw new Error("تعذّر إنشاء الحساب حالياً. حاول مرة أخرى.");
