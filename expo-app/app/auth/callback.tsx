@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import * as Linking from "expo-linking";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/lib/auth-context";
 
 export default function AuthCallbackScreen() {
   const params = useLocalSearchParams<{
@@ -16,7 +15,6 @@ export default function AuthCallbackScreen() {
   const incomingUrl = Linking.useURL();
   const [message, setMessage] = useState("جارٍ التحقق من الرابط...");
   const [busy, setBusy] = useState(true);
-  const { refresh } = useAuth();
 
   useEffect(() => {
     let active = true;
@@ -64,7 +62,6 @@ export default function AuthCallbackScreen() {
           throw new Error("الرابط غير مكتمل أو منتهي الصلاحية. اطلب رابطاً جديداً.");
         }
 
-        await refresh();
         if (!active) return;
         if (isRecovery || recoveryEvent) {
           router.replace("/reset-password");
@@ -92,7 +89,6 @@ export default function AuthCallbackScreen() {
     params.refresh_token,
     params.error_description,
     params.type,
-    refresh,
   ]);
 
   return (
