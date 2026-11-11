@@ -8,10 +8,10 @@ export const Route = createFileRoute("/reset-password")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "كلمة مرور جديدة | ممنون" },
-      { name: "description", content: "عيّن كلمة مرور جديدة لحساب ممنون." },
-      { property: "og:title", content: "كلمة مرور جديدة | ممنون" },
-      { property: "og:description", content: "عيّن كلمة مرور جديدة لحساب ممنون." },
+      { title: "كلمة مرور جديدة | كفو" },
+      { name: "description", content: "عيّن كلمة مرور جديدة لحساب كفو." },
+      { property: "og:title", content: "كلمة مرور جديدة | كفو" },
+      { property: "og:description", content: "عيّن كلمة مرور جديدة لحساب كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
