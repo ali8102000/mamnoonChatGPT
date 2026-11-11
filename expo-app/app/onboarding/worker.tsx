@@ -27,7 +27,7 @@ export default function WorkerOnboarding() {
     supabase
       .from("services")
       .select("*")
-      .order("name")
+      .order("name_ar")
       .then(({ data }) => {
         setServices((data || []).filter((s) => s.slug !== "taxi"));
       });
