@@ -4,8 +4,10 @@ import { signupSchema, requiresEmailConfirmation } from "./signup-validation";
 const valid = { name: "علي شاكر", phone: "07701234567", email: "ali@example.com", password: "a-long-test-password" };
 
 describe("registration email requirements", () => {
-  it("rejects registration without email", () => {
-    expect(signupSchema.safeParse({ ...valid, email: "" }).success).toBe(false);
+  it("allows registration without an email", () => {
+    const result = signupSchema.safeParse({ ...valid, email: "" });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.email).toBe("");
   });
   it("rejects malformed email", () => {
     expect(signupSchema.safeParse({ ...valid, email: "ali" }).success).toBe(false);
