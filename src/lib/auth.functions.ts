@@ -17,7 +17,7 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
     let email = identifier.toLowerCase();
     if (!isEmail) {
       const normalizedPhone = normalizePhone(identifier);
-      if (!/^\\+\\d{8,15}$/.test(normalizedPhone)) {
+      if (!/^\+\d{8,15}$/.test(normalizedPhone)) {
         throw new Error("أدخل رقم هاتف صحيحاً مع رمز البلد أو بدونه");
       }
       const { data: mappedEmail, error: lookupError } = await (supabaseAdmin as any).rpc(
@@ -44,7 +44,7 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
         if (profile?.email) {
           email = profile.email.toLowerCase();
         } else {
-          const digits = identifier.replace(/\D/g, "");
+          const digits = normalizedPhone.replace(/\D/g, "");
           email = `phone${digits}@mamnoon.app`;
         }
       }
