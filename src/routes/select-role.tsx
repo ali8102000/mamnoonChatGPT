@@ -9,10 +9,10 @@ export const Route = createFileRoute("/select-role")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "نوع الحساب | ممنون" },
-      { name: "description", content: "اختر حساب زبون أو كابتن أو فني في ممنون." },
-      { property: "og:title", content: "نوع الحساب | ممنون" },
-      { property: "og:description", content: "اختر حساب زبون أو كابتن أو فني في ممنون." },
+      { title: "نوع الحساب | كفو" },
+      { name: "description", content: "اختر حساب زبون أو كابتن أو فني في كفو." },
+      { property: "og:title", content: "نوع الحساب | كفو" },
+      { property: "og:description", content: "اختر حساب زبون أو كابتن أو فني في كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
