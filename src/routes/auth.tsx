@@ -18,12 +18,12 @@ export const Route = createFileRoute("/auth")({
   }),
   head: () => ({
     meta: [
-      { title: "تسجيل الدخول | كفو" },
-      { name: "description", content: "أنشئ حسابك أو سجّل الدخول لطلب النقل والخدمات في كفو." },
-      { property: "og:title", content: "تسجيل الدخول | كفو" },
+      { title: "تسجيل الدخول | ممنون" },
+      { name: "description", content: "أنشئ حسابك أو سجّل الدخول لطلب النقل والخدمات في ممنون." },
+      { property: "og:title", content: "تسجيل الدخول | ممنون" },
       {
         property: "og:description",
-        content: "أنشئ حسابك أو سجّل الدخول لطلب النقل والخدمات في كفو.",
+        content: "أنشئ حسابك أو سجّل الدخول لطلب النقل والخدمات في ممنون.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -175,7 +175,7 @@ function AuthPage() {
         <div className="inline-flex items-center justify-center h-20 w-20 rounded-3xl bg-gradient-to-br from-primary to-primary-glow glow-primary mb-4 shadow-elegant">
           <span className="text-3xl font-black text-primary-foreground">م</span>
         </div>
-        <h1 className="text-4xl font-black text-gradient">{t("كفو", "Kafo")}</h1>
+        <h1 className="text-4xl font-black text-gradient">{t("ممنون", "Mamnoon")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {t("منصة النقل والخدمات الفاخرة", "Rides and home services")}
         </p>
