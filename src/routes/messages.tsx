@@ -9,10 +9,10 @@ export const Route = createFileRoute("/messages")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "الرسائل | كفو" },
-      { name: "description", content: "تواصل مع الكابتن والفني بشأن طلباتك في كفو." },
-      { property: "og:title", content: "الرسائل | كفو" },
-      { property: "og:description", content: "تواصل مع الكابتن والفني بشأن طلباتك في كفو." },
+      { title: "الرسائل | ممنون" },
+      { name: "description", content: "تواصل مع الكابتن والفني بشأن طلباتك في ممنون." },
+      { property: "og:title", content: "الرسائل | ممنون" },
+      { property: "og:description", content: "تواصل مع الكابتن والفني بشأن طلباتك في ممنون." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
