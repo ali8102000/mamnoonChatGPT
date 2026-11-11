@@ -10,10 +10,10 @@ export const Route = createFileRoute("/admin/bootstrap")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "الإعداد الأولي | ممنون" },
-      { name: "description", content: "إعداد إدارة منصة ممنون." },
-      { property: "og:title", content: "الإعداد الأولي | ممنون" },
-      { property: "og:description", content: "إعداد إدارة منصة ممنون." },
+      { title: "الإعداد الأولي | كفو" },
+      { name: "description", content: "إعداد إدارة منصة كفو." },
+      { property: "og:title", content: "الإعداد الأولي | كفو" },
+      { property: "og:description", content: "إعداد إدارة منصة كفو." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
