@@ -55,7 +55,7 @@ export default function ResetPassword() {
       <Text style={styles.subtitle}>أدخل الرمز المرسل إلى بريدك الإلكتروني</Text>
       <Text style={styles.email} numberOfLines={1}>{email}</Text>
       <Text style={styles.label}>رمز التحقق (6 أرقام)</Text>
-      <RealInput value={token} onChangeText={(value) => setToken(value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" keyboardType="number-pad" />
+      <RealInput value={token} onChangeText={(value) => setToken(value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" keyboardType="numeric" />
       <Text style={styles.label}>كلمة المرور الجديدة</Text>
       <RealInput value={password} onChangeText={setPassword} placeholder="6 أحرف على الأقل" secureTextEntry />
       <Text style={styles.label}>تأكيد كلمة المرور</Text>
