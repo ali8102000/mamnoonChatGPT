@@ -71,7 +71,7 @@ export default function AccountSettingsScreen() {
     <Text style={styles.label}>البريد الحالي</Text>
     <Text style={styles.current} selectable>{user?.email || "غير مسجل"}</Text>
     <Text style={styles.label}>البريد الجديد</Text>
-    <RealInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+    <RealInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" />
     <View style={{ height: 12 }} />
     <Button title="إرسال رابط تأكيد البريد الجديد" onPress={changeEmail} loading={busy} />
     <View style={styles.separator} />
@@ -85,7 +85,7 @@ export default function AccountSettingsScreen() {
       <Text style={styles.hint}>يتطلب هذا الخيار تفعيل خدمة SMS والتحقق الهاتفي في إعدادات Supabase.</Text>
     </> : <>
       <Text style={styles.label}>رمز التحقق</Text>
-      <RealInput value={otp} onChangeText={setOtp} placeholder="أدخل رمز SMS" keyboardType="number-pad" />
+      <RealInput value={otp} onChangeText={setOtp} placeholder="أدخل رمز SMS" keyboardType="numeric" />
       <View style={{ height: 12 }} />
       <Button title="تأكيد الرقم الجديد" onPress={verifyPhone} loading={busy} />
     </>}
