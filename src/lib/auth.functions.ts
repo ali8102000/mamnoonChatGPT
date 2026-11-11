@@ -19,12 +19,29 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
         "lookup_email_by_phone",
         { _phone: identifier },
       );
-      if (lookupError) throw new Error("تعذّر تسجيل الدخول حالياً");
+      if (lookupError) {
+        // The RPC may be missing if the database migration has not been applied.
+        // Fall back to the profile table so phone sign-in can still resolve the real email.
+        console.error("[signInWithIdentifier] Phone lookup RPC failed:", lookupError.message);
+      }
       if (mappedEmail) {
         email = String(mappedEmail).toLowerCase();
       } else {
-        const digits = identifier.replace(/\D/g, "");
-        email = `phone${digits}@mamnoon.app`;
+        const { data: profile, error: profileLookupError } = await supabaseAdmin
+          .from("profiles")
+          .select("email")
+          .eq("phone", identifier)
+          .maybeSingle();
+        if (profileLookupError) {
+          console.error("[signInWithIdentifier] Profile phone lookup failed:", profileLookupError.message);
+          throw new Error("تعذّر تسجيل الدخول حالياً");
+        }
+        if (profile?.email) {
+          email = profile.email.toLowerCase();
+        } else {
+          const digits = identifier.replace(/\D/g, "");
+          email = `phone${digits}@mamnoon.app`;
+        }
       }
     }
 
