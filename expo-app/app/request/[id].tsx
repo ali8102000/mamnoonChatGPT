@@ -179,7 +179,7 @@ export default function RequestDetail() {
         },
         { onConflict: "request_id,user_id" },
       );
-      if (error) console.warn("[Kafo] location update failed:", error.message);
+      if (error) console.warn("[Mamnoon] location update failed:", error.message);
     }
 
     async function startTracking() {
@@ -428,7 +428,7 @@ export default function RequestDetail() {
                 <Marker
                   coordinate={{ latitude: request.pickup_lat, longitude: request.pickup_lng }}
                   title="نقطة الانطلاق"
-                  pinColor="#2563eb"
+                  pinColor="#0f766e"
                 />
                 {request.dest_lat != null && request.dest_lng != null && (
                   <Marker
@@ -549,7 +549,7 @@ export default function RequestDetail() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb" },
+  container: { flex: 1, backgroundColor: "#f7f8f5" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     flexDirection: "row",
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "rgba(30,41,59,0.06)",
   },
-  backBtn: { fontSize: 24, color: "#2563eb", fontWeight: "700" },
+  backBtn: { fontSize: 24, color: "#0f766e", fontWeight: "700" },
   headerTitle: { fontSize: 18, fontWeight: "800", color: "#1e293b" },
   infoCard: { backgroundColor: "#fff", borderRadius: 16, padding: 16, margin: 16 },
   trackingCard: {
@@ -577,11 +577,11 @@ const styles = StyleSheet.create({
   trackingHint: { fontSize: 12, color: "#64748b", textAlign: "center", marginTop: 8 },
   infoType: { fontSize: 18, fontWeight: "800", color: "#1e293b", marginBottom: 8 },
   infoRow: { fontSize: 14, color: "#64748b", marginTop: 4 },
-  infoPrice: { fontSize: 18, fontWeight: "800", color: "#2563eb", marginTop: 8 },
+  infoPrice: { fontSize: 18, fontWeight: "800", color: "#0f766e", marginTop: 8 },
   actionsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   actionBtn: {
     flex: 1,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#0f766e",
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
@@ -594,16 +594,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 8,
   },
-  msgMine: { backgroundColor: "#2563eb", alignSelf: "flex-end" },
+  msgMine: { backgroundColor: "#0f766e", alignSelf: "flex-end" },
   msgOther: { backgroundColor: "#fff", alignSelf: "flex-start" },
   msgText: { fontSize: 15, color: "#1e293b" },
   quickReply: {
-    backgroundColor: "#2563eb10",
+    backgroundColor: "#0f766e10",
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  quickReplyText: { fontSize: 13, color: "#2563eb", fontWeight: "600" },
+  quickReplyText: { fontSize: 13, color: "#0f766e", fontWeight: "600" },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
   },
   sendBtn: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#0f766e",
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
   star: { fontSize: 40, color: "#cbd5e1" },
   starActive: { color: "#f59e0b" },
   ratingSubmit: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#0f766e",
     borderRadius: 14,
     paddingHorizontal: 32,
     paddingVertical: 14,
