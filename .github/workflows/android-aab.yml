@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "expo-app/**"
+      - "eas.json"
       - ".github/workflows/android-aab.yml"
       - ".github/workflows/mobile-ci.yml"
   workflow_dispatch:
