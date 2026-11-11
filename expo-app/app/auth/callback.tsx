@@ -50,7 +50,7 @@ export default function AuthCallbackScreen() {
     }
     complete();
     return () => { active = false; };
-  }, [incomingUrl, params.code, params.access_token, params.refresh_token, params.error_description]);
+  }, [incomingUrl, params.code, params.access_token, params.refresh_token, params.error_description, refresh]);
 
   return <View style={styles.container}>
     {busy ? <ActivityIndicator size="large" color="#2563eb" /> : null}
