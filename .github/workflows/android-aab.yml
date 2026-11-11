@@ -39,8 +39,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: TypeScript check
         run: bunx tsc --noEmit
-      - name: Expo Doctor
-        run: bunx expo-doctor
+      - name: Expo dependency compatibility
+        run: bunx expo install --check
       - name: Export Android JavaScript bundle
         run: bunx expo export --platform android
       - name: Check EXPO_TOKEN secret
