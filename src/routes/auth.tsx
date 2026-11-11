@@ -4,12 +4,12 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
-import { signInWithIdentifier } from "@/lib/auth.functions";
+import { signInWithIdentifier, signUpWithPhone } from "@/lib/auth.functions";
 import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
 import { Button } from "@/components/ui/button";
-import { signupSchema, requiresEmailConfirmation } from "@/lib/signup-validation";
+import { signupSchema } from "@/lib/signup-validation";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -48,7 +48,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { refresh } = useAuth();
-  const signIn = useServerFn(signInWithIdentifier);
+  const signIn = useServerFn(signInWithIdentifier);\n  const signUp = useServerFn(signUpWithPhone);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,30 +67,23 @@ function AuthPage() {
           return;
         }
         const { phone: normalized, email: contactEmail, name: fullName } = parsed.data;
-        const isSuperAdminEmail = contactEmail === SUPER_ADMIN_EMAIL.toLowerCase();
-        const accountEmail = isSuperAdminEmail ? contactEmail : phoneToEmail(normalized);
-
-        const { data, error } = await supabase.auth.signUp({
-          email: accountEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-            data: {
-              phone: normalized,
-              full_name: fullName,
-              contact_email: contactEmail || null,
-            },
-          },
+        const result = await signUp({
+          data: { name: fullName, phone: normalized, email: contactEmail, password },
         });
-        if (error) throw error;
-        if (requiresEmailConfirmation(data.session)) {
-          throw new Error("تأكيد البريد ما زال مفعّلاً في إعدادات الخادم. عطّله حتى يدخل المستخدم مباشرة بدون رمز.");
-        }
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: result.accessToken,
+          refresh_token: result.refreshToken,
+        });
+        if (sessionError) throw sessionError;
         await refresh();
-        if (isSuperAdminEmail) {
+        if (result.isSuperAdmin) {
           toast.success("تم إنشاء الحساب. أكمل إعداد المدير الأعلى برمز التهيئة الآمن.");
           navigate({ to: "/admin/bootstrap" });
         } else {
+          toast.success(t("تم إنشاء الحساب", "Account created"));
+          navigate({ to: "/select-role" });
+        }
+      } else {
           toast.success(t("تم إنشاء الحساب", "Account created"));
           navigate({ to: "/select-role" });
         }
