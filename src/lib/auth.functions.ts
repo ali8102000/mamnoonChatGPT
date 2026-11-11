@@ -23,7 +23,7 @@ export const signInWithIdentifier = createServerFn({ method: "POST" })
       if (mappedEmail) {
         email = String(mappedEmail).toLowerCase();
       } else {
-        const digits = identifier.replace(/[^\d]/g, "");
+        const digits = identifier.replace(/[^\\d]/g, "");
         email = `phone${digits}@mamnoon.app`;
       }
     }
@@ -58,41 +58,48 @@ export const sendPasswordReset = createServerFn({ method: "POST" })
 
     let email: string | null = isEmail ? identifier.toLowerCase() : null;
     if (!isEmail) {
-      const { data: mappedEmail } = await (supabaseAdmin as any).rpc("lookup_email_by_phone", {
-        _phone: identifier,
-      });
-      email = mappedEmail ? String(mappedEmail) : null;
+      const { data: mappedEmail, error: lookupError } = await (supabaseAdmin as any).rpc(
+        "lookup_email_by_phone",
+        { _phone: identifier },
+      );
+      if (lookupError) {
+        console.error("[sendPasswordReset] phone lookup failed:", lookupError.message);
+        throw new Error("تعذّر العثور على البريد المرتبط برقم الهاتف. جرّب إدخال البريد المسجّل مباشرةً.");
+      }
+      email = mappedEmail ? String(mappedEmail).trim().toLowerCase() : null;
     }
 
-    try {
-      const { getRequest } = await import("@tanstack/react-start/server");
-      const request = getRequest();
-      const requestOrigin = request?.url ? new URL(request.url).origin : null;
-      const redirectOrigin = new URL(data.redirectTo).origin;
-      const configuredOrigins = (process.env.ALLOWED_REDIRECT_ORIGINS ?? "")
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean);
-      const allowedOrigins = configuredOrigins.length
-        ? configuredOrigins
-        : requestOrigin
-          ? [requestOrigin]
-          : [];
-
-      if (!allowedOrigins.includes(redirectOrigin)) {
-        return { ok: true };
-      }
-    } catch {
+    if (!email) {
+      // Avoid revealing whether a phone number belongs to an account.
       return { ok: true };
     }
 
-    if (email) {
-      const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-        redirectTo: data.redirectTo,
-      });
-      if (error) console.error("[sendPasswordReset]", error.message);
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const request = getRequest();
+    const requestOrigin = request?.url ? new URL(request.url).origin : null;
+    const redirectUrl = new URL(data.redirectTo);
+    const configuredOrigins = (process.env.ALLOWED_REDIRECT_ORIGINS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const allowedOrigins = configuredOrigins.length
+      ? configuredOrigins
+      : requestOrigin
+        ? [requestOrigin]
+        : [];
+
+    if (!allowedOrigins.includes(redirectUrl.origin)) {
+      console.error("[sendPasswordReset] redirect origin is not allow-listed:", redirectUrl.origin);
+      throw new Error("رابط العودة غير مسموح به. راجع إعداد ALLOWED_REDIRECT_ORIGINS وإعدادات Redirect URLs في Supabase.");
     }
 
-    // Keep the response identical whether or not the account exists.
+    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+      redirectTo: data.redirectTo,
+    });
+    if (error) {
+      console.error("[sendPasswordReset] Supabase rejected recovery email:", error.message);
+      throw new Error("تعذّر إرسال رسالة الاستعادة من خدمة البريد. تحقق من إعداد SMTP في Supabase ثم حاول مجدداً.");
+    }
+
     return { ok: true };
   });
