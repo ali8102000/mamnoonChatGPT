@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { router } from "expo-router";
-import * as Linking from "expo-linking";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
@@ -36,7 +35,7 @@ export default function ForgotPassword() {
         email = String(emailResult).trim().toLowerCase();
       }
 
-      const redirectTo = Linking.createURL("/auth/callback");
+      // Use the installed app scheme; createURL may produce an Expo Go URL\n      // that is not allow-listed by Supabase for production password recovery.\n      const redirectTo = "mamnoon://auth/callback";
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo,
       });
