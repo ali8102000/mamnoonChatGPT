@@ -1,9 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { ArrowRight, Loader2, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "@/lib/toast";
-import { sendPasswordReset } from "@/lib/auth.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/forgot-password")({
@@ -28,7 +26,6 @@ function ForgotPasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  const reset = useServerFn(sendPasswordReset);
   const navigate = useNavigate();
 
   async function requestCode(e: React.FormEvent) {
@@ -40,7 +37,16 @@ function ForgotPasswordPage() {
     }
     setBusy(true);
     try {
-      await reset({ data: { identifier: value } });
+      const { error } = await supabase.auth.resetPasswordForEmail(value);
+      if (error) {
+        console.error("[forgot-password] Supabase recovery request failed:", error.message);
+        const message = error.message.toLowerCase().includes("email address not authorized")
+          ? "خدمة البريد الحالية تسمح بالإرسال فقط إلى عناوين فريق المشروع. يلزم إعداد SMTP مخصص في Supabase."
+          : error.message.toLowerCase().includes("rate limit")
+            ? "طلبت رمزاً عدة مرات. انتظر دقيقة ثم حاول مجدداً."
+            : `تعذّر إرسال الرمز: ${error.message}`;
+        throw new Error(message);
+      }
       setSent(true);
       toast.success("إذا كان البريد مرتبطاً بحساب، فسيصلك رمز التحقق. افحص الوارد والرسائل المهملة.");
     } catch (err: unknown) {
