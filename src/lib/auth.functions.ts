@@ -198,3 +198,52 @@ export const signUpWithPhone = createServerFn({ method: "POST" })
       isSuperAdmin,
     };
   });
+
+/**
+ * Assign the customer role through a trusted server handler.
+ * The caller's access token is verified before the service-role client writes.
+ */
+export const assignCustomerRole = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z.object({ accessToken: z.string().min(20).max(4096) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(data.accessToken);
+    if (authError || !authData.user) {
+      console.error("[assignCustomerRole] Session verification failed:", authError?.message);
+      throw new Error("انتهت جلسة الدخول. سجّل الدخول مجدداً.");
+    }
+
+    const userId = authData.user.id;
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "customer")
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error("[assignCustomerRole] Role lookup failed:", lookupError.message);
+      throw new Error("تعذّر التحقق من نوع الحساب. حاول مجدداً.");
+    }
+
+    if (!existing) {
+      const { error: insertError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: userId, role: "customer" });
+
+      if (insertError && insertError.code !== "23505") {
+        console.error("[assignCustomerRole] Role insert failed:", {
+          message: insertError.message,
+          code: insertError.code,
+          details: insertError.details,
+          hint: insertError.hint,
+        });
+        throw new Error("تعذّر حفظ حساب الزبون. تم تسجيل تفاصيل المشكلة للإدارة.");
+      }
+    }
+
+    return { ok: true };
+  });
+
