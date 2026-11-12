@@ -29,6 +29,8 @@ type Offer = {
     work_description: string | null;
     price_estimate: number | null;
     customer_price: number | null;
+    pricing_mode: string | null;
+    work_hours: number | null;
     workers_count: number | null;
     service_id: string | null;
     services: { name_ar: string; slug: string; icon: string } | null;
@@ -69,7 +71,7 @@ export function IncomingRequestModal() {
     }
     const { data, error } = await (supabase as any)
       .from("request_offers")
-      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, pickup_text, dest_text, notes, work_description, price_estimate, customer_price, workers_count, service_id, services(name_ar, slug, icon))")
+      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, pickup_text, dest_text, notes, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
       .eq("provider_id", user.id)
       .eq("status", "pending")
       .gt("expires_at", new Date().toISOString())
@@ -202,12 +204,18 @@ export function IncomingRequestModal() {
             ) : null}
             <Text style={styles.detailLabel}>عدد العاملين</Text>
             <Text style={styles.detailValue}>{request?.workers_count ?? 1}</Text>
+            {request?.work_hours != null ? (
+              <>
+                <Text style={styles.detailLabel}>ساعات العمل المتوقعة</Text>
+                <Text style={styles.detailValue}>{request.work_hours} ساعة</Text>
+              </>
+            ) : null}
           </View>
 
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>الأجر المعروض</Text>
             <Text style={styles.priceValue}>
-              {amount != null ? `${Number(amount).toLocaleString("en")} د.ع` : "قابل للتفاوض"}
+              {amount != null ? `${Number(amount).toLocaleString("en")} د.ع${request?.pricing_mode === "hourly" ? " / ساعة" : ""}` : "قابل للتفاوض"}
             </Text>
           </View>
 
