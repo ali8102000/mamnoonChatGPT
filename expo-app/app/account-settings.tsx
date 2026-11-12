@@ -9,7 +9,7 @@ import { Button, RealInput } from "@/components/ui";
 
 export default function AccountSettingsScreen() {
   const { user, profile, refresh } = useAuth();
-  const [email, setEmail] = useState(user?.email ?? "");
+  const [email, setEmail] = useState(String(user?.user_metadata?.contact_email ?? user?.email ?? ""));
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [otp, setOtp] = useState("");
   const [phonePending, setPhonePending] = useState(false);
@@ -20,7 +20,7 @@ export default function AccountSettingsScreen() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) {
       Alert.alert("تنبيه", "أدخل بريداً إلكترونياً صحيحاً"); return;
     }
-    if (next === user?.email?.toLowerCase()) {
+    if (next === String(user?.email ?? "").toLowerCase()) {
       Alert.alert("معلومة", "هذا هو بريدك الحالي"); return;
     }
     setBusy(true);
@@ -69,11 +69,11 @@ export default function AccountSettingsScreen() {
     <Text style={styles.title}>إعدادات الحساب</Text>
     <Text style={styles.note}>أي تغيير ببيانات الدخول لا يعتمد إلا بعد إكمال التحقق.</Text>
     <Text style={styles.label}>البريد الحالي</Text>
-    <Text style={styles.current} selectable>{user?.email || "غير مسجل"}</Text>
+    <Text style={styles.current} selectable>{user?.user_metadata?.contact_email || user?.email || "غير مسجل"}</Text>
     <Text style={styles.label}>البريد الجديد</Text>
     <RealInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" />
     <View style={{ height: 12 }} />
-    <Button title="إرسال رابط تأكيد البريد الجديد" onPress={changeEmail} loading={busy} />
+    <Button title="تأكيد البريد الإلكتروني" onPress={changeEmail} loading={busy} />
     <View style={styles.separator} />
     <Text style={styles.label}>رقم الهاتف الحالي</Text>
     <Text style={styles.current} selectable>{profile?.phone || user?.phone || "غير مسجل"}</Text>
