@@ -12,6 +12,7 @@ import {
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import type { AppRole } from "@/lib/auth-context";
 
 type Offer = {
   id: string;
@@ -53,14 +54,15 @@ const SERVICE_IMAGES: Record<string, number> = {
   general: require("../../assets/services/general.png"),
 };
 
-export function IncomingRequestModal({ activeRole }: { activeRole: string }) {
-  const { user } = useAuth();
+export function IncomingRequestModal() {
+  const { user, roles } = useAuth();
+  const canReceive = roles.some((role: AppRole) => role === "driver" || role === "worker");
   const [offer, setOffer] = useState<Offer | null>(null);
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [visible, setVisible] = useState(false);
 
   const loadOffer = useCallback(async () => {
-    if (!user || (activeRole !== "driver" && activeRole !== "worker")) {
+    if (!user || !canReceive) {
       setOffer(null);
       setVisible(false);
       return;
@@ -86,11 +88,11 @@ export function IncomingRequestModal({ activeRole }: { activeRole: string }) {
       setOffer(null);
       setVisible(false);
     }
-  }, [user, activeRole]);
+  }, [user, canReceive]);
 
   useEffect(() => {
     void loadOffer();
-    if (!user || (activeRole !== "driver" && activeRole !== "worker")) return;
+    if (!user || !canReceive) return;
     const channel = supabase
       .channel(`incoming-offers-${user.id}`)
       .on(
@@ -109,7 +111,7 @@ export function IncomingRequestModal({ activeRole }: { activeRole: string }) {
       clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, [user, activeRole, loadOffer]);
+  }, [user, canReceive, loadOffer]);
 
   const request = offer?.service_requests;
   const serviceSlug = request?.services?.slug ?? "";
