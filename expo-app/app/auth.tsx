@@ -53,7 +53,7 @@ export default function AuthScreen() {
           contact_email: contactEmail || null,
         });
         if (!result.session) {
-          throw new Error("تأكيد البريد ما زال مفعّلاً في إعدادات الخادم. عطّله حتى يدخل المستخدم مباشرة بدون رمز.");
+          throw new Error("تعذّر إكمال التسجيل لأن خادم المصادقة لم يُرجع جلسة دخول. حاول مرة أخرى، وإذا تكررت المشكلة فيلزم فحص وظيفة التسجيل على الخادم.");
         }
         const { error } = await supabase.auth.setSession(result.session);
         if (error) throw error;
@@ -110,7 +110,7 @@ export default function AuthScreen() {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.logoWrap}>
         <View style={styles.logo}>
-          <Text style={styles.logoText}>ك</Text>
+          <Text style={styles.logoText}>م</Text>
         </View>
         <Text style={styles.title}>ممنون</Text>
         <Text style={styles.subtitle}>منصة النقل والخدمات</Text>
