@@ -46,7 +46,7 @@ export default function AuthScreen() {
           return;
         }
         const result = await authProxy<{ session: AuthSessionTokens | null }>("/signup", {
-          email: phoneToEmail(normalized),
+          email: contactEmail || phoneToEmail(normalized),
           password,
           phone: normalized,
           full_name: name.trim(),
