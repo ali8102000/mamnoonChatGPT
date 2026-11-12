@@ -9,7 +9,7 @@ import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User } from "lucide-
 import { toast } from "@/lib/toast";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
 import { Button } from "@/components/ui/button";
-import { signupSchema, requiresEmailConfirmation } from "@/lib/signup-validation";
+import { signupSchema } from "@/lib/signup-validation";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -83,8 +83,19 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        if (requiresEmailConfirmation(data.session)) {
-          throw new Error("تأكيد البريد ما زال مفعّلاً في إعدادات الخادم. عطّله حتى يدخل المستخدم مباشرة بدون رمز.");
+        // Some auth configurations may create the account without returning a session.
+        // Try a normal password sign-in before treating this as an email-confirmation issue.
+        if (!data.session) {
+          const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+            email: accountEmail,
+            password,
+          });
+          if (loginError || !loginData.session) {
+            console.error("[signup] Immediate sign-in after signup failed:", loginError?.message);
+            throw new Error(
+              loginError?.message || "تم إنشاء الحساب لكن تعذّر تسجيل الدخول مباشرة. تحقق من إعدادات المصادقة وحاول مجدداً.",
+            );
+          }
         }
         await refresh();
         if (isSuperAdminEmail) {
