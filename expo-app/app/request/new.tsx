@@ -79,6 +79,8 @@ export default function NewRequest() {
   const [workerLevel, setWorkerLevel] = useState<"fani" | "khabir">("fani");
   const [extraWorkers, setExtraWorkers] = useState(0);
   const [notes, setNotes] = useState("");
+  const [workDescription, setWorkDescription] = useState("");
+  const [customerPrice, setCustomerPrice] = useState("");
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState<number | null>(null);
   const isTaxi = selectedService === "taxi";
@@ -185,6 +187,12 @@ export default function NewRequest() {
       return;
     }
 
+    const proposedPrice = customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;
+    if (!isTaxi && proposedPrice !== null && (!Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
+      Alert.alert("الأجر غير صحيح", "اكتب أجراً صحيحاً لا يقل عن 250 ديناراً ويكون من مضاعفات 250.");
+      return;
+    }
+
     setBusy(true);
     try {
       let requestId: string;
@@ -234,8 +242,9 @@ export default function NewRequest() {
             dest_lng: destinationCoords?.longitude ?? null,
             level_required: workerLevel,
             workers_count: extraWorkers + 1,
-            pricing_mode: "negotiable",
-            customer_price: null,
+            pricing_mode: proposedPrice === null ? "negotiable" : "fixed",
+            customer_price: proposedPrice,
+            work_description: workDescription.trim() || null,
             notes: notes || null,
           })
           .select("id")
@@ -424,7 +433,29 @@ export default function NewRequest() {
         </>
       )}
 
-      <Text style={styles.label}>ملاحظات (اختياري)</Text>
+      {!isTaxi && (
+        <>
+          <Text style={styles.label}>وصف العمل المطلوب</Text>
+          <TextInput
+            style={[styles.input, { height: 90 }]}
+            value={workDescription}
+            onChangeText={setWorkDescription}
+            placeholder="مثلاً: بناء جدار بطول 5 أمتار وارتفاع 3 أمتار..."
+            placeholderTextColor="#94a3b8"
+            multiline
+          />
+          <Text style={styles.label}>الأجر المقترح بالدينار (اختياري)</Text>
+          <TextInput
+            style={styles.input}
+            value={customerPrice}
+            onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
+            placeholder="اتركه فارغاً حتى تتفاوض مع الفني"
+            placeholderTextColor="#94a3b8"
+            keyboardType="numeric"
+          />
+        </>
+      )}
+      <Text style={styles.label}>ملاحظات إضافية (اختياري)</Text>
       <TextInput
         style={[styles.input, { height: 80 }]}
         value={notes}
