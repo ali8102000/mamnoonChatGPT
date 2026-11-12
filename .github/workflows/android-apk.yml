@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build installable Mamnoon APK
+    name: Build installable Mamnoon debug APK
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,6 +27,14 @@ jobs:
       EAS_PROJECT_ID: a6c763c4-3a5c-4725-b370-81967e3c0aab
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -36,9 +44,7 @@ jobs:
         run: bunx tsc --noEmit
       - name: Expo dependency compatibility
         run: bunx expo install --check
-      - name: Export Android JavaScript bundle
-        run: bunx expo export --platform android
-      - name: Check EXPO_TOKEN secret
+      - name: Check EAS environment access
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
@@ -46,37 +52,26 @@ jobs:
             echo "::error::Missing GitHub Actions secret EXPO_TOKEN."
             exit 1
           fi
-      - name: Validate EAS project link
-        run: |
           APP_PROJECT_ID="$(node -e 'const c=require("./app.json"); process.stdout.write(c.expo.extra.eas.projectId)')"
           if [ "$APP_PROJECT_ID" != "$EAS_PROJECT_ID" ]; then
             echo "::error::EAS project ID does not match expo-app/app.json."
             exit 1
           fi
-      - name: Validate production environment
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs'
-      - name: Build installable APK and wait
+      - name: Prebuild and compile installable debug APK without EAS build credits
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          bunx eas-cli@latest env:exec production 'bunx eas-cli@latest build --platform android --profile preview --non-interactive --wait --json > "$RUNNER_TEMP/eas-preview.json"'
-      - name: Download and validate APK
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && cd android && chmod +x gradlew && ./gradlew assembleDebug'
+      - name: Validate APK
         run: |
-          BUILD_ID="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-preview.json","utf8")); const b=Array.isArray(v)?v[0]:v; if(!b?.id) process.exit(2); process.stdout.write(b.id)')"
-          BUILD_URL="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-preview.json","utf8")); const b=Array.isArray(v)?v[0]:v; const u=b?.artifacts?.buildUrl || b?.artifacts?.applicationArchiveUrl; if(!u || !u.startsWith("https://")) process.exit(2); process.stdout.write(u)')"
-          echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
-          mkdir -p ../release-artifacts
-          curl --fail --location --retry 3 --retry-delay 2 "$BUILD_URL" --output ../release-artifacts/mamnoon-test.apk
-          test -s ../release-artifacts/mamnoon-test.apk
-          node -e 'const fs=require("fs"); const p="../release-artifacts/mamnoon-test.apk"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid APK archive"); process.exit(1); }'
+          mkdir -p release-artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-artifacts/mamnoon-test.apk
+          test -s release-artifacts/mamnoon-test.apk
+          node -e 'const fs=require("fs"); const p="release-artifacts/mamnoon-test.apk"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid APK archive"); process.exit(1); }'
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
           name: mamnoon-test-apk
-          path: release-artifacts/mamnoon-test.apk
+          path: expo-app/release-artifacts/mamnoon-test.apk
           if-no-files-found: error
           retention-days: 14
