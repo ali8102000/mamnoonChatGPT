@@ -12,6 +12,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import * as Location from "expo-location";
+import { IncomingRequestModal } from "@/components/incoming-request-modal";
 
 type IncomingRequest = {
   id: string;
@@ -30,17 +31,42 @@ export default function HomeScreen() {
   const isWorker = activeRole === "worker" || activeRole === "driver";
 
   const loadIncoming = useCallback(async () => {
-    if (activeRole === "customer") return;
+    if (!user || (activeRole !== "driver" && activeRole !== "worker")) {
+      setIncoming([]);
+      return;
+    }
     const isDriver = activeRole === "driver";
-    const { data } = await supabase
+    const { data: offerRows, error: offersError } = await (supabase as any)
+      .from("request_offers")
+      .select("request_id")
+      .eq("provider_id", user.id)
+      .eq("status", "pending")
+      .gt("expires_at", new Date().toISOString());
+    if (offersError) {
+      console.warn("[incoming-requests] Offer lookup failed:", offersError.message);
+      setIncoming([]);
+      return;
+    }
+    const requestIds = [...new Set((offerRows ?? []).map((row: { request_id: string }) => row.request_id))];
+    if (requestIds.length === 0) {
+      setIncoming([]);
+      return;
+    }
+    const { data, error } = await supabase
       .from("service_requests")
-      .select("id, type, price_estimate, status, created_at")
+      .select("id, type, price_estimate")
+      .in("id", requestIds)
       .eq("type", isDriver ? "taxi" : "service")
-      .in("status", isDriver ? ["searching"] : ["pending", "searching"])
+      .in("status", ["pending", "searching"])
       .order("created_at", { ascending: false })
       .limit(10);
+    if (error) {
+      console.warn("[incoming-requests] Request lookup failed:", error.message);
+      setIncoming([]);
+      return;
+    }
     setIncoming((data ?? []) as IncomingRequest[]);
-  }, [activeRole]);
+  }, [activeRole, user]);
 
   useEffect(() => {
     loadIncoming();
@@ -194,6 +220,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      <IncomingRequestModal activeRole={activeRole} />
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>أهلاً {profile?.full_name || ""}</Text>
