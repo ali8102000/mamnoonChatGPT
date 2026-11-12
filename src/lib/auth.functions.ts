@@ -138,8 +138,6 @@ export const signUpWithPhone = createServerFn({ method: "POST" })
       console.error("[signUpWithPhone] Account creation failed:", {
         message: createError?.message,
         code: createError?.code,
-        details: createError?.details,
-        hint: createError?.hint,
         status: (createError as any)?.status,
       });
 
