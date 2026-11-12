@@ -81,6 +81,8 @@ export default function NewRequest() {
   const [notes, setNotes] = useState("");
   const [workDescription, setWorkDescription] = useState("");
   const [customerPrice, setCustomerPrice] = useState("");
+  const [pricingMode, setPricingMode] = useState<"fixed" | "hourly" | "negotiable">("fixed");
+  const [workHours, setWorkHours] = useState("");
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState<number | null>(null);
   const isTaxi = selectedService === "taxi";
@@ -188,8 +190,13 @@ export default function NewRequest() {
     }
 
     const proposedPrice = customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;
-    if (!isTaxi && proposedPrice !== null && (!Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
+    if (!isTaxi && pricingMode !== "negotiable" && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
       Alert.alert("الأجر غير صحيح", "اكتب أجراً صحيحاً لا يقل عن 250 ديناراً ويكون من مضاعفات 250.");
+      return;
+    }
+    const hours = workHours.trim() ? Number(workHours) : null;
+    if (!isTaxi && pricingMode === "hourly" && (hours === null || !Number.isFinite(hours) || hours <= 0 || hours > 24)) {
+      Alert.alert("عدد الساعات غير صحيح", "أدخل عدد ساعات أكبر من صفر ولا يتجاوز 24 ساعة.");
       return;
     }
 
@@ -242,8 +249,9 @@ export default function NewRequest() {
             dest_lng: destinationCoords?.longitude ?? null,
             level_required: workerLevel,
             workers_count: extraWorkers + 1,
-            pricing_mode: proposedPrice === null ? "negotiable" : "fixed",
-            customer_price: proposedPrice,
+            pricing_mode: pricingMode,
+            customer_price: pricingMode === "negotiable" ? null : proposedPrice,
+            work_hours: pricingMode === "hourly" ? hours : null,
             work_description: workDescription.trim() || null,
             notes: notes || null,
           })
@@ -444,15 +452,48 @@ export default function NewRequest() {
             placeholderTextColor="#94a3b8"
             multiline
           />
-          <Text style={styles.label}>الأجر المقترح بالدينار (اختياري)</Text>
-          <TextInput
-            style={styles.input}
-            value={customerPrice}
-            onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
-            placeholder="اتركه فارغاً حتى تتفاوض مع الفني"
-            placeholderTextColor="#94a3b8"
-            keyboardType="numeric"
-          />
+          <Text style={styles.label}>طريقة احتساب الأجر</Text>
+          <View style={styles.catRow}>
+            {([
+              ["fixed", "إنجاز تام"],
+              ["hourly", "بالساعة"],
+              ["negotiable", "تفاوض"],
+            ] as const).map(([mode, label]) => (
+              <TouchableOpacity
+                key={mode}
+                style={[styles.catChip, pricingMode === mode && styles.catChipActive]}
+                onPress={() => setPricingMode(mode)}
+              >
+                <Text style={[styles.catLabel, pricingMode === mode && styles.catLabelActive]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {pricingMode !== "negotiable" && (
+            <>
+              <Text style={styles.label}>{pricingMode === "hourly" ? "الأجر لكل ساعة بالدينار" : "الأجر المقترح بالدينار"}</Text>
+              <TextInput
+                style={styles.input}
+                value={customerPrice}
+                onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
+                placeholder="مثلاً 25000"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+              />
+            </>
+          )}
+          {pricingMode === "hourly" && (
+            <>
+              <Text style={styles.label}>عدد ساعات العمل المتوقعة</Text>
+              <TextInput
+                style={styles.input}
+                value={workHours}
+                onChangeText={(value) => setWorkHours(value.replace(/[^0-9.]/g, ""))}
+                placeholder="مثلاً 3"
+                placeholderTextColor="#94a3b8"
+                keyboardType="decimal-pad"
+              />
+            </>
+          )}
         </>
       )}
       <Text style={styles.label}>ملاحظات إضافية (اختياري)</Text>
