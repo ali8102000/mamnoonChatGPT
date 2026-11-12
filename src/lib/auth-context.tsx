@@ -79,10 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from("user_blocks").select("*").eq("user_id", uid).maybeSingle(),
       ]);
 
+      // Only roles actually stored in the database are granted to the user.
+      // Do not silently treat every authenticated account as a customer.
       const mappedRoles = (roleRows ?? []).map((r: any) => r.role as AppRole);
-      if (!mappedRoles.includes("customer")) {
-        mappedRoles.unshift("customer");
-      }
 
       setProfile(prof ?? null);
       setRoles(mappedRoles);
