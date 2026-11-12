@@ -33,6 +33,12 @@ type RequestRecord = {
   pickup_text: string;
   dest_text: string | null;
   price_estimate: number | null;
+  customer_price: number | null;
+  pricing_mode: string | null;
+  work_hours: number | null;
+  work_description: string | null;
+  workers_count: number | null;
+  services: { name_ar: string; slug: string } | null;
   pickup_lat: number | null;
   pickup_lng: number | null;
   dest_lat: number | null;
@@ -78,7 +84,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, pickup_lat, pickup_lng, dest_lat, dest_lng",
+        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng",
       )
       .eq("id", id)
       .maybeSingle();
@@ -401,12 +407,25 @@ export default function RequestDetail() {
         </View>
         <View style={styles.infoCard}>
           <Text style={styles.infoType}>
-            {request.type === "taxi" ? "🚕 طلب سيارة" : "🔧 خدمة منزلية"}
+            {request.type === "taxi" ? "🚕 طلب سيارة" : `🛠️ ${request.services?.name_ar || "خدمة منزلية"}`}
           </Text>
           {request.pickup_text && <Text style={styles.infoRow}>من: {request.pickup_text}</Text>}
           {request.dest_text && <Text style={styles.infoRow}>إلى: {request.dest_text}</Text>}
-          {request.price_estimate && (
-            <Text style={styles.infoPrice}>{request.price_estimate.toLocaleString("en")} د.ع</Text>
+          {request.work_description && <Text style={styles.infoRow}>تفاصيل العمل: {request.work_description}</Text>}
+          {request.workers_count != null && request.type === "service" && (
+            <Text style={styles.infoRow}>عدد العاملين: {request.workers_count}</Text>
+          )}
+          {request.work_hours != null && (
+            <Text style={styles.infoRow}>الساعات المتوقعة: {request.work_hours}</Text>
+          )}
+          {(request.customer_price ?? request.price_estimate) != null && (
+            <Text style={styles.infoPrice}>
+              {Number(request.customer_price ?? request.price_estimate).toLocaleString("en")} د.ع
+              {request.pricing_mode === "hourly" ? " / ساعة" : ""}
+            </Text>
+          )}
+          {request.type === "service" && request.pricing_mode === "negotiable" && request.customer_price == null && (
+            <Text style={styles.infoPrice}>الأجر قابل للتفاوض</Text>
           )}
         </View>
         {request.type === "taxi" &&
