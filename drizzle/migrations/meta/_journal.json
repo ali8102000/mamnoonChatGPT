@@ -92,6 +92,13 @@
       "when": 1794376200000,
       "tag": "0012_targeted_service_dispatch_and_offers",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794530000000,
+      "tag": "0013_restrict_anonymous_catalog_access",
+      "breakpoints": true
     }
   ]
 }
