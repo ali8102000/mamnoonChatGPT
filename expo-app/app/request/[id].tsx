@@ -197,7 +197,7 @@ export default function RequestDetail() {
   }, [chatId, loadMessages]);
 
   useEffect(() => {
-    if (!isActive || !currentUserId || currentRequestType !== "taxi") return;
+    if (!isActive || !currentUserId) return;
     let mounted = true;
     let subscription: Location.LocationSubscription | null = null;
     const role = isCustomer ? "customer" : "provider";
@@ -255,7 +255,7 @@ export default function RequestDetail() {
   }, [id, isActive, isCustomer, currentRequestType, currentUserId]);
 
   useEffect(() => {
-    if (!isActive || !currentUserId || currentRequestType !== "taxi") {
+    if (!isActive || !currentUserId) {
       setOtherLocation(null);
       return;
     }
@@ -467,12 +467,11 @@ export default function RequestDetail() {
             <Text style={styles.infoPrice}>الأجر قابل للتفاوض</Text>
           )}
         </View>
-        {request.type === "taxi" &&
-          isActive &&
+        {isActive &&
           request.pickup_lat != null &&
           request.pickup_lng != null && (
             <View style={styles.trackingCard}>
-              <Text style={styles.trackingTitle}>موقع الرحلة المباشر</Text>
+              <Text style={styles.trackingTitle}>موقع الطلب المباشر</Text>
               <MapView
                 style={styles.trackingMap}
                 initialRegion={{
