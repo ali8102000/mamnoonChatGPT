@@ -1,7 +1,11 @@
 CREATE TYPE public.app_role AS ENUM ('customer','driver','worker','admin','super_admin','support','finance','moderator');
+
 CREATE TYPE public.worker_level AS ENUM ('fani','khabir');
+
 CREATE TYPE public.request_type AS ENUM ('taxi','service');
+
 CREATE TYPE public.request_status AS ENUM ('pending','searching','accepted','in_progress','completed','cancelled');
+
 CREATE TYPE public.vehicle_category AS ENUM ('economy','premium','luxury');
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
@@ -17,10 +21,15 @@ CREATE TABLE public.profiles (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
 CREATE UNIQUE INDEX profiles_email_unique ON public.profiles (lower(email)) WHERE email IS NOT NULL;
+
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
+
 GRANT ALL ON public.profiles TO service_role;
+
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
 CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.user_roles (
@@ -30,15 +39,20 @@ CREATE TABLE public.user_roles (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, role)
 );
+
 CREATE INDEX idx_user_roles_user_id ON public.user_roles(user_id);
+
 GRANT SELECT, INSERT ON public.user_roles TO authenticated;
+
 GRANT ALL ON public.user_roles TO service_role;
+
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role)
 $$;
+
 GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.has_staff_role(p_user_id uuid)
@@ -46,31 +60,43 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = p_user_id
     AND role IN ('super_admin','admin','support','finance','moderator'))
 $$;
+
 CREATE OR REPLACE FUNCTION public.has_admin_access(p_user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = p_user_id AND role IN ('super_admin','admin'))
 $$;
+
 CREATE OR REPLACE FUNCTION public.is_super_admin(p_user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = p_user_id AND role = 'super_admin')
 $$;
+
 CREATE OR REPLACE FUNCTION public.get_staff_roles(p_user_id uuid)
 RETURNS text[] LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT COALESCE(array_agg(role::text ORDER BY role::text), ARRAY[]::text[]) FROM public.user_roles
   WHERE user_id = p_user_id AND role IN ('super_admin','admin','support','finance','moderator')
     AND (p_user_id = auth.uid() OR public.has_staff_role(auth.uid()) OR auth.uid() IS NULL)
 $$;
+
 REVOKE ALL ON FUNCTION public.has_staff_role(uuid) FROM PUBLIC, anon;
+
 REVOKE ALL ON FUNCTION public.has_admin_access(uuid) FROM PUBLIC, anon;
+
 REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM PUBLIC, anon;
+
 REVOKE ALL ON FUNCTION public.get_staff_roles(uuid) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.has_staff_role(uuid) TO authenticated, service_role;
+
 GRANT EXECUTE ON FUNCTION public.has_admin_access(uuid) TO authenticated, service_role;
+
 GRANT EXECUTE ON FUNCTION public.is_super_admin(uuid) TO authenticated, service_role;
+
 GRANT EXECUTE ON FUNCTION public.get_staff_roles(uuid) TO authenticated, service_role;
 
 CREATE POLICY "Users view own roles" ON public.user_roles FOR SELECT TO authenticated
   USING (auth.uid() = user_id OR public.has_staff_role(auth.uid()));
+
 CREATE POLICY "Users self-assign customer role" ON public.user_roles FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = user_id AND role = 'customer'::public.app_role);
 
@@ -92,7 +118,9 @@ EXCEPTION WHEN OTHERS THEN
   INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'customer') ON CONFLICT DO NOTHING;
   RETURN NEW;
 END $$;
+
 REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 CREATE TABLE public.services (
@@ -103,10 +131,15 @@ CREATE TABLE public.services (
   icon text NOT NULL DEFAULT 'wrench',
   sort_order int NOT NULL DEFAULT 0
 );
+
 GRANT SELECT ON public.services TO authenticated, anon;
+
 GRANT ALL ON public.services TO service_role;
+
 ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Services are public" ON public.services FOR SELECT TO authenticated, anon USING (true);
+
 INSERT INTO public.services (slug, name_ar, name_en, icon, sort_order) VALUES
   ('build','بناء','Building','hammer',1),
   ('plaster','لبخ جدران وسقوف','Plastering','layers',2),
@@ -138,9 +171,13 @@ CREATE TABLE public.worker_profiles (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
 GRANT SELECT, INSERT, UPDATE ON public.worker_profiles TO authenticated;
+
 GRANT ALL ON public.worker_profiles TO service_role;
+
 ALTER TABLE public.worker_profiles ENABLE ROW LEVEL SECURITY;
+
 CREATE TRIGGER worker_profiles_updated_at BEFORE UPDATE ON public.worker_profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.worker_services (
@@ -148,11 +185,17 @@ CREATE TABLE public.worker_services (
   service_id uuid NOT NULL REFERENCES public.services(id) ON DELETE CASCADE,
   PRIMARY KEY (worker_id, service_id)
 );
+
 GRANT SELECT, INSERT, DELETE ON public.worker_services TO authenticated;
+
 GRANT ALL ON public.worker_services TO service_role;
+
 ALTER TABLE public.worker_services ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Worker services viewable" ON public.worker_services FOR SELECT TO authenticated USING (true);
+
 CREATE POLICY "Worker inserts own services" ON public.worker_services FOR INSERT TO authenticated WITH CHECK (auth.uid() = worker_id);
+
 CREATE POLICY "Worker deletes own services" ON public.worker_services FOR DELETE TO authenticated USING (auth.uid() = worker_id);
 
 CREATE TABLE public.driver_profiles (
@@ -172,8 +215,5 @@ CREATE TABLE public.driver_profiles (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
 CREATE INDEX idx_driver_profiles_available_cat ON public.driver_profiles (available, vehicle_category);
-GRANT SELECT, INSERT, UPDATE ON public.driver_profiles TO authenticated;
-GRANT ALL ON public.driver_profiles TO service_role;
-ALTER TABLE public.driver_profiles ENABLE ROW LEVEL SECURITY;
-CREATE TRIGGER driver_profiles_updated_at BEFORE UPDATE ON public.driver_profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
