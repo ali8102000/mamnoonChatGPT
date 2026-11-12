@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import * as Location from "expo-location";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
+import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 
 type IncomingRequest = {
   id: string;
@@ -250,6 +251,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ))}
       </View>
+      <ActiveCustomerRequestBanner />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 100 }}
