@@ -1,3 +1,11 @@
+GRANT SELECT, INSERT, UPDATE ON public.driver_profiles TO authenticated;
+
+GRANT ALL ON public.driver_profiles TO service_role;
+
+ALTER TABLE public.driver_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE TRIGGER driver_profiles_updated_at BEFORE UPDATE ON public.driver_profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
 CREATE OR REPLACE FUNCTION public.guard_provider_status()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -9,8 +17,11 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
+
 REVOKE EXECUTE ON FUNCTION public.guard_provider_status() FROM PUBLIC, anon, authenticated;
+
 CREATE TRIGGER trg_guard_driver_status BEFORE INSERT OR UPDATE ON public.driver_profiles FOR EACH ROW EXECUTE FUNCTION public.guard_provider_status();
+
 CREATE TRIGGER trg_guard_worker_status BEFORE INSERT OR UPDATE ON public.worker_profiles FOR EACH ROW EXECUTE FUNCTION public.guard_provider_status();
 
 CREATE TABLE public.vehicle_models (
@@ -24,10 +35,15 @@ CREATE TABLE public.vehicle_models (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (make, model)
 );
+
 GRANT SELECT ON public.vehicle_models TO authenticated, anon;
+
 GRANT ALL ON public.vehicle_models TO service_role;
+
 ALTER TABLE public.vehicle_models ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "vehicle_models readable" ON public.vehicle_models FOR SELECT USING (true);
+
 INSERT INTO public.vehicle_models (make, model, category, base_fare, per_km) VALUES
   ('Kia','Pride','economy',1500,400),('Hyundai','Accent','economy',1500,400),('Toyota','Corolla','economy',2000,500),
   ('Nissan','Sunny','economy',1500,400),('Chevrolet','Aveo','economy',1500,400),('Hyundai','Elantra','premium',2500,650),
@@ -72,13 +88,21 @@ CREATE TABLE public.service_requests (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
 CREATE INDEX idx_service_requests_status ON public.service_requests (status, created_at DESC);
+
 CREATE INDEX idx_service_requests_customer ON public.service_requests (customer_id, created_at DESC);
+
 CREATE INDEX idx_service_requests_provider ON public.service_requests (provider_id, created_at DESC);
+
 CREATE INDEX idx_service_requests_status_type ON public.service_requests (status, type);
+
 GRANT SELECT, INSERT, UPDATE ON public.service_requests TO authenticated;
+
 GRANT ALL ON public.service_requests TO service_role;
+
 ALTER TABLE public.service_requests ENABLE ROW LEVEL SECURITY;
+
 CREATE TRIGGER service_requests_updated_at BEFORE UPDATE ON public.service_requests FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.request_offers (
@@ -92,50 +116,71 @@ CREATE TABLE public.request_offers (
   responded_at timestamptz,
   UNIQUE (request_id, provider_id)
 );
+
 CREATE INDEX idx_offers_provider_status ON public.request_offers(provider_id, status);
+
 CREATE INDEX idx_offers_request ON public.request_offers(request_id);
+
 GRANT SELECT, UPDATE ON public.request_offers TO authenticated;
+
 GRANT ALL ON public.request_offers TO service_role;
+
 ALTER TABLE public.request_offers ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION public.is_request_customer(_request_id uuid, _user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (SELECT 1 FROM public.service_requests WHERE id = _request_id AND customer_id = _user_id)
 $$;
+
 CREATE OR REPLACE FUNCTION public.has_offer(_request_id uuid, _user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (SELECT 1 FROM public.request_offers WHERE request_id = _request_id AND provider_id = _user_id)
 $$;
+
 CREATE OR REPLACE FUNCTION public.is_request_party(_request_id uuid, _user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (SELECT 1 FROM public.service_requests WHERE id = _request_id AND _user_id IN (customer_id, provider_id))
 $$;
+
 REVOKE ALL ON FUNCTION public.is_request_customer(uuid,uuid) FROM PUBLIC, anon;
+
 REVOKE ALL ON FUNCTION public.has_offer(uuid,uuid) FROM PUBLIC, anon;
+
 REVOKE ALL ON FUNCTION public.is_request_party(uuid,uuid) FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.is_request_customer(uuid,uuid) TO authenticated, service_role;
+
 GRANT EXECUTE ON FUNCTION public.has_offer(uuid,uuid) TO authenticated, service_role;
+
 GRANT EXECUTE ON FUNCTION public.is_request_party(uuid,uuid) TO authenticated, service_role;
 
 CREATE POLICY "Provider sees own offers" ON public.request_offers FOR SELECT TO authenticated
   USING (provider_id = auth.uid() OR public.has_staff_role(auth.uid()));
+
 CREATE POLICY "Customer sees offers for own request" ON public.request_offers FOR SELECT TO authenticated
   USING (public.is_request_customer(request_id, auth.uid()));
+
 CREATE POLICY "Provider updates own offer" ON public.request_offers FOR UPDATE TO authenticated
   USING (provider_id = auth.uid()) WITH CHECK (provider_id = auth.uid());
 
 CREATE POLICY "Parties see own requests" ON public.service_requests FOR SELECT TO authenticated
   USING (auth.uid() = customer_id OR auth.uid() = provider_id);
+
 CREATE POLICY "Staff see all requests" ON public.service_requests FOR SELECT TO authenticated
   USING (public.has_staff_role(auth.uid()));
+
 CREATE POLICY "Driver sees offered taxi request" ON public.service_requests FOR SELECT TO authenticated
   USING (type = 'taxi' AND status IN ('pending','searching') AND public.has_offer(id, auth.uid()));
+
 CREATE POLICY "Workers see available service requests" ON public.service_requests FOR SELECT TO authenticated
   USING (type = 'service' AND status IN ('pending','searching') AND public.has_role(auth.uid(), 'worker')
     AND (service_id IS NULL OR EXISTS (SELECT 1 FROM public.worker_services ws WHERE ws.worker_id = auth.uid() AND ws.service_id = service_requests.service_id)));
+
 CREATE POLICY "Customer creates own requests" ON public.service_requests FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = customer_id AND provider_id IS NULL);
+
 CREATE POLICY "Customer updates own request" ON public.service_requests FOR UPDATE TO authenticated
   USING (auth.uid() = customer_id) WITH CHECK (auth.uid() = customer_id);
+
 CREATE POLICY "Provider updates assigned request" ON public.service_requests FOR UPDATE TO authenticated
   USING (auth.uid() = provider_id) WITH CHECK (auth.uid() = provider_id);
