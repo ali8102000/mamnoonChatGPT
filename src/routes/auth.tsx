@@ -4,7 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
-import { signInWithIdentifier } from "@/lib/auth.functions";
+import { signInWithIdentifier, signUpWithPhone } from "@/lib/auth.functions";
 import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
@@ -49,6 +49,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
   const signIn = useServerFn(signInWithIdentifier);
+  const signUp = useServerFn(signUpWithPhone);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,33 +71,19 @@ function AuthPage() {
         const isSuperAdminEmail = contactEmail === SUPER_ADMIN_EMAIL.toLowerCase();
         const accountEmail = isSuperAdminEmail ? contactEmail : contactEmail || phoneToEmail(normalized);
 
-        const { data, error } = await supabase.auth.signUp({
-          email: accountEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-            data: {
-              phone: normalized,
-              full_name: fullName,
-              contact_email: contactEmail || null,
-            },
+        const tokens = await signUp({
+          data: {
+            name: fullName,
+            phone: normalized,
+            email: contactEmail,
+            password,
           },
         });
-        if (error) throw error;
-        // Some auth configurations may create the account without returning a session.
-        // Try a normal password sign-in before treating this as an email-confirmation issue.
-        if (!data.session) {
-          const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-            email: accountEmail,
-            password,
-          });
-          if (loginError || !loginData.session) {
-            console.error("[signup] Immediate sign-in after signup failed:", loginError?.message);
-            throw new Error(
-              loginError?.message || "تم إنشاء الحساب لكن تعذّر تسجيل الدخول مباشرة. تحقق من إعدادات المصادقة وحاول مجدداً.",
-            );
-          }
-        }
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+        });
+        if (sessionError) throw sessionError;
         await refresh();
         if (isSuperAdminEmail) {
           toast.success("تم إنشاء الحساب. أكمل إعداد المدير الأعلى برمز التهيئة الآمن.");
