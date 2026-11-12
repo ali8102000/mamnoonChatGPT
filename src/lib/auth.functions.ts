@@ -133,7 +133,15 @@ export const signUpWithPhone = createServerFn({ method: "POST" })
     });
 
     if (createError || !created.user) {
-      console.error("[signUpWithPhone] Account creation failed:", createError?.message);
+      // Capture structured Supabase diagnostics on the server without exposing
+      // credentials or raw request data to the browser.
+      console.error("[signUpWithPhone] Account creation failed:", {
+        message: createError?.message,
+        code: createError?.code,
+        details: createError?.details,
+        hint: createError?.hint,
+        status: (createError as any)?.status,
+      });
 
       // Supabase may report a duplicate email or a database constraint failure.
       // Do not tell the user that their phone is registered unless the existing
