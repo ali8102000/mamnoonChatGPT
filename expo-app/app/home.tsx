@@ -12,7 +12,6 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import * as Location from "expo-location";
-import { IncomingRequestModal } from "@/components/incoming-request-modal";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 
 type IncomingRequest = {
@@ -221,7 +220,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <IncomingRequestModal activeRole={activeRole} />
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>أهلاً {profile?.full_name || ""}</Text>
