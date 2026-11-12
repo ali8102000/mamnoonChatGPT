@@ -134,10 +134,41 @@ export const signUpWithPhone = createServerFn({ method: "POST" })
 
     if (createError || !created.user) {
       console.error("[signUpWithPhone] Account creation failed:", createError?.message);
+
+      // Supabase may report a duplicate email or a database constraint failure.
+      // Do not tell the user that their phone is registered unless the existing
+      // Auth user is positively matched to this exact normalized phone.
       if (/already registered|already been registered|already exists|duplicate/i.test(createError?.message || "")) {
-        throw new Error("هذا الرقم مسجّل مسبقاً. انتقل إلى تسجيل الدخول.");
+        const { data: usersPage, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        });
+        if (usersError) {
+          console.error("[signUpWithPhone] Could not verify existing account:", usersError.message);
+        } else {
+          const existingUser = usersPage.users.find(
+            (user) => user.email?.toLowerCase() === accountEmail.toLowerCase(),
+          );
+          const existingPhone = String(existingUser?.user_metadata?.phone || "");
+          if (existingUser && existingPhone === normalizedPhone) {
+            // Recover a prior partially completed signup when its password is valid.
+            const { data: recovered, error: recoveryError } = await supabaseAdmin.auth.signInWithPassword({
+              email: accountEmail,
+              password: data.password,
+            });
+            if (!recoveryError && recovered.session) {
+              return {
+                accessToken: recovered.session.access_token,
+                refreshToken: recovered.session.refresh_token,
+                isSuperAdmin,
+              };
+            }
+            throw new Error("هذا الرقم مرتبط بحساب سابق. استخدم كلمة المرور التي أدخلتها عند المحاولة السابقة أو استعد الحساب.");
+          }
+        }
       }
-      throw new Error("تعذّر إنشاء الحساب حالياً. حاول مرة أخرى.");
+
+      throw new Error("تعذّر إنشاء الحساب بسبب تعارض في بيانات الخادم، ولم يتم التأكد أن رقمك مسجّل. أعد المحاولة أو تواصل مع الإدارة.");
     }
 
     const { data: signedIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
