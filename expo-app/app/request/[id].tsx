@@ -16,6 +16,22 @@ import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import service_build from "../../assets/services/build.png";
+import service_plaster from "../../assets/services/plaster.png";
+import service_carpentry_form from "../../assets/services/carpentry_form.png";
+import service_flooring from "../../assets/services/flooring.png";
+import service_chef from "../../assets/services/chef.png";
+import service_plumbing from "../../assets/services/plumbing.png";
+import service_electric_setup from "../../assets/services/electric_setup.png";
+import service_electric_street from "../../assets/services/electric_street.png";
+import service_washer_repair from "../../assets/services/washer_repair.png";
+import service_stove_repair from "../../assets/services/stove_repair.png";
+import service_fridge_repair from "../../assets/services/fridge_repair.png";
+import service_ac_repair from "../../assets/services/ac_repair.png";
+import service_cleaning from "../../assets/services/cleaning.png";
+import service_wood_carpentry from "../../assets/services/wood_carpentry.png";
+import service_blacksmith from "../../assets/services/blacksmith.png";
+import service_general from "../../assets/services/general.png";
 
 const QUICK_REPLIES_CUSTOMER = ["وصلت!", "كم دقيقة؟", "أين أنت؟", "شكراً جزيلاً", "هل أنت قريب؟"];
 const QUICK_REPLIES_PROVIDER = [
@@ -26,23 +42,23 @@ const QUICK_REPLIES_PROVIDER = [
   "دقيقة واحدة",
 ];
 const SERVICE_IMAGES: Record<string, number> = {
-  build: require("../../assets/services/build.png"),
-  plaster: require("../../assets/services/plaster.png"),
-  carpentry_form: require("../../assets/services/carpentry_form.png"),
-  flooring: require("../../assets/services/flooring.png"),
-  chef: require("../../assets/services/chef.png"),
-  plumbing: require("../../assets/services/plumbing.png"),
-  electric_setup: require("../../assets/services/electric_setup.png"),
-  electric_street: require("../../assets/services/electric_street.png"),
-  washer_repair: require("../../assets/services/washer_repair.png"),
-  stove_repair: require("../../assets/services/stove_repair.png"),
-  fridge_repair: require("../../assets/services/fridge_repair.png"),
-  ac_repair: require("../../assets/services/ac_repair.png"),
-  cleaning: require("../../assets/services/cleaning.png"),
-  wood_carpentry: require("../../assets/services/wood_carpentry.png"),
-  blacksmith: require("../../assets/services/blacksmith.png"),
-  general: require("../../assets/services/general.png"),
-};
+  build: service_build,
+  plaster: service_plaster,
+  carpentry_form: service_carpentry_form,
+  flooring: service_flooring,
+  chef: service_chef,
+  plumbing: service_plumbing,
+  electric_setup: service_electric_setup,
+  electric_street: service_electric_street,
+  washer_repair: service_washer_repair,
+  stove_repair: service_stove_repair,
+  fridge_repair: service_fridge_repair,
+  ac_repair: service_ac_repair,
+  cleaning: service_cleaning,
+  wood_carpentry: service_wood_carpentry,
+  blacksmith: service_blacksmith,
+  general: service_general,
+}
 
 type Coordinates = { latitude: number; longitude: number };
 type RequestRecord = {
