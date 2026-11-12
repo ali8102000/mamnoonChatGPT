@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   ScrollView,
   TextInput,
@@ -24,6 +25,25 @@ const QUICK_REPLIES_PROVIDER = [
   "تم الإنجاز",
   "دقيقة واحدة",
 ];
+const SERVICE_IMAGES: Record<string, number> = {
+  build: require("../../assets/services/build.png"),
+  plaster: require("../../assets/services/plaster.png"),
+  carpentry_form: require("../../assets/services/carpentry_form.png"),
+  flooring: require("../../assets/services/flooring.png"),
+  chef: require("../../assets/services/chef.png"),
+  plumbing: require("../../assets/services/plumbing.png"),
+  electric_setup: require("../../assets/services/electric_setup.png"),
+  electric_street: require("../../assets/services/electric_street.png"),
+  washer_repair: require("../../assets/services/washer_repair.png"),
+  stove_repair: require("../../assets/services/stove_repair.png"),
+  fridge_repair: require("../../assets/services/fridge_repair.png"),
+  ac_repair: require("../../assets/services/ac_repair.png"),
+  cleaning: require("../../assets/services/cleaning.png"),
+  wood_carpentry: require("../../assets/services/wood_carpentry.png"),
+  blacksmith: require("../../assets/services/blacksmith.png"),
+  general: require("../../assets/services/general.png"),
+};
+
 type Coordinates = { latitude: number; longitude: number };
 type RequestRecord = {
   provider_id: string | null;
@@ -406,6 +426,9 @@ export default function RequestDetail() {
           <View style={{ width: 30 }} />
         </View>
         <View style={styles.infoCard}>
+          {request.type === "service" && request.services?.slug && SERVICE_IMAGES[request.services.slug] ? (
+            <Image source={SERVICE_IMAGES[request.services.slug]} style={styles.serviceIllustration} resizeMode="cover" />
+          ) : null}
           <Text style={styles.infoType}>
             {request.type === "taxi" ? "🚕 طلب سيارة" : `🛠️ ${request.services?.name_ar || "خدمة منزلية"}`}
           </Text>
@@ -594,6 +617,7 @@ const styles = StyleSheet.create({
   trackingTitle: { fontSize: 15, fontWeight: "800", color: "#1e293b", marginBottom: 10 },
   trackingMap: { height: 220, borderRadius: 12 },
   trackingHint: { fontSize: 12, color: "#64748b", textAlign: "center", marginTop: 8 },
+  serviceIllustration: { width: 96, height: 96, borderRadius: 18, marginBottom: 12, backgroundColor: "#f1f5f9" },
   infoType: { fontSize: 18, fontWeight: "800", color: "#1e293b", marginBottom: 8 },
   infoRow: { fontSize: 14, color: "#64748b", marginTop: 4 },
   infoPrice: { fontSize: 18, fontWeight: "800", color: "#0f766e", marginTop: 8 },
