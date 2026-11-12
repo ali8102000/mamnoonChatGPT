@@ -1,8 +1,7 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { useAuth, type AppRole } from "@/lib/auth-context";
-import { assignCustomerRole } from "@/lib/auth.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Car, Wrench, User, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "@/lib/toast";
 
@@ -50,7 +49,6 @@ function SelectRolePage() {
   const [picked, setPicked] = useState<AppRole | null>(null);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
-  const saveCustomerRole = useServerFn(assignCustomerRole);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
@@ -60,7 +58,10 @@ function SelectRolePage() {
     setBusy(true);
     try {
       if (picked === "customer") {
-        await saveCustomerRole({ data: { accessToken: session.access_token } });
+        const { error } = await supabase
+          .from("user_roles")
+          .insert({ user_id: session.user.id, role: "customer" });
+        if (error && !error.message.toLowerCase().includes("duplicate")) throw error;
         await refresh();
         navigate({ to: "/home" });
       } else if (picked === "driver") {
