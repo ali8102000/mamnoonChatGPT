@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { I18nManager, LogBox } from "react-native";
 import { AuthProvider } from "@/lib/auth-context";
+import { IncomingRequestModal } from "@/components/incoming-request-modal";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
@@ -36,6 +37,7 @@ export default function RootLayout() {
         <Stack.Screen name="forgot-password" />
         <Stack.Screen name="reset-password" />
       </Stack>
+      <IncomingRequestModal />
     </AuthProvider>
   );
 }
