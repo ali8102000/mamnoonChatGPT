@@ -1,16 +1,3 @@
-CREATE OR REPLACE FUNCTION public.resolve_friend_phone()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  IF NEW.friend_id IS NULL AND NEW.friend_phone IS NOT NULL THEN
-    SELECT id INTO NEW.friend_id FROM public.profiles WHERE phone = NEW.friend_phone LIMIT 1;
-    IF NEW.friend_id IS NULL THEN RAISE EXCEPTION 'friend_not_found'; END IF;
-  END IF;
-  IF NEW.friend_id = NEW.user_id THEN RAISE EXCEPTION 'cannot_add_self'; END IF;
-  RETURN NEW;
-END $$;
-REVOKE EXECUTE ON FUNCTION public.resolve_friend_phone() FROM PUBLIC, anon, authenticated;
-CREATE TRIGGER trg_resolve_friend_phone BEFORE INSERT ON public.friends FOR EACH ROW EXECUTE FUNCTION public.resolve_friend_phone();
-
 CREATE TABLE public.friend_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   sender_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -19,12 +6,19 @@ CREATE TABLE public.friend_requests (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (sender_id, receiver_id)
 );
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.friend_requests TO authenticated;
+
 GRANT ALL ON public.friend_requests TO service_role;
+
 ALTER TABLE public.friend_requests ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Parties see friend requests" ON public.friend_requests FOR SELECT TO authenticated USING (auth.uid() IN (sender_id, receiver_id));
+
 CREATE POLICY "Sender creates friend request" ON public.friend_requests FOR INSERT TO authenticated WITH CHECK (auth.uid() = sender_id AND status = 'pending');
+
 CREATE POLICY "Receiver responds" ON public.friend_requests FOR UPDATE TO authenticated USING (auth.uid() = receiver_id) WITH CHECK (auth.uid() = receiver_id);
+
 CREATE POLICY "Parties delete friend request" ON public.friend_requests FOR DELETE TO authenticated USING (auth.uid() IN (sender_id, receiver_id));
 
 CREATE TABLE public.support_tickets (
@@ -38,12 +32,18 @@ CREATE TABLE public.support_tickets (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
 GRANT SELECT, INSERT ON public.support_tickets TO authenticated;
+
 GRANT ALL ON public.support_tickets TO service_role;
+
 ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+
 CREATE TRIGGER support_tickets_updated_at BEFORE UPDATE ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
 CREATE POLICY "Owner or staff see tickets" ON public.support_tickets FOR SELECT TO authenticated
   USING (user_id = auth.uid() OR public.has_staff_role(auth.uid()));
+
 CREATE POLICY "Users open own tickets" ON public.support_tickets FOR INSERT TO authenticated
   WITH CHECK (user_id = auth.uid() AND status = 'open');
 
@@ -55,12 +55,18 @@ CREATE TABLE public.support_ticket_messages (
   is_staff boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
 CREATE INDEX idx_support_msgs_ticket ON public.support_ticket_messages(ticket_id, created_at);
+
 GRANT SELECT, INSERT ON public.support_ticket_messages TO authenticated;
+
 GRANT ALL ON public.support_ticket_messages TO service_role;
+
 ALTER TABLE public.support_ticket_messages ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Ticket parties read messages" ON public.support_ticket_messages FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.support_tickets t WHERE t.id = ticket_id AND t.user_id = auth.uid()) OR public.has_staff_role(auth.uid()));
+
 CREATE POLICY "Ticket parties send messages" ON public.support_ticket_messages FOR INSERT TO authenticated
   WITH CHECK (sender_id = auth.uid() AND (
     (is_staff = false AND EXISTS (SELECT 1 FROM public.support_tickets t WHERE t.id = ticket_id AND t.user_id = auth.uid()))
@@ -87,10 +93,15 @@ CREATE TABLE public.subscription_plans (
   sort_order int NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
 GRANT SELECT ON public.subscription_plans TO authenticated;
+
 GRANT ALL ON public.subscription_plans TO service_role;
+
 ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Active plans readable" ON public.subscription_plans FOR SELECT TO authenticated USING (is_active);
+
 INSERT INTO public.subscription_plans (code, name_ar, name_en, tier, max_requests_per_month, priority_weight, offer_priority, badge_label, badge_color, show_stats, priority_support, monthly_price, yearly_price, sort_order) VALUES
   ('free','مجاني','Free',0,NULL,0,0,NULL,NULL,false,false,0,0,1),
   ('silver','فضي','Silver',1,NULL,10,10,'فضي','#C0C0C0',true,false,0,0,2),
@@ -102,8 +113,11 @@ CREATE TABLE public.subscription_settings (
   minimum_downloads_before_activation int NOT NULL DEFAULT 100000,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
 GRANT ALL ON public.subscription_settings TO service_role;
+
 ALTER TABLE public.subscription_settings ENABLE ROW LEVEL SECURITY;
+
 INSERT INTO public.subscription_settings (id) VALUES (1);
 
 CREATE TABLE public.user_subscriptions (
@@ -120,10 +134,15 @@ CREATE TABLE public.user_subscriptions (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
 GRANT SELECT ON public.user_subscriptions TO authenticated;
+
 GRANT ALL ON public.user_subscriptions TO service_role;
+
 ALTER TABLE public.user_subscriptions ENABLE ROW LEVEL SECURITY;
+
 CREATE TRIGGER user_subscriptions_updated_at BEFORE UPDATE ON public.user_subscriptions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
 CREATE POLICY "Users see own subscription" ON public.user_subscriptions FOR SELECT TO authenticated USING (user_id = auth.uid());
 
 CREATE TABLE public.subscription_payments (
@@ -138,18 +157,29 @@ CREATE TABLE public.subscription_payments (
   period_end timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
 GRANT SELECT ON public.subscription_payments TO authenticated;
+
 GRANT ALL ON public.subscription_payments TO service_role;
+
 ALTER TABLE public.subscription_payments ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Users see own payments" ON public.subscription_payments FOR SELECT TO authenticated USING (user_id = auth.uid());
 
 CREATE TRIGGER trg_single_active_request BEFORE INSERT ON public.service_requests FOR EACH ROW EXECUTE FUNCTION public.enforce_single_active_request();
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+
 ALTER PUBLICATION supabase_realtime ADD TABLE public.service_requests;
+
 ALTER PUBLICATION supabase_realtime ADD TABLE public.live_locations;
+
 ALTER PUBLICATION supabase_realtime ADD TABLE public.request_offers;
+
 ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+
 ALTER PUBLICATION supabase_realtime ADD TABLE public.support_ticket_messages;
+
 ALTER TABLE public.messages REPLICA IDENTITY FULL;
+
 ALTER TABLE public.service_requests REPLICA IDENTITY FULL;
