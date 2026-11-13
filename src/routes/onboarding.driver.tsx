@@ -185,7 +185,7 @@ function OnboardingDriver() {
         vehicleCategory: metadata.vehicleCategory ?? current?.vehicleCategory,
       }));
     };
-    supabase.from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+    (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
       .eq("user_id", userId).eq("provider_type", "driver").maybeSingle()
       .then(({ data, error }) => { if (!error && data) applyReview(data); });
     const channel = supabase.channel(`driver-verification-${userId}`)
