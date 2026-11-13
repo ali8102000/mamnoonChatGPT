@@ -23,12 +23,11 @@ try {
   process.exit(1);
 }
 
-// Prevent a valid-looking but unrelated legacy Supabase project from shipping
-// in the production mobile app. Update this ref only after an explicit backend migration.
-const expectedSupabaseProjectRef = "hvfiwjryffjwaynkpgar";
+// The mobile app must use the same Supabase project as the Mamnoon web app.
+const expectedSupabaseProjectRef = "enteiolvirenbhkyskgb";
 if (supabaseHost.split(".")[0] !== expectedSupabaseProjectRef) {
   console.error(
-    `EXPO_PUBLIC_SUPABASE_URL يجب أن يشير إلى مشروع كفو الصحيح: ${expectedSupabaseProjectRef}.`,
+    `EXPO_PUBLIC_SUPABASE_URL يجب أن يشير إلى مشروع ممنون الصحيح: ${expectedSupabaseProjectRef}.`,
   );
   process.exit(1);
 }
@@ -47,4 +46,4 @@ if (
   process.exit(1);
 }
 
-console.log("Production environment validation passed.");
+console.log("Mamnoon production environment validation passed.");
