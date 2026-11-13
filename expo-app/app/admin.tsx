@@ -124,7 +124,8 @@ export default function AdminScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb", paddingHorizontal: 20, paddingTop: 50 },\n  supportButton: { backgroundColor: "#2563eb", borderRadius: 14, padding: 14, marginBottom: 20 },\n  supportButtonText: { color: "#fff", fontWeight: "800", textAlign: "center" },
+  container: { flex: 1, backgroundColor: "#f9fafb", paddingHorizontal: 20, paddingTop: 50 },
+  supportButton: { backgroundColor: "#2563eb", borderRadius: 14, padding: 14, marginBottom: 20 },\n  supportButtonText: { color: "#fff", fontWeight: "800", textAlign: "center" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 28, fontWeight: "900", color: "#1e293b", marginBottom: 20 },
   statsGrid: { flexDirection: "row", gap: 10, marginBottom: 24 },
