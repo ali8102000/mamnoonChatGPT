@@ -159,8 +159,9 @@ function ProfilePage() {
           >
             {avatarUploading ? "جارٍ حفظ الصورة..." : "📷 تغيير الصورة الشخصية"}
           </button>
-          <div className="text-xl font-black flex items-center justify-center gap-1.5">
+          <div className="text-xl font-black flex items-center justify-center gap-1.5 flex-wrap">
             <span>{profile?.full_name}</span>
+            {isAdmin && <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/70 bg-gradient-to-r from-amber-100 via-yellow-200 to-amber-300 px-2.5 py-1 text-[10px] font-black text-amber-900 shadow-sm" title="حساب مسؤول ممنون موثق"><ShieldCheck className="h-3.5 w-3.5" /> مسؤول موثق</span>}
             {isProvider && (
               <ShieldCheck className="h-4 w-4 text-emerald-600 inline" aria-label="هوية موثقة" />
             )}
