@@ -783,6 +783,7 @@ function ProvidersSection() {
   const [type, setType] = useState("driver");
   const [providers, setProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionMessage, setActionMessage] = useState("");
   const listProviders = useServerFn(adminListProviders);
   const setStatus = useServerFn(adminSetProviderStatus);
   const load = useCallback(async () => {
@@ -798,14 +799,23 @@ function ProvidersSection() {
     load();
   }, [load]);
   async function handleAction(userId: string, status: string) {
+    setActionMessage("");
     try {
       await setStatus({ data: { user_id: userId, type, status } });
-      load();
-    } catch (e) {}
+      setActionMessage(status === "approved" ? "تم تفعيل الحساب ومنحه دور التطبيق" : "تم تحديث حالة الحساب");
+      await load();
+    } catch (e) {
+      setActionMessage(e instanceof Error ? e.message : "تعذّر تحديث حالة الحساب");
+    }
   }
   return (
     <div>
       <h2 className="text-xl font-black mb-4">إدارة السائقين والفنيين</h2>
+      {actionMessage && (
+        <div role="status" className="mb-3 rounded-xl bg-surface-2 px-3 py-2 text-xs font-bold">
+          {actionMessage}
+        </div>
+      )}
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
         {["driver", "worker"].map((t) => (
           <button
