@@ -271,8 +271,34 @@ export const adminListProviders = createServerFn({ method: "GET" })
       .select("*, profiles!inner(full_name, phone, email)")
       .order("created_at", { ascending: false })
       .limit(100);
-    if (error) throw new Error("فشل تحميل المزودين");
-    return providers ?? [];
+    if (error) throw new Error(`فشل تحميل المزودين: ${error.message}`);
+
+    const userIds = (providers ?? []).map((p: any) => p.user_id);
+    if (!userIds.length) return [];
+    const { data: verifications, error: verificationError } = await (supabaseAdmin as any)
+      .from("provider_verifications")
+      .select("*")
+      .eq("provider_type", data.type)
+      .in("user_id", userIds);
+    if (verificationError) throw new Error(`تعذر تحميل مستمسكات المزودين: ${verificationError.message}`);
+
+    const verificationByUser = new Map((verifications ?? []).map((v: any) => [v.user_id, v]));
+    return await Promise.all((providers ?? []).map(async (provider: any) => {
+      const verification: any = verificationByUser.get(provider.user_id);
+      if (!verification) return { ...provider, verification: null };
+      const [face, identity] = await Promise.all([
+        supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.face_photo_path, 600),
+        supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.id_card_photo_path, 600),
+      ]);
+      return {
+        ...provider,
+        verification: {
+          ...verification,
+          face_photo_url: face.error ? null : face.data?.signedUrl ?? null,
+          id_card_photo_url: identity.error ? null : identity.data?.signedUrl ?? null,
+        },
+      };
+    }));
   });
 
 export const adminSetProviderStatus = createServerFn({ method: "POST" })
@@ -290,13 +316,26 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabase } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await (supabase as any).rpc("admin_set_provider_status", {
       p_user_id: data.user_id,
       p_type: data.type,
       p_status: data.status,
     });
     if (error) throw new Error(error.message);
-    return { ok: true };
+
+    const role = data.type === "driver" ? "driver" : "worker";
+    if (data.status === "approved") {
+      const { data: granted, error: verifyError } = await (supabaseAdmin as any)
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.user_id)
+        .eq("role", role)
+        .maybeSingle();
+      if (verifyError) throw new Error(`تعذر التحقق من الدور بعد الموافقة: ${verifyError.message}`);
+      if (!granted) throw new Error("لم يُضف دور مقدم الخدمة إلى الحساب؛ لم يتم تأكيد التفعيل");
+    }
+    return { ok: true, role: data.status === "approved" ? role : null };
   });
 
 export const adminListRequests = createServerFn({ method: "GET" })
