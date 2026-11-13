@@ -68,7 +68,7 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>الرسائل</Text>
+      <Text style={styles.title}>الرسائل</Text>\n      <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>مراسلة إدارة ممنون</Text></TouchableOpacity>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
