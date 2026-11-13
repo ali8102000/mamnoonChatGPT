@@ -17,10 +17,26 @@ function AccountSettingsPage() {
   const [otp, setOtp] = useState("");
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [displayName, setDisplayName] = useState(profile?.full_name ?? "");
+  const isStaffAdmin = roles.some((role) => ["admin", "super_admin"].includes(role));
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
   const currentUser = session.user;
+
+  async function changeDisplayName() {
+    const next = displayName.trim().replace(/\\s+/g, " ");
+    if (next.length < 2 || next.length > 60) { toast.error("الاسم لازم يكون بين حرفين و60 حرفاً"); return; }
+    if (!session?.user.id) return;
+    setBusy(true);
+    try {
+      const { error } = await (supabase as any).from("profiles").update({ full_name: next }).eq("id", session.user.id);
+      if (error) throw error;
+      await refresh();
+      toast.success("تم تحديث اسم المسؤول الظاهر للناس");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذر تحديث الاسم"); }
+    finally { setBusy(false); }
+  }
 
   async function changeEmail() {
     const next = email.trim().toLowerCase();
