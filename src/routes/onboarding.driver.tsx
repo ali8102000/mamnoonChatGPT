@@ -117,6 +117,7 @@ function OnboardingDriver() {
   const [legalName, setLegalName] = useState(profile?.full_name || "");
   const [facePhoto, setFacePhoto] = useState<string | null>(profile?.avatar_url || null);
   const [idCardPhoto, setIdCardPhoto] = useState<string | null>(null);
+  const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<string | null>(null);
   const [documentType, setDocumentType] = useState<"national_id" | "driver_license">("national_id");
   const [idNumber, setIdNumber] = useState("");
   const [confirmedNameMatch, setConfirmedNameMatch] = useState(true);
@@ -126,6 +127,7 @@ function OnboardingDriver() {
 
   const faceInputRef = useRef<HTMLInputElement>(null);
   const idCardInputRef = useRef<HTMLInputElement>(null);
+  const vehicleDocumentInputRef = useRef<HTMLInputElement>(null);
 
   const [existingDoc, setExistingDoc] = useState<any>(null);
   const [editingMode, setEditingMode] = useState(false);
@@ -139,6 +141,7 @@ function OnboardingDriver() {
         if (existing.legalName) setLegalName(existing.legalName);
         if (existing.facePhotoUrl) setFacePhoto(existing.facePhotoUrl);
         if (existing.idCardPhotoUrl) setIdCardPhoto(existing.idCardPhotoUrl);
+        if (existing.vehicleDocumentPhotoUrl) setVehicleDocumentPhoto(existing.vehicleDocumentPhotoUrl);
         if (existing.idNumber) setIdNumber(existing.idNumber);
         if (existing.vehicleMake) setMake(existing.vehicleMake);
         if (existing.vehicleModel) setModelName(existing.vehicleModel);
@@ -180,6 +183,18 @@ function OnboardingDriver() {
     }
   }
 
+  async function handleVehicleDocumentChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file, 1600, 1600, 0.82);
+      setVehicleDocumentPhoto(dataUrl);
+      toast.success("تم إرفاق صورة سنوية السيارة أو الوكالة ✓");
+    } catch {
+      toast.error("تعذر معالجة صورة مستند السيارة");
+    }
+  }
+
   async function submit() {
     if (!finalMake) {
       toast.error("اختر أو اكتب الشركة المصنعة للسيارة");
@@ -209,6 +224,11 @@ function OnboardingDriver() {
     if (!idCardPhoto) {
       toast.error("يرجى إرفاق صورة الهوية الأصلية (البطاقة الوطنية أو إجازة السوق)");
       setActiveStep("identity");
+      return;
+    }
+    if (!vehicleDocumentPhoto) {
+      toast.error("يرجى إرفاق صورة سنوية السيارة أو الوكالة التي يظهر فيها رقم المركبة");
+      setActiveStep("car");
       return;
     }
     if (!confirmedNameMatch) {
@@ -256,6 +276,7 @@ function OnboardingDriver() {
         email: profile?.email || session!.user.email,
         facePhotoUrl: facePhoto,
         idCardPhotoUrl: idCardPhoto,
+        vehicleDocumentPhotoUrl: vehicleDocumentPhoto,
         idNumber: idNumber.trim() || undefined,
         documentType,
         verifiedAt: new Date().toISOString(),
@@ -584,6 +605,26 @@ function OnboardingDriver() {
               placeholder="مثال: 58214 بغداد خصوصي"
               className="w-full bg-white border border-border rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-primary"
             />
+          </div>
+
+          <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
+            <div className="font-black text-sm">مستند تسجيل السيارة *</div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              أرفق صورة صفحة السنوية أو الوكالة كاملة. خلّي رقم المركبة أو رقم اللوحة وبيانات السيارة ظاهرة وواضحة. لا تقص أطراف المستند.
+            </p>
+            <div className="flex items-center gap-3">
+              {vehicleDocumentPhoto ? (
+                <img src={vehicleDocumentPhoto} alt="سنوية السيارة أو الوكالة" className="h-20 w-28 object-contain rounded-xl border bg-slate-50" />
+              ) : (
+                <div className="h-20 w-28 rounded-xl bg-slate-100 border border-dashed border-slate-300 grid place-items-center text-slate-400">📄</div>
+              )}
+              <div className="flex-1">
+                <input ref={vehicleDocumentInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleVehicleDocumentChange} />
+                <button type="button" onClick={() => vehicleDocumentInputRef.current?.click()} className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold">
+                  {vehicleDocumentPhoto ? "تغيير صورة المستند" : "تصوير السنوية أو الوكالة"}
+                </button>
+              </div>
+            </div>
           </div>
 
           <button
