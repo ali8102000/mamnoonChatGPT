@@ -15,6 +15,8 @@ export default function AccountSettingsScreen() {
   const [otp, setOtp] = useState("");
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [displayName, setDisplayName] = useState(profile?.full_name ?? "");
+  const isStaffAdmin = roles.some((role) => ["admin", "super_admin"].includes(role));
 
   async function switchRole(role: string) {
     if (role === "driver") {
@@ -31,6 +33,20 @@ export default function AccountSettingsScreen() {
       await SecureStore.setItemAsync("mamnoon_active_role", "customer");
     }
     router.replace("/home");
+  }
+
+  async function changeDisplayName() {
+    const next = displayName.trim().replace(/\\s+/g, " ");
+    if (next.length < 2 || next.length > 60) { Alert.alert("تنبيه", "الاسم لازم يكون بين حرفين و60 حرفاً"); return; }
+    if (!user?.id) return;
+    setBusy(true);
+    try {
+      const { error } = await (supabase as any).from("profiles").update({ full_name: next }).eq("id", user.id);
+      if (error) throw error;
+      await refresh();
+      Alert.alert("تم", "تم تحديث اسم المسؤول الظاهر للجميع.");
+    } catch (e) { Alert.alert("تعذر تحديث الاسم", e instanceof Error ? e.message : "حدث خطأ"); }
+    finally { setBusy(false); }
   }
 
   async function changeEmail() {
@@ -85,6 +101,13 @@ export default function AccountSettingsScreen() {
 
   return <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <Text style={styles.title}>إعدادات الحساب</Text>
+    {isStaffAdmin && <View style={styles.nameSection}>
+      <Text style={styles.sectionTitle}>اسم المسؤول الظاهر للجميع</Text>
+      <Text style={styles.note}>هذا الاسم يظهر في حسابك وملفك العام وعند تفاعلك مع المستخدمين.</Text>
+      <RealInput value={displayName} onChangeText={setDisplayName} placeholder="اكتب الاسم الذي سيظهر للجميع" maxLength={60} />
+      <View style={{ height: 12 }} />
+      <Button title="حفظ الاسم الجديد" onPress={changeDisplayName} loading={busy} />
+    </View>}
     <Text style={styles.sectionTitle}>طريقة استخدام ممنون</Text>
     <Text style={styles.note}>اختَر الدور من هنا. إذا اخترت سائق تكسي لأول مرة راح تكمل بيانات السيارة.</Text>
     <View style={styles.roleGrid}>
