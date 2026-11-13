@@ -410,6 +410,9 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
         .from("profiles").select("full_name").eq("id", data.user_id).maybeSingle();
       const personName = String(profileRow?.full_name ?? "").trim();
       const providerLabel = data.type === "driver" ? "سائق تكسي" : "فني";
+      const { data: companySettings } = await (supabaseAdmin as any)
+        .from("company_settings").select("company_name").eq("id", 1).maybeSingle();
+      const companyName = String(companySettings?.company_name ?? "شركة ممنون");
       const durationLabels: Record<string, string> = {
         "30m": "نصف ساعة", "1h": "ساعة", "1w": "أسبوع", "1mo": "شهر", "1y": "سنة", permanent: "بشكل دائم",
       };
@@ -419,14 +422,14 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
           ? "بخصوص طلب انضمامك إلى ممنون"
           : "تنبيه: تم تعليق حسابك في ممنون";
       const body = data.status === "approved"
-        ? `أهلاً ${personName || "بك"}، نبارك لك! تم تفعيل حسابك كـ${providerLabel} بعد مراجعة الإدارة. نتمنى لك التوفيق والنجاح، ونرحب بك ضمن أسرة شركة ممنون الموثّقة. 💛`
+        ? `أهلاً ${personName || "بك"}، نبارك لك! تم تفعيل حسابك كـ${providerLabel} بعد مراجعة الإدارة. نتمنى لك التوفيق والنجاح، ونرحب بك ضمن أسرة ${companyName} الموثّقة. 💛`
         : data.status === "rejected"
-          ? `أهلاً ${personName || "بك"}، نعتذر عن عدم قبول طلبك حالياً. سبب الرفض: ${data.reason!.trim()}. يرجى معالجة الملاحظة وإعادة المحاولة، ونتمنى لك التوفيق. شركة ممنون الموثّقة.`
-          : `أهلاً ${personName || "بك"}، نود إعلامك بأنه تم تعليق حسابك كـ${providerLabel} ${data.suspension_duration === "permanent" ? "بشكل دائم" : `لمدة ${durationLabels[data.suspension_duration ?? ""] ?? "محددة"}`}${suspendedUntil ? `، وينتهي التعليق بتاريخ ${new Date(suspendedUntil).toLocaleString("ar-IQ")}` : ""}.${data.reason?.trim() ? ` السبب: ${data.reason.trim()}.` : ""} للاستفسار يرجى مراسلة إدارة شركة ممنون.`;
+          ? `أهلاً ${personName || "بك"}، نعتذر عن عدم قبول طلبك حالياً. سبب الرفض: ${data.reason!.trim()}. يرجى معالجة الملاحظة وإعادة المحاولة، ونتمنى لك التوفيق. ${companyName} الموثّقة.`
+          : `أهلاً ${personName || "بك"}، نود إعلامك بأنه تم تعليق حسابك كـ${providerLabel} ${data.suspension_duration === "permanent" ? "بشكل دائم" : `لمدة ${durationLabels[data.suspension_duration ?? ""] ?? "محددة"}`}${suspendedUntil ? `، وينتهي التعليق بتاريخ ${new Date(suspendedUntil).toLocaleString("ar-IQ")}` : ""}.${data.reason?.trim() ? ` السبب: ${data.reason.trim()}.` : ""} للاستفسار يرجى مراسلة إدارة ${companyName}.`;
       const notificationType = data.status === "approved" ? "provider_approved" : data.status === "rejected" ? "provider_rejected" : "provider_suspended";
       const { error: notificationError } = await (supabaseAdmin as any).from("notifications").insert({
         user_id: data.user_id, type: notificationType, title, body, link: "/home",
-        data: { provider_type: data.type, status: data.status, suspended_until: suspendedUntil, company: "شركة ممنون الموثّقة" },
+        data: { provider_type: data.type, status: data.status, suspended_until: suspendedUntil, company: companyName },
       });
       if (notificationError) throw new Error(`تم تحديث حالة الحساب لكن تعذر إرسال الإشعار داخل التطبيق: ${notificationError.message}`);
       notificationSent = true;
