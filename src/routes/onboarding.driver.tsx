@@ -138,7 +138,7 @@ function OnboardingDriver() {
   // Load existing verification if stored
   useEffect(() => {
     if (session?.user?.id) {
-      const existing = getProviderVerification(session.user.id);
+      const existing = getProviderVerification(session.user.id, 'driver');
       if (existing) {
         setExistingDoc(existing);
         if (existing.legalName) setLegalName(existing.legalName);
@@ -308,7 +308,7 @@ function OnboardingDriver() {
       await saveProviderVerificationRemote(verificationDoc);
       saveProviderVerification(verificationDoc);
 
-      setExistingDoc(getProviderVerification(uid));
+      setExistingDoc(getProviderVerification(uid, 'driver'));
       setEditingMode(false);
       await refresh();
 
