@@ -155,8 +155,15 @@ function OnboardingWorker() {
         .eq("user_id", userId).eq("provider_type", "worker").maybeSingle(),
       (supabase as any).from("worker_profiles").select("status").eq("user_id", userId).maybeSingle(),
     ]).then(([verification, workerProfile]: any[]) => {
-      if (verification.data) applyReview(verification.data);
-      else if (!verification.error && workerProfile.data?.status === "approved") {
+      const legacyApproved = workerProfile.data?.status === "approved";
+      if (verification.data) {
+        applyReview({
+          ...verification.data,
+          status: verification.data.status === "approved" || legacyApproved
+            ? "approved"
+            : verification.data.status,
+        });
+      } else if (!verification.error && legacyApproved) {
         applyReview({ status: "approved", legal_name: profile?.full_name, metadata: {} });
       }
     });
