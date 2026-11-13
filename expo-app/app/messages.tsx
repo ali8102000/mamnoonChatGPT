@@ -114,6 +114,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: "900", color: "#1e293b", marginBottom: 20 },
   supportButton: { backgroundColor: "#2563eb", borderRadius: 14, padding: 13, marginBottom: 16 },
   supportButtonText: { color: "#fff", fontWeight: "800", textAlign: "center" },
+  supportButton: { backgroundColor: "#2563eb", borderRadius: 14, padding: 13, marginBottom: 16 },
+  supportButtonText: { color: "#fff", fontWeight: "800", textAlign: "center" },
   empty: { textAlign: "center", color: "#94a3b8", marginTop: 40 },
   emptyBox: { alignItems: "center", paddingTop: 60 },
   emptyTitle: { fontSize: 18, fontWeight: "700", color: "#94a3b8" },
