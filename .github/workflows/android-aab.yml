@@ -1,5 +1,5 @@
-# Build the Kafo Android App Bundle from the Expo project in expo-app.
-name: Kafo Android production AAB
+# Build the Mamnoon Android App Bundle from the Expo project in expo-app.
+name: Mamnoon Android production AAB
 
 on:
   push:
@@ -15,20 +15,18 @@ permissions:
   contents: read
 
 concurrency:
-  group: kafo-android-aab
+  group: mamnoon-android-aab
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Validate and build Kafo Android App Bundle
+    name: Validate and build Mamnoon Android App Bundle
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: expo-app
     env:
       APP_ENV: production
-      # This is the EAS project ID already linked in app.json and verified by
-      # the successful production AAB workflow. Keep it in sync with app.json.
       EAS_PROJECT_ID: a6c763c4-3a5c-4725-b370-81967e3c0aab
     steps:
       - uses: actions/checkout@v5
@@ -62,12 +60,12 @@ jobs:
             echo "::error::EAS_PROJECT_ID does not match expo-app/app.json extra.eas.projectId."
             exit 1
           fi
-      - name: Validate production EAS environment variables
+      - name: Validate Mamnoon production EAS environment variables
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs'
-      - name: Build signed production AAB and wait for completion
+      - name: Build signed Mamnoon production AAB and wait for completion
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
@@ -81,17 +79,17 @@ jobs:
           BUILD_URL="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; const u=b?.artifacts?.buildUrl || b?.artifacts?.applicationArchiveUrl; if(!u || !u.startsWith("https://")) process.exit(2); process.stdout.write(u)')"
           echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
           mkdir -p ../release-artifacts
-          curl --fail --location --retry 3 --retry-delay 2 "$BUILD_URL" --output ../release-artifacts/kafo-production.aab
-          test -s ../release-artifacts/kafo-production.aab
-          node -e 'const fs=require("fs"); const p="../release-artifacts/kafo-production.aab"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid ZIP-based Android App Bundle"); process.exit(1); }'
+          curl --fail --location --retry 3 --retry-delay 2 "$BUILD_URL" --output ../release-artifacts/mamnoon-production.aab
+          test -s ../release-artifacts/mamnoon-production.aab
+          node -e 'const fs=require("fs"); const p="../release-artifacts/mamnoon-production.aab"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid ZIP-based Android App Bundle"); process.exit(1); }'
       - name: Upload AAB as a GitHub Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: kafo-production-aab
-          path: release-artifacts/kafo-production.aab
+          name: mamnoon-production-aab
+          path: release-artifacts/mamnoon-production.aab
           if-no-files-found: error
           retention-days: 14
       - name: Build summary
         run: |
-          echo "Kafo AAB build completed. EAS build ID: ${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "The signed AAB is attached as the kafo-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
+          echo "Mamnoon AAB build completed. EAS build ID: ${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "The signed AAB is attached as the mamnoon-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
