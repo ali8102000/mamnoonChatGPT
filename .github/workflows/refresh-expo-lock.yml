@@ -1,0 +1,45 @@
+name: Refresh Expo Bun lockfile
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "expo-app/package.json"
+      - "expo-app/bun.lock"
+      - ".github/workflows/refresh-expo-lock.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.0.14"
+
+      - name: Regenerate Expo lockfile
+        working-directory: expo-app
+        run: bun install --lockfile-only
+
+      - name: Commit updated lockfile
+        run: |
+          if git diff --quiet -- expo-app/bun.lock; then
+            echo "Expo lockfile is already synchronized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add expo-app/bun.lock
+          git commit -m "chore(expo): synchronize Bun lockfile"
+          git push origin main
