@@ -131,7 +131,7 @@ function OnboardingWorker() {
         workerServices: row.metadata?.workerServices ?? current?.workerServices,
       }));
     };
-    supabase.from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+    (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
       .eq("user_id", userId).eq("provider_type", "worker").maybeSingle()
       .then(({ data, error }) => { if (!error && data) applyReview(data); });
     const channel = supabase.channel(`worker-verification-${userId}`)
