@@ -58,6 +58,7 @@ export function RealInput({
   style,
   autoFocus,
   autoCapitalize,
+  maxLength,
 }: {
   value: string;
   onChangeText: (v: string) => void;
@@ -67,6 +68,7 @@ export function RealInput({
   style?: ViewStyle;
   autoFocus?: boolean;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  maxLength?: number;
 }) {
   return (
     <TextInput
@@ -78,6 +80,7 @@ export function RealInput({
       keyboardType={keyboardType || "default"}
       autoFocus={autoFocus}
       autoCapitalize={autoCapitalize}
+      maxLength={maxLength}
       style={[styles.realInput, style]}
     />
   );
