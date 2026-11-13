@@ -250,6 +250,13 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
       </View>
+      <TouchableOpacity
+        onPress={() => router.push("/account-settings")}
+        style={styles.roleSwitchButton}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.roleSwitchButtonText}>⇄  تبديل الدور</Text>
+      </TouchableOpacity>
       <ActiveCustomerRequestBanner />
       <ScrollView
         style={{ flex: 1 }}
@@ -426,6 +433,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   greeting: { fontSize: 22, fontWeight: "800", color: "#1e293b" },
+  roleSwitchButton: { alignSelf: "flex-start", marginHorizontal: 20, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, backgroundColor: "#e0f2fe" },
+  roleSwitchButtonText: { color: "#0369a1", fontSize: 12, fontWeight: "900" },
   roleText: { fontSize: 13, color: "#64748b", marginTop: 2 },
   avatar: {
     width: 44,
