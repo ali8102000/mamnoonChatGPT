@@ -27,7 +27,7 @@ BEGIN
       RAISE EXCEPTION 'مسافة الطريق ونقطتا الانطلاق والوجهة مطلوبة';
     END IF;
 
-    v_rate := CASE WHEN COALESCE(NEW.is_intercity, false) THEN 250 ELSE 400 END;
+    v_rate := CASE WHEN COALESCE(NEW.is_intercity, false) THEN 187.5 ELSE 400 END;
     v_base_fare := NEW.distance_km * v_rate;
     v_multiplier := public.get_taxi_demand_multiplier(
       NEW.pickup_lat, NEW.pickup_lng, NEW.vehicle_category::text
