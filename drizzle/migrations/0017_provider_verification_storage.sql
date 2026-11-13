@@ -34,7 +34,10 @@ WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Providers update own verification"
 ON public.provider_verifications FOR UPDATE TO authenticated
 USING (auth.uid() = user_id OR public.has_staff_role(auth.uid()))
-WITH CHECK (auth.uid() = user_id OR public.has_staff_role(auth.uid()));
+WITH CHECK (
+  (auth.uid() = user_id AND status = 'pending')
+  OR public.has_staff_role(auth.uid())
+);
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('provider-verification', 'provider-verification', false, 10485760,
