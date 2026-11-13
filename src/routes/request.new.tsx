@@ -459,12 +459,12 @@ function NewRequest() {
         <div className="absolute inset-0 z-0">
           {govReady && gov && (
             <MapPicker
-              key={`${gov.key}-${mapStep}`}
+              key={gov.key}
               value={mapStep === "pickup" ? pickupCoords : destCoords}
               accent={mapStep === "pickup" ? "#0284c7" : "#e11d48"}
               nearby={mapStep === "pickup" ? nearby : undefined}
               nearbyKind="car"
-              autoLocateOnMount
+              autoLocateOnMount={mapStep === "pickup"}
               governorateKey={gov?.key}
               placeholder={
                 mapStep === "pickup"
