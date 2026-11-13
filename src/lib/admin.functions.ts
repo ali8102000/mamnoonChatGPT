@@ -211,7 +211,7 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [profileRes, rolesRes, blocksRes, driverRes, workerRes, txRes, reqRes] =
+    const [profileRes, rolesRes, blocksRes, driverRes, workerRes, txRes, reqRes, ratingsRes] =
       await Promise.all([
         (supabaseAdmin as any).from("profiles").select("*").eq("id", data.user_id).maybeSingle(),
         (supabaseAdmin as any)
@@ -245,6 +245,12 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
           .or(`customer_id.eq.${data.user_id},provider_id.eq.${data.user_id}`)
           .order("created_at", { ascending: false })
           .limit(20),
+        (supabaseAdmin as any)
+          .from("ratings")
+          .select("id, stars, professionalism, punctuality, quality, comment, created_at, rater:profiles!ratings_rater_id_fkey(full_name, avatar_url)")
+          .eq("ratee_id", data.user_id)
+          .order("created_at", { ascending: false })
+          .limit(100),
       ]);
     return {
       profile: profileRes.data,
@@ -254,7 +260,26 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
       workerProfile: workerRes.data,
       transactions: txRes.data ?? [],
       requests: reqRes.data ?? [],
+      ratings: ratingsRes.error ? [] : ratingsRes.data ?? [],
     };
+  });
+
+export const adminUpdateProviderName = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ user_id: z.string().uuid(), full_name: z.string().trim().min(2).max(80) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: provider, error: providerError } = await (supabaseAdmin as any)
+      .from("driver_profiles").select("user_id").eq("user_id", data.user_id).maybeSingle();
+    const { data: worker, error: workerError } = await (supabaseAdmin as any)
+      .from("worker_profiles").select("user_id").eq("user_id", data.user_id).maybeSingle();
+    if (providerError || workerError) throw new Error("تعذر التحقق من حساب مقدم الخدمة");
+    if (!provider && !worker) throw new Error("تعديل الاسم متاح للسائقين والفنيين فقط");
+    const { error } = await (supabaseAdmin as any)
+      .from("profiles").update({ full_name: data.full_name }).eq("id", data.user_id);
+    if (error) throw new Error("فشل تحديث الاسم: " + error.message);
+    return { ok: true, full_name: data.full_name };
   });
 
 export const adminListProviders = createServerFn({ method: "GET" })
@@ -268,7 +293,7 @@ export const adminListProviders = createServerFn({ method: "GET" })
     const table = data.type === "driver" ? "driver_profiles" : "worker_profiles";
     const { data: providers, error } = await (supabaseAdmin as any)
       .from(table)
-      .select("*, profiles!inner(full_name, phone, email)")
+      .select("*, profiles!inner(full_name, phone, email, avatar_url)")
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(`فشل تحميل المزودين: ${error.message}`);
