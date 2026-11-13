@@ -21,6 +21,7 @@ type PhotoKind = "face" | "id-front" | "id-back";
 
 export default function WorkerOnboarding() {
   const { user, refresh } = useAuth();
+  const [companyName, setCompanyName] = useState("شركة ممنون");
   const [services, setServices] = useState<WorkerService[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [level, setLevel] = useState<"fani" | "khabir">("fani");
@@ -201,7 +202,7 @@ export default function WorkerOnboarding() {
       setStatus("pending");
       setRejectionReason(null);
       await refresh();
-      Alert.alert("تم إرسال الطلب", "تم حفظ الصورة الشخصية والبطاقة الوطنية من الجهتين. طلبك الآن بانتظار تدقيق الإدارة.");
+      Alert.alert("تم إرسال الطلب", "تم حفظ الصورة الشخصية والبطاقة الوطنية من الجهتين. طلبك الآن بانتظار موافقة " + companyName + ".");
     } catch (err: unknown) {
       Alert.alert("تعذر إكمال التسجيل", err instanceof Error ? err.message : "حدث خطأ غير متوقع.");
     } finally {
@@ -216,7 +217,7 @@ export default function WorkerOnboarding() {
         <Text style={styles.statusText}>
           {status === "approved"
             ? "تهانينا! تم تفعيل حسابك كفني بعد تدقيق مستمسكاتك. نرحب بك ضمن أسرة شركة ممنون الموثّقة ونتمنى لك التوفيق والنجاح."
-            : "استلمنا صورتك الشخصية والبطاقة الوطنية من الأمام والخلف. ستتمكن من استقبال الطلبات بعد موافقة الإدارة."}
+            : "استلمنا صورتك الشخصية والبطاقة الوطنية من الأمام والخلف. طلبك بانتظار موافقة " + companyName + "، وستتمكن من استقبال الطلبات بعد الاعتماد."}
         </Text>
         {status === "pending" ? (
           <Button title="تعديل البيانات وإعادة إرفاق المستمسكات" onPress={() => setStatus(null)} />
