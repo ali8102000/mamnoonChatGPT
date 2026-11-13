@@ -80,8 +80,8 @@ SET search_path = public
 AS $$
   SELECT
     md5(pp.user_id::text),
-    round(pp.lat, 3),
-    round(pp.lng, 3),
+    round(pp.lat::numeric, 3),
+    round(pp.lng::numeric, 3),
     pp.heading
   FROM public.provider_presence pp
   WHERE auth.uid() IS NOT NULL
