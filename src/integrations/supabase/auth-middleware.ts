@@ -60,8 +60,16 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' })
     return next({ headers: { Authorization: `Bearer ${session.access_token}` } });
   })
   .server(async ({ next }) => {
-    const SUPABASE_URL = process.env['SUPABASE_URL'];
-    const SUPABASE_PUBLISHABLE_KEY = process.env['SUPABASE_PUBLISHABLE_KEY'];
+    // Lovable reserves SUPABASE_* names; prefer Mamnoon-specific secrets,
+    // then the public Vite config already used by the browser client.
+    const SUPABASE_URL =
+      process.env['MAMNOON_SUPABASE_URL'] ||
+      process.env['SUPABASE_URL'] ||
+      process.env['VITE_SUPABASE_URL'];
+    const SUPABASE_PUBLISHABLE_KEY =
+      process.env['MAMNOON_SUPABASE_PUBLISHABLE_KEY'] ||
+      process.env['SUPABASE_PUBLISHABLE_KEY'] ||
+      process.env['VITE_SUPABASE_PUBLISHABLE_KEY'];
 
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
       const missing = [
