@@ -147,7 +147,8 @@ CREATE POLICY "Own presence update" ON public.provider_presence FOR UPDATE TO au
 CREATE POLICY "Own presence delete" ON public.provider_presence FOR DELETE TO authenticated USING (auth.uid() = user_id);
 CREATE OR REPLACE FUNCTION public.touch_provider_presence() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN NEW.updated_at := now(); RETURN NEW; END $$;
-DO $$BEGIN
+DO $
+BEGIN
   -- Some deployments create provider_presence in a later migration.
   -- Attach the timestamp trigger when the table already exists; migration
   -- 0005 creates it and attaches this trigger otherwise.
