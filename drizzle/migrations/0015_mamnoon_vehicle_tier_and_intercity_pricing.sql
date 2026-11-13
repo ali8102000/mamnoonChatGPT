@@ -33,14 +33,13 @@ BEGIN
       NEW.pickup_lat, NEW.pickup_lng, NEW.vehicle_category::text
     );
 
-    -- Intercity and expensive city rides get only a small demand adjustment.
-    IF COALESCE(NEW.is_intercity, false) OR v_base_fare >= 10000 THEN
-      v_multiplier := LEAST(1.10, GREATEST(0.95, v_multiplier));
-    ELSE
-      v_multiplier := LEAST(1.50, GREATEST(0.80, v_multiplier));
-    END IF;
-
+    -- Intercity and fares reaching 10000 IQD get only a small demand adjustment.
+    v_multiplier := LEAST(1.50, GREATEST(0.80, v_multiplier));
     v_economy_fare := v_base_fare * v_multiplier;
+    IF COALESCE(NEW.is_intercity, false) OR v_economy_fare >= 10000 THEN
+      v_multiplier := LEAST(1.10, GREATEST(0.95, v_multiplier));
+      v_economy_fare := v_base_fare * v_multiplier;
+    END IF;
 
     IF NEW.vehicle_category::text = 'premium' THEN
       v_vehicle_multiplier := CASE
