@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 
@@ -8,7 +9,8 @@ type DriverWallet = { balance: number; total_earned: number; total_commission: n
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
 
 export default function ProfileScreen() {
-  const { user, profile, roles, signOut } = useAuth();
+  const { user, profile, roles, signOut, refresh } = useAuth();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [wallet, setWallet] = useState<DriverWallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
 
@@ -32,6 +34,47 @@ export default function ProfileScreen() {
     }
     load();
   }, [user?.id, roles]);
+
+  async function chooseAndUploadAvatar() {
+    if (!user?.id || uploadingAvatar) return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("إذن الصور", "اسمح لممنون بالوصول إلى الصور حتى تختار صورتك الشخصية.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.82,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      setUploadingAvatar(true);
+      const asset = result.assets[0];
+      const response = await fetch(asset.uri);
+      const body = await response.arrayBuffer();
+      const mime = asset.mimeType || "image/jpeg";
+      const extension = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+      const path = `${user.id}/avatar-${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, body, { contentType: mime, cacheControl: "3600", upsert: false });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: data.publicUrl })
+        .eq("id", user.id);
+      if (updateError) throw updateError;
+      await refresh();
+      Alert.alert("تم", "تم حفظ صورتك الشخصية بنجاح.");
+    } catch (error: any) {
+      Alert.alert("تعذر رفع الصورة", error?.message || "تأكد من اتصال الإنترنت ثم حاول مرة ثانية.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
 
   async function handleSignOut() {
     Alert.alert("تسجيل الخروج", "هل أنت متأكد؟", [
@@ -57,6 +100,9 @@ export default function ProfileScreen() {
             <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
           )}
         </View>
+        <TouchableOpacity style={styles.avatarButton} onPress={chooseAndUploadAvatar} disabled={uploadingAvatar}>
+          {uploadingAvatar ? <ActivityIndicator color="#fff" /> : <Text style={styles.avatarButtonText}>📷 تغيير الصورة الشخصية</Text>}
+        </TouchableOpacity>
         <Text style={styles.name}>{profile?.full_name || "مستخدم"}</Text>
         <Text style={styles.phone}>{profile?.phone}</Text>
       </View>
@@ -159,6 +205,8 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 32, fontWeight: "900", color: "#fff" },
   avatarImage: { width: "100%", height: "100%", borderRadius: 40 },
+  avatarButton: { backgroundColor: "#0f766e", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12, minWidth: 190, alignItems: "center" },
+  avatarButtonText: { color: "#fff", fontSize: 13, fontWeight: "800" },
   name: { fontSize: 22, fontWeight: "800", color: "#1e293b" },
   phone: { fontSize: 14, color: "#64748b", marginTop: 4 },
   rolesRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 24 },
