@@ -218,7 +218,11 @@ export default function WorkerOnboarding() {
             ? "وافقت الإدارة على مستمسكاتك. حدّث الحساب للمتابعة."
             : "استلمنا صورتك الشخصية والبطاقة الوطنية من الأمام والخلف. ستتمكن من استقبال الطلبات بعد موافقة الإدارة."}
         </Text>
-        <Button title="العودة للرئيسية" onPress={async () => { await refresh(); router.replace("/home"); }} />
+        {status === "pending" ? (
+          <Button title="تعديل البيانات وإعادة إرفاق المستمسكات" onPress={() => setStatus(null)} />
+        ) : (
+          <Button title="العودة للرئيسية" onPress={async () => { await refresh(); router.replace("/home"); }} />
+        )}
       </View>
     );
   }
