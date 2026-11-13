@@ -94,6 +94,7 @@ export function MapPicker({
   const [suggestions, setSuggestions] = useState<
     Array<{ id: string; text: string; secondary: string }>
   >([]);
+  const [searchingPlaces, setSearchingPlaces] = useState(false);
   const sessionTokenRef = useRef<any>(null);
   const acServiceRef = useRef<any>(null);
   const placesSvcRef = useRef<any>(null);
@@ -334,6 +335,7 @@ export function MapPicker({
     }
     let stale = false;
     setSuggestions([]);
+    setSearchingPlaces(true);
     const q = searchQuery.trim();
     const timer = setTimeout(async () => {
       if (!sessionTokenRef.current) sessionTokenRef.current = crypto.randomUUID();
@@ -355,6 +357,7 @@ export function MapPicker({
           },
         });
         if (stale) return;
+        setSearchingPlaces(false);
         if (res.suggestions?.length) {
           setSuggestions(
             res.suggestions.map((s: any) => {
@@ -369,11 +372,12 @@ export function MapPicker({
         setSuggestions([]);
       } catch (e) {
         if (!stale) {
+          setSearchingPlaces(false);
           setSuggestions([]);
           setGeoError(arabicWarning(e));
         }
       }
-    }, 350);
+    }, 250);
     return () => {
       stale = true;
       clearTimeout(timer);
@@ -466,6 +470,11 @@ export function MapPicker({
                 </button>
               )}
             </div>
+            {searchOpen && (searchingPlaces || (searchQuery.trim().length >= 2 && suggestions.length === 0)) && (
+              <div className="mt-2 bg-white rounded-2xl shadow-lg px-3 py-3 text-xs text-muted-foreground">
+                {searchingPlaces ? "جاري البحث داخل المحافظة..." : "ما لكينا أماكن مطابقة داخل المحافظة"}
+              </div>
+            )}
             {searchOpen && suggestions.length > 0 && (
               <div className="mt-2 bg-white rounded-2xl shadow-lg overflow-hidden max-h-64 overflow-y-auto">
                 {suggestions.map((s) => (
