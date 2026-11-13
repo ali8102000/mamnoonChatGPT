@@ -1,44 +1,48 @@
 import { describe, it, expect } from "vitest";
 import { taxiFare, calculateFareBreakdown } from "./taxi-fares";
 
-describe("400 IQD per actual driving kilometer", () => {
-  it.each(["economy", "premium", "luxury"] as const)(
-    "charges 4000 IQD for 10 km in %s",
-    (category) => {
-      expect(taxiFare(category, 10)).toBe(4000);
-    },
-  );
-  it("has no minimum or base fare", () => {
-    expect(taxiFare("economy", 1)).toBe(500);
-    expect(taxiFare("economy", 0.5)).toBe(250);
-    expect(taxiFare("economy", 0)).toBe(0);
-  });
-  it("rounds the base fare to the nearest 250 IQD", () => {
+describe("Mamnoon city taxi pricing", () => {
+  it("keeps economy at 400 IQD/km and rounds to nearest 250", () => {
+    expect(taxiFare("economy", 10)).toBe(4000);
     expect(taxiFare("economy", 8.501)).toBe(3500);
     expect(taxiFare("economy", 8.3)).toBe(3250);
   });
-  it("adds no traffic or weather surcharges", () => {
+
+  it("adds 10% to premium and 25% to luxury below 5000 IQD", () => {
+    expect(taxiFare("premium", 10)).toBe(4500);
+    expect(taxiFare("luxury", 10)).toBe(5000);
+  });
+
+  it("adds 5% to premium and 10% to luxury from 5000 IQD upward", () => {
+    expect(taxiFare("economy", 15)).toBe(6000);
+    expect(taxiFare("premium", 15)).toBe(6250);
+    expect(taxiFare("luxury", 15)).toBe(6500);
+  });
+
+  it("limits demand changes on city fares of 10000 IQD or more", () => {
+    expect(taxiFare("economy", 25, { demandMultiplier: 1.5 })).toBe(10500);
+    expect(taxiFare("economy", 25, { demandMultiplier: 0.8 })).toBe(9500);
+  });
+
+  it("uses 250 IQD/km and smaller demand changes for inter-governorate rides", () => {
+    expect(taxiFare("economy", 68, { isIntercity: true })).toBe(17000);
+    expect(taxiFare("premium", 68, { isIntercity: true })).toBe(18000);
+    expect(taxiFare("luxury", 68, { isIntercity: true })).toBe(18750);
+    expect(taxiFare("economy", 68, { isIntercity: true, demandMultiplier: 1.5 })).toBe(18750);
+  });
+
+  it("does not add weather or traffic charges", () => {
     const fare = calculateFareBreakdown("luxury", 5, {
       weather: "heat",
       roadCondition: "congested",
     });
-    expect(fare.total).toBe(2000);
     expect(fare.weatherAllowance).toBe(0);
     expect(fare.trafficAllowance).toBe(0);
   });
-  it("bounds dynamic demand discounts and surcharges", () => {
-    expect(taxiFare("economy", 10, { demandMultiplier: 0.8 })).toBe(3250);
-    expect(taxiFare("economy", 10, { demandMultiplier: 1.5 })).toBe(6000);
-    expect(taxiFare("economy", 10, { demandMultiplier: 9 })).toBe(6000);
-  });
-  it("rejects unavailable distances", () => {
-    expect(() => taxiFare("economy", NaN)).toThrow();
-  });
-});
 
-describe("zero-distance pricing", () => {
-  it("keeps zero distance free and rounds positive fares to 250 IQD", () => {
+  it("keeps zero distance free and rejects invalid distances", () => {
     expect(taxiFare("economy", 0)).toBe(0);
     expect(taxiFare("economy", 0.625)).toBe(250);
+    expect(() => taxiFare("economy", NaN)).toThrow();
   });
 });
