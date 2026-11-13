@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { MessageCircle, Send, Loader2, ArrowRight } from "lucide-react";
@@ -23,6 +23,11 @@ function SupportChatPage() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [booting, setBooting] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length, selected?.id]);
 
   const loadConversations = useCallback(async () => {
     if (!uid) return;
@@ -157,6 +162,7 @@ function SupportChatPage() {
             {messages.length === 0 ? <div className="text-center text-sm text-muted-foreground py-12">أهلاً بك، اكتب رسالتك وسيقوم فريق ممنون بالرد عليك.</div> : messages.map((m) => <div key={m.id} className={"max-w-[85%] rounded-2xl px-3 py-2 text-sm " + (m.sender_id === uid ? "mr-auto bg-primary text-primary-foreground" : "ml-auto bg-card border border-border")}>
               <p className="whitespace-pre-wrap break-words">{m.body}</p><div className="text-[10px] opacity-70 mt-1">{new Date(m.created_at).toLocaleString("ar-IQ")}</div>
             </div>)}
+            <div ref={messagesEndRef} />
           </div>
           {selected?.status === "open" && <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="p-3 border-t border-border flex gap-2">
             <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} placeholder="اكتب رسالتك..." className="flex-1 min-w-0 rounded-xl bg-card border border-border px-3 py-3 text-sm outline-none" />
