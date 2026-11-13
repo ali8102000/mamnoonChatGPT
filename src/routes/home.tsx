@@ -144,6 +144,14 @@ function HomePage() {
           </div>
         </div>
 
+        <Link
+          to="/account-settings"
+          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-bold text-primary"
+        >
+          <span>⇄</span>
+          <span>تبديل الدور</span>
+        </Link>
+
         {activeRole === "driver" && <ProviderHome type="taxi" />}
         {activeRole === "worker" && <ProviderHome type="service" />}
         {activeRole !== "driver" && activeRole !== "worker" && <CustomerHome />}
