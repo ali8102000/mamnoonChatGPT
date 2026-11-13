@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 import {
   View,
@@ -23,6 +24,16 @@ type IncomingRequest = {
 export default function HomeScreen() {
   const { user, profile, roles } = useAuth();
   const [activeRole, setActiveRole] = useState<string>(roles[0] || "customer");
+
+  useEffect(() => {
+    let mounted = true;
+    SecureStore.getItemAsync("mamnoon_active_role").then((savedRole) => {
+      if (mounted && savedRole && roles.includes(savedRole as (typeof roles)[number])) {
+        setActiveRole(savedRole);
+      }
+    });
+    return () => { mounted = false; };
+  }, [roles]);
   const [available, setAvailable] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState("pending");
@@ -233,22 +244,6 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
       </View>
-      <View style={styles.roleSwitcher}>
-        {roles.map((r) => (
-          <TouchableOpacity
-            key={r}
-            style={[styles.roleChip, activeRole === r && styles.roleChipActive]}
-            onPress={() => {
-              setActiveRole(r);
-              setAvailable(false);
-            }}
-          >
-            <Text style={[styles.roleChipText, activeRole === r && styles.roleChipTextActive]}>
-              {r === "customer" ? "زبون" : r === "driver" ? "سائق" : "فني"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
       <ActiveCustomerRequestBanner />
       <ScrollView
         style={{ flex: 1 }}
@@ -432,16 +427,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { fontSize: 18, fontWeight: "800", color: "#fff" },
-  roleSwitcher: { flexDirection: "row", gap: 8, paddingHorizontal: 20, paddingBottom: 12 },
-  roleChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: "#e2e8f0",
-  },
-  roleChipActive: { backgroundColor: "#2563eb" },
-  roleChipText: { fontSize: 13, fontWeight: "700", color: "#64748b" },
-  roleChipTextActive: { color: "#fff" },
   sectionTitle: { fontSize: 18, fontWeight: "800", color: "#1e293b", marginBottom: 16 },
   tilesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   tile: {
