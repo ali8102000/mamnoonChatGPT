@@ -10,6 +10,7 @@ type WalletTransaction = { id: string; type: string; created_at: string; amount:
 
 export default function ProfileScreen() {
   const { user, profile, roles, signOut, refresh } = useAuth();
+  const isProvider = roles.includes("worker") || roles.includes("driver");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [wallet, setWallet] = useState<DriverWallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -100,9 +101,9 @@ export default function ProfileScreen() {
             <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
           )}
         </View>
-        <TouchableOpacity style={styles.avatarButton} onPress={chooseAndUploadAvatar} disabled={uploadingAvatar}>
+        {!isProvider && <TouchableOpacity style={styles.avatarButton} onPress={chooseAndUploadAvatar} disabled={uploadingAvatar}>
           {uploadingAvatar ? <ActivityIndicator color="#fff" /> : <Text style={styles.avatarButtonText}>📷 تغيير الصورة الشخصية</Text>}
-        </TouchableOpacity>
+        </TouchableOpacity>}
         <View style={styles.nameRow}>
           <Text style={styles.name}>{profile?.full_name || "مستخدم"}</Text>
           {roles.some((r) => r === "admin" || r === "super_admin") && (
