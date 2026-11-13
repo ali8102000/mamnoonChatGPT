@@ -103,7 +103,16 @@ export const cancelRequest = createServerFn({ method: "POST" })
       _request_id: data.requestId,
       _reason: data.reason ?? null,
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[Mamnoon] Customer cancel_service_request RPC failed", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        requestId: data.requestId,
+      });
+      throw new Error(error.message);
+    }
     return { ok: true };
   });
 
@@ -125,7 +134,16 @@ export const providerCancelRequest = createServerFn({ method: "POST" })
       _request_id: data.requestId,
       _reason: data.reason ?? null,
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[Mamnoon] Provider cancel_service_request RPC failed", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        requestId: data.requestId,
+      });
+      throw new Error(error.message);
+    }
     return { ok: true };
   });
 
