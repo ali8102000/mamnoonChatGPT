@@ -156,6 +156,7 @@ const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 22, paddingTop: 54, backgroundColor: "#f7f8f5" },
   title: { fontSize: 26, fontWeight: "900", color: "#1e293b", marginBottom: 8 },
   sectionTitle: { fontSize: 18, fontWeight: "900", color: "#1e293b", marginTop: 18, marginBottom: 8 },
+  nameSection: { backgroundColor: "#fff", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "#e2e8f0", marginBottom: 12 },
   roleGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 18 },
   roleCard: { width: "48%", minHeight: 112, borderRadius: 20, padding: 14, justifyContent: "center", alignItems: "center" },
   roleEmoji: { fontSize: 28, marginBottom: 6 },
