@@ -874,7 +874,7 @@ function ProvidersSection() {
               </div>
               <div className="flex gap-1.5">
                 <button
-                  onClick={() => handleAction(p.user_id, "approved")
+                  onClick={() => handleAction(p.user_id, "approved")}
                   className="text-xs px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-bold"
                 >
                   تفعيل
