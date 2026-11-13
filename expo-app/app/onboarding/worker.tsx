@@ -35,6 +35,11 @@ export default function WorkerOnboarding() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
+  }, []);
+
+  useEffect(() => {
     supabase
       .from("services")
       .select("id,slug,name_ar")
