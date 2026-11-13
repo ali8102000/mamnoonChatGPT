@@ -5,9 +5,6 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from './types'
 import { supabase } from './client'
 
-
-
-
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
 }
@@ -17,16 +14,12 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     const headers = new Headers(
       typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
     );
-
     if (init?.headers) {
       new Headers(init.headers).forEach((value, key) => headers.set(key, value));
     }
-
-    // New Supabase API keys are opaque strings, not bearer JWTs.
     if (isNewSupabaseApiKey(supabaseKey) && headers.get('Authorization') === `Bearer ${supabaseKey}`) {
       headers.delete('Authorization');
     }
-
     headers.set('apikey', supabaseKey);
     return fetch(input, { ...init, headers });
   };
@@ -34,24 +27,39 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 export const requireSupabaseAuth = createMiddleware({ type: 'function' })
   .client(async ({ next }) => {
-    // Every protected server function must receive the active user's JWT.
-    // TanStack server functions do not inherit the Supabase browser session automatically.
-    let { data: { session }, error } = await supabase.auth.getSession();
+    let session = null as Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'];
+    let authError: { message: string; name?: string } | null = null;
 
-    if (!error && session?.expires_at && session.expires_at * 1000 <= Date.now() + 30_000) {
-      const refreshed = await supabase.auth.refreshSession();
-      session = refreshed.data.session;
-      error = refreshed.error;
+    try {
+      const result = await supabase.auth.getSession();
+      session = result.data.session;
+      authError = result.error;
+    } catch (cause) {
+      const err = cause instanceof Error ? cause : new Error('unknown');
+      throw new Error(`تعذّرت قراءة جلسة الدخول من التخزين (${err.name})`);
     }
 
-    if (error || !session?.access_token) {
-      throw new Error('انتهت جلسة الدخول؛ سجّل الدخول مرة أخرى');
+    if (!authError && session?.expires_at && session.expires_at * 1000 <= Date.now() + 30_000) {
+      try {
+        const refreshed = await supabase.auth.refreshSession();
+        session = refreshed.data.session;
+        authError = refreshed.error;
+      } catch (cause) {
+        const err = cause instanceof Error ? cause : new Error('unknown');
+        throw new Error(`تعذّر تجديد جلسة الدخول (${err.name})`);
+      }
+    }
+
+    if (authError) {
+      throw new Error(`خطأ بقراءة جلسة الدخول: ${authError.name || 'AuthError'}`);
+    }
+    if (!session?.access_token) {
+      throw new Error('التطبيق لم يعثر على جلسة محفوظة. سجّل الخروج ثم ادخل من جديد.');
     }
 
     return next({ headers: { Authorization: `Bearer ${session.access_token}` } });
   })
   .server(async ({ next }) => {
-    
     const SUPABASE_URL = process.env['SUPABASE_URL'];
     const SUPABASE_PUBLISHABLE_KEY = process.env['SUPABASE_PUBLISHABLE_KEY'];
 
@@ -64,66 +72,31 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' })
       console.error(`[Supabase] ${message}`);
       throw new Error(message);
     }
-    
+
     const request = getRequest();
-
-    if (!request?.headers) {
-      throw new Error('Unauthorized: No request headers available');
-    }
-
+    if (!request?.headers) throw new Error('Unauthorized: No request headers available');
 
     const authHeader = request.headers.get('authorization');
-
-    if (!authHeader) {
-      throw new Error('Unauthorized: No authorization header provided');
-    }
-
-    if (!authHeader.startsWith('Bearer ')) {
-      throw new Error('Unauthorized: Only Bearer tokens are supported');
-    }
+    if (!authHeader) throw new Error('Unauthorized: No authorization header provided');
+    if (!authHeader.startsWith('Bearer ')) throw new Error('Unauthorized: Only Bearer tokens are supported');
 
     const token = authHeader.replace('Bearer ', '');
-    if (!token) {
-      throw new Error('Unauthorized: No token provided');
-    }
+    if (!token || token.split('.').length !== 3) throw new Error('Unauthorized: Invalid token');
 
-    if (token.split('.').length !== 3) {
-      throw new Error('Unauthorized: Invalid token');
-    }
-
-    const supabase = createClient<Database>(
-      SUPABASE_URL!,
-      SUPABASE_PUBLISHABLE_KEY!,
-      {
-        global: {
-          fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY!),
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-        auth: {
-          storage: undefined,
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-      }
-    );
+    const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      global: {
+        fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
+        headers: { Authorization: `Bearer ${token}` },
+      },
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+    });
 
     const { data, error } = await supabase.auth.getClaims(token);
-    if (error || !data?.claims) {
-      throw new Error('Unauthorized: Invalid token');
-    }
-
-    if (!data.claims.sub) {
-      throw new Error('Unauthorized: No user ID found in token');
-    }
+    if (error || !data?.claims) throw new Error('Unauthorized: Invalid token');
+    if (!data.claims.sub) throw new Error('Unauthorized: No user ID found in token');
 
     return next({
-      context: {
-        supabase,
-        userId: data.claims.sub,
-        claims: data.claims,
-      },
+      context: { supabase, userId: data.claims.sub, claims: data.claims },
     });
   },
 );
