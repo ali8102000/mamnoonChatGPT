@@ -108,18 +108,31 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
       path = `/maps/api/geocode/json?latlng=${data.center.lat},${data.center.lng}&language=ar`;
     }
     let response = await fetch(gateway + path, { method: body ? "POST" : "GET", headers, body });
-    // Retry with the governorate name only when the bounded search has no results.
+    // Try alternative query forms if Google returns no places OR all returned
+    // places fall outside the selected governorate's administrative boundary.
     if (data.action === "autocomplete" && data.governorateKey && response.ok && body) {
-      const firstResult = (await response.clone().json()) as any;
-      if (!(firstResult.places?.length)) {
-        const governorate = getGovernorate(data.governorateKey);
-        if (governorate) {
+      const governorate = getGovernorate(data.governorateKey);
+      if (governorate) {
+        const hasLocalResult = (payload: any) =>
+          (payload.places ?? []).some(
+            (p: any) =>
+              p.location &&
+              isInGovernorate(
+                { lat: p.location.latitude, lng: p.location.longitude },
+                governorate.key,
+              ),
+          );
+        let payload = (await response.clone().json()) as any;
+        for (const textQuery of [
+          data.input,
+          `${data.input} ${governorate.name} العراق`,
+        ]) {
+          if (hasLocalResult(payload)) break;
           body = JSON.stringify({
-            textQuery: `${data.input} ${governorate.name} العراق`,
+            textQuery,
             languageCode: "ar",
             regionCode: "IQ",
             pageSize: 20,
-            rankPreference: "DISTANCE",
             locationBias: {
               circle: {
                 center: { latitude: data.center.lat, longitude: data.center.lng },
@@ -128,7 +141,21 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
             },
           });
           response = await fetch(gateway + path, { method: "POST", headers, body });
+          if (!response.ok) break;
+          payload = (await response.clone().json()) as any;
         }
+        console.info("[Mamnoon Places search]", {
+          governorate: governorate.key,
+          rawResults: payload.places?.length ?? 0,
+          localResults: (payload.places ?? []).filter(
+            (p: any) =>
+              p.location &&
+              isInGovernorate(
+                { lat: p.location.latitude, lng: p.location.longitude },
+                governorate.key,
+              ),
+          ).length,
+        });
       }
     }
     if (!response.ok) {
