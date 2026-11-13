@@ -74,22 +74,22 @@ export default function DriverOnboarding() {
 
   const makes = [...new Set(models.map((m) => m.make))];
 
-  async function pickPhoto(kind: "face" | "id" | "vehicle-document") {
+  async function pickPhoto(kind: "face" | "id" | "vehicle-document", source?: "camera" | "library") {
     try {
       let result: ImagePicker.ImagePickerResult;
-      if (kind === "face") {
+      if (kind === "face" || (kind === "vehicle-document" && source === "camera")) {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
           Alert.alert("إذن الكاميرا", "اسمح للتطبيق باستخدام الكاميرا لالتقاط صورة الوجه.");
           return;
         }
         result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.75,
+          mediaTypes: ["images"], allowsEditing: kind === "face", ...(kind === "face" ? { aspect: [1, 1] as [number, number] } : {}), quality: 0.85,
         });
       } else {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert("إذن الصور", "اسمح للتطبيق بالوصول إلى الصور لاختيار صورة الهوية.");
+          Alert.alert("إذن الصور", kind === "vehicle-document" ? "اسمح للتطبيق بالوصول إلى الصور حتى تختار السنوية أو الوكالة." : "اسمح للتطبيق بالوصول إلى الصور لاختيار صورة الهوية.");
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
@@ -298,8 +298,12 @@ export default function DriverOnboarding() {
 
       <Text style={styles.label}>صورة سنوية السيارة أو الوكالة *</Text>
       <Text style={styles.note}>صوّر صفحة المستند كاملة وبوضوح، بحيث يظهر رقم المركبة أو رقم اللوحة وبيانات السيارة. إذا عندك وكالة استخدمها بدلاً من السنوية.</Text>
-      <TouchableOpacity style={styles.photoButton} onPress={() => pickPhoto("vehicle-document")}>
-        {vehicleDocumentPhoto ? <Image source={{ uri: vehicleDocumentPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>إرفاق صورة السنوية أو الوكالة</Text>}
+      <TouchableOpacity style={styles.photoButton} onPress={() => Alert.alert("إرفاق مستند السيارة", "اختَر طريقة إرفاق السنوية أو الوكالة", [
+        { text: "تصوير المستند بالكاميرا", onPress: () => { void pickPhoto("vehicle-document", "camera"); } },
+        { text: "اختيار صورة من المعرض", onPress: () => { void pickPhoto("vehicle-document", "library"); } },
+        { text: "إلغاء", style: "cancel" },
+      ])}>
+        {vehicleDocumentPhoto ? <Image source={{ uri: vehicleDocumentPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>اضغط هنا لتصوير السنوية أو اختيارها من المعرض</Text>}
       </TouchableOpacity>
 
       <View style={{ height: 24 }} />
