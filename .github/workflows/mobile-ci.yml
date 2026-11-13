@@ -1,4 +1,4 @@
-name: Kafo mobile CI
+name: Mamnoon mobile CI
 
 on:
   push:
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: kafo-mobile-${{ github.ref }}
+  group: mamnoon-mobile-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
           APP_ENV: production
           EAS_BUILD: "true"
           EAS_PROJECT_ID: "00000000-0000-4000-8000-000000000000"
-          EXPO_PUBLIC_SUPABASE_URL: "https://hvfiwjryffjwaynkpgar.supabase.co"
+          EXPO_PUBLIC_SUPABASE_URL: "https://enteiolvirenbhkyskgb.supabase.co"
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_ci_placeholder"
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: "ci-placeholder"
         run: |
