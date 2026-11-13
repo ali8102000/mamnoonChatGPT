@@ -56,6 +56,7 @@ import {
   adminSaveCoupon,
   adminSearchUsers,
   adminSetProviderStatus,
+  adminUpdateProviderName,
   adminUnblockUser,
 } from "@/lib/admin.functions";
 import { useServerFn } from "@tanstack/react-start";
@@ -781,12 +782,85 @@ function InfoRow({ label, value }: { label: string; value: any }) {
   );
 }
 
+function ProviderDetailModal({
+  user,
+  onClose,
+  onSaveName,
+}: {
+  user: any;
+  onClose: () => void;
+  onSaveName: (userId: string, fullName: string) => Promise<void>;
+}) {
+  const [name, setName] = useState(user.profile?.full_name ?? "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const profile = user.profile ?? {};
+  const ratings = user.ratings ?? [];
+  const average = ratings.length
+    ? ratings.reduce((sum: number, rating: any) => sum + Number(rating.stars ?? 0), 0) / ratings.length
+    : 0;
+  async function save() {
+    if (name.trim().length < 2) { setMessage("الاسم يجب أن يكون حرفين على الأقل"); return; }
+    setSaving(true);
+    setMessage("");
+    try { await onSaveName(user.profile?.id, name.trim()); }
+    catch (e) { setMessage(e instanceof Error ? e.message : "تعذر حفظ الاسم"); }
+    finally { setSaving(false); }
+  }
+  return (
+    <div className="fixed inset-0 z-[110] bg-black/70 p-3 flex items-center justify-center" role="dialog" aria-modal="true">
+      <div className="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-3xl bg-background border border-border p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-black">ملف مقدم الخدمة</h3>
+          <button onClick={onClose} className="p-2 rounded-lg bg-surface-2" aria-label="إغلاق"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3 mb-4">
+          {profile.avatar_url ? <img src={profile.avatar_url} alt="الصورة الشخصية" className="w-16 h-16 rounded-2xl object-cover" /> : <div className="w-16 h-16 rounded-2xl bg-primary/15 grid place-items-center text-2xl font-black">{(profile.full_name || "؟").charAt(0)}</div>}
+          <div className="min-w-0">
+            <div className="font-black">{profile.full_name || "بدون اسم"}</div>
+            <div className="text-sm text-muted-foreground" dir="ltr">{profile.phone || "لا يوجد رقم"}</div>
+            <div className="text-xs text-muted-foreground">{user.driverProfile ? "سائق تكسي" : "فني"}</div>
+          </div>
+        </div>
+        <label className="block text-xs font-bold mb-2">تعديل اسم المستخدم</label>
+        <div className="flex gap-2 mb-2">
+          <input value={name} onChange={(e) => setName(e.target.value)} className="flex-1 glass rounded-xl px-3 py-2 text-sm" maxLength={80} />
+          <button onClick={save} disabled={saving || name.trim() === profile.full_name} className="px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50">{saving ? "حفظ..." : "حفظ الاسم"}</button>
+        </div>
+        {message && <div className="text-xs text-destructive mb-3">{message}</div>}
+        <div className="grid grid-cols-2 gap-2 my-4">
+          <div className="glass rounded-xl p-3"><div className="text-xs text-muted-foreground">عدد التقييمات</div><div className="text-xl font-black">{ratings.length}</div></div>
+          <div className="glass rounded-xl p-3"><div className="text-xs text-muted-foreground">المعدل الحقيقي</div><div className="text-xl font-black">⭐ {average.toFixed(2)} / 5</div></div>
+        </div>
+        <h4 className="font-black text-sm mb-2">تقييمات الزبائن</h4>
+        {ratings.length ? <div className="space-y-2">
+          {ratings.map((rating: any) => <div key={rating.id} className="glass rounded-2xl p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {rating.rater?.avatar_url ? <img src={rating.rater.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-primary/10 grid place-items-center text-xs font-bold">{(rating.rater?.full_name || "؟").charAt(0)}</div>}
+                <span className="text-xs font-bold truncate">{rating.rater?.full_name || "زبون"}</span>
+              </div>
+              <span className="text-xs font-black text-amber-600">⭐ {Number(rating.stars).toFixed(1)}</span>
+            </div>
+            {rating.comment && <p className="text-xs mt-2 leading-6">{rating.comment}</p>}
+            <div className="text-[10px] text-muted-foreground mt-1">{new Date(rating.created_at).toLocaleString("ar-IQ")}</div>
+          </div>)}
+        </div> : <div className="rounded-xl bg-surface-2 p-4 text-xs text-muted-foreground">لا توجد تقييمات مسجلة لهذا الحساب بعد.</div>}
+      </div>
+    </div>
+  );
+}
+
 function ProvidersSection() {
   const [type, setType] = useState("driver");
   const [providers, setProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
   const [selectedVerification, setSelectedVerification] = useState<any | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<any | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const listProviderDetail = useServerFn(adminGetUserDetail);
+  const updateProviderName = useServerFn(adminUpdateProviderName);
   const listProviders = useServerFn(adminListProviders);
   const setStatus = useServerFn(adminSetProviderStatus);
   const load = useCallback(async () => {
@@ -813,6 +887,24 @@ function ProvidersSection() {
     } catch (e) {
       setActionMessage(e instanceof Error ? e.message : "تعذّر تحديث حالة الحساب");
     }
+  }
+  async function openProviderProfile(userId: string) {
+    setDetailLoading(true);
+    try {
+      const detail = await listProviderDetail({ data: { user_id: userId } });
+      setSelectedProvider(detail);
+    } catch (e) {
+      setActionMessage(e instanceof Error ? e.message : "تعذر تحميل ملف مقدم الخدمة");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+  async function saveProviderName(userId: string, fullName: string) {
+    await updateProviderName({ data: { user_id: userId, full_name: fullName } });
+    await load();
+    const detail = await listProviderDetail({ data: { user_id: userId } });
+    setSelectedProvider(detail);
+    setActionMessage("تم تحديث اسم مقدم الخدمة بنجاح");
   }
   return (
     <div>
@@ -868,6 +960,13 @@ function ProvidersSection() {
                 >
                   <Eye className="h-3.5 w-3.5" /> عرض المستمسكات
                 </button>
+                <button
+                  onClick={() => openProviderProfile(p.user_id)}
+                  disabled={detailLoading}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-700 font-bold"
+                >
+                  الملف والتقييمات
+                </button>
                 <span className="text-[10px] text-muted-foreground self-center">
                   {p.verification ? "المستمسكات محفوظة" : "لا توجد مستمسكات محفوظة لهذا الطلب"}
                 </span>
@@ -895,6 +994,13 @@ function ProvidersSection() {
             </div>
           ))}
         </div>
+      )}
+      {selectedProvider && (
+        <ProviderDetailModal
+          user={selectedProvider}
+          onClose={() => setSelectedProvider(null)}
+          onSaveName={saveProviderName}
+        />
       )}
       {selectedVerification && (
         <div className="fixed inset-0 z-[100] bg-black/70 p-3 flex items-center justify-center" role="dialog" aria-modal="true">
