@@ -36,8 +36,9 @@ function SupportChatPage() {
       setConversations(rows);
       if (selected) setSelected(rows.find((c: any) => c.id === selected.id) ?? null);
     } else {
-      let { data, error } = await (supabase as any).from("support_conversations").select("*").eq("user_id", uid).eq("status", "open").order("updated_at", { ascending: false }).limit(1).maybeSingle();
-      if (error) throw error;
+      const initial = await (supabase as any).from("support_conversations").select("*").eq("user_id", uid).eq("status", "open").order("updated_at", { ascending: false }).limit(1).maybeSingle();
+      let data = initial.data;
+      if (initial.error) throw initial.error;
       if (!data) {
         const created = await (supabase as any).from("support_conversations").insert({ user_id: uid, created_by: uid }).select("*").single();
         if (created.error) {
