@@ -18,6 +18,12 @@ REVOKE ALL ON public.provider_presence FROM PUBLIC, anon;
 GRANT SELECT, INSERT, UPDATE ON public.provider_presence TO authenticated;
 GRANT ALL ON public.provider_presence TO service_role;
 
+-- Remove legacy policies from migration 0002; otherwise permissive policies combine with the stricter role checks below.
+DROP POLICY IF EXISTS "Own presence read" ON public.provider_presence;
+DROP POLICY IF EXISTS "Own presence insert" ON public.provider_presence;
+DROP POLICY IF EXISTS "Own presence update" ON public.provider_presence;
+DROP POLICY IF EXISTS "Own presence delete" ON public.provider_presence;
+
 DROP POLICY IF EXISTS "Providers read own presence" ON public.provider_presence;
 CREATE POLICY "Providers read own presence"
   ON public.provider_presence FOR SELECT TO authenticated
