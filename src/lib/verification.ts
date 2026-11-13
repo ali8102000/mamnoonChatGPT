@@ -103,3 +103,62 @@ export async function fileToCompressedDataUrl(
     reader.readAsDataURL(compressed);
   });
 }
+
+/**
+ * Uploads verification images to private Supabase Storage and persists their
+ * paths and review metadata in the database. The localStorage copy is only a
+ * same-device convenience; the database/storage copy is authoritative.
+ */
+export async function saveProviderVerificationRemote(doc: VerificationDocument): Promise<void> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const bucket = "provider-verification";
+  const stamp = Date.now();
+  const uploadImage = async (dataUrl: string, kind: "face" | "id-card") => {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const mime = blob.type === "image/png" ? "image/png" : "image/jpeg";
+    const extension = mime === "image/png" ? "png" : "jpg";
+    const path = `${doc.userId}/${doc.role}/${kind}-${stamp}.${extension}`;
+    const { error } = await supabase.storage.from(bucket).upload(path, blob, {
+      contentType: mime,
+      upsert: true,
+      cacheControl: "3600",
+    });
+    if (error) throw new Error(`تعذر حفظ صورة ${kind === "face" ? "الوجه" : "الهوية"}: ${error.message}`);
+    return path;
+  };
+
+  const [facePath, idPath] = await Promise.all([
+    uploadImage(doc.facePhotoUrl, "face"),
+    uploadImage(doc.idCardPhotoUrl, "id-card"),
+  ]);
+
+  const { error } = await (supabase as any).from("provider_verifications").upsert({
+    user_id: doc.userId,
+    provider_type: doc.role,
+    legal_name: doc.legalName,
+    phone: doc.phone ?? null,
+    email: doc.email ?? null,
+    face_photo_path: facePath,
+    id_card_photo_path: idPath,
+    document_type: doc.documentType,
+    id_number: doc.idNumber ?? null,
+    metadata: {
+      vehicleMake: doc.vehicleMake ?? null,
+      vehicleModel: doc.vehicleModel ?? null,
+      vehicleYear: doc.vehicleYear ?? null,
+      vehiclePlate: doc.vehiclePlate ?? null,
+      vehicleColor: doc.vehicleColor ?? null,
+      vehicleCategory: doc.vehicleCategory ?? null,
+      workerLevel: doc.workerLevel ?? null,
+      workerBio: doc.workerBio ?? null,
+      workerServices: doc.workerServices ?? [],
+    },
+    status: "pending",
+    rejection_reason: null,
+    submitted_at: new Date().toISOString(),
+    reviewed_at: null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+  if (error) throw new Error(`تعذر حفظ طلب التوثيق: ${error.message}`);
+}
