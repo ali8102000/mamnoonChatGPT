@@ -401,8 +401,12 @@ function RequestDetail() {
 
         {other && req.status !== "pending" && (
           <div className="glass rounded-2xl p-4 flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black">
-              {(other.full_name || "?").charAt(0)}
+            <div className="h-12 w-12 rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black shrink-0">
+              {other.avatar_url ? (
+                <img src={other.avatar_url} alt={other.full_name || "صورة المستخدم"} className="h-full w-full object-cover" />
+              ) : (
+                (other.full_name || "?").charAt(0)
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-sm truncate">{other.full_name || "مستخدم"}</div>
@@ -717,8 +721,12 @@ function RatingModal({
           <X className="h-5 w-5" />
         </button>
         <div className="text-center mb-4">
-          <div className="h-16 w-16 mx-auto rounded-3xl bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black text-2xl mb-3">
-            {(target.full_name || "?").charAt(0)}
+          <div className="h-16 w-16 mx-auto rounded-3xl overflow-hidden bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black text-2xl mb-3">
+            {target.avatar_url ? (
+              <img src={target.avatar_url} alt={target.full_name || "صورة المستخدم"} className="h-full w-full object-cover" />
+            ) : (
+              (target.full_name || "?").charAt(0)
+            )}
           </div>
           <div className="font-black text-lg">كيف كانت تجربتك؟</div>
           <div className="text-xs text-muted-foreground mt-1">
