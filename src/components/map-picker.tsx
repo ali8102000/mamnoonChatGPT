@@ -133,9 +133,16 @@ export function MapPicker({
         const center = initialValueRef.current ?? getGovernorate(governorateKeyRef.current) ?? DEFAULT_CENTER;
         const map = new g.maps.Map(containerRef.current, {
           center,
-          zoom: 14,
+          zoom: 15,
+          minZoom: 5,
+          maxZoom: 20,
           disableDefaultUI: true,
           clickableIcons: false,
+          keyboardShortcuts: false,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          backgroundColor: "#e5edf5",
           gestureHandling: "greedy",
         });
         mapRef.current = map;
@@ -312,7 +319,9 @@ export function MapPicker({
   }
 
   useEffect(() => {
-    if (autoLocateOnMount && !value) autoLocate();
+    // On the pickup map, attempt GPS immediately even when the map starts
+    // centered on the selected governorate. The browser still asks permission.
+    if (autoLocateOnMount) autoLocate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
