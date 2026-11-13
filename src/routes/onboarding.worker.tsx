@@ -91,7 +91,7 @@ function OnboardingWorker() {
   // Load existing verification if available
   useEffect(() => {
     if (session?.user?.id) {
-      const existing = getProviderVerification(session.user.id);
+      const existing = getProviderVerification(session.user.id, 'worker');
       if (existing) {
         setExistingDoc(existing);
         if (existing.legalName) setLegalName(existing.legalName);
@@ -237,7 +237,7 @@ function OnboardingWorker() {
       const { error: sErr } = await supabase.from("worker_services").insert(rows);
       if (sErr) throw sErr;
 
-      setExistingDoc(getProviderVerification(uid));
+      setExistingDoc(getProviderVerification(uid, 'worker'));
       setEditingMode(false);
       await refresh();
 
