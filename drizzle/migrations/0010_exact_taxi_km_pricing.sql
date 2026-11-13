@@ -1,4 +1,4 @@
--- Enforce the current Kafo taxi tariff: exactly 400 IQD per confirmed
+-- Enforce the current Mamnoon taxi tariff: exactly 400 IQD per confirmed
 -- driving kilometer, with no base fare, minimum, or 250-IQD rounding.
 DROP TRIGGER IF EXISTS zz_taxi_round_price ON public.service_requests;
 DROP FUNCTION IF EXISTS public.round_taxi_price_estimate();
