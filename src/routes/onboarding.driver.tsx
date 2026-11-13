@@ -103,6 +103,11 @@ const CATEGORY_META: Record<
 function OnboardingDriver() {
   const { session, profile, loading, refresh } = useAuth();
   const navigate = useNavigate();
+  const [companyName, setCompanyName] = useState("شركة ممنون");
+  useEffect(() => {
+    (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
+  }, []);
 
   // Car State
   const [make, setMake] = useState<string>("تويوتا");
@@ -350,7 +355,7 @@ function OnboardingDriver() {
       setEditingMode(false);
       await refresh();
 
-      toast.success("تم إرسال طلبك بنجاح إلى الإدارة العليا (احمد) للمراجعة والتدقيق 📋");
+      toast.success("تم إرسال طلبك بنجاح إلى إدارة " + companyName + " للمراجعة والتدقيق 📋");
     } catch (e: any) {
       toast.error(e.message || "حدث خطأ أثناء حفظ البيانات");
     } finally {
@@ -403,7 +408,7 @@ function OnboardingDriver() {
                 : isRejected
                   ? existingDoc.rejectionReason ||
                     "تمت مراجعة طلبك ولم نتمكن من قبوله حالياً. سبب الرفض موضح أدناه، يرجى معالجة الملاحظة والمحاولة مرة أخرى. شركة ممنون الموثّقة."
-                  : "تم استلام بيانات سيارتك وهويتك بنجاح، ووصلت إلى حساب الإدارة العامة (احمد) للمراجعة والتحقق من صحتها."}
+                  : "تم استلام بيانات سيارتك وهويتك بنجاح، ووصلت إلى إدارة " + companyName + " للمراجعة والتحقق من صحتها."}
             </p>
           </div>
 
