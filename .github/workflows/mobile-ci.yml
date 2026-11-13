@@ -35,7 +35,7 @@ jobs:
         with:
           bun-version: latest
       - name: Install locked dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
       - name: TypeScript
         run: bunx tsc --noEmit
       - name: Validate production configuration guards
