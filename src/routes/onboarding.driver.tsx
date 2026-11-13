@@ -187,7 +187,7 @@ function OnboardingDriver() {
     };
     (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
       .eq("user_id", userId).eq("provider_type", "driver").maybeSingle()
-      .then(({ data, error }) => { if (!error && data) applyReview(data); });
+      .then((result: any) => { if (!result.error && result.data) applyReview(result.data); });
     const channel = supabase.channel(`driver-verification-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "provider_verifications", filter: `user_id=eq.${userId}` },
         (payload: any) => { if (payload.new?.provider_type === "driver") applyReview(payload.new); })
