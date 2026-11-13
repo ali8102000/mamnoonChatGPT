@@ -1086,11 +1086,19 @@ function ProvidersSection() {
                   ) : <div className="text-xs text-muted-foreground">تعذر فتح صورة الوجه</div>}
                 </div>
                 <div>
-                  <div className="text-sm font-bold mb-2">صورة الهوية / المستمسك</div>
+                  <div className="text-sm font-bold mb-2">الجهة الأمامية للهوية / المستمسك</div>
                   {selectedVerification.verification.id_card_photo_url ? (
-                    <img src={selectedVerification.verification.id_card_photo_url} alt="صورة الهوية" className="w-full max-h-72 object-contain rounded-xl bg-black/5" />
-                  ) : <div className="text-xs text-muted-foreground">تعذر فتح صورة الهوية</div>}
+                    <img src={selectedVerification.verification.id_card_photo_url} alt="الجهة الأمامية للهوية" className="w-full max-h-72 object-contain rounded-xl bg-black/5" />
+                  ) : <div className="text-xs text-muted-foreground">تعذر فتح صورة الجهة الأمامية</div>}
                 </div>
+                {selectedVerification.verification.document_type === "national_id" && (
+                  <div>
+                    <div className="text-sm font-bold mb-2">الجهة الخلفية للبطاقة الوطنية</div>
+                    {selectedVerification.verification.id_card_back_photo_url ? (
+                      <img src={selectedVerification.verification.id_card_back_photo_url} alt="الجهة الخلفية للبطاقة الوطنية" className="w-full max-h-72 object-contain rounded-xl bg-black/5" />
+                    ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم تُرفق صورة الجهة الخلفية للبطاقة الوطنية.</div>}
+                  </div>
+                )}
                 {type === "driver" && (
                   <div>
                     <div className="text-sm font-bold mb-2">سنوية السيارة أو الوكالة (رقم المركبة)</div>
