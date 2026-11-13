@@ -672,7 +672,7 @@ function NewRequest() {
                 const active = vehicleCategory === c.key;
                 const fare =
                   routeKm !== null
-                    ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier })
+                    ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity })
                     : null;
                 return (
                   <button
