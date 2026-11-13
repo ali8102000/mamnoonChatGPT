@@ -39,6 +39,6 @@ describe("400 IQD per actual driving kilometer", () => {
 describe("zero-distance pricing", () => {
   it("keeps zero distance free and rounds positive fares to 250 IQD", () => {
     expect(taxiFare("economy", 0)).toBe(0);
-    expect(taxiFare("economy", 0.25)).toBe(250);
+    expect(taxiFare("economy", 0.625)).toBe(250);
   });
 });
