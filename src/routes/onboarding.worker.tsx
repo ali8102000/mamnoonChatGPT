@@ -64,6 +64,8 @@ function OnboardingWorker() {
 
   // Professional details
   const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [level, setLevel] = useState<"fani" | "khabir">("fani");
   const [bio, setBio] = useState("");
@@ -86,11 +88,23 @@ function OnboardingWorker() {
   const [editingMode, setEditingMode] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    setServicesLoading(true);
     supabase
       .from("services")
       .select("id, name_ar, slug")
       .order("sort_order")
-      .then(({ data }) => setServices(data ?? []));
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setServicesError("تعذر تحميل قائمة المهن. أعد المحاولة أو تواصل مع الدعم.");
+        } else {
+          setServices(data ?? []);
+          setServicesError((data ?? []).length ? null : "لا توجد مهن متاحة حالياً.");
+        }
+        setServicesLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
   // Load existing verification if available
@@ -136,9 +150,16 @@ function OnboardingWorker() {
         workerServices: row.metadata?.workerServices ?? current?.workerServices,
       }));
     };
-    (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
-      .eq("user_id", userId).eq("provider_type", "worker").maybeSingle()
-      .then((result: any) => { if (!result.error && result.data) applyReview(result.data); });
+    Promise.all([
+      (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+        .eq("user_id", userId).eq("provider_type", "worker").maybeSingle(),
+      (supabase as any).from("worker_profiles").select("status").eq("user_id", userId).maybeSingle(),
+    ]).then(([verification, workerProfile]: any[]) => {
+      if (verification.data) applyReview(verification.data);
+      else if (!verification.error && workerProfile.data?.status === "approved") {
+        applyReview({ status: "approved", legal_name: profile?.full_name, metadata: {} });
+      }
+    });
     const channel = supabase.channel(`worker-verification-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "provider_verifications", filter: `user_id=eq.${userId}` },
         (payload: any) => { if (payload.new?.provider_type === "worker") applyReview(payload.new); })
@@ -199,8 +220,13 @@ function OnboardingWorker() {
   }
 
   async function submit() {
+    if (servicesLoading || servicesError) {
+      toast.error(servicesError || "انتظر تحميل قائمة المهن أولاً");
+      setActiveTab("specialties");
+      return;
+    }
     if (selected.size === 0) {
-      toast.error("اختر اختصاص مهني واحد على الأقل");
+      toast.error("حدد مهنتك واختصاصاً واحداً على الأقل");
       setActiveTab("specialties");
       return;
     }
@@ -499,10 +525,20 @@ function OnboardingWorker() {
 
           <div>
             <div className="mb-2.5 flex items-center justify-between">
-              <h2 className="text-sm font-black">اختر الاختصاصات والخدمات التي تقدمها *</h2>
+              <h2 className="text-sm font-black">حدد مهنتك واختصاصاتك داخل ممنون * (تقدر تختار أكثر من مهنة)</h2>
               <span className="text-xs font-bold text-primary">{selected.size} محدد</span>
             </div>
 
+            {servicesLoading && <p className="text-xs text-muted-foreground py-3">جاري تحميل قائمة المهن...</p>}
+            {servicesError && <button type="button" onClick={() => {
+              setServicesError(null);
+              setServicesLoading(true);
+              supabase.from("services").select("id, name_ar, slug").order("sort_order").then(({ data, error }) => {
+                setServices(data ?? []);
+                setServicesError(error ? "تعذر تحميل المهن. تحقق من الاتصال." : (data ?? []).length ? null : "لا توجد مهن متاحة حالياً.");
+                setServicesLoading(false);
+              });
+            }} className="w-full text-right text-xs text-destructive py-3">{servicesError} اضغط لإعادة المحاولة.</button>}
             <div className="grid grid-cols-2 gap-2.5">
               {services.map((s) => {
                 const on = selected.has(s.id);
