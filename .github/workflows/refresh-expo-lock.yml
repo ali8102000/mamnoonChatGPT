@@ -26,11 +26,11 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.0.14"
+          bun-version: "latest"
 
       - name: Regenerate Expo lockfile
         working-directory: expo-app
-        run: bun install --lockfile-only
+        run: bun install --lockfile-only --save-text-lockfile
 
       - name: Commit updated lockfile
         run: |
