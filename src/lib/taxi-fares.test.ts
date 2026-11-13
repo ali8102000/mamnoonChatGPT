@@ -9,13 +9,13 @@ describe("400 IQD per actual driving kilometer", () => {
     },
   );
   it("has no minimum or base fare", () => {
-    expect(taxiFare("economy", 1)).toBe(400);
-    expect(taxiFare("economy", 0.5)).toBe(200);
+    expect(taxiFare("economy", 1)).toBe(500);
+    expect(taxiFare("economy", 0.5)).toBe(250);
     expect(taxiFare("economy", 0)).toBe(0);
   });
-  it("does not round to 250 IQD", () => {
-    expect(taxiFare("economy", 8.501)).toBe(3400);
-    expect(taxiFare("economy", 8.3)).toBe(3320);
+  it("rounds the base fare to the nearest 250 IQD", () => {
+    expect(taxiFare("economy", 8.501)).toBe(3500);
+    expect(taxiFare("economy", 8.3)).toBe(3250);
   });
   it("adds no traffic or weather surcharges", () => {
     const fare = calculateFareBreakdown("luxury", 5, {
@@ -25,6 +25,11 @@ describe("400 IQD per actual driving kilometer", () => {
     expect(fare.total).toBe(2000);
     expect(fare.weatherAllowance).toBe(0);
     expect(fare.trafficAllowance).toBe(0);
+  });
+  it("bounds dynamic demand discounts and surcharges", () => {
+    expect(taxiFare("economy", 10, { demandMultiplier: 0.8 })).toBe(3250);
+    expect(taxiFare("economy", 10, { demandMultiplier: 1.5 })).toBe(6000);
+    expect(taxiFare("economy", 10, { demandMultiplier: 9 })).toBe(6000);
   });
   it("rejects unavailable distances", () => {
     expect(() => taxiFare("economy", NaN)).toThrow();
