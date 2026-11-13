@@ -24,11 +24,15 @@ try {
   process.exit(1);
 }
 
+// Log only the public hostname (never the URL path, query, or API keys) to
+// identify which EAS project/environment value reached the build.
+console.log(`Supabase URL host loaded from EAS production: ${supabaseHost}`);
+
 // The mobile app must use the same Supabase project as the Mamnoon web app.
 const expectedSupabaseProjectRef = "enteiolvirenbhkyskgb";
 if (supabaseHost.split(".")[0] !== expectedSupabaseProjectRef) {
   console.error(
-    `EXPO_PUBLIC_SUPABASE_URL يجب أن يشير إلى مشروع ممنون الصحيح: ${expectedSupabaseProjectRef}.`,
+    `قيمة Supabase التي وصلتنا من EAS تشير إلى المضيف "${supabaseHost}" بدلاً من مشروع ممنون الصحيح "${expectedSupabaseProjectRef}". راجع مشروع Expo المرتبط وبيئة Production والمتغيرات المكررة.`,
   );
   process.exit(1);
 }
