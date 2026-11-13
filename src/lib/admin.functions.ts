@@ -375,37 +375,7 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
 
-    if (data.status === "approved" || data.status === "rejected") {
-      const { error: verificationUpdateError } = await (supabaseAdmin as any)
-        .from("provider_verifications")
-        .update({
-          status: data.status,
-          rejection_reason: data.status === "rejected" ? data.reason!.trim() : null,
-          reviewed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", data.user_id)
-        .eq("provider_type", data.type);
-      if (verificationUpdateError) {
-        throw new Error(`تم تحديث حالة الحساب لكن تعذر تحديث سجل المستمسكات: ${verificationUpdateError.message}`);
-      }
-    }
-
-    const role = data.type === "driver" ? "driver" : "worker";
-    if (data.status === "approved") {
-      const { data: granted, error: verifyError } = await (supabaseAdmin as any)
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user_id)
-        .eq("role", role)
-        .maybeSingle();
-      if (verifyError) throw new Error(`تعذر التحقق من الدور بعد الموافقة: ${verifyError.message}`);
-      if (!granted) throw new Error("لم يُضف دور مقدم الخدمة إلى الحساب؛ لم يتم تأكيد التفعيل");
-    }
-
-    let notificationSent = false;
-    let pushSent = 0;
-    if (data.status === "approved" || data.status === "rejected") {
+    if (data.status === "approved" || data.status === "rejected" || data.status === "suspended") {
       const { data: profileRow } = await (supabaseAdmin as any)
         .from("profiles")
         .select("full_name")
@@ -413,21 +383,30 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
         .maybeSingle();
       const personName = String(profileRow?.full_name ?? "").trim();
       const providerLabel = data.type === "driver" ? "سائق تكسي" : "فني";
+      const durationLabels: Record<string, string> = {
+        "30m": "نصف ساعة", "1h": "ساعة", "1w": "أسبوع",
+        "1mo": "شهر", "1y": "سنة", permanent: "بشكل دائم",
+      };
       const title = data.status === "approved"
         ? "تهانينا! تم تفعيل حسابك في ممنون 🎉"
-        : "بخصوص طلب انضمامك إلى ممنون";
+        : data.status === "rejected"
+          ? "بخصوص طلب انضمامك إلى ممنون"
+          : "تنبيه: تم تعليق حسابك في ممنون";
       const body = data.status === "approved"
         ? `أهلاً ${personName || "بك"}، نبارك لك! تم تفعيل حسابك كـ${providerLabel} بعد مراجعة الإدارة. نتمنى لك التوفيق والنجاح، ونرحب بك ضمن أسرة شركة ممنون الموثّقة. 💛`
-        : `أهلاً ${personName || "بك"}، نعتذر عن عدم قبول طلبك حالياً. سبب الرفض: ${data.reason!.trim()}. يرجى معالجة الملاحظة وإعادة المحاولة، ونتمنى لك التوفيق. شركة ممنون الموثّقة.`;
+        : data.status === "rejected"
+          ? `أهلاً ${personName || "بك"}، نعتذر عن عدم قبول طلبك حالياً. سبب الرفض: ${data.reason!.trim()}. يرجى معالجة الملاحظة وإعادة المحاولة، ونتمنى لك التوفيق. شركة ممنون الموثّقة.`
+          : `أهلاً ${personName || "بك"}، نود إعلامك بأنه تم تعليق حسابك كـ${providerLabel} ${data.suspension_duration === "permanent" ? "بشكل دائم" : `لمدة ${durationLabels[data.suspension_duration ?? ""] ?? "محددة"}`}${suspendedUntil ? `, وينتهي التعليق بتاريخ ${new Date(suspendedUntil).toLocaleString("ar-IQ")}` : ""}.${data.reason?.trim() ? ` السبب: ${data.reason.trim()}.` : ""} للاستفسار يرجى مراسلة إدارة شركة ممنون.`;
+      const notificationType = data.status === "approved" ? "provider_approved" : data.status === "rejected" ? "provider_rejected" : "provider_suspended";
       const { error: notificationError } = await (supabaseAdmin as any)
         .from("notifications")
         .insert({
           user_id: data.user_id,
-          type: data.status === "approved" ? "provider_approved" : "provider_rejected",
+          type: notificationType,
           title,
           body,
           link: "/home",
-          data: { provider_type: data.type, status: data.status, company: "شركة ممنون الموثّقة" },
+          data: { provider_type: data.type, status: data.status, suspended_until: suspendedUntil, company: "شركة ممنون الموثّقة" },
         });
       if (notificationError) throw new Error(`تم تحديث حالة الحساب لكن تعذر إرسال الإشعار داخل التطبيق: ${notificationError.message}`);
       notificationSent = true;
