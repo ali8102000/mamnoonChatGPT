@@ -10,6 +10,7 @@ export interface VerificationDocument {
   email?: string;
   facePhotoUrl: string; // Base64 data URL
   idCardPhotoUrl: string; // Base64 data URL
+  vehicleDocumentPhotoUrl?: string; // Vehicle registration or power of attorney image
   idNumber?: string;
   documentType: "national_id" | "driver_license" | "passport";
   verifiedAt: string;
@@ -113,7 +114,7 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
   const { supabase } = await import("@/integrations/supabase/client");
   const bucket = "provider-verification";
   const stamp = Date.now();
-  const uploadImage = async (dataUrl: string, kind: "face" | "id-card") => {
+  const uploadImage = async (dataUrl: string, kind: "face" | "id-card" | "vehicle-registration") => {
     const response = await fetch(dataUrl);
     const blob = await response.blob();
     const mime = blob.type === "image/png" ? "image/png" : "image/jpeg";
@@ -124,13 +125,16 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
       upsert: true,
       cacheControl: "3600",
     });
-    if (error) throw new Error(`تعذر حفظ صورة ${kind === "face" ? "الوجه" : "الهوية"}: ${error.message}`);
+    if (error) throw new Error(`تعذر حفظ ${kind === "face" ? "صورة الوجه" : kind === "id-card" ? "صورة الهوية" : "صورة سنوية السيارة أو الوكالة"}: ${error.message}`);
     return path;
   };
 
-  const [facePath, idPath] = await Promise.all([
+  const [facePath, idPath, vehicleDocumentPath] = await Promise.all([
     uploadImage(doc.facePhotoUrl, "face"),
     uploadImage(doc.idCardPhotoUrl, "id-card"),
+    doc.role === "driver" && doc.vehicleDocumentPhotoUrl
+      ? uploadImage(doc.vehicleDocumentPhotoUrl, "vehicle-registration")
+      : Promise.resolve(null),
   ]);
 
   const { error } = await (supabase as any).from("provider_verifications").upsert({
@@ -141,6 +145,7 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
     email: doc.email ?? null,
     face_photo_path: facePath,
     id_card_photo_path: idPath,
+    vehicle_document_path: vehicleDocumentPath,
     document_type: doc.documentType,
     id_number: doc.idNumber ?? null,
     metadata: {
