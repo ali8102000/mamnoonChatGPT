@@ -1982,7 +1982,7 @@ function RoleModal({ user, onGrant, onRevoke, onClose }: any) {
             })}
             {roles.includes("super_admin") && (
               <div className="glass rounded-xl p-3 border border-amber-500/30">
-                <div className="text-sm font-bold text-amber-600">Super Admin (لا يمكن إزالته)</div>
+                <div className="text-sm font-bold text-amber-600">شركة ممنون | Mamnoon Company (لا يمكن إزالة صلاحية المدير الأعلى)</div>
               </div>
             )}
           </div>
