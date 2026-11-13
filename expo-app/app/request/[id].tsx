@@ -92,6 +92,7 @@ export default function RequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, roles } = useAuth();
   const [request, setRequest] = useState<RequestRecord | null>(null);
+  const [otherProfile, setOtherProfile] = useState<{ full_name: string | null; avatar_url: string | null; phone: string | null } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatId, setChatId] = useState<string | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
@@ -132,6 +133,28 @@ export default function RequestDetail() {
     setRequest(data as RequestRecord | null);
     setLoading(false);
   }, [id]);
+
+  useEffect(() => {
+    const otherId = request
+      ? request.customer_id === user?.id
+        ? request.provider_id
+        : request.customer_id
+      : null;
+    if (!otherId) {
+      setOtherProfile(null);
+      return;
+    }
+    let active = true;
+    supabase
+      .from("profiles")
+      .select("full_name, avatar_url, phone")
+      .eq("id", otherId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (active) setOtherProfile(error ? null : data);
+      });
+    return () => { active = false; };
+  }, [request?.customer_id, request?.provider_id, user?.id]);
 
   const loadChat = useCallback(async () => {
     const { data, error } = await supabase
@@ -441,6 +464,22 @@ export default function RequestDetail() {
           <Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>
           <View style={{ width: 30 }} />
         </View>
+        {otherProfile && (
+          <View style={styles.personCard}>
+            <View style={styles.personAvatar}>
+              {otherProfile.avatar_url ? (
+                <Image source={{ uri: otherProfile.avatar_url }} style={styles.personAvatarImage} />
+              ) : (
+                <Text style={styles.personAvatarText}>{(otherProfile.full_name || "؟")[0]}</Text>
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.personName}>{otherProfile.full_name || "مستخدم"}</Text>
+              {!!otherProfile.phone && <Text style={styles.personPhone}>{otherProfile.phone}</Text>}
+              <Text style={styles.personRole}>{isCustomer ? "مقدم الخدمة" : "الزبون"}</Text>
+            </View>
+          </View>
+        )}
         <View style={styles.infoCard}>
           {request.type === "service" && request.services?.slug && SERVICE_IMAGES[request.services.slug] ? (
             <Image source={SERVICE_IMAGES[request.services.slug]} style={styles.serviceIllustration} resizeMode="cover" />
@@ -621,6 +660,13 @@ const styles = StyleSheet.create({
   },
   backBtn: { fontSize: 24, color: "#0f766e", fontWeight: "700" },
   headerTitle: { fontSize: 18, fontWeight: "800", color: "#1e293b" },
+  personCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#fff", borderRadius: 16, padding: 14, marginHorizontal: 16, marginTop: 12 },
+  personAvatar: { width: 58, height: 58, borderRadius: 18, overflow: "hidden", backgroundColor: "#0f766e", alignItems: "center", justifyContent: "center" },
+  personAvatarImage: { width: "100%", height: "100%" },
+  personAvatarText: { color: "#fff", fontSize: 24, fontWeight: "900" },
+  personName: { color: "#1e293b", fontSize: 16, fontWeight: "900" },
+  personPhone: { color: "#64748b", fontSize: 12, marginTop: 3 },
+  personRole: { color: "#0f766e", fontSize: 11, fontWeight: "800", marginTop: 3 },
   infoCard: { backgroundColor: "#fff", borderRadius: 16, padding: 16, margin: 16 },
   trackingCard: {
     backgroundColor: "#fff",
