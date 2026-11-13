@@ -2,7 +2,7 @@ import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getGovernorate, governorateBounds, isInGovernorate } from "./governorates";
+import { getGovernorate, isInGovernorate } from "./governorates";
 import { parseDrivingRoute } from "./route-distance";
 
 // Only the referrer-restricted rendering key is intentionally public.
