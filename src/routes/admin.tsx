@@ -1077,6 +1077,14 @@ function ProvidersSection() {
                     <img src={selectedVerification.verification.id_card_photo_url} alt="صورة الهوية" className="w-full max-h-72 object-contain rounded-xl bg-black/5" />
                   ) : <div className="text-xs text-muted-foreground">تعذر فتح صورة الهوية</div>}
                 </div>
+                {type === "driver" && (
+                  <div>
+                    <div className="text-sm font-bold mb-2">سنوية السيارة أو الوكالة (رقم المركبة)</div>
+                    {selectedVerification.verification.vehicle_document_url ? (
+                      <img src={selectedVerification.verification.vehicle_document_url} alt="سنوية السيارة أو الوكالة" className="w-full max-h-96 object-contain rounded-xl bg-black/5" />
+                    ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم تُرفق صورة سنوية السيارة أو الوكالة لهذا الطلب.</div>}
+                  </div>
+                )}
                 <div className="text-xs rounded-xl bg-surface-2 p-3 space-y-1">
                   <div>الاسم: {selectedVerification.verification.legal_name}</div>
                   <div>نوع المستمسك: {selectedVerification.verification.document_type}</div>
