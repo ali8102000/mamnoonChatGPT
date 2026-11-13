@@ -39,17 +39,23 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NEW.email IS DISTINCT FROM OLD.email
-     AND NEW.email IS NOT NULL
-     AND NEW.email_confirmed_at IS NOT NULL THEN
+  IF NEW.email IS NOT NULL
+     AND NEW.email_confirmed_at IS NOT NULL
+     AND (
+       NEW.email IS DISTINCT FROM OLD.email
+       OR NEW.email_confirmed_at IS DISTINCT FROM OLD.email_confirmed_at
+     ) THEN
     UPDATE public.profiles
        SET email = lower(NEW.email)
      WHERE id = NEW.id;
   END IF;
 
-  IF NEW.phone IS DISTINCT FROM OLD.phone
-     AND NEW.phone IS NOT NULL
-     AND NEW.phone_confirmed_at IS NOT NULL THEN
+  IF NEW.phone IS NOT NULL
+     AND NEW.phone_confirmed_at IS NOT NULL
+     AND (
+       NEW.phone IS DISTINCT FROM OLD.phone
+       OR NEW.phone_confirmed_at IS DISTINCT FROM OLD.phone_confirmed_at
+     ) THEN
     UPDATE public.profiles
        SET phone = NEW.phone
      WHERE id = NEW.id;
