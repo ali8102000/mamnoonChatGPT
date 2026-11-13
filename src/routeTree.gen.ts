@@ -20,6 +20,7 @@ import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as SupportChatRouteImport } from './routes/support-chat'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -89,6 +90,11 @@ const HomeRoute = HomeRouteImport.update({
 const MessagesRoute = MessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportChatRoute = SupportChatRouteImport.update({
+  id: '/support-chat',
+  path: '/support-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/messages': typeof MessagesRoute
+  '/support-chat': typeof SupportChatRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/messages': typeof MessagesRoute
+  '/support-chat': typeof SupportChatRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -266,6 +274,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/home'
     | '/messages'
+    | '/support-chat'
     | '/privacy'
     | '/profile'
     | '/reset-password'
@@ -294,6 +303,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/home'
     | '/messages'
+    | '/support-chat'
     | '/privacy'
     | '/profile'
     | '/reset-password'
@@ -351,6 +361,7 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
   MessagesRoute: typeof MessagesRoute
+  SupportChatRoute: typeof SupportChatRoute
   PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -442,6 +453,13 @@ declare module '@tanstack/react-router' {
       path: '/messages'
       fullPath: '/messages'
       preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support-chat': {
+      id: '/support-chat'
+      path: '/support-chat'
+      fullPath: '/support-chat'
+      preLoaderRoute: typeof SupportChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -578,6 +596,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
   MessagesRoute: MessagesRoute,
+  SupportChatRoute: SupportChatRoute,
   PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
