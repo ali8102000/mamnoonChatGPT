@@ -2,10 +2,11 @@ const required = [
   "EXPO_PUBLIC_SUPABASE_URL",
   "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY",
-  "EAS_PROJECT_ID",
 ];
 
+const easProjectId = process.env.EAS_PROJECT_ID || process.env.EAS_BUILD_PROJECT_ID;
 const missing = required.filter((name) => !process.env[name]?.trim());
+if (!easProjectId?.trim()) missing.push("EAS_PROJECT_ID (or EAS_BUILD_PROJECT_ID)");
 if (missing.length) {
   console.error(
     `إعدادات الإنتاج ناقصة: ${missing.join(", ")}. أضفها إلى بيئة EAS production ثم أعد المحاولة.`,
@@ -39,7 +40,7 @@ if (process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
 
 if (
   !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    process.env.EAS_PROJECT_ID,
+    easProjectId,
   )
 ) {
   console.error("EAS_PROJECT_ID ليس UUID صالحاً لمشروع Expo.");
