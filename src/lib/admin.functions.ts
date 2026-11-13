@@ -319,9 +319,12 @@ export const adminListProviders = createServerFn({ method: "GET" })
     return await Promise.all((providers ?? []).map(async (provider: any) => {
       const verification: any = verificationByUser.get(provider.user_id);
       if (!verification) return { ...provider, verification: null };
-      const [face, identity, vehicleDocument] = await Promise.all([
+      const [face, identity, identityBack, vehicleDocument] = await Promise.all([
         supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.face_photo_path, 600),
         supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.id_card_photo_path, 600),
+        verification.id_card_back_photo_path
+          ? supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.id_card_back_photo_path, 600)
+          : Promise.resolve({ data: null, error: null }),
         verification.vehicle_document_path
           ? supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.vehicle_document_path, 600)
           : Promise.resolve({ data: null, error: null }),
@@ -332,6 +335,7 @@ export const adminListProviders = createServerFn({ method: "GET" })
           ...verification,
           face_photo_url: face.error ? null : face.data?.signedUrl ?? null,
           id_card_photo_url: identity.error ? null : identity.data?.signedUrl ?? null,
+          id_card_back_photo_url: identityBack.error ? null : identityBack.data?.signedUrl ?? null,
           vehicle_document_url: vehicleDocument.error ? null : vehicleDocument.data?.signedUrl ?? null,
         },
       };
