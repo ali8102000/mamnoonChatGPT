@@ -69,7 +69,7 @@ function MessagesPage() {
   return (
     <MobileShell>
       <div className="px-5 pt-10">
-        <h1 className="text-3xl font-black mb-3">الرسائل</h1>\n        <Link to="/support-chat" className="glass rounded-xl p-3 mb-5 flex items-center gap-2 text-sm font-bold text-primary"><MessageCircle className="h-5 w-5" /> مراسلة إدارة ممنون</Link>
+        <h1 className="text-3xl font-black mb-3">الرسائل</h1>\n        <a href="/support-chat" className="glass rounded-xl p-3 mb-5 flex items-center gap-2 text-sm font-bold text-primary"><MessageCircle className="h-5 w-5" /> مراسلة إدارة ممنون</a>
         {chats.length === 0 && (
           <div className="glass rounded-2xl p-8 text-center text-sm text-muted-foreground">
             <MessageCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
