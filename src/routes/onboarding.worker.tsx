@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { grantProviderRole } from "@/lib/roles.functions";
 import {
+  type VerificationDocument,
   fileToCompressedDataUrl,
   saveProviderVerification,
   getProviderVerification,
@@ -183,7 +184,7 @@ function OnboardingWorker() {
         .eq("id", uid);
 
       // 2. Save detailed verification record with pending status
-      const verificationDoc = {
+      const verificationDoc: VerificationDocument = {
         userId: uid,
         role: "worker",
         legalName: legalName.trim(),
