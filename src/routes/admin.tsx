@@ -856,6 +856,8 @@ function ProvidersSection() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [suspendingProvider, setSuspendingProvider] = useState<any | null>(null);
+  const [rejectingProvider, setRejectingProvider] = useState<any | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   const [suspensionDuration, setSuspensionDuration] = useState("1h");
   const [providers, setProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -880,16 +882,20 @@ function ProvidersSection() {
   useEffect(() => {
     load();
   }, [load]);
-  async function handleAction(userId: string, status: string, duration?: string) {
+  async function handleAction(userId: string, status: string, duration?: string, reason?: string) {
     setActionMessage("");
     try {
-      const result = await setStatus({ data: { user_id: userId, type, status, suspension_duration: duration } });
+      const result = await setStatus({ data: { user_id: userId, type, status, suspension_duration: duration, reason } });
       setActionMessage(status === "approved"
-        ? `تم التحقق من إضافة دور ${result.role === "driver" ? "السائق" : "الفني"} للحساب بنجاح`
-        : "تم تحديث حالة الحساب");
+        ? `تم تفعيل الحساب وإرسال إشعار التهنئة للمستخدم`
+        : status === "rejected"
+          ? "تم رفض الطلب وإرسال سبب الرفض للمستخدم"
+          : "تم تحديث حالة الحساب");
       await load();
+      return true;
     } catch (e) {
       setActionMessage(e instanceof Error ? e.message : "تعذّر تحديث حالة الحساب");
+      return false;
     }
   }
   async function openProviderProfile(userId: string) {
@@ -1010,10 +1016,10 @@ function ProvidersSection() {
                       تفعيل
                     </button>
                     <button
-                      onClick={() => handleAction(p.user_id, "rejected")}
+                      onClick={() => { setRejectionReason(p.verification?.rejection_reason ?? ""); setRejectingProvider(p); }}
                       className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
                     >
-                      رفض
+                      رفض مع ذكر السبب
                     </button>
                   </>
                 )}
@@ -1036,6 +1042,36 @@ function ProvidersSection() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {rejectingProvider && (
+        <div className="fixed inset-0 z-[130] bg-black/70 p-3 flex items-center justify-center" role="dialog" aria-modal="true">
+          <div className="w-full max-w-sm rounded-2xl bg-background border border-border p-4">
+            <h3 className="font-black mb-2">سبب رفض طلب {type === "driver" ? "السائق" : "الفني"}</h3>
+            <p className="text-xs text-muted-foreground mb-3">اكتب الملاحظة بوضوح حتى تصل للمستخدم برسالة الرفض.</p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              maxLength={500}
+              rows={4}
+              placeholder="مثال: صورة البطاقة الخلفية غير واضحة، يرجى إعادة تصويرها..."
+              className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm resize-y mb-3"
+            />
+            <div className="text-[10px] text-muted-foreground mb-3 text-left">{rejectionReason.length}/500</div>
+            <div className="flex gap-2">
+              <button onClick={() => setRejectingProvider(null)} className="flex-1 rounded-xl bg-surface-2 py-2.5 text-sm font-bold">إلغاء</button>
+              <button
+                disabled={!rejectionReason.trim()}
+                onClick={async () => {
+                  const ok = await handleAction(rejectingProvider.user_id, "rejected", undefined, rejectionReason.trim());
+                  if (ok) setRejectingProvider(null);
+                }}
+                className="flex-1 rounded-xl bg-red-600 text-white py-2.5 text-sm font-bold disabled:opacity-50"
+              >
+                تأكيد الرفض وإرسال الرسالة
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {suspendingProvider && (
