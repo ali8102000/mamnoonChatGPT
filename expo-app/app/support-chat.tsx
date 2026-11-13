@@ -20,7 +20,7 @@ export default function SupportChatScreen() {
     if (staffCheck) {
       const { data, error } = await (supabase as any).from("support_conversations").select("*").order("updated_at", { ascending: false });
       if (error) throw error;
-      const ids = [...new Set((data ?? []).map((c: any) => c.user_id))];
+      const ids: string[] = Array.from(new Set<string>((data ?? []).map((c: any) => String(c.user_id))));
       const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone").in("id", ids) : { data: [] };
       const map = new Map((profiles ?? []).map((p: any) => [p.id, p]));
       const rows = (data ?? []).map((c: any) => ({ ...c, profile: map.get(c.user_id) }));
