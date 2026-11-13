@@ -24,6 +24,7 @@ import {
   fileToCompressedDataUrl,
   saveProviderVerification,
   getProviderVerification,
+  saveProviderVerificationRemote,
 } from "@/lib/verification";
 
 export const Route = createFileRoute("/onboarding/driver")({
@@ -228,7 +229,7 @@ function OnboardingDriver() {
         .eq("id", uid);
 
       // 2. Save detailed verification document with pending status
-      saveProviderVerification({
+      const verificationDoc = {
         userId: uid,
         role: "driver",
         legalName: legalName.trim(),
@@ -246,7 +247,9 @@ function OnboardingDriver() {
         vehiclePlate: plate.trim(),
         vehicleColor: color.trim() || undefined,
         vehicleCategory: category,
-      });
+      };
+      saveProviderVerification(verificationDoc);
+      await saveProviderVerificationRemote(verificationDoc);
 
       // 3. Upsert driver profile with car data and pending status
       const { error } = await supabase.from("driver_profiles").upsert({
