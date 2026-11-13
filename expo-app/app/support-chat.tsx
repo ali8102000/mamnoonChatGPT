@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
@@ -14,6 +14,11 @@ export default function SupportChatScreen() {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const messagesScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    messagesScrollRef.current?.scrollToEnd({ animated: true });
+  }, [messages.length, selected?.id]);
 
   const loadConversations = useCallback(async () => {
     if (!user?.id) return;
@@ -120,7 +125,7 @@ export default function SupportChatScreen() {
         <Text style={styles.personPhone}>{c.profile?.phone || ""}</Text>
       </TouchableOpacity>)}
     </ScrollView>}
-    <ScrollView style={styles.messages} contentContainerStyle={{ paddingVertical: 14, gap: 10 }}>
+    <ScrollView ref={messagesScrollRef} style={styles.messages} contentContainerStyle={{ paddingVertical: 14, gap: 10 }}>
       {messages.length === 0 ? <Text style={styles.empty}>أهلاً بك، اكتب رسالتك لفريق دعم ممنون.</Text> : messages.map((m) => <View key={m.id} style={[styles.bubble, m.sender_id === user?.id ? styles.mine : styles.theirs]}>
         <Text style={m.sender_id === user?.id ? styles.mineText : styles.theirText}>{m.body}</Text>
         <Text style={styles.time}>{new Date(m.created_at).toLocaleString("ar-IQ")}</Text>
