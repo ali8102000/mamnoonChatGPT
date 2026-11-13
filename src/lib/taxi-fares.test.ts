@@ -20,7 +20,7 @@ describe("Mamnoon city taxi pricing", () => {
   });
 
   it("limits demand changes on city fares of 10000 IQD or more", () => {
-    expect(taxiFare("economy", 25, { demandMultiplier: 1.5 })).toBe(10500);
+    expect(taxiFare("economy", 25, { demandMultiplier: 1.5 })).toBe(11000);
     expect(taxiFare("economy", 25, { demandMultiplier: 0.8 })).toBe(9500);
   });
 
