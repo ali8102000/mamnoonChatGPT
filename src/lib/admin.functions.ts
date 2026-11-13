@@ -285,17 +285,25 @@ export const adminUpdateProviderName = createServerFn({ method: "POST" })
 export const adminListProviders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({ type: z.enum(["driver", "worker"]).default("driver") }).parse(d),
+    z.object({
+      type: z.enum(["driver", "worker"]).default("driver"),
+      status: z.enum(["all", "approved", "pending", "suspended", "rejected"]).default("all"),
+      category: z.string().default("all"),
+    }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await requireStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const table = data.type === "driver" ? "driver_profiles" : "worker_profiles";
-    const { data: providers, error } = await (supabaseAdmin as any)
+    let providerQuery = (supabaseAdmin as any)
       .from(table)
-      .select("*, profiles!inner(full_name, phone, email, avatar_url)")
+      .select("*, profiles!inner(full_name, phone, email, avatar_url)");
+    if (data.status !== "all") providerQuery = providerQuery.eq("status", data.status);
+    if (data.type === "driver" && data.category !== "all") providerQuery = providerQuery.eq("vehicle_category", data.category);
+    if (data.type === "worker" && data.category !== "all") providerQuery = providerQuery.eq("level", data.category);
+    const { data: providers, error } = await providerQuery
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
     if (error) throw new Error(`فشل تحميل المزودين: ${error.message}`);
 
     const userIds = (providers ?? []).map((p: any) => p.user_id);
@@ -335,6 +343,7 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
         type: z.enum(["driver", "worker"]),
         status: z.enum(["approved", "suspended", "rejected", "pending"]),
         reason: z.string().max(500).optional(),
+        suspension_duration: z.enum(["30m", "1h", "1w", "1mo", "1y", "permanent"]).optional(),
       })
       .parse(d),
   )
@@ -342,10 +351,15 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
     await requireAdmin(context);
     const { supabase } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const durationMinutes: Record<string, number> = { "30m": 30, "1h": 60, "1w": 10080, "1mo": 43200, "1y": 525600 };
+    const suspendedUntil = data.status === "suspended" && data.suspension_duration && data.suspension_duration !== "permanent"
+      ? new Date(Date.now() + durationMinutes[data.suspension_duration] * 60_000).toISOString()
+      : null;
     const { error } = await (supabase as any).rpc("admin_set_provider_status", {
       p_user_id: data.user_id,
       p_type: data.type,
       p_status: data.status,
+      p_suspended_until: suspendedUntil,
     });
     if (error) throw new Error(error.message);
 
