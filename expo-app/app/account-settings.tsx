@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import * as Linking from "expo-linking";
@@ -15,36 +15,50 @@ export default function AccountSettingsScreen() {
   const [otp, setOtp] = useState("");
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [displayName, setDisplayName] = useState(profile?.full_name ?? "");
-  const isStaffAdmin = roles.some((role) => ["admin", "super_admin"].includes(role));
+  const [companyName, setCompanyName] = useState("شركة ممنون");
+  const isCompanyAdmin = user?.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
+
+  useEffect(() => {
+    if (!isCompanyAdmin) return;
+    (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
+  }, [isCompanyAdmin]);
 
   async function switchRole(role: string) {
-    if (role === "driver") {
+    if (role === "customer") {
+      if (!roles.includes("customer") && user?.id) {
+        const { error } = await (supabase as any).from("user_roles")
+          .upsert({ user_id: user.id, role: "customer" }, { onConflict: "user_id,role" });
+        if (error) { Alert.alert("تعذر التبديل", error.message); return; }
+        await refresh();
+      }
+      await SecureStore.setItemAsync("mamnoon_active_role", "customer");
+      router.replace("/home");
+      return;
+    }
+    if (role === "driver" && !roles.includes("driver")) {
       router.push("/onboarding/driver");
       return;
     }
-    if (!roles.includes(role as (typeof roles)[number])) {
-      Alert.alert("غير متاح", "هذا الدور غير مضاف إلى حسابك بعد. أكمل التسجيل أولاً.");
+    if (role === "worker" && !roles.includes("worker")) {
+      router.push("/onboarding/worker");
       return;
     }
-    if (role === "worker") {
-      await SecureStore.setItemAsync("mamnoon_active_role", "worker");
-    } else {
-      await SecureStore.setItemAsync("mamnoon_active_role", "customer");
-    }
+    if (role !== "driver" && role !== "worker") return;
+    await SecureStore.setItemAsync("mamnoon_active_role", role);
     router.replace("/home");
   }
 
-  async function changeDisplayName() {
-    const next = displayName.trim().replace(/\\s+/g, " ");
-    if (next.length < 2 || next.length > 60) { Alert.alert("تنبيه", "الاسم لازم يكون بين حرفين و60 حرفاً"); return; }
-    if (!user?.id) return;
+  async function saveCompanyName() {
+    const next = companyName.trim().replace(/\s+/g, " ");
+    if (next.length < 2 || next.length > 60) { Alert.alert("تنبيه", "اسم الشركة لازم يكون بين حرفين و60 حرفاً"); return; }
+    if (!isCompanyAdmin || !user?.id) { Alert.alert("غير مخوّل", "هذه الصلاحية لحساب مالك شركة ممنون فقط"); return; }
     setBusy(true);
     try {
-      const { error } = await (supabase as any).from("profiles").update({ full_name: next }).eq("id", user.id);
+      const { error } = await (supabase as any).from("company_settings")
+        .upsert({ id: 1, company_name: next, updated_by: user.id }, { onConflict: "id" });
       if (error) throw error;
-      await refresh();
-      Alert.alert("تم", "تم تحديث اسم المسؤول الظاهر للجميع.");
+      Alert.alert("تم", "تم تحديث اسم الشركة الظاهر للمستخدمين.");
     } catch (e) { Alert.alert("تعذر تحديث الاسم", e instanceof Error ? e.message : "حدث خطأ"); }
     finally { setBusy(false); }
   }
@@ -101,17 +115,17 @@ export default function AccountSettingsScreen() {
 
   return <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <Text style={styles.title}>إعدادات الحساب</Text>
-    {isStaffAdmin && <View style={styles.nameSection}>
-      <Text style={styles.sectionTitle}>اسم المسؤول الظاهر للجميع</Text>
-      <Text style={styles.note}>هذا الاسم يظهر في حسابك وملفك العام وعند تفاعلك مع المستخدمين.</Text>
-      <RealInput value={displayName} onChangeText={setDisplayName} placeholder="اكتب الاسم الذي سيظهر للجميع" maxLength={60} />
+    {isCompanyAdmin && <View style={styles.nameSection}>
+      <Text style={styles.sectionTitle}>اسم الشركة الظاهر للمستخدمين</Text>
+      <Text style={styles.note}>يظهر هذا الاسم في رسائل انتظار الموافقة والتنبيهات بدلاً من اسم الشخص.</Text>
+      <RealInput value={companyName} onChangeText={setCompanyName} placeholder="مثال: شركة ممنون" maxLength={60} />
       <View style={{ height: 12 }} />
-      <Button title="حفظ الاسم الجديد" onPress={changeDisplayName} loading={busy} />
+      <Button title="حفظ اسم الشركة" onPress={saveCompanyName} loading={busy} />
     </View>}
     <Text style={styles.sectionTitle}>طريقة استخدام ممنون</Text>
     <Text style={styles.note}>اختَر الدور من هنا. إذا اخترت سائق تكسي لأول مرة راح تكمل بيانات السيارة.</Text>
     <View style={styles.roleGrid}>
-      {[...roles.filter((role) => ["customer", "worker", "driver"].includes(role)), ...(roles.includes("driver") ? [] : ["driver"])].map((role) => {
+      {["customer", "worker", "driver"].map((role) => {
         const selected = role === "customer"
           ? { title: "زبون", emoji: "👤", backgroundColor: "#e0f2fe", color: "#0369a1" }
           : role === "worker"
@@ -121,7 +135,7 @@ export default function AccountSettingsScreen() {
           <TouchableOpacity key={role} activeOpacity={0.82} style={[styles.roleCard, { backgroundColor: selected.backgroundColor }]} onPress={() => switchRole(role)}>
             <Text style={styles.roleEmoji}>{selected.emoji}</Text>
             <Text style={[styles.roleTitle, { color: selected.color }]}>{selected.title}</Text>
-            <Text style={[styles.roleHint, { color: selected.color }]}>اختيار الدور</Text>
+            <Text style={[styles.roleHint, { color: selected.color }]}>{role === "customer" || roles.includes(role as any) ? "تبديل الدور" : "التسجيل بهذا الدور"}</Text>
           </TouchableOpacity>
         );
       })}
