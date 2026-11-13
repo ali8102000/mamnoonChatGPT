@@ -93,7 +93,7 @@ export default function RootLayout() {
         <Stack.Screen name="home" />
         <Stack.Screen name="request/new" />
         <Stack.Screen name="request/[id]" />
-        <Stack.Screen name="messages" />
+        <Stack.Screen name="messages" />\n        <Stack.Screen name="support-chat" />
         <Stack.Screen name="friends" />
         <Stack.Screen name="history" />
         <Stack.Screen name="profile" />
