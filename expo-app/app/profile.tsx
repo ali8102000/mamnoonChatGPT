@@ -103,7 +103,14 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.avatarButton} onPress={chooseAndUploadAvatar} disabled={uploadingAvatar}>
           {uploadingAvatar ? <ActivityIndicator color="#fff" /> : <Text style={styles.avatarButtonText}>📷 تغيير الصورة الشخصية</Text>}
         </TouchableOpacity>
-        <Text style={styles.name}>{profile?.full_name || "مستخدم"}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name}>{profile?.full_name || "مستخدم"}</Text>
+          {roles.some((r) => r === "admin" || r === "super_admin") && (
+            <View style={styles.adminVerifiedBadge}>
+              <Text style={styles.adminVerifiedBadgeText}>✓ مسؤول ممنون موثق</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.phone}>{profile?.phone}</Text>
       </View>
       <View style={styles.rolesRow}>
@@ -208,6 +215,9 @@ const styles = StyleSheet.create({
   avatarButton: { backgroundColor: "#0f766e", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12, minWidth: 190, alignItems: "center" },
   avatarButtonText: { color: "#fff", fontSize: 13, fontWeight: "800" },
   name: { fontSize: 22, fontWeight: "800", color: "#1e293b" },
+  nameRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 8 },
+  adminVerifiedBadge: { backgroundColor: "#FDE68A", borderColor: "#D97706", borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  adminVerifiedBadgeText: { color: "#78350F", fontSize: 11, fontWeight: "900" },
   phone: { fontSize: 14, color: "#64748b", marginTop: 4 },
   rolesRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 24 },
   roleBadge: {
