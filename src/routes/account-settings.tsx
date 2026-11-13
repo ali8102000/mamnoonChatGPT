@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
@@ -17,24 +17,31 @@ function AccountSettingsPage() {
   const [otp, setOtp] = useState("");
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [displayName, setDisplayName] = useState(profile?.full_name ?? "");
+  const [companyName, setCompanyName] = useState("شركة ممنون");
   const isStaffAdmin = roles.some((role) => ["admin", "super_admin"].includes(role));
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
   const currentUser = session.user;
+  const isCompanyAdmin = currentUser.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
-  async function changeDisplayName() {
-    const next = displayName.trim().replace(/\\s+/g, " ");
-    if (next.length < 2 || next.length > 60) { toast.error("الاسم لازم يكون بين حرفين و60 حرفاً"); return; }
-    if (!session?.user.id) return;
+  useEffect(() => {
+    if (!isCompanyAdmin) return;
+    (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
+  }, [isCompanyAdmin]);
+
+  async function saveCompanyName() {
+    const next = companyName.trim().replace(/\s+/g, " ");
+    if (next.length < 2 || next.length > 60) { toast.error("اسم الشركة لازم يكون بين حرفين و60 حرفاً"); return; }
+    if (!isCompanyAdmin) { toast.error("هذه الصلاحية لحساب مالك شركة ممنون فقط"); return; }
     setBusy(true);
     try {
-      const { error } = await (supabase as any).from("profiles").update({ full_name: next }).eq("id", session.user.id);
+      const { error } = await (supabase as any).from("company_settings")
+        .upsert({ id: 1, company_name: next, updated_by: currentUser.id }, { onConflict: "id" });
       if (error) throw error;
-      await refresh();
-      toast.success("تم تحديث اسم المسؤول الظاهر للناس");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذر تحديث الاسم"); }
+      toast.success("تم تحديث اسم الشركة الظاهر للمستخدمين");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذر تحديث اسم الشركة"); }
     finally { setBusy(false); }
   }
 
@@ -99,12 +106,17 @@ function AccountSettingsPage() {
         <span className="text-[10px] text-muted-foreground">الدور الحالي محدد بإطار</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        {roleItems.filter(item => roles.includes(item.role as any)).map(item => {
+        {roleItems.map(item => {
           const Icon = item.icon;
           const selected = activeRole === item.role;
           return <button key={item.role} type="button" onClick={() => {
-            setActiveRole(item.role as any);
-            toast.success(`تم اختيار دور ${item.title}`);
+            if (roles.includes(item.role as any)) {
+              setActiveRole(item.role as any);
+              navigate({ to: "/home" });
+              toast.success("تم التبديل إلى دور " + item.title);
+            } else {
+              navigate({ to: item.role === "driver" ? "/onboarding/driver" : "/onboarding/worker" });
+            }
           }} className={`relative min-h-[112px] rounded-3xl border p-4 text-right transition active:scale-[0.98] ${item.style} ${selected ? "ring-2 ring-primary shadow-md" : "opacity-90"}`}>
             {selected && <span className="absolute left-3 top-3 rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-[9px] font-bold">الحالي</span>}
             <span className="h-10 w-10 rounded-2xl bg-white/60 dark:bg-black/10 grid place-items-center mb-3"><Icon className="h-5 w-5" /></span>
@@ -115,12 +127,12 @@ function AccountSettingsPage() {
       </div>
     </section>
 
-    {isStaffAdmin && <section className="mb-6">
-      <h2 className="font-black text-sm mb-3 px-1">اسم المسؤول الظاهر للجميع</h2>
+    {isCompanyAdmin && <section className="mb-6">
+      <h2 className="font-black text-sm mb-3 px-1">اسم الشركة الظاهر للمستخدمين</h2>
       <div className="rounded-3xl border border-primary/20 bg-card p-4">
-        <p className="text-xs text-muted-foreground mb-3">هذا الاسم يظهر في حسابك وملفك العام وعند تفاعلك مع المستخدمين.</p>
-        <input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={60} className="input-base w-full rounded-2xl" placeholder="اكتب الاسم الذي سيظهر للجميع" />
-        <Button className="w-full mt-3 rounded-2xl" disabled={busy} onClick={changeDisplayName}>حفظ الاسم الجديد</Button>
+        <p className="text-xs text-muted-foreground mb-3">هذا الاسم يظهر برسائل انتظار الموافقة والتنبيهات بدلاً من اسم الشخص.</p>
+        <input value={companyName} onChange={e => setCompanyName(e.target.value)} maxLength={60} className="input-base w-full rounded-2xl" placeholder="مثال: شركة ممنون" />
+        <Button className="w-full mt-3 rounded-2xl" disabled={busy} onClick={saveCompanyName}>حفظ اسم الشركة</Button>
       </div>
     </section>}
 
