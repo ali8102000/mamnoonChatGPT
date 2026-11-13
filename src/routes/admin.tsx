@@ -853,6 +853,10 @@ function ProviderDetailModal({
 
 function ProvidersSection() {
   const [type, setType] = useState("driver");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [suspendingProvider, setSuspendingProvider] = useState<any | null>(null);
+  const [suspensionDuration, setSuspensionDuration] = useState("1h");
   const [providers, setProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
@@ -866,20 +870,20 @@ function ProvidersSection() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setProviders(await listProviders({ data: { type } }));
+      setProviders(await listProviders({ data: { type, status: statusFilter, category: categoryFilter } }));
     } catch (e) {
       setActionMessage(e instanceof Error ? e.message : "تعذر تحميل قائمة المزودين");
     } finally {
       setLoading(false);
     }
-  }, [type, listProviders]);
+  }, [type, statusFilter, categoryFilter, listProviders]);
   useEffect(() => {
     load();
   }, [load]);
-  async function handleAction(userId: string, status: string) {
+  async function handleAction(userId: string, status: string, duration?: string) {
     setActionMessage("");
     try {
-      const result = await setStatus({ data: { user_id: userId, type, status } });
+      const result = await setStatus({ data: { user_id: userId, type, status, suspension_duration: duration } });
       setActionMessage(status === "approved"
         ? `تم التحقق من إضافة دور ${result.role === "driver" ? "السائق" : "الفني"} للحساب بنجاح`
         : "تم تحديث حالة الحساب");
@@ -914,7 +918,7 @@ function ProvidersSection() {
           {actionMessage}
         </div>
       )}
-      <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
+      <div className="flex gap-1 mb-3 glass rounded-2xl p-1">
         {["driver", "worker"].map((t) => (
           <button
             key={t}
@@ -924,6 +928,29 @@ function ProvidersSection() {
             {t === "driver" ? "السائقون" : "الفنيون"}
           </button>
         ))}
+      </div>
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {[
+          ["all", "الكل"], ["approved", "المفعّلون"], ["pending", "بانتظار التفعيل"],
+          ["suspended", "المعلّقون"], ["rejected", "المرفوضون"],
+        ].map(([value, label]) => (
+          <button key={value} onClick={() => setStatusFilter(value)}
+            className={`px-3 py-2 rounded-xl text-[11px] font-bold ${statusFilter === value ? "bg-primary text-primary-foreground" : "glass text-muted-foreground"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="mb-4">
+        <label className="block text-xs font-bold mb-1.5">{type === "driver" ? "فئة السيارة" : "مستوى الفني"}</label>
+        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm">
+          <option value="all">كل الفئات</option>
+          {type === "driver" ? <>
+            <option value="economy">اقتصادي</option><option value="premium">متميز</option><option value="luxury">فاخر</option>
+          </> : <>
+            <option value="fani">فني</option><option value="khabir">خبير</option>
+          </>}
+        </select>
       </div>
       {loading ? (
         <Loader2 className="h-6 w-6 animate-spin mx-auto" />
@@ -942,15 +969,16 @@ function ProvidersSection() {
                     {p.profiles?.phone ?? "—"}
                   </div>
                 </div>
-                <span
-                  className={`text-[10px] font-bold px-2 py-1 rounded-full ${p.available ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}
-                >
-                  {p.available ? "متاح" : "غير متاح"}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${p.status === "approved" ? "bg-emerald-100 text-emerald-700" : p.status === "suspended" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
+                    {p.status === "approved" ? "الحساب مفعّل" : p.status === "pending" ? "بانتظار التفعيل" : p.status === "suspended" ? "الحساب معلّق" : p.status === "rejected" ? "مرفوض" : p.status}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{p.suspended_until ? `ينتهي التعليق: ${new Date(p.suspended_until).toLocaleString("ar-IQ")}` : p.status === "suspended" ? "تعليق دائم" : p.available ? "متاح للعمل" : "غير متاح للعمل"}</span>
+                </div>
               </div>
               {type === "driver" && p.vehicle_make && (
                 <div className="text-[10px] text-muted-foreground mb-2">
-                  {p.vehicle_make} {p.vehicle_model} · {p.vehicle_plate}
+                  {p.vehicle_make} {p.vehicle_model} · {p.vehicle_plate} · {({economy:"اقتصادي",premium:"متميز",luxury:"فاخر"} as any)[p.vehicle_category] ?? "غير محدد"}
                 </div>
               )}
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -971,7 +999,8 @@ function ProvidersSection() {
                   {p.verification ? "المستمسكات محفوظة" : "لا توجد مستمسكات محفوظة لهذا الطلب"}
                 </span>
               </div>
-              <div className="flex gap-1.5">
+              {type === "worker" && <div className="text-[10px] text-muted-foreground mb-2">{p.level === "khabir" ? "مستوى خبير" : "مستوى فني"}</div>}
+              <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => handleAction(p.user_id, "approved")}
                   className="text-xs px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-bold"
@@ -979,10 +1008,10 @@ function ProvidersSection() {
                   تفعيل
                 </button>
                 <button
-                  onClick={() => handleAction(p.user_id, "suspended")}
+                  onClick={() => { setSuspensionDuration("1h"); setSuspendingProvider(p); }}
                   className="text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 font-bold"
                 >
-                  تعليق
+                  تعليق لمدة
                 </button>
                 <button
                   onClick={() => handleAction(p.user_id, "rejected")}
@@ -993,6 +1022,26 @@ function ProvidersSection() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {suspendingProvider && (
+        <div className="fixed inset-0 z-[120] bg-black/70 p-3 flex items-center justify-center" role="dialog" aria-modal="true">
+          <div className="w-full max-w-sm rounded-2xl bg-background border border-border p-4">
+            <h3 className="font-black mb-2">تعليق الحساب</h3>
+            <p className="text-xs text-muted-foreground mb-3">{suspendingProvider.profiles?.full_name ?? "مقدم الخدمة"}</p>
+            <label className="block text-xs font-bold mb-1.5">مدة التعليق</label>
+            <select value={suspensionDuration} onChange={(e) => setSuspensionDuration(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm mb-4">
+              <option value="30m">نصف ساعة</option><option value="1h">ساعة</option>
+              <option value="1w">أسبوع</option><option value="1mo">شهر</option>
+              <option value="1y">سنة</option><option value="permanent">دائم</option>
+            </select>
+            <div className="flex gap-2">
+              <button onClick={() => setSuspendingProvider(null)} className="flex-1 rounded-xl bg-surface-2 py-2.5 text-sm font-bold">إلغاء</button>
+              <button onClick={async () => { await handleAction(suspendingProvider.user_id, "suspended", suspensionDuration); setSuspendingProvider(null); }}
+                className="flex-1 rounded-xl bg-amber-600 text-white py-2.5 text-sm font-bold">تأكيد التعليق</button>
+            </div>
+          </div>
         </div>
       )}
       {selectedProvider && (
