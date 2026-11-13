@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { MobileShell } from "@/components/mobile-shell";
 import {
@@ -60,7 +60,7 @@ const ROLE_CONFIG: Record<string, { label: string; desc: string; icon: string }>
 };
 
 function ProfilePage() {
-  const { session, profile, roles, activeRole, setActiveRole, loading, signOut } = useAuth();
+  const { session, profile, roles, activeRole, setActiveRole, loading, signOut, refresh } = useAuth();
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<any>(null);
   const [txs, setTxs] = useState<any[]>([]);
@@ -68,6 +68,8 @@ function ProfilePage() {
   const [reputation, setReputation] = useState<ReputationData | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [showReviews, setShowReviews] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const uid = session?.user.id;
   const isDriver = roles.includes("driver");
   const isWorker = roles.includes("worker");
@@ -103,6 +105,40 @@ function ProfilePage() {
     }
   }, [uid, isDriver, isProvider, getRepFn]);
 
+  async function uploadAvatar(file?: File) {
+    if (!file || !uid || avatarUploading) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("اختر صورة بصيغة JPG أو PNG أو WEBP");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("حجم الصورة يجب ألا يتجاوز 5 ميغابايت");
+      return;
+    }
+    setAvatarUploading(true);
+    try {
+      const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+      const path = `${uid}/avatar-${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { contentType: file.type, cacheControl: "3600", upsert: false });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: data.publicUrl })
+        .eq("id", uid);
+      if (updateError) throw updateError;
+      await refresh();
+      toast.success("تم حفظ صورتك الشخصية");
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر رفع الصورة، حاول مرة ثانية");
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  }
+
   async function loadReviews() {
     if (!uid) return;
     try {
@@ -134,6 +170,21 @@ function ProfilePage() {
               {(profile?.full_name || "؟").charAt(0)}
             </div>
           )}
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(event) => uploadAvatar(event.currentTarget.files?.[0])}
+          />
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarUploading}
+            className="mx-auto mb-3 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-60"
+          >
+            {avatarUploading ? "جارٍ حفظ الصورة..." : "📷 تغيير الصورة الشخصية"}
+          </button>
           <div className="text-xl font-black flex items-center justify-center gap-1.5">
             <span>{profile?.full_name}</span>
             {isProvider && (
