@@ -24,6 +24,12 @@ type IncomingRequest = {
 export default function HomeScreen() {
   const { user, profile, roles } = useAuth();
   const [activeRole, setActiveRole] = useState<string>(roles[0] || "customer");
+  const [companyName, setCompanyName] = useState("شركة ممنون");
+
+  useEffect(() => {
+    (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -257,6 +263,7 @@ export default function HomeScreen() {
             available={available}
             verified={verified}
             verificationStatus={verificationStatus}
+            companyName={companyName}
             toggleAvailable={toggleAvailable}
             incoming={incoming}
           />
@@ -317,12 +324,14 @@ function ProviderHome({
   available,
   verified,
   verificationStatus,
+  companyName,
   toggleAvailable,
   incoming,
 }: {
   available: boolean;
   verified: boolean;
   verificationStatus: string;
+  companyName: string;
   toggleAvailable: () => void;
   incoming: IncomingRequest[];
 }) {
@@ -348,7 +357,7 @@ function ProviderHome({
                 ? "تم رفض التوثيق — راجع الإدارة"
                 : verificationStatus === "suspended"
                   ? "تم تعليق الحساب — راجع الإدارة"
-                  : "بانتظار مراجعة الإدارة"
+                  : "بانتظار موافقة " + companyName
               : available
                 ? "ستصلك الطلبات الجديدة"
                 : "اضغط لتفعيل الاستقبال"}
