@@ -371,12 +371,16 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
 
+    if (data.status === "rejected" && !data.reason?.trim()) {
+      throw new Error("اكتب سبب الرفض حتى يصل للمستخدم بشكل واضح");
+    }
+
     if (data.status === "approved" || data.status === "rejected") {
       const { error: verificationUpdateError } = await (supabaseAdmin as any)
         .from("provider_verifications")
         .update({
           status: data.status,
-          rejection_reason: data.status === "rejected" ? data.reason ?? "لم يستوفِ شروط التوثيق" : null,
+          rejection_reason: data.status === "rejected" ? data.reason!.trim() : null,
           reviewed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -398,7 +402,64 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
       if (verifyError) throw new Error(`تعذر التحقق من الدور بعد الموافقة: ${verifyError.message}`);
       if (!granted) throw new Error("لم يُضف دور مقدم الخدمة إلى الحساب؛ لم يتم تأكيد التفعيل");
     }
-    return { ok: true, role: data.status === "approved" ? role : null };
+
+    let notificationSent = false;
+    let pushSent = 0;
+    if (data.status === "approved" || data.status === "rejected") {
+      const { data: profileRow } = await (supabaseAdmin as any)
+        .from("profiles")
+        .select("full_name")
+        .eq("id", data.user_id)
+        .maybeSingle();
+      const personName = String(profileRow?.full_name ?? "").trim();
+      const providerLabel = data.type === "driver" ? "سائق تكسي" : "فني";
+      const title = data.status === "approved"
+        ? "تهانينا! تم تفعيل حسابك في ممنون 🎉"
+        : "بخصوص طلب انضمامك إلى ممنون";
+      const body = data.status === "approved"
+        ? `أهلاً ${personName || "بك"}، نبارك لك! تم تفعيل حسابك كـ${providerLabel} بعد مراجعة الإدارة. نتمنى لك التوفيق والنجاح، ونرحب بك ضمن أسرة شركة ممنون الموثّقة. 💛`
+        : `أهلاً ${personName || "بك"}، نعتذر عن عدم قبول طلبك حالياً. سبب الرفض: ${data.reason!.trim()}. يرجى معالجة الملاحظة وإعادة المحاولة، ونتمنى لك التوفيق. شركة ممنون الموثّقة.`;
+      const { error: notificationError } = await (supabaseAdmin as any)
+        .from("notifications")
+        .insert({
+          user_id: data.user_id,
+          type: data.status === "approved" ? "provider_approved" : "provider_rejected",
+          title,
+          body,
+          link: "/home",
+          data: { provider_type: data.type, status: data.status, company: "شركة ممنون الموثّقة" },
+        });
+      if (notificationError) throw new Error(`تم تحديث حالة الحساب لكن تعذر إرسال الإشعار داخل التطبيق: ${notificationError.message}`);
+      notificationSent = true;
+
+      // Send a real device push as well when the user has registered an Expo token.
+      const { data: pushRows } = await (supabaseAdmin as any)
+        .from("user_push_tokens")
+        .select("expo_push_token")
+        .eq("user_id", data.user_id);
+      const tokens = (pushRows ?? []).map((row: any) => row.expo_push_token).filter((token: string) => typeof token === "string" && token.startsWith("ExponentPushToken["));
+      for (let i = 0; i < tokens.length; i += 100) {
+        const messages = tokens.slice(i, i + 100).map((to: string) => ({
+          to, sound: "default", title, body,
+          data: { type: "provider_verification", provider_type: data.type, status: data.status },
+          channelId: "default",
+        }));
+        try {
+          const response = await fetch("https://exp.host/--/api/v2/push/send", {
+            method: "POST",
+            headers: { Accept: "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify(messages),
+          });
+          if (response.ok) {
+            const payload = await response.json() as { data?: Array<{ status?: string }> };
+            pushSent += (payload.data ?? []).filter((ticket) => ticket.status === "ok").length;
+          }
+        } catch (pushError) {
+          console.warn("[provider-notification] Expo push delivery failed", pushError);
+        }
+      }
+    }
+    return { ok: true, role: data.status === "approved" ? role : null, notification_sent: notificationSent, push_sent: pushSent };
   });
 
 export const adminListRequests = createServerFn({ method: "GET" })
