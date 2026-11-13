@@ -170,7 +170,7 @@ export default function ProfileScreen() {
         </>
       )}
       <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/account-settings")}>
-        <Text style={styles.menuItemText}>إعدادات الحساب وتغيير البريد أو الرقم</Text>
+        <Text style={styles.menuItemText}>تبديل الدور وإعدادات الحساب</Text>
         <Text style={styles.menuArrow}>←</Text>
       </TouchableOpacity>
       {roles.includes("super_admin") && (
