@@ -133,7 +133,7 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
   const [facePath, idPath, idBackPath, vehicleDocumentPath] = await Promise.all([
     uploadImage(doc.facePhotoUrl, "face"),
     uploadImage(doc.idCardPhotoUrl, "id-card"),
-    doc.role === "driver" && doc.documentType === "national_id" && doc.idCardBackPhotoUrl
+    doc.documentType === "national_id" && doc.idCardBackPhotoUrl
       ? uploadImage(doc.idCardBackPhotoUrl, "id-card-back")
       : Promise.resolve(null),
     doc.role === "driver" && doc.vehicleDocumentPhotoUrl
