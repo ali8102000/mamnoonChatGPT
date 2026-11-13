@@ -27,6 +27,7 @@ function PushNotificationSetup() {
 
   useEffect(() => {
     if (!user) return;
+    const userId = user.id;
     let active = true;
 
     async function registerPushToken() {
@@ -55,7 +56,7 @@ function PushNotificationSetup() {
         const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!active) return;
         const { error } = await (supabase as any).from("user_push_tokens").upsert({
-          user_id: user.id,
+          user_id: userId,
           expo_push_token: tokenResult.data,
           device_platform: Platform.OS,
           updated_at: new Date().toISOString(),
