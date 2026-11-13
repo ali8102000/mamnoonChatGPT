@@ -157,7 +157,7 @@ BEGIN
     EXECUTE 'CREATE TRIGGER provider_presence_touch BEFORE INSERT OR UPDATE ON public.provider_presence FOR EACH ROW EXECUTE FUNCTION public.touch_provider_presence()';
   END IF;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.find_nearby_drivers(_lat numeric, _lng numeric, _category text, _radius_km numeric DEFAULT 5, _limit int DEFAULT 10)
 RETURNS TABLE(user_id uuid, distance_km numeric, rating_avg numeric)
