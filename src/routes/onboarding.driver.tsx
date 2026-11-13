@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { grantProviderRole } from "@/lib/roles.functions";
 import {
+  type VerificationDocument,
   fileToCompressedDataUrl,
   saveProviderVerification,
   getProviderVerification,
@@ -229,7 +230,7 @@ function OnboardingDriver() {
         .eq("id", uid);
 
       // 2. Save detailed verification document with pending status
-      const verificationDoc = {
+      const verificationDoc: VerificationDocument = {
         userId: uid,
         role: "driver",
         legalName: legalName.trim(),
