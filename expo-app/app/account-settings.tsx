@@ -17,12 +17,12 @@ export default function AccountSettingsScreen() {
   const [busy, setBusy] = useState(false);
 
   async function switchRole(role: string) {
-    if (!roles.includes(role as (typeof roles)[number])) {
-      Alert.alert("غير متاح", "هذا الدور غير مضاف إلى حسابك بعد. أكمل التسجيل أولاً.");
-      return;
-    }
     if (role === "driver") {
       router.push("/onboarding/driver");
+      return;
+    }
+    if (!roles.includes(role as (typeof roles)[number])) {
+      Alert.alert("غير متاح", "هذا الدور غير مضاف إلى حسابك بعد. أكمل التسجيل أولاً.");
       return;
     }
     if (role === "worker") {
@@ -88,7 +88,7 @@ export default function AccountSettingsScreen() {
     <Text style={styles.sectionTitle}>تبديل الدور</Text>
     <Text style={styles.note}>اختَر طريقة استخدامك لممنون. عند اختيار سائق تكسي ستظهر لك بيانات السيارة لإكمالها.</Text>
     <View style={styles.roleOptions}>
-      {roles.filter((role) => ["customer", "worker", "driver"].includes(role)).map((role) => (
+      {[...roles.filter((role) => ["customer", "worker", "driver"].includes(role)), ...(roles.includes("driver") ? [] : ["driver"])].map((role) => (
         <Button
           key={role}
           title={role === "customer" ? "استخدام ممنون كزبون" : role === "worker" ? "استخدام ممنون كفني" : "سائق تكسي"}
