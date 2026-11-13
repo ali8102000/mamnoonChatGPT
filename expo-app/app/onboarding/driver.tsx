@@ -227,7 +227,10 @@ export default function DriverOnboarding() {
             else Alert.alert("تنبيه", "الموافقة لم تكتمل صلاحياتها بعد. أعد المحاولة بعد قليل.");
           }} />
         ) : (
-          <Button title="العودة للرئيسية" onPress={() => router.replace("/home")} />
+          <View style={{ gap: 10 }}>
+            <Button title="تعديل البيانات وإعادة إرفاق السنوية والمستمسكات" onPress={() => setStatus(null)} />
+            <Button title="العودة للرئيسية" onPress={() => router.replace("/home")} />
+          </View>
         )}
       </View>
     );
