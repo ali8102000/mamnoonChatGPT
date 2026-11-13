@@ -33,13 +33,20 @@ export interface VerificationDocument {
 const STORAGE_KEY_PREFIX = "mumnun_verification_";
 const ALL_VERIFICATIONS_KEY = "mumnun_all_verifications";
 
-export function getProviderVerification(userId: string): VerificationDocument | null {
+export function getProviderVerification(userId: string, role?: VerificationDocument["role"]): VerificationDocument | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${userId}`);
-    if (raw) return JSON.parse(raw);
+    if (role) {
+      const roleRaw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${userId}_${role}`);
+      if (roleRaw) return JSON.parse(roleRaw);
+    }
+    const legacyRaw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${userId}`);
+    if (legacyRaw) {
+      const legacy = JSON.parse(legacyRaw) as VerificationDocument;
+      if (!role || legacy.role === role) return legacy;
+    }
     const list = getAllProviderVerifications();
-    return list.find((v) => v.userId === userId) ?? null;
+    return list.find((v) => v.userId === userId && (!role || v.role === role)) ?? null;
   } catch {
     return null;
   }
@@ -59,8 +66,9 @@ export function getAllProviderVerifications(): VerificationDocument[] {
 export function saveProviderVerification(doc: VerificationDocument): void {
   if (typeof window === "undefined") return;
   try {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}${doc.userId}_${doc.role}`, JSON.stringify(doc));
     localStorage.setItem(`${STORAGE_KEY_PREFIX}${doc.userId}`, JSON.stringify(doc));
-    const all = getAllProviderVerifications().filter((v) => v.userId !== doc.userId);
+    const all = getAllProviderVerifications().filter((v) => !(v.userId === doc.userId && v.role === doc.role));
     all.unshift(doc);
     localStorage.setItem(ALL_VERIFICATIONS_KEY, JSON.stringify(all));
   } catch (e) {
@@ -169,6 +177,6 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
     submitted_at: new Date().toISOString(),
     reviewed_at: null,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "user_id" });
+  }, { onConflict: "user_id,provider_type" });
   if (error) throw new Error(`تعذر حفظ طلب التوثيق: ${error.message}`);
 }
