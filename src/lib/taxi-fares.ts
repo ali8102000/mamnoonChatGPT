@@ -1,5 +1,4 @@
-// All vehicles use the user-defined distance-only tariff: 400 IQD per driving km.
-
+// Taxi pricing for Mamnoon: city rides use 400 IQD/km; inter-governorate rides use 250 IQD/km.
 export type VehicleCategory = "economy" | "premium" | "luxury";
 export type WeatherCondition = "heat" | "rain" | "cold" | "mild";
 export type RoadCondition = "normal" | "congested";
@@ -8,6 +7,7 @@ export interface FareOptions {
   weather?: WeatherCondition;
   roadCondition?: RoadCondition;
   demandMultiplier?: number;
+  isIntercity?: boolean;
 }
 
 export interface FareBreakdown {
@@ -28,9 +28,9 @@ export const FARE_TABLE: Record<
   VehicleCategory,
   { base: number; perKm: number; minimum: number; titleAr: string }
 > = {
-  economy: { base: 0, perKm: 400, minimum: 0, titleAr: "كفو اقتصادي" },
-  premium: { base: 0, perKm: 400, minimum: 0, titleAr: "كفو المتميز" },
-  luxury: { base: 0, perKm: 400, minimum: 0, titleAr: "كفو فاخر" },
+  economy: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون اقتصادي" },
+  premium: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون المتميز" },
+  luxury: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون فاخر" },
 };
 
 export const WEATHER_RATES: Record<
@@ -61,21 +61,35 @@ export function calculateFareBreakdown(
 ): FareBreakdown {
   const t = FARE_TABLE[category];
   if (!Number.isFinite(distanceKm) || distanceKm < 0) throw new Error("مسافة الطريق غير صالحة");
-  const km = distanceKm;
-  const weather = options?.weather ?? "heat"; // Default to heat in Iraq
-  const roadCondition = options?.roadCondition ?? "normal";
 
+  const isIntercity = options?.isIntercity ?? false;
+  const perKm = isIntercity ? 250 : t.perKm;
+  const distanceFare = perKm * distanceKm;
+  const subtotal = distanceFare;
+  const requestedDemand = Math.min(1.5, Math.max(0.8, options?.demandMultiplier ?? 1));
+  // Long-distance and inter-governorate fares must not surge as sharply as short city rides.
+  const demandMultiplier =
+    isIntercity || subtotal >= 10000
+      ? Math.min(1.1, Math.max(0.95, requestedDemand))
+      : requestedDemand;
+
+  const economyFare = subtotal * demandMultiplier;
+  const tierMultiplier =
+    category === "economy"
+      ? 1
+      : isIntercity || economyFare >= 5000
+        ? category === "premium" ? 1.05 : 1.10
+        : category === "premium" ? 1.10 : 1.25;
+
+  const weather = options?.weather ?? "heat";
+  const roadCondition = options?.roadCondition ?? "normal";
   const weatherData = WEATHER_RATES[weather];
   const roadData = ROAD_RATES[roadCondition];
-
-  const distanceFare = t.perKm * km;
-  const subtotal = distanceFare;
-  const demandMultiplier = Math.min(1.5, Math.max(0.8, options?.demandMultiplier ?? 1));
-  const finalTotal = Math.max(MIN_TAXI_FARE, roundTo250(subtotal * demandMultiplier));
+  const finalTotal = Math.max(MIN_TAXI_FARE, roundTo250(economyFare * tierMultiplier));
 
   return {
     category,
-    distanceKm: km,
+    distanceKm,
     baseFare: t.base,
     distanceFare: Math.round(distanceFare),
     weatherAllowance: 0,
