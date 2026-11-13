@@ -31,6 +31,7 @@ export default function DriverOnboarding() {
   const [documentType, setDocumentType] = useState<DocumentType>("national_id");
   const [facePhoto, setFacePhoto] = useState<PickedImage | null>(null);
   const [idPhoto, setIdPhoto] = useState<PickedImage | null>(null);
+  const [idBackPhoto, setIdBackPhoto] = useState<PickedImage | null>(null);
   const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<PickedImage | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [savedModelName, setSavedModelName] = useState<string | null>(null);
@@ -74,7 +75,7 @@ export default function DriverOnboarding() {
 
   const makes = [...new Set(models.map((m) => m.make))];
 
-  async function pickPhoto(kind: "face" | "id" | "vehicle-document", source?: "camera" | "library") {
+  async function pickPhoto(kind: "face" | "id" | "id-back" | "vehicle-document", source?: "camera" | "library") {
     try {
       let result: ImagePicker.ImagePickerResult;
       if (kind === "face" || (kind === "vehicle-document" && source === "camera")) {
@@ -101,6 +102,7 @@ export default function DriverOnboarding() {
         const picked = { uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName };
         if (kind === "face") setFacePhoto(picked);
         else if (kind === "id") setIdPhoto(picked);
+        else if (kind === "id-back") setIdBackPhoto(picked);
         else setVehicleDocumentPhoto(picked);
       }
     } catch {
@@ -108,7 +110,7 @@ export default function DriverOnboarding() {
     }
   }
 
-  async function uploadImage(image: PickedImage, kind: "face" | "id-card" | "vehicle-registration") {
+  async function uploadImage(image: PickedImage, kind: "face" | "id-card" | "id-card-back" | "vehicle-registration") {
     if (!user) throw new Error("انتهت جلسة الدخول.");
     const response = await fetch(image.uri);
     const body = await response.arrayBuffer();
@@ -118,7 +120,7 @@ export default function DriverOnboarding() {
     const { error } = await supabase.storage.from("provider-verification").upload(path, body, {
       contentType: mime, upsert: true, cacheControl: "3600",
     });
-    if (error) throw new Error(`تعذر حفظ ${kind === "face" ? "صورة الوجه" : kind === "id-card" ? "صورة الهوية" : "صورة سنوية السيارة أو الوكالة"}: ${error.message}`);
+    if (error) throw new Error(`تعذر حفظ ${kind === "face" ? "صورة الوجه" : kind === "id-card" || kind === "id-card-back" ? "صورة الهوية" : "صورة سنوية السيارة أو الوكالة"}: ${error.message}`);
     return path;
   }
 
@@ -140,8 +142,8 @@ export default function DriverOnboarding() {
       Alert.alert("الاسم مطلوب", "اكتب الاسم الثلاثي واللقب كما هو في الهوية.");
       return;
     }
-    if (!facePhoto || !idPhoto || !vehicleDocumentPhoto) {
-      Alert.alert("الصور مطلوبة", "أرفق صورة الوجه والهوية أو إجازة السوق وصورة سنوية السيارة أو الوكالة التي يظهر فيها رقم المركبة.");
+    if (!facePhoto || !idPhoto || (documentType === "national_id" && !idBackPhoto) || !vehicleDocumentPhoto) {
+      Alert.alert("الصور مطلوبة", "أرفق صورة الوجه والجهة الأمامية والخلفية للبطاقة الوطنية (أو صورة إجازة السوق) وصورة سنوية السيارة أو الوكالة التي يظهر فيها رقم المركبة.");
       return;
     }
 
@@ -164,9 +166,10 @@ export default function DriverOnboarding() {
       }, { onConflict: "user_id" });
       if (driverError) throw new Error(`تعذر إنشاء ملف السائق: ${driverError.message}`);
 
-      const [facePath, idPath, vehicleDocumentPath] = await Promise.all([
+      const [facePath, idPath, idBackPath, vehicleDocumentPath] = await Promise.all([
         uploadImage(facePhoto, "face"),
         uploadImage(idPhoto, "id-card"),
+        idBackPhoto ? uploadImage(idBackPhoto, "id-card-back") : Promise.resolve(null),
         uploadImage(vehicleDocumentPhoto, "vehicle-registration"),
       ]);
       const { error: verificationError } = await supabase.from("provider_verifications").upsert({
@@ -177,6 +180,7 @@ export default function DriverOnboarding() {
         email: user.email ?? null,
         face_photo_path: facePath,
         id_card_photo_path: idPath,
+        id_card_back_photo_path: idBackPath,
         vehicle_document_path: vehicleDocumentPath,
         document_type: documentType,
         metadata: {
@@ -291,10 +295,16 @@ export default function DriverOnboarding() {
       <TouchableOpacity style={styles.photoButton} onPress={() => pickPhoto("face")}>
         {facePhoto ? <Image source={{ uri: facePhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>فتح الكاميرا والتقاط صورة الوجه</Text>}
       </TouchableOpacity>
-      <Text style={styles.label}>صورة الهوية أو إجازة السوق *</Text>
+      <Text style={styles.label}>{documentType === "national_id" ? "الجهة الأمامية للبطاقة الوطنية *" : "صورة إجازة السوق *"}</Text>
       <TouchableOpacity style={styles.photoButton} onPress={() => pickPhoto("id")}>
-        {idPhoto ? <Image source={{ uri: idPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>اختيار صورة المستمسك</Text>}
+        {idPhoto ? <Image source={{ uri: idPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>تصوير أو اختيار الوجه الأمامي</Text>}
       </TouchableOpacity>
+      {documentType === "national_id" && <>
+        <Text style={styles.label}>الجهة الخلفية للبطاقة الوطنية *</Text>
+        <TouchableOpacity style={styles.photoButton} onPress={() => pickPhoto("id-back")}>
+          {idBackPhoto ? <Image source={{ uri: idBackPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>تصوير أو اختيار الوجه الخلفي</Text>}
+        </TouchableOpacity>
+      </>}
 
       <Text style={styles.label}>صورة سنوية السيارة أو الوكالة *</Text>
       <Text style={styles.note}>صوّر صفحة المستند كاملة وبوضوح، بحيث يظهر رقم المركبة أو رقم اللوحة وبيانات السيارة. إذا عندك وكالة استخدمها بدلاً من السنوية.</Text>
