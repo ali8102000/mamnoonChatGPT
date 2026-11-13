@@ -67,6 +67,7 @@ function OnboardingWorker() {
   const [legalName, setLegalName] = useState(profile?.full_name || "");
   const [facePhoto, setFacePhoto] = useState<string | null>(profile?.avatar_url || null);
   const [idCardPhoto, setIdCardPhoto] = useState<string | null>(null);
+  const [idCardBackPhoto, setIdCardBackPhoto] = useState<string | null>(null);
   const [confirmedNameMatch, setConfirmedNameMatch] = useState(true);
 
   const [activeTab, setActiveTab] = useState<"specialties" | "identity">("specialties");
@@ -74,6 +75,7 @@ function OnboardingWorker() {
 
   const faceInputRef = useRef<HTMLInputElement>(null);
   const idCardInputRef = useRef<HTMLInputElement>(null);
+  const idCardBackInputRef = useRef<HTMLInputElement>(null);
 
   const [existingDoc, setExistingDoc] = useState<any>(null);
   const [editingMode, setEditingMode] = useState(false);
@@ -95,6 +97,7 @@ function OnboardingWorker() {
         if (existing.legalName) setLegalName(existing.legalName);
         if (existing.facePhotoUrl) setFacePhoto(existing.facePhotoUrl);
         if (existing.idCardPhotoUrl) setIdCardPhoto(existing.idCardPhotoUrl);
+        if (existing.idCardBackPhotoUrl) setIdCardBackPhoto(existing.idCardBackPhotoUrl);
         if (existing.workerLevel) setLevel(existing.workerLevel);
         if (existing.workerBio) setBio(existing.workerBio);
         if (existing.workerServices && existing.workerServices.length > 0) {
@@ -144,6 +147,18 @@ function OnboardingWorker() {
     }
   }
 
+  async function handleIdCardBackChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file, 1200, 1200, 0.8);
+      setIdCardBackPhoto(dataUrl);
+      toast.success("تم إرفاق الجهة الخلفية للبطاقة الوطنية ✓");
+    } catch {
+      toast.error("تعذر معالجة صورة الجهة الخلفية");
+    }
+  }
+
   async function submit() {
     if (selected.size === 0) {
       toast.error("اختر اختصاص مهني واحد على الأقل");
@@ -160,8 +175,8 @@ function OnboardingWorker() {
       setActiveTab("identity");
       return;
     }
-    if (!idCardPhoto) {
-      toast.error("يرجى إرفاق صورة الهوية الأصلية أو البطاقة الوطنية");
+    if (!idCardPhoto || !idCardBackPhoto) {
+      toast.error("يرجى إرفاق وجهي البطاقة الوطنية الأمامي والخلفي");
       setActiveTab("identity");
       return;
     }
@@ -192,6 +207,7 @@ function OnboardingWorker() {
         email: profile?.email || session!.user.email,
         facePhotoUrl: facePhoto,
         idCardPhotoUrl: idCardPhoto,
+        idCardBackPhotoUrl: idCardBackPhoto,
         documentType: "national_id",
         verifiedAt: new Date().toISOString(),
         status: "pending",
@@ -402,7 +418,7 @@ function OnboardingWorker() {
         >
           <ShieldCheck className="h-4 w-4" />
           <span>٢. الهوية وصورة الوجه</span>
-          {facePhoto && idCardPhoto && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
+          {facePhoto && idCardPhoto && idCardBackPhoto && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
         </button>
       </div>
 
@@ -572,7 +588,7 @@ function OnboardingWorker() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                <span className="font-black text-sm">صورة الهوية الوطنية أو هوية الأحوال *</span>
+                <span className="font-black text-sm">البطاقة الوطنية الموحدة (الوجهين) *</span>
               </div>
               {idCardPhoto && (
                 <span className="text-[11px] font-bold text-emerald-600">تم الإرفاق ✓</span>
@@ -610,6 +626,26 @@ function OnboardingWorker() {
                   <span>{idCardPhoto ? "استبدال صورة الهوية" : "إرفاق صورة الهوية"}</span>
                 </button>
               </div>
+            </div>
+            <div className="rounded-xl border border-border p-3 space-y-2">
+              <div className="text-xs font-bold">الجهة الخلفية للبطاقة الوطنية *</div>
+              {idCardBackPhoto && <img src={idCardBackPhoto} alt="الجهة الخلفية للبطاقة الوطنية" className="w-full max-h-48 object-contain rounded-xl bg-slate-50" />}
+              <input
+                ref={idCardBackInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleIdCardBackChange}
+              />
+              <button
+                type="button"
+                onClick={() => idCardBackInputRef.current?.click()}
+                className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold btn-press"
+              >
+                {idCardBackPhoto ? "تغيير صورة الوجه الخلفي" : "إرفاق الوجه الخلفي"}
+              </button>
+              {idCardBackPhoto && <span className="text-[11px] font-bold text-emerald-600">تم الإرفاق ✓</span>}
             </div>
           </div>
 
