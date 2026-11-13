@@ -306,7 +306,7 @@ function ProfilePage() {
             className="w-full glass rounded-2xl p-4 flex items-center gap-3 btn-press text-right"
           >
             <Settings className="h-5 w-5 text-primary" />
-            <span className="flex-1 font-bold text-sm">إعدادات الحساب وتغيير البريد أو الرقم</span>
+            <span className="flex-1 font-bold text-sm">تبديل الدور وإعدادات الحساب</span>
           </Link>
           <button
             onClick={() => navigate({ to: "/select-role" })}
