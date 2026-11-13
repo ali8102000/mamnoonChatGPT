@@ -27,9 +27,8 @@ The EAS `production` environment must contain these variables, all belonging to 
 - `EXPO_PUBLIC_SUPABASE_URL=https://enteiolvirenbhkyskgb.supabase.co`
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (the Publishable key from the same Supabase project)
 - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (the Google Maps key used by Mamnoon)
-- `EAS_PROJECT_ID=a6c763c4-3a5c-4725-b370-81967e3c0aab`
 
-The Supabase service-role key must never be included in this mobile app or any `EXPO_PUBLIC_*` variable.
+The EAS project ID is already linked in `app.json` and the GitHub workflows. The Supabase service-role key must never be included in this mobile app or any `EXPO_PUBLIC_*` variable.
 
 For the GitHub Android AAB workflow, add the Expo access token as a GitHub Actions secret named `EXPO_TOKEN`. CI checks the fixed EAS project ID against `app.json`.
 
