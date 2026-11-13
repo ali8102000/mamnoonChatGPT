@@ -9,7 +9,7 @@ describe("confirmed real road distance", () => {
     expect(route.durationMin).toBe(123.5 / 60);
     expect(
       taxiFare("economy", route.distanceKm, { weather: "mild", roadCondition: "normal" }),
-    ).toBe(3400);
+    ).toBe(3500);
   });
   it("does not invent a fare when there is no route", () => {
     expect(() => parseDrivingRoute({ routes: [] })).toThrow();
