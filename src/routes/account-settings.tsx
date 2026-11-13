@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
+import { ArrowRight, UserRound, CarFront, Wrench, Mail, Phone, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/account-settings")({ ssr: false, component: AccountSettingsPage });
 
@@ -23,7 +24,7 @@ function AccountSettingsPage() {
 
   async function changeEmail() {
     const next = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) { toast.error("أدخل بريداً إلكترونياً صحيحاً"); return; }
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(next)) { toast.error("أدخل بريداً إلكترونياً صحيحاً"); return; }
     if (next === currentUser.email?.toLowerCase()) { toast.error("هذا هو بريدك الحالي"); return; }
     setBusy(true);
     try {
@@ -59,53 +60,72 @@ function AccountSettingsPage() {
     finally { setBusy(false); }
   }
 
-  return <main dir="rtl" className="min-h-screen max-w-lg mx-auto px-5 py-10">
-    <button onClick={() => navigate({ to: "/profile" })} className="text-primary font-bold mb-6">رجوع إلى الملف الشخصي</button>
-    <h1 className="text-2xl font-black mb-2">إعدادات الحساب</h1>
-    <p className="text-sm text-muted-foreground mb-3">إعداداتك الأساسية بمكان واحد وبشكل مرتب.</p>
-    <section className="glass rounded-3xl p-4 mt-5">
-      <div className="font-black text-base mb-1">طريقة استخدام ممنون</div>
-      <p className="text-xs text-muted-foreground mb-3">اختَر الدور الذي تريد استخدامه. تبديل الدور صار من هنا فقط.</p>
-      <div className="grid grid-cols-2 gap-2">
-        {roles.filter((role) => ["customer", "driver", "worker"].includes(role)).map((role) => {
-          const selected = activeRole === role;
-          const item = role === "customer"
-            ? { title: "زبون", emoji: "👤", color: "bg-sky-500/10 text-sky-700 border-sky-500/25" }
-            : role === "driver"
-              ? { title: "سائق تكسي", emoji: "🚕", color: "bg-amber-500/10 text-amber-700 border-amber-500/25" }
-              : { title: "فني", emoji: "🛠️", color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/25" };
-          return (
-            <button key={role} type="button" onClick={() => {
-              setActiveRole(role as any);
-              toast.success(`تم اختيار دور ${item.title}`);
-            }} className={`rounded-2xl border p-3 text-right transition ${item.color} ${selected ? "ring-2 ring-primary shadow-sm" : "opacity-85"}`}>
-              <div className="text-2xl mb-2">{item.emoji}</div>
-              <div className="text-sm font-black">{item.title}</div>
-              <div className="text-[10px] mt-1">{selected ? "الدور الحالي" : "اختيار هذا الدور"}</div>
-            </button>
-          );
+  const roleItems = [
+    { role: "customer", title: "زبون", subtitle: "طلب الخدمات والتكسي", icon: UserRound, style: "bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-300" },
+    { role: "driver", title: "سائق تكسي", subtitle: "استقبال طلبات التوصيل", icon: CarFront, style: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300" },
+    { role: "worker", title: "فني", subtitle: "تقديم الخدمات للعملاء", icon: Wrench, style: "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300" },
+  ];
+
+  return <main dir="rtl" className="min-h-screen max-w-lg mx-auto px-4 pt-5 pb-10">
+    <header className="flex items-center gap-3 mb-6">
+      <button onClick={() => navigate({ to: "/profile" })} aria-label="رجوع" className="h-10 w-10 rounded-2xl bg-muted/70 grid place-items-center">
+        <ArrowRight className="h-5 w-5" />
+      </button>
+      <div>
+        <h1 className="text-xl font-black">الإعدادات</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">كل أمور حسابك بمكان واحد</p>
+      </div>
+    </header>
+
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-3 px-1">
+        <h2 className="font-black text-sm">طريقة استخدام ممنون</h2>
+        <span className="text-[10px] text-muted-foreground">الدور الحالي محدد بإطار</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {roleItems.filter(item => roles.includes(item.role as any)).map(item => {
+          const Icon = item.icon;
+          const selected = activeRole === item.role;
+          return <button key={item.role} type="button" onClick={() => {
+            setActiveRole(item.role as any);
+            toast.success(`تم اختيار دور ${item.title}`);
+          }} className={`relative min-h-[112px] rounded-3xl border p-4 text-right transition active:scale-[0.98] ${item.style} ${selected ? "ring-2 ring-primary shadow-md" : "opacity-90"}`}>
+            {selected && <span className="absolute left-3 top-3 rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-[9px] font-bold">الحالي</span>}
+            <span className="h-10 w-10 rounded-2xl bg-white/60 dark:bg-black/10 grid place-items-center mb-3"><Icon className="h-5 w-5" /></span>
+            <span className="block text-sm font-black">{item.title}</span>
+            <span className="block text-[10px] opacity-75 mt-1">{item.subtitle}</span>
+          </button>;
         })}
       </div>
     </section>
 
-    <section className="glass rounded-2xl p-5 space-y-3">
-      <h2 className="font-black">تغيير البريد الإلكتروني</h2>
-      <p className="text-xs text-muted-foreground" dir="ltr">{session.user.email}</p>
-      <label className="block text-sm font-bold">البريد الجديد</label>
-      <input dir="ltr" type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-base w-full" placeholder="name@example.com" />
-      <Button className="w-full" disabled={busy} onClick={changeEmail}>إرسال رابط تأكيد البريد الجديد</Button>
+    <section className="mb-6">
+      <h2 className="font-black text-sm mb-3 px-1">معلومات التواصل</h2>
+      <div className="rounded-3xl border border-border/60 bg-card overflow-hidden">
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-2"><span className="h-8 w-8 rounded-xl bg-violet-500/10 text-violet-600 grid place-items-center"><Mail className="h-4 w-4" /></span><div className="font-bold text-sm">البريد الإلكتروني</div></div>
+          <p className="text-[11px] text-muted-foreground mb-3" dir="ltr">{session.user.email}</p>
+          <input dir="ltr" type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-base w-full rounded-2xl" placeholder="البريد الجديد" />
+          <Button className="w-full mt-3 rounded-2xl" disabled={busy} onClick={changeEmail}>إرسال رابط التأكيد</Button>
+        </div>
+        <div className="h-px bg-border/70 mx-4" />
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-2"><span className="h-8 w-8 rounded-xl bg-emerald-500/10 text-emerald-600 grid place-items-center"><Phone className="h-4 w-4" /></span><div className="font-bold text-sm">رقم الهاتف</div></div>
+          <p className="text-[11px] text-muted-foreground mb-3" dir="ltr">{profile?.phone || session.user.phone || "غير مسجل"}</p>
+          <input dir="ltr" type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="input-base w-full rounded-2xl text-left" placeholder="07XXXXXXXXX" />
+          {!phonePending ? <Button className="w-full mt-3 rounded-2xl" disabled={busy} onClick={requestPhoneChange}>إرسال رمز التحقق</Button> : <>
+            <label className="block text-xs font-bold mt-3 mb-2">رمز SMS</label>
+            <input dir="ltr" inputMode="numeric" value={otp} onChange={e => setOtp(e.target.value)} className="input-base w-full rounded-2xl text-left" placeholder="أدخل الرمز" />
+            <Button className="w-full mt-3 rounded-2xl" disabled={busy} onClick={verifyPhone}>تأكيد الرقم الجديد</Button>
+          </>}
+          <p className="text-[10px] text-muted-foreground mt-3">يتطلب تغيير الرقم تفعيل خدمة SMS في النظام.</p>
+        </div>
+      </div>
     </section>
-    <section className="glass rounded-2xl p-5 space-y-3 mt-5">
-      <h2 className="font-black">تغيير رقم الهاتف</h2>
-      <p className="text-xs text-muted-foreground" dir="ltr">{profile?.phone || session.user.phone || "غير مسجل"}</p>
-      <label className="block text-sm font-bold">رقم الهاتف الجديد</label>
-      <input dir="ltr" type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="input-base w-full text-left" placeholder="07XXXXXXXXX" />
-      {!phonePending ? <Button className="w-full" disabled={busy} onClick={requestPhoneChange}>إرسال رمز SMS للتحقق</Button> : <>
-        <label className="block text-sm font-bold">رمز SMS</label>
-        <input dir="ltr" inputMode="numeric" value={otp} onChange={e => setOtp(e.target.value)} className="input-base w-full text-left" placeholder="رمز التحقق" />
-        <Button className="w-full" disabled={busy} onClick={verifyPhone}>تأكيد الرقم الجديد</Button>
-      </>}
-      <p className="text-xs text-muted-foreground">يتطلب تغيير الرقم تفعيل Phone Auth ومزود SMS في Supabase.</p>
-    </section>
+
+    <div className="rounded-2xl bg-primary/5 border border-primary/10 p-3 flex items-center gap-2 text-xs text-muted-foreground">
+      <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+      <span>بيانات حسابك محمية، ولا يتغير البريد أو الهاتف إلا بعد إكمال التحقق.</span>
+    </div>
   </main>;
 }
