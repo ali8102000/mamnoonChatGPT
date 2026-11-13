@@ -324,6 +324,22 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
 
+    if (data.status === "approved" || data.status === "rejected") {
+      const { error: verificationUpdateError } = await (supabaseAdmin as any)
+        .from("provider_verifications")
+        .update({
+          status: data.status,
+          rejection_reason: data.status === "rejected" ? data.reason ?? "لم يستوفِ شروط التوثيق" : null,
+          reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", data.user_id)
+        .eq("provider_type", data.type);
+      if (verificationUpdateError) {
+        throw new Error(`تم تحديث حالة الحساب لكن تعذر تحديث سجل المستمسكات: ${verificationUpdateError.message}`);
+      }
+    }
+
     const role = data.type === "driver" ? "driver" : "worker";
     if (data.status === "approved") {
       const { data: granted, error: verifyError } = await (supabaseAdmin as any)
