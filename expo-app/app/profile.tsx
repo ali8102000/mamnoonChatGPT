@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 
@@ -51,7 +51,11 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.header}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
+          )}
         </View>
         <Text style={styles.name}>{profile?.full_name || "مستخدم"}</Text>
         <Text style={styles.phone}>{profile?.phone}</Text>
@@ -154,6 +158,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   avatarText: { fontSize: 32, fontWeight: "900", color: "#fff" },
+  avatarImage: { width: "100%", height: "100%", borderRadius: 40 },
   name: { fontSize: 22, fontWeight: "800", color: "#1e293b" },
   phone: { fontSize: 14, color: "#64748b", marginTop: 4 },
   rolesRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 24 },
