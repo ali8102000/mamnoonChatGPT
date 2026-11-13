@@ -20,6 +20,7 @@ const CATEGORIES = [
 
 export default function DriverOnboarding() {
   const { user, profile, refresh } = useAuth();
+  const [companyName, setCompanyName] = useState("شركة ممنون");
   const [models, setModels] = useState<VehicleModel[]>([]);
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
@@ -202,7 +203,7 @@ export default function DriverOnboarding() {
       setStatus("pending");
       setRejectionReason(null);
       await refresh();
-      Alert.alert("تم إرسال الطلب", "وصل طلبك للإدارة وهو الآن قيد المراجعة. لا يمكنك استقبال الرحلات قبل الموافقة.");
+      Alert.alert("تم إرسال الطلب", "وصل طلبك إلى إدارة " + companyName + " وهو الآن بانتظار الموافقة. لا يمكنك استقبال الرحلات قبل الاعتماد.");
     } catch (err: unknown) {
       Alert.alert("تعذر إكمال التسجيل", err instanceof Error ? err.message : "حدث خطأ غير متوقع.");
     } finally {
@@ -217,7 +218,7 @@ export default function DriverOnboarding() {
         <Text style={styles.statusText}>
           {status === "approved"
             ? "تهانينا! تم تفعيل حسابك كسائق تكسي بعد تدقيق مستمسكاتك وسيارتك. نرحب بك ضمن أسرة شركة ممنون الموثّقة ونتمنى لك التوفيق والنجاح."
-            : "استلمنا بيانات السيارة والهوية. ستتمكن من استقبال الرحلات بعد موافقة الإدارة."}
+            : "استلمنا بيانات السيارة والهوية. طلبك الآن بانتظار موافقة " + companyName + "، وستتمكن من استقبال الرحلات بعد الاعتماد."}
         </Text>
         {status === "approved" ? (
           <Button title="تحديث الحساب والمتابعة" onPress={async () => {
