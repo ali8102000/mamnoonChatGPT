@@ -12,6 +12,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui";
+import * as SecureStore from "expo-secure-store";
 
 type VehicleModel = { id: string; make: string; model: string; category: string; min_year: number };
 
@@ -71,6 +72,7 @@ export default function DriverOnboarding() {
         _role: "driver",
       });
       if (roleError) throw roleError;
+      await SecureStore.setItemAsync("mamnoon_active_role", "driver");
       router.replace("/home");
     } catch (err: unknown) {
       Alert.alert("خطأ", err instanceof Error ? err.message : "حدث خطأ");
