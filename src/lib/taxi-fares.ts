@@ -7,6 +7,7 @@ export type RoadCondition = "normal" | "congested";
 export interface FareOptions {
   weather?: WeatherCondition;
   roadCondition?: RoadCondition;
+  demandMultiplier?: number;
 }
 
 export interface FareBreakdown {
@@ -69,7 +70,8 @@ export function calculateFareBreakdown(
 
   const distanceFare = t.perKm * km;
   const subtotal = distanceFare;
-  const finalTotal = Math.max(MIN_TAXI_FARE, Math.round(subtotal));
+  const demandMultiplier = Math.min(1.5, Math.max(0.8, options?.demandMultiplier ?? 1));
+  const finalTotal = Math.max(MIN_TAXI_FARE, roundTo250(subtotal * demandMultiplier));
 
   return {
     category,
