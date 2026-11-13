@@ -292,7 +292,7 @@ function OnboardingDriver() {
         email: profile?.email || session!.user.email,
         facePhotoUrl: facePhoto,
         idCardPhotoUrl: idCardPhoto,
-        idCardBackPhotoUrl: idCardBackPhoto,
+        ...(idCardBackPhoto ? { idCardBackPhotoUrl: idCardBackPhoto } : {}),
         vehicleDocumentPhotoUrl: vehicleDocumentPhoto,
         idNumber: idNumber.trim() || undefined,
         documentType,
