@@ -157,6 +157,44 @@ function OnboardingDriver() {
     }
   }, [session?.user?.id]);
 
+  // Keep the review status and admin rejection reason synchronized from Supabase.
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    let active = true;
+    const applyReview = (row: any) => {
+      if (!active || !row) return;
+      const metadata = row.metadata ?? {};
+      setExistingDoc((current: any) => ({
+        ...(current ?? {
+          userId,
+          role: "driver",
+          legalName: row.legal_name ?? profile?.full_name ?? "",
+          facePhotoUrl: "",
+          idCardPhotoUrl: "",
+          documentType: row.document_type ?? "national_id",
+          verifiedAt: row.updated_at ?? new Date().toISOString(),
+        }),
+        status: row.status,
+        rejectionReason: row.rejection_reason ?? undefined,
+        vehicleMake: metadata.vehicleMake ?? current?.vehicleMake,
+        vehicleModel: metadata.vehicleModel ?? current?.vehicleModel,
+        vehicleYear: metadata.vehicleYear ?? current?.vehicleYear,
+        vehiclePlate: metadata.vehiclePlate ?? current?.vehiclePlate,
+        vehicleColor: metadata.vehicleColor ?? current?.vehicleColor,
+        vehicleCategory: metadata.vehicleCategory ?? current?.vehicleCategory,
+      }));
+    };
+    supabase.from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+      .eq("user_id", userId).eq("provider_type", "driver").maybeSingle()
+      .then(({ data, error }) => { if (!error && data) applyReview(data); });
+    const channel = supabase.channel(`driver-verification-${userId}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "provider_verifications", filter: `user_id=eq.${userId}` },
+        (payload: any) => { if (payload.new?.provider_type === "driver") applyReview(payload.new); })
+      .subscribe();
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, [session?.user?.id, profile?.full_name]);
+
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
 
@@ -361,10 +399,10 @@ function OnboardingDriver() {
             </h2>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
               {isApproved
-                ? "تم تدقيق بيانات سيارتك وهويتك والموافقة عليها من قبل الإدارة العامة (احمد). يمكنك الآن العمل واستقبال الطلبات."
+                ? "تم تفعيل حسابك كسائق تكسي بعد تدقيق مستمسكاتك وسيارتك. نرحب بك ضمن أسرة شركة ممنون الموثّقة ونتمنى لك التوفيق والنجاح."
                 : isRejected
                   ? existingDoc.rejectionReason ||
-                    "تم فحص البيانات من قبل الإدارة العامة وتبيّن وجود نقص أو عدم تطابق في المستندات. يرجى تعديلها وإعادة الإرسال."
+                    "تمت مراجعة طلبك ولم نتمكن من قبوله حالياً. سبب الرفض موضح أدناه، يرجى معالجة الملاحظة والمحاولة مرة أخرى. شركة ممنون الموثّقة."
                   : "تم استلام بيانات سيارتك وهويتك بنجاح، ووصلت إلى حساب الإدارة العامة (احمد) للمراجعة والتحقق من صحتها."}
             </p>
           </div>
