@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = useCallback(async (uid: string) => {
     try {
-      const [{ data: prof }, { data: roleRows }, { data: blockRow }] = await Promise.all([
+      const [{ data: prof }, { data: roleRows }, { data: blockRow }, { data: driverProfile }, { data: workerProfile }] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, phone, full_name, avatar_url, email")
@@ -77,12 +77,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", uid),
         supabase.from("user_blocks").select("*").eq("user_id", uid).maybeSingle(),
+        supabase.from("driver_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
+        supabase.from("worker_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
       ]);
 
+      // Provider applications are selectable even while awaiting admin approval.
+      // Actual provider permissions remain enforced by database policies/status checks.
       const mappedRoles = (roleRows ?? []).map((r: any) => r.role as AppRole);
-      if (!mappedRoles.includes("customer")) {
-        mappedRoles.unshift("customer");
-      }
+      if (driverProfile && !mappedRoles.includes("driver")) mappedRoles.push("driver");
+      if (workerProfile && !mappedRoles.includes("worker")) mappedRoles.push("worker");
+      if (!mappedRoles.includes("customer")) mappedRoles.unshift("customer");
 
       setProfile(prof ?? null);
       setRoles(mappedRoles);
