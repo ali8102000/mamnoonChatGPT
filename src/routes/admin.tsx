@@ -1001,24 +1001,38 @@ function ProvidersSection() {
               </div>
               {type === "worker" && <div className="text-[10px] text-muted-foreground mb-2">{p.level === "khabir" ? "مستوى خبير" : "مستوى فني"}</div>}
               <div className="flex flex-wrap gap-1.5">
-                <button
-                  onClick={() => handleAction(p.user_id, "approved")}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-bold"
-                >
-                  تفعيل
-                </button>
-                <button
-                  onClick={() => { setSuspensionDuration("1h"); setSuspendingProvider(p); }}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 font-bold"
-                >
-                  تعليق لمدة
-                </button>
-                <button
-                  onClick={() => handleAction(p.user_id, "rejected")}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
-                >
-                  رفض
-                </button>
+                {p.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => handleAction(p.user_id, "approved")}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-bold"
+                    >
+                      تفعيل
+                    </button>
+                    <button
+                      onClick={() => handleAction(p.user_id, "rejected")}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
+                    >
+                      رفض
+                    </button>
+                  </>
+                )}
+                {p.status === "approved" && (
+                  <button
+                    onClick={() => { setSuspensionDuration("1h"); setSuspendingProvider(p); }}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 font-bold"
+                  >
+                    تعليق لمدة
+                  </button>
+                )}
+                {(p.status === "suspended" || p.status === "rejected") && (
+                  <button
+                    onClick={() => handleAction(p.user_id, "approved")}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-bold"
+                  >
+                    {p.status === "suspended" ? "إعادة التفعيل" : "إعادة التفعيل بعد الرفض"}
+                  </button>
+                )}
               </div>
             </div>
           ))}
