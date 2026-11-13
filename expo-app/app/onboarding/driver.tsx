@@ -78,7 +78,7 @@ export default function DriverOnboarding() {
   async function pickPhoto(kind: "face" | "id" | "id-back" | "vehicle-document", source?: "camera" | "library") {
     try {
       let result: ImagePicker.ImagePickerResult;
-      if (kind === "face" || (kind === "vehicle-document" && source === "camera")) {
+      if (kind === "face" || source === "camera") {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
           Alert.alert("إذن الكاميرا", "اسمح للتطبيق باستخدام الكاميرا لالتقاط صورة الوجه.");
@@ -90,7 +90,7 @@ export default function DriverOnboarding() {
       } else {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert("إذن الصور", kind === "vehicle-document" ? "اسمح للتطبيق بالوصول إلى الصور حتى تختار السنوية أو الوكالة." : "اسمح للتطبيق بالوصول إلى الصور لاختيار صورة الهوية.");
+          Alert.alert("إذن الصور", kind === "vehicle-document" ? "اسمح للتطبيق بالوصول إلى الصور حتى تختار السنوية أو الوكالة." : "اسمح للتطبيق بالوصول إلى الصور لاختيار صورة المستمسك.");
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
@@ -296,13 +296,21 @@ export default function DriverOnboarding() {
         {facePhoto ? <Image source={{ uri: facePhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>فتح الكاميرا والتقاط صورة الوجه</Text>}
       </TouchableOpacity>
       <Text style={styles.label}>{documentType === "national_id" ? "الجهة الأمامية للبطاقة الوطنية *" : "صورة إجازة السوق *"}</Text>
-      <TouchableOpacity style={styles.photoButton} onPress={() => pickPhoto("id")}>
-        {idPhoto ? <Image source={{ uri: idPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>تصوير أو اختيار الوجه الأمامي</Text>}
+      <TouchableOpacity style={styles.photoButton} onPress={() => Alert.alert("الوجه الأمامي", "اختَر طريقة الإرفاق", [
+        { text: "تصوير بالكاميرا", onPress: () => { void pickPhoto("id", "camera"); } },
+        { text: "اختيار من المعرض", onPress: () => { void pickPhoto("id", "library"); } },
+        { text: "إلغاء", style: "cancel" },
+      ])}>
+        {idPhoto ? <Image source={{ uri: idPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>اضغط لتصوير أو اختيار الوجه الأمامي</Text>}
       </TouchableOpacity>
       {documentType === "national_id" && <>
         <Text style={styles.label}>الجهة الخلفية للبطاقة الوطنية *</Text>
-        <TouchableOpacity style={styles.photoButton} onPress={() => pickPhoto("id-back")}>
-          {idBackPhoto ? <Image source={{ uri: idBackPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>تصوير أو اختيار الوجه الخلفي</Text>}
+        <TouchableOpacity style={styles.photoButton} onPress={() => Alert.alert("الوجه الخلفي", "اختَر طريقة الإرفاق", [
+          { text: "تصوير بالكاميرا", onPress: () => { void pickPhoto("id-back", "camera"); } },
+          { text: "اختيار من المعرض", onPress: () => { void pickPhoto("id-back", "library"); } },
+          { text: "إلغاء", style: "cancel" },
+        ])}>
+          {idBackPhoto ? <Image source={{ uri: idBackPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>اضغط لتصوير أو اختيار الوجه الخلفي</Text>}
         </TouchableOpacity>
       </>}
 
