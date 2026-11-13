@@ -62,12 +62,19 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
         headers["X-Goog-FieldMask"] =
           "places.id,places.displayName,places.formattedAddress,places.location";
         body = JSON.stringify({
-          textQuery: data.input,
+          textQuery: `${data.input} ${governorate.name}`,
           languageCode: "ar",
           regionCode: "IQ",
           pageSize: 20,
           rankPreference: "DISTANCE",
-          locationRestriction: { rectangle: governorateBounds(governorate.key) },
+          // Bias toward the currently selected map area instead of restricting
+          // Google's search to a large administrative bounding rectangle.
+          locationBias: {
+            circle: {
+              center: { latitude: data.center.lat, longitude: data.center.lng },
+              radius: 50000,
+            },
+          },
         });
       } else {
         path = "/places/v1/places:autocomplete";
@@ -113,7 +120,12 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
             regionCode: "IQ",
             pageSize: 20,
             rankPreference: "DISTANCE",
-            locationRestriction: { rectangle: governorateBounds(governorate.key) },
+            locationBias: {
+              circle: {
+                center: { latitude: data.center.lat, longitude: data.center.lng },
+                radius: 50000,
+              },
+            },
           });
           response = await fetch(gateway + path, { method: "POST", headers, body });
         }
