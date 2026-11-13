@@ -115,6 +115,15 @@ function AccountSettingsPage() {
       </div>
     </section>
 
+    {isStaffAdmin && <section className="mb-6">
+      <h2 className="font-black text-sm mb-3 px-1">اسم المسؤول الظاهر للجميع</h2>
+      <div className="rounded-3xl border border-primary/20 bg-card p-4">
+        <p className="text-xs text-muted-foreground mb-3">هذا الاسم يظهر في حسابك وملفك العام وعند تفاعلك مع المستخدمين.</p>
+        <input value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={60} className="input-base w-full rounded-2xl" placeholder="اكتب الاسم الذي سيظهر للجميع" />
+        <Button className="w-full mt-3 rounded-2xl" disabled={busy} onClick={changeDisplayName}>حفظ الاسم الجديد</Button>
+      </div>
+    </section>}
+
     <section className="mb-6">
       <h2 className="font-black text-sm mb-3 px-1">معلومات التواصل</h2>
       <div className="rounded-3xl border border-border/60 bg-card overflow-hidden">
