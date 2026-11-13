@@ -62,10 +62,11 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
         headers["X-Goog-FieldMask"] =
           "places.id,places.displayName,places.formattedAddress,places.location";
         body = JSON.stringify({
-          textQuery: `${data.input} ${governorate.name} العراق`,
+          textQuery: data.input,
           languageCode: "ar",
           regionCode: "IQ",
-          pageSize: 10,
+          pageSize: 20,
+          rankPreference: "DISTANCE",
           locationRestriction: { rectangle: governorateBounds(governorate.key) },
         });
       } else {
@@ -99,7 +100,25 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
     } else {
       path = `/maps/api/geocode/json?latlng=${data.center.lat},${data.center.lng}&language=ar`;
     }
-    const response = await fetch(gateway + path, { method: body ? "POST" : "GET", headers, body });
+    let response = await fetch(gateway + path, { method: body ? "POST" : "GET", headers, body });
+    // Retry with the governorate name only when the bounded search has no results.
+    if (data.action === "autocomplete" && data.governorateKey && response.ok && body) {
+      const firstResult = (await response.clone().json()) as any;
+      if (!(firstResult.places?.length)) {
+        const governorate = getGovernorate(data.governorateKey);
+        if (governorate) {
+          body = JSON.stringify({
+            textQuery: `${data.input} ${governorate.name} العراق`,
+            languageCode: "ar",
+            regionCode: "IQ",
+            pageSize: 20,
+            rankPreference: "DISTANCE",
+            locationRestriction: { rectangle: governorateBounds(governorate.key) },
+          });
+          response = await fetch(gateway + path, { method: "POST", headers, body });
+        }
+      }
+    }
     if (!response.ok) {
       const text = await response.text();
       console.error(`[Maps ${response.status}] ${text}`);
