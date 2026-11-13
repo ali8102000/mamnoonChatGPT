@@ -787,7 +787,7 @@ function OnboardingDriver() {
               <div className="rounded-xl border border-border p-3">
                 <div className="text-xs font-bold mb-2">{documentType === "national_id" ? "الجهة الأمامية للبطاقة الوطنية *" : "صورة إجازة السوق *"}</div>
                 {idCardPhoto && <img src={idCardPhoto} alt="الجهة الأمامية للمستمسك" className="w-full max-h-48 object-contain rounded-xl bg-slate-50 mb-2" />}
-                <input ref={idCardInputRef} type="file" accept="image/*" className="hidden" onChange={handleIdCardChange} />
+                <input ref={idCardInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleIdCardChange} />
                 <button type="button" onClick={() => idCardInputRef.current?.click()} className="px-3.5 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold btn-press">
                   {idCardPhoto ? "تغيير صورة الوجه الأمامي" : "إرفاق الوجه الأمامي"}
                 </button>
@@ -795,7 +795,7 @@ function OnboardingDriver() {
               {documentType === "national_id" && <div className="rounded-xl border border-border p-3">
                 <div className="text-xs font-bold mb-2">الجهة الخلفية للبطاقة الوطنية *</div>
                 {idCardBackPhoto && <img src={idCardBackPhoto} alt="الجهة الخلفية للبطاقة الوطنية" className="w-full max-h-48 object-contain rounded-xl bg-slate-50 mb-2" />}
-                <input ref={idCardBackInputRef} type="file" accept="image/*" className="hidden" onChange={handleIdCardBackChange} />
+                <input ref={idCardBackInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleIdCardBackChange} />
                 <button type="button" onClick={() => idCardBackInputRef.current?.click()} className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold btn-press">
                   {idCardBackPhoto ? "تغيير صورة الوجه الخلفي" : "إرفاق الوجه الخلفي"}
                 </button>
