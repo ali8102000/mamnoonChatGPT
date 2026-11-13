@@ -49,7 +49,7 @@ export default function DriverOnboarding() {
     if (user) {
       supabase.from("provider_verifications")
         .select("status,rejection_reason,metadata")
-        .eq("user_id", user.id).maybeSingle()
+        .eq("user_id", user.id).eq("provider_type", "driver").maybeSingle()
         .then(({ data }) => {
           if (!active || !data) return;
           setStatus(data.status);
@@ -196,7 +196,7 @@ export default function DriverOnboarding() {
         submitted_at: new Date().toISOString(),
         reviewed_at: null,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
+      }, { onConflict: "user_id,provider_type" });
       if (verificationError) throw new Error(`تعذر حفظ طلب التوثيق: ${verificationError.message}`);
 
       setStatus("pending");
