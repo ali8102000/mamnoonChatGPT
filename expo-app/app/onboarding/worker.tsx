@@ -23,6 +23,8 @@ export default function WorkerOnboarding() {
   const { user, refresh } = useAuth();
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [services, setServices] = useState<WorkerService[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [level, setLevel] = useState<"fani" | "khabir">("fani");
   const [bio, setBio] = useState("");
@@ -40,28 +42,41 @@ export default function WorkerOnboarding() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    setServicesLoading(true);
     supabase
       .from("services")
       .select("id,slug,name_ar")
       .order("name_ar")
-      .then(({ data }) => setServices((data || []).filter((s) => s.slug !== "taxi")));
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) setServicesError("تعذر تحميل قائمة المهن. اضغط إعادة المحاولة.");
+        else {
+          const available = (data || []).filter((s) => s.slug !== "taxi");
+          setServices(available);
+          setServicesError(available.length ? null : "لا توجد مهن متاحة حالياً. تواصل مع الدعم.");
+        }
+        setServicesLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
     if (!user) return;
     setLegalName((current) => current || String(user.user_metadata?.full_name ?? ""));
     let active = true;
-    supabase
-      .from("provider_verifications")
-      .select("status,rejection_reason")
-      .eq("user_id", user.id)
-      .eq("provider_type", "worker")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!active || !data) return;
-        setStatus(data.status);
-        setRejectionReason(data.rejection_reason ?? null);
-      });
+    Promise.all([
+      supabase.from("provider_verifications").select("status,rejection_reason")
+        .eq("user_id", user.id).eq("provider_type", "worker").maybeSingle(),
+      supabase.from("worker_profiles").select("status").eq("user_id", user.id).maybeSingle(),
+    ]).then(([verification, workerProfile]) => {
+      if (!active) return;
+      const resolvedStatus = verification.data?.status === "approved" || workerProfile.data?.status === "approved"
+        ? "approved"
+        : verification.data?.status ?? workerProfile.data?.status ?? null;
+      if (resolvedStatus) setStatus(resolvedStatus);
+      setRejectionReason(verification.data?.rejection_reason ?? null);
+    });
     return () => { active = false; };
   }, [user?.id]);
 
@@ -137,8 +152,12 @@ export default function WorkerOnboarding() {
       Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول أولاً ثم أكمل تسجيل الفني.");
       return;
     }
+    if (servicesLoading || servicesError) {
+      Alert.alert("قائمة المهن", servicesError || "انتظر تحميل قائمة المهن أولاً.");
+      return;
+    }
     if (selected.length === 0) {
-      Alert.alert("الاختصاصات", "اختر اختصاصاً واحداً على الأقل.");
+      Alert.alert("حدد مهنتك", "اختَر مهنة واحدة على الأقل حتى يعرف الزبون شنو الخدمة اللي تقدمها.");
       return;
     }
     if (legalName.trim().length < 5) {
@@ -227,7 +246,20 @@ export default function WorkerOnboarding() {
         {status === "pending" ? (
           <Button title="تعديل البيانات وإعادة إرفاق المستمسكات" onPress={() => setStatus(null)} />
         ) : (
-          <Button title="العودة للرئيسية" onPress={async () => { await refresh(); router.replace("/home"); }} />
+          <>
+            <Button title="تفعيل واجهة الفني والانتقال للرئيسية" onPress={async () => {
+              if (!user) return;
+              const { error } = await supabase.rpc("grant_provider_role_safe", { _role: "worker" });
+              if (error) {
+                Alert.alert("تعذر تفعيل دور الفني", "حسابك معتمد، لكن تعذر تفعيل الدور تلقائياً. تواصل مع الدعم.");
+                return;
+              }
+              await refresh();
+              await (await import("expo-secure-store")).setItemAsync("mamnoon_active_role", "worker");
+              router.replace("/home");
+            }} />
+            <Button title="تواصل مع الدعم" onPress={() => router.push("/support-chat")} />
+          </>
         )}
       </View>
     );
@@ -242,7 +274,22 @@ export default function WorkerOnboarding() {
       <Text style={styles.label}>الاسم الكامل المطابق للبطاقة الوطنية *</Text>
       <TextInput style={styles.input} value={legalName} onChangeText={setLegalName} placeholder="الاسم الثلاثي واللقب" placeholderTextColor="#94a3b8" />
 
-      <Text style={styles.label}>الخدمات والاختصاصات *</Text>
+      <Text style={styles.label}>حدد مهنتك واختصاصك داخل ممنون * (تقدر تختار أكثر من مهنة)</Text>
+      {servicesLoading ? <Text style={styles.note}>جاري تحميل قائمة المهن...</Text> : null}
+      {!!servicesError && (
+        <TouchableOpacity onPress={() => {
+          setServicesError(null);
+          setServicesLoading(true);
+          supabase.from("services").select("id,slug,name_ar").order("name_ar").then(({ data, error }) => {
+            const available = (data || []).filter((s) => s.slug !== "taxi");
+            setServices(available);
+            setServicesError(error ? "تعذر تحميل المهن. تحقق من الاتصال أو تواصل مع الدعم." : available.length ? null : "لا توجد مهن متاحة حالياً.");
+            setServicesLoading(false);
+          });
+        }}>
+          <Text style={styles.rejection}>{servicesError} اضغط هنا لإعادة المحاولة.</Text>
+        </TouchableOpacity>
+      )}
       <View style={styles.servicesGrid}>
         {services.map((s) => (
           <TouchableOpacity key={s.id} style={[styles.serviceChip, selected.includes(s.id) && styles.serviceChipActive]} onPress={() => toggleService(s.id)}>
@@ -251,7 +298,7 @@ export default function WorkerOnboarding() {
         ))}
       </View>
 
-      <Text style={styles.label}>المستوى المهني</Text>
+      <Text style={styles.label}>حدد مستواك المهني *</Text>
       <View style={styles.levelRow}>
         <TouchableOpacity style={[styles.levelChip, level === "fani" && styles.levelChipActive]} onPress={() => setLevel("fani")}>
           <Text style={[styles.levelText, level === "fani" && styles.levelTextActive]}>فني</Text>
