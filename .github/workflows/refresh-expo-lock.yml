@@ -38,7 +38,7 @@ jobs:
 
       - name: Commit updated lockfile
         run: |
-          if git diff --quiet -- expo-app/yarn.lock; then
+          if git ls-files --error-unmatch expo-app/yarn.lock >/dev/null 2>&1 && git diff --quiet -- expo-app/yarn.lock; then
             echo "Expo Yarn lockfile is already synchronized."
             exit 0
           fi
