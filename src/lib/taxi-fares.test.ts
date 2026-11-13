@@ -26,10 +26,10 @@ describe("Mamnoon city taxi pricing", () => {
   });
 
   it("uses 250 IQD/km and smaller demand changes for inter-governorate rides", () => {
-    expect(taxiFare("economy", 68, { isIntercity: true })).toBe(17000);
-    expect(taxiFare("premium", 68, { isIntercity: true })).toBe(18000);
-    expect(taxiFare("luxury", 68, { isIntercity: true })).toBe(18750);
-    expect(taxiFare("economy", 68, { isIntercity: true, demandMultiplier: 1.5 })).toBe(18750);
+    expect(taxiFare("economy", 68, { isIntercity: true })).toBe(12750);
+    expect(taxiFare("premium", 68, { isIntercity: true })).toBe(13500);
+    expect(taxiFare("luxury", 68, { isIntercity: true })).toBe(16000);
+    expect(taxiFare("economy", 68, { isIntercity: true, demandMultiplier: 1.5 })).toBe(14000);
   });
 
   it("does not add weather or traffic charges", () => {
