@@ -5,28 +5,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getGovernorate, governorateBounds, isInGovernorate } from "./governorates";
 import { parseDrivingRoute } from "./route-distance";
 
-// Forward the current Supabase access token to authenticated map server functions.
-const forwardSupabaseAuth = createMiddleware({ type: "function" }).client(async ({ next }) => {
-  let { data: { session }, error } = await supabase.auth.getSession();
-
-  // Refresh close-to-expiry sessions before forwarding the bearer token.
-  if (!error && session?.expires_at && session.expires_at * 1000 <= Date.now() + 30_000) {
-    const refreshed = await supabase.auth.refreshSession();
-    session = refreshed.data.session;
-    error = refreshed.error;
-  }
-
-  if (error || !session?.access_token) {
-    throw new Error("انتهت جلسة الدخول؛ سجّل الدخول مرة أخرى");
-  }
-
-  return next({
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
-  });
-});
-
 // Only the referrer-restricted rendering key is intentionally public.
 export const getMapConfig = createServerFn({ method: "GET" }).handler(async () => ({
   browserKey:
@@ -61,7 +39,7 @@ const input = z.discriminatedUnion("action", [
 ]);
 
 export const lookupMapPlace = createServerFn({ method: "POST" })
-  .middleware([forwardSupabaseAuth, requireSupabaseAuth])
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: z.infer<typeof input>) => input.parse(data))
   .handler(async ({ data }) => {
     const apiKey = process.env["GOOGLE_MAPS_API_KEY"];
