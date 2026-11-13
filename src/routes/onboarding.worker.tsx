@@ -90,20 +90,18 @@ function OnboardingWorker() {
   useEffect(() => {
     let active = true;
     setServicesLoading(true);
-    supabase
-      .from("services")
-      .select("id, name_ar, slug")
-      .order("sort_order")
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error) {
-          setServicesError("تعذر تحميل قائمة المهن. أعد المحاولة أو تواصل مع الدعم.");
-        } else {
-          setServices(data ?? []);
-          setServicesError((data ?? []).length ? null : "لا توجد مهن متاحة حالياً.");
-        }
-        setServicesLoading(false);
-      });
+    supabase.rpc("get_worker_service_catalog").then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        console.error("get_worker_service_catalog failed:", error);
+        setServicesError(`تعذر تحميل المهن (${error.code || "اتصال"}): ${error.message || "تحقق من اتصالك"}`);
+      } else {
+        const available = (data ?? []) as Service[];
+        setServices(available);
+        setServicesError(available.length ? null : "قائمة المهن فارغة حالياً. تواصل مع الإدارة.");
+      }
+      setServicesLoading(false);
+    });
     return () => { active = false; };
   }, []);
 
@@ -540,9 +538,11 @@ function OnboardingWorker() {
             {servicesError && <button type="button" onClick={() => {
               setServicesError(null);
               setServicesLoading(true);
-              supabase.from("services").select("id, name_ar, slug").order("sort_order").then(({ data, error }) => {
-                setServices(data ?? []);
-                setServicesError(error ? "تعذر تحميل المهن. تحقق من الاتصال." : (data ?? []).length ? null : "لا توجد مهن متاحة حالياً.");
+              supabase.rpc("get_worker_service_catalog").then(({ data, error }) => {
+                if (error) console.error("get_worker_service_catalog retry failed:", error);
+                const available = (data ?? []) as Service[];
+                setServices(available);
+                setServicesError(error ? `تعذر تحميل المهن: ${error.message}` : available.length ? null : "قائمة المهن فارغة حالياً.");
                 setServicesLoading(false);
               });
             }} className="w-full text-right text-xs text-destructive py-3">{servicesError} اضغط لإعادة المحاولة.</button>}
