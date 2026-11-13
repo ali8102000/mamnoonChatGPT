@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Navigate, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,6 +154,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
 ];
 
 function AdminPage() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { session, loading } = useAuth();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [staffRoles, setStaffRoles] = useState<string[]>([]);
@@ -161,7 +162,7 @@ function AdminPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!session || loading) return;
+    if (pathname === "/admin/bootstrap" || !session || loading) return;
     (async () => {
       try {
         const { data: isStaff } = await (supabase as any).rpc("has_staff_role", {
@@ -180,7 +181,11 @@ function AdminPage() {
         setAuthorized(false);
       }
     })();
-  }, [session, loading]);
+  }, [session, loading, pathname]);
+
+  // The bootstrap page is a child of /admin in TanStack file routing,
+  // but it must remain accessible before the first staff role exists.
+  if (pathname === "/admin/bootstrap") return <Outlet />;
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
@@ -203,6 +208,8 @@ function AdminPage() {
         </div>
       </div>
     );
+
+  if (pathname !== "/admin") return <Outlet />;
 
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.some((r) => staffRoles.includes(r)));
 
