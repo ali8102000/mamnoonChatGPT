@@ -16,6 +16,8 @@ function SupportChatPage() {
   const uid = session?.user.id;
   const [isStaff, setIsStaff] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
+  const [providerTargets, setProviderTargets] = useState<any[]>([]);
+  const [providerSearch, setProviderSearch] = useState("");
   const [selected, setSelected] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [draft, setDraft] = useState("");
@@ -27,6 +29,16 @@ function SupportChatPage() {
     const { data: staff } = await (supabase as any).rpc("has_staff_role", { p_user_id: uid });
     setIsStaff(staff === true);
     if (staff) {
+      const [drivers, workers] = await Promise.all([
+        (supabase as any).from("driver_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
+        (supabase as any).from("worker_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
+      ]);
+      const targetMap = new Map<string, any>();
+      for (const row of [...(drivers.data ?? []), ...(workers.data ?? [])]) {
+        const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+        if (profile) targetMap.set(row.user_id, { id: row.user_id, ...profile });
+      }
+      setProviderTargets(Array.from(targetMap.values()));
       const { data, error } = await (supabase as any).from("support_conversations").select("*").order("updated_at", { ascending: false });
       if (error) throw error;
       const ids: string[] = Array.from(new Set<string>((data ?? []).map((c: any) => String(c.user_id))));
@@ -96,6 +108,21 @@ function SupportChatPage() {
   if (!session) return <Navigate to="/auth" />;
   if (booting) return <div className="min-h-screen grid place-items-center"><Loader2 className="animate-spin" /></div>;
 
+  async function startConversation(targetId: string) {
+    if (!uid || !isStaff) return;
+    const existing = await (supabase as any).from("support_conversations").select("*").eq("user_id", targetId).eq("status", "open").maybeSingle();
+    let conversation = existing.data;
+    if (!conversation) {
+      const created = await (supabase as any).from("support_conversations").insert({ user_id: targetId, created_by: uid }).select("*").single();
+      if (created.error) { toast.error(created.error.message); return; }
+      conversation = created.data;
+    }
+    const target = providerTargets.find((p) => p.id === targetId);
+    setSelected({ ...conversation, profile: target });
+    await loadMessages(conversation.id);
+    await loadConversations();
+  }
+
   async function send() {
     if (!draft.trim() || !selected || !uid || busy) return;
     const body = draft.trim();
@@ -112,6 +139,11 @@ function SupportChatPage() {
         <a href={isStaff ? "/admin" : "/messages"} className="h-10 w-10 rounded-xl bg-card border border-border grid place-items-center"><ArrowRight className="h-5 w-5" /></a>
         <div><h1 className="text-2xl font-black">محادثة إدارة ممنون</h1><p className="text-xs text-muted-foreground">{isStaff ? "استقبال رسائل الفنيين والسائقين والرد عليهم" : "تواصل مباشرة مع فريق شركة ممنون"}</p></div>
       </div>
+      {isStaff && <div className="glass rounded-2xl p-3 mb-3">
+        <div className="font-bold text-sm mb-2">ابدأ محادثة مع فني أو سائق</div>
+        <input value={providerSearch} onChange={(e) => setProviderSearch(e.target.value)} placeholder="ابحث بالاسم أو رقم الهاتف" className="w-full rounded-xl bg-card border border-border px-3 py-2 text-sm outline-none mb-2" />
+        <div className="flex flex-wrap gap-2">{providerTargets.filter((p) => !providerSearch.trim() || String(p.full_name ?? "").includes(providerSearch.trim()) || String(p.phone ?? "").includes(providerSearch.trim())).slice(0, 8).map((p) => <button key={p.id} onClick={() => void startConversation(p.id)} className="rounded-xl bg-primary/10 text-primary px-3 py-2 text-xs font-bold">{p.full_name || "مقدم خدمة"} · {p.phone || ""}</button>)}</div>
+      </div>}
       <div className="grid md:grid-cols-[280px_1fr] gap-3">
         {isStaff && <aside className="glass rounded-2xl p-3 space-y-2">
           <div className="font-bold text-sm mb-2">المحادثات الواردة</div>
