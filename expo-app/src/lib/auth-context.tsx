@@ -38,16 +38,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function loadProfile(uid: string) {
-    const [{ data: prof }, { data: roleRows }] = await Promise.all([
+    const [{ data: prof }, { data: roleRows }, { data: driverProfile }, { data: workerProfile }] = await Promise.all([
       supabase
         .from("profiles")
         .select("id, phone, full_name, avatar_url")
         .eq("id", uid)
         .maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
+      supabase.from("driver_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
+      supabase.from("worker_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
     ]);
     setProfile(prof ?? null);
-    setRoles((roleRows ?? []).map((r) => r.role as AppRole));
+    const mappedRoles = (roleRows ?? []).map((r) => r.role as AppRole);
+    // Let a provider select their pending application while approval is in progress.
+    // Provider access remains controlled by approval and database policies.
+    if (driverProfile && !mappedRoles.includes("driver")) mappedRoles.push("driver");
+    if (workerProfile && !mappedRoles.includes("worker")) mappedRoles.push("worker");
+    if (!mappedRoles.includes("customer")) mappedRoles.unshift("customer");
+    setRoles(mappedRoles);
   }
 
   async function refresh() {
