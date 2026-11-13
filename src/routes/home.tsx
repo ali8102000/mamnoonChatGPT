@@ -52,6 +52,12 @@ function HomePage() {
   const { loading, session, profile, roles, activeRole, isSuperAdmin } = useAuth();
   const { theme, toggle } = useTheme();
   const greet = useMemo(greetingByHour, []);
+  const [companyName, setCompanyName] = useState("شركة ممنون");
+
+  useEffect(() => {
+    (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
+  }, []);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
@@ -84,7 +90,7 @@ function HomePage() {
               </div>
               <div>
                 <div className="text-xs font-black text-amber-600 dark:text-amber-400">
-                  حساب المدير العام (أحمد)
+                  إدارة {companyName}
                 </div>
                 <div className="text-[10px] text-muted-foreground font-medium">
                   اعتماد السائقين والفنيين · حظر الحسابات · توزيع الخصومات · الدعم
