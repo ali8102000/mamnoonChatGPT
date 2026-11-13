@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useAuth, type AppRole } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
 import {
@@ -49,7 +49,7 @@ function greetingByHour() {
 }
 
 function HomePage() {
-  const { loading, session, profile, roles, activeRole, setActiveRole, isSuperAdmin } = useAuth();
+  const { loading, session, profile, roles, activeRole, isSuperAdmin } = useAuth();
   const { theme, toggle } = useTheme();
   const greet = useMemo(greetingByHour, []);
 
@@ -139,26 +139,6 @@ function HomePage() {
           </div>
         </div>
 
-        {roles.filter((role) => ["customer", "driver", "worker"].includes(role)).length > 1 && (
-          <div className="mb-4 rounded-2xl glass p-2">
-            <div className="text-[10px] text-muted-foreground font-bold mb-2 px-1">التبديل بين أدوار حسابك</div>
-            <div className="grid grid-cols-3 gap-1">
-              {(["customer", "driver", "worker"] as AppRole[]).filter((role) => roles.includes(role)).map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => {
-                    setActiveRole(role);
-                    toast.success(role === "customer" ? "تم التبديل إلى حساب الزبون" : role === "driver" ? "تم التبديل إلى واجهة السائق" : "تم التبديل إلى واجهة الفني");
-                  }}
-                  className={`rounded-xl py-2 px-1 text-[11px] font-bold transition ${activeRole === role ? "bg-primary text-primary-foreground" : "bg-surface-2 text-muted-foreground"}`}
-                >
-                  {role === "customer" ? "زبون" : role === "driver" ? "سائق" : "فني"}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         {activeRole === "driver" && <ProviderHome type="taxi" />}
         {activeRole === "worker" && <ProviderHome type="service" />}
         {activeRole !== "driver" && activeRole !== "worker" && <CustomerHome />}
