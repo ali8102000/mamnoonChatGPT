@@ -107,13 +107,12 @@ function HomePage() {
               <span className="text-[11px] font-bold tracking-wider text-primary/80 uppercase">
                 {greet}
               </span>
-              <Link
-                to="/profile"
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold transition"
-                title="تغيير الدور من الإعدادات"
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold"
+                aria-label="الدور الحالي"
               >
-                <span>{roleTitle}</span>
-              </Link>
+                {roleTitle}
+              </span>
             </div>
             <div className="text-2xl font-black leading-tight mt-0.5 text-foreground">
               {firstName} <span className="inline-block animate-float">👋</span>
