@@ -84,7 +84,7 @@ export default function AdminScreen() {
       contentContainerStyle={{ paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <Text style={styles.title}>لوحة التحكم</Text>
+      <Text style={styles.title}>لوحة التحكم</Text>\n      <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></TouchableOpacity>
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.totalRequests}</Text>
@@ -124,7 +124,7 @@ export default function AdminScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb", paddingHorizontal: 20, paddingTop: 50 },
+  container: { flex: 1, backgroundColor: "#f9fafb", paddingHorizontal: 20, paddingTop: 50 },\n  supportButton: { backgroundColor: "#2563eb", borderRadius: 14, padding: 14, marginBottom: 20 },\n  supportButtonText: { color: "#fff", fontWeight: "800", textAlign: "center" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 28, fontWeight: "900", color: "#1e293b", marginBottom: 20 },
   statsGrid: { flexDirection: "row", gap: 10, marginBottom: 24 },
