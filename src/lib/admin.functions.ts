@@ -363,6 +363,10 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
     const suspendedUntil = data.status === "suspended" && data.suspension_duration && data.suspension_duration !== "permanent"
       ? new Date(Date.now() + durationMinutes[data.suspension_duration] * 60_000).toISOString()
       : null;
+    if (data.status === "rejected" && !data.reason?.trim()) {
+      throw new Error("اكتب سبب الرفض حتى يصل للمستخدم بشكل واضح");
+    }
+
     const { error } = await (supabase as any).rpc("admin_set_provider_status", {
       p_user_id: data.user_id,
       p_type: data.type,
@@ -370,10 +374,6 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
       p_suspended_until: suspendedUntil,
     });
     if (error) throw new Error(error.message);
-
-    if (data.status === "rejected" && !data.reason?.trim()) {
-      throw new Error("اكتب سبب الرفض حتى يصل للمستخدم بشكل واضح");
-    }
 
     if (data.status === "approved" || data.status === "rejected") {
       const { error: verificationUpdateError } = await (supabaseAdmin as any)
