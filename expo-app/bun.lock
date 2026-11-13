@@ -11,6 +11,7 @@
         "expo-dev-client": "~5.2.0",
         "expo-font": "~13.3.0",
         "expo-haptics": "~14.1.0",
+        "expo-image-picker": "~16.1.4",
         "expo-linear-gradient": "~14.1.0",
         "expo-linking": "~7.1.0",
         "expo-location": "~18.1.0",
@@ -663,6 +664,10 @@
     "expo-font": ["expo-font@13.3.2", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/expo-font/-/expo-font-13.3.2.tgz", { "dependencies": { "fontfaceobserver": "^2.1.0" }, "peerDependencies": { "expo": "*", "react": "*" } }, "sha512-wUlMdpqURmQ/CNKK/+BIHkDA5nGjMqNlYmW0pJFXY/KE/OG80Qcavdu2sHsL4efAIiNGvYdBS10WztuQYU4X0A=="],
 
     "expo-haptics": ["expo-haptics@14.1.4", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/expo-haptics/-/expo-haptics-14.1.4.tgz", { "peerDependencies": { "expo": "*" } }, "sha512-QZdE3NMX74rTuIl82I+n12XGwpDWKb8zfs5EpwsnGi/D/n7O2Jd4tO5ivH+muEG/OCJOMq5aeaVDqqaQOhTkcA=="],
+
+    "expo-image-loader": ["expo-image-loader@5.1.0", "", { "peerDependencies": { "expo": "*" } }, "sha512-sEBx3zDQIODWbB5JwzE7ZL5FJD+DK3LVLWBVJy6VzsqIA6nDEnSFnsnWyCfCTSvbGigMATs1lgkC2nz3Jpve1Q=="],
+
+    "expo-image-picker": ["expo-image-picker@16.1.4", "", { "dependencies": { "expo-image-loader": "~5.1.0" }, "peerDependencies": { "expo": "*" } }, "sha512-bTmmxtw1AohUT+HxEBn2vYwdeOrj1CLpMXKjvi9FKSoSbpcarT4xxI0z7YyGwDGHbrJqyyic3I9TTdP2J2b4YA=="],
 
     "expo-json-utils": ["expo-json-utils@0.15.0", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/expo-json-utils/-/expo-json-utils-0.15.0.tgz", {}, "sha512-duRT6oGl80IDzH2LD2yEFWNwGIC2WkozsB6HF3cDYNoNNdUvFk6uN3YiwsTsqVM/D0z6LEAQ01/SlYvN+Fw0JQ=="],
 
