@@ -130,6 +130,7 @@ function NewRequest() {
     seasonalWeatherFallback(),
   );
   const [roadCondition, setRoadCondition] = useState<RoadCondition>("normal");
+  const [demandMultiplier, setDemandMultiplier] = useState(1);
   const [drawerExpanded, setDrawerExpanded] = useState(true);
   const [showFareDetails, setShowFareDetails] = useState(false);
 
@@ -233,6 +234,35 @@ function NewRequest() {
     return () => controller.abort();
   }, [pickupLat, pickupLng]);
 
+  useEffect(() => {
+    if (type !== "taxi" || pickupLat == null || pickupLng == null) {
+      setDemandMultiplier(1);
+      return;
+    }
+    let cancelled = false;
+    const refreshDemand = async () => {
+      try {
+        const { data, error } = await (supabase as any).rpc("get_taxi_demand_multiplier", {
+          _lat: pickupLat,
+          _lng: pickupLng,
+          _category: vehicleCategory,
+        });
+        if (error) throw error;
+        const value = Number(data);
+        if (!cancelled && Number.isFinite(value))
+          setDemandMultiplier(Math.min(1.5, Math.max(0.8, value)));
+      } catch {
+        if (!cancelled) setDemandMultiplier(1);
+      }
+    };
+    refreshDemand();
+    const timer = window.setInterval(refreshDemand, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [type, pickupLat, pickupLng, vehicleCategory]);
+
   const nearby = useNearbyProviders({
     center: pickupCoords,
     type,
@@ -304,6 +334,7 @@ function NewRequest() {
       priceEstimate = taxiFare(vehicleCategory, routeKm, {
         weather: "mild" as const,
         roadCondition,
+        demandMultiplier,
       });
     }
 
@@ -373,7 +404,7 @@ function NewRequest() {
   // Active calculated taxi fare
   const activeFare =
     routeKm !== null
-      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition })
+      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier })
       : FARE_TABLE[vehicleCategory].minimum;
 
   const estimatedEtaMinutes =
@@ -386,6 +417,7 @@ function NewRequest() {
     const currentBreakdown = calculateFareBreakdown(vehicleCategory, routeKm ?? 0, {
       weather: "mild" as const,
       roadCondition,
+      demandMultiplier,
     });
 
     return (
@@ -636,7 +668,7 @@ function NewRequest() {
                 const active = vehicleCategory === c.key;
                 const fare =
                   routeKm !== null
-                    ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition })
+                    ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier })
                     : null;
                 return (
                   <button
