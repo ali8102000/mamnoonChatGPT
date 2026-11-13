@@ -147,8 +147,7 @@ CREATE POLICY "Own presence update" ON public.provider_presence FOR UPDATE TO au
 CREATE POLICY "Own presence delete" ON public.provider_presence FOR DELETE TO authenticated USING (auth.uid() = user_id);
 CREATE OR REPLACE FUNCTION public.touch_provider_presence() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN NEW.updated_at := now(); RETURN NEW; END $$;
-DO $
-BEGIN
+DO $$BEGIN
   -- Some deployments create provider_presence in a later migration.
   -- Attach the timestamp trigger when the table already exists; migration
   -- 0005 creates it and attaches this trigger otherwise.
@@ -157,7 +156,7 @@ BEGIN
     EXECUTE 'CREATE TRIGGER provider_presence_touch BEFORE INSERT OR UPDATE ON public.provider_presence FOR EACH ROW EXECUTE FUNCTION public.touch_provider_presence()';
   END IF;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.find_nearby_drivers(_lat numeric, _lng numeric, _category text, _radius_km numeric DEFAULT 5, _limit int DEFAULT 10)
 RETURNS TABLE(user_id uuid, distance_km numeric, rating_avg numeric)
