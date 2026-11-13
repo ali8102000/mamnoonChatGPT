@@ -163,7 +163,7 @@ export default function DriverOnboarding() {
         vehicle_color: color.trim() || null,
         available: false,
         status: "pending",
-      }, { onConflict: "user_id,provider_type" });
+      }, { onConflict: "user_id" });
       if (driverError) throw new Error(`تعذر إنشاء ملف السائق: ${driverError.message}`);
 
       const [facePath, idPath, idBackPath, vehicleDocumentPath] = await Promise.all([
