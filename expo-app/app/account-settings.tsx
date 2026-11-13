@@ -2,18 +2,36 @@ import { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import { router } from "expo-router";
 import * as Linking from "expo-linking";
+import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
 
 export default function AccountSettingsScreen() {
-  const { user, profile, refresh } = useAuth();
+  const { user, profile, roles, refresh } = useAuth();
   const [email, setEmail] = useState(String(user?.user_metadata?.contact_email ?? user?.email ?? ""));
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [otp, setOtp] = useState("");
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  async function switchRole(role: string) {
+    if (!roles.includes(role as (typeof roles)[number])) {
+      Alert.alert("غير متاح", "هذا الدور غير مضاف إلى حسابك بعد. أكمل التسجيل أولاً.");
+      return;
+    }
+    if (role === "driver") {
+      router.push("/onboarding/driver");
+      return;
+    }
+    if (role === "worker") {
+      await SecureStore.setItemAsync("mamnoon_active_role", "worker");
+    } else {
+      await SecureStore.setItemAsync("mamnoon_active_role", "customer");
+    }
+    router.replace("/home");
+  }
 
   async function changeEmail() {
     const next = email.trim().toLowerCase();
@@ -67,6 +85,17 @@ export default function AccountSettingsScreen() {
 
   return <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <Text style={styles.title}>إعدادات الحساب</Text>
+    <Text style={styles.sectionTitle}>تبديل الدور</Text>
+    <Text style={styles.note}>اختَر طريقة استخدامك لممنون. عند اختيار سائق تكسي ستظهر لك بيانات السيارة لإكمالها.</Text>
+    <View style={styles.roleOptions}>
+      {roles.filter((role) => ["customer", "worker", "driver"].includes(role)).map((role) => (
+        <Button
+          key={role}
+          title={role === "customer" ? "استخدام ممنون كزبون" : role === "worker" ? "استخدام ممنون كفني" : "سائق تكسي"}
+          onPress={() => switchRole(role)}
+        />
+      ))}
+    </View>
     <Text style={styles.note}>أي تغيير ببيانات الدخول لا يعتمد إلا بعد إكمال التحقق.</Text>
     <Text style={styles.label}>البريد الحالي</Text>
     <Text style={styles.current} selectable>{user?.user_metadata?.contact_email || user?.email || "غير مسجل"}</Text>
@@ -96,6 +125,8 @@ export default function AccountSettingsScreen() {
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 22, paddingTop: 54, backgroundColor: "#f7f8f5" },
   title: { fontSize: 26, fontWeight: "900", color: "#1e293b", marginBottom: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: "900", color: "#1e293b", marginTop: 18, marginBottom: 8 },
+  roleOptions: { gap: 10, marginBottom: 12 },
   note: { color: "#64748b", lineHeight: 22, marginBottom: 22 },
   label: { fontSize: 13, fontWeight: "800", color: "#475569", marginTop: 16, marginBottom: 8 },
   current: { color: "#64748b", fontSize: 14, paddingVertical: 8 },
