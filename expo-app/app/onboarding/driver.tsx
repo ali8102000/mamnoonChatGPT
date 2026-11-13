@@ -32,6 +32,7 @@ export default function DriverOnboarding() {
   const [facePhoto, setFacePhoto] = useState<PickedImage | null>(null);
   const [idPhoto, setIdPhoto] = useState<PickedImage | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [savedModelName, setSavedModelName] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -53,13 +54,7 @@ export default function DriverOnboarding() {
           setRejectionReason(data.rejection_reason ?? null);
           const m = (data.metadata ?? {}) as Record<string, unknown>;
           if (typeof m.vehicleMake === "string") setSelectedMake(m.vehicleMake);
-          if (typeof m.vehicleModel === "string") {
-            setModels((old) => {
-              const found = old.find((x) => x.make === m.vehicleMake && x.model === m.vehicleModel);
-              if (found) setSelectedModel(found);
-              return old;
-            });
-          }
+          if (typeof m.vehicleModel === "string") setSavedModelName(m.vehicleModel);
           if (typeof m.vehicleYear === "number") setYear(String(m.vehicleYear));
           if (typeof m.vehiclePlate === "string") setPlate(m.vehiclePlate);
           if (typeof m.vehicleColor === "string") setColor(m.vehicleColor);
@@ -68,6 +63,13 @@ export default function DriverOnboarding() {
     }
     return () => { active = false; };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!selectedModel && selectedMake && savedModelName && models.length) {
+      const found = models.find((m) => m.make === selectedMake && m.model === savedModelName);
+      if (found) setSelectedModel(found);
+    }
+  }, [models, selectedMake, savedModelName, selectedModel]);
 
   const makes = [...new Set(models.map((m) => m.make))];
 
@@ -227,6 +229,7 @@ export default function DriverOnboarding() {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 48 }}>
       <Text style={styles.title}>تسجيل السائق في ممنون</Text>
       <Text style={styles.note}>أكمل بيانات السيارة والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة.</Text>
+      {!!rejectionReason && <Text style={styles.rejection}>سبب الرفض السابق: {rejectionReason}</Text>}
 
       <Text style={styles.label}>ماركة السيارة</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
@@ -300,6 +303,7 @@ const styles = StyleSheet.create({
   statusContainer: { flex: 1, justifyContent: "center", padding: 24, gap: 18 },
   title: { fontSize: 26, fontWeight: "900", color: "#1e293b", marginBottom: 12, textAlign: "right" },
   note: { color: "#64748b", fontSize: 13, lineHeight: 22, textAlign: "right" },
+  rejection: { color: "#b91c1c", backgroundColor: "#fee2e2", padding: 12, borderRadius: 12, marginTop: 12, textAlign: "right", lineHeight: 22 },
   statusText: { color: "#475569", fontSize: 15, lineHeight: 26, textAlign: "right" },
   label: { fontSize: 13, fontWeight: "700", color: "#475569", marginBottom: 8, marginTop: 18, textAlign: "right" },
   row: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
