@@ -922,7 +922,7 @@ function ProvidersSection() {
         {["driver", "worker"].map((t) => (
           <button
             key={t}
-            onClick={() => setType(t)}
+            onClick={() => { setType(t); setCategoryFilter("all"); }}
             className={`flex-1 py-2 rounded-xl text-xs font-bold ${type === t ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
           >
             {t === "driver" ? "السائقون" : "الفنيون"}
