@@ -3,6 +3,7 @@ import { createMiddleware } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './types'
+import { supabase } from './client'
 
 
 
@@ -31,8 +32,25 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
-export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
-  async ({ next }) => {
+export const requireSupabaseAuth = createMiddleware({ type: 'function' })
+  .client(async ({ next }) => {
+    // Every protected server function must receive the active user's JWT.
+    // TanStack server functions do not inherit the Supabase browser session automatically.
+    let { data: { session }, error } = await supabase.auth.getSession();
+
+    if (!error && session?.expires_at && session.expires_at * 1000 <= Date.now() + 30_000) {
+      const refreshed = await supabase.auth.refreshSession();
+      session = refreshed.data.session;
+      error = refreshed.error;
+    }
+
+    if (error || !session?.access_token) {
+      throw new Error('انتهت جلسة الدخول؛ سجّل الدخول مرة أخرى');
+    }
+
+    return next({ headers: { Authorization: `Bearer ${session.access_token}` } });
+  })
+  .server(async ({ next }) => {
     
     const SUPABASE_URL = process.env['SUPABASE_URL'];
     const SUPABASE_PUBLISHABLE_KEY = process.env['SUPABASE_PUBLISHABLE_KEY'];
