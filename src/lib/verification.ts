@@ -10,6 +10,7 @@ export interface VerificationDocument {
   email?: string;
   facePhotoUrl: string; // Base64 data URL
   idCardPhotoUrl: string; // Base64 data URL
+  idCardBackPhotoUrl?: string; // Back side of national ID, Base64 data URL
   vehicleDocumentPhotoUrl?: string; // Vehicle registration or power of attorney image
   idNumber?: string;
   documentType: "national_id" | "driver_license" | "passport";
@@ -114,7 +115,7 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
   const { supabase } = await import("@/integrations/supabase/client");
   const bucket = "provider-verification";
   const stamp = Date.now();
-  const uploadImage = async (dataUrl: string, kind: "face" | "id-card" | "vehicle-registration") => {
+  const uploadImage = async (dataUrl: string, kind: "face" | "id-card" | "id-card-back" | "vehicle-registration") => {
     const response = await fetch(dataUrl);
     const blob = await response.blob();
     const mime = blob.type === "image/png" ? "image/png" : "image/jpeg";
@@ -129,9 +130,12 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
     return path;
   };
 
-  const [facePath, idPath, vehicleDocumentPath] = await Promise.all([
+  const [facePath, idPath, idBackPath, vehicleDocumentPath] = await Promise.all([
     uploadImage(doc.facePhotoUrl, "face"),
     uploadImage(doc.idCardPhotoUrl, "id-card"),
+    doc.role === "driver" && doc.documentType === "national_id" && doc.idCardBackPhotoUrl
+      ? uploadImage(doc.idCardBackPhotoUrl, "id-card-back")
+      : Promise.resolve(null),
     doc.role === "driver" && doc.vehicleDocumentPhotoUrl
       ? uploadImage(doc.vehicleDocumentPhotoUrl, "vehicle-registration")
       : Promise.resolve(null),
@@ -145,6 +149,7 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
     email: doc.email ?? null,
     face_photo_path: facePath,
     id_card_photo_path: idPath,
+    id_card_back_photo_path: idBackPath,
     vehicle_document_path: vehicleDocumentPath,
     document_type: doc.documentType,
     id_number: doc.idNumber ?? null,
