@@ -335,6 +335,7 @@ function NewRequest() {
         weather: "mild" as const,
         roadCondition,
         demandMultiplier,
+        isIntercity: interCity,
       });
     }
 
@@ -369,6 +370,7 @@ function NewRequest() {
           dest_lng: destCoords?.lng ?? null,
           notes: notes || null,
           distance_km: type === "taxi" ? routeKm : null,
+          is_intercity: type === "taxi" ? interCity : false,
           ...(type === "service"
             ? {
                 pricing_mode: pricingMode,
@@ -404,7 +406,7 @@ function NewRequest() {
   // Active calculated taxi fare
   const activeFare =
     routeKm !== null
-      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier })
+      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity })
       : FARE_TABLE[vehicleCategory].minimum;
 
   const estimatedEtaMinutes =
@@ -418,6 +420,7 @@ function NewRequest() {
       weather: "mild" as const,
       roadCondition,
       demandMultiplier,
+      isIntercity: interCity,
     });
 
     return (
@@ -619,6 +622,7 @@ function NewRequest() {
                       key={g.key}
                       type="button"
                       onClick={() => {
+                        setInterCity(true);
                         setDestCoords({ lat: g.lat, lng: g.lng });
                         setDestLabel(g.name);
                       }}
