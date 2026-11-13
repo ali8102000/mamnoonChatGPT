@@ -347,6 +347,40 @@
 }
 
 
+/* Strong contrast for legacy light utility classes inside dark mode. */
+.dark .bg-white,
+.dark .bg-gray-50,
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: var(--color-card) !important;
+  color: var(--color-card-foreground);
+}
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700 {
+  color: var(--color-foreground) !important;
+}
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-gray-600,
+.dark .text-gray-500 {
+  color: var(--color-muted-foreground) !important;
+}
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-gray-100,
+.dark .border-gray-200 {
+  border-color: var(--color-border) !important;
+}
+.dark .placeholder-slate-400::placeholder,
+.dark .placeholder-gray-400::placeholder {
+  color: var(--color-muted-foreground) !important;
+  opacity: 1;
+}
+
 /* Night mode readability: keep the classic blue identity without washed-out text. */
 .dark body {
   background-image:
