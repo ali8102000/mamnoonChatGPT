@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
@@ -85,16 +85,23 @@ export default function AccountSettingsScreen() {
 
   return <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <Text style={styles.title}>إعدادات الحساب</Text>
-    <Text style={styles.sectionTitle}>تبديل الدور</Text>
-    <Text style={styles.note}>اختَر طريقة استخدامك لممنون. عند اختيار سائق تكسي ستظهر لك بيانات السيارة لإكمالها.</Text>
-    <View style={styles.roleOptions}>
-      {[...roles.filter((role) => ["customer", "worker", "driver"].includes(role)), ...(roles.includes("driver") ? [] : ["driver"])].map((role) => (
-        <Button
-          key={role}
-          title={role === "customer" ? "استخدام ممنون كزبون" : role === "worker" ? "استخدام ممنون كفني" : "سائق تكسي"}
-          onPress={() => switchRole(role)}
-        />
-      ))}
+    <Text style={styles.sectionTitle}>طريقة استخدام ممنون</Text>
+    <Text style={styles.note}>اختَر الدور من هنا. إذا اخترت سائق تكسي لأول مرة راح تكمل بيانات السيارة.</Text>
+    <View style={styles.roleGrid}>
+      {[...roles.filter((role) => ["customer", "worker", "driver"].includes(role)), ...(roles.includes("driver") ? [] : ["driver"])].map((role) => {
+        const selected = role === "customer"
+          ? { title: "زبون", emoji: "👤", backgroundColor: "#e0f2fe", color: "#0369a1" }
+          : role === "worker"
+            ? { title: "فني", emoji: "🛠️", backgroundColor: "#dcfce7", color: "#15803d" }
+            : { title: "سائق تكسي", emoji: "🚕", backgroundColor: "#fef3c7", color: "#b45309" };
+        return (
+          <TouchableOpacity key={role} activeOpacity={0.82} style={[styles.roleCard, { backgroundColor: selected.backgroundColor }]} onPress={() => switchRole(role)}>
+            <Text style={styles.roleEmoji}>{selected.emoji}</Text>
+            <Text style={[styles.roleTitle, { color: selected.color }]}>{selected.title}</Text>
+            <Text style={[styles.roleHint, { color: selected.color }]}>اختيار الدور</Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
     <Text style={styles.note}>أي تغيير ببيانات الدخول لا يعتمد إلا بعد إكمال التحقق.</Text>
     <Text style={styles.label}>البريد الحالي</Text>
@@ -126,7 +133,11 @@ const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 22, paddingTop: 54, backgroundColor: "#f7f8f5" },
   title: { fontSize: 26, fontWeight: "900", color: "#1e293b", marginBottom: 8 },
   sectionTitle: { fontSize: 18, fontWeight: "900", color: "#1e293b", marginTop: 18, marginBottom: 8 },
-  roleOptions: { gap: 10, marginBottom: 12 },
+  roleGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 18 },
+  roleCard: { width: "48%", minHeight: 112, borderRadius: 20, padding: 14, justifyContent: "center", alignItems: "center" },
+  roleEmoji: { fontSize: 28, marginBottom: 6 },
+  roleTitle: { fontSize: 15, fontWeight: "900" },
+  roleHint: { fontSize: 10, fontWeight: "700", marginTop: 4, opacity: 0.8 },
   note: { color: "#64748b", lineHeight: 22, marginBottom: 22 },
   label: { fontSize: 13, fontWeight: "800", color: "#475569", marginTop: 16, marginBottom: 8 },
   current: { color: "#64748b", fontSize: 14, paddingVertical: 8 },
