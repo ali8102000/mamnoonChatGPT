@@ -22,6 +22,7 @@ import {
   fileToCompressedDataUrl,
   saveProviderVerification,
   getProviderVerification,
+  saveProviderVerificationRemote,
 } from "@/lib/verification";
 
 export const Route = createFileRoute("/onboarding/worker")({
@@ -182,7 +183,7 @@ function OnboardingWorker() {
         .eq("id", uid);
 
       // 2. Save detailed verification record with pending status
-      saveProviderVerification({
+      const verificationDoc = {
         userId: uid,
         role: "worker",
         legalName: legalName.trim(),
@@ -196,7 +197,9 @@ function OnboardingWorker() {
         workerLevel: level,
         workerBio: bio.trim() || undefined,
         workerServices: Array.from(selected),
-      });
+      };
+      saveProviderVerification(verificationDoc);
+      await saveProviderVerificationRemote(verificationDoc);
 
       // 3. Upsert worker profile with pending status
       const { error: pErr } = await supabase.from("worker_profiles").upsert({
