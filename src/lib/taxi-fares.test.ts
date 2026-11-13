@@ -19,16 +19,16 @@ describe("Mamnoon city taxi pricing", () => {
     expect(taxiFare("luxury", 15)).toBe(6500);
   });
 
-  it("limits demand changes when the estimated city fare reaches 10000 IQD", () => {
+  it("limits demand changes when the base city fare reaches 10000 IQD", () => {
     expect(taxiFare("economy", 20, { demandMultiplier: 1.5 })).toBe(8750);
     expect(taxiFare("economy", 25, { demandMultiplier: 1.5 })).toBe(11000);
     expect(taxiFare("economy", 25, { demandMultiplier: 0.8 })).toBe(9500);
   });
 
-  it("uses 250 IQD/km and smaller demand changes for inter-governorate rides", () => {
+  it("uses 187.5 IQD/km and smaller demand changes for inter-governorate rides", () => {
     expect(taxiFare("economy", 68, { isIntercity: true })).toBe(12750);
     expect(taxiFare("premium", 68, { isIntercity: true })).toBe(13500);
-    expect(taxiFare("luxury", 68, { isIntercity: true })).toBe(16000);
+    expect(taxiFare("luxury", 68, { isIntercity: true })).toBe(14000);
     expect(taxiFare("economy", 68, { isIntercity: true, demandMultiplier: 1.5 })).toBe(14000);
   });
 
