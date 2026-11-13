@@ -220,16 +220,34 @@ function OnboardingDriver() {
     try {
       const uid = session!.user.id;
 
-      // 1. Update Profile with verified name & real face photo
-      await supabase
+      // 1. Save the profile and verify the write before continuing.
+      const { error: profileError } = await supabase
         .from("profiles")
         .update({
           full_name: legalName.trim(),
           avatar_url: facePhoto,
         })
         .eq("id", uid);
+      if (profileError) throw new Error(`تعذر تحديث الملف الشخصي: ${profileError.message}`);
 
-      // 2. Save detailed verification document with pending status
+      // 2. Create the driver profile first. The database trigger forces pending
+      // status for non-admin registrations, and RLS permits only the owner's row.
+      const { error: driverProfileError } = await supabase.from("driver_profiles").upsert({
+        user_id: uid,
+        vehicle_make: finalMake,
+        vehicle_model: modelName.trim(),
+        vehicle_year: Number(year) || null,
+        vehicle_category: category,
+        vehicle_plate: plate.trim(),
+        vehicle_color: color.trim() || null,
+        available: false,
+        status: "pending",
+      }, { onConflict: "user_id" });
+      if (driverProfileError) {
+        throw new Error(`تعذر إنشاء ملف السائق: ${driverProfileError.message}`);
+      }
+
+      // 3. Persist identity documents only after the driver profile exists.
       const verificationDoc: VerificationDocument = {
         userId: uid,
         role: "driver",
@@ -249,23 +267,8 @@ function OnboardingDriver() {
         vehicleColor: color.trim() || undefined,
         vehicleCategory: category,
       };
-      saveProviderVerification(verificationDoc);
       await saveProviderVerificationRemote(verificationDoc);
-
-      // 3. Upsert driver profile with car data and pending status
-      const { error } = await supabase.from("driver_profiles").upsert({
-        user_id: uid,
-        vehicle_make: finalMake,
-        vehicle_model: modelName.trim(),
-        vehicle_year: Number(year) || null,
-        vehicle_category: category,
-        vehicle_plate: plate.trim(),
-        vehicle_color: color.trim() || null,
-        available: false,
-        status: "pending",
-      });
-
-      if (error) throw error;
+      saveProviderVerification(verificationDoc);
 
       setExistingDoc(getProviderVerification(uid));
       setEditingMode(false);
