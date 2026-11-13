@@ -176,7 +176,7 @@ export default function WorkerOnboarding() {
         submitted_at: new Date().toISOString(),
         reviewed_at: null,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
+      }, { onConflict: "user_id,provider_type" });
       if (verificationError) throw new Error(`تعذر حفظ مستمسكات التوثيق: ${verificationError.message}`);
 
       const { error: workerError } = await supabase.from("worker_profiles").upsert({
