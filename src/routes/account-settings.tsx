@@ -18,18 +18,17 @@ function AccountSettingsPage() {
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [companyName, setCompanyName] = useState("شركة ممنون");
-  const isStaffAdmin = roles.some((role) => ["admin", "super_admin"].includes(role));
-
-  if (loading) return null;
-  if (!session) return <Navigate to="/auth" />;
-  const currentUser = session.user;
-  const isCompanyAdmin = currentUser.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
+  const isCompanyAdmin = session?.user.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
   useEffect(() => {
     if (!isCompanyAdmin) return;
     (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
       .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
   }, [isCompanyAdmin]);
+
+  if (loading) return null;
+  if (!session) return <Navigate to="/auth" />;
+  const currentUser = session.user;
 
   async function saveCompanyName() {
     const next = companyName.trim().replace(/\s+/g, " ");
