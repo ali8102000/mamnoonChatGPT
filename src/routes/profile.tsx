@@ -144,21 +144,23 @@ function ProfilePage() {
               {(profile?.full_name || "؟").charAt(0)}
             </div>
           )}
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={(event) => uploadAvatar(event.currentTarget.files?.[0])}
-          />
-          <button
-            type="button"
-            onClick={() => avatarInputRef.current?.click()}
-            disabled={avatarUploading}
-            className="mx-auto mb-3 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-60"
-          >
-            {avatarUploading ? "جارٍ حفظ الصورة..." : "📷 تغيير الصورة الشخصية"}
-          </button>
+          {!isProvider && <>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(event) => uploadAvatar(event.currentTarget.files?.[0])}
+            />
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="mx-auto mb-3 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-60"
+            >
+              {avatarUploading ? "جارٍ حفظ الصورة..." : "📷 تغيير الصورة الشخصية"}
+            </button>
+          </>}
           <div className="text-xl font-black flex items-center justify-center gap-1.5 flex-wrap">
             <span>{profile?.full_name}</span>
             {isAdmin && <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/70 bg-gradient-to-r from-amber-100 via-yellow-200 to-amber-300 px-2.5 py-1 text-[10px] font-black text-amber-900 shadow-sm" title="حساب مسؤول ممنون موثق"><ShieldCheck className="h-3.5 w-3.5" /> مسؤول موثق</span>}
