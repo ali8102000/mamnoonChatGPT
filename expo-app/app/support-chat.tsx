@@ -7,6 +7,8 @@ export default function SupportChatScreen() {
   const { user } = useAuth();
   const [staff, setStaff] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
+  const [providerTargets, setProviderTargets] = useState<any[]>([]);
+  const [providerSearch, setProviderSearch] = useState("");
   const [selected, setSelected] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [draft, setDraft] = useState("");
@@ -18,6 +20,16 @@ export default function SupportChatScreen() {
     const { data: staffCheck } = await (supabase as any).rpc("has_staff_role", { p_user_id: user.id });
     setStaff(staffCheck === true);
     if (staffCheck) {
+      const [drivers, workers] = await Promise.all([
+        (supabase as any).from("driver_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
+        (supabase as any).from("worker_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
+      ]);
+      const targetMap = new Map<string, any>();
+      for (const row of [...(drivers.data ?? []), ...(workers.data ?? [])]) {
+        const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+        if (profile) targetMap.set(row.user_id, { id: row.user_id, ...profile });
+      }
+      setProviderTargets(Array.from(targetMap.values()));
       const { data, error } = await (supabase as any).from("support_conversations").select("*").order("updated_at", { ascending: false });
       if (error) throw error;
       const ids: string[] = Array.from(new Set<string>((data ?? []).map((c: any) => String(c.user_id))));
@@ -67,6 +79,21 @@ export default function SupportChatScreen() {
     return () => { supabase.removeChannel(ch); };
   }, [selected?.id, user?.id, loadMessages]);
 
+  async function startConversation(targetId: string) {
+    if (!user?.id || !staff) return;
+    const existing = await (supabase as any).from("support_conversations").select("*").eq("user_id", targetId).eq("status", "open").maybeSingle();
+    let conversation = existing.data;
+    if (!conversation) {
+      const created = await (supabase as any).from("support_conversations").insert({ user_id: targetId, created_by: user.id }).select("*").single();
+      if (created.error) { Alert.alert("ممنون", created.error.message); return; }
+      conversation = created.data;
+    }
+    const target = providerTargets.find((p) => p.id === targetId);
+    setSelected({ ...conversation, profile: target });
+    await loadMessages(conversation.id);
+    await loadConversations();
+  }
+
   async function send() {
     if (!draft.trim() || !selected?.id || !user?.id || sending) return;
     const body = draft.trim();
@@ -80,6 +107,13 @@ export default function SupportChatScreen() {
   if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
   return <View style={styles.container}>
     <Text style={styles.title}>محادثة إدارة ممنون</Text>
+    {staff && <View style={styles.startBox}>
+      <Text style={styles.startTitle}>ابدأ محادثة مع فني أو سائق</Text>
+      <TextInput value={providerSearch} onChangeText={setProviderSearch} placeholder="ابحث بالاسم أو الهاتف" style={styles.searchInput} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {providerTargets.filter((p) => !providerSearch.trim() || String(p.full_name ?? "").includes(providerSearch.trim()) || String(p.phone ?? "").includes(providerSearch.trim())).slice(0, 8).map((p) => <TouchableOpacity key={p.id} onPress={() => void startConversation(p.id)} style={styles.person}><Text style={styles.personName}>{p.full_name || "مقدم خدمة"}</Text><Text style={styles.personPhone}>{p.phone || ""}</Text></TouchableOpacity>)}
+      </ScrollView>
+    </View>}
     {staff && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.list}>
       {conversations.map((c) => <TouchableOpacity key={c.id} onPress={() => setSelected(c)} style={[styles.person, selected?.id === c.id && styles.personActive]}>
         <Text style={styles.personName}>{c.profile?.full_name || "مستخدم"}</Text>
@@ -103,6 +137,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8fafc", paddingTop: 52, paddingHorizontal: 16 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 23, fontWeight: "900", color: "#172033", marginBottom: 14, textAlign: "right" },
+  startBox: { backgroundColor: "#fff", borderRadius: 14, padding: 10, marginBottom: 10 },
+  startTitle: { fontSize: 13, fontWeight: "800", color: "#172033", textAlign: "right", marginBottom: 8 },
+  searchInput: { backgroundColor: "#f1f5f9", borderRadius: 10, padding: 10, textAlign: "right", marginBottom: 8 },
   list: { maxHeight: 76, marginBottom: 10 },
   person: { backgroundColor: "#fff", borderRadius: 12, padding: 10, marginRight: 8, minWidth: 130, borderWidth: 1, borderColor: "#e2e8f0" },
   personActive: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
