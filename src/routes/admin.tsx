@@ -22,6 +22,8 @@ import {
   ChevronLeft,
   Settings,
   AlertCircle,
+  Eye,
+  X,
 } from "lucide-react";
 import {
   adminAdjustWallet,
@@ -784,6 +786,7 @@ function ProvidersSection() {
   const [providers, setProviders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
+  const [selectedVerification, setSelectedVerification] = useState<any | null>(null);
   const listProviders = useServerFn(adminListProviders);
   const setStatus = useServerFn(adminSetProviderStatus);
   const load = useCallback(async () => {
@@ -791,6 +794,7 @@ function ProvidersSection() {
     try {
       setProviders(await listProviders({ data: { type } }));
     } catch (e) {
+      setActionMessage(e instanceof Error ? e.message : "تعذر تحميل قائمة المزودين");
     } finally {
       setLoading(false);
     }
@@ -801,8 +805,10 @@ function ProvidersSection() {
   async function handleAction(userId: string, status: string) {
     setActionMessage("");
     try {
-      await setStatus({ data: { user_id: userId, type, status } });
-      setActionMessage(status === "approved" ? "تم تفعيل الحساب ومنحه دور التطبيق" : "تم تحديث حالة الحساب");
+      const result = await setStatus({ data: { user_id: userId, type, status } });
+      setActionMessage(status === "approved"
+        ? `تم التحقق من إضافة دور ${result.role === "driver" ? "السائق" : "الفني"} للحساب بنجاح`
+        : "تم تحديث حالة الحساب");
       await load();
     } catch (e) {
       setActionMessage(e instanceof Error ? e.message : "تعذّر تحديث حالة الحساب");
@@ -855,9 +861,20 @@ function ProvidersSection() {
                   {p.vehicle_make} {p.vehicle_model} · {p.vehicle_plate}
                 </div>
               )}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <button
+                  onClick={() => setSelectedVerification(p)}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-primary/10 text-primary font-bold flex items-center gap-1"
+                >
+                  <Eye className="h-3.5 w-3.5" /> عرض المستمسكات
+                </button>
+                <span className="text-[10px] text-muted-foreground self-center">
+                  {p.verification ? "المستمسكات محفوظة" : "لا توجد مستمسكات محفوظة لهذا الطلب"}
+                </span>
+              </div>
               <div className="flex gap-1.5">
                 <button
-                  onClick={() => handleAction(p.user_id, "approved")}
+                  onClick={() => handleAction(p.user_id, "approved")
                   className="text-xs px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-bold"
                 >
                   تفعيل
@@ -877,6 +894,48 @@ function ProvidersSection() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {selectedVerification && (
+        <div className="fixed inset-0 z-[100] bg-black/70 p-3 flex items-center justify-center" role="dialog" aria-modal="true">
+          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-background border border-border p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-black">مستمسكات مقدم الخدمة</div>
+              <button onClick={() => setSelectedVerification(null)} className="p-2 rounded-lg bg-surface-2" aria-label="إغلاق">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="text-xs text-muted-foreground mb-3">
+              {selectedVerification.profiles?.full_name ?? "—"} · {selectedVerification.profiles?.phone ?? "—"}
+            </div>
+            {selectedVerification.verification ? (
+              <div className="space-y-4">
+                <div>
+                  <div className="text-sm font-bold mb-2">الصورة الشخصية</div>
+                  {selectedVerification.verification.face_photo_url ? (
+                    <img src={selectedVerification.verification.face_photo_url} alt="صورة الوجه" className="w-full max-h-72 object-contain rounded-xl bg-black/5" />
+                  ) : <div className="text-xs text-muted-foreground">تعذر فتح صورة الوجه</div>}
+                </div>
+                <div>
+                  <div className="text-sm font-bold mb-2">صورة الهوية / المستمسك</div>
+                  {selectedVerification.verification.id_card_photo_url ? (
+                    <img src={selectedVerification.verification.id_card_photo_url} alt="صورة الهوية" className="w-full max-h-72 object-contain rounded-xl bg-black/5" />
+                  ) : <div className="text-xs text-muted-foreground">تعذر فتح صورة الهوية</div>}
+                </div>
+                <div className="text-xs rounded-xl bg-surface-2 p-3 space-y-1">
+                  <div>الاسم: {selectedVerification.verification.legal_name}</div>
+                  <div>نوع المستمسك: {selectedVerification.verification.document_type}</div>
+                  <div>رقم المستمسك: {selectedVerification.verification.id_number || "غير مدخل"}</div>
+                  <div>حالة التوثيق: {selectedVerification.verification.status}</div>
+                  <div>تاريخ الإرسال: {new Date(selectedVerification.verification.submitted_at).toLocaleString("ar-IQ")}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-amber-500/10 text-amber-700 p-4 text-sm">
+                لا توجد مستمسكات محفوظة في التخزين الدائم لهذا الحساب. اطلب من مقدم الخدمة إعادة رفع صورته وهويته بعد نشر التحديث.
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
