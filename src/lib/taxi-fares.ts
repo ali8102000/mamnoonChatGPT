@@ -68,8 +68,9 @@ export function calculateFareBreakdown(
   const subtotal = distanceFare;
   const requestedDemand = Math.min(1.5, Math.max(0.8, options?.demandMultiplier ?? 1));
   // Long-distance and inter-governorate fares must not surge as sharply as short city rides.
+  const initialEconomyFare = subtotal * requestedDemand;
   const demandMultiplier =
-    isIntercity || subtotal >= 10000
+    isIntercity || initialEconomyFare >= 10000
       ? Math.min(1.1, Math.max(0.95, requestedDemand))
       : requestedDemand;
 
