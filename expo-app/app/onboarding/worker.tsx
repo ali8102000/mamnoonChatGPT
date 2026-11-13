@@ -44,20 +44,18 @@ export default function WorkerOnboarding() {
   useEffect(() => {
     let active = true;
     setServicesLoading(true);
-    supabase
-      .from("services")
-      .select("id,slug,name_ar")
-      .order("name_ar")
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error) setServicesError("تعذر تحميل قائمة المهن. اضغط إعادة المحاولة.");
-        else {
-          const available = (data || []).filter((s) => s.slug !== "taxi");
-          setServices(available);
-          setServicesError(available.length ? null : "لا توجد مهن متاحة حالياً. تواصل مع الدعم.");
-        }
-        setServicesLoading(false);
-      });
+    supabase.rpc("get_worker_service_catalog").then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        console.error("get_worker_service_catalog failed:", error);
+        setServicesError(`تعذر تحميل المهن (${error.code || "اتصال"}): ${error.message || "تحقق من اتصالك"}`);
+      } else {
+        const available = (data || []).filter((s: WorkerService) => s.slug !== "taxi");
+        setServices(available);
+        setServicesError(available.length ? null : "قائمة المهن فارغة حالياً. تواصل مع الإدارة.");
+      }
+      setServicesLoading(false);
+    });
     return () => { active = false; };
   }, []);
 
@@ -280,10 +278,11 @@ export default function WorkerOnboarding() {
         <TouchableOpacity onPress={() => {
           setServicesError(null);
           setServicesLoading(true);
-          supabase.from("services").select("id,slug,name_ar").order("name_ar").then(({ data, error }) => {
-            const available = (data || []).filter((s) => s.slug !== "taxi");
+          supabase.rpc("get_worker_service_catalog").then(({ data, error }) => {
+            if (error) console.error("get_worker_service_catalog retry failed:", error);
+            const available = (data || []).filter((s: WorkerService) => s.slug !== "taxi");
             setServices(available);
-            setServicesError(error ? "تعذر تحميل المهن. تحقق من الاتصال أو تواصل مع الدعم." : available.length ? null : "لا توجد مهن متاحة حالياً.");
+            setServicesError(error ? `تعذر تحميل المهن: ${error.message}` : available.length ? null : "قائمة المهن فارغة حالياً.");
             setServicesLoading(false);
           });
         }}>
