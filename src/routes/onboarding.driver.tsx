@@ -128,6 +128,7 @@ function OnboardingDriver() {
   const faceInputRef = useRef<HTMLInputElement>(null);
   const idCardInputRef = useRef<HTMLInputElement>(null);
   const vehicleDocumentInputRef = useRef<HTMLInputElement>(null);
+  const vehicleDocumentCameraInputRef = useRef<HTMLInputElement>(null);
 
   const [existingDoc, setExistingDoc] = useState<any>(null);
   const [editingMode, setEditingMode] = useState(false);
@@ -619,10 +620,19 @@ function OnboardingDriver() {
                 <div className="h-20 w-28 rounded-xl bg-slate-100 border border-dashed border-slate-300 grid place-items-center text-slate-400">📄</div>
               )}
               <div className="flex-1">
-                <input ref={vehicleDocumentInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleVehicleDocumentChange} />
-                <button type="button" onClick={() => vehicleDocumentInputRef.current?.click()} className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold">
-                  {vehicleDocumentPhoto ? "تغيير صورة المستند" : "تصوير السنوية أو الوكالة"}
-                </button>
+                <input ref={vehicleDocumentCameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleVehicleDocumentChange} />
+                <input ref={vehicleDocumentInputRef} type="file" accept="image/*" className="hidden" onChange={handleVehicleDocumentChange} />
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => vehicleDocumentCameraInputRef.current?.click()} className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold btn-press flex items-center gap-1.5">
+                    <Camera className="h-3.5 w-3.5" />
+                    تصوير بالكاميرا
+                  </button>
+                  <button type="button" onClick={() => vehicleDocumentInputRef.current?.click()} className="px-3.5 py-2 rounded-xl bg-slate-800 text-white text-xs font-bold btn-press flex items-center gap-1.5">
+                    <Upload className="h-3.5 w-3.5" />
+                    اختيار من المعرض
+                  </button>
+                </div>
+                {vehicleDocumentPhoto && <p className="text-[11px] font-bold text-emerald-600 mt-2">تم إرفاق المستند ✓</p>}
               </div>
             </div>
           </div>
