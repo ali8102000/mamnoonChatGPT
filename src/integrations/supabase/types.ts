@@ -1648,6 +1648,10 @@ export type Database = {
         }[]
       }
       get_friend_status: { Args: { p_friend_id: string }; Returns: Json }
+      get_worker_service_catalog: {
+        Args: Record<PropertyKey, never>
+        Returns: { id: string; slug: string; name_ar: string }[]
+      }
       get_provider_reputation: { Args: { p_user_id: string }; Returns: Json }
       get_staff_roles: { Args: { p_user_id: string }; Returns: string[] }
       get_subscription_stats: {
