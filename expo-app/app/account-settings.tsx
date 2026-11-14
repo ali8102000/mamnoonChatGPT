@@ -184,6 +184,10 @@ export default function AccountSettingsScreen() {
       <View style={{ height: 12 }} />
       <Button title="تأكيد الرقم الجديد" onPress={verifyPhone} loading={busy} />
     </>}
+    <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/support-chat")} style={styles.supportCard}>
+      <View style={{ flex: 1 }}><Text style={styles.supportTitle}>مراسلة دعم ممنون</Text><Text style={styles.supportHint}>راسل الإدارة وتابع الردود من نفس الحساب</Text></View>
+      <Text style={styles.supportAction}>مراسلة الدعم</Text>
+    </TouchableOpacity>
     <Text style={styles.back} onPress={() => router.back()}>رجوع</Text>
   </ScrollView></SafeAreaView>;
 }
@@ -208,5 +212,9 @@ const styles = StyleSheet.create({
   current: { color: palette.muted, fontSize: 14, paddingVertical: 8 },
   separator: { height: 1, backgroundColor: palette.line, marginVertical: 24 },
   hint: { color: palette.muted, fontSize: 11, lineHeight: 19, marginTop: 10 },
+  supportCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: palette.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: palette.gold, padding: 16, marginTop: 22 },
+  supportTitle: { color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" },
+  supportHint: { color: palette.muted, fontSize: 11, marginTop: 5, textAlign: "right" },
+  supportAction: { color: palette.white, backgroundColor: palette.brand, paddingHorizontal: 13, paddingVertical: 10, borderRadius: radius.md, fontSize: 11, fontWeight: "900" },
   back: { textAlign: "center", color: palette.brand, fontWeight: "900", padding: 24 },
 });
