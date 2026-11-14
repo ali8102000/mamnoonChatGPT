@@ -134,9 +134,10 @@ function SupportChatPage() {
     const body = draft.trim();
     setBusy(true);
     setDraft("");
-    const { error } = await (supabase as any).from("support_messages").insert({ conversation_id: selected.id, sender_id: uid, body });
+    const { data: sentMessage, error } = await (supabase as any).from("support_messages").insert({ conversation_id: selected.id, sender_id: uid, body }).select("*").single();
     setBusy(false);
     if (error) { setDraft(body); toast.error(error.message); }
+    else if (sentMessage) setMessages((current) => current.some((m) => m.id === sentMessage.id) ? current : [...current, sentMessage]);
   }
 
   return <div className="min-h-screen bg-background p-4 md:p-8">
