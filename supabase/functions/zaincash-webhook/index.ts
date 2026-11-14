@@ -36,7 +36,6 @@ Deno.serve(async(req:Request)=>{
   const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:payment,error:paymentError}=await admin.from("payment_transactions").select("id,amount,currency,external_reference_id,status,gateway_transaction_id").eq("external_reference_id",reference).maybeSingle();
   if(paymentError||!payment) return json({error:"payment_not_found"},404);
-  if(payment.status==="paid") return json({ok:true,duplicate:true});
   if(payment.gateway_transaction_id && payment.gateway_transaction_id!==transactionId) return json({error:"transaction_mismatch"},409);
   const token=await gatewayToken(base,clientId,clientSecret);
   const inquiryRes=await fetch(base+"/api/v2/payment-gateway/transaction/inquiry/"+encodeURIComponent(transactionId),{headers:{Authorization:"Bearer "+token}});
@@ -53,8 +52,10 @@ Deno.serve(async(req:Request)=>{
   if(inquiry.status==="SUCCESS"){
     const {error}=await admin.rpc("finalize_zaincash_payment",{p_payment_id:payment.id,p_gateway_transaction_id:transactionId,p_gateway_status:"SUCCESS",p_confirmed_amount:confirmedAmount,p_currency:currency,p_payload:{eventId,eventType:claims.eventType}});
     if(error){await admin.from("zaincash_webhook_events").delete().eq("event_id",eventId);return json({error:"payment_finalization_failed"},500);}
-  }else if(["FAILED","EXPIRED","REFUNDED"].includes(inquiry.status)){
-    await admin.from("payment_transactions").update({status:inquiry.status==="EXPIRED"?"expired":inquiry.status==="REFUNDED"?"refunded":"failed",gateway_status:inquiry.status,gateway_transaction_id:transactionId,updated_at:new Date().toISOString()}).eq("id",payment.id).eq("status","pending");
+  }else if(["FAILED","EXPIRED"].includes(inquiry.status)){
+    await admin.from("payment_transactions").update({status:inquiry.status==="EXPIRED"?"expired":"failed",gateway_status:inquiry.status,gateway_transaction_id:transactionId,updated_at:new Date().toISOString()}).eq("id",payment.id).eq("status","pending");
+  }else if(inquiry.status==="REFUNDED"){
+    await admin.from("payment_transactions").update({status:"refunded",gateway_status:"REFUNDED",gateway_transaction_id:transactionId,updated_at:new Date().toISOString()}).eq("id",payment.id);
   }else{
     await admin.from("payment_transactions").update({gateway_status:inquiry.status,gateway_transaction_id:transactionId,updated_at:new Date().toISOString()}).eq("id",payment.id);
   }
