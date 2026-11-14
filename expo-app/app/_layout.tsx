@@ -7,6 +7,7 @@ import * as Notifications from "expo-notifications";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
+import { palette } from "@/styles/theme";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
@@ -117,11 +118,12 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <PushNotificationSetup />
-      <StatusBar style="auto" />
+      <StatusBar style="dark" backgroundColor={palette.canvas} />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: "#f8fafc" },
+          contentStyle: { backgroundColor: palette.canvas },
+          animation: "slide_from_right",
         }}
       >
         <Stack.Screen name="index" />
