@@ -215,8 +215,10 @@ export const adminGetStats = createServerFn({ method: "GET" })
         monthlyRevenue: 0,
         yearlyRevenue: 0,
         freeCount: 0,
+        bronzeCount: 0,
         silverCount: 0,
         goldCount: 0,
+        trialCount: 0,
       };
     }
     const r = data[0];
@@ -227,8 +229,10 @@ export const adminGetStats = createServerFn({ method: "GET" })
       monthlyRevenue: r.monthly_revenue ?? 0,
       yearlyRevenue: r.yearly_revenue ?? 0,
       freeCount: r.free_count ?? 0,
+      bronzeCount: r.bronze_count ?? 0,
       silverCount: r.silver_count ?? 0,
       goldCount: r.gold_count ?? 0,
+      trialCount: r.trial_count ?? 0,
     };
   });
 
