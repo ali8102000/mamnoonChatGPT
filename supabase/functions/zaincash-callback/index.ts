@@ -23,7 +23,7 @@ Deno.serve(async(req:Request)=>{
  if(req.method!=="GET") return new Response("Method not allowed",{status:405});
  const fallback=Deno.env.get("MAMNOON_PAYMENT_RETURN_URL")||"https://existing-project-onrampadminbootstrap.lovable.app/subscriptions";
  try{
-  const u=new URL(req.url); const signedToken=u.searchParams.get("token"); const outcome=u.searchParams.get("return")==="failure"?"failure":"success";
+  const u=new URL(req.url); const signedToken=u.searchParams.get("token"); let finalStatus="pending";
   if(!signedToken) throw new Error("missing_token");
   const apiKey=Deno.env.get("ZAINCASH_API_KEY"); const clientId=Deno.env.get("ZAINCASH_CLIENT_ID"); const clientSecret=Deno.env.get("ZAINCASH_CLIENT_SECRET");
   const url=Deno.env.get("SUPABASE_URL"); const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -35,6 +35,7 @@ Deno.serve(async(req:Request)=>{
   const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:payment,error}=await admin.from("payment_transactions").select("id,amount,currency,external_reference_id,status,gateway_transaction_id").eq("external_reference_id",reference).maybeSingle();
   if(error||!payment) throw new Error("payment_not_found");
+  if(payment.status==="paid") finalStatus="success";
   if(payment.status!=="paid"){
    const token=await getToken(base,clientId,clientSecret);
    const res=await fetch(base+"/api/v2/payment-gateway/transaction/inquiry/"+encodeURIComponent(transactionId),{headers:{Authorization:"Bearer "+token}});
@@ -44,15 +45,17 @@ Deno.serve(async(req:Request)=>{
    const amount=Number(details.amount?.value); const currency=details.amount?.currency;
    if(amount!==payment.amount||currency!=="IQD") throw new Error("amount_mismatch");
    if(inquiry.status==="SUCCESS"){
+    finalStatus="success";
     const {error:finalizeError}=await admin.rpc("finalize_zaincash_payment",{p_payment_id:payment.id,p_gateway_transaction_id:transactionId,p_gateway_status:"SUCCESS",p_confirmed_amount:amount,p_currency:currency,p_payload:{source:"redirect_callback"}});
     if(finalizeError) throw new Error("finalization_failed");
    }else if(["FAILED","EXPIRED"].includes(inquiry.status)){
+    finalStatus="failure";
     await admin.from("payment_transactions").update({status:inquiry.status==="EXPIRED"?"expired":"failed",gateway_status:inquiry.status,gateway_transaction_id:transactionId,updated_at:new Date().toISOString()}).eq("id",payment.id).eq("status","pending");
    }else{
     await admin.from("payment_transactions").update({gateway_status:inquiry.status,gateway_transaction_id:transactionId,updated_at:new Date().toISOString()}).eq("id",payment.id);
    }
   }
-  const finalUrl=new URL(fallback); finalUrl.searchParams.set("payment",outcome); finalUrl.searchParams.set("ref",reference);
+  const finalUrl=new URL(fallback); finalUrl.searchParams.set("payment",finalStatus); finalUrl.searchParams.set("ref",reference);
   return Response.redirect(finalUrl.toString(),303);
  }catch(_error){
   const finalUrl=new URL(fallback); finalUrl.searchParams.set("payment","pending");
