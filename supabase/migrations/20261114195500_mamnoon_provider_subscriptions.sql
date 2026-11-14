@@ -59,7 +59,8 @@ values
    '{"profile_promotion_monthly":16,"photos":true,"videos":true,"offers":true,"featured_services":true,"top_provider_listing":true,"advanced_analytics":true,"campaigns":true,"support_priority":"urgent"}'::jsonb,2)
 on conflict (code) do update set
   name_ar=excluded.name_ar,name_en=excluded.name_en,description_ar=excluded.description_ar,
-  tier=excluded.tier,priority_weight=excluded.priority_weight,offer_priority=excluded.offer_priority,
+  tier=excluded.tier,max_requests_per_month=excluded.max_requests_per_month,
+  priority_weight=excluded.priority_weight,offer_priority=excluded.offer_priority,
   badge_label=excluded.badge_label,badge_color=excluded.badge_color,show_stats=true,
   priority_support=excluded.priority_support,monthly_price=excluded.monthly_price,
   currency='IQD',is_active=true,sort_order=excluded.sort_order,features=excluded.features,
