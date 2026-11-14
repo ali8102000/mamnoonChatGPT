@@ -71,13 +71,20 @@ export default function WorkerOnboarding() {
       supabase.from("provider_verifications").select("status,rejection_reason")
         .eq("user_id", user.id).eq("provider_type", "worker").maybeSingle(),
       supabase.from("worker_profiles").select("status").eq("user_id", user.id).maybeSingle(),
-    ]).then(([verification, workerProfile]) => {
+      supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "worker").maybeSingle(),
+    ]).then(([verification, workerProfile, workerRole]) => {
       if (!active) return;
-      const resolvedStatus = verification.data?.status === "approved" || workerProfile.data?.status === "approved"
+      // A granted worker role is authoritative proof of prior approval.
+      const approved = !!workerRole.data
+        || verification.data?.status === "approved"
+        || workerProfile.data?.status === "approved";
+      const resolvedStatus = approved
         ? "approved"
         : verification.data?.status ?? workerProfile.data?.status ?? null;
       if (resolvedStatus) setStatus(resolvedStatus);
       setRejectionReason(verification.data?.rejection_reason ?? null);
+    }).catch((error) => {
+      console.error("Unable to restore worker approval:", error);
     });
     return () => { active = false; };
   }, [user?.id]);
