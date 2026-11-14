@@ -14,6 +14,9 @@ import {
   adminGrantSubscription,
   adminSetSubscriptionStatus,
   adminExtendSubscription,
+  adminPauseAllSubscriptions,
+  adminGrantSubscriptionsBulk,
+  adminBroadcastAnnouncement,
 } from "@/lib/subscription.functions";
 import {
   Loader2,
@@ -173,7 +176,7 @@ function SubscriptionsAdmin() {
         </h1>
       </div>
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
-        {["overview", "plans", "subscriptions", "grant", "settings"].map((t) => (
+        {["overview", "plans", "subscriptions", "grant", "broadcast", "settings"].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -187,7 +190,9 @@ function SubscriptionsAdmin() {
                   ? "المشتركون"
                   : t === "grant"
                     ? "منح اشتراك"
-                    : "الإعدادات"}
+                    : t === "broadcast"
+                      ? "رسالة عامة"
+                      : "الإعدادات"}
           </button>
         ))}
       </div>
@@ -216,6 +221,7 @@ function SubscriptionsAdmin() {
       )}
       {tab === "subscriptions" && <SubscriptionsTab subs={subs} onRefresh={loadAll} />}
       {tab === "grant" && <GrantSubscriptionTab plans={plans} onGranted={() => { loadAll(); setGrantRefresh((v) => v + 1); }} refreshKey={grantRefresh} />}
+      {tab === "broadcast" && <BroadcastTab />}
       {tab === "settings" && (
         <SettingsTab
           settings={settings}
@@ -426,6 +432,7 @@ function Feature({ icon: Icon, label, value }: any) {
 
 function SubscriptionsTab({ subs, onRefresh }: { subs: SubscriptionRow[]; onRefresh: () => void }) {
   const [filter, setFilter] = useState("all");
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [days, setDays] = useState<Record<string, number>>({});
   const filtered = subs.filter((s) => filter === "all" || (filter === "company" ? s.grant_type === "admin" : filter === "trial" ? s.is_trial || s.grant_type === "trial" : s.plan?.code === filter));
@@ -447,6 +454,7 @@ function SubscriptionsTab({ subs, onRefresh }: { subs: SubscriptionRow[]; onRefr
   return <div className="space-y-3">
     <div className="glass rounded-2xl p-3">
       <div className="font-black text-sm mb-2">سجل الاشتراكات الفعلي ({subs.length})</div>
+      <button disabled={bulkBusy || !subs.some(s => s.status === "active")} onClick={async () => { if (!window.confirm("سيتم إيقاف جميع الاشتراكات النشطة حالياً ومنع استقبال طلبات جديدة. متأكد؟")) return; setBulkBusy(true); try { const result = await adminPauseAllSubscriptions(); toast.success("تم إيقاف " + result.count + " اشتراك فعلياً"); onRefresh(); } catch(e:any) { toast.error(e.message || "تعذر إيقاف الاشتراكات"); } finally { setBulkBusy(false); } }} className="w-full rounded-xl bg-red-600 text-white py-2.5 text-xs font-black disabled:opacity-50">{bulkBusy ? "جارٍ إيقاف الاشتراكات..." : "إيقاف جميع الاشتراكات النشطة"}</button>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {[["all","الكل"],["company","اشتراكات ممنوحة من الشركة"],["bronze","برونزي"],["silver","فضي"],["gold","ذهبي"],["trial","تجريبي"]].map(([key,label]) =>
           <button key={key} onClick={() => setFilter(key)} className={`rounded-xl px-2 py-2 text-[11px] font-bold ${filter===key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{label}</button>
@@ -491,6 +499,7 @@ function GrantSubscriptionTab({ plans, onGranted }: { plans: Plan[]; onGranted: 
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [planCode, setPlanCode] = useState("bronze");
   const [duration, setDuration] = useState("month");
   const [searching, setSearching] = useState(false);
@@ -499,13 +508,20 @@ function GrantSubscriptionTab({ plans, onGranted }: { plans: Plan[]; onGranted: 
   const activePlans = plans.filter((p) => p.is_active && ["bronze", "silver", "gold"].includes(p.code));
   async function searchUsers() {
     if (query.trim().length < 2) { toast.error("اكتب الاسم أو البريد أو رقم الهاتف"); return; }
-    setSearching(true); setSearched(false); setSelectedUser(null);
+    setSearching(true); setSearched(false); setSelectedUser(null); setSelectedUserIds([]);
     try {
       const result = await adminSearchSubscriptionUsers({ data: { query: query.trim() } });
       setUsers(result as any[]); setSearched(true);
       if (!(result as any[]).length) toast.error("ما لكينا مقدم خدمة مطابق");
     } catch (e: any) { toast.error(e.message || "فشل البحث"); }
     finally { setSearching(false); }
+  }
+  async function grantBulk() {
+    if (!selectedUserIds.length) { toast.error("حدد حساباً واحداً على الأقل"); return; }
+    setSaving(true);
+    try { const result = await adminGrantSubscriptionsBulk({ data: { user_ids: selectedUserIds, plan_code: planCode as any, duration: duration as any } }); toast.success("تم منح الاشتراك لـ " + result.count + " حساب"); setSelectedUserIds([]); setUsers([]); setQuery(""); setSearched(false); onGranted(); }
+    catch(e:any) { toast.error(e.message || "تعذر منح الاشتراكات المحددة"); }
+    finally { setSaving(false); }
   }
   async function grant() {
     if (!selectedUser) { toast.error("اختَر مقدم الخدمة أولاً"); return; }
@@ -527,11 +543,16 @@ function GrantSubscriptionTab({ plans, onGranted }: { plans: Plan[]; onGranted: 
         <button onClick={searchUsers} disabled={searching} className="rounded-xl bg-primary text-primary-foreground px-4 font-bold text-xs disabled:opacity-50">{searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</button>
       </div>
       {searched && users.length > 0 && <div className="space-y-2 mt-3">
-        {users.map((u) => <button key={u.id} onClick={() => setSelectedUser(u)} className={`w-full text-right rounded-xl border p-3 ${selectedUser?.id === u.id ? "border-primary bg-primary/10" : "border-border"}`}>
+        <button onClick={() => setSelectedUserIds(selectedUserIds.length === users.length ? [] : users.map(u => u.id))} className="w-full rounded-xl border border-primary/40 py-2 text-xs font-black">{selectedUserIds.length === users.length ? "إلغاء تحديد الكل" : "تحديد كل نتائج البحث"} ({selectedUserIds.length}/{users.length})</button>
+        {users.map((u) => <div key={u.id} className={`w-full text-right rounded-xl border p-3 ${selectedUserIds.includes(u.id) || selectedUser?.id === u.id ? "border-primary bg-primary/10" : "border-border"}`}>
+          <label className="flex items-center gap-2 text-xs font-bold mb-1"><input type="checkbox" checked={selectedUserIds.includes(u.id)} onChange={(e) => setSelectedUserIds(current => e.target.checked ? [...current,u.id] : current.filter(id => id !== u.id))} /> تحديد لمنح جماعي</label>
+          <button className="w-full text-right" onClick={() => setSelectedUser(u)}>
           <div className="text-sm font-bold">{u.full_name || "بدون اسم"}</div>
           <div className="text-[11px] text-muted-foreground" dir="ltr">{u.email || u.phone || u.id}</div>
           {u.email && u.phone && <div className="text-[10px] text-muted-foreground" dir="ltr">{u.phone}</div>}
-        </button>)}
+          </button>
+        </div>)}
+        <button onClick={grantBulk} disabled={saving || selectedUserIds.length===0 || activePlans.length===0} className="w-full rounded-xl bg-amber-500 text-white py-3 text-xs font-black disabled:opacity-50">{saving ? "جارٍ المنح..." : "منح الباقة المحددة لكل الحسابات المحددة ("+selectedUserIds.length+")"}</button>
       </div>}
     </div>
     {selectedUser && <div className="glass rounded-2xl p-4 space-y-3">
@@ -541,6 +562,22 @@ function GrantSubscriptionTab({ plans, onGranted }: { plans: Plan[]; onGranted: 
       <button onClick={grant} disabled={saving || activePlans.length === 0} className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black disabled:opacity-50">{saving ? <Loader2 className="inline h-4 w-4 animate-spin ml-2" /> : <UserPlus className="inline h-4 w-4 ml-2" />}منح الاشتراك مجاناً</button>
       {activePlans.length === 0 && <p className="text-xs text-destructive">لا توجد باقات برونزية أو فضية أو ذهبية مفعّلة حالياً.</p>}
     </div>}
+  </div>;
+}
+
+
+function BroadcastTab() {
+  const [target,setTarget]=useState("all");
+  const [title,setTitle]=useState("");
+  const [body,setBody]=useState("");
+  const [busy,setBusy]=useState(false);
+  return <div className="glass rounded-2xl p-4 space-y-3">
+    <div className="font-black text-sm">رسالة رسمية من شركة ممنون</div>
+    <p className="text-xs text-muted-foreground leading-6">تصل كإشعار رسمي منبثق وتبقى في مركز الإشعارات لمدة 24 ساعة.</p>
+    <label className="block text-xs font-bold">المستلمون<select value={target} onChange={e=>setTarget(e.target.value)} className="input-base mt-1"><option value="all">جميع المستخدمين</option><option value="worker">الفنيون</option><option value="large_driver">أصحاب الكيات</option><option value="driver">سائقو التكسي</option></select></label>
+    <label className="block text-xs font-bold">عنوان الرسالة<input value={title} onChange={e=>setTitle(e.target.value)} maxLength={100} className="input-base mt-1" placeholder="عنوان الإعلان"/></label>
+    <label className="block text-xs font-bold">نص الرسالة<textarea value={body} onChange={e=>setBody(e.target.value)} maxLength={1500} rows={4} className="input-base mt-1" placeholder="اكتب رسالة ممنون الرسمية"/></label>
+    <button disabled={busy || title.trim().length<2 || body.trim().length<2} onClick={async()=>{if(!window.confirm("إرسال الرسالة لجميع الفئة المحددة؟"))return;setBusy(true);try{const r=await adminBroadcastAnnouncement({data:{target:target as any,title,body}});toast.success("تم إرسال الرسالة إلى "+r.count+" حساب");setTitle("");setBody("");}catch(e:any){toast.error(e.message||"تعذر إرسال الرسالة");}finally{setBusy(false);}}} className="w-full rounded-xl bg-amber-500 text-white py-3 text-sm font-black disabled:opacity-50">{busy?"جارٍ الإرسال...":"إرسال الرسالة الرسمية"}</button>
   </div>;
 }
 
