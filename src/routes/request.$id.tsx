@@ -615,7 +615,7 @@ function RequestDetail() {
                     }}
                     className="w-full min-h-14 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-md active:scale-[0.99] transition"
                   >
-                    {req.type === "taxi" ? "بدء الرحلة" : "بدء تنفيذ الخدمة"}
+                    {req.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}
                   </button>
                 )}
                 {req.status === "in_progress" && myRole === "provider" && (
@@ -665,10 +665,10 @@ function RequestDetail() {
                 </div>
               </div>
               {(myRating.professionalism || myRating.punctuality || myRating.quality) && (
-                <div className="flex gap-3 text-[10px] text-muted-foreground">
-                  <span>الاحترافية: {myRating.professionalism ?? "—"}</span>
-                  <span>الوقت: {myRating.punctuality ?? "—"}</span>
-                  <span>الجودة: {myRating.quality ?? "—"}</span>
+                <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+                  <span>{myRole === "provider" ? "حسن التعامل" : req.type === "taxi" ? "القيادة الآمنة" : "جودة العمل"}: {myRating.professionalism ?? "—"}</span>
+                  <span>الالتزام بالموعد: {myRating.punctuality ?? "—"}</span>
+                  <span>{myRole === "provider" ? "التعاون والوضوح" : req.type === "taxi" ? "نظافة السيارة" : "حسن التعامل"}: {myRating.quality ?? "—"}</span>
                 </div>
               )}
               {myRating.comment && (
@@ -711,9 +711,7 @@ function RequestDetail() {
               <span>المحادثة المباشرة</span>
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             </span>
-            <span className="text-[11px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
-              🔊 صوت التنبيه مفعّل
-            </span>
+
           </div>
 
           <div
@@ -845,6 +843,11 @@ function RequestDetail() {
       {showRating && other && (
         <RatingModal
           target={other}
+          labels={myRole === "provider"
+            ? ["حسن التعامل والاحترام", "الالتزام بالموعد", "التعاون والوضوح"]
+            : req.type === "taxi"
+              ? ["القيادة الآمنة", "الالتزام بالموعد", "نظافة السيارة"]
+              : ["جودة العمل والإتقان", "الالتزام بالوقت", "حسن التعامل"]}
           onClose={() => setShowRating(false)}
           onSubmit={async (stars, comment, subscores) => {
             const { data, error } = await (supabase as any)
@@ -903,10 +906,12 @@ function RequestDetail() {
 
 function RatingModal({
   target,
+  labels,
   onClose,
   onSubmit,
 }: {
   target: any;
+  labels: [string, string, string];
   onClose: () => void;
   onSubmit: (
     stars: number,
@@ -976,9 +981,9 @@ function RatingModal({
 
         {/* Sub-scores */}
         <div className="space-y-2.5 mb-3">
-          <SubScoreInput label="الاحترافية" value={prof} onChange={setProf} />
-          <SubScoreInput label="الالتزام بالوقت" value={punc} onChange={setPunc} />
-          <SubScoreInput label="جودة العمل" value={qual} onChange={setQual} />
+          <SubScoreInput label={labels[0]} value={prof} onChange={setProf} />
+          <SubScoreInput label={labels[1]} value={punc} onChange={setPunc} />
+          <SubScoreInput label={labels[2]} value={qual} onChange={setQual} />
         </div>
 
         <textarea
