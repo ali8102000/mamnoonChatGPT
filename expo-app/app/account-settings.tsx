@@ -12,7 +12,8 @@ import { palette, radius, space } from "@/styles/theme";
 
 export default function AccountSettingsScreen() {
   const { user, profile, roles, refresh } = useAuth();
-  const [email, setEmail] = useState(String(user?.user_metadata?.contact_email ?? user?.email ?? ""));
+  const actualEmail = (() => { const candidate = String(user?.email ?? "").trim().toLowerCase(); return candidate && !/^phone\d+@mamnoon\.app$/.test(candidate) ? candidate : ""; })();
+  const [email, setEmail] = useState(actualEmail);
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [otp, setOtp] = useState("");
   const [phonePending, setPhonePending] = useState(false);
@@ -20,6 +21,8 @@ export default function AccountSettingsScreen() {
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [activeRole, setActiveRole] = useState("customer");
   const isCompanyAdmin = user?.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
+
+  useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
 
   useEffect(() => {
     let mounted = true;
@@ -83,7 +86,7 @@ export default function AccountSettingsScreen() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) {
       Alert.alert("تنبيه", "أدخل بريداً إلكترونياً صحيحاً"); return;
     }
-    if (next === String(user?.email ?? "").toLowerCase()) {
+    if (next === actualEmail) {
       Alert.alert("معلومة", "هذا هو بريدك الحالي"); return;
     }
     setBusy(true);
@@ -160,12 +163,12 @@ export default function AccountSettingsScreen() {
       })}
     </View>
     <Text style={styles.note}>أي تغيير ببيانات الدخول لا يعتمد إلا بعد إكمال التحقق.</Text>
-    <Text style={styles.label}>البريد الحالي</Text>
-    <Text style={styles.current} selectable>{user?.user_metadata?.contact_email || user?.email || "غير مسجل"}</Text>
-    <Text style={styles.label}>البريد الجديد</Text>
-    <RealInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" />
+    <Text style={styles.label}>البريد الإلكتروني</Text>
+    {actualEmail ? <Text style={styles.current} selectable>{actualEmail}</Text> : <Text style={styles.hint}>ماكو بريد إلكتروني حقيقي مسجّل بحسابك. أضف بريدك حتى تستلم رسائل التأكيد واستعادة الحساب.</Text>}
+    <Text style={styles.label}>{actualEmail ? "تغيير البريد الإلكتروني" : "إضافة بريد إلكتروني حقيقي"}</Text>
+    <RealInput value={email} onChangeText={setEmail} placeholder="اكتب بريدك الحقيقي" keyboardType="email-address" autoCapitalize="none" textContentType="emailAddress" />
     <View style={{ height: 12 }} />
-    <Button title="تأكيد البريد الإلكتروني" onPress={changeEmail} loading={busy} />
+    <Button title={actualEmail ? "تأكيد تغيير البريد" : "إضافة البريد وإرسال رابط التأكيد"} onPress={changeEmail} loading={busy} />
     <View style={styles.separator} />
     <Text style={styles.label}>رقم الهاتف الحالي</Text>
     <Text style={styles.current} selectable>{profile?.phone || user?.phone || "غير مسجل"}</Text>
