@@ -235,11 +235,14 @@ AS $$
     ) loc ON loc.user_id = dp.user_id
     WHERE dp.available = true
       AND dp.status = 'approved'
+      AND (dp.suspended_until IS NULL OR dp.suspended_until <= now())
       AND (_category IS NULL OR dp.vehicle_category::text = _category)
       AND (
-        (_category = 'large' AND public.has_role(dp.user_id, 'large_driver'))
+        (_category = 'large' AND public.has_role(dp.user_id, 'large_driver'::public.app_role))
         OR
-        (_category IS DISTINCT FROM 'large' AND public.has_role(dp.user_id, 'driver'))
+        (_category IS DISTINCT FROM 'large'
+          AND _category IN ('economy', 'premium', 'luxury')
+          AND public.has_role(dp.user_id, 'driver'::public.app_role))
       )
       AND loc.updated_at > now() - interval '5 minutes'
       AND NOT EXISTS (
