@@ -777,7 +777,8 @@ export default function RequestDetail() {
                 msg.sender_id === user?.id ? styles.msgMine : styles.msgOther,
               ]}
             >
-              <Text style={styles.msgText}>{msg.content}</Text>
+              <Text style={[styles.msgText, msg.sender_id === user?.id && styles.msgTextMine]}>{msg.content}</Text>
+              <Text style={[styles.msgTime, msg.sender_id === user?.id && styles.msgTimeMine]}>{new Date(msg.created_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })}</Text>
             </View>
           ))}
         </ScrollView>
@@ -873,9 +874,12 @@ const styles = StyleSheet.create({
   chatClosedTitle: { color: palette.ink, fontSize: 16, fontWeight: "900" },
   chatClosedText: { color: palette.muted, fontSize: 12, marginTop: 6, textAlign: "center" },
   msgBubble: { maxWidth: "75%", borderRadius: radius.lg, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 8 },
-  msgMine: { backgroundColor: palette.brand, alignSelf: "flex-end" },
-  msgOther: { backgroundColor: palette.surface, alignSelf: "flex-start", borderWidth: 1, borderColor: palette.line },
-  msgText: { fontSize: 14, color: palette.ink },
+  msgMine: { backgroundColor: palette.brand, alignSelf: "flex-end", borderBottomRightRadius: 6, shadowColor: palette.brand, shadowOpacity: 0.12, shadowRadius: 8, elevation: 2 },
+  msgOther: { backgroundColor: palette.surface, alignSelf: "flex-start", borderWidth: 1, borderColor: palette.line, borderBottomLeftRadius: 6, shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+  msgText: { fontSize: 14, color: palette.ink, lineHeight: 21 },
+  msgTextMine: { color: palette.white },
+  msgTime: { fontSize: 9, color: palette.muted, marginTop: 5, textAlign: "left" },
+  msgTimeMine: { color: "rgba(255,255,255,0.72)" },
   quickReply: { backgroundColor: palette.brandSoft, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9 },
   quickReplyText: { fontSize: 12, color: palette.brand, fontWeight: "800" },
   inputRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: palette.surface, borderTopWidth: 1, borderTopColor: palette.line, paddingBottom: 24 },
