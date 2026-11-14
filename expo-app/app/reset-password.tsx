@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { Button, RealInput } from "@/components/ui";
-import { palette, radius } from "@/styles/theme";
+import { palette } from "@/styles/theme";
 
 export default function ResetPassword() {
   const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
