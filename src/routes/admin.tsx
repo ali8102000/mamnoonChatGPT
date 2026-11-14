@@ -1745,7 +1745,7 @@ function CouponsSection() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [distributionTarget, setDistributionTarget] = useState<"all" | "customers" | "drivers" | "workers" | "single" | "customers_1" | "customers_2" | "customers_3" | "customers_4" | "customers_5">("all");
+  const [distributionTarget, setDistributionTarget] = useState<"all" | "customers" | "drivers" | "workers" | "single" | "customers_1" | "customers_2" | "customers_3" | "customers_4" | "customers_5" | "new_users_24h" | "users_without_coupon">("all");
   const [singleUserId, setSingleUserId] = useState("");
   const [distributionMessage, setDistributionMessage] = useState("");
   const [audienceCount, setAudienceCount] = useState<number | null>(null);
@@ -1870,6 +1870,8 @@ function CouponsSection() {
           className="w-full glass rounded-xl px-3 py-2.5 text-sm"
         >
           <option value="all">كل المستخدمين</option>
+          <option value="new_users_24h">المستخدمون الجدد خلال آخر 24 ساعة</option>
+          <option value="users_without_coupon">المستخدمون الذين لم يحصلوا على أي كوبون سابقاً</option>
           <option value="customers">الزبائن فقط</option>
           <option value="customers_1">زبائن طلبوا طلباً واحداً خلال آخر 7 أيام</option>
           <option value="customers_2">زبائن طلبوا طلبين خلال آخر 7 أيام</option>
