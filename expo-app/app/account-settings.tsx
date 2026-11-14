@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
@@ -7,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
+import { palette, radius, space } from "@/styles/theme";
 
 export default function AccountSettingsScreen() {
   const { user, profile, roles, refresh } = useAuth();
@@ -16,7 +18,14 @@ export default function AccountSettingsScreen() {
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [companyName, setCompanyName] = useState("شركة ممنون");
+  const [activeRole, setActiveRole] = useState("customer");
   const isCompanyAdmin = user?.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
+
+  useEffect(() => {
+    let mounted = true;
+    SecureStore.getItemAsync("mamnoon_active_role").then((saved) => { if (mounted && saved) setActiveRole(saved); });
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     if (!isCompanyAdmin) return;
@@ -33,6 +42,7 @@ export default function AccountSettingsScreen() {
         await refresh();
       }
       await SecureStore.setItemAsync("mamnoon_active_role", "customer");
+      setActiveRole("customer");
       router.replace("/home");
       return;
     }
@@ -50,6 +60,7 @@ export default function AccountSettingsScreen() {
     }
     if (role !== "driver" && role !== "large_driver" && role !== "worker") return;
     await SecureStore.setItemAsync("mamnoon_active_role", role);
+    setActiveRole(role);
     router.replace("/home");
   }
 
@@ -117,8 +128,10 @@ export default function AccountSettingsScreen() {
     } finally { setBusy(false); }
   }
 
-  return <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-    <Text style={styles.title}>إعدادات الحساب</Text>
+  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <Text style={styles.kicker}>MAMNOON · ACCOUNT</Text>
+    <Text style={styles.title}>إعدادات حسابك</Text>
+    <Text style={styles.subtitle}>إدارة أدوارك وبيانات التواصل بأمان</Text>
     {isCompanyAdmin && <View style={styles.nameSection}>
       <Text style={styles.sectionTitle}>اسم الشركة الظاهر للمستخدمين</Text>
       <Text style={styles.note}>يظهر هذا الاسم في رسائل انتظار الموافقة والتنبيهات بدلاً من اسم الشخص.</Text>
@@ -126,22 +139,22 @@ export default function AccountSettingsScreen() {
       <View style={{ height: 12 }} />
       <Button title="حفظ اسم الشركة" onPress={saveCompanyName} loading={busy} />
     </View>}
-    <Text style={styles.sectionTitle}>طريقة استخدام ممنون</Text>
-    <Text style={styles.note}>اختَر الدور من هنا. إذا اخترت سائق تكسي لأول مرة راح تكمل بيانات السيارة.</Text>
+    <Text style={styles.sectionTitle}>مساحاتك في ممنون</Text>
+    <Text style={styles.note}>بدّل بين حساب الزبون ومجالات العمل من نفس الحساب. الأدوار الجديدة تحتاج إكمال التوثيق.</Text>
     <View style={styles.roleGrid}>
       {["customer", "worker", "driver", "large_driver"].map((role) => {
         const selected = role === "customer"
-          ? { title: "زبون", emoji: "👤", backgroundColor: "#e0f2fe", color: "#0369a1" }
+          ? { title: "الزبون", mark: "ز", backgroundColor: palette.goldSoft, color: palette.brand }
           : role === "worker"
-            ? { title: "فني", emoji: "🛠️", backgroundColor: "#dcfce7", color: "#15803d" }
+            ? { title: "الفني", mark: "ف", backgroundColor: palette.brandSoft, color: palette.brand }
             : role === "large_driver"
-              ? { title: "سائق سيارات كبيرة", emoji: "🚚", backgroundColor: "#ffedd5", color: "#c2410c" }
-              : { title: "كابتن تكسي", emoji: "🚕", backgroundColor: "#fef3c7", color: "#b45309" };
+              ? { title: "سيارات كبيرة", mark: "ك", backgroundColor: "#F4E9DC", color: "#8A5B32" }
+              : { title: "كابتن تكسي", mark: "س", backgroundColor: palette.brandSoft, color: palette.brand };
         return (
-          <TouchableOpacity key={role} activeOpacity={0.82} style={[styles.roleCard, { backgroundColor: selected.backgroundColor }]} onPress={() => switchRole(role)}>
-            <Text style={styles.roleEmoji}>{selected.emoji}</Text>
+          <TouchableOpacity key={role} activeOpacity={0.82} style={[styles.roleCard, { backgroundColor: selected.backgroundColor }, activeRole === role && styles.roleCardActive]} onPress={() => switchRole(role)}>
+            <View style={styles.roleMark}><Text style={styles.roleEmoji}>{selected.mark}</Text></View>
             <Text style={[styles.roleTitle, { color: selected.color }]}>{selected.title}</Text>
-            <Text style={[styles.roleHint, { color: selected.color }]}>{role === "customer" || roles.includes(role as any) ? "تبديل الدور" : "التسجيل بهذا الدور"}</Text>
+            <Text style={[styles.roleHint, { color: selected.color }]}>{activeRole === role ? "المساحة الحالية" : role === "customer" || roles.includes(role as any) ? "التبديل إلى هذا الدور" : "إكمال التسجيل"}</Text>
           </TouchableOpacity>
         );
       })}
@@ -169,23 +182,28 @@ export default function AccountSettingsScreen() {
       <Button title="تأكيد الرقم الجديد" onPress={verifyPhone} loading={busy} />
     </>}
     <Text style={styles.back} onPress={() => router.back()}>رجوع</Text>
-  </ScrollView>;
+  </ScrollView></SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 22, paddingTop: 54, backgroundColor: "#f7f8f5" },
-  title: { fontSize: 26, fontWeight: "900", color: "#1e293b", marginBottom: 8 },
-  sectionTitle: { fontSize: 18, fontWeight: "900", color: "#1e293b", marginTop: 18, marginBottom: 8 },
-  nameSection: { backgroundColor: "#fff", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "#e2e8f0", marginBottom: 12 },
+  safe: { flex: 1, backgroundColor: palette.canvas },
+  container: { flexGrow: 1, paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.huge },
+  kicker: { color: palette.gold, fontSize: 10, fontWeight: "900", letterSpacing: 1.3, marginBottom: 8 },
+  title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 5 },
+  subtitle: { fontSize: 13, color: palette.muted, marginBottom: space.xl },
+  sectionTitle: { fontSize: 17, fontWeight: "900", color: palette.ink, marginTop: 20, marginBottom: 8 },
+  nameSection: { backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.lg, borderWidth: 1, borderColor: palette.line, marginBottom: 12 },
   roleGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 18 },
-  roleCard: { width: "48%", minHeight: 112, borderRadius: 20, padding: 14, justifyContent: "center", alignItems: "center" },
-  roleEmoji: { fontSize: 28, marginBottom: 6 },
-  roleTitle: { fontSize: 15, fontWeight: "900" },
-  roleHint: { fontSize: 10, fontWeight: "700", marginTop: 4, opacity: 0.8 },
-  note: { color: "#64748b", lineHeight: 22, marginBottom: 22 },
-  label: { fontSize: 13, fontWeight: "800", color: "#475569", marginTop: 16, marginBottom: 8 },
-  current: { color: "#64748b", fontSize: 14, paddingVertical: 8 },
-  separator: { height: 1, backgroundColor: "#e2e8f0", marginVertical: 26 },
-  hint: { color: "#64748b", fontSize: 12, lineHeight: 20, marginTop: 10 },
-  back: { textAlign: "center", color: "#0f766e", fontWeight: "800", padding: 24 },
+  roleCard: { width: "48%", minHeight: 124, borderRadius: radius.lg, padding: 14, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "transparent" },
+  roleCardActive: { borderColor: palette.gold },
+  roleMark: { width: 42, height: 42, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.75)", justifyContent: "center", alignItems: "center", marginBottom: 8 },
+  roleEmoji: { fontSize: 20, fontWeight: "900" },
+  roleTitle: { fontSize: 14, fontWeight: "900" },
+  roleHint: { fontSize: 10, fontWeight: "800", marginTop: 5, opacity: 0.9 },
+  note: { color: palette.muted, lineHeight: 21, marginBottom: 16, fontSize: 12 },
+  label: { fontSize: 12, fontWeight: "900", color: palette.ink, marginTop: 16, marginBottom: 8 },
+  current: { color: palette.muted, fontSize: 14, paddingVertical: 8 },
+  separator: { height: 1, backgroundColor: palette.line, marginVertical: 24 },
+  hint: { color: palette.muted, fontSize: 11, lineHeight: 19, marginTop: 10 },
+  back: { textAlign: "center", color: palette.brand, fontWeight: "900", padding: 24 },
 });
