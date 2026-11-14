@@ -440,14 +440,64 @@ GRANT EXECUTE ON FUNCTION public.accept_service_request(uuid) TO authenticated;
 DROP POLICY IF EXISTS "Provider updates own offer" ON public.request_offers;
 REVOKE UPDATE ON public.request_offers FROM authenticated;
 
--- Enforce the previously requested 50,000 IQD ceiling at the database boundary.
--- NOT VALID avoids blocking deployment if an old historical row is outside the new limit;
--- new inserts and updates are still checked.
-ALTER TABLE public.request_offers
-  DROP CONSTRAINT IF EXISTS request_offers_proposed_price_max_check;
-ALTER TABLE public.request_offers
-  ADD CONSTRAINT request_offers_proposed_price_max_check
-  CHECK (proposed_price IS NULL OR proposed_price BETWEEN 250 AND 50000) NOT VALID;
+-- Enforce the price ceiling only when a proposed price is inserted or changed.
+-- Legacy historical offers above the new ceiling remain readable and can still be expired.
+CREATE OR REPLACE FUNCTION public.guard_request_offer_proposed_price()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $
+BEGIN
+  IF NEW.proposed_price IS NOT NULL
+     AND (NEW.proposed_price < 250 OR NEW.proposed_price > 50000 OR NEW.proposed_price % 250 <> 0) THEN
+    RAISE EXCEPTION 'سعر العرض يجب أن يكون من 250 إلى 50000 دينار ومن مضاعفات 250';
+  END IF;
+  RETURN NEW;
+END;
+$;
+DROP TRIGGER IF EXISTS trg_guard_request_offer_proposed_price ON public.request_offers;
+CREATE TRIGGER trg_guard_request_offer_proposed_price
+  BEFORE INSERT OR UPDATE OF proposed_price ON public.request_offers
+  FOR EACH ROW EXECUTE FUNCTION public.guard_request_offer_proposed_price();
+REVOKE EXECUTE ON FUNCTION public.guard_request_offer_proposed_price() FROM PUBLIC, anon, authenticated;
+
+-- Validate customer_price on later edits too, not only during request creation.
+CREATE OR REPLACE FUNCTION public.guard_customer_request_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+BEGIN
+  IF current_setting('mamnoon.allow_large_vehicle_accept', true) = 'true'
+     AND OLD.vehicle_category::text = 'large'
+     AND NEW.vehicle_category::text = 'large'
+     AND auth.uid() = OLD.customer_id THEN
+    RETURN NEW;
+  END IF;
+  IF auth.uid() IS DISTINCT FROM NEW.customer_id THEN RETURN NEW; END IF;
+  IF NEW.customer_id IS DISTINCT FROM OLD.customer_id THEN RAISE EXCEPTION 'customer_id_immutable'; END IF;
+  IF NEW.provider_id IS DISTINCT FROM OLD.provider_id THEN RAISE EXCEPTION 'provider_id_readonly_for_customer'; END IF;
+  IF NEW.type IS DISTINCT FROM OLD.type THEN RAISE EXCEPTION 'type_immutable'; END IF;
+  IF NEW.service_id IS DISTINCT FROM OLD.service_id THEN RAISE EXCEPTION 'service_id_immutable'; END IF;
+  IF NEW.price_estimate IS DISTINCT FROM OLD.price_estimate THEN RAISE EXCEPTION 'price_readonly_for_customer'; END IF;
+  IF NEW.commission IS DISTINCT FROM OLD.commission THEN RAISE EXCEPTION 'commission_readonly'; END IF;
+  IF NEW.accepted_at IS DISTINCT FROM OLD.accepted_at THEN RAISE EXCEPTION 'accepted_at_readonly'; END IF;
+  IF NEW.completed_at IS DISTINCT FROM OLD.completed_at THEN RAISE EXCEPTION 'completed_at_readonly'; END IF;
+  IF NEW.vehicle_category::text = 'large'
+     AND NEW.customer_price IS NOT NULL
+     AND (NEW.customer_price < 250 OR NEW.customer_price > 50000 OR NEW.customer_price % 250 <> 0) THEN
+    RAISE EXCEPTION 'سعر طلب السيارة الكبيرة يجب أن يكون من 250 إلى 50000 دينار ومن مضاعفات 250';
+  END IF;
+  IF NEW.status IS DISTINCT FROM OLD.status THEN
+    IF NOT (NEW.status = 'cancelled' AND OLD.status IN ('pending','searching','accepted','in_progress')) THEN
+      RAISE EXCEPTION 'invalid_status_transition_for_customer';
+    END IF;
+    NEW.cancelled_by := auth.uid();
+  END IF;
+  RETURN NEW;
+END;
+$;
 
 CREATE OR REPLACE FUNCTION public.submit_large_vehicle_offer(
   _request_id uuid,
