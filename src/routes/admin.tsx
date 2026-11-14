@@ -929,13 +929,13 @@ function ProvidersSection() {
         </div>
       )}
       <div className="flex gap-1 mb-3 glass rounded-2xl p-1">
-        {["driver", "worker"].map((t) => (
+        {["driver", "large_driver", "worker"].map((t) => (
           <button
             key={t}
             onClick={() => { setType(t); setCategoryFilter("all"); }}
             className={`flex-1 py-2 rounded-xl text-xs font-bold ${type === t ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
           >
-            {t === "driver" ? "السائقون" : "الفنيون"}
+            {t === "driver" ? "سائقو التكسي" : t === "large_driver" ? "سائقو السيارات الكبيرة" : "الفنيون"}
           </button>
         ))}
       </div>
@@ -951,12 +951,14 @@ function ProvidersSection() {
         ))}
       </div>
       <div className="mb-4">
-        <label className="block text-xs font-bold mb-1.5">{type === "driver" ? "فئة السيارة" : "مستوى الفني"}</label>
+        <label className="block text-xs font-bold mb-1.5">{type !== "worker" ? (type === "large_driver" ? "نوع المركبة الكبيرة" : "فئة سيارة التكسي") : "مستوى الفني"}</label>
         <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
           className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm">
           <option value="all">كل الفئات</option>
           {type === "driver" ? <>
-            <option value="economy">اقتصادي</option><option value="premium">متميز</option><option value="luxury">فاخر</option><option value="large">سائقو كيا (حمل / ركاب / باص)</option>
+            <option value="economy">اقتصادي</option><option value="premium">متميز</option><option value="luxury">فاخر</option>
+          </> : type === "large_driver" ? <>
+            <option value="all">كل المركبات الكبيرة</option><option value="large">سيارات كبيرة</option>
           </> : <>
             <option value="fani">فني</option><option value="khabir">خبير</option>
           </>}
@@ -986,9 +988,9 @@ function ProvidersSection() {
                   <span className="text-[10px] text-muted-foreground">{p.suspended_until ? `ينتهي التعليق: ${new Date(p.suspended_until).toLocaleString("ar-IQ")}` : p.status === "suspended" ? "تعليق دائم" : p.available ? "متاح للعمل" : "غير متاح للعمل"}</span>
                 </div>
               </div>
-              {type === "driver" && p.vehicle_make && (
+              {type !== "worker" && p.vehicle_make && (
                 <div className="text-[10px] text-muted-foreground mb-2">
-                  {p.vehicle_make} {p.vehicle_model} · {p.vehicle_plate} · {({economy:"اقتصادي",premium:"متميز",luxury:"فاخر",large:"سائق كيا"} as any)[p.vehicle_category] ?? "غير محدد"}
+                  {p.vehicle_make} {p.vehicle_model} · {p.vehicle_plate} · {({economy:"اقتصادي",premium:"متميز",luxury:"فاخر",large:"سيارات كبيرة"} as any)[p.vehicle_category] ?? "غير محدد"}
                 </div>
               )}
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1051,7 +1053,7 @@ function ProvidersSection() {
       {rejectingProvider && (
         <div className="fixed inset-0 z-[130] bg-black/70 p-3 flex items-center justify-center" role="dialog" aria-modal="true">
           <div className="w-full max-w-sm rounded-2xl bg-background border border-border p-4">
-            <h3 className="font-black mb-2">سبب رفض طلب {type === "driver" ? "السائق" : "الفني"}</h3>
+            <h3 className="font-black mb-2">سبب رفض طلب {type === "driver" ? "سائق التكسي" : type === "large_driver" ? "سائق السيارات الكبيرة" : "الفني"}</h3>
             <p className="text-xs text-muted-foreground mb-3">اكتب الملاحظة بوضوح حتى تصل للمستخدم برسالة الرفض.</p>
             <textarea
               value={rejectionReason}
