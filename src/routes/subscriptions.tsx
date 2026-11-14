@@ -109,7 +109,7 @@ function ProviderSubscriptionsPage() {
             })}
           </div>
           {selectedPlan && !companyGranted && <div className="glass rounded-2xl p-4 mt-4"><p className="text-sm font-black">تم اختيار باقة {plans.find(p => p.code === selectedPlan)?.name_ar}</p><p className="text-xs text-muted-foreground mt-2">الدفع الإلكتروني غير متاح حالياً إلى حين إكمال ربط واختبار QiCard. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك.</p><button disabled className="w-full mt-3 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black opacity-60"><CreditCard className="inline h-4 w-4 ml-2" /> الدفع قيد الربط</button></div>}
-          {subscription && ["active", "paused"].includes(subscription.status) && (
+          {subscription && !companyGranted && ["active", "paused"].includes(subscription.status) && (
             <div className="glass rounded-2xl p-4 mt-3 space-y-3">
               <div className="text-sm font-black">إدارة اشتراكك</div>
               {subscription.status === "active" ? (
