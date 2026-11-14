@@ -59,8 +59,24 @@ function ProviderSubscriptionsPage() {
     return () => { active = false; };
   }, [userId, isProvider]);
 
-  async function pay(_planCode: string) {
-    toast.error("الدفع عبر زين كاش قيد الإعداد، ولن يتم خصم أي مبلغ حالياً");
+  async function pay(planCode: string) {
+    const plan = plans.find((item) => item.code === planCode);
+    if (!plan || !paymentGatewayEnabled || busy) return;
+    setBusy(planCode);
+    try {
+      const { data, error } = await supabase.functions.invoke("zaincash-create-payment", {
+        body: { purpose: "subscription", planId: plan.id },
+      });
+      if (error) throw error;
+      if (!data?.redirectUrl || typeof data.redirectUrl !== "string" || !data.redirectUrl.startsWith("https://")) {
+        throw new Error("لم يصل رابط الدفع الآمن من الخادم");
+      }
+      window.location.assign(data.redirectUrl);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر بدء الدفع عبر زين كاش");
+    } finally {
+      setBusy(null);
+    }
   }
 
   if (loading) return null;
@@ -159,7 +175,7 @@ function ProviderSubscriptionsPage() {
               </div>;
             })}
           </div>
-          {selectedPlan && !companyGranted && <div className="glass rounded-2xl p-4 mt-4"><p className="text-sm font-black">تم اختيار باقة {plans.find(p => p.code === selectedPlan)?.name_ar}</p><p className="text-xs text-muted-foreground mt-2">الدفع عبر زين كاش قيد الإعداد والاختبار. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك.</p><button disabled className="w-full mt-3 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black opacity-60"><CreditCard className="inline h-4 w-4 ml-2" /> الدفع قيد الربط</button></div>}
+          {selectedPlan && !companyGranted && <div className="glass rounded-2xl p-4 mt-4"><p className="text-sm font-black">تم اختيار باقة {plans.find(p => p.code === selectedPlan)?.name_ar}</p><p className="text-xs text-muted-foreground mt-2">{paymentGatewayEnabled ? "سيتم تحويلك إلى صفحة زين كاش الآمنة لإكمال الدفع. لا تغلق الصفحة قبل ظهور نتيجة العملية." : "الدفع الإلكتروني متوقف حالياً إلى حين استكمال إعدادات التاجر واختبارات زين كاش. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك."}</p><button type="button" onClick={() => void pay(selectedPlan)} disabled={!paymentGatewayEnabled || !!busy} className="w-full mt-3 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black disabled:opacity-60">{busy === selectedPlan ? <Loader2 className="inline h-4 w-4 ml-2 animate-spin" /> : <CreditCard className="inline h-4 w-4 ml-2" />} {paymentGatewayEnabled ? "الدفع عبر زين كاش" : "الدفع قيد الإعداد"}</button></div>}
           {subscription && !companyGranted && ["active", "paused"].includes(subscription.status) && (
             <div className="glass rounded-2xl p-4 mt-3 space-y-3">
               <div className="text-sm font-black">إدارة اشتراكك</div>
