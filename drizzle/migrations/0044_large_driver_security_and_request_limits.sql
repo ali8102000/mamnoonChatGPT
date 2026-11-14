@@ -173,8 +173,7 @@ AS $$
   ORDER BY x.distance_km ASC, x.rating_avg DESC NULLS LAST
   LIMIT _limit;
 $$;
-REVOKE ALL ON FUNCTION public.find_nearby_drivers(numeric,numeric,text,numeric,integer) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.find_nearby_drivers(numeric,numeric,text,numeric,integer) TO authenticated, service_role;
+-- CREATE OR REPLACE preserves the function's existing execution grants.
 
 -- Large drivers submit offers; they do not directly accept standard taxi/service requests.
 CREATE OR REPLACE FUNCTION public.accept_service_request(_request_id uuid)
