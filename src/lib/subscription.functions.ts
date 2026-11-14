@@ -307,3 +307,64 @@ export const adminAssignSubscription = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+
+export const adminGrantSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      user_id: z.string().uuid(),
+      plan_code: z.enum(["free", "bronze", "silver", "gold"]),
+      duration: z.enum(["month", "two_months", "year", "permanent"]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: id, error } = await (supabaseAdmin as any).rpc("admin_grant_subscription", {
+      p_user_id: data.user_id,
+      p_plan_code: data.plan_code,
+      p_duration: data.duration,
+    });
+    if (error) throw new Error(error.message || "تعذر منح الاشتراك");
+    return { ok: true, subscriptionId: id };
+  });
+
+export const adminCancelFreeSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ user_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: cancelled, error } = await (supabaseAdmin as any).rpc("admin_cancel_free_subscription", {
+      p_user_id: data.user_id,
+    });
+    if (error) throw new Error(error.message || "تعذر إلغاء الاشتراك المجاني");
+    if (!cancelled) throw new Error("لا يوجد اشتراك مجاني إداري نشط لهذا المستخدم");
+    return { ok: true };
+  });
+
+export const adminFindSubscriptionUser = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ query: z.string().trim().min(3).max(80) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const term = data.query.replace(/[,%()]/g, " ").trim();
+    const { data: users, error } = await (supabaseAdmin as any)
+      .from("profiles")
+      .select("id,full_name,phone,email")
+      .or("phone.ilike.%"+term+"%,email.ilike.%"+term+"%,full_name.ilike.%"+term+"%")
+      .limit(10);
+    if (error) throw new Error("تعذر البحث عن المستخدمين");
+    return users ?? [];
+  });
+
+export const cancelOwnSubscriptionAtPeriodEnd = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+    const { data, error } = await (supabase as any).rpc("cancel_own_subscription_at_period_end");
+    if (error) throw new Error(error.message || "تعذر إيقاف التجديد");
+    return { ok: Boolean(data) };
+  });
