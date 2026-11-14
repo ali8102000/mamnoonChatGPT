@@ -102,7 +102,7 @@ export default function RequestDetail() {
   const [largeOfferPrice, setLargeOfferPrice] = useState("");
   const [largeOfferMessage, setLargeOfferMessage] = useState("");
   const [largeOfferBusy, setLargeOfferBusy] = useState(false);
-  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
+  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);\n  const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
@@ -416,6 +416,18 @@ export default function RequestDetail() {
     }
   }
 
+  async function retryLargeOffers() {
+    setRetryingLargeOffers(true);
+    const { data, error } = await (supabase as any).rpc("retry_large_vehicle_dispatch", { _request_id: id });
+    setRetryingLargeOffers(false);
+    if (error) {
+      Alert.alert("تعذر إعادة الإرسال", error.message);
+      return;
+    }
+    Alert.alert(Number(data) > 0 ? "تم إرسال الطلب" : "لا توجد سيارات متاحة", Number(data) > 0 ? "وصل الطلب لأصحاب السيارات المتاحين." : "طلبك يبقى محفوظاً وتكدر تعيد المحاولة لاحقاً.");
+    await loadRequest();
+  }
+
   async function sendLargeVehicleOffer() {
     if (!user) return;
     const amount = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
@@ -625,6 +637,13 @@ export default function RequestDetail() {
                   </TouchableOpacity>
                 </View>
               </View>
+            <TouchableOpacity
+              style={[styles.largeOfferAccept, { backgroundColor: "#c2410c" }]}
+              disabled={retryingLargeOffers}
+              onPress={retryLargeOffers}
+            >
+              <Text style={styles.largeOfferAcceptText}>{retryingLargeOffers ? "جارٍ إعادة الإرسال..." : "إعادة إرسال الطلب لأصحاب السيارات"}</Text>
+            </TouchableOpacity>
             ))}
           </View>
         )}
