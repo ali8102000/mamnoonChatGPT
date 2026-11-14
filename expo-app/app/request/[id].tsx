@@ -32,7 +32,7 @@ import service_cleaning from "../../assets/services/cleaning.png";
 import service_wood_carpentry from "../../assets/services/wood_carpentry.png";
 import service_blacksmith from "../../assets/services/blacksmith.png";
 import service_general from "../../assets/services/general.png";
-import { palette, radius, space } from "@/styles/theme";
+import { palette, radius } from "@/styles/theme";
 
 const QUICK_REPLIES_CUSTOMER = ["وصلت!", "كم دقيقة؟", "أين أنت؟", "شكراً جزيلاً", "هل أنت قريب؟"];
 const QUICK_REPLIES_PROVIDER = [
