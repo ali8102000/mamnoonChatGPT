@@ -16,7 +16,7 @@ const CATEGORIES = [
   { key: "economy", label: "اقتصادي" },
   { key: "premium", label: "متميز" },
   { key: "luxury", label: "فاخر" },
-  { key: "large", label: "سيارة كبيرة" },
+  { key: "large", label: "سائق كيا (حمل / ركاب / باص)" },
 ] as const;
 
 export default function DriverOnboarding() {
