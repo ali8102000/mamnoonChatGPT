@@ -113,6 +113,10 @@ export default function RequestDetail() {
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
   const [showRating, setShowRating] = useState(false);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportReason, setReportReason] = useState("مشكلة أثناء الطلب");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const isProvider = request?.provider_id === user?.id;
   const isCustomer = request?.customer_id === user?.id;
@@ -527,6 +531,19 @@ export default function RequestDetail() {
     ]);
   }
 
+  async function submitUserReport() {
+    if (!user?.id || !request) return;
+    const reportedId = isCustomer ? request.provider_id : request.customer_id;
+    if (!reportedId) { Alert.alert("تعذر إرسال البلاغ", "لا يوجد طرف آخر مرتبط بهذا الطلب حتى الآن."); return; }
+    if (!reportReason.trim()) { Alert.alert("تنبيه", "اكتب سبب البلاغ."); return; }
+    setReportBusy(true);
+    const { error } = await (supabase as any).from("user_reports").insert({ reporter_id: user.id, reported_id: reportedId, request_id: id, reason: reportReason.trim(), details: reportDetails.trim() || null, status: "pending" });
+    setReportBusy(false);
+    if (error) { Alert.alert("تعذر إرسال البلاغ", error.message); return; }
+    setShowReportForm(false); setReportDetails("");
+    Alert.alert("تم استلام البلاغ", "وصل بلاغك إلى إدارة ممنون وسيظهر ضمن البلاغات الواردة للمراجعة.");
+  }
+
   async function submitRating() {
     if (rating === 0 || !user) return;
     const otherId = isCustomer ? request?.provider_id : request?.customer_id;
@@ -760,6 +777,26 @@ export default function RequestDetail() {
               </TouchableOpacity>
             )}
         </View>
+        {(isCustomer ? !!request.provider_id : !!request.customer_id) && (
+          <View style={styles.reportCard}>
+            {!showReportForm ? (
+              <TouchableOpacity onPress={() => setShowReportForm(true)} style={styles.reportButton}>
+                <Text style={styles.reportButtonText}>إبلاغ عن {isCustomer ? (request.type === "taxi" ? "السائق" : "الفني") : "الزبون"}</Text>
+                <Text style={styles.reportButtonArrow}>إرسال بلاغ ←</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ gap: 10 }}>
+                <Text style={styles.reportTitle}>تفاصيل البلاغ للإدارة</Text>
+                <TextInput value={reportReason} onChangeText={setReportReason} placeholder="سبب البلاغ" placeholderTextColor="#94a3b8" style={styles.reportInput} />
+                <TextInput value={reportDetails} onChangeText={setReportDetails} placeholder="اكتب ملاحظتك: نسيت شيئاً في السيارة أو اشرح المشكلة..." placeholderTextColor="#94a3b8" multiline maxLength={1500} style={[styles.reportInput, { minHeight: 92, textAlignVertical: "top" }]} />
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <TouchableOpacity onPress={() => setShowReportForm(false)} style={[styles.reportAction, { backgroundColor: palette.surfaceSoft }]}><Text style={{ color: palette.ink, fontWeight: "900" }}>إلغاء</Text></TouchableOpacity>
+                  <TouchableOpacity disabled={reportBusy} onPress={submitUserReport} style={styles.reportAction}><Text style={{ color: palette.white, fontWeight: "900" }}>{reportBusy ? "جارٍ الإرسال..." : "إرسال البلاغ للإدارة"}</Text></TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
         {!["completed", "cancelled"].includes(request.status) ? (
         <>
         <View style={styles.chatHeader}><Text style={styles.chatHeaderTitle}>المحادثة المباشرة</Text><Text style={styles.chatHeaderHint}>تصل الرسائل فورياً مع تنبيه صوتي</Text></View>
@@ -867,6 +904,13 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   actionBtn: { flex: 1, backgroundColor: palette.brand, borderRadius: radius.md, paddingVertical: 13, alignItems: "center" },
   actionBtnText: { color: palette.white, fontSize: 14, fontWeight: "900" },
+  reportCard: { marginHorizontal: 16, marginBottom: 12, padding: 14, borderRadius: radius.lg, borderWidth: 1, borderColor: "#D6A936", backgroundColor: palette.surface },
+  reportButton: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  reportButtonText: { color: "#9A6811", fontSize: 13, fontWeight: "900" },
+  reportButtonArrow: { color: palette.brand, fontSize: 11, fontWeight: "900" },
+  reportTitle: { color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" },
+  reportInput: { backgroundColor: palette.canvas, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, padding: 12, color: palette.ink, textAlign: "right" },
+  reportAction: { flex: 1, backgroundColor: palette.brand, paddingVertical: 12, borderRadius: radius.md, alignItems: "center" },
   chatHeader: { paddingHorizontal: 18, paddingVertical: 10, backgroundColor: palette.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: palette.line },
   chatHeaderTitle: { color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" },
   chatHeaderHint: { color: palette.muted, fontSize: 11, marginTop: 3, textAlign: "right" },
