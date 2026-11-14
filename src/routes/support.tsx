@@ -1,8 +1,8 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Headphones, Plus, MessageSquare, Send, Mail, Crown, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Loader2, Headphones, Plus, MessageSquare, Send, Crown } from "lucide-react";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/support")({
@@ -190,40 +190,29 @@ function SupportCenter() {
         </Link>
       </div>
 
-      {/* Admin Information Card */}
-      <div className="mb-5 rounded-3xl p-4 bg-gradient-to-br from-amber-500/15 via-yellow-500/15 to-primary/10 border-2 border-amber-500/35 shadow-sm text-right space-y-2">
-        <div className="flex items-center justify-between">
+      {/* Mamnoon branded support identity */}
+      <div className="mb-5 rounded-3xl p-4 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 border border-primary/25 shadow-sm text-right space-y-2">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">👑</span>
-            <span className="text-xs font-black text-amber-900">
-              الدعم المباشر تحت إشراف الإدارة العامة
-            </span>
+            <span className="text-xs font-black text-foreground">إدارة ممنون</span>
           </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">
-            المدير العام أحمد
-          </span>
+          <span dir="ltr" className="text-[10px] tracking-[0.18em] font-black text-primary">MAMNOON MANAGEMENT</span>
         </div>
-        <p className="text-xs text-amber-900/80 leading-relaxed font-medium">
-          يصل استفسارك وتذكرتك مباشرة إلى حساب الإدارة ({SUPER_ADMIN_EMAIL}) لضمان المتابعة وحل أي مشكلة تخص الرحلات أو الخدمات بأسرع وقت.
+        <p className="text-xs text-muted-foreground leading-relaxed font-medium">
+          الدعم المباشر وخدمة العملاء تحت إشراف إدارة ممنون. أرسل استفسارك أو افتح تذكرة وسيتابع فريق الإدارة طلبك.
         </p>
-        <div className="pt-1 flex flex-wrap gap-2">
-          <a
-            href={`mailto:${SUPER_ADMIN_EMAIL}?subject=استفسار تطبيق ممنون`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-border text-[11px] font-bold text-foreground shadow-sm hover:bg-muted btn-press"
-          >
-            <Mail className="h-3.5 w-3.5 text-primary" />
-            <span>راسل الإدارة بالبريد: {SUPER_ADMIN_EMAIL}</span>
-          </a>
-          {isSuperAdmin && (
+        {isSuperAdmin && (
+          <div className="pt-1">
             <Link
               to="/admin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 text-white text-[11px] font-black shadow-sm btn-press"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-black shadow-sm btn-press"
             >
               <Crown className="h-3.5 w-3.5" />
-              <span>لوحة الإدارة الكاملة</span>
+              <span>لوحة إدارة ممنون</span>
             </Link>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* If Super Admin, allow toggle to view all user tickets */}
