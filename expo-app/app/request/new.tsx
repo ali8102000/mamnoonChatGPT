@@ -52,7 +52,7 @@ function formatAddress(parts: Location.LocationGeocodedAddress[] | null | undefi
 }
 
 export default function NewRequest() {
-  const { type } = useLocalSearchParams<{ type: string }>();
+  const { type, vehicle } = useLocalSearchParams<{ type: string; vehicle?: string }>();
   const { user } = useAuth();
   const [selectedService, setSelectedService] = useState(type || "taxi");
   const [serviceCatalog, setServiceCatalog] = useState<CatalogService[]>([]);
@@ -65,7 +65,7 @@ export default function NewRequest() {
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
   const [region, setRegion] = useState(IRAQ_REGION);
   const [locationLoading, setLocationLoading] = useState(true);
-  const [vehicleCat, setVehicleCat] = useState<VehicleCategory>("economy");
+  const [vehicleCat, setVehicleCat] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
   const [workerLevel, setWorkerLevel] = useState<"fani" | "khabir">("fani");
   const [extraWorkers, setExtraWorkers] = useState(0);
@@ -297,7 +297,7 @@ export default function NewRequest() {
       contentContainerStyle={{ paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>طلب جديد</Text>
+      <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "طلب جديد"}</Text>
       <Text style={styles.label}>نوع الخدمة</Text>
       {servicesLoading && <ActivityIndicator style={{ marginVertical: 12 }} color="#0f766e" />}
       {!!servicesError && <TouchableOpacity onPress={() => router.replace("/request/new" as never)}><Text style={{ color: "#dc2626", marginBottom: 10 }}>{servicesError} اضغط لإعادة المحاولة.</Text></TouchableOpacity>}
@@ -406,9 +406,9 @@ export default function NewRequest() {
 
       {isTaxi ? (
         <>
-          <Text style={styles.label}>فئة السيارة</Text>
+          <Text style={styles.label}>{vehicle === "large" ? "اختر نوع السيارة الكبيرة" : "فئة السيارة"}</Text>
           <View style={styles.catRow}>
-            {VEHICLE_CATS.map((category) => (
+            {(vehicle === "large" ? VEHICLE_CATS.filter((item) => item.key === "large") : VEHICLE_CATS).map((category) => (
               <TouchableOpacity
                 key={category.key}
                 style={[styles.catChip, vehicleCat === category.key && styles.catChipActive]}
