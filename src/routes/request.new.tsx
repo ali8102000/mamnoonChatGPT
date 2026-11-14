@@ -243,11 +243,11 @@ function NewRequest() {
     <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-3 space-y-2" dir="rtl">
       <div className="font-black text-sm text-foreground">🎁 عندك كوبون خصم؟</div>
       <div className="flex gap-2">
-        <input value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponPreview(null); setCouponError(""); }} placeholder="اكتب رمز الكوبون" className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm font-bold outline-none" />
+        <input value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponPreview(null); setCouponError(""); }} placeholder="اكتب رمز الكوبون" className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 px-3 py-2.5 text-sm font-bold outline-none" />
         <button type="button" disabled={couponLoading} onClick={previewCoupon} className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{couponLoading ? "..." : "تحقق"}</button>
       </div>
       {couponError && <p className="text-xs font-bold text-red-600">{couponError}</p>}
-      {couponPreview && <div className="rounded-xl bg-white p-3 text-sm space-y-1">
+      {couponPreview && <div className="rounded-xl bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 p-3 text-sm space-y-1">
         <div className="font-bold text-emerald-700">تم التحقق من الكوبون</div>
         <div>قيمة الخصم: <b>{couponPreview.discount.toLocaleString("ar-IQ")} د.ع</b></div>
         <div>المبلغ بعد الخصم: <b>{couponPreview.payable.toLocaleString("ar-IQ")} د.ع</b></div>
@@ -571,7 +571,10 @@ function NewRequest() {
                       boxShadow: selected ? "0 0 0 2px rgba(103,232,249,.28)" : "none",
                     }}
                   >
-                    {g.name}
+                    <span className="flex items-center justify-center gap-2">
+                      {g.name}
+                      {selected && <span aria-label="المحافظة محددة" className="text-cyan-200">✓</span>}
+                    </span>
                   </button>
                 );
               })}
@@ -596,7 +599,7 @@ function NewRequest() {
               accent={mapStep === "pickup" ? "#0284c7" : "#e11d48"}
               nearby={mapStep === "pickup" ? nearby : undefined}
               nearbyKind="car"
-              autoLocateOnMount={mapStep === "pickup"}
+              autoLocateOnMount={false}
               governorateKey={gov?.key}
               placeholder={
                 mapStep === "pickup"
@@ -657,7 +660,7 @@ function NewRequest() {
             <button
               type="button"
               onClick={goBack}
-              className="h-11 w-11 rounded-2xl bg-white/95 backdrop-blur-md shadow-lg border border-border/40 grid place-items-center btn-press text-foreground shrink-0"
+              className="h-11 w-11 rounded-2xl bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md shadow-lg border border-border/40 grid place-items-center btn-press text-foreground shrink-0"
               aria-label="رجوع"
             >
               <ArrowRight className="h-5 w-5" />
@@ -665,13 +668,13 @@ function NewRequest() {
             <button
               type="button"
               onClick={() => setGovPickerOpen(true)}
-              className="h-11 px-3 rounded-2xl bg-white/95 shadow-lg border border-border/40 text-xs font-black text-foreground shrink-0 btn-press"
+              className="h-11 px-3 rounded-2xl bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 shadow-lg border border-border/40 text-xs font-black text-foreground shrink-0 btn-press"
             >
               📍 {gov?.name ?? "المحافظة"}
             </button>
 
             {/* 2-Step Toggle Pills: 1. Pickup | 2. Destination */}
-            <div className="flex-1 bg-white/95 backdrop-blur-md rounded-2xl p-1 shadow-lg border border-border/40 flex items-center gap-1">
+            <div className="flex-1 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md rounded-2xl p-1 shadow-lg border border-border/40 flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -715,13 +718,13 @@ function NewRequest() {
         {/* STEP 1: PICKUP */}
         {mapStep === "pickup" && !(vehicle === "large" && destConfirmed) && (
           <div className="mt-auto relative z-30 p-4 pb-6">
-            <div className="bg-white/95 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-border/50 max-w-md mx-auto space-y-3">
+            <div className="bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-border/50 max-w-md mx-auto space-y-3">
               {vehicle === "large" && (
                 <div className="space-y-2">
                   <div className="font-black text-sm text-foreground">اختر نوع الكيا</div>
                   <div className="grid grid-cols-2 gap-2">
                     {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }, { key: "bus", label: "باص" }] as const).map((item) => (
-                      <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-2xl border p-2.5 font-black flex flex-col items-center gap-1 ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
+                      <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-2xl border p-2.5 font-black flex flex-col items-center gap-1 ${vehicleType === item.key ? "border-orange-500 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 ring-2 ring-orange-300" : "border-orange-200 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/70 dark:bg-black/70 dark:text-slate-100 dark:border-slate-700"}`}>
                         {"image" in item ? <img src={item.image} alt={item.label} className="w-full h-16 object-contain" /> : <span className="text-4xl">🚌</span>}
                         <span>{item.label}</span>
                       </button>
@@ -750,7 +753,7 @@ function NewRequest() {
         {/* STEP 2: DESTINATION */}
         {mapStep === "dest" && !destConfirmed && (
           <div className="mt-auto relative z-30 p-4 pb-6">
-            <div className="bg-white/95 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-border/50 max-w-md mx-auto space-y-3">
+            <div className="bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-border/50 max-w-md mx-auto space-y-3">
               <div className="flex items-center gap-2.5">
                 <MapPin className="h-5 w-5 text-rose-600 shrink-0" />
                 <div className="text-sm font-black text-foreground truncate">
@@ -797,7 +800,7 @@ function NewRequest() {
 
         {/* STEP 3: CARS ONLY */}
         {((mapStep === "dest" && destConfirmed) || (vehicle === "large" && mapStep === "pickup" && destConfirmed)) && (
-          <div className="mt-auto relative z-30 bg-white rounded-t-[32px] shadow-2xl border-t border-border/60 max-w-lg mx-auto w-full p-5 space-y-3">
+          <div className="mt-auto relative z-30 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 rounded-t-[32px] shadow-2xl border-t border-border/60 max-w-lg mx-auto w-full p-5 space-y-3">
             {vehicle !== "large" && routeKm === null && !routeError && (
               <div
                 className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
@@ -822,7 +825,7 @@ function NewRequest() {
                 <div className="text-xs text-muted-foreground">ما نحسب السعر بالمسافة؛ اكتب السعر اللي تقترحه أو اتركه حتى توصلك عروض أصحاب السيارات</div>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                   {[15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000].map((amount) => (
-                    <button key={amount} type="button" onClick={() => setCustomerPrice(String(amount))} className={`rounded-xl border px-2 py-2 text-xs font-black transition ${customerPrice === String(amount) ? "border-orange-500 bg-orange-100 text-orange-800 ring-1 ring-orange-300" : "border-orange-200 bg-white text-slate-700"}`}>
+                    <button key={amount} type="button" onClick={() => setCustomerPrice(String(amount))} className={`rounded-xl border px-2 py-2 text-xs font-black transition ${customerPrice === String(amount) ? "border-orange-500 bg-orange-100 text-orange-800 dark:bg-orange-950/80 dark:text-orange-200 dark:border-orange-700 ring-1 ring-orange-300" : "border-orange-200 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 text-slate-700"}`}>
                       {(amount / 1000).toLocaleString("en")} ألف
                     </button>
                   ))}
@@ -832,7 +835,7 @@ function NewRequest() {
                   value={customerPrice}
                   onChange={(e) => setCustomerPrice(e.target.value.replace(/[^0-9]/g, ""))}
                   placeholder="أو اكتب أي سعر بالدينار"
-                  className="w-full bg-white border border-orange-200 rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                  className="w-full bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 border border-orange-200 rounded-xl px-4 py-3 text-sm font-bold outline-none"
                 />
               </div>
             ) : (
@@ -868,7 +871,7 @@ function NewRequest() {
             )}
             {couponPanel}
             {vehicle === "large" && (
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري) — اكتب الوجهة أو أي تفاصيل تريدها" rows={2} className="w-full resize-none bg-white border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري) — اكتب الوجهة أو أي تفاصيل تريدها" rows={2} className="w-full resize-none bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
             )}
             <button
               type="button"
@@ -991,7 +994,7 @@ function NewRequest() {
             className={`p-4 rounded-2xl btn-press text-center transition-all ${
               level === opt.k
                 ? "bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-lg scale-105"
-                : "bg-white/70"
+                : "bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/70 dark:bg-black/70 dark:text-slate-100 dark:border-slate-700"
             }`}
           >
             <img
@@ -1021,7 +1024,7 @@ function NewRequest() {
               className={`p-4 rounded-2xl btn-press transition-all ${
                 khabirMode === "alone"
                   ? "bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-lg scale-105"
-                  : "bg-white/70"
+                  : "bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/70 dark:bg-black/70 dark:text-slate-100 dark:border-slate-700"
               }`}
             >
               <User className="h-6 w-6 mx-auto mb-1" />
@@ -1033,7 +1036,7 @@ function NewRequest() {
               className={`p-4 rounded-2xl btn-press transition-all ${
                 khabirMode === "with_workers"
                   ? "bg-gradient-to-br from-fuchsia-400 to-purple-500 text-white shadow-lg scale-105"
-                  : "bg-white/70"
+                  : "bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/70 dark:bg-black/70 dark:text-slate-100 dark:border-slate-700"
               }`}
             >
               <Users className="h-6 w-6 mx-auto mb-1" />
@@ -1093,7 +1096,7 @@ function NewRequest() {
         accent="#0284c7"
         nearby={nearby}
         nearbyKind="worker"
-        autoLocateOnMount
+        autoLocateOnMount={false}
         governorateKey={gov?.key}
         placeholder={`ابحث عن عنوان المنزل أو المحل في ${gov?.name ?? "المحافظة المختارة"}...`}
         confirmLabel="تأكيد موقع الخدمة"
