@@ -424,7 +424,8 @@ export function DriverOfferPopup() {
               inputMode="numeric"
               value={largeOfferPrice}
               onChange={(event) => setLargeOfferPrice(event.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="أدخل أجرتك بالدينار"
+              maxLength={5}
+              placeholder="أدخل أجرتك بالدينار (حتى 50000)"
               className="w-full h-12 rounded-xl border border-border bg-background px-4 text-sm font-bold outline-none focus:border-primary"
             />
             <input
