@@ -15,7 +15,6 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { estimateFare } from "@/lib/pricing";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { IRAQ_GOVERNORATES, getMobileGovernorate, nearestGovernorateKey } from "@/lib/governorates";
 import { Button } from "@/components/ui";
@@ -82,8 +81,8 @@ export default function NewRequest() {
   const [pricingMode, setPricingMode] = useState<"fixed" | "hourly" | "negotiable">("fixed");
   const [workHours, setWorkHours] = useState("");
   const [busy, setBusy] = useState(false);
-  const [price, setPrice] = useState<number | null>(null);
   const [routeKm, setRouteKm] = useState<number | null>(null);
+  const [routeDurationMin, setRouteDurationMin] = useState<number | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [placeQuery, setPlaceQuery] = useState("");
@@ -155,9 +154,10 @@ export default function NewRequest() {
 
   useEffect(() => {
     if (!pickupCoords || !destinationCoords || !isTaxi || isLargeVehicle) {
-      setPrice(null);
       setRouteKm(null);
+      setRouteDurationMin(null);
       setRouteError(null);
+      setRouteLoading(false);
       return;
     }
     let active = true;
@@ -172,11 +172,11 @@ export default function NewRequest() {
         });
         if (!active) return;
         setRouteKm(route.distanceKm);
-        setPrice(estimateFare(route.distanceKm, vehicleCat));
+        setRouteDurationMin(route.durationMin);
       } catch (error) {
         if (!active) return;
         setRouteKm(null);
-        setPrice(null);
+        setRouteDurationMin(null);
         setRouteError(error instanceof Error ? error.message : "تعذّر حساب مسافة الطريق.");
       } finally {
         if (active) setRouteLoading(false);
@@ -246,6 +246,8 @@ export default function NewRequest() {
       const address = formatAddress(await Location.reverseGeocodeAsync(coords));
       setPickup(address || "موقعي الحالي");
       setMapMode("pickup");
+      setPlaceQuery("");
+      setPlaceSuggestions([]);
     } catch {
       Alert.alert("تعذر تحديد الموقع", "تأكد من تشغيل GPS وحاول مرة أخرى.");
     } finally {
@@ -291,11 +293,6 @@ export default function NewRequest() {
     setPlaceSearchError(null);
     setRegion({ latitude: governorate.latitude, longitude: governorate.longitude, latitudeDelta: 0.12, longitudeDelta: 0.12 });
     if (mapMode === "pickup") {
-      setPickupCoords({ latitude: governorate.latitude, longitude: governorate.longitude });
-      setPickup(governorate.name);
-    } else {
-      setDestinationCoords({ latitude: governorate.latitude, longitude: governorate.longitude });
-      setDestination(governorate.name);
     }
   }
 
@@ -496,7 +493,7 @@ export default function NewRequest() {
       <View style={styles.mapModeRow}>
         <TouchableOpacity
           style={[styles.mapModeButton, mapMode === "pickup" && styles.mapModeButtonActive]}
-          onPress={() => setMapMode("pickup")}
+          onPress={() => { setMapMode("pickup"); setPlaceQuery(""); setPlaceSuggestions([]); }}
         >
           <Text style={[styles.mapModeText, mapMode === "pickup" && styles.mapModeTextActive]}>
             نقطة الانطلاق
@@ -505,7 +502,7 @@ export default function NewRequest() {
         {isTaxi && !isLargeVehicle && (
           <TouchableOpacity
             style={[styles.mapModeButton, mapMode === "destination" && styles.mapModeButtonActive]}
-            onPress={() => setMapMode("destination")}
+            onPress={() => { setMapMode("destination"); setPlaceQuery(""); setPlaceSuggestions([]); }}
           >
             <Text
               style={[styles.mapModeText, mapMode === "destination" && styles.mapModeTextActive]}
@@ -753,11 +750,11 @@ export default function NewRequest() {
 
       {routeLoading && <Text style={styles.mapHintText}>جاري حساب مسافة الطريق الفعلية...</Text>}
       {!!routeError && <Text style={styles.mapErrorText}>{routeError}</Text>}
-      {price !== null && routeKm !== null && isTaxi && !isLargeVehicle && (
+      {routeKm !== null && isTaxi && !isLargeVehicle && (
         <View style={styles.priceBox}>
-          <Text style={styles.priceLabel}>تقدير مبني على مسافة الطريق</Text>
-          <Text style={styles.priceValue}>{price.toLocaleString("en")} د.ع</Text>
-          <Text style={styles.priceNote}>مسافة الطريق: {routeKm.toFixed(1)} كم — السعر النهائي يثبّته الخادم عند إرسال الطلب</Text>
+          <Text style={styles.priceLabel}>مسافة الطريق الفعلية</Text>
+          <Text style={styles.priceValue}>{routeKm.toFixed(1)} كم</Text>
+          <Text style={styles.priceNote}>الوقت التقريبي: {Math.max(1, Math.round(routeDurationMin ?? 1))} دقيقة. الأجرة النهائية يحسبها الخادم.</Text>
         </View>
       )}
       <View style={{ height: 24 }} />
