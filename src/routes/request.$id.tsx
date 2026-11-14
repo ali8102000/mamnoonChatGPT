@@ -280,6 +280,20 @@ function RequestDetail() {
     }
   }
 
+  async function rejectLargeOffer(offerId: string) {
+    setAcceptingLargeOffer(offerId);
+    try {
+      const { error } = await supabase.rpc("reject_large_vehicle_offer", { _offer_id: offerId });
+      if (error) throw error;
+      toast("تم رفض العرض");
+      await loadAll();
+    } catch (error: any) {
+      toast.error(error?.message ?? "تعذر رفض العرض");
+    } finally {
+      setAcceptingLargeOffer(null);
+    }
+  }
+
   async function markCompleted() {
     try {
       await runCompleteRide({ data: { requestId: id } });
@@ -392,14 +406,24 @@ function RequestDetail() {
                   <div className="font-black text-primary">{Number(offer.proposed_price).toLocaleString()} د.ع</div>
                 </div>
                 {offer.offer_message && <p className="text-xs text-muted-foreground">{offer.offer_message}</p>}
-                <button
-                  type="button"
-                  disabled={!!acceptingLargeOffer}
-                  onClick={() => acceptLargeOffer(offer.id)}
-                  className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black disabled:opacity-50"
-                >
-                  {acceptingLargeOffer === offer.id ? "جارٍ قبول العرض..." : "الموافقة على هذا العرض"}
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={!!acceptingLargeOffer}
+                    onClick={() => rejectLargeOffer(offer.id)}
+                    className="rounded-xl border border-border bg-white py-3 text-xs font-black disabled:opacity-50"
+                  >
+                    رفض العرض
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!!acceptingLargeOffer}
+                    onClick={() => acceptLargeOffer(offer.id)}
+                    className="rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black disabled:opacity-50"
+                  >
+                    {acceptingLargeOffer === offer.id ? "جارٍ التنفيذ..." : "الموافقة"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
