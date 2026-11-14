@@ -534,57 +534,62 @@ function RequestDetail() {
         </div>
 
         {other && req.status !== "pending" && (
-          <div className="glass rounded-2xl p-4 flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black shrink-0">
-              {other.avatar_url ? (
-                <img src={other.avatar_url} alt={other.full_name || "صورة المستخدم"} className="h-full w-full object-cover" />
-              ) : (
-                (other.full_name || "?").charAt(0)
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-sm truncate">{other.full_name || "مستخدم"}</div>
-              <div className="text-xs text-muted-foreground" dir="ltr">
-                {other.phone}
+          <div className="glass rounded-2xl p-4 space-y-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-12 w-12 rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black shrink-0">
+                {other.avatar_url ? (
+                  <img src={other.avatar_url} alt={other.full_name || "صورة المستخدم"} className="h-full w-full object-cover" />
+                ) : (
+                  (other.full_name || "?").charAt(0)
+                )}
               </div>
-              {otherRep && otherRep.badges && otherRep.badges.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {otherRep.badges.map((b) => (
-                    <ReputationBadge key={b.code} badge={b} size="sm" />
-                  ))}
-                </div>
-              )}
+              <div className="flex-1 min-w-0">
+                <div className="font-black text-sm truncate">{other.full_name || "مستخدم"}</div>
+                <div className="text-xs text-muted-foreground mt-0.5" dir="ltr">{other.phone}</div>
+                {otherRep?.badges?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {otherRep.badges.map((b) => <ReputationBadge key={b.code} badge={b} size="sm" />)}
+                  </div>
+                )}
+              </div>
+              <span className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 font-bold shrink-0">
+                {req.status === "accepted" ? "تم القبول" : req.status === "in_progress" ? "قيد التنفيذ" : "مكتمل"}
+              </span>
             </div>
-            {req.status === "accepted" && session.user.id === req.provider_id && (
-              <button
-                onClick={async () => {
-                  try {
-                    await runStartRide({ data: { requestId: id } });
-                    toast.success("بدأت الرحلة");
-                  } catch (e: any) {
-                    toast.error(e.message ?? "تعذّر بدء الرحلة");
-                  }
-                }}
-                className="min-w-[112px] min-h-12 px-3 py-2 rounded-xl bg-primary text-primary-foreground font-black text-sm btn-press shadow-md"
-              >
-                {req.type === "taxi" ? "بدء الرحلة" : "بدء تنفيذ الخدمة"}
-              </button>
-            )}
-            {req.status === "in_progress" && session.user.id === req.provider_id && (
-              <button
-                onClick={markCompleted}
-                className="min-w-[120px] min-h-12 px-3 py-2 rounded-xl bg-success text-success-foreground font-black text-sm btn-press shadow-md"
-              >
-                {req.type === "taxi" ? "تأكيد إكمال الرحلة" : "تأكيد إكمال الطلب"}
-              </button>
-            )}
-            {["pending", "searching", "accepted", "in_progress"].includes(req.status as string) && (
-              <button
-                onClick={() => setShowCancel(true)}
-                className="min-w-[112px] min-h-12 px-3 py-2 rounded-xl bg-destructive text-white font-black text-sm btn-press shadow-md"
-              >
-                {myRole === "customer" ? (req.type === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب") : "اعتذار عن الطلب"}
-              </button>
+            {(["accepted", "in_progress"].includes(req.status as string) || myRole === "customer") && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {req.status === "accepted" && myRole === "provider" && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await runStartRide({ data: { requestId: id } });
+                        toast.success(req.type === "taxi" ? "بدأت الرحلة" : "بدأ تنفيذ الخدمة");
+                      } catch (e: any) {
+                        toast.error(e.message ?? "تعذّر بدء التنفيذ");
+                      }
+                    }}
+                    className="w-full min-h-14 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-md active:scale-[0.99] transition"
+                  >
+                    {req.type === "taxi" ? "بدء الرحلة" : "بدء تنفيذ الخدمة"}
+                  </button>
+                )}
+                {req.status === "in_progress" && myRole === "provider" && (
+                  <button
+                    onClick={markCompleted}
+                    className="w-full min-h-14 rounded-2xl bg-success text-success-foreground font-black text-base shadow-md active:scale-[0.99] transition"
+                  >
+                    {req.type === "taxi" ? "تأكيد إكمال الرحلة" : "تأكيد إكمال الطلب"}
+                  </button>
+                )}
+                {["pending", "searching", "accepted", "in_progress"].includes(req.status as string) && (
+                  <button
+                    onClick={() => setShowCancel(true)}
+                    className="w-full min-h-14 rounded-2xl border-2 border-destructive/25 bg-destructive/10 text-destructive font-black text-base active:scale-[0.99] transition"
+                  >
+                    {myRole === "customer" ? (req.type === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب") : "اعتذار عن الطلب"}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
