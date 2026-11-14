@@ -13,25 +13,27 @@ export default function SubscriptionsScreen() {
   const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   useEffect(() => {
     let active = true;
     async function load() {
       if (!user?.id || !isProvider) { setLoading(false); return; }
-      const [{ data: planRows, error: planError }, { data: sub, error: subError }] = await Promise.all([
+      const [{ data: planRows, error: planError }, { data: sub, error: subError }, { data: settings }] = await Promise.all([
         supabase.from("subscription_plans").select("id,code,name_ar,description_ar,monthly_price,badge_label")
           .in("code", ["bronze", "silver", "gold"]).eq("is_active", true).order("tier"),
         supabase.from("user_subscriptions").select("status,is_trial,trial_ends_at,current_period_end,cancel_at_period_end,plan:subscription_plans(code,name_ar,tier)")
           .eq("user_id", user.id).maybeSingle(),
+        supabase.from("subscription_settings").select("*").eq("id", 1).maybeSingle(),
       ]);
       if (!active) return;
       if (planError || subError) Alert.alert("تنبيه", "تعذر تحميل بيانات الاشتراكات");
-      setPlans(planRows || []); setSubscription(sub); setLoading(false);
+      setPlans(planRows || []); setSubscription(sub); setPaymentGatewayEnabled(Boolean((settings as any)?.payment_gateway_enabled)); setLoading(false);
     }
     load();
     return () => { active = false; };
   }, [user?.id, isProvider]);
   async function pay(planCode: string) {
-    if (busy) return;
+    if (busy || !paymentGatewayEnabled) return;
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("qicard-create-payment", { body: { planCode, billingCycle: "monthly", appChannel: true } });
@@ -58,8 +60,8 @@ export default function SubscriptionsScreen() {
         <Text style={styles.cardTitle}>{plan.name_ar}</Text>
         <Text style={styles.body}>{plan.description_ar || ""}</Text>
         <Text style={styles.price}>{Number(plan.monthly_price).toLocaleString("ar-IQ")} د.ع <Text style={styles.note}>شهرياً</Text></Text>
-        <TouchableOpacity disabled={busy || (subscription?.status === "active" && subscription?.plan?.code === plan.code)} onPress={() => pay(plan.code)} style={[styles.payButton, busy && { opacity: 0.5 }]}>
-          <Text style={styles.payText}>{subscription?.status === "active" && subscription?.plan?.code === plan.code ? "باقتك الحالية" : "اشترك وادفع بالبطاقة"}</Text>
+        <TouchableOpacity disabled={!paymentGatewayEnabled || busy || (subscription?.status === "active" && subscription?.plan?.code === plan.code)} onPress={() => pay(plan.code)} style={[styles.payButton, busy && { opacity: 0.5 }]}>
+          <Text style={styles.payText}>{!paymentGatewayEnabled ? "الدفع قيد التفعيل" : subscription?.status === "active" && subscription?.plan?.code === plan.code ? "باقتك الحالية" : "اشترك وادفع بالبطاقة"}</Text>
         </TouchableOpacity>
       </View>)}
       {subscription?.status === "active" && subscription?.current_period_end && !subscription?.cancel_at_period_end && (
@@ -74,7 +76,7 @@ export default function SubscriptionsScreen() {
           <Text style={styles.cancelText}>إيقاف التجديد عند نهاية الفترة</Text>
         </TouchableOpacity>
       )}
-      <Text style={styles.noteCenter}>تتم عملية الدفع داخل صفحة QiCard الآمنة. لا يخزن ممنون بيانات البطاقة، ولا يتفعّل الاشتراك إلا بعد تأكيد الدفع من الخادم.</Text>
+      <Text style={styles.noteCenter}>سيُتاح الدفع بعد تفعيل حساب التاجر ومفاتيح QiCard. لا يخزن ممنون بيانات البطاقة، ولا يتفعّل الاشتراك إلا بعد تأكيد الدفع من الخادم.</Text>
     </>}
   </ScrollView>;
 }
