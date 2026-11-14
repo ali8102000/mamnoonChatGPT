@@ -190,9 +190,23 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     const userId = session?.user?.id;
     if (!userId) return;
     let active = true;
-    const applyReview = (row: any) => {
+    const applyReview = (row: any, savedProfile?: any) => {
       if (!active || !row) return;
       const metadata = row.metadata ?? {};
+      const vehicleMake = metadata.vehicleMake ?? savedProfile?.vehicle_make;
+      const vehicleModel = metadata.vehicleModel ?? savedProfile?.vehicle_model;
+      const vehicleYear = metadata.vehicleYear ?? savedProfile?.vehicle_year;
+      const vehiclePlate = metadata.vehiclePlate ?? savedProfile?.vehicle_plate;
+      const vehicleColor = metadata.vehicleColor ?? savedProfile?.vehicle_color;
+      const vehicleCategory = metadata.vehicleCategory ?? savedProfile?.vehicle_category;
+      const vehicleType = metadata.vehicleType ?? savedProfile?.vehicle_type;
+      if (typeof vehicleMake === "string") setMake(vehicleMake);
+      if (typeof vehicleModel === "string") setModelName(vehicleModel);
+      if (vehicleYear != null) setYear(String(vehicleYear));
+      if (typeof vehiclePlate === "string") setPlate(vehiclePlate);
+      if (typeof vehicleColor === "string") setColor(vehicleColor);
+      if (vehicleCategory === "economy" || vehicleCategory === "premium" || vehicleCategory === "luxury" || vehicleCategory === "large") setCategory(vehicleCategory);
+      if (vehicleType === "kia_cargo" || vehicleType === "kia_passenger" || vehicleType === "bus") setVehicleType(vehicleType);
       setExistingDoc((current: any) => ({
         ...(current ?? {
           userId,
@@ -205,23 +219,31 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         }),
         status: row.status,
         rejectionReason: row.rejection_reason ?? undefined,
-        vehicleMake: metadata.vehicleMake ?? current?.vehicleMake,
-        vehicleModel: metadata.vehicleModel ?? current?.vehicleModel,
-        vehicleYear: metadata.vehicleYear ?? current?.vehicleYear,
-        vehiclePlate: metadata.vehiclePlate ?? current?.vehiclePlate,
-        vehicleColor: metadata.vehicleColor ?? current?.vehicleColor,
-        vehicleCategory: metadata.vehicleCategory ?? current?.vehicleCategory,
-        vehicleType: metadata.vehicleType ?? current?.vehicleType,
+        vehicleMake: vehicleMake ?? current?.vehicleMake,
+        vehicleModel: vehicleModel ?? current?.vehicleModel,
+        vehicleYear: vehicleYear ?? current?.vehicleYear,
+        vehiclePlate: vehiclePlate ?? current?.vehiclePlate,
+        vehicleColor: vehicleColor ?? current?.vehicleColor,
+        vehicleCategory: vehicleCategory ?? current?.vehicleCategory,
+        vehicleType: vehicleType ?? current?.vehicleType,
       }));
     };
     (async () => {
-      let result = await (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
-        .eq("user_id", userId).eq("provider_type", providerRole).maybeSingle();
+      const [driverProfile, verification] = await Promise.all([
+        (supabase as any).from("driver_profiles")
+          .select("vehicle_make,vehicle_model,vehicle_year,vehicle_plate,vehicle_color,vehicle_category,vehicle_type")
+          .eq("user_id", userId).maybeSingle(),
+        (supabase as any).from("provider_verifications")
+          .select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+          .eq("user_id", userId).eq("provider_type", providerRole).maybeSingle(),
+      ]);
+      let result = verification;
       if (!result.data && largeDriverMode) {
-        result = await (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+        result = await (supabase as any).from("provider_verifications")
+          .select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
           .eq("user_id", userId).eq("provider_type", "driver").maybeSingle();
       }
-      if (!result.error && result.data) applyReview(result.data);
+      if (!result.error && result.data) applyReview(result.data, driverProfile.data);
     })();
     const channel = supabase.channel(`driver-verification-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "provider_verifications", filter: `user_id=eq.${userId}` },

@@ -96,6 +96,7 @@ BEGIN
     IF v_has_documents AND EXISTS (
       SELECT 1 FROM jsonb_each_text(v_documents) AS item(kind, path)
       WHERE item.kind NOT IN ('vehicle_document','face_photo','id_card','id_card_back')
+         OR item.path IS NULL
          OR item.path NOT LIKE auth.uid()::text || '/' || _provider_type || '/%'
     ) THEN RAISE EXCEPTION 'invalid_verification_document_path'; END IF;
 
