@@ -482,24 +482,6 @@ function UsersSection() {
   useEffect(() => {
     load();
   }, [load]);
-  const loadChangeRequests = useCallback(async () => {
-    setChangeRequestsLoading(true);
-    try { setChangeRequests(await listChangeRequests()); }
-    catch (e) { setActionMessage(e instanceof Error ? e.message : "تعذر تحميل طلبات تحديث البيانات"); }
-    finally { setChangeRequestsLoading(false); }
-  }, [listChangeRequests]);
-  useEffect(() => { loadChangeRequests(); }, [loadChangeRequests]);
-  async function handleChangeRequestReview(requestId: string, status: "approved" | "rejected", reason?: string) {
-    try {
-      await reviewChangeRequest({ data: { request_id: requestId, status, reason } });
-      setActionMessage(status === "approved" ? "تم اعتماد التحديث مع إبقاء الحساب مفعّلاً" : "تم رفض تحديث البيانات وإرسال السبب للمستخدم");
-      await loadChangeRequests();
-      return true;
-    } catch (e) {
-      setActionMessage(e instanceof Error ? e.message : "تعذر مراجعة طلب التحديث");
-      return false;
-    }
-  }
   async function viewUser(userId: string) {
     try {
       setSelectedUser(await getUserDetail({ data: { user_id: userId } }));
@@ -912,6 +894,24 @@ function ProvidersSection() {
   useEffect(() => {
     load();
   }, [load]);
+  const loadChangeRequests = useCallback(async () => {
+    setChangeRequestsLoading(true);
+    try { setChangeRequests(await listChangeRequests()); }
+    catch (e) { setActionMessage(e instanceof Error ? e.message : "تعذر تحميل طلبات تحديث البيانات"); }
+    finally { setChangeRequestsLoading(false); }
+  }, [listChangeRequests]);
+  useEffect(() => { loadChangeRequests(); }, [loadChangeRequests]);
+  async function handleChangeRequestReview(requestId: string, status: "approved" | "rejected", reason?: string) {
+    try {
+      await reviewChangeRequest({ data: { request_id: requestId, status, reason } });
+      setActionMessage(status === "approved" ? "تم اعتماد التحديث مع إبقاء الحساب مفعّلاً" : "تم رفض تحديث البيانات وإرسال السبب للمستخدم");
+      await loadChangeRequests();
+      return true;
+    } catch (e) {
+      setActionMessage(e instanceof Error ? e.message : "تعذر مراجعة طلب التحديث");
+      return false;
+    }
+  }
   async function handleAction(userId: string, status: string, duration?: string, reason?: string) {
     setActionMessage("");
     try {
