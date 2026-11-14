@@ -65,6 +65,7 @@ import {
 } from "@/lib/admin.functions";
 import { useServerFn } from "@tanstack/react-start";
 import AdminCompanySettings from "@/components/admin-company-settings";
+import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -1711,8 +1712,26 @@ function CouponsSection() {
     try {
       await saveCoupon({ data });
       setShowModal(false);
-      load();
-    } catch (e) {}
+      if (!data.id) {
+        const rows = await listCoupons();
+        const saved = rows.find((row: any) => String(row.code).trim().toUpperCase() === String(data.code).trim().toUpperCase());
+        if (!saved?.id) throw new Error("تم حفظ الكوبون لكن تعذّر تحديده للتوزيع؛ افتح قائمة الكوبونات واضغط توزيع للمستخدمين");
+        const result = await distributeCoupon({
+          data: {
+            coupon_id: saved.id,
+            target: distributionTarget,
+            ...(distributionTarget === "single" ? { single_user_id: singleUserId.trim() } : {}),
+          },
+        });
+        toast.success(`تم حفظ الكوبون وإرساله إلى ${result.sent} مستخدم`);
+      } else {
+        toast.success("تم تحديث الكوبون");
+      }
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message || "تعذّر حفظ الكوبون أو توزيعه");
+      await load();
+    }
   }
   async function handleDelete(id: string) {
     try {
