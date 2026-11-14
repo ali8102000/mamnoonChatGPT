@@ -31,10 +31,22 @@ export default function SelectRole() {
         return;
       }
 
-      const { error } = await supabase
+      // The auth.users trigger normally creates the customer role at signup.
+      // Do not upsert: this table intentionally grants INSERT/SELECT, not UPDATE.
+      const { data: existingRole, error: lookupError } = await supabase
         .from("user_roles")
-        .upsert({ user_id: user.id, role: "customer" }, { onConflict: "user_id,role" });
-      if (error) throw error;
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "customer")
+        .maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!existingRole) {
+        const { error: insertError } = await supabase
+          .from("user_roles")
+          .insert({ user_id: user.id, role: "customer" });
+        // Treat a concurrent insert as success.
+        if (insertError && insertError.code !== "23505") throw insertError;
+      }
       await refresh();
       router.replace("/home");
     } catch (err: unknown) {
