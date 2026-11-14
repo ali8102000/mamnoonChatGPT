@@ -36,7 +36,6 @@ export default function AdminScreen() {
   const [supportInbox, setSupportInbox] = useState<any[]>([]);
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [reports, setReports] = useState<any[]>([]);
-  const isOwnerAccount = user?.email?.toLowerCase() === "a7md0555666@gmail.com";
 
   const load = useCallback(async () => {
     const { data: superAdminCheck, error: permissionError } = await supabase.rpc("is_super_admin", {
@@ -48,10 +47,8 @@ export default function AdminScreen() {
       setLoading(false);
       return;
     }
-    if (isOwnerAccount) {
-      const { data: company } = await (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle();
-      if (company?.company_name) setCompanyName(company.company_name);
-    }
+    const { data: company } = await (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle();
+    if (company?.company_name) setCompanyName(company.company_name);
     const [reqs, users, drivers, pricingRules, recentReqs] = await Promise.all([
       supabase.from("service_requests").select("id", { count: "exact", head: true }),
       supabase.from("profiles").select("id", { count: "exact", head: true }),
@@ -95,7 +92,7 @@ export default function AdminScreen() {
     const reportProfileById = new Map((reportProfiles ?? []).map((profile: any) => [profile.id, profile]));
     setReports((reportRows ?? []).map((report: any) => ({ ...report, reporter: reportProfileById.get(report.reporter_id), reported: reportProfileById.get(report.reported_id) })));
     setLoading(false);
-  }, [user?.id, isOwnerAccount]);
+  }, [user?.id]);
 
   useEffect(() => {
     load();
@@ -105,7 +102,7 @@ export default function AdminScreen() {
     if (value.length < 2 || value.length > 80) { Alert.alert("تنبيه", "اكتب اسماً من حرفين إلى 80 حرفاً"); return; }
     setSavingCompanyName(true);
     const { data: allowed, error: permissionError } = await supabase.rpc("is_super_admin", { p_user_id: user?.id });
-    if (permissionError || allowed !== true || !isOwnerAccount) {
+    if (permissionError || allowed !== true) {
       Alert.alert("غير مصرّح", "تغيير الاسم متاح لصاحب الحساب فقط");
       setSavingCompanyName(false);
       return;
@@ -135,7 +132,7 @@ export default function AdminScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>لوحة التحكم</Text>
-      {isOwnerAccount && <View style={styles.companyCard}>
+      {<View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
         <Text style={styles.companyHint}>تغيير الاسم الظاهر للمنصة</Text>
         <TextInput value={companyName} onChangeText={setCompanyName} maxLength={80} placeholder="اسم الشركة" style={styles.companyInput} textAlign="right" />
