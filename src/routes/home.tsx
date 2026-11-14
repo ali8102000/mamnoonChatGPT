@@ -154,7 +154,7 @@ function HomePage() {
           <span>تبديل الدور</span>
         </Link>
 
-        {(activeRole === "driver" || activeRole === "large_driver") && <ProviderHome type="taxi" />}
+        {(activeRole === "driver" || activeRole === "large_driver") && <ProviderHome type="taxi" largeDriverMode={activeRole === "large_driver"} />}
         {activeRole === "worker" && <ProviderHome type="service" />}
         {activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker" && <CustomerHome />}
       </div>
@@ -332,13 +332,16 @@ function FeatureRow({
   );
 }
 
-function ProviderHome({ type }: { type: "taxi" | "service" }) {
+function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "service"; largeDriverMode?: boolean }) {
   const { session } = useAuth();
   const navigate = useNavigate();
   const acceptFn = useServerFn(acceptServiceRequest);
   const [available, setAvailable] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [stats, setStats] = useState({ jobs: 0 });
+  const [largeOfferPrices, setLargeOfferPrices] = useState<Record<string, string>>({});
+  const [largeOfferMessages, setLargeOfferMessages] = useState<Record<string, string>>({});
+  const [offerBusy, setOfferBusy] = useState<string | null>(null);
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
 
   useEffect(() => {
@@ -357,15 +360,34 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
       });
 
     async function loadRequests() {
-      const { data } = await supabase
+      if (largeDriverMode) {
+        const { data: offerRows, error: offerError } = await (supabase as any)
+          .from("request_offers")
+          .select("request_id, proposed_price, offer_message")
+          .eq("provider_id", session.user.id)
+          .eq("status", "pending")
+          .gt("expires_at", new Date().toISOString());
+        if (offerError || !offerRows?.length) { setRequests([]); return; }
+        const requestIds = [...new Set(offerRows.map((offer: any) => offer.request_id))];
+        const { data } = await supabase
+          .from("service_requests")
+          .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, vehicle_category, vehicle_type")
+          .in("id", requestIds)
+          .eq("type", "taxi")
+          .eq("vehicle_category", "large")
+          .in("status", ["pending", "searching"])
+          .order("created_at", { ascending: false });
+        const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
+        setRequests((data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) })));
+        return;
+      }
+      let query = supabase
         .from("service_requests")
-        .select(
-          "id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description",
-        )
+        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, vehicle_category, vehicle_type")
         .in("status", ["pending", "searching"])
-        .eq("type", type)
-        .order("created_at", { ascending: false })
-        .limit(20);
+        .eq("type", type);
+      if (type === "taxi") query = query.neq("vehicle_category", "large");
+      const { data } = await query.order("created_at", { ascending: false }).limit(20);
       setRequests(data ?? []);
     }
     loadRequests();
@@ -392,7 +414,7 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
       bc?.close();
       supabase.removeChannel(channel);
     };
-  }, [session, type, table]);
+  }, [session, type, table, largeDriverMode]);
 
   async function toggleAvail() {
     playClick("toggle");
@@ -407,6 +429,19 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
       setAvailable(prev);
       toast.error("تعذّر تحديث الحالة");
     }
+  }
+
+  async function sendLargeOffer(id: string) {
+    const price = Number((largeOfferPrices[id] ?? "").replace(/[^0-9]/g, ""));
+    if (!Number.isSafeInteger(price) || price < 250 || price % 250 !== 0) { toast.error("اكتب سعراً صحيحاً لا يقل عن 250 ديناراً ومن مضاعفات 250"); return; }
+    setOfferBusy(id);
+    try {
+      const { error } = await (supabase as any).rpc("submit_large_vehicle_offer", { _request_id: id, _price: price, _message: largeOfferMessages[id] ?? null });
+      if (error) throw error;
+      toast.success("تم إرسال عرض السعر للزبون");
+      setLargeOfferPrices((current) => ({ ...current, [id]: String(price) }));
+    } catch (error: any) { toast.error(error?.message ?? "تعذر إرسال عرض السعر"); }
+    finally { setOfferBusy(null); }
   }
 
   async function accept(id: string) {
@@ -480,6 +515,7 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
                       🎯 {r.dest_text}
                     </div>
                   )}
+                  {largeDriverMode && <div className="text-xs text-muted-foreground mt-1">🚚 طلب سيارة كبيرة — الوجهة اختيارية</div>}
                   {r.work_description && (
                     <div className="text-xs mt-1 line-clamp-2">🛠️ {r.work_description}</div>
                   )}
@@ -503,13 +539,33 @@ function ProviderHome({ type }: { type: "taxi" | "service" }) {
                       📝 {r.notes}
                     </div>
                   )}
+                  {largeDriverMode && (
+                    <div className="mt-3 space-y-2">
+                      <input value={largeOfferPrices[r.id] ?? (r.my_offer?.proposed_price ? String(r.my_offer.proposed_price) : "")}
+                        onChange={(e) => setLargeOfferPrices((current) => ({ ...current, [r.id]: e.target.value.replace(/[^0-9]/g, "") }))}
+                        inputMode="numeric" placeholder="عرض سعرك بالدينار" className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm" />
+                      <input value={largeOfferMessages[r.id] ?? r.my_offer?.offer_message ?? ""}
+                        onChange={(e) => setLargeOfferMessages((current) => ({ ...current, [r.id]: e.target.value }))}
+                        placeholder="ملاحظة للزبون (اختياري)" className="w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm" />
+                      <button onClick={() => sendLargeOffer(r.id)} disabled={offerBusy === r.id}
+                        className="w-full rounded-xl bg-orange-600 text-white px-4 py-2.5 text-xs font-black disabled:opacity-60">
+                        {offerBusy === r.id ? "جارٍ إرسال العرض..." : r.my_offer?.proposed_price ? "تحديث عرض السعر" : "إرسال عرض السعر"}
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => accept(r.id)}
-                  className="shrink-0 px-4 py-2 rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground font-bold text-xs btn-press shadow-md"
-                >
-                  قبول
-                </button>
+                {largeDriverMode ? (
+                  <span className="shrink-0 rounded-xl bg-orange-100 text-orange-800 px-3 py-2 text-[10px] font-black">
+                    {r.vehicle_type === "kia_cargo" ? "كيا حمل" : r.vehicle_type === "kia_passenger" ? "كيا ركاب" : "باص"}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => accept(r.id)}
+                    className="shrink-0 px-4 py-2 rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground font-bold text-xs btn-press shadow-md"
+                  >
+                    قبول
+                  </button>
+                )}
               </div>
             </div>
           ))}
