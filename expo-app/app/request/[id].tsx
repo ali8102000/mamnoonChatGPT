@@ -659,8 +659,8 @@ export default function RequestDetail() {
           <View style={styles.infoCard}>
             <Text style={styles.infoType}>الدفع الإلكتروني عبر زين كاش</Text>
             <Text style={styles.infoRow}>تقدر تدفع الأجرة بعد تثبيت السعر. بوابة الدفع متوقفة حالياً لحين إكمال إعدادات التاجر والاختبار.</Text>
-            <TouchableOpacity onPress={payRequestWithZainCash} disabled={paymentBusy} style={[styles.primaryButton,paymentBusy&&styles.disabled]}>
-              <Text style={styles.primaryButtonText}>{paymentBusy ? "جاري تجهيز الدفع..." : "الدفع عبر زين كاش"}</Text>
+            <TouchableOpacity onPress={payRequestWithZainCash} disabled={paymentBusy} style={[styles.actionBtn,paymentBusy&&{opacity:0.5}]}>
+              <Text style={styles.actionBtnText}>{paymentBusy ? "جاري تجهيز الدفع..." : "الدفع عبر زين كاش"}</Text>
             </TouchableOpacity>
           </View>
         )}
