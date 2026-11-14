@@ -140,6 +140,8 @@ function AccountSettingsPage() {
       </div>
     </section>}
 
+    {(roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver")) && <section className="mb-6 rounded-3xl border border-primary/20 bg-primary/5 p-4"><div className="flex items-center justify-between gap-3"><div><h2 className="font-black text-sm">اشتراكات ممنون</h2><p className="text-[11px] text-muted-foreground mt-1">إدارة تجربتك المجانية واختيار باقة الفنيين والسائقين</p></div><Button onClick={() => navigate({ to: "/subscriptions" })} className="rounded-xl shrink-0">عرض الباقات</Button></div></section>}
+
     <section className="mb-6">
       <h2 className="font-black text-sm mb-3 px-1">معلومات التواصل</h2>
       <div className="rounded-3xl border border-border/60 bg-card overflow-hidden">
