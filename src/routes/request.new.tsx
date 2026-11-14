@@ -337,6 +337,10 @@ function NewRequest() {
       toast.error(`موقع الانطلاق يجب أن يكون داخل ${gov.name}`);
       return;
     }
+    if (vehicle === "large") {
+      setDestConfirmed(true);
+      return;
+    }
     setMapStep("dest");
     setDestConfirmed(false);
     if (!destCoords) setDestCoords(pickupCoords);
@@ -349,7 +353,7 @@ function NewRequest() {
       toast.error("يرجى تحديد موقع الانطلاق");
       return;
     }
-    if (type === "taxi" && !destCoords) {
+    if (type === "taxi" && vehicle !== "large" && !destCoords) {
       toast.error("يرجى تحديد موقع الوجهة على الخريطة لحساب المسافة بدقة");
       return;
     }
@@ -521,7 +525,7 @@ function NewRequest() {
               isFullScreen={true}
               searchTop={72}
               hideOutsideButtons={true}
-              bottomOffset={mapStep === "dest" && destConfirmed ? 300 : 150}
+              bottomOffset={(mapStep === "dest" && destConfirmed) || (vehicle === "large" && destConfirmed) ? 360 : 150}
               confirmLabel={mapStep === "pickup" ? "تأكيد الانطلاق" : "تأكيد الوجهة"}
               onSelectPlace={(c, addr) => {
                 if (mapStep === "pickup") {
@@ -531,8 +535,12 @@ function NewRequest() {
                     toast.error(`موقع الانطلاق يجب أن يكون داخل ${gov.name}`);
                     return;
                   }
-                  setMapStep("dest");
-                  setDestConfirmed(false);
+                  if (vehicle === "large") {
+                    setDestConfirmed(true);
+                  } else {
+                    setMapStep("dest");
+                    setDestConfirmed(false);
+                  }
                 } else {
                   setDestCoords(c);
                   if (addr) setDestLabel(addr);
@@ -599,7 +607,7 @@ function NewRequest() {
                 {pickupCoords && <CheckCircle2 className="h-3 w-3" />}
               </button>
 
-              <button
+              {vehicle !== "large" && (              <button
                 type="button"
                 onClick={() => {
                   if (!pickupCoords) {
@@ -617,15 +625,27 @@ function NewRequest() {
                 <span className="h-2 w-2 rounded-full bg-rose-300" />
                 <span>٢. الوجهة</span>
                 {destCoords && <CheckCircle2 className="h-3 w-3" />}
-              </button>
+              </button>)}
             </div>
           </div>
         </div>
 
         {/* STEP 1: PICKUP */}
-        {mapStep === "pickup" && (
+        {mapStep === "pickup" && !(vehicle === "large" && destConfirmed) && (
           <div className="mt-auto relative z-30 p-4 pb-6">
             <div className="bg-white/95 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-border/50 max-w-md mx-auto space-y-3">
+              {vehicle === "large" && (
+                <div className="space-y-2">
+                  <div className="font-black text-sm text-foreground">اختر نوع الكيا</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
+                      <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-xl border p-3 font-black ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
+                        <div className="text-2xl">{item.emoji}</div>{item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-2.5">
                 <MapPin className="h-5 w-5 text-sky-600 shrink-0" />
                 <div className="text-sm font-black text-foreground truncate">
@@ -693,7 +713,7 @@ function NewRequest() {
         )}
 
         {/* STEP 3: CARS ONLY */}
-        {mapStep === "dest" && destConfirmed && (
+        {((mapStep === "dest" && destConfirmed) || (vehicle === "large" && mapStep === "pickup" && destConfirmed)) && (
           <div className="mt-auto relative z-30 bg-white rounded-t-[32px] shadow-2xl border-t border-border/60 max-w-lg mx-auto w-full p-5 space-y-3">
             {vehicle !== "large" && routeKm === null && !routeError && (
               <div
@@ -756,7 +776,7 @@ function NewRequest() {
                 })}
               </div>
             )}
-            {vehicleCategory === "large" && (
+            {false && vehicleCategory === "large" && (
               <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
                 <div className="font-black text-sm">اختر كيا حمل أو كيا ركاب</div>
                 <div className="grid grid-cols-2 gap-2">
@@ -768,13 +788,16 @@ function NewRequest() {
                 </div>
               </div>
             )}
+            {vehicle === "large" && (
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري) — اكتب الوجهة أو أي تفاصيل تريدها" rows={2} className="w-full resize-none bg-white border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
+            )}
             <button
               type="button"
-              disabled={busy || !pickupCoords || !destCoords || (vehicle !== "large" && (routeKm === null || !!routeError))}
+              disabled={busy || !pickupCoords || (vehicle !== "large" && (!destCoords || routeKm === null || !!routeError))}
               onClick={submit}
               className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-xl btn-press disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>اطلب الآن</span>}
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>{vehicle === "large" ? "إرسال الطلب" : "اطلب الآن"}</span>}
             </button>
           </div>
         )}
