@@ -763,8 +763,6 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
             />
           </div>
 
-          )}
-
           <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
             <div className="font-black text-sm">{largeDriverMode ? "مستندات المركبة (السنوية أو الوكالة) *" : "مستند تسجيل السيارة *"}</div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
