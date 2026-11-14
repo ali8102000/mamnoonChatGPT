@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json", "Accept": "application/json",
       },
       body: JSON.stringify({
-        requestId, amount, currency: "IQD", locale: "ar_IQ",
+        requestId, amount, currency: "IQD",
         finishPaymentUrl: requiredEnv("QICARD_FINISH_PAYMENT_URL"),
         notificationUrl: Deno.env.get("QICARD_NOTIFICATION_URL") || "https://enteiolvirenbhkyskgb.supabase.co/functions/v1/qicard-webhook",
         appChannel: body.appChannel === true,
