@@ -958,7 +958,7 @@ function ProvidersSection() {
           {type === "driver" ? <>
             <option value="economy">اقتصادي</option><option value="premium">متميز</option><option value="luxury">فاخر</option>
           </> : type === "large_driver" ? <>
-            <option value="all">كل المركبات الكبيرة</option><option value="large">سيارات كبيرة</option>
+            <option value="large">سيارات كبيرة</option>
           </> : <>
             <option value="fani">فني</option><option value="khabir">خبير</option>
           </>}
