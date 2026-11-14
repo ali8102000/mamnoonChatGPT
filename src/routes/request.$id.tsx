@@ -693,9 +693,11 @@ function RequestDetail() {
       {["pending", "searching"].includes(req.status as string) && (
         <div className="px-5 py-8 text-center text-sm text-muted-foreground flex-1">
           <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-3" />
-          {req.status === "searching"
-            ? "نبحث عن أقرب مزوّد لك..."
-            : "بانتظار قبول الطلب من أحد المزودين..."}
+          {req.vehicle_category === "large"
+            ? "بانتظار عروض أصحاب السيارات الكبيرة..."
+            : req.status === "searching"
+              ? "نبحث عن أقرب مزوّد لك..."
+              : "بانتظار قبول الطلب من أحد المزودين..."}
           {myRole === "customer" && (
             <button
               onClick={() => setShowCancel(true)}
