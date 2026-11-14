@@ -109,7 +109,7 @@ export default function HomeScreen() {
   }, [loadIncoming]);
 
   useEffect(() => {
-    if (!user || (activeRole !== "driver" && activeRole !== "worker")) {
+    if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
       setAvailable(false);
       setVerified(false);
       setVerificationStatus("pending");
@@ -134,7 +134,7 @@ export default function HomeScreen() {
   }, [activeRole, user]);
 
   useEffect(() => {
-    if (!user || !verified || !available || (activeRole !== "driver" && activeRole !== "worker"))
+    if (!user || !verified || !available || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker"))
       return;
     const userId = user.id;
     let mounted = true;
@@ -159,7 +159,7 @@ export default function HomeScreen() {
       );
       if (error && mounted) {
         Alert.alert("تعذر مشاركة الموقع", "تم إيقاف التوفر حتى لا تستقبل طلبات دون موقع صحيح.");
-        const table = activeRole === "driver" ? "driver_profiles" : "worker_profiles";
+        const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
         await supabase.from(table).update({ available: false }).eq("user_id", userId);
         setAvailable(false);
       } else if (mounted && !loadedIncoming) {
@@ -174,7 +174,7 @@ export default function HomeScreen() {
         if (mounted) {
           Alert.alert("إذن الموقع مطلوب", "فعّل الموقع حتى تظهر للسائقين والزبائن القريبين.");
           setAvailable(false);
-          const table = activeRole === "driver" ? "driver_profiles" : "worker_profiles";
+          const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
           await supabase.from(table).update({ available: false }).eq("user_id", userId);
         }
         return;
@@ -195,7 +195,7 @@ export default function HomeScreen() {
     void startPresence().catch(async () => {
       if (!mounted || !user) return;
       Alert.alert("تعذر تحديد الموقع", "تم إيقاف التوفر؛ تحقق من GPS وحاول مرة أخرى.");
-      const table = activeRole === "driver" ? "driver_profiles" : "worker_profiles";
+      const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
       await supabase.from(table).update({ available: false }).eq("user_id", userId);
       setAvailable(false);
     });
@@ -207,7 +207,7 @@ export default function HomeScreen() {
   }, [activeRole, available, verified, user, loadIncoming]);
 
   async function toggleAvailable() {
-    if (!user || (activeRole !== "driver" && activeRole !== "worker")) return;
+    if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) return;
     if (!verified) {
       Alert.alert(
         "الحساب بانتظار التوثيق",
@@ -223,7 +223,7 @@ export default function HomeScreen() {
         return;
       }
     }
-    const table = activeRole === "driver" ? "driver_profiles" : "worker_profiles";
+    const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
     const { error } = await supabase.from(table).update({ available: next }).eq("user_id", user.id);
     if (error) {
       Alert.alert("تعذر تحديث التوفر", error.message);
