@@ -286,7 +286,7 @@ export const adminListProviders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
-      type: z.enum(["driver", "worker"]).default("driver"),
+      type: z.enum(["driver", "large_driver", "worker"]).default("driver"),
       status: z.enum(["all", "approved", "pending", "suspended", "rejected"]).default("all"),
       category: z.string().default("all"),
     }).parse(d),
@@ -294,12 +294,12 @@ export const adminListProviders = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     await requireStaff(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const table = data.type === "driver" ? "driver_profiles" : "worker_profiles";
+    const table = data.type === "worker" ? "worker_profiles" : "driver_profiles";
     let providerQuery = (supabaseAdmin as any)
       .from(table)
       .select("*, profiles!inner(full_name, phone, email, avatar_url)");
     if (data.status !== "all") providerQuery = providerQuery.eq("status", data.status);
-    if (data.type === "driver" && data.category !== "all") providerQuery = providerQuery.eq("vehicle_category", data.category);
+    if (data.type !== "worker" && data.category !== "all") providerQuery = providerQuery.eq("vehicle_category", data.category);
     if (data.type === "worker" && data.category !== "all") providerQuery = providerQuery.eq("level", data.category);
     const { data: providers, error } = await providerQuery
       .order("created_at", { ascending: false })
@@ -348,7 +348,7 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
     z
       .object({
         user_id: z.string().min(1),
-        type: z.enum(["driver", "worker"]),
+        type: z.enum(["driver", "large_driver", "worker"]),
         status: z.enum(["approved", "suspended", "rejected", "pending"]),
         reason: z.string().max(500).optional(),
         suspension_duration: z.enum(["30m", "1h", "1w", "1mo", "1y", "permanent"]).optional(),
@@ -391,7 +391,7 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
       }
     }
 
-    const role = data.type === "driver" ? "driver" : "worker";
+    const role = data.type === "driver" ? "driver" : data.type === "large_driver" ? "large_driver" : "worker";
     if (data.status === "approved") {
       const { data: granted, error: verifyError } = await (supabaseAdmin as any)
         .from("user_roles")
@@ -409,7 +409,7 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
       const { data: profileRow } = await (supabaseAdmin as any)
         .from("profiles").select("full_name").eq("id", data.user_id).maybeSingle();
       const personName = String(profileRow?.full_name ?? "").trim();
-      const providerLabel = data.type === "driver" ? "سائق تكسي" : "فني";
+      const providerLabel = data.type === "driver" ? "سائق تكسي" : data.type === "large_driver" ? "سائق سيارات كبيرة" : "فني";
       const { data: companySettings } = await (supabaseAdmin as any)
         .from("company_settings").select("company_name").eq("id", 1).maybeSingle();
       const companyName = String(companySettings?.company_name ?? "شركة ممنون");
