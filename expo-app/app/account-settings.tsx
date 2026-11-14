@@ -151,7 +151,7 @@ export default function AccountSettingsScreen() {
           : role === "worker"
             ? { title: "الفني", mark: "ف", backgroundColor: palette.brandSoft, color: palette.brand }
             : role === "large_driver"
-              ? { title: "سيارات كبيرة", mark: "ك", backgroundColor: "#F4E9DC", color: "#8A5B32" }
+              ? { title: "سيارات كبيرة", mark: "ك", backgroundColor: palette.goldSoft, color: palette.gold }
               : { title: "كابتن تكسي", mark: "س", backgroundColor: palette.brandSoft, color: palette.brand };
         return (
           <TouchableOpacity key={role} activeOpacity={0.82} style={[styles.roleCard, { backgroundColor: selected.backgroundColor }, activeRole === role && styles.roleCardActive]} onPress={() => switchRole(role)}>
