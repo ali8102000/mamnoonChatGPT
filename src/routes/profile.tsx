@@ -9,6 +9,7 @@ import {
   TrendingUp,
   ShieldCheck,
   ChevronLeft,
+  CreditCard,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationsBell } from "@/components/notifications-bell";
@@ -326,6 +327,7 @@ function ProfilePage() {
               <span className="flex-1 font-bold text-sm">لوحة الإدارة</span>
             </Link>
           )}
+          {isProvider && <Link to="/subscriptions" className="w-full glass rounded-2xl p-4 flex items-center gap-3 btn-press text-right border border-primary/20"><CreditCard className="h-5 w-5 text-primary" /><span className="flex-1 font-bold text-sm">اشتراكات ممنون والباقات</span></Link>}
           <Link
             to="/account-settings"
             className="w-full glass rounded-2xl p-4 flex items-center gap-3 btn-press text-right"
