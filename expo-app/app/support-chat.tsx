@@ -37,7 +37,7 @@ export default function SupportChatScreen() {
         if (profile) targetMap.set(row.user_id, { id: row.user_id, ...profile });
       }
       setProviderTargets(Array.from(targetMap.values()));
-      const { data, error } = await (supabase as any).from("support_conversations").select("*").order("updated_at", { ascending: false });
+      const { data, error } = await (supabase as any).from("support_conversations").select("*").order("priority_tier", { ascending: false }).order("updated_at", { ascending: true });
       if (error) throw error;
       const ids: string[] = Array.from(new Set<string>((data ?? []).map((c: any) => String(c.user_id))));
       const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone").in("id", ids) : { data: [] };
