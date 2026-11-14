@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import service_build from "../../assets/services/build.png";
@@ -180,7 +181,7 @@ export default function RequestDetail() {
   }, [id, user?.id, roles]);
 
   useEffect(() => {
-    const otherId = request
+    const otherId = request && !["completed", "cancelled"].includes(request.status)
       ? request.customer_id === user?.id
         ? request.provider_id
         : request.customer_id
@@ -202,6 +203,7 @@ export default function RequestDetail() {
   }, [request?.customer_id, request?.provider_id, user?.id]);
 
   const loadChat = useCallback(async () => {
+    if (!request || ["completed", "cancelled"].includes(request.status)) { setChatId(null); setMessages([]); return; }
     const { data, error } = await supabase
       .from("chats")
       .select("id")
@@ -212,7 +214,7 @@ export default function RequestDetail() {
       return;
     }
     setChatId(data?.id ?? null);
-  }, [id]);
+  }, [id, request?.status]);
 
   const loadMessages = useCallback(async () => {
     if (!chatId) {
@@ -240,6 +242,7 @@ export default function RequestDetail() {
           void loadRequest();
           if (nextStatus === "completed") setShowRating(true);
           if (nextStatus === "accepted") loadChat();
+          if (nextStatus === "completed" || nextStatus === "cancelled") { setChatId(null); setMessages([]); setOtherProfile(null); setOtherLocation(null); }
         },
       )
       .on(
@@ -260,14 +263,20 @@ export default function RequestDetail() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `chat_id=eq.${chatId}` },
-        () => loadMessages(),
+        (payload) => {
+          const incoming = payload.new as ChatMessage;
+          if (incoming.sender_id !== user?.id) {
+            void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: "وصلتك رسالة جديدة من الطرف الآخر", sound: "default", data: { request_id: id } }, trigger: null }).catch((error) => console.warn("[messages] sound notification failed:", error));
+          }
+          void loadMessages();
+        },
       )
       .subscribe();
     loadMessages();
     return () => {
       supabase.removeChannel(sub);
     };
-  }, [chatId, loadMessages]);
+  }, [chatId, loadMessages, user?.id, id]);
 
   useEffect(() => {
     if (!isActive || !currentUserId) return;
@@ -571,7 +580,7 @@ export default function RequestDetail() {
           <Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>
           <View style={{ width: 30 }} />
         </View>
-        {otherProfile && (
+        {otherProfile && !["completed", "cancelled"].includes(request.status) && (
           <View style={styles.personCard}>
             <View style={styles.personAvatar}>
               {otherProfile.avatar_url ? (
@@ -751,6 +760,9 @@ export default function RequestDetail() {
               </TouchableOpacity>
             )}
         </View>
+        {!["completed", "cancelled"].includes(request.status) ? (
+        <>
+        <View style={styles.chatHeader}><Text style={styles.chatHeaderTitle}>المحادثة المباشرة</Text><Text style={styles.chatHeaderHint}>تصل الرسائل فورياً مع تنبيه صوتي</Text></View>
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
@@ -793,6 +805,10 @@ export default function RequestDetail() {
             <Text style={styles.sendBtnText}>إرسال</Text>
           </TouchableOpacity>
         </View>
+        </>
+        ) : (
+          <View style={styles.chatClosed}><Text style={styles.chatClosedTitle}>{request.status === "completed" ? "اكتمل الطلب" : "تم إلغاء الطلب"}</Text><Text style={styles.chatClosedText}>انتهت المحادثة وتم إخفاء بيانات الطرف الآخر.</Text></View>
+        )}
         {showRating && (
           <View style={styles.ratingOverlay}>
             <View style={styles.ratingCard}>
@@ -850,6 +866,12 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   actionBtn: { flex: 1, backgroundColor: palette.brand, borderRadius: radius.md, paddingVertical: 13, alignItems: "center" },
   actionBtnText: { color: palette.white, fontSize: 14, fontWeight: "900" },
+  chatHeader: { paddingHorizontal: 18, paddingVertical: 10, backgroundColor: palette.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: palette.line },
+  chatHeaderTitle: { color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" },
+  chatHeaderHint: { color: palette.muted, fontSize: 11, marginTop: 3, textAlign: "right" },
+  chatClosed: { margin: 16, padding: 22, borderRadius: radius.lg, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center" },
+  chatClosedTitle: { color: palette.ink, fontSize: 16, fontWeight: "900" },
+  chatClosedText: { color: palette.muted, fontSize: 12, marginTop: 6, textAlign: "center" },
   msgBubble: { maxWidth: "75%", borderRadius: radius.lg, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 8 },
   msgMine: { backgroundColor: palette.brand, alignSelf: "flex-end" },
   msgOther: { backgroundColor: palette.surface, alignSelf: "flex-start", borderWidth: 1, borderColor: palette.line },
