@@ -26,8 +26,8 @@ Deno.serve(async (req: Request) => {
     const clientSecret=required("ZAINCASH_CLIENT_SECRET");
     const apiKey=required("ZAINCASH_API_KEY");
     const baseUrl=(Deno.env.get("ZAINCASH_BASE_URL") || "https://pg-api-uat.zaincash.iq").replace(/\/$/,"");
-    const returnUrl=required("MAMNOON_PAYMENT_RETURN_URL");
-    if(!returnUrl.startsWith("https://")) return json({error:"https_urls_required"},503);
+    const publicUrl=required("MAMNOON_PUBLIC_URL");
+    if(!publicUrl.startsWith("https://")) return json({error:"https_urls_required"},503);
     const callbackBase=supabaseUrl.replace(/\/$/,"")+"/functions/v1/zaincash-callback";
     const authHeader=req.headers.get("Authorization") || "";
     const bearer=authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
@@ -68,6 +68,8 @@ Deno.serve(async (req: Request) => {
       const token=await getGatewayToken(baseUrl,clientId,clientSecret);
       const success=callbackBase+"?return=success";
       const failure=callbackBase+"?return=failure";
+      const returnPath=body.purpose==="subscription"?"/subscriptions":"/request/"+requestId;
+      const appReturnUrl=new URL(returnPath,publicUrl).toString();
       const initResponse=await fetch(baseUrl+"/api/v2/payment-gateway/transaction/init",{
         method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
         body:JSON.stringify({
@@ -84,7 +86,7 @@ Deno.serve(async (req: Request) => {
       if(!initResponse.ok || initData.status!=="SUCCESS" || !transactionId || !redirectUrl) throw new Error("zaincash_init_failed");
       const {error:updateError}=await admin.from("payment_transactions").update({
         gateway_transaction_id:transactionId,redirect_url:redirectUrl,gateway_status:initData.status,
-        expires_at:initData.expiryTime || null,metadata:{orderId:payment.id}
+        expires_at:initData.expiryTime || null,metadata:{orderId:payment.id,returnUrl:appReturnUrl}
       }).eq("id",payment.id);
       if(updateError) throw new Error("payment_record_update_failed");
       return json({paymentId:payment.id,redirectUrl,status:"pending"});
