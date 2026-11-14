@@ -158,7 +158,7 @@ export default function DriverOnboarding() {
     const body = await response.arrayBuffer();
     const mime = image.mimeType === "image/png" ? "image/png" : "image/jpeg";
     const extension = mime === "image/png" ? "png" : "jpg";
-    const path = `${user.id}/driver/${kind}-${Date.now()}.${extension}`;
+    const path = `${user.id}/${providerRole}/${kind}-change-${Date.now()}.${extension}`;
     const { error } = await supabase.storage.from("provider-verification").upload(path, body, {
       contentType: mime, upsert: true, cacheControl: "3600",
     });
@@ -174,12 +174,30 @@ export default function DriverOnboarding() {
     if (vehicleChangeMode) {
       setBusy(true);
       try {
-        const requestedData = largeDriverMode
-          ? { vehicle_type: vehicleType }
-          : { vehicle_category: category };
+        const vehicleYear = Number(year.trim());
+        if (!plate.trim() || year.trim().length !== 4 || !Number.isInteger(Number(year.trim()))) {
+          Alert.alert("بيانات المركبة", "أدخل رقم اللوحة وسنة الصنع بشكل صحيح.");
+          return;
+        }
+        const documents: Record<string, string> = {};
+        if (facePhoto) documents.face_photo = await uploadImage(facePhoto, "face");
+        if (idPhoto) documents.id_card = await uploadImage(idPhoto, "id-card");
+        if (idBackPhoto) documents.id_card_back = await uploadImage(idBackPhoto, "id-card-back");
+        if (vehicleDocumentPhoto) documents.vehicle_document = await uploadImage(vehicleDocumentPhoto, "vehicle-registration");
+        const vehicleUpdate = {
+          vehicle_make: largeDriverMode ? "كيا" : selectedMake,
+          vehicle_model: largeDriverMode ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : (selectedModel?.model ?? savedModelName ?? ""),
+          vehicle_year: vehicleYear,
+          vehicle_plate: plate.trim(),
+          vehicle_color: color.trim() || null,
+          ...(largeDriverMode ? { vehicle_type: vehicleType } : { vehicle_category: category }),
+        };
         const { error } = await (supabase as any).rpc("submit_provider_change_request", {
           _provider_type: providerRole,
-          _requested_data: requestedData,
+          _requested_data: {
+            vehicle_update: vehicleUpdate,
+            ...(Object.keys(documents).length ? { documents } : {}),
+          },
         });
         if (error) throw error;
         setPendingVehicleChange(true);

@@ -26,6 +26,7 @@ import {
   saveProviderVerification,
   getProviderVerification,
   saveProviderVerificationRemote,
+  uploadProviderChangeDocuments,
 } from "@/lib/verification";
 
 export const Route = createFileRoute("/onboarding/driver")({
@@ -132,6 +133,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [idCardPhoto, setIdCardPhoto] = useState<string | null>(null);
   const [idCardBackPhoto, setIdCardBackPhoto] = useState<string | null>(null);
   const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<string | null>(null);
+  const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
   const [documentType, setDocumentType] = useState<"national_id" | "driver_license">("national_id");
   const [idNumber, setIdNumber] = useState("");
   const [confirmedNameMatch, setConfirmedNameMatch] = useState(true);
@@ -241,6 +243,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     try {
       const dataUrl = await fileToCompressedDataUrl(file, 800, 800, 0.8);
       setFacePhoto(dataUrl);
+      setChangedDocuments((current) => ({ ...current, face_photo: true }));
       toast.success("تم التقاط صورة الوجه بنجاح ✓");
     } catch {
       toast.error("تعذر معالجة الصورة، يرجى المحاولة بصورة أخرى");
@@ -253,6 +256,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     try {
       const dataUrl = await fileToCompressedDataUrl(file, 1200, 1200, 0.8);
       setIdCardPhoto(dataUrl);
+      setChangedDocuments((current) => ({ ...current, id_card: true }));
       toast.success("تم إرفاق صورة الهوية بنجاح ✓");
     } catch {
       toast.error("تعذر معالجة صورة الهوية");
@@ -265,6 +269,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     try {
       const dataUrl = await fileToCompressedDataUrl(file, 1200, 1200, 0.8);
       setIdCardBackPhoto(dataUrl);
+      setChangedDocuments((current) => ({ ...current, id_card_back: true }));
       toast.success("تم إرفاق الجهة الخلفية للبطاقة الوطنية ✓");
     } catch {
       toast.error("تعذر معالجة صورة الجهة الخلفية");
@@ -277,6 +282,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     try {
       const dataUrl = await fileToCompressedDataUrl(file, 1600, 1600, 0.82);
       setVehicleDocumentPhoto(dataUrl);
+      setChangedDocuments((current) => ({ ...current, vehicle_document: true }));
       toast.success("تم إرفاق صورة سنوية السيارة أو الوكالة ✓");
     } catch {
       toast.error("تعذر معالجة صورة مستند السيارة");
@@ -292,12 +298,32 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           setActiveStep("car");
           return;
         }
-        const requestedData = largeDriverMode
-          ? { vehicle_type: vehicleType }
-          : { vehicle_category: category };
+        if (!plate.trim() || year.trim().length !== 4 || !Number.isInteger(Number(year.trim()))) {
+          toast.error("أدخل رقم اللوحة وسنة الصنع بشكل صحيح");
+          setActiveStep("car");
+          return;
+        }
+        const uid = session!.user.id;
+        const documents = await uploadProviderChangeDocuments(uid, providerRole, {
+          ...(changedDocuments.face_photo && facePhoto ? { face_photo: facePhoto } : {}),
+          ...(changedDocuments.id_card && idCardPhoto ? { id_card: idCardPhoto } : {}),
+          ...(changedDocuments.id_card_back && idCardBackPhoto ? { id_card_back: idCardBackPhoto } : {}),
+          ...(changedDocuments.vehicle_document && vehicleDocumentPhoto ? { vehicle_document: vehicleDocumentPhoto } : {}),
+        });
+        const vehicleUpdate = {
+          vehicle_make: finalMake,
+          vehicle_model: largeDriverMode ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : modelName.trim(),
+          vehicle_year: Number(year),
+          vehicle_plate: plate.trim(),
+          vehicle_color: color.trim() || null,
+          ...(largeDriverMode ? { vehicle_type: vehicleType } : { vehicle_category: category }),
+        };
         const { error } = await (supabase as any).rpc("submit_provider_change_request", {
           _provider_type: providerRole,
-          _requested_data: requestedData,
+          _requested_data: {
+            vehicle_update: vehicleUpdate,
+            ...(Object.keys(documents).length ? { documents } : {}),
+          },
         });
         if (error) throw error;
         setPendingVehicleChange(true);

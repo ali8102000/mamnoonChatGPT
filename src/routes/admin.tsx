@@ -985,6 +985,22 @@ function ProvidersSection() {
                 <div className="mt-2 text-xs leading-6">
                   {request.provider_type === "worker" ? (
                     <span>الاختصاصات المطلوبة: {(request.requested_service_names ?? []).join("، ")}</span>
+                  ) : request.requested_data?.vehicle_update ? (
+                    <div className="space-y-1">
+                      <div className="font-bold">تحديث بيانات المركبة:</div>
+                      {Object.entries(request.requested_data.vehicle_update).map(([key, value]) => (
+                        <div key={key}>{({
+                          vehicle_make: "الشركة", vehicle_model: "الموديل", vehicle_year: "سنة الصنع",
+                          vehicle_plate: "رقم اللوحة", vehicle_color: "اللون",
+                          vehicle_category: "الفئة", vehicle_type: "نوع المركبة",
+                        } as Record<string, string>)[key] ?? key}: {String(value)}</div>
+                      ))}
+                      {Object.entries(request.requested_document_urls ?? {}).map(([kind, url]) => url ? (
+                        <a key={kind} href={url} target="_blank" rel="noreferrer" className="inline-block text-primary underline ml-3">
+                          عرض {({ vehicle_document: "سنوية المركبة", face_photo: "صورة الوجه", id_card: "الهوية الأمامية", id_card_back: "الهوية الخلفية" } as Record<string, string>)[kind] ?? "المستند"}
+                        </a>
+                      ) : null)}
+                    </div>
                   ) : request.provider_type === "large_driver" ? (
                     <span>نوع المركبة المطلوب: {request.requested_data?.vehicle_type === "kia_cargo" ? "كيا حمل" : request.requested_data?.vehicle_type === "kia_passenger" ? "كيا ركاب" : "باص"}</span>
                   ) : (

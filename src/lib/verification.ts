@@ -182,3 +182,29 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
   }, { onConflict: "user_id,provider_type" });
   if (error) throw new Error(`تعذر حفظ طلب التوثيق: ${error.message}`);
 }
+
+
+/** Upload only the verification documents explicitly replaced by a provider. */
+export async function uploadProviderChangeDocuments(
+  userId: string,
+  role: VerificationDocument["role"],
+  documents: Partial<Record<"face_photo" | "id_card" | "id_card_back" | "vehicle_document", string>>,
+): Promise<Record<string, string>> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const entries = Object.entries(documents).filter((entry): entry is [string, string] =>
+    typeof entry[1] === "string" && entry[1].startsWith("data:"),
+  );
+  const uploaded = await Promise.all(entries.map(async ([kind, dataUrl]) => {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const mime = blob.type === "image/png" ? "image/png" : "image/jpeg";
+    const extension = mime === "image/png" ? "png" : "jpg";
+    const path = `${userId}/${role}/${kind}-change-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+    const { error } = await supabase.storage.from("provider-verification").upload(path, blob, {
+      contentType: mime, upsert: false, cacheControl: "3600",
+    });
+    if (error) throw new Error(`تعذر رفع المستند المحدد: ${error.message}`);
+    return [kind, path] as const;
+  }));
+  return Object.fromEntries(uploaded);
+}
