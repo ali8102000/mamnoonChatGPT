@@ -144,7 +144,7 @@ function RequestDetail() {
         setLargeOffers([]);
       }
       const otherId = sessionUser?.id === r.customer_id ? r.provider_id : r.customer_id;
-      if (otherId && ["pending", "searching", "accepted", "in_progress"].includes(r.status)) {
+      if (otherId && ["pending", "searching", "accepted", "in_progress", "completed"].includes(r.status)) {
         const { data: p } = await supabase.from("profiles").select("id, full_name, phone, avatar_url").eq("id", otherId).maybeSingle();
         setOther(p);
         getRepFn({ data: { userId: otherId } }).then((rep) => setOtherRep(rep)).catch(() => {});
@@ -608,7 +608,7 @@ function RequestDetail() {
                     onClick={async () => {
                       try {
                         await runStartRide({ data: { requestId: id } });
-                        toast.success(req.type === "taxi" ? "بدأت الرحلة" : "بدأ تنفيذ الخدمة");
+                        toast.success(req.type === "taxi" ? "تم تسجيل ركوب الزبون وبدأت الرحلة" : "بدأ تنفيذ الخدمة");
                       } catch (e: any) {
                         toast.error(e.message ?? "تعذّر بدء التنفيذ");
                       }
