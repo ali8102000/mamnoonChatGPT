@@ -107,7 +107,7 @@ export function useLiveTracking(opts: {
         },
         (payload: any) => {
           const row = payload.new;
-          if (row.user_id === otherUserId) {
+          if (row && row.user_id === otherUserId) {
             setOther({ lat: row.lat, lng: row.lng, heading: row.heading, updatedAt: row.updated_at });
           }
         },
