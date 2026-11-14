@@ -200,7 +200,6 @@ export interface FileRoutesByFullPath {
   '/messages': typeof MessagesRoute
   '/support-chat': typeof SupportChatRoute
   '/subscriptions': typeof SubscriptionsRoute
-  '/subscriptions': typeof SubscriptionsRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -294,7 +293,6 @@ export interface FileRouteTypes {
     | '/coupons'
     | '/messages'
     | '/support-chat'
-    | '/subscriptions'
     | '/subscriptions'
     | '/privacy'
     | '/profile'
