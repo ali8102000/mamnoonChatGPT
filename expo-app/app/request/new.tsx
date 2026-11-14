@@ -18,7 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { haversineKm, estimateFare } from "@/lib/pricing";
 import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
-import { palette, radius, space } from "@/styles/theme";
+import { palette, radius } from "@/styles/theme";
 
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
