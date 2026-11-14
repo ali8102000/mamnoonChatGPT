@@ -11,7 +11,9 @@ import {
   adminGetStats,
   adminGetSubscriptions,
   adminSearchSubscriptionUsers,
-  adminGrantSubscription,\n  adminSetSubscriptionStatus,\n  adminExtendSubscription,
+  adminGrantSubscription,
+  adminSetSubscriptionStatus,
+  adminExtendSubscription,
 } from "@/lib/subscription.functions";
 import {
   Loader2,
@@ -80,7 +82,9 @@ type Stats = {
   monthlyRevenue: number;
   yearlyRevenue: number;
   freeCount: number;
+  bronzeCount: number;
   silverCount: number;
+  trialCount?: number;
   goldCount: number;
 };
 type SubscriptionRow = {
@@ -93,7 +97,9 @@ type SubscriptionRow = {
   request_count: number;
   auto_renew: boolean;
   created_at: string;
-  grant_type: string; granted_by: string | null; is_trial: boolean; paused_at: string | null; cancel_at_period_end: boolean;\n  profile: { full_name: string | null; email: string | null; phone: string | null } | null;\n  plan: { code: string; name_ar: string; tier: number } | null;
+  grant_type: string; granted_by: string | null; is_trial: boolean; paused_at: string | null; cancel_at_period_end: boolean;
+  profile: { full_name: string | null; email: string | null; phone: string | null } | null;
+  plan: { code: string; name_ar: string; tier: number } | null;
 };
 
 function SubscriptionsAdmin() {
@@ -296,9 +302,11 @@ function OverviewTab({ stats, settings }: { stats: Stats | null; settings: any }
       <div className="glass rounded-2xl p-4">
         <div className="font-black text-sm mb-3">توزيع المشتركين</div>
         <div className="space-y-2">
-          <PlanCountRow label="مجاني" count={stats.freeCount} color="bg-slate-400" />
-          <PlanCountRow label="فضية" count={stats.silverCount} color="bg-slate-300" />
-          <PlanCountRow label="ذهبية" count={stats.goldCount} color="bg-amber-400" />
+          <PlanCountRow label="برونزي" count={stats.bronzeCount} color="bg-orange-500" />
+          <PlanCountRow label="فضي" count={stats.silverCount} color="bg-slate-400" />
+          <PlanCountRow label="ذهبي" count={stats.goldCount} color="bg-amber-400" />
+          <PlanCountRow label="تجريبي" count={stats.trialCount ?? 0} color="bg-violet-500" />
+          <PlanCountRow label="مجاني" count={stats.freeCount} color="bg-slate-300" />
         </div>
       </div>
     </div>
