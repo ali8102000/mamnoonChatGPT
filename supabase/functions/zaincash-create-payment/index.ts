@@ -26,9 +26,9 @@ Deno.serve(async (req: Request) => {
     const clientSecret=required("ZAINCASH_CLIENT_SECRET");
     const apiKey=required("ZAINCASH_API_KEY");
     const baseUrl=(Deno.env.get("ZAINCASH_BASE_URL") || "https://pg-api-uat.zaincash.iq").replace(/\/$/,"");
-    const publicUrl=required("MAMNOON_PUBLIC_URL");
     const returnUrl=required("MAMNOON_PAYMENT_RETURN_URL");
-    if(!returnUrl.startsWith("https://") || !publicUrl.startsWith("https://")) return json({error:"https_urls_required"},503);
+    if(!returnUrl.startsWith("https://")) return json({error:"https_urls_required"},503);
+    const callbackBase=supabaseUrl.replace(/\\/$/,"")+"/functions/v1/zaincash-callback";
     const authHeader=req.headers.get("Authorization") || "";
     const bearer=authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
     if(!bearer) return json({error:"unauthorized"},401);
@@ -65,15 +65,15 @@ Deno.serve(async (req: Request) => {
     if(insertError || !payment) return json({error:"payment_record_failed"},500);
     try {
       const token=await getGatewayToken(baseUrl,clientId,clientSecret);
-      const success=new URL(returnUrl); success.searchParams.set("payment","success"); success.searchParams.set("ref",payment.external_reference_id);
-      const failure=new URL(returnUrl); failure.searchParams.set("payment","failure"); failure.searchParams.set("ref",payment.external_reference_id);
+      const success=callbackBase+"?return=success";
+      const failure=callbackBase+"?return=failure";
       const initResponse=await fetch(baseUrl+"/api/v2/payment-gateway/transaction/init",{
         method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
         body:JSON.stringify({
           language:"Ar",externalReferenceId:payment.external_reference_id,orderId:payment.id,
           serviceType:body.purpose==="subscription"?"MamnoonSubscription":"MamnoonService",
           amount:{value:String(amount),currency:"IQD"},
-          redirectUrls:{successUrl:success.toString(),failureUrl:failure.toString()}
+          redirectUrls:{successUrl:success,failureUrl:failure}
         })
       });
       const initData=await initResponse.json().catch(()=>({}));
