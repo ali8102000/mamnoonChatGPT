@@ -325,3 +325,19 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.accept_large_vehicle_offer(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.accept_large_vehicle_offer(uuid) TO authenticated;
+
+-- Customers may view the public profile card of drivers who have bid on their large request.
+DROP POLICY IF EXISTS "Customer views large vehicle bidders" ON public.profiles;
+CREATE POLICY "Customer views large vehicle bidders"
+  ON public.profiles FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.request_offers o
+      JOIN public.service_requests r ON r.id = o.request_id
+      WHERE o.provider_id = profiles.id
+        AND r.customer_id = auth.uid()
+        AND r.vehicle_category::text = 'large'
+        AND o.proposed_price IS NOT NULL
+    )
+  );
