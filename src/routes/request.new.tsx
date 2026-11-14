@@ -602,7 +602,7 @@ function NewRequest() {
               accent={mapStep === "pickup" ? "#0284c7" : "#e11d48"}
               nearby={mapStep === "pickup" ? nearby : undefined}
               nearbyKind="car"
-              autoLocateOnMount={false}
+              autoLocateOnMount={mapStep === "pickup"}
               governorateKey={mapStep === "pickup" ? gov?.key : destinationGovernorateKey ?? gov?.key}
               placeholder={
                 mapStep === "pickup"
@@ -1110,7 +1110,7 @@ function NewRequest() {
         accent="#0284c7"
         nearby={nearby}
         nearbyKind="worker"
-        autoLocateOnMount={false}
+        autoLocateOnMount={true}
         governorateKey={gov?.key}
         placeholder={`ابحث عن عنوان المنزل أو المحل في ${gov?.name ?? "المحافظة المختارة"}...`}
         confirmLabel="تأكيد موقع الخدمة"
