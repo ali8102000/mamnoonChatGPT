@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
   availCardActive: { backgroundColor: palette.brand, borderColor: palette.brand },
   availTitle: { fontSize: 18, fontWeight: "900", color: palette.ink },
   availDesc: { fontSize: 12, color: palette.muted, marginTop: 5, lineHeight: 19 },
-  availDot: { width: 13, height: 13, borderRadius: 7, backgroundColor: "#C9D1CA" },
+  availDot: { width: 13, height: 13, borderRadius: 7, backgroundColor: palette.line },
   availDotActive: { backgroundColor: palette.gold },
   emptyBox: { alignItems: "center", paddingVertical: 36, backgroundColor: palette.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: palette.line },
   emptyText: { fontSize: 15, fontWeight: "800", color: palette.ink },
