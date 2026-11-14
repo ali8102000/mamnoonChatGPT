@@ -34,7 +34,7 @@ function MyCouponsPage() {
     let alive = true;
     (async () => {
       setBusy(true);
-      const { data, error: queryError } = await supabase.rpc("get_my_coupons");
+      const { data, error: queryError } = await (supabase as any).rpc("get_my_coupons");
       if (!alive) return;
       if (queryError) setError("تعذّر تحميل كوبوناتك حالياً");
       else setCoupons((data ?? []) as Coupon[]);
