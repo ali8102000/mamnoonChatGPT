@@ -95,3 +95,13 @@ END; $$;
 REVOKE ALL ON FUNCTION public.notify_taxi_drivers_on_new_demand() FROM PUBLIC,anon,authenticated;
 DROP TRIGGER IF EXISTS trg_notify_taxi_drivers_on_new_demand ON public.service_requests;
 CREATE TRIGGER trg_notify_taxi_drivers_on_new_demand AFTER INSERT OR UPDATE OF status,pickup_lat,pickup_lng ON public.service_requests FOR EACH ROW EXECUTE FUNCTION public.notify_taxi_drivers_on_new_demand();
+
+
+UPDATE public.support_conversations c
+SET priority_tier=COALESCE((
+ SELECT CASE sp.code WHEN 'gold' THEN 3 WHEN 'silver' THEN 2 WHEN 'bronze' THEN 1 WHEN 'trial' THEN 1 ELSE 0 END
+ FROM public.user_subscriptions us JOIN public.subscription_plans sp ON sp.id=us.plan_id
+ WHERE us.user_id=c.user_id AND us.status='active' AND (us.current_period_end IS NULL OR us.current_period_end>now())
+ ORDER BY sp.tier DESC LIMIT 1
+),0)
+WHERE c.status='open';
