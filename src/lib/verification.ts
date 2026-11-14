@@ -24,6 +24,7 @@ export interface VerificationDocument {
   vehiclePlate?: string;
   vehicleColor?: string;
   vehicleCategory?: string;
+  vehicleType?: 'kia_cargo' | 'kia_passenger';
   // Specific worker details
   workerLevel?: "fani" | "khabir";
   workerBio?: string;
