@@ -595,7 +595,7 @@ function RequestDetail() {
           <div className="mx-5 mb-4 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 flex items-center gap-3">
             <div className="h-12 w-12 shrink-0 rounded-2xl bg-emerald-500 text-white grid place-items-center text-2xl">✓</div>
             <div>
-              <div className="font-black text-base text-emerald-700 dark:text-emerald-300">اكتملت ${req.type === "taxi" ? "الرحلة" : "الخدمة"}</div>
+              <div className="font-black text-base text-emerald-700 dark:text-emerald-300">{req.type === "taxi" ? "اكتملت الرحلة" : "اكتملت الخدمة"}</div>
               <div className="text-xs text-muted-foreground mt-1">{myRole === "customer" ? "أكد مقدّم الخدمة إكمال الطلب. تگدر هسه تقيّمه." : "تم تسجيل إكمال الطلب بنجاح."}</div>
             </div>
           </div>
