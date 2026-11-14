@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { Button, RealInput } from "@/components/ui";
+import { palette, radius } from "@/styles/theme";
 
 export default function ResetPassword() {
   const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
@@ -67,9 +68,9 @@ export default function ResetPassword() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 50 },
-  title: { fontSize: 26, fontWeight: "900", color: "#1e293b", marginBottom: 8 },
-  subtitle: { fontSize: 14, color: "#64748b", marginBottom: 8 },
-  email: { color: "#64748b", fontSize: 13, marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: "700", color: "#64748b", marginBottom: 8, marginTop: 16 },
+  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
+  title: { fontSize: 26, fontWeight: "900", color: palette.ink, marginBottom: 8 },
+  subtitle: { fontSize: 13, color: palette.muted, marginBottom: 8 },
+  email: { color: palette.muted, fontSize: 12, marginBottom: 12 },
+  label: { fontSize: 13, fontWeight: "900", color: palette.ink, marginBottom: 8, marginTop: 16 },
 });
