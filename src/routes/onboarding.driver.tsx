@@ -99,10 +99,10 @@ const CATEGORY_META: Record<
     desc: "أحدث الموديلات والفئات الراقية",
   },
   large: {
-    label: "سيارات كبيرة: كيا حمل / كيا ركاب / باص",
+    label: "سيارات كبيرة: كيا حمل / كيا ركاب",
     emoji: "🚚",
     gradient: "from-orange-500 to-amber-600",
-    desc: "لأصحاب كيا الحمل وكيا الركاب والباصات — اختر نوع مركبتك بعد تحديد هذه الفئة",
+    desc: "لأصحاب كيا الحمل وكيا الركاب — اختر نوع مركبتك بعد تحديد هذه الفئة",
   },
 };
 
@@ -121,7 +121,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [customMake, setCustomMake] = useState<string>("");
   const [modelName, setModelName] = useState<string>("كورولا");
   const [category, setCategory] = useState<VehicleCategory>(largeDriverMode ? "large" : "economy");
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | null>(null);
   const [year, setYear] = useState<string>(String(new Date().getFullYear() - 2));
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("أبيض");
@@ -232,7 +232,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   if (!session) return <Navigate to="/auth" />;
 
   const finalMake = category === "large" ? "كيا" : make === "أخرى" ? customMake.trim() : make;
-  const identityName = (largeDriverMode ? (profile?.full_name || legalName) : legalName).trim();
+  const identityName = (largeDriverMode ? (profile?.full_name || session?.user?.user_metadata?.full_name || legalName) : legalName).trim();
 
   // Handle Photo Uploads
   async function handleFacePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -287,6 +287,11 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     if (vehicleChangeMode && existingDoc?.status === "approved") {
       setBusy(true);
       try {
+        if (largeDriverMode && !vehicleType) {
+          toast.error("يرجى اختيار كيا حمل أو كيا ركاب");
+          setActiveStep("car");
+          return;
+        }
         const requestedData = largeDriverMode
           ? { vehicle_type: vehicleType }
           : { vehicle_category: category };
@@ -313,6 +318,11 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     }
     if (!largeDriverMode && !modelName.trim()) {
       toast.error("أدخل موديل السيارة");
+      setActiveStep("car");
+      return;
+    }
+    if (largeDriverMode && !vehicleType) {
+      toast.error("يرجى اختيار كيا حمل أو كيا ركاب");
       setActiveStep("car");
       return;
     }
@@ -564,7 +574,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         </div>
         <div>
           <h1 className="text-2xl font-black">{largeDriverMode ? "تسجيل سائق السيارات الكبيرة" : "تسجيل كابتن التكسي"}</h1>
-          <p className="text-xs text-muted-foreground">{largeDriverMode ? "تسجيل مستقل لكيا الحمل وكيا الركاب والباص" : "تحديد فئة سيارة التكسي وتأكيد الهوية الرسمية"}</p>
+          <p className="text-xs text-muted-foreground">{largeDriverMode ? "تسجيل مستقل لكيا الحمل وكيا الركاب" : "تحديد فئة سيارة التكسي وتأكيد الهوية الرسمية"}</p>
         </div>
       </div>
 
@@ -614,7 +624,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
                   <button
                     key={k}
                     type="button"
-                    onClick={() => { setCategory(k); if (k === "large") { setMake("كيا"); setModelName(vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص"); } }}
+                    onClick={() => { setCategory(k); if (k === "large") { setMake("كيا"); setModelName(vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب"); } }}
                     className={`p-3 rounded-2xl text-center btn-press transition-all border ${
                       active
                         ? "bg-white ring-2 ring-primary border-primary shadow-lg scale-105"
