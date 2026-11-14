@@ -207,7 +207,7 @@ function NewRequest() {
   useEffect(() => {
     setRouteKm(null);
     setRouteError(null);
-    if (type !== "taxi" || !destConfirmed || pickupLat == null || pickupLng == null || destLat == null || destLng == null) return;
+    if (type !== "taxi" || vehicle === "large" || !destConfirmed || pickupLat == null || pickupLng == null || destLat == null || destLng == null) return;
     let stale = false;
 
     const t = setTimeout(() => {
@@ -353,7 +353,7 @@ function NewRequest() {
       toast.error("يرجى تحديد موقع الوجهة على الخريطة لحساب المسافة بدقة");
       return;
     }
-    if (type === "taxi" && (!destConfirmed || routeKm === null || routeError)) {
+    if (type === "taxi" && vehicle !== "large" && (!destConfirmed || routeKm === null || routeError)) {
       toast.error("انتظر حساب السعر من مسافة الطريق قبل الطلب");
       return;
     }
@@ -380,7 +380,7 @@ function NewRequest() {
     }
 
     const priceNum = parseInt(customerPrice.replace(/[^0-9]/g, ""), 10);
-    if (type === "service" && pricingMode !== "negotiable" && !(priceNum > 0)) {
+    if (vehicle === "large" && customerPrice.trim() && (!Number.isSafeInteger(priceNum) || priceNum < 250 || priceNum % 250 !== 0)) {\n      toast.error("السعر المقترح يجب أن يكون 250 ديناراً أو أكثر ومن مضاعفات 250");\n      return;\n    }\n    if (type === "service" && pricingMode !== "negotiable" && !(priceNum > 0)) {
       toast.error("اكتب المبلغ اللي تريد تدفعه");
       return;
     }
@@ -402,7 +402,7 @@ function NewRequest() {
           workers_count: finalWorkers,
           vehicle_category: type === "taxi" ? vehicleCategory : null,
           vehicle_type: type === "taxi" && vehicleCategory === "large" ? vehicleType : null,
-          price_estimate: priceEstimate,
+          price_estimate: vehicle === "large" ? null : priceEstimate,\n          ...(vehicle === "large" ? { pricing_mode: customerPrice.trim() ? "fixed" : "negotiable", customer_price: customerPrice.trim() ? priceNum : null } : {}),
           pickup_text: pickupLabel || "موقع محدد على الخريطة",
           pickup_lat: pickupCoords?.lat ?? null,
           pickup_lng: pickupCoords?.lng ?? null,
@@ -709,10 +709,16 @@ function NewRequest() {
               </div>
             )}
             {vehicle === "large" ? (
-              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3">
-                <div className="font-black text-sm text-foreground mb-1">طلب سيارة كبيرة</div>
-                <div className="text-xs text-muted-foreground mb-2">اختر نوع السيارة المناسبة</div>
-                <div className="font-black text-primary">{activeFare.toLocaleString()} د.ع تقريباً</div>
+              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+                <div className="font-black text-sm text-foreground">طلب سيارة كبيرة</div>
+                <div className="text-xs text-muted-foreground">ما نحسب السعر بالمسافة؛ اكتب السعر اللي تقترحه أو اتركه حتى توصلك عروض أصحاب السيارات</div>
+                <input
+                  inputMode="numeric"
+                  value={customerPrice}
+                  onChange={(e) => setCustomerPrice(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="السعر المقترح بالدينار (اختياري)"
+                  className="w-full bg-white border border-orange-200 rounded-xl px-4 py-3 text-sm font-bold outline-none"
+                />
               </div>
             ) : (
               <div className="space-y-2">
@@ -759,7 +765,7 @@ function NewRequest() {
             )}
             <button
               type="button"
-              disabled={busy || !pickupCoords || !destCoords || routeKm === null || !!routeError}
+              disabled={busy || !pickupCoords || !destCoords || (vehicle !== "large" && (routeKm === null || !!routeError))}
               onClick={submit}
               className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-xl btn-press disabled:opacity-50 flex items-center justify-center gap-2"
             >
