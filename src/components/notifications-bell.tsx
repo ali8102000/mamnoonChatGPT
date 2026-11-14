@@ -49,7 +49,7 @@ export function NotificationsBell() {
     }).subscribe();
     return () => { window.clearInterval(refresh); supabase.removeChannel(ch); };
   }, [uid, loadNotifications]);
-  const visibleItems = items.filter((n) => Date.now() - new Date(n.created_at).getTime() <= 24 * 60 * 60 * 1000);
+  const visibleItems = items.filter((n) => now - new Date(n.created_at).getTime() <= 24 * 60 * 60 * 1000);
   const unread = visibleItems.filter((n) => !n.read_at).length;
 
   async function markAll() {
