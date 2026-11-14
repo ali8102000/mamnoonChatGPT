@@ -70,12 +70,12 @@ export const incrementUserRequestCount = createServerFn({ method: "POST" })
   });
 
 async function requireAdmin(context: any) {
-  const { userId } = context;
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await (supabaseAdmin as any).rpc("has_admin_access", {
+  const { supabase, userId } = context;
+  // Use the caller's authenticated JWT: admin checks depend on auth.uid().
+  const { data, error } = await (supabase as any).rpc("has_admin_access", {
     p_user_id: userId,
   });
-  if (!data) throw new Error("غير مصرّح: للمديرين فقط");
+  if (error || !data) throw new Error("غير مصرّح: للمديرين فقط");
 }
 
 export const adminGetPlans = createServerFn({ method: "GET" })
@@ -306,4 +306,53 @@ export const adminAssignSubscription = createServerFn({ method: "POST" })
     }
 
     return { ok: true };
+  });
+
+
+export const adminSearchSubscriptionUsers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ query: z.string().trim().min(2).max(100) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const term = data.query.replace(/[,%()]/g, " ").trim();
+    const { data: users, error } = await (supabaseAdmin as any)
+      .from("profiles")
+      .select("id,email,phone,full_name")
+      .or(`email.ilike.%${term}%,phone.ilike.%${term}%,full_name.ilike.%${term}%`)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw new Error("تعذر البحث عن المستخدمين");
+    const ids = (users ?? []).map((u: any) => u.id);
+    if (!ids.length) return [];
+    const { data: roles, error: rolesError } = await (supabaseAdmin as any)
+      .from("user_roles").select("user_id,role").in("user_id", ids)
+      .in("role", ["worker", "driver", "large_driver"]);
+    if (rolesError) throw new Error("تعذر التحقق من نوع الحساب");
+    const providerIds = new Set((roles ?? []).map((r: any) => r.user_id));
+    return (users ?? []).filter((u: any) => providerIds.has(u.id));
+  });
+
+export const adminGrantSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    user_id: z.string().uuid(),
+    plan_code: z.enum(["bronze", "silver", "gold"]),
+    duration: z.enum(["month", "two_months", "year", "permanent"]),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: providerRoles, error: rolesError } = await (supabaseAdmin as any)
+      .from("user_roles").select("role").eq("user_id", data.user_id)
+      .in("role", ["worker", "driver", "large_driver"]);
+    if (rolesError) throw new Error("تعذر التحقق من حساب مقدم الخدمة");
+    if (!providerRoles?.length) throw new Error("يمكن منح الاشتراك للفنيين وسائقي التكسي والكيات فقط");
+    const { data: subscriptionId, error } = await (context.supabase as any).rpc("admin_grant_subscription", {
+      p_user_id: data.user_id,
+      p_plan_code: data.plan_code,
+      p_duration: data.duration,
+    });
+    if (error) throw new Error("فشل منح الاشتراك: " + error.message);
+    return { ok: true, subscription_id: subscriptionId };
   });
