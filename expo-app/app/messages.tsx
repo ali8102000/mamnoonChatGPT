@@ -63,6 +63,7 @@ export default function MessagesScreen() {
     const sub = supabase
       .channel("chats-list")
       .on("postgres_changes", { event: "*", schema: "public", table: "chats" }, () => loadChats())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "service_requests" }, () => loadChats())
       .subscribe();
     return () => {
       supabase.removeChannel(sub);
