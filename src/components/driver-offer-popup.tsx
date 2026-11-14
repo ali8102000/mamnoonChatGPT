@@ -27,6 +27,8 @@ export function DriverOfferPopup() {
   const [secondsLeft, setSecondsLeft] = useState(OFFER_SECONDS);
   const [totalSeconds, setTotalSeconds] = useState(OFFER_SECONDS);
   const [busy, setBusy] = useState(false);
+  const [largeOfferPrice, setLargeOfferPrice] = useState("");
+  const [largeOfferMessage, setLargeOfferMessage] = useState("");
   const audioCtxRef = useRef<AudioContext | null>(null);
   const beepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const uid = session?.user.id;
@@ -50,7 +52,7 @@ export function DriverOfferPopup() {
         .gt("expires_at", new Date().toISOString())
         .order("sent_at")
         .limit(10);
-      let offers: Offer[] | null = fetchedOffers;
+      let offers: Offer[] | null = (fetchedOffers ?? []).filter((row: any) => !row.proposed_price);
 
       // 2. If no direct offer exists, check for unassigned pending taxi requests
       if (!offers || offers.length === 0) {
@@ -58,6 +60,7 @@ export function DriverOfferPopup() {
           .from("service_requests")
           .select("*")
           .eq("type", "taxi")
+          .neq("vehicle_category", "large")
           .in("status", ["pending", "searching"])
           .neq("customer_id", uid ?? "")
           .order("created_at", { ascending: false })
@@ -119,6 +122,8 @@ export function DriverOfferPopup() {
         if (!r || !["pending", "searching"].includes(r.status)) continue;
         offerRef.current = o;
         setRequest(r);
+        setLargeOfferPrice("");
+        setLargeOfferMessage("");
         setOffer(o);
         toast("طلب رحلة جديد", {
           description: "لديك دقيقة لقبول الطلب",
@@ -197,6 +202,7 @@ export function DriverOfferPopup() {
 
   useEffect(() => {
     if (!offer) return;
+    if (request?.vehicle_category === "large") { setTotalSeconds(0); setSecondsLeft(0); return; }
     setTotalSeconds(OFFER_SECONDS);
     const tick = () => {
       const left = offerSecondsLeft(offer.expires_at);
@@ -210,10 +216,10 @@ export function DriverOfferPopup() {
     tick();
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
-  }, [offer]);
+  }, [offer, request?.vehicle_category]);
 
   useEffect(() => {
-    if (!offer) return;
+    if (!offer || request?.vehicle_category === "large") return;
     try {
       const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
       if (Ctx && !audioCtxRef.current) audioCtxRef.current = new Ctx();
@@ -243,7 +249,7 @@ export function DriverOfferPopup() {
       if (beepIntervalRef.current) clearInterval(beepIntervalRef.current);
       beepIntervalRef.current = null;
     };
-  }, [offer]);
+  }, [offer, request?.vehicle_category]);
 
   async function doRespond(action: "accept" | "reject") {
     if (!offer) return;
@@ -267,9 +273,37 @@ export function DriverOfferPopup() {
     }
   }
 
+  async function sendLargeVehicleOffer() {
+    if (!offer || !request || !uid) return;
+    const price = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
+    if (!Number.isSafeInteger(price) || price < 250 || price % 250 !== 0) {
+      toast.error("اكتب سعراً لا يقل عن 250 ديناراً ويكون من مضاعفات 250");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("submit_large_vehicle_offer", {
+        _request_id: offer.request_id,
+        _price: price,
+        _message: largeOfferMessage.trim() || null,
+      });
+      if (error) throw error;
+      toast.success("تم إرسال عرض السعر للزبون");
+      setOffer(null);
+      setRequest(null);
+      setLargeOfferPrice("");
+      setLargeOfferMessage("");
+    } catch (error: any) {
+      toast.error(error?.message ?? "تعذر إرسال عرض السعر");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!offer || !request) return null;
 
-  const pct = (secondsLeft / totalSeconds) * 100;
+  const isLargeVehicle = request.vehicle_category === "large";
+  const pct = totalSeconds > 0 ? (secondsLeft / totalSeconds) * 100 : 0;
   const urgent = secondsLeft <= Math.max(5, Math.round(totalSeconds * 0.2));
 
   return (
@@ -289,9 +323,14 @@ export function DriverOfferPopup() {
       >
         <div className="flex flex-col items-center mb-5">
           <div className="text-xs font-bold text-muted-foreground tracking-widest mb-3">
-            🚕 طلب رحلة جديد
+            {isLargeVehicle ? "🚚 طلب سيارة كبيرة — أرسل سعرك" : "🚕 طلب رحلة جديد"}
           </div>
-          <div className="relative w-24 h-24">
+          {isLargeVehicle ? (
+            <div className="rounded-2xl bg-orange-500/10 border border-orange-500/20 px-4 py-3 text-center">
+              <div className="text-lg font-black text-orange-700">طلب مفتوح للعروض</div>
+              <div className="text-xs text-muted-foreground mt-1">اكتب أجرتك والزبون يختار العرض المناسب</div>
+            </div>
+          ) : (          <div className="relative w-24 h-24">
             <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
               <circle
                 cx="50"
@@ -321,7 +360,7 @@ export function DriverOfferPopup() {
                 {secondsLeft}
               </span>
             </div>
-          </div>
+          </div>)}
         </div>
 
         <div className="space-y-3 mb-5">
@@ -352,35 +391,53 @@ export function DriverOfferPopup() {
                 {offer.distance_km ? `${Number(offer.distance_km).toFixed(1)} كم` : "—"}
               </div>
             </div>
-            {request.price_estimate && (
+            {isLargeVehicle ? (
+              <div className="bg-orange-500/10 rounded-2xl px-3 py-2.5 text-center border border-orange-500/30">
+                <div className="text-[10px] text-orange-700">ميزانية الزبون</div>
+                <div className="font-black text-orange-700 text-sm mt-0.5">
+                  {request.customer_price ? `${Number(request.customer_price).toLocaleString()} د.ع` : "بانتظار عروض الأسعار"}
+                </div>
+              </div>
+            ) : request.price_estimate ? (
               <div className="bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl px-3 py-2.5 text-center border border-primary/30">
                 <div className="text-[10px] uppercase text-primary/80">السعر</div>
                 <div className="font-black text-primary text-sm mt-0.5">
                   {Number(request.price_estimate).toLocaleString()} د.ع
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={() => doRespond("reject")}
-            disabled={busy || secondsLeft === 0}
-            className="h-14 font-black text-base"
-          >
-            <X className="h-5 w-5" /> رفض
-          </Button>
-          <Button
-            onClick={() => doRespond("accept")}
-            disabled={busy || secondsLeft === 0}
-            className="h-14 font-black text-base"
-          >
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
-            قبول
-          </Button>
-        </div>
+        {isLargeVehicle ? (
+          <div className="space-y-3">
+            <input
+              inputMode="numeric"
+              value={largeOfferPrice}
+              onChange={(event) => setLargeOfferPrice(event.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="أدخل أجرتك بالدينار"
+              className="w-full h-12 rounded-xl border border-border bg-background px-4 text-sm font-bold outline-none focus:border-primary"
+            />
+            <input
+              value={largeOfferMessage}
+              onChange={(event) => setLargeOfferMessage(event.target.value)}
+              placeholder="ملاحظة للزبون (اختياري)"
+              className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm outline-none focus:border-primary"
+            />
+            <Button onClick={sendLargeVehicleOffer} disabled={busy} className="w-full h-14 font-black text-base">
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "إرسال عرض السعر"}
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" onClick={() => doRespond("reject")} disabled={busy || secondsLeft === 0} className="h-14 font-black text-base">
+              <X className="h-5 w-5" /> رفض
+            </Button>
+            <Button onClick={() => doRespond("accept")} disabled={busy || secondsLeft === 0} className="h-14 font-black text-base">
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />} قبول
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
