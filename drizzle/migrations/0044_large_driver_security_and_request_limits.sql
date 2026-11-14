@@ -446,7 +446,7 @@ CREATE OR REPLACE FUNCTION public.guard_request_offer_proposed_price()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public
-AS $
+AS $$
 BEGIN
   IF NEW.proposed_price IS NOT NULL
      AND (NEW.proposed_price < 250 OR NEW.proposed_price > 50000 OR NEW.proposed_price % 250 <> 0) THEN
@@ -454,7 +454,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 DROP TRIGGER IF EXISTS trg_guard_request_offer_proposed_price ON public.request_offers;
 CREATE TRIGGER trg_guard_request_offer_proposed_price
   BEFORE INSERT OR UPDATE OF proposed_price ON public.request_offers
@@ -467,7 +467,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   IF current_setting('mamnoon.allow_large_vehicle_accept', true) = 'true'
      AND OLD.vehicle_category::text = 'large'
@@ -497,7 +497,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.submit_large_vehicle_offer(
   _request_id uuid,
