@@ -137,9 +137,18 @@ export default function NewRequest() {
     async function locateInitialPosition() {
       try {
         const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.status !== "granted") return;
-        const position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+        if (permission.status !== "granted") {
+          if (mounted) {
+            Alert.alert(
+              "إذن الموقع مطلوب",
+              "اسمح لممنون بتحديد موقعك حتى يضع نقطة الانطلاق أو موقع الخدمة تلقائياً. تقدر تختار الموقع يدوياً إذا ما تريد تفعيل الإذن.",
+            );
+          }
+          return;
+        }
+        const lastKnown = await Location.getLastKnownPositionAsync();
+        const position = lastKnown ?? await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
         });
         if (!mounted) return;
         const coords = {
