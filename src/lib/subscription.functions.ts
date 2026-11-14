@@ -206,7 +206,7 @@ export const adminGetStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await (context.supabase as any).rpc("get_subscription_stats");
+    const { data, error } = await (context.supabase as any).rpc("get_subscription_stats_v2");
     if (error || !data || data.length === 0) {
       return {
         totalSubscribers: 0,
