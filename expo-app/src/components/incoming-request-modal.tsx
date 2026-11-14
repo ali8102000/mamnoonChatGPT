@@ -74,7 +74,7 @@ const SERVICE_IMAGES: Record<string, number> = {
 
 export function IncomingRequestModal() {
   const { user, roles } = useAuth();
-  const canReceive = roles.some((role: AppRole) => role === "driver" || role === "worker");
+  const canReceive = roles.some((role: AppRole) => role === "driver" || role === "large_driver" || role === "worker");
   const [offer, setOffer] = useState<Offer | null>(null);
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [visible, setVisible] = useState(false);
