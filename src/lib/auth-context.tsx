@@ -7,6 +7,7 @@ export const SUPER_ADMIN_EMAIL = "a7md0555666@gmail.com";
 export type AppRole =
   | "customer"
   | "driver"
+  | "large_driver"
   | "worker"
   | "admin"
   | "super_admin"
@@ -77,14 +78,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", uid),
         supabase.from("user_blocks").select("*").eq("user_id", uid).maybeSingle(),
-        supabase.from("driver_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
+        supabase.from("driver_profiles").select("user_id,vehicle_category").eq("user_id", uid).maybeSingle(),
         supabase.from("worker_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
       ]);
 
       // Provider applications are selectable even while awaiting admin approval.
       // Actual provider permissions remain enforced by database policies/status checks.
       const mappedRoles = (roleRows ?? []).map((r: any) => r.role as AppRole);
-      if (driverProfile && !mappedRoles.includes("driver")) mappedRoles.push("driver");
+      if (driverProfile?.vehicle_category === "large") { if (!mappedRoles.includes("large_driver")) mappedRoles.push("large_driver"); }
+      else if (driverProfile && !mappedRoles.includes("driver")) mappedRoles.push("driver");
       if (workerProfile && !mappedRoles.includes("worker")) mappedRoles.push("worker");
       if (!mappedRoles.includes("customer")) mappedRoles.unshift("customer");
 

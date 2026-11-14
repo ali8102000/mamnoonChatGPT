@@ -45,7 +45,7 @@ function ProfilePage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const uid = session?.user.id;
-  const isDriver = roles.includes("driver");
+  const isDriver = roles.includes("driver") || roles.includes("large_driver");
   const isWorker = roles.includes("worker");
   const isProvider = isDriver || isWorker;
 
@@ -181,6 +181,8 @@ function ProfilePage() {
                   ? "زبون"
                   : r === "driver"
                     ? "كابتن موثق 🚗"
+                    : r === "large_driver"
+                      ? "سائق سيارات كبيرة 🚚"
                     : (r as string) === "admin"
                       ? "مدير"
                       : "فني موثق 🛠️"}

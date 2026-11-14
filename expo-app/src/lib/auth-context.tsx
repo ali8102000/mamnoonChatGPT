@@ -5,6 +5,7 @@ import { supabase } from "./supabase";
 export type AppRole =
   | "customer"
   | "driver"
+  | "large_driver"
   | "worker"
   | "admin"
   | "super_admin"
@@ -45,14 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("id", uid)
         .maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
-      supabase.from("driver_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
+      supabase.from("driver_profiles").select("user_id,vehicle_category").eq("user_id", uid).maybeSingle(),
       supabase.from("worker_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
     ]);
     setProfile(prof ?? null);
     const mappedRoles = (roleRows ?? []).map((r) => r.role as AppRole);
     // Let a provider select their pending application while approval is in progress.
     // Provider access remains controlled by approval and database policies.
-    if (driverProfile && !mappedRoles.includes("driver")) mappedRoles.push("driver");
+    if (driverProfile?.vehicle_category === "large") { if (!mappedRoles.includes("large_driver")) mappedRoles.push("large_driver"); }
+    else if (driverProfile && !mappedRoles.includes("driver")) mappedRoles.push("driver");
     if (workerProfile && !mappedRoles.includes("worker")) mappedRoles.push("worker");
     if (!mappedRoles.includes("customer")) mappedRoles.unshift("customer");
     setRoles(mappedRoles);

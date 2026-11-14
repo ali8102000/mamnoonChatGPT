@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth, type AppRole } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { Car, Wrench, User, Loader2, ArrowLeft } from "lucide-react";
+import { Car, Wrench, User, Loader2, ArrowLeft, Truck } from "lucide-react";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/select-role")({
@@ -34,6 +34,13 @@ const roles: { id: AppRole; title: string; desc: string; icon: any; gradient: st
     desc: "استقبل طلبات الرحلات واكسب يومياً",
     icon: Car,
     gradient: "from-amber-500 to-yellow-400",
+  },
+  {
+    id: "large_driver",
+    title: "سائق سيارات كبيرة",
+    desc: "كيا حمل أو كيا ركاب أو باص — قسم مستقل",
+    icon: Truck,
+    gradient: "from-orange-500 to-amber-500",
   },
   {
     id: "worker",
@@ -76,8 +83,8 @@ function SelectRolePage() {
         }
         await refresh();
         navigate({ to: "/home" });
-      } else if (picked === "driver") {
-        navigate({ to: "/onboarding/driver" });
+      } else if (picked === "driver" || picked === "large_driver") {
+        window.location.href = picked === "large_driver" ? "/onboarding/driver?provider=large_driver" : "/onboarding/driver";
       } else {
         navigate({ to: "/onboarding/worker" });
       }

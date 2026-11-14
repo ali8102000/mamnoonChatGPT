@@ -99,16 +99,17 @@ const CATEGORY_META: Record<
     desc: "أحدث الموديلات والفئات الراقية",
   },
   large: {
-    label: "سيارة كبيرة: كيا حمل / كيا ركاب",
+    label: "سيارات كبيرة: كيا حمل / كيا ركاب / باص",
     emoji: "🚚",
     gradient: "from-orange-500 to-amber-600",
     desc: "لأصحاب كيا الحمل وكيا الركاب والباصات — اختر نوع مركبتك بعد تحديد هذه الفئة",
   },
 };
 
-function OnboardingDriver() {
+export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("provider") === "large_driver") }: { largeDriverMode?: boolean } = {}) {
   const { session, profile, loading, refresh } = useAuth();
   const navigate = useNavigate();
+  const providerRole = largeDriverMode ? "large_driver" : "driver";
   const [companyName, setCompanyName] = useState("شركة ممنون");
   useEffect(() => {
     (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
@@ -119,8 +120,8 @@ function OnboardingDriver() {
   const [make, setMake] = useState<string>("تويوتا");
   const [customMake, setCustomMake] = useState<string>("");
   const [modelName, setModelName] = useState<string>("كورولا");
-  const [category, setCategory] = useState<VehicleCategory>("economy");
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
+  const [category, setCategory] = useState<VehicleCategory>(largeDriverMode ? "large" : "economy");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
   const [year, setYear] = useState<string>(String(new Date().getFullYear() - 2));
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("أبيض");
@@ -146,11 +147,13 @@ function OnboardingDriver() {
 
   const [existingDoc, setExistingDoc] = useState<any>(null);
   const [editingMode, setEditingMode] = useState(false);
+  const [vehicleChangeMode, setVehicleChangeMode] = useState(false);
+  const [pendingVehicleChange, setPendingVehicleChange] = useState(false);
 
   // Load existing verification if stored
   useEffect(() => {
     if (session?.user?.id) {
-      const existing = getProviderVerification(session.user.id, 'driver');
+      const existing = getProviderVerification(session.user.id, providerRole) ?? (largeDriverMode ? getProviderVerification(session.user.id, "driver") : null);
       if (existing) {
         setExistingDoc(existing);
         if (existing.legalName) setLegalName(existing.legalName);
@@ -168,7 +171,17 @@ function OnboardingDriver() {
         if (existing.vehicleType) setVehicleType(existing.vehicleType);
       }
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, providerRole]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    let active = true;
+    (supabase as any).from("provider_change_requests").select("id")
+      .eq("user_id", userId).eq("provider_type", providerRole).eq("status", "pending").maybeSingle()
+      .then((result: any) => { if (active) setPendingVehicleChange(!!result.data); });
+    return () => { active = false; };
+  }, [session?.user?.id, providerRole]);
 
   // Keep the review status and admin rejection reason synchronized from Supabase.
   useEffect(() => {
@@ -181,7 +194,7 @@ function OnboardingDriver() {
       setExistingDoc((current: any) => ({
         ...(current ?? {
           userId,
-          role: "driver",
+          role: providerRole,
           legalName: row.legal_name ?? profile?.full_name ?? "",
           facePhotoUrl: "",
           idCardPhotoUrl: "",
@@ -196,17 +209,24 @@ function OnboardingDriver() {
         vehiclePlate: metadata.vehiclePlate ?? current?.vehiclePlate,
         vehicleColor: metadata.vehicleColor ?? current?.vehicleColor,
         vehicleCategory: metadata.vehicleCategory ?? current?.vehicleCategory,
+        vehicleType: metadata.vehicleType ?? current?.vehicleType,
       }));
     };
-    (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
-      .eq("user_id", userId).eq("provider_type", "driver").maybeSingle()
-      .then((result: any) => { if (!result.error && result.data) applyReview(result.data); });
+    (async () => {
+      let result = await (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+        .eq("user_id", userId).eq("provider_type", providerRole).maybeSingle();
+      if (!result.data && largeDriverMode) {
+        result = await (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+          .eq("user_id", userId).eq("provider_type", "driver").maybeSingle();
+      }
+      if (!result.error && result.data) applyReview(result.data);
+    })();
     const channel = supabase.channel(`driver-verification-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "provider_verifications", filter: `user_id=eq.${userId}` },
-        (payload: any) => { if (payload.new?.provider_type === "driver") applyReview(payload.new); })
+        (payload: any) => { if (payload.new?.provider_type === providerRole || (largeDriverMode && payload.new?.provider_type === "driver")) applyReview(payload.new); })
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
-  }, [session?.user?.id, profile?.full_name]);
+  }, [session?.user?.id, profile?.full_name, providerRole]);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
@@ -263,6 +283,28 @@ function OnboardingDriver() {
   }
 
   async function submit() {
+    if (vehicleChangeMode && existingDoc?.status === "approved") {
+      setBusy(true);
+      try {
+        const requestedData = largeDriverMode
+          ? { vehicle_type: vehicleType }
+          : { vehicle_category: category };
+        const { error } = await (supabase as any).rpc("submit_provider_change_request", {
+          _provider_type: providerRole,
+          _requested_data: requestedData,
+        });
+        if (error) throw error;
+        setPendingVehicleChange(true);
+        setVehicleChangeMode(false);
+        setEditingMode(false);
+        toast.success("وصل طلب تغيير فئة المركبة للإدارة. فئتك الحالية تبقى فعالة لحين الموافقة.");
+      } catch (error: any) {
+        toast.error(error?.message || "تعذر إرسال طلب تغيير المركبة");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!finalMake) {
       toast.error("اختر أو اكتب الشركة المصنعة للسيارة");
       setActiveStep("car");
@@ -322,7 +364,7 @@ function OnboardingDriver() {
       const { error: driverProfileError } = await supabase.from("driver_profiles").upsert({
         user_id: uid,
         vehicle_make: finalMake,
-        vehicle_model: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب") : modelName.trim(),
+        vehicle_model: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : modelName.trim(),
         vehicle_year: Number(year) || null,
         vehicle_category: category as any,
         vehicle_type: category === "large" ? vehicleType : null,
@@ -338,7 +380,7 @@ function OnboardingDriver() {
       // 3. Persist identity documents only after the driver profile exists.
       const verificationDoc: VerificationDocument = {
         userId: uid,
-        role: "driver",
+        role: providerRole,
         legalName: legalName.trim(),
         phone: profile?.phone,
         email: profile?.email || session!.user.email,
@@ -351,7 +393,7 @@ function OnboardingDriver() {
         verifiedAt: new Date().toISOString(),
         status: "pending",
         vehicleMake: finalMake,
-        vehicleModel: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب") : modelName.trim(),
+        vehicleModel: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : modelName.trim(),
         vehicleYear: Number(year) || undefined,
         vehiclePlate: plate.trim(),
         vehicleColor: color.trim() || undefined,
@@ -361,7 +403,7 @@ function OnboardingDriver() {
       await saveProviderVerificationRemote(verificationDoc);
       saveProviderVerification(verificationDoc);
 
-      setExistingDoc(getProviderVerification(uid, 'driver'));
+      setExistingDoc(getProviderVerification(uid, providerRole));
       setEditingMode(false);
       await refresh();
 
@@ -407,14 +449,14 @@ function OnboardingDriver() {
           <div>
             <h2 className="text-xl font-black text-foreground">
               {isApproved
-                ? "تم قبول واعتماد حسابك ككابتن! 🚗"
+                ? (largeDriverMode ? "تم اعتماد حسابك كسائق سيارات كبيرة! 🚚" : "تم قبول واعتماد حسابك ككابتن! 🚗")
                 : isRejected
                   ? "تم رفض طلب التسجيل"
                   : "طلبك قيد المراجعة والتدقيق"}
             </h2>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
               {isApproved
-                ? "تم تفعيل حسابك كسائق تكسي بعد تدقيق مستمسكاتك وسيارتك. نرحب بك ضمن أسرة شركة ممنون الموثّقة ونتمنى لك التوفيق والنجاح."
+                ? (largeDriverMode ? "تم تفعيل حسابك كسائق سيارات كبيرة بعد تدقيق المستمسكات والمركبة." : "تم تفعيل حسابك كسائق تكسي بعد تدقيق مستمسكاتك وسيارتك. نرحب بك ضمن أسرة شركة ممنون الموثّقة ونتمنى لك التوفيق والنجاح.")
                 : isRejected
                   ? existingDoc.rejectionReason ||
                     "تمت مراجعة طلبك ولم نتمكن من قبوله حالياً. سبب الرفض موضح أدناه، يرجى معالجة الملاحظة والمحاولة مرة أخرى. شركة ممنون الموثّقة."
@@ -458,12 +500,18 @@ function OnboardingDriver() {
             </div>
           </div>
 
+          {isApproved && pendingVehicleChange && (
+            <div className="rounded-xl bg-amber-50 text-amber-800 p-2 text-[11px] leading-5">
+              طلب تغيير فئة المركبة بانتظار موافقة الإدارة. مركبتك الحالية تبقى فعالة.
+            </div>
+          )}
           <div className="pt-2 space-y-2">
             {isApproved ? (
+              <>
               <button
                 onClick={async () => {
-                  await grantProviderRole({ data: { role: "driver" } });
-                  localStorage.setItem("mumnun-active-role", "driver");
+                  await grantProviderRole({ data: { role: providerRole } });
+                  localStorage.setItem("mumnun-active-role", providerRole);
                   await refresh();
                   navigate({ to: "/home" });
                 }}
@@ -471,6 +519,13 @@ function OnboardingDriver() {
               >
                 الانتقال إلى واجهة الكابتن 🚗
               </button>
+              {!pendingVehicleChange && (
+                <button onClick={() => { setVehicleChangeMode(true); setEditingMode(true); setActiveStep("car"); }}
+                  className="w-full py-3 rounded-2xl bg-primary/10 text-primary font-bold text-xs btn-press">
+                  طلب تغيير فئة أو نوع المركبة 🚚
+                </button>
+              )}
+              </>
             ) : (
               <button
                 onClick={() => setEditingMode(true)}
@@ -507,8 +562,8 @@ function OnboardingDriver() {
           <Car className="h-6 w-6" />
         </div>
         <div>
-          <h1 className="text-2xl font-black">تسجيل الكابتن والسيارة</h1>
-          <p className="text-xs text-muted-foreground">تحديد نوع السيارة وتأكيد الهوية الرسمية</p>
+          <h1 className="text-2xl font-black">{largeDriverMode ? "تسجيل سائق السيارات الكبيرة" : "تسجيل كابتن التكسي"}</h1>
+          <p className="text-xs text-muted-foreground">{largeDriverMode ? "تسجيل مستقل لكيا الحمل وكيا الركاب والباص" : "تحديد فئة سيارة التكسي وتأكيد الهوية الرسمية"}</p>
         </div>
       </div>
 
@@ -551,14 +606,14 @@ function OnboardingDriver() {
               اختر فئة سيارتك في التطبيق
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(Object.keys(CATEGORY_META) as VehicleCategory[]).map((k) => {
+              {(Object.keys(CATEGORY_META) as VehicleCategory[]).filter((k) => largeDriverMode ? k === "large" : k !== "large").map((k) => {
                 const c = CATEGORY_META[k];
                 const active = category === k;
                 return (
                   <button
                     key={k}
                     type="button"
-                    onClick={() => { setCategory(k); if (k === "large") { setMake("كيا"); setModelName(vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب"); } }}
+                    onClick={() => { setCategory(k); if (k === "large") { setMake("كيا"); setModelName(vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص"); } }}
                     className={`p-3 rounded-2xl text-center btn-press transition-all border ${
                       active
                         ? "bg-white ring-2 ring-primary border-primary shadow-lg scale-105"
@@ -575,7 +630,7 @@ function OnboardingDriver() {
               <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
                 <div className="font-black text-sm">نوع السيارة الكبيرة</div>
                 <div className="grid grid-cols-2 gap-2">
-                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
+                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }, { key: "bus", label: "باص", emoji: "🚌" }] as const).map((item) => (
                     <button key={item.key} type="button" onClick={() => { setVehicleType(item.key); setMake("كيا"); setModelName(item.label); }} className={`rounded-xl border p-3 font-bold ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
                       <div className="text-2xl">{item.emoji}</div>{item.label}
                     </button>

@@ -36,6 +36,9 @@ export default function WorkerOnboarding() {
   const [status, setStatus] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [approvedWorkerRole, setApprovedWorkerRole] = useState(false);
+  const [specialtyOnlyMode, setSpecialtyOnlyMode] = useState(false);
+  const [pendingSpecialtyChange, setPendingSpecialtyChange] = useState(false);
 
   useEffect(() => {
     (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
@@ -92,6 +95,7 @@ export default function WorkerOnboarding() {
       const approved = !!workerRole.data
         || verification.data?.status === "approved"
         || workerProfile.data?.status === "approved";
+      setApprovedWorkerRole(!!workerRole.data);
       const resolvedStatus = approved
         ? "approved"
         : verification.data?.status ?? workerProfile.data?.status ?? null;
@@ -102,6 +106,21 @@ export default function WorkerOnboarding() {
     });
     return () => { active = false; };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !approvedWorkerRole) return;
+    let active = true;
+    (async () => {
+      const [activeServices, pendingRequest] = await Promise.all([
+        supabase.from("worker_services").select("service_id").eq("worker_id", user.id),
+        (supabase as any).from("provider_change_requests").select("id").eq("user_id", user.id).eq("provider_type", "worker").eq("status", "pending").maybeSingle(),
+      ]);
+      if (!active) return;
+      if (!activeServices.error) setSelected((activeServices.data ?? []).map((row: any) => row.service_id));
+      setPendingSpecialtyChange(!!pendingRequest.data);
+    })();
+    return () => { active = false; };
+  }, [user?.id, approvedWorkerRole]);
 
   function toggleService(id: string) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -183,6 +202,25 @@ export default function WorkerOnboarding() {
       Alert.alert("حدد مهنتك", "اختَر مهنة واحدة على الأقل حتى يعرف الزبون شنو الخدمة اللي تقدمها.");
       return;
     }
+    if (approvedWorkerRole && specialtyOnlyMode) {
+      setBusy(true);
+      try {
+        const { error } = await (supabase as any).rpc("submit_provider_change_request", {
+          _provider_type: "worker",
+          _requested_data: { service_ids: selected },
+        });
+        if (error) throw error;
+        setPendingSpecialtyChange(true);
+        setSpecialtyOnlyMode(false);
+        setStatus("approved");
+        Alert.alert("تم إرسال الطلب", "وصل طلب تحديث اختصاصاتك إلى الإدارة. اختصاصاتك الحالية تبقى فعالة لحين الموافقة.");
+      } catch (error: any) {
+        Alert.alert("تعذر إرسال الطلب", error?.message || "حاول مرة ثانية.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (legalName.trim().length < 5) {
       Alert.alert("الاسم مطلوب", "اكتب الاسم الثلاثي واللقب كما هو في البطاقة الوطنية.");
       return;
@@ -236,15 +274,10 @@ export default function WorkerOnboarding() {
       }, { onConflict: "user_id" });
       if (workerError) throw workerError;
 
-      const { error: deleteServicesError } = await supabase
-        .from("worker_services")
-        .delete()
-        .eq("worker_id", user.id);
-      if (deleteServicesError) throw deleteServicesError;
-      const { error: insertServicesError } = await supabase
-        .from("worker_services")
-        .insert(selected.map((serviceId) => ({ worker_id: user.id, service_id: serviceId })));
-      if (insertServicesError) throw insertServicesError;
+      const { error: saveServicesError } = await (supabase as any).rpc("save_initial_worker_services", {
+        _service_ids: selected,
+      });
+      if (saveServicesError) throw saveServicesError;
 
       setStatus("pending");
       setRejectionReason(null);
@@ -270,6 +303,8 @@ export default function WorkerOnboarding() {
           <Button title="تعديل البيانات وإعادة إرفاق المستمسكات" onPress={() => setStatus(null)} />
         ) : (
           <>
+            {pendingSpecialtyChange && <Text style={styles.note}>طلب تحديث الاختصاصات بانتظار موافقة الإدارة. اختصاصاتك الحالية تبقى فعالة.</Text>}
+            {!pendingSpecialtyChange && <Button title="إضافة أو تعديل اختصاصاتي" onPress={() => { setSpecialtyOnlyMode(true); setStatus(null); }} />}
             <Button title="تفعيل واجهة الفني والانتقال للرئيسية" onPress={async () => {
               if (!user) return;
               const { error } = await supabase.rpc("grant_provider_role_safe", { _role: "worker" });
@@ -290,8 +325,8 @@ export default function WorkerOnboarding() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 48 }}>
-      <Text style={styles.title}>تسجيل الفني في ممنون</Text>
-      <Text style={styles.note}>أكمل اختصاصاتك وارفق المستمسكات الثلاثة. يبقى الحساب قيد المراجعة لحين موافقة الإدارة.</Text>
+      <Text style={styles.title}>{specialtyOnlyMode ? "تحديث اختصاصات الفني" : "تسجيل الفني في ممنون"}</Text>
+      <Text style={styles.note}>{specialtyOnlyMode ? "حدد الاختصاصات التي تريد اعتمادها. اختصاصاتك الحالية تبقى فعالة حتى توافق الإدارة." : "أكمل اختصاصاتك وارفق المستمسكات الثلاثة. يبقى الحساب قيد المراجعة لحين موافقة الإدارة."}</Text>
       {!!rejectionReason && <Text style={styles.rejection}>سبب الرفض السابق: {rejectionReason}</Text>}
 
       <Text style={styles.label}>الاسم الكامل المطابق للبطاقة الوطنية *</Text>

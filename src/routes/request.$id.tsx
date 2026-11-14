@@ -382,7 +382,7 @@ function RequestDetail() {
 
         {req.vehicle_category === "large" && (
           <div className="glass rounded-2xl p-3 space-y-1">
-            <div className="font-black text-sm">🚚 {req.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}</div>
+            <div className="font-black text-sm">🚚 {req.vehicle_type === "kia_passenger" ? "كيا ركاب" : req.vehicle_type === "bus" ? "باص" : "كيا حمل"}</div>
             <div className="text-xs text-muted-foreground">التسعير بالاتفاق بين الزبون وصاحب السيارة، وليس بالكيلومتر</div>
             {(req.customer_price ?? req.price_estimate) != null && (
               <div className="font-black text-primary">{Number(req.customer_price ?? req.price_estimate).toLocaleString()} د.ع</div>

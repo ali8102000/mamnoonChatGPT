@@ -88,6 +88,8 @@ function OnboardingWorker() {
   const [existingDoc, setExistingDoc] = useState<any>(null);
   const [hasApprovedWorkerRole, setHasApprovedWorkerRole] = useState(false);
   const [editingMode, setEditingMode] = useState(false);
+  const [specialtyOnlyMode, setSpecialtyOnlyMode] = useState(false);
+  const [pendingSpecialtyChange, setPendingSpecialtyChange] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -135,6 +137,22 @@ function OnboardingWorker() {
       }
     }
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || !hasApprovedWorkerRole) return;
+    let active = true;
+    (async () => {
+      const [activeServices, pendingRequest] = await Promise.all([
+        (supabase as any).from("worker_services").select("service_id").eq("worker_id", userId),
+        (supabase as any).from("provider_change_requests").select("id").eq("user_id", userId).eq("provider_type", "worker").eq("status", "pending").maybeSingle(),
+      ]);
+      if (!active) return;
+      if (!activeServices.error) setSelected(new Set((activeServices.data ?? []).map((row: any) => row.service_id)));
+      setPendingSpecialtyChange(!!pendingRequest.data);
+    })();
+    return () => { active = false; };
+  }, [session?.user?.id, hasApprovedWorkerRole]);
 
   // Keep the review status and admin rejection reason synchronized from Supabase.
   useEffect(() => {
@@ -255,6 +273,25 @@ function OnboardingWorker() {
       setActiveTab("specialties");
       return;
     }
+    if (hasApprovedWorkerRole && specialtyOnlyMode) {
+      setBusy(true);
+      try {
+        const { error } = await (supabase as any).rpc("submit_provider_change_request", {
+          _provider_type: "worker",
+          _requested_data: { service_ids: Array.from(selected) },
+        });
+        if (error) throw error;
+        setPendingSpecialtyChange(true);
+        setSpecialtyOnlyMode(false);
+        setEditingMode(false);
+        toast.success("وصل طلب تحديث اختصاصاتك للإدارة. اختصاصاتك الحالية تبقى فعالة لحين الموافقة.");
+      } catch (error: any) {
+        toast.error(error?.message || "تعذر إرسال طلب تحديث الاختصاصات");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!legalName.trim() || legalName.trim().length < 5) {
       toast.error("يرجى كتابة الاسم الثلاثي الكامل المطابق للهوية الرسمية");
       setActiveTab("identity");
@@ -318,13 +355,10 @@ function OnboardingWorker() {
       });
       if (pErr) throw pErr;
 
-      // 4. Update worker specialties
-      await supabase.from("worker_services").delete().eq("worker_id", uid);
-      const rows = Array.from(selected).map((service_id) => ({
-        worker_id: uid,
-        service_id,
-      }));
-      const { error: sErr } = await supabase.from("worker_services").insert(rows);
+      // 4. Save initial specialties through the guarded registration RPC.
+      const { error: sErr } = await (supabase as any).rpc("save_initial_worker_services", {
+        _service_ids: Array.from(selected),
+      });
       if (sErr) throw sErr;
 
       setExistingDoc(getProviderVerification(uid, 'worker'));
@@ -403,6 +437,11 @@ function OnboardingWorker() {
                 {existingDoc.workerServices?.length || 0} مهنة
               </span>
             </div>
+            {isApproved && pendingSpecialtyChange && (
+              <div className="rounded-xl bg-amber-50 text-amber-800 p-2 text-[11px] leading-5">
+                طلب تحديث الاختصاصات بانتظار موافقة الإدارة. اختصاصاتك الحالية تبقى فعالة.
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">حالة الطلب:</span>
               <span
@@ -425,6 +464,7 @@ function OnboardingWorker() {
 
           <div className="pt-2 space-y-2">
             {isApproved ? (
+              <>
               <button
                 onClick={async () => {
                   if (!hasApprovedWorkerRole) await grantProviderRole({ data: { role: "worker" } });
@@ -437,6 +477,13 @@ function OnboardingWorker() {
               >
                 الانتقال إلى واجهة الفني 🛠️
               </button>
+              {!pendingSpecialtyChange && (
+                <button onClick={() => { setSpecialtyOnlyMode(true); setEditingMode(true); setActiveTab("specialties"); }}
+                  className="w-full py-3 rounded-2xl bg-primary/10 text-primary font-bold text-xs btn-press">
+                  إضافة أو تعديل اختصاصاتي 🛠️
+                </button>
+              )}
+              </>
             ) : (
               <button
                 onClick={() => setEditingMode(true)}

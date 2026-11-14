@@ -6,7 +6,8 @@ import { useAuth } from "@/lib/auth-context";
 
 const ROLES = [
   { key: "customer", label: "زبون", desc: "احجز سيارة أو خدمة منزلية", emoji: "🚗" },
-  { key: "driver", label: "سائق", desc: "استقبل طلبات الركاب", emoji: "🚕" },
+  { key: "driver", label: "كابتن تكسي", desc: "استقبل طلبات التكسي الاقتصادي والمتميز والفاخر", emoji: "🚕" },
+  { key: "large_driver", label: "سائق سيارات كبيرة", desc: "كيا حمل أو كيا ركاب أو باص", emoji: "🚚" },
   { key: "worker", label: "فني", desc: "استقبل طلبات الخدمات", emoji: "🔧" },
 ] as const;
 
@@ -24,6 +25,10 @@ export default function SelectRole() {
       // Provider roles are granted only after their onboarding profile exists.
       if (role === "driver") {
         router.push("/onboarding/driver");
+        return;
+      }
+      if (role === "large_driver") {
+        router.push({ pathname: "/onboarding/driver", params: { providerType: "large_driver" } });
         return;
       }
       if (role === "worker") {

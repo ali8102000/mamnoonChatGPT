@@ -40,11 +40,15 @@ export default function AccountSettingsScreen() {
       router.push("/onboarding/driver");
       return;
     }
+    if (role === "large_driver" && !roles.includes("large_driver")) {
+      router.push({ pathname: "/onboarding/driver", params: { providerType: "large_driver" } });
+      return;
+    }
     if (role === "worker" && !roles.includes("worker")) {
       router.push("/onboarding/worker");
       return;
     }
-    if (role !== "driver" && role !== "worker") return;
+    if (role !== "driver" && role !== "large_driver" && role !== "worker") return;
     await SecureStore.setItemAsync("mamnoon_active_role", role);
     router.replace("/home");
   }
@@ -125,12 +129,14 @@ export default function AccountSettingsScreen() {
     <Text style={styles.sectionTitle}>طريقة استخدام ممنون</Text>
     <Text style={styles.note}>اختَر الدور من هنا. إذا اخترت سائق تكسي لأول مرة راح تكمل بيانات السيارة.</Text>
     <View style={styles.roleGrid}>
-      {["customer", "worker", "driver"].map((role) => {
+      {["customer", "worker", "driver", "large_driver"].map((role) => {
         const selected = role === "customer"
           ? { title: "زبون", emoji: "👤", backgroundColor: "#e0f2fe", color: "#0369a1" }
           : role === "worker"
             ? { title: "فني", emoji: "🛠️", backgroundColor: "#dcfce7", color: "#15803d" }
-            : { title: "سائق تكسي", emoji: "🚕", backgroundColor: "#fef3c7", color: "#b45309" };
+            : role === "large_driver"
+              ? { title: "سائق سيارات كبيرة", emoji: "🚚", backgroundColor: "#ffedd5", color: "#c2410c" }
+              : { title: "كابتن تكسي", emoji: "🚕", backgroundColor: "#fef3c7", color: "#b45309" };
         return (
           <TouchableOpacity key={role} activeOpacity={0.82} style={[styles.roleCard, { backgroundColor: selected.backgroundColor }]} onPress={() => switchRole(role)}>
             <Text style={styles.roleEmoji}>{selected.emoji}</Text>

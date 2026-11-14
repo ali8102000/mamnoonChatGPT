@@ -4,7 +4,7 @@ import { compressImage } from "./image-compression";
 
 export interface VerificationDocument {
   userId: string;
-  role: "driver" | "worker";
+  role: "driver" | "large_driver" | "worker";
   legalName: string;
   phone?: string;
   email?: string;
@@ -24,7 +24,7 @@ export interface VerificationDocument {
   vehiclePlate?: string;
   vehicleColor?: string;
   vehicleCategory?: string;
-  vehicleType?: 'kia_cargo' | 'kia_passenger';
+  vehicleType?: 'kia_cargo' | 'kia_passenger' | 'bus';
   // Specific worker details
   workerLevel?: "fani" | "khabir";
   workerBio?: string;
@@ -145,7 +145,7 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
     doc.documentType === "national_id" && doc.idCardBackPhotoUrl
       ? uploadImage(doc.idCardBackPhotoUrl, "id-card-back")
       : Promise.resolve(null),
-    doc.role === "driver" && doc.vehicleDocumentPhotoUrl
+    (doc.role === "driver" || doc.role === "large_driver") && doc.vehicleDocumentPhotoUrl
       ? uploadImage(doc.vehicleDocumentPhotoUrl, "vehicle-registration")
       : Promise.resolve(null),
   ]);
