@@ -346,7 +346,7 @@ export function LiveTrackMap({
 
       if (directDistance < 0.07 && !arrivedNotifiedRef.current) {
         arrivedNotifiedRef.current = true;
-        if (myRole === "customer") toast.success("الكابتن وصل إلى موقعك الآن! 🚗");
+        if (myRole === "customer") toast.success(serviceType === "taxi" ? "وصل السائق إلى موقعك الآن! 🚗" : "وصل الفني إلى موقعك الآن!");
       }
     }
 
@@ -441,8 +441,8 @@ export function LiveTrackMap({
             type="button"
             onClick={centerOnDriver}
             className="h-10 w-10 rounded-2xl bg-white shadow-lg grid place-items-center btn-press border border-border/40 text-emerald-600"
-            title="موقع الكابتن"
-            aria-label="موقع الكابتن"
+            title={serviceType === "taxi" ? "موقع السائق" : "موقع الفني"}
+            aria-label={serviceType === "taxi" ? "موقع السائق" : "موقع الفني"}
           >
             <Navigation className="h-4 w-4" />
           </Button>
@@ -482,7 +482,7 @@ export function LiveTrackMap({
           </span>
           <span className="flex items-center gap-1.5 text-emerald-700">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 animate-pulse" />
-            الكابتن {driverName}
+            {serviceType === "taxi" ? "السائق" : "الفني"} {driverName}
           </span>
           {destCoords && (
             <span className="flex items-center gap-1.5 text-rose-700">
