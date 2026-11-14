@@ -157,6 +157,7 @@ export type Database = {
           vehicle_category:
             | Database["public"]["Enums"]["vehicle_category"]
             | null
+          vehicle_type: string | null
           vehicle_color: string | null
           vehicle_make: string | null
           vehicle_model: string | null
@@ -176,6 +177,7 @@ export type Database = {
           vehicle_category?:
             | Database["public"]["Enums"]["vehicle_category"]
             | null
+          vehicle_type?: string | null
           vehicle_color?: string | null
           vehicle_make?: string | null
           vehicle_model?: string | null
@@ -701,6 +703,7 @@ export type Database = {
           vehicle_category:
             | Database["public"]["Enums"]["vehicle_category"]
             | null
+          vehicle_type: string | null
           work_description: string | null
           work_hours: number | null
           workers_count: number
@@ -740,6 +743,7 @@ export type Database = {
           vehicle_category?:
             | Database["public"]["Enums"]["vehicle_category"]
             | null
+          vehicle_type?: string | null
           work_description?: string | null
           work_hours?: number | null
           workers_count?: number
@@ -1767,7 +1771,7 @@ export type Database = {
         | "completed"
         | "cancelled"
       request_type: "taxi" | "service"
-      vehicle_category: "economy" | "premium" | "luxury"
+      vehicle_category: "economy" | "premium" | "luxury" | "large"
       worker_level: "fani" | "khabir"
     }
     CompositeTypes: {
@@ -1915,7 +1919,7 @@ export const Constants = {
         "cancelled",
       ],
       request_type: ["taxi", "service"],
-      vehicle_category: ["economy", "premium", "luxury"],
+      vehicle_category: ["economy", "premium", "luxury", "large"],
       worker_level: ["fani", "khabir"],
     },
   },
