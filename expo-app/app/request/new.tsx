@@ -137,6 +137,9 @@ export default function NewRequest() {
         };
         setPickupCoords(coords);
         setPickupGovernorateKey(nearestGovernorateKey(coords));
+        void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
+          .then((result) => { if (mounted) setPickupGovernorateKey(result.key); })
+          .catch(() => {});
         setRegion({ ...coords, latitudeDelta: 0.02, longitudeDelta: 0.02 });
         const address = formatAddress(await Location.reverseGeocodeAsync(coords));
         if (address) setPickup(address);
@@ -242,6 +245,9 @@ export default function NewRequest() {
       };
       setPickupCoords(coords);
       setPickupGovernorateKey(nearestGovernorateKey(coords));
+      void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
+        .then((result) => setPickupGovernorateKey(result.key))
+        .catch(() => {});
       setRegion({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
       const address = formatAddress(await Location.reverseGeocodeAsync(coords));
       setPickup(address || "موقعي الحالي");
@@ -293,6 +299,11 @@ export default function NewRequest() {
     setPlaceSearchError(null);
     setRegion({ latitude: governorate.latitude, longitude: governorate.longitude, latitudeDelta: 0.12, longitudeDelta: 0.12 });
     if (mapMode === "pickup") {
+      setPickupCoords(null);
+      setPickup("");
+    } else {
+      setDestinationCoords(null);
+      setDestination("");
     }
   }
 
