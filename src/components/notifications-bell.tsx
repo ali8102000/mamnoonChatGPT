@@ -28,11 +28,20 @@ export function NotificationsBell() {
   const [items, setItems] = useState<Notif[]>([]);
   const uid = session?.user.id;
   const [now, setNow] = useState(Date.now());
+  const [featured, setFeatured] = useState<Notif | null>(null);
   const loadNotifications = useCallback(async () => {
     if (!uid) return;
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await (supabase as any).from("notifications").select("*").eq("user_id", uid).gte("created_at", since).order("created_at", { ascending: false }).limit(50);
-    if (error) console.warn("[notifications] fetch error:", error.message); else setItems((data ?? []).filter((n: Notif) => isImportantNotificationType(n.type)));
+    const [{ data, error }, { data: pendingGrant }] = await Promise.all([
+      (supabase as any).from("notifications").select("*").eq("user_id", uid).gte("created_at", since).order("created_at", { ascending: false }).limit(50),
+      (supabase as any).from("notifications").select("*").eq("user_id", uid).eq("type","subscription_granted").is("read_at",null).order("created_at",{ascending:false}).limit(5),
+    ]);
+    if (error) console.warn("[notifications] fetch error:", error.message);
+    else {
+      const merged = [...(pendingGrant ?? []), ...(data ?? [])].filter((n: Notif, i: number, all: Notif[]) => all.findIndex(x => x.id === n.id) === i).filter((n: Notif) => isImportantNotificationType(n.type));
+      setItems(merged);
+      setFeatured(current => current && !current.read_at ? current : merged.find((n: Notif) => !n.read_at && (n.type === "subscription_granted" || n.type === "company_announcement")) ?? null);
+    }
   }, [uid]);
 
   useEffect(() => {
@@ -46,6 +55,7 @@ export function NotificationsBell() {
       const n = payload.new as Notif;
       if (Date.now() - new Date(n.created_at).getTime() > 24 * 60 * 60 * 1000 || !isImportantNotificationType(n.type)) return;
       setItems((cur) => [n, ...cur.filter((item) => item.id !== n.id)]);
+      if (n.type === "subscription_granted" || n.type === "company_announcement") setFeatured(n);
       toast(n.title, { description: n.body ?? undefined });
       try {
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -84,10 +94,31 @@ export function NotificationsBell() {
   async function openNotifications() { setOpen(true); if (unread > 0) await markAll(); }
   function isCompanyNotification(n: Notif) { return /company|admin|provider_approved|provider_rejected|provider_suspended|announcement|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted|subscription_admin_updated|subscription_extended/i.test(n.type); }
 
+  async function dismissFeatured() {
+    if (!featured || !uid) { setFeatured(null); return; }
+    const stamp = new Date().toISOString();
+    const { error } = await (supabase as any).from("notifications").update({ read_at: stamp }).eq("id",featured.id).eq("user_id",uid);
+    if (!error) {
+      setItems(cur => cur.map(n => n.id === featured.id ? {...n,read_at:stamp} : n));
+      setFeatured(null);
+    } else toast.error("تعذر تأكيد استلام الرسالة");
+  }
+
   if (!uid) return null;
 
   return (
     <>
+      {featured && createPortal(
+        <div className="fixed inset-0 z-[2147483001] bg-black/65 backdrop-blur-md grid place-items-center p-5" dir="rtl">
+          <div className="w-full max-w-sm rounded-[28px] border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-white to-yellow-100 p-6 shadow-2xl text-center">
+            <div className="mx-auto mb-3 h-16 w-16 rounded-full border border-amber-400 bg-amber-200/70 grid place-items-center text-3xl text-amber-700">✦</div>
+            <div className="text-[10px] font-black tracking-widest text-amber-700">رسالة رسمية · شركة ممنون</div>
+            <h2 className="mt-2 text-xl font-black text-amber-950">{featured.title}</h2>
+            <p className="mt-3 text-sm leading-7 text-amber-950/80">{featured.body}</p>
+            <button onClick={dismissFeatured} className="mt-5 w-full rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 py-3 font-black text-white shadow-lg">استلمت الرسالة</button>
+          </div>
+        </div>, document.body
+      )}
       <button
         onClick={openNotifications}
         className="relative z-[60] h-11 w-11 rounded-2xl bg-card border border-border grid place-items-center btn-press shadow-sm"
