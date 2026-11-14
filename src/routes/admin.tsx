@@ -29,6 +29,7 @@ import {
   adminAdjustWallet,
   adminBlockUser,
   adminCouponSubsidyReport,
+  adminCouponAudienceCount,
   adminBroadcastNotification,
   adminCancelRequest,
   adminDeleteCoupon,
@@ -485,6 +486,15 @@ function UsersSection() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    let active = true;
+    setAudienceCountLoading(true);
+    getAudienceCount({ data: { target: distributionTarget } })
+      .then((result) => { if (active) setAudienceCount(result.count); })
+      .catch(() => { if (active) setAudienceCount(null); })
+      .finally(() => { if (active) setAudienceCountLoading(false); });
+    return () => { active = false; };
+  }, [distributionTarget, getAudienceCount]);
   async function viewUser(userId: string) {
     try {
       setSelectedUser(await getUserDetail({ data: { user_id: userId } }));
@@ -1680,6 +1690,8 @@ function CouponsSection() {
   const [distributionTarget, setDistributionTarget] = useState<"all" | "drivers" | "workers" | "single">("all");
   const [singleUserId, setSingleUserId] = useState("");
   const [distributionMessage, setDistributionMessage] = useState("");
+  const [audienceCount, setAudienceCount] = useState<number | null>(null);
+  const [audienceCountLoading, setAudienceCountLoading] = useState(false);
   const [subsidyReport, setSubsidyReport] = useState<any | null>(null);
   const [subsidyReportError, setSubsidyReportError] = useState("");
   const listCoupons = useServerFn(adminListCoupons);
@@ -1687,6 +1699,7 @@ function CouponsSection() {
   const deleteCoupon = useServerFn(adminDeleteCoupon);
   const distributeCoupon = useServerFn(adminDistributeCoupon);
   const getSubsidyReport = useServerFn(adminCouponSubsidyReport);
+  const getAudienceCount = useServerFn(adminCouponAudienceCount);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -1789,9 +1802,15 @@ function CouponsSection() {
           onChange={(e) => setDistributionTarget(e.target.value as any)}
           className="w-full glass rounded-xl px-3 py-2.5 text-sm"
         >
-          <option value="all">جميع المستخدمين</option>
-          <option value="drivers">السائقين</option>
-          <option value="workers">الفنيين</option>
+          <option value="all">كل المستخدمين</option>
+          <option value="customers">الزبائن فقط</option>
+          <option value="customers_1">زبائن طلبوا طلباً واحداً خلال آخر 7 أيام</option>
+          <option value="customers_2">زبائن طلبوا طلبين خلال آخر 7 أيام</option>
+          <option value="customers_3">زبائن طلبوا 3 طلبات خلال آخر 7 أيام</option>
+          <option value="customers_4">زبائن طلبوا 4 طلبات خلال آخر 7 أيام</option>
+          <option value="customers_5">زبائن طلبوا 5 طلبات أو أكثر خلال آخر 7 أيام</option>
+          <option value="drivers">السائقون</option>
+          <option value="workers">الفنيون</option>
           <option value="single">مستخدم محدد</option>
         </select>
         {distributionTarget === "single" && (
@@ -1801,6 +1820,14 @@ function CouponsSection() {
             placeholder="معرّف المستخدم UUID"
             className="w-full glass rounded-xl px-3 py-2.5 text-sm"
           />
+        )}
+        <div className="rounded-xl bg-background/70 px-3 py-2 text-xs font-bold">
+          {audienceCountLoading ? "جارٍ حساب الجمهور المطابق..." :
+            audienceCount === null ? "تعذّر حساب عدد المستلمين حالياً" :
+            `عدد الحسابات المطابقة: ${audienceCount.toLocaleString("ar-IQ")}`}
+        </div>
+        {distributionTarget.startsWith("customers_") && (
+          <p className="text-[11px] text-muted-foreground">يُحتسب نشاط الزبون من الطلبات الحقيقية غير الملغاة خلال آخر 7 أيام، ويشمل طلبات التكسي والخدمات.</p>
         )}
         {distributionMessage && <p className="text-xs text-primary font-bold">{distributionMessage}</p>}
       </div>
