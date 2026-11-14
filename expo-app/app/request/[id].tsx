@@ -673,6 +673,7 @@ export default function RequestDetail() {
           )}
         <View style={styles.actionsRow}>
           {request.type === "taxi" &&
+            request.vehicle_category !== "large" &&
             isCustomer &&
             ["pending", "searching"].includes(request.status) && (
               <TouchableOpacity style={styles.actionBtn} onPress={retryDispatch}>
