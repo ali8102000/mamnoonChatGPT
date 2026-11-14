@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import * as Linking from "expo-linking";
 import { supabase } from "@/lib/supabase";
+import { palette } from "@/styles/theme";
 
 export default function AuthCallbackScreen() {
   const params = useLocalSearchParams<{
