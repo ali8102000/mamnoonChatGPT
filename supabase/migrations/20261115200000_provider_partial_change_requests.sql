@@ -95,6 +95,9 @@ BEGIN
     END IF;
     IF v_has_vehicle THEN
       IF (v_vehicle ? 'vehicle_plate' AND length(trim(COALESCE(v_vehicle->>'vehicle_plate',''))) < 2)
+         OR (v_vehicle ? 'vehicle_make' AND length(trim(COALESCE(v_vehicle->>'vehicle_make',''))) NOT BETWEEN 2 AND 40)
+         OR (v_vehicle ? 'vehicle_model' AND length(trim(COALESCE(v_vehicle->>'vehicle_model',''))) NOT BETWEEN 1 AND 60)
+         OR (v_vehicle ? 'vehicle_color' AND length(trim(COALESCE(v_vehicle->>'vehicle_color',''))) > 40)
          OR (v_vehicle ? 'vehicle_category' AND v_vehicle->>'vehicle_category' NOT IN ('economy','premium','luxury'))
          OR (v_vehicle ? 'vehicle_type' AND v_vehicle->>'vehicle_type' NOT IN ('kia_cargo','kia_passenger','bus')) THEN
         RAISE EXCEPTION 'invalid_vehicle_update';
@@ -181,7 +184,8 @@ BEGIN
           vehicle_plate = CASE WHEN v_vehicle ? 'vehicle_plate' THEN v_vehicle->>'vehicle_plate' ELSE vehicle_plate END,
           vehicle_color = CASE WHEN v_vehicle ? 'vehicle_color' THEN v_vehicle->>'vehicle_color' ELSE vehicle_color END,
           vehicle_category = CASE WHEN v_vehicle ? 'vehicle_category' THEN (v_vehicle->>'vehicle_category')::public.vehicle_category ELSE vehicle_category END,
-          vehicle_type = CASE WHEN v_vehicle ? 'vehicle_type' THEN v_vehicle->>'vehicle_type' ELSE vehicle_type END
+          vehicle_type = CASE WHEN v_vehicle ? 'vehicle_type' THEN v_vehicle->>'vehicle_type' ELSE vehicle_type END,
+          updated_at = now()
       WHERE user_id = r.user_id AND status = 'approved'
         AND ((r.provider_type = 'driver' AND vehicle_category::text <> 'large')
           OR (r.provider_type = 'large_driver' AND vehicle_category::text = 'large'));
