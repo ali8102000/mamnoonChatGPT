@@ -372,9 +372,9 @@ function RequestDetail() {
             {req.price_estimate && (
               <div className="text-left">
                 <div className="font-black text-sm">
-                  {Number(req.price_estimate).toLocaleString()}
+                  {Number(myRole === "customer" && (req as any).customer_payable != null ? (req as any).customer_payable : req.price_estimate).toLocaleString("ar-IQ")}
                 </div>
-                <div className="text-[10px] opacity-80">د.ع تقريبي</div>
+                <div className="text-[10px] opacity-80">{myRole === "customer" && Number((req as any).coupon_discount ?? 0) > 0 ? "د.ع بعد الخصم" : "د.ع تقريبي"}</div>
               </div>
             )}
           </div>
@@ -385,7 +385,7 @@ function RequestDetail() {
             <div className="font-black text-sm">🚚 {req.vehicle_type === "kia_passenger" ? "كيا ركاب" : req.vehicle_type === "bus" ? "باص" : "كيا حمل"}</div>
             <div className="text-xs text-muted-foreground">التسعير بالاتفاق بين الزبون وصاحب السيارة، وليس بالكيلومتر</div>
             {(req.customer_price ?? req.price_estimate) != null && (
-              <div className="font-black text-primary">{Number(req.customer_price ?? req.price_estimate).toLocaleString()} د.ع</div>
+              <div className="font-black text-primary">{Number(myRole === "customer" && (req as any).customer_payable != null ? (req as any).customer_payable : req.customer_price ?? req.price_estimate).toLocaleString("ar-IQ")} د.ع</div>
             )}
           </div>
         )}
@@ -399,7 +399,7 @@ function RequestDetail() {
             <div className="font-black text-primary">
               {(req as any).pricing_mode === "negotiable"
                 ? "💰 السعر يتفق عليه الطرفين"
-                : `💰 ${Number((req as any).customer_price ?? 0).toLocaleString()} د.ع${(req as any).pricing_mode === "hourly" && (req as any).work_hours ? ` · ${(req as any).work_hours} ساعة` : " · إنجاز تام"}`}
+                : `💰 ${Number(myRole === "customer" && (req as any).customer_payable != null ? (req as any).customer_payable : (req as any).customer_price ?? 0).toLocaleString("ar-IQ")} د.ع${(req as any).pricing_mode === "hourly" && (req as any).work_hours ? ` · ${(req as any).work_hours} ساعة` : " · إنجاز تام"}`}
             </div>
           </div>
         )}
