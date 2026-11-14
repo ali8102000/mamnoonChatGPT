@@ -60,6 +60,7 @@ import {
   adminUnblockUser,
 } from "@/lib/admin.functions";
 import { useServerFn } from "@tanstack/react-start";
+import AdminCompanySettings from "@/components/admin-company-settings";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -91,7 +92,8 @@ type Section =
   | "map"
   | "notifications"
   | "audit"
-  | "roles";
+  | "roles"
+  | "company";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
   {
@@ -153,6 +155,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
+  { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
 
@@ -291,6 +294,7 @@ function AdminPage() {
           {section === "map" && <MapSection />}
           {section === "notifications" && <NotificationsSection />}
           {section === "roles" && <RolesSection />}
+          {section === "company" && <AdminCompanySettings />}
           {section === "audit" && <AuditSection />}
         </div>
       </main>
