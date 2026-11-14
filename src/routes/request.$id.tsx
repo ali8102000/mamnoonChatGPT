@@ -753,6 +753,7 @@ function RequestDetail() {
       {showCancel && (
         <CancelReasonModal
           role={myRole}
+          requestType={req.type}
           onClose={() => setShowCancel(false)}
           onSubmit={async (reason) => {
             try {
@@ -761,7 +762,7 @@ function RequestDetail() {
               } else {
                 await providerCancelFn({ data: { requestId: id, reason } });
               }
-              toast.success(myRole === "customer" ? "تم إلغاء الطلب وإبلاغ الطرف الآخر" : "تم الاعتذار وإعادة الطلب للبحث عن مزوّد آخر");
+              toast.success(myRole === "customer" ? (req.type === "taxi" ? "تم إلغاء الرحلة وإبلاغ السائق" : "تم إلغاء الطلب وإبلاغ الفني") : (req.type === "taxi" ? "تم الاعتذار وإعادة الرحلة للبحث عن سائق آخر" : "تم الاعتذار وإعادة الطلب للبحث عن فني آخر"));
               setShowCancel(false);
               if (myRole === "provider") navigate({ to: "/home" });
               else await loadAll();
