@@ -73,7 +73,7 @@ Deno.serve(async (req: Request) => {
       const initResponse=await fetch(baseUrl+"/api/v2/payment-gateway/transaction/init",{
         method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
         body:JSON.stringify({
-          language:"Ar",externalReferenceId:payment.external_reference_id,orderId:payment.id,
+          language:"ar",externalReferenceId:payment.external_reference_id,orderId:payment.id,
           serviceType:body.purpose==="subscription"?"MamnoonSubscription":"MamnoonService",
           amount:{value:String(amount),currency:"IQD"},
           redirectUrls:{successUrl:success,failureUrl:failure}
