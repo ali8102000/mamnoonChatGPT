@@ -108,6 +108,7 @@ type SubscriptionRow = {
 function SubscriptionsAdmin() {
   const { session, loading } = useAuth();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [canManage, setCanManage] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [settings, setSettings] = useState<any>(null);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -145,11 +146,13 @@ function SubscriptionsAdmin() {
     }
     (async () => {
       try {
-        const { data: roleData } = await (supabase as any).rpc("has_admin_access", {
-          p_user_id: session.user.id,
-        });
-        if (roleData) {
+        const [{ data: viewData, error: viewError }, { data: adminData }] = await Promise.all([
+          (supabase as any).rpc("has_subscription_admin_access", { p_user_id: session.user.id }),
+          (supabase as any).rpc("has_admin_access", { p_user_id: session.user.id }),
+        ]);
+        if (!viewError && viewData) {
           setAuthorized(true);
+          setCanManage(adminData === true);
           loadAll();
         } else {
           setAuthorized(false);
@@ -176,7 +179,7 @@ function SubscriptionsAdmin() {
         </h1>
       </div>
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
-        {["overview", "plans", "subscriptions", "grant", "broadcast", "settings"].map((t) => (
+        {["overview", "plans", "subscriptions", "grant", "broadcast", "settings"].filter(t => canManage || ["overview","subscriptions"].includes(t)).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -219,7 +222,7 @@ function SubscriptionsAdmin() {
           }}
         />
       )}
-      {tab === "subscriptions" && <SubscriptionsTab subs={subs} onRefresh={loadAll} />}
+      {tab === "subscriptions" && <SubscriptionsTab subs={subs} onRefresh={loadAll} canManage={canManage} />}
       {tab === "grant" && <GrantSubscriptionTab plans={plans} onGranted={() => { loadAll(); setGrantRefresh((v) => v + 1); }} refreshKey={grantRefresh} />}
       {tab === "broadcast" && <BroadcastTab />}
       {tab === "settings" && (
@@ -430,7 +433,7 @@ function Feature({ icon: Icon, label, value }: any) {
   );
 }
 
-function SubscriptionsTab({ subs, onRefresh }: { subs: SubscriptionRow[]; onRefresh: () => void }) {
+function SubscriptionsTab({ subs, onRefresh, canManage }: { subs: SubscriptionRow[]; onRefresh: () => void; canManage: boolean }) {
   const [filter, setFilter] = useState("all");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -454,7 +457,7 @@ function SubscriptionsTab({ subs, onRefresh }: { subs: SubscriptionRow[]; onRefr
   return <div className="space-y-3">
     <div className="glass rounded-2xl p-3">
       <div className="font-black text-sm mb-2">سجل الاشتراكات الفعلي ({subs.length})</div>
-      <button disabled={bulkBusy || !subs.some(s => s.status === "active")} onClick={async () => { if (!window.confirm("سيتم إيقاف جميع الاشتراكات النشطة حالياً ومنع استقبال طلبات جديدة. متأكد؟")) return; setBulkBusy(true); try { const result = await adminPauseAllSubscriptions(); toast.success("تم إيقاف " + result.count + " اشتراك فعلياً"); onRefresh(); } catch(e:any) { toast.error(e.message || "تعذر إيقاف الاشتراكات"); } finally { setBulkBusy(false); } }} className="w-full rounded-xl bg-red-600 text-white py-2.5 text-xs font-black disabled:opacity-50">{bulkBusy ? "جارٍ إيقاف الاشتراكات..." : "إيقاف جميع الاشتراكات النشطة"}</button>
+      {canManage && <button disabled={bulkBusy || !subs.some(s => s.status === "active")} onClick={async () => { if (!window.confirm("سيتم إيقاف جميع الاشتراكات النشطة حالياً ومنع استقبال طلبات جديدة. متأكد؟")) return; setBulkBusy(true); try { const result = await adminPauseAllSubscriptions(); toast.success("تم إيقاف " + result.count + " اشتراك فعلياً"); onRefresh(); } catch(e:any) { toast.error(e.message || "تعذر إيقاف الاشتراكات"); } finally { setBulkBusy(false); } }} className="w-full rounded-xl bg-red-600 text-white py-2.5 text-xs font-black disabled:opacity-50">{bulkBusy ? "جارٍ إيقاف الاشتراكات..." : "إيقاف جميع الاشتراكات النشطة"}</button>}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {[["all","الكل"],["company","اشتراكات ممنوحة من الشركة"],["bronze","برونزي"],["silver","فضي"],["gold","ذهبي"],["trial","تجريبي"]].map(([key,label]) =>
           <button key={key} onClick={() => setFilter(key)} className={`rounded-xl px-2 py-2 text-[11px] font-bold ${filter===key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{label}</button>
@@ -479,7 +482,7 @@ function SubscriptionsTab({ subs, onRefresh }: { subs: SubscriptionRow[]; onRefr
           <div><span className="text-muted-foreground">الطلبات: </span><b>{s.request_count}</b></div>
           <div><span className="text-muted-foreground">إيقاف عند النهاية: </span><b>{s.cancel_at_period_end ? "نعم" : "لا"}</b></div>
         </div>
-        <div className="border-t border-border pt-3 space-y-2">
+        {canManage && <div className="border-t border-border pt-3 space-y-2">
           <div className="text-xs font-black">إدارة الاشتراك من لوحة الأدمن</div>
           <div className="grid grid-cols-2 gap-2">
             {s.status === "active" ? <button disabled={!!busyId} onClick={() => changeStatus(s,"paused")} className="rounded-xl bg-amber-500/10 text-amber-700 py-2 text-xs font-bold disabled:opacity-50">إيقاف مؤقت</button> : <button disabled={!!busyId || (s.current_period_end != null && new Date(s.current_period_end).getTime() <= Date.now())} onClick={() => changeStatus(s,"active")} className="rounded-xl bg-emerald-500/10 text-emerald-700 py-2 text-xs font-bold disabled:opacity-50">تفعيل الاشتراك</button>}
@@ -489,7 +492,7 @@ function SubscriptionsTab({ subs, onRefresh }: { subs: SubscriptionRow[]; onRefr
             <input type="number" min={1} max={3650} value={days[s.id] ?? 30} onChange={(e) => setDays(v => ({...v,[s.id]:Number(e.target.value)}))} className="input-base w-24 text-center" aria-label="عدد أيام التمديد" />
             <button disabled={!!busyId || Number(days[s.id] ?? 30) < 1 || Number(days[s.id] ?? 30) > 3650} onClick={() => extend(s)} className="flex-1 rounded-xl bg-primary text-primary-foreground py-2 text-xs font-bold disabled:opacity-50">{busyId === s.id ? "جارٍ التنفيذ..." : "تمديد الاشتراك بالأيام"}</button>
           </div>
-        </div>
+        </div>}
       </div>;
     })}
   </div>;
