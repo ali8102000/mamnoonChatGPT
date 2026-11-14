@@ -390,10 +390,11 @@ begin
          (select ss.subscription_enabled from public.subscription_settings ss where ss.id=1)
   from public.subscription_plans p
   left join public.user_subscriptions us on us.user_id=_user_id and us.plan_id=p.id
-       and us.status='active'
+       and us.status='active' and (us.current_period_end is null or us.current_period_end>now())
   where p.id=coalesce(
     (select x.plan_id from public.user_subscriptions x
-      where x.user_id=_user_id and x.status='active' limit 1),
+      where x.user_id=_user_id and x.status='active'
+        and (x.current_period_end is null or x.current_period_end>now()) limit 1),
     (select y.id from public.subscription_plans y where y.code='free' limit 1)
   )
   limit 1;
