@@ -1709,6 +1709,10 @@ function CouponsSection() {
     load();
   }, [load]);
   async function handleSave(data: any) {
+    if (!data.id && distributionTarget === "single" && !singleUserId.trim()) {
+      toast.error("أدخل معرّف المستخدم أولاً");
+      return;
+    }
     try {
       await saveCoupon({ data });
       setShowModal(false);
