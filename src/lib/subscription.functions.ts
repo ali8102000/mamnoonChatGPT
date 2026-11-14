@@ -91,7 +91,7 @@ export const adminGetPlans = createServerFn({ method: "GET" })
       .from("subscription_plans")
       .select("*")
       .order("sort_order");
-    if (error) throw new Error("Failed to load plans");
+    if (error) throw new Error("تعذر تحميل الباقات: " + error.message);
     return data ?? [];
   });
 
@@ -137,7 +137,7 @@ export const adminSavePlan = createServerFn({ method: "POST" })
         .eq("id", id)
         .select()
         .maybeSingle();
-      if (error) throw new Error("Failed to update plan");
+      if (error) throw new Error("تعذر تحديث الباقة: " + error.message);
       return updated;
     } else {
       const { data: created, error } = await (supabaseAdmin as any)
@@ -160,7 +160,7 @@ export const adminTogglePlan = createServerFn({ method: "POST" })
       .from("subscription_plans")
       .update({ is_active: data.is_active })
       .eq("id", data.id);
-    if (error) throw new Error("Failed to toggle plan");
+    if (error) throw new Error("تعذر تغيير حالة الباقة: " + error.message);
     return { ok: true };
   });
 
@@ -174,7 +174,7 @@ export const adminGetSettings = createServerFn({ method: "GET" })
       .select("*")
       .eq("id", 1)
       .maybeSingle();
-    if (error) throw new Error("Failed to load settings");
+    if (error) throw new Error("تعذر تحميل إعدادات الاشتراكات: " + error.message);
     return data ?? { subscription_enabled: false, minimum_downloads_before_activation: 100000 };
   });
 
@@ -198,7 +198,7 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
         minimum_downloads_before_activation: data.minimum_downloads_before_activation,
       })
       .eq("id", 1);
-    if (error) throw new Error("Failed to save settings");
+    if (error) throw new Error("تعذر حفظ إعدادات الاشتراكات: " + error.message);
     return { ok: true };
   });
 
@@ -349,13 +349,13 @@ export const adminSearchSubscriptionUsers = createServerFn({ method: "POST" })
       .or(filters.join(","))
       .order("created_at", { ascending: false })
       .limit(100);
-    if (error) throw new Error("تعذر البحث عن المستخدمين");
+    if (error) throw new Error("تعذر البحث عن المستخدمين: " + error.message);
     const ids = (users ?? []).map((u: any) => u.id);
     if (!ids.length) return [];
     const { data: roles, error: rolesError } = await (supabaseAdmin as any)
       .from("user_roles").select("user_id,role").in("user_id", ids)
       .in("role", ["worker", "driver", "large_driver"]);
-    if (rolesError) throw new Error("تعذر التحقق من نوع الحساب");
+    if (rolesError) throw new Error("تعذر التحقق من نوع الحساب: " + rolesError.message);
     const providerIds = new Set((roles ?? []).map((r: any) => r.user_id));
     return (users ?? []).filter((u: any) => providerIds.has(u.id));
   });
@@ -373,7 +373,7 @@ export const adminGrantSubscription = createServerFn({ method: "POST" })
     const { data: providerRoles, error: rolesError } = await (supabaseAdmin as any)
       .from("user_roles").select("role").eq("user_id", data.user_id)
       .in("role", ["worker", "driver", "large_driver"]);
-    if (rolesError) throw new Error("تعذر التحقق من حساب مقدم الخدمة");
+    if (rolesError) throw new Error("تعذر التحقق من حساب مقدم الخدمة: " + rolesError.message);
     if (!providerRoles?.length) throw new Error("يمكن منح الاشتراك للفنيين وسائقي التكسي والكيات فقط");
     const { data: subscriptionId, error } = await (context.supabase as any).rpc("admin_grant_subscription", {
       p_user_id: data.user_id,
