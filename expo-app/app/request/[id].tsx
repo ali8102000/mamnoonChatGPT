@@ -118,7 +118,7 @@ export default function RequestDetail() {
     request &&
     !request.provider_id &&
     request.customer_id !== user?.id &&
-    ((request.type === "taxi" && roles.includes("driver")) ||
+    ((request.type === "taxi" && (request.vehicle_category === "large" ? roles.includes("large_driver") : roles.includes("driver")) ) ||
       (request.type === "service" && roles.includes("worker"))),
   );
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
@@ -160,7 +160,7 @@ export default function RequestDetail() {
       } else {
         setLargeOffers([]);
       }
-      if (roles.includes("driver") && data.customer_id !== user?.id) {
+      if ((data.vehicle_category === "large" ? roles.includes("large_driver") : roles.includes("driver")) && data.customer_id !== user?.id) {
         const { data: ownOffer } = await (supabase as any)
           .from("request_offers")
           .select("id, proposed_price, offer_message, status")
@@ -649,7 +649,7 @@ export default function RequestDetail() {
             </TouchableOpacity>
           </View>
         )}
-        {request.vehicle_category === "large" && !isCustomer && roles.includes("driver") && ["pending", "searching"].includes(request.status) && (
+        {request.vehicle_category === "large" && !isCustomer && roles.includes("large_driver") && ["pending", "searching"].includes(request.status) && (
           <View style={styles.largeOffersCard}>
             <Text style={styles.largeOffersTitle}>أرسل عرض سعرك</Text>
             {request.customer_price ? <Text style={styles.largeOffersEmpty}>ميزانية الزبون: {Number(request.customer_price).toLocaleString("en")} د.ع</Text> : <Text style={styles.largeOffersEmpty}>الزبون ينتظر عروض الأسعار</Text>}
