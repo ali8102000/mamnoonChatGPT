@@ -121,6 +121,44 @@ $$;
 REVOKE ALL ON FUNCTION public.grant_provider_role_safe(public.app_role) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.grant_provider_role_safe(public.app_role) TO authenticated;
 
+-- Provider profiles must never become approved merely because a user inserts a row.
+-- Both drivers and workers enter pending; only staff approval can activate them.
+CREATE OR REPLACE FUNCTION public.guard_provider_status()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+BEGIN
+  IF auth.uid() IS NOT NULL
+     AND NOT COALESCE(public.has_admin_access(auth.uid()), false) THEN
+    IF TG_OP = 'INSERT' THEN
+      NEW.status := 'pending';
+      NEW.available := false;
+    ELSIF NEW.status IS DISTINCT FROM OLD.status THEN
+      IF NOT (
+        auth.uid() = OLD.user_id
+        AND OLD.status = 'rejected'
+        AND NEW.status = 'pending'
+      ) THEN
+        RAISE EXCEPTION 'status_readonly';
+      END IF;
+    END IF;
+
+    IF TG_OP = 'UPDATE'
+       AND NEW.rating_avg IS DISTINCT FROM OLD.rating_avg THEN
+      RAISE EXCEPTION 'rating_readonly';
+    END IF;
+
+    IF NEW.status <> 'approved' AND NEW.available THEN
+      NEW.available := false;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$;
+REVOKE EXECUTE ON FUNCTION public.guard_provider_status() FROM PUBLIC, anon, authenticated;
+
 -- Keep nearby discovery aligned with the separated taxi and large-driver roles.
 CREATE OR REPLACE FUNCTION public.find_nearby_drivers(
   _lat numeric,
@@ -279,13 +317,13 @@ BEGIN
     WHERE provider_id = auth.uid() AND status IN ('accepted','in_progress')
   ) THEN RAISE EXCEPTION 'لديك طلب نشط بالفعل'; END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM public.request_offers o
-    WHERE o.request_id = _request_id
-      AND o.provider_id = auth.uid()
-      AND o.status = 'pending'
-      AND o.expires_at > now()
-  ) THEN RAISE EXCEPTION 'request_offer_expired'; END IF;
+  PERFORM 1 FROM public.request_offers o
+  WHERE o.request_id = _request_id
+    AND o.provider_id = auth.uid()
+    AND o.status = 'pending'
+    AND o.expires_at > now()
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_offer_expired'; END IF;
 
   UPDATE public.service_requests
   SET provider_id = auth.uid(), status = 'accepted', accepted_at = now()
