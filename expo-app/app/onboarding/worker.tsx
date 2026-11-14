@@ -14,6 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui";
+import { getServiceImage } from "@/lib/service-visuals";
 
 type WorkerService = { id: string; slug: string; name_ar: string };
 type PickedImage = { uri: string; mimeType?: string | null; fileName?: string | null };
@@ -320,6 +321,7 @@ export default function WorkerOnboarding() {
       <View style={styles.servicesGrid}>
         {services.map((s) => (
           <TouchableOpacity key={s.id} style={[styles.serviceChip, selected.includes(s.id) && styles.serviceChipActive]} onPress={() => toggleService(s.id)}>
+            <Image source={getServiceImage(s.slug)} style={styles.serviceArtwork} resizeMode="contain" />
             <Text style={[styles.serviceChipText, selected.includes(s.id) && styles.serviceChipTextActive]}>{s.name_ar}</Text>
           </TouchableOpacity>
         ))}
@@ -368,9 +370,10 @@ const styles = StyleSheet.create({
   statusText: { color: "#475569", fontSize: 15, lineHeight: 26, textAlign: "right" },
   label: { fontSize: 13, fontWeight: "700", color: "#475569", marginBottom: 8, marginTop: 18, textAlign: "right" },
   servicesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  serviceChip: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, backgroundColor: "#fff", borderWidth: 2, borderColor: "transparent" },
+  serviceChip: { width: "31%", minHeight: 112, alignItems: "center", justifyContent: "center", paddingHorizontal: 8, paddingVertical: 10, borderRadius: 14, backgroundColor: "#fff", borderWidth: 2, borderColor: "transparent" },
+  serviceArtwork: { width: 58, height: 58, marginBottom: 6 },
   serviceChipActive: { borderColor: "#0f766e", backgroundColor: "#0f766e10" },
-  serviceChipText: { fontSize: 14, fontWeight: "600", color: "#64748b" },
+  serviceChipText: { fontSize: 12, fontWeight: "700", color: "#64748b", textAlign: "center" },
   serviceChipTextActive: { color: "#0f766e" },
   levelRow: { flexDirection: "row", gap: 10 },
   levelChip: { flex: 1, alignItems: "center", paddingVertical: 14, borderRadius: 14, backgroundColor: "#fff", borderWidth: 2, borderColor: "transparent" },
