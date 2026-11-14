@@ -10,14 +10,14 @@ type WalletTransaction = { id: string; type: string; created_at: string; amount:
 
 export default function ProfileScreen() {
   const { user, profile, roles, signOut, refresh } = useAuth();
-  const isProvider = roles.includes("worker") || roles.includes("driver");
+  const isProvider = roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [wallet, setWallet] = useState<DriverWallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
 
   useEffect(() => {
     async function load() {
-      if (roles.includes("driver")) {
+      if (roles.includes("driver") || roles.includes("large_driver")) {
         const { data } = await supabase
           .from("driver_wallets")
           .select("*")
@@ -115,10 +115,10 @@ export default function ProfileScreen() {
         <Text style={styles.phone}>{profile?.phone}</Text>
       </View>
       <View style={styles.rolesRow}>
-        {roles.filter((r) => ["customer", "driver", "worker"].includes(r)).map((r) => (
+        {roles.filter((r) => ["customer", "driver", "large_driver", "worker"].includes(r)).map((r) => (
           <View key={r} style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>
-              {r === "customer" ? "زبون" : r === "driver" ? "سائق" : "فني"}
+              {r === "customer" ? "زبون" : r === "driver" ? "كابتن تكسي" : r === "large_driver" ? "سائق سيارات كبيرة" : "فني"}
             </Text>
           </View>
         ))}
@@ -179,9 +179,15 @@ export default function ProfileScreen() {
           <Text style={styles.menuArrow}>←</Text>
         </TouchableOpacity>
       )}
-      {!roles.includes("driver") && (
+      {!roles.includes("driver") && !roles.includes("large_driver") && (
         <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/onboarding/driver")}>
-          <Text style={styles.menuItemText}>التسجيل كسائق</Text>
+          <Text style={styles.menuItemText}>التسجيل ككابتن تكسي</Text>
+          <Text style={styles.menuArrow}>←</Text>
+        </TouchableOpacity>
+      )}
+      {!roles.includes("large_driver") && (
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push({ pathname: "/onboarding/driver", params: { providerType: "large_driver" } })}>
+          <Text style={styles.menuItemText}>التسجيل كسائق سيارات كبيرة</Text>
           <Text style={styles.menuArrow}>←</Text>
         </TouchableOpacity>
       )}
