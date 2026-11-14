@@ -25,6 +25,7 @@ jobs:
     env:
       APP_ENV: production
       EAS_PROJECT_ID: a6c763c4-3a5c-4725-b370-81967e3c0aab
+      ANDROID_NDK_VERSION: 27.1.12297006
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -33,6 +34,7 @@ jobs:
           java-version: "17"
       - name: Install Android SDK packages
         run: |
+          set -euo pipefail
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
           if [ -z "$SDKMANAGER" ]; then
@@ -41,6 +43,24 @@ jobs:
           fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          # Install the exact NDK version required by the generated Android project
+          # before Gradle starts, retrying in case Google's package mirror returns a
+          # truncated/corrupt archive.
+          for attempt in 1 2 3; do
+            rm -rf "$SDK_ROOT/ndk/$ANDROID_NDK_VERSION"
+            if "$SDKMANAGER" --install "ndk;$ANDROID_NDK_VERSION" &&
+               test -s "$SDK_ROOT/ndk/$ANDROID_NDK_VERSION/source.properties" &&
+               grep -q "Pkg.Revision = $ANDROID_NDK_VERSION" "$SDK_ROOT/ndk/$ANDROID_NDK_VERSION/source.properties"; then
+              echo "Verified Android NDK $ANDROID_NDK_VERSION"
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Could not install a valid Android NDK after 3 attempts."
+              exit 1
+            fi
+            echo "NDK installation attempt $attempt failed; retrying after cleanup."
+            sleep 10
+          done
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
