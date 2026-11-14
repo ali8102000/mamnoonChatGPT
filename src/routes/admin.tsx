@@ -31,6 +31,7 @@ import {
   adminBroadcastNotification,
   adminCancelRequest,
   adminDeleteCoupon,
+  adminDistributeCoupon,
   adminDeleteFriendRequest,
   adminDeleteFriendship,
   adminDeleteMessage,
@@ -1674,9 +1675,13 @@ function CouponsSection() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [distributionTarget, setDistributionTarget] = useState<"all" | "drivers" | "workers" | "single">("all");
+  const [singleUserId, setSingleUserId] = useState("");
+  const [distributionMessage, setDistributionMessage] = useState("");
   const listCoupons = useServerFn(adminListCoupons);
   const saveCoupon = useServerFn(adminSaveCoupon);
   const deleteCoupon = useServerFn(adminDeleteCoupon);
+  const distributeCoupon = useServerFn(adminDistributeCoupon);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -1702,9 +1707,49 @@ function CouponsSection() {
       load();
     } catch (e) {}
   }
+  async function handleDistribute(id: string) {
+    if (distributionTarget === "single" && !singleUserId.trim()) {
+      setDistributionMessage("أدخل رقم المستخدم (UUID) أولاً");
+      return;
+    }
+    try {
+      const result = await distributeCoupon({
+        data: {
+          coupon_id: id,
+          target: distributionTarget,
+          ...(distributionTarget === "single" ? { single_user_id: singleUserId.trim() } : {}),
+        },
+      });
+      setDistributionMessage(`تم إرسال الكوبون إلى ${result.sent} مستخدم`);
+    } catch (error: any) {
+      setDistributionMessage(error?.message || "تعذّر توزيع الكوبون");
+    }
+  }
   return (
     <div>
       <h2 className="text-xl font-black mb-4">إدارة الكوبونات</h2>
+      <div className="glass rounded-2xl p-3 mb-4 space-y-2">
+        <div className="text-xs font-bold">توزيع الكوبون إلى</div>
+        <select
+          value={distributionTarget}
+          onChange={(e) => setDistributionTarget(e.target.value as any)}
+          className="w-full glass rounded-xl px-3 py-2.5 text-sm"
+        >
+          <option value="all">جميع المستخدمين</option>
+          <option value="drivers">السائقين</option>
+          <option value="workers">الفنيين</option>
+          <option value="single">مستخدم محدد</option>
+        </select>
+        {distributionTarget === "single" && (
+          <input
+            value={singleUserId}
+            onChange={(e) => setSingleUserId(e.target.value)}
+            placeholder="معرّف المستخدم UUID"
+            className="w-full glass rounded-xl px-3 py-2.5 text-sm"
+          />
+        )}
+        {distributionMessage && <p className="text-xs text-primary font-bold">{distributionMessage}</p>}
+      </div>
       <button
         onClick={() => {
           setEditing(null);
@@ -1737,7 +1782,14 @@ function CouponsSection() {
                 · استخدام {c.used_count}/{c.max_uses}
                 {c.expires_at && ` · ينتهي ${new Date(c.expires_at).toLocaleDateString("ar-IQ")}`}
               </div>
-              <div className="flex gap-1.5 mt-2">
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <button
+                  onClick={() => handleDistribute(c.id)}
+                  disabled={!c.active || (c.expires_at && new Date(c.expires_at).getTime() <= Date.now())}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-bold disabled:opacity-40"
+                >
+                  توزيع للمستخدمين
+                </button>
                 <button
                   onClick={() => {
                     setEditing(c);
