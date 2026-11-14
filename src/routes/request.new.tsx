@@ -499,11 +499,13 @@ function NewRequest() {
               }
             : {}),
         } as any)
-        .select("id")
+        .select("id,coupon_discount,customer_payable")
         .single();
 
       if (error) throw error;
-      toast.success("تم إرسال الطلب بنجاح!");
+      toast.success(data.coupon_discount > 0
+        ? `تم إرسال الطلب وتطبيق خصم ${Number(data.coupon_discount).toLocaleString("ar-IQ")} د.ع`
+        : "تم إرسال الطلب بنجاح!");
       if (type === "taxi" && vehicle !== "large") {
         runDispatch({ data: { requestId: data.id } }).catch((e) => console.warn("[dispatch]", e));
         try {
