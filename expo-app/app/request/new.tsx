@@ -15,7 +15,9 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { haversineKm, estimateFare } from "@/lib/pricing";
+import { estimateFare } from "@/lib/pricing";
+import { callMamnoonMapsApi } from "@/lib/maps-api";
+import { IRAQ_GOVERNORATES, getMobileGovernorate, nearestGovernorateKey } from "@/lib/governorates";
 import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
 import { palette, radius } from "@/styles/theme";
@@ -64,6 +66,10 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
+  const [pickupGovernorateKey, setPickupGovernorateKey] = useState<string | null>("baghdad");
+  const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
+  const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
+  const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
@@ -77,6 +83,13 @@ export default function NewRequest() {
   const [workHours, setWorkHours] = useState("");
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState<number | null>(null);
+  const [routeKm, setRouteKm] = useState<number | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number } }>>([]);
+  const [searchingPlaces, setSearchingPlaces] = useState(false);
+  const [placeSearchError, setPlaceSearchError] = useState<string | null>(null);
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
 
@@ -124,6 +137,7 @@ export default function NewRequest() {
           longitude: position.coords.longitude,
         };
         setPickupCoords(coords);
+        setPickupGovernorateKey(nearestGovernorateKey(coords));
         setRegion({ ...coords, latitudeDelta: 0.02, longitudeDelta: 0.02 });
         const address = formatAddress(await Location.reverseGeocodeAsync(coords));
         if (address) setPickup(address);
@@ -142,17 +156,74 @@ export default function NewRequest() {
   useEffect(() => {
     if (!pickupCoords || !destinationCoords || !isTaxi || isLargeVehicle) {
       setPrice(null);
+      setRouteKm(null);
+      setRouteError(null);
       return;
     }
-    const straightDistance = haversineKm(
-      pickupCoords.latitude,
-      pickupCoords.longitude,
-      destinationCoords.latitude,
-      destinationCoords.longitude,
-    );
-    // A display-only estimate. The server must calculate and confirm the final fare.
-    setPrice(estimateFare(straightDistance * 1.35, vehicleCat));
+    let active = true;
+    const timer = setTimeout(async () => {
+      setRouteLoading(true);
+      setRouteError(null);
+      try {
+        const route = await callMamnoonMapsApi<{ distanceKm: number; durationMin: number }>({
+          action: "route",
+          from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude },
+          to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude },
+        });
+        if (!active) return;
+        setRouteKm(route.distanceKm);
+        setPrice(estimateFare(route.distanceKm, vehicleCat));
+      } catch (error) {
+        if (!active) return;
+        setRouteKm(null);
+        setPrice(null);
+        setRouteError(error instanceof Error ? error.message : "تعذّر حساب مسافة الطريق.");
+      } finally {
+        if (active) setRouteLoading(false);
+      }
+    }, 350);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat]);
+
+  useEffect(() => {
+    const query = placeQuery.trim();
+    if (query.length < 2 || !activeGovernorateKey) {
+      setPlaceSuggestions([]);
+      setSearchingPlaces(false);
+      setPlaceSearchError(null);
+      return;
+    }
+    let active = true;
+    const timer = setTimeout(async () => {
+      setSearchingPlaces(true);
+      setPlaceSearchError(null);
+      const center = mapMode === "pickup" ? pickupCoords : destinationCoords;
+      const fallback = activeGovernorate;
+      try {
+        const result = await callMamnoonMapsApi<{ suggestions: Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number } }> }>({
+          action: "autocomplete",
+          input: query,
+          center: center ? { lat: center.latitude, lng: center.longitude } : { lat: fallback!.latitude, lng: fallback!.longitude },
+          governorateKey: activeGovernorateKey,
+        });
+        if (active) setPlaceSuggestions(result.suggestions ?? []);
+      } catch (error) {
+        if (active) {
+          setPlaceSuggestions([]);
+          setPlaceSearchError(error instanceof Error ? error.message : "تعذّر البحث عن الأماكن.");
+        }
+      } finally {
+        if (active) setSearchingPlaces(false);
+      }
+    }, 450);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [placeQuery, activeGovernorateKey, mapMode, pickupCoords, destinationCoords]);
 
   async function locateMe() {
     setLocationLoading(true);
@@ -170,6 +241,7 @@ export default function NewRequest() {
         longitude: position.coords.longitude,
       };
       setPickupCoords(coords);
+      setPickupGovernorateKey(nearestGovernorateKey(coords));
       setRegion({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
       const address = formatAddress(await Location.reverseGeocodeAsync(coords));
       setPickup(address || "موقعي الحالي");
@@ -182,6 +254,22 @@ export default function NewRequest() {
   }
 
   async function chooseMapPoint(coords: Coordinates) {
+    if (activeGovernorateKey) {
+      try {
+        const validation = await callMamnoonMapsApi<{ valid: boolean }>({
+          action: "validateGovernorate",
+          center: { lat: coords.latitude, lng: coords.longitude },
+          governorateKey: activeGovernorateKey,
+        });
+        if (!validation.valid) {
+          Alert.alert("الموقع خارج المحافظة", `اختر نقطة داخل محافظة ${activeGovernorate?.name ?? "المحافظة المحددة"} أو غيّر المحافظة.`);
+          return;
+        }
+      } catch (error) {
+        Alert.alert("تعذّر التحقق من الموقع", error instanceof Error ? error.message : "حاول مرة ثانية.");
+        return;
+      }
+    }
     if (mapMode === "pickup") {
       setPickupCoords(coords);
       const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
@@ -191,6 +279,43 @@ export default function NewRequest() {
       const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
       setDestination(address || `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`);
     }
+  }
+
+  function chooseGovernorate(key: string) {
+    const governorate = getMobileGovernorate(key);
+    if (!governorate) return;
+    if (mapMode === "pickup") setPickupGovernorateKey(key);
+    else setDestinationGovernorateKey(key);
+    setPlaceQuery("");
+    setPlaceSuggestions([]);
+    setPlaceSearchError(null);
+    setRegion({ latitude: governorate.latitude, longitude: governorate.longitude, latitudeDelta: 0.12, longitudeDelta: 0.12 });
+    if (mapMode === "pickup") {
+      setPickupCoords({ latitude: governorate.latitude, longitude: governorate.longitude });
+      setPickup(governorate.name);
+    } else {
+      setDestinationCoords({ latitude: governorate.latitude, longitude: governorate.longitude });
+      setDestination(governorate.name);
+    }
+  }
+
+  function choosePlaceSuggestion(item: { text: string; address?: string; coords?: { lat: number; lng: number } }) {
+    if (!item.coords) {
+      Alert.alert("الموقع غير متوفر", "اختر اقتراحاً آخر يحتوي على إحداثيات دقيقة.");
+      return;
+    }
+    const coords = { latitude: item.coords.lat, longitude: item.coords.lng };
+    const label = item.address || item.text;
+    if (mapMode === "pickup") {
+      setPickupCoords(coords);
+      setPickup(label);
+    } else {
+      setDestinationCoords(coords);
+      setDestination(label);
+    }
+    setRegion({ ...coords, latitudeDelta: 0.018, longitudeDelta: 0.018 });
+    setPlaceQuery("");
+    setPlaceSuggestions([]);
   }
 
   async function submit() {
@@ -256,28 +381,19 @@ export default function NewRequest() {
         requestId = largeRequest.id;
         // The database trigger starts the nearby large-driver offer flow.
       } else if (isTaxi) {
-        const { data: taxiRequest, error: taxiError } = await supabase.functions.invoke(
-          "create-taxi-request",
-          {
-            body: {
-              pickupLat: pickupCoords.latitude,
-              pickupLng: pickupCoords.longitude,
-              pickupText: pickup,
-              destinationLat: destinationCoords!.latitude,
-              destinationLng: destinationCoords!.longitude,
-              destinationText: destination,
-              vehicleCategory: vehicleCat,
-              vehicleType: null,
-              notes,
-            },
-          },
-        );
-        if (taxiError) throw taxiError;
-        if (!taxiRequest?.requestId) throw new Error("تعذّر إنشاء طلب التكسي.");
+        const taxiRequest = await callMamnoonMapsApi<{ requestId: string }>({
+          action: "createTaxiRequest",
+          from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude },
+          to: { lat: destinationCoords!.latitude, lng: destinationCoords!.longitude },
+          pickupText: pickup,
+          destinationText: destination,
+          pickupGovernorateKey: pickupGovernorateKey ?? undefined,
+          destinationGovernorateKey: destinationGovernorateKey ?? undefined,
+          vehicleCategory: vehicleCat,
+          notes,
+        });
+        if (!taxiRequest.requestId) throw new Error("تعذّر إنشاء طلب التكسي.");
         requestId = taxiRequest.requestId;
-
-        // The database insert trigger starts taxi dispatch atomically.
-        // The retry RPC is reserved for an explicit customer retry after offers expire.
       } else {
         const { data: serviceRow, error: serviceError } = await supabase
           .from("services")
@@ -406,6 +522,42 @@ export default function NewRequest() {
           )}
         </TouchableOpacity>
       </View>
+
+      <Text style={styles.label}>المحافظة</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.governorateRow}>
+        {IRAQ_GOVERNORATES.map((governorate) => (
+          <TouchableOpacity
+            key={governorate.key}
+            style={[styles.governorateChip, activeGovernorateKey === governorate.key && styles.governorateChipActive]}
+            onPress={() => chooseGovernorate(governorate.key)}
+          >
+            <Text style={[styles.governorateChipText, activeGovernorateKey === governorate.key && styles.governorateChipTextActive]}>
+              {activeGovernorateKey === governorate.key ? "✓ " : ""}{governorate.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <TextInput
+        style={styles.input}
+        value={placeQuery}
+        onChangeText={setPlaceQuery}
+        placeholder={activeGovernorate ? `ابحث عن مكان داخل ${activeGovernorate.name}...` : "اختر المحافظة أولاً"}
+        placeholderTextColor="#94a3b8"
+        editable={!!activeGovernorateKey}
+        returnKeyType="search"
+      />
+      {searchingPlaces && <ActivityIndicator style={{ marginTop: 8 }} color={palette.brand} />}
+      {!!placeSearchError && <Text style={styles.mapErrorText}>{placeSearchError}</Text>}
+      {placeSuggestions.length > 0 && (
+        <View style={styles.suggestionList}>
+          {placeSuggestions.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.suggestionItem} onPress={() => choosePlaceSuggestion(item)}>
+              <Text style={styles.suggestionTitle}>{item.text}</Text>
+              {!!item.address && item.address !== item.text && <Text style={styles.suggestionAddress}>{item.address}</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <View style={styles.mapContainer}>
         <MapView
@@ -599,11 +751,13 @@ export default function NewRequest() {
         multiline
       />
 
-      {price !== null && isTaxi && !isLargeVehicle && (
+      {routeLoading && <Text style={styles.mapHintText}>جاري حساب مسافة الطريق الفعلية...</Text>}
+      {!!routeError && <Text style={styles.mapErrorText}>{routeError}</Text>}
+      {price !== null && routeKm !== null && isTaxi && !isLargeVehicle && (
         <View style={styles.priceBox}>
-          <Text style={styles.priceLabel}>تقدير أولي تقريبي (ليس السعر النهائي)</Text>
+          <Text style={styles.priceLabel}>تقدير مبني على مسافة الطريق</Text>
           <Text style={styles.priceValue}>{price.toLocaleString("en")} د.ع</Text>
-          <Text style={styles.priceNote}>السعر النهائي يحتاج حساب مسار الطريق من الخادم</Text>
+          <Text style={styles.priceNote}>مسافة الطريق: {routeKm.toFixed(1)} كم — السعر النهائي يثبّته الخادم عند إرسال الطلب</Text>
         </View>
       )}
       <View style={{ height: 24 }} />
@@ -622,6 +776,17 @@ const styles = StyleSheet.create({
   serviceImage: { width: 58, height: 58, marginBottom: 4 },
   serviceLabel: { fontSize: 12, fontWeight: "800", color: palette.ink },
   mapModeRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  governorateRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
+  governorateChip: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  governorateChipActive: { backgroundColor: palette.brand, borderColor: palette.gold },
+  governorateChipText: { color: palette.ink, fontSize: 12, fontWeight: "800" },
+  governorateChipTextActive: { color: palette.white },
+  suggestionList: { marginTop: 8, borderRadius: radius.md, overflow: "hidden", borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+  suggestionItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: palette.line },
+  suggestionTitle: { color: palette.ink, fontSize: 13, fontWeight: "800", textAlign: "right" },
+  suggestionAddress: { color: palette.muted, fontSize: 11, marginTop: 4, textAlign: "right" },
+  mapErrorText: { color: palette.danger, fontSize: 12, fontWeight: "700", marginTop: 8, textAlign: "right" },
+  mapHintText: { color: palette.muted, fontSize: 12, fontWeight: "700", marginTop: 8, textAlign: "center" },
   mapModeButton: { flex: 1, minHeight: 46, borderRadius: radius.md, backgroundColor: palette.surfaceSoft, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
   mapModeButtonActive: { backgroundColor: palette.brand, borderColor: palette.brand },
   mapModeText: { color: palette.muted, fontWeight: "800", fontSize: 12 },
