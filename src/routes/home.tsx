@@ -346,6 +346,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
 
   useEffect(() => {
     if (!session) return;
+    const providerUserId = session.user.id;
     supabase
       .from(table)
       .select("*")
@@ -364,11 +365,11 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         const { data: offerRows, error: offerError } = await (supabase as any)
           .from("request_offers")
           .select("request_id, proposed_price, offer_message")
-          .eq("provider_id", session.user.id)
+          .eq("provider_id", providerUserId)
           .eq("status", "pending")
           .gt("expires_at", new Date().toISOString());
         if (offerError || !offerRows?.length) { setRequests([]); return; }
-        const requestIds = [...new Set(offerRows.map((offer: any) => offer.request_id))];
+        const requestIds: string[] = [...new Set<string>((offerRows ?? []).map((offer: any) => String(offer.request_id)))];
         const { data } = await supabase
           .from("service_requests")
           .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, vehicle_category, vehicle_type")
