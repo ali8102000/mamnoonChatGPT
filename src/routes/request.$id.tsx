@@ -465,7 +465,7 @@ function RequestDetail() {
           </div>
         )}
 
-        {trackingActive && (myRole === "provider" || mapOpen) && (
+        {trackingActive && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
               <div className="flex items-center gap-2">
@@ -505,15 +505,9 @@ function RequestDetail() {
 
         {trackingActive && myRole === "customer" && (
           <Button variant="outline" className="w-full h-12" onClick={() => setMapOpen(true)}>
-            <MapPin className="h-4 w-4" /> رؤية موقع {req.type === "taxi" ? "السائق" : "الفني"}
+            <MapPin className="h-4 w-4" /> تكبير الخريطة ومتابعة {req.type === "taxi" ? "السائق" : "الفني"}
           </Button>
         )}
-        {myRole === "provider" && (req.pickup_lat != null || req.dest_lat != null) && (
-          <Button className="w-full h-12" onClick={() => setNavModalOpen(true)}>
-            <Navigation className="h-4 w-4" /> ملاحة
-          </Button>
-        )}
-
         <div className="glass rounded-2xl p-4 text-sm space-y-2">
           <div>
             <span className="text-muted-foreground text-xs">📍 الموقع: </span>
