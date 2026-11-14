@@ -201,11 +201,11 @@ export default function NewRequest() {
       Alert.alert("حدد موقع الانطلاق", "اختر موقعك من الخريطة أو استخدم تحديد موقعي.");
       return;
     }
-    if (isTaxi && !destinationCoords) {
+    if (isTaxi && !isLargeVehicle && !destinationCoords) {
       Alert.alert("حدد الوجهة", "اختر الوجهة من الخريطة قبل طلب السيارة.");
       return;
     }
-    if (!pickup.trim() || (isTaxi && !destination.trim())) {
+    if (!pickup.trim() || (isTaxi && !isLargeVehicle && !destination.trim())) {
       Alert.alert("بيانات ناقصة", "أكمل وصف الموقع والوجهة.");
       return;
     }
@@ -240,9 +240,9 @@ export default function NewRequest() {
             pickup_text: pickup,
             pickup_lat: pickupCoords.latitude,
             pickup_lng: pickupCoords.longitude,
-            dest_text: destination,
-            dest_lat: destinationCoords!.latitude,
-            dest_lng: destinationCoords!.longitude,
+            dest_text: null,
+            dest_lat: null,
+            dest_lng: null,
             distance_km: null,
             price_estimate: null,
             customer_price: proposedPrice,
@@ -329,6 +329,19 @@ export default function NewRequest() {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "طلب جديد"}</Text>
+      {isLargeVehicle && (
+        <View style={{ marginBottom: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
+          <Text style={styles.label}>اختار نوع الكيا أولاً</Text>
+          <View style={styles.catRow}>
+            {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
+              <TouchableOpacity key={item.key} style={[styles.catChip, vehicleType === item.key && styles.catChipActive]} onPress={() => setVehicleType(item.key)}>
+                <Text style={styles.catEmoji}>{item.emoji}</Text>
+                <Text style={[styles.catLabel, vehicleType === item.key && styles.catLabelActive]}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
       {vehicle !== "large" && (
         <>
           <Text style={styles.label}>نوع الخدمة</Text>
@@ -372,7 +385,7 @@ export default function NewRequest() {
             نقطة الانطلاق
           </Text>
         </TouchableOpacity>
-        {isTaxi && (
+        {isTaxi && !isLargeVehicle && (
           <TouchableOpacity
             style={[styles.mapModeButton, mapMode === "destination" && styles.mapModeButtonActive]}
             onPress={() => setMapMode("destination")}
@@ -426,7 +439,7 @@ export default function NewRequest() {
         placeholder="موقعك الحالي أو وصف المكان"
         placeholderTextColor="#94a3b8"
       />
-      {isTaxi && (
+      {isTaxi && !isLargeVehicle && (
         <>
           <Text style={styles.label}>وصف الوجهة</Text>
           <TextInput
@@ -472,19 +485,7 @@ export default function NewRequest() {
               <Text style={{ color: "#9a3412", fontSize: 11, marginTop: 6 }}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب</Text>
             </View>
           )}
-          {vehicleCat === "large" && (
-            <View style={{ marginTop: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
-              <Text style={styles.label}>اختر كيا حمل أو كيا ركاب</Text>
-              <View style={styles.catRow}>
-                {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
-                  <TouchableOpacity key={item.key} style={[styles.catChip, vehicleType === item.key && styles.catChipActive]} onPress={() => setVehicleType(item.key)}>
-                    <Text style={styles.catEmoji}>{item.emoji}</Text>
-                    <Text style={[styles.catLabel, vehicleType === item.key && styles.catLabelActive]}>{item.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
+          {false && vehicleCat === "large" && <View />}
         </>
       ) : (
         <>
@@ -586,7 +587,7 @@ export default function NewRequest() {
         style={[styles.input, { height: 80 }]}
         value={notes}
         onChangeText={setNotes}
-        placeholder="أي تفاصيل إضافية..."
+        placeholder={isLargeVehicle ? "اكتب الوجهة إن وجدت وأي تفاصيل عن الحمولة أو المشوار..." : "أي تفاصيل إضافية..."}
         placeholderTextColor="#94a3b8"
         multiline
       />
