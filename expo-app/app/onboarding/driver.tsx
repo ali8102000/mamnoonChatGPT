@@ -38,6 +38,7 @@ export default function DriverOnboarding() {
   const [savedModelName, setSavedModelName] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checkingSavedDriver, setCheckingSavedDriver] = useState(true);
 
   useEffect(() => {
     (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
@@ -53,21 +54,37 @@ export default function DriverOnboarding() {
         setModels((data ?? []) as VehicleModel[]);
       });
     if (user) {
-      supabase.from("provider_verifications")
-        .select("status,rejection_reason,metadata")
-        .eq("user_id", user.id).eq("provider_type", "driver").maybeSingle()
-        .then(({ data }) => {
-          if (!active || !data) return;
-          setStatus(data.status);
-          setRejectionReason(data.rejection_reason ?? null);
-          const m = (data.metadata ?? {}) as Record<string, unknown>;
-          if (typeof m.vehicleMake === "string") setSelectedMake(m.vehicleMake);
-          if (typeof m.vehicleModel === "string") setSavedModelName(m.vehicleModel);
-          if (typeof m.vehicleYear === "number") setYear(String(m.vehicleYear));
-          if (typeof m.vehiclePlate === "string") setPlate(m.vehiclePlate);
-          if (typeof m.vehicleColor === "string") setColor(m.vehicleColor);
-          if (m.vehicleCategory === "economy" || m.vehicleCategory === "premium" || m.vehicleCategory === "luxury") setCategory(m.vehicleCategory);
-        });
+      Promise.all([
+        supabase.from("provider_verifications")
+          .select("status,rejection_reason,metadata")
+          .eq("user_id", user.id).eq("provider_type", "driver").maybeSingle(),
+        supabase.from("driver_profiles")
+          .select("status,vehicle_make,vehicle_model,vehicle_year,vehicle_plate,vehicle_color,vehicle_category")
+          .eq("user_id", user.id).maybeSingle(),
+      ]).then(([verification, driverProfile]) => {
+        if (!active) return;
+        const saved = driverProfile.data;
+        const verificationData = verification.data;
+        const m = (verificationData?.metadata ?? {}) as Record<string, unknown>;
+        const resolvedStatus = verificationData?.status ?? saved?.status ?? null;
+        if (resolvedStatus) setStatus(resolvedStatus);
+        setRejectionReason(verificationData?.rejection_reason ?? null);
+        const make = typeof m.vehicleMake === "string" ? m.vehicleMake : saved?.vehicle_make;
+        const model = typeof m.vehicleModel === "string" ? m.vehicleModel : saved?.vehicle_model;
+        const savedYear = typeof m.vehicleYear === "number" ? m.vehicleYear : saved?.vehicle_year;
+        const savedPlate = typeof m.vehiclePlate === "string" ? m.vehiclePlate : saved?.vehicle_plate;
+        const savedColor = typeof m.vehicleColor === "string" ? m.vehicleColor : saved?.vehicle_color;
+        const savedCategory = m.vehicleCategory ?? saved?.vehicle_category;
+        if (typeof make === "string") setSelectedMake(make);
+        if (typeof model === "string") setSavedModelName(model);
+        if (typeof savedYear === "number") setYear(String(savedYear));
+        if (typeof savedPlate === "string") setPlate(savedPlate);
+        if (typeof savedColor === "string") setColor(savedColor);
+        if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury") setCategory(savedCategory);
+        setCheckingSavedDriver(false);
+      }).catch(() => { if (active) setCheckingSavedDriver(false); });
+    } else {
+      setCheckingSavedDriver(false);
     }
     return () => { active = false; };
   }, [user?.id]);
@@ -216,6 +233,10 @@ export default function DriverOnboarding() {
     }
   }
 
+  if (checkingSavedDriver) {
+    return <View style={styles.statusContainer}><Text style={styles.statusText}>جاري استرجاع بيانات تسجيلك السابقة...</Text></View>;
+  }
+
   if (status === "pending" || status === "approved") {
     return (
       <View style={styles.statusContainer}>
@@ -226,12 +247,21 @@ export default function DriverOnboarding() {
             : "استلمنا بيانات السيارة والهوية. طلبك الآن بانتظار موافقة " + companyName + "، وستتمكن من استقبال الرحلات بعد الاعتماد."}
         </Text>
         {status === "approved" ? (
-          <Button title="تحديث الحساب والمتابعة" onPress={async () => {
-            await refresh();
-            const { data } = await supabase.from("user_roles").select("role").eq("user_id", user!.id).eq("role", "driver").maybeSingle();
-            if (data) router.replace("/home");
-            else Alert.alert("تنبيه", "الموافقة لم تكتمل صلاحياتها بعد. أعد المحاولة بعد قليل.");
-          }} />
+          <Button title="تفعيل دور السائق والمتابعة" onPress={async () => {
+            if (!user) return;
+            setBusy(true);
+            try {
+              const { error } = await supabase.rpc("grant_provider_role_safe", { _role: "driver" });
+              if (error) throw error;
+              await refresh();
+              await (await import("expo-secure-store")).setItemAsync("mamnoon_active_role", "driver");
+              router.replace("/home");
+            } catch (error) {
+              Alert.alert("تعذر تفعيل دور السائق", error instanceof Error ? error.message : "تأكد من اعتماد طلبك ثم حاول مجدداً.");
+            } finally {
+              setBusy(false);
+            }
+          }} loading={busy} />
         ) : (
           <View style={{ gap: 10 }}>
             <Button title="تعديل البيانات وإعادة إرفاق السنوية والمستمسكات" onPress={() => setStatus(null)} />
