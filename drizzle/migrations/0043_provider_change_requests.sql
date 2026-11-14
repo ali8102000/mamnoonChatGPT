@@ -117,15 +117,18 @@ DECLARE
   v_service_id uuid;
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
-  IF _provider_type NOT IN ('driver','large_driver','worker') THEN
+  IF _provider_type IS NULL OR _provider_type NOT IN ('driver','large_driver','worker') THEN
     RAISE EXCEPTION 'invalid_provider_type';
+  END IF;
+  IF _requested_data IS NULL OR jsonb_typeof(_requested_data) IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'invalid_requested_data';
   END IF;
   IF NOT public.has_role(auth.uid(), _provider_type::public.app_role) THEN
     RAISE EXCEPTION 'approved_provider_role_required';
   END IF;
 
   IF _provider_type = 'worker' THEN
-    IF jsonb_typeof(_requested_data->'service_ids') <> 'array'
+    IF jsonb_typeof(_requested_data->'service_ids') IS DISTINCT FROM 'array'
        OR jsonb_array_length(_requested_data->'service_ids') = 0 THEN
       RAISE EXCEPTION 'select_at_least_one_specialty';
     END IF;
@@ -136,11 +139,13 @@ BEGIN
       WHERE s.id IS NULL
     ) THEN RAISE EXCEPTION 'invalid_service_selection'; END IF;
   ELSIF _provider_type = 'driver' THEN
-    IF _requested_data->>'vehicle_category' NOT IN ('economy','premium','luxury') THEN
+    IF _requested_data->>'vehicle_category' IS NULL
+       OR _requested_data->>'vehicle_category' NOT IN ('economy','premium','luxury') THEN
       RAISE EXCEPTION 'invalid_taxi_vehicle_category';
     END IF;
   ELSIF _provider_type = 'large_driver' THEN
-    IF _requested_data->>'vehicle_type' NOT IN ('kia_cargo','kia_passenger','bus') THEN
+    IF _requested_data->>'vehicle_type' IS NULL
+       OR _requested_data->>'vehicle_type' NOT IN ('kia_cargo','kia_passenger','bus') THEN
       RAISE EXCEPTION 'invalid_large_vehicle_type';
     END IF;
   END IF;
