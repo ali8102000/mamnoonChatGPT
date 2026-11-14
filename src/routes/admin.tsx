@@ -1822,7 +1822,8 @@ function CouponsSection() {
           />
         )}
         <div className="rounded-xl bg-background/70 px-3 py-2 text-xs font-bold">
-          {audienceCountLoading ? "جارٍ حساب الجمهور المطابق..." :
+          {distributionTarget === "single" ? "سيُرسل إلى المستخدم المحدد بعد إدخال معرّفه" :
+            audienceCountLoading ? "جارٍ حساب الجمهور المطابق..." :
             audienceCount === null ? "تعذّر حساب عدد المستلمين حالياً" :
             `عدد الحسابات المطابقة: ${audienceCount.toLocaleString("ar-IQ")}`}
         </div>
