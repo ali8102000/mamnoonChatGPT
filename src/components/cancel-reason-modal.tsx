@@ -3,6 +3,7 @@ import { X, Loader2, AlertTriangle } from "lucide-react";
 
 type Props = {
   role: "customer" | "provider";
+  requestType: "taxi" | "service";
   onClose: () => void;
   onSubmit: (reason: string) => Promise<void> | void;
 };
@@ -26,7 +27,7 @@ const PROVIDER_REASONS = [
   "سبب آخر",
 ];
 
-export function CancelReasonModal({ role, onClose, onSubmit }: Props) {
+export function CancelReasonModal({ role, requestType, onClose, onSubmit }: Props) {
   const reasons = role === "customer" ? CUSTOMER_REASONS : PROVIDER_REASONS;
   const [selected, setSelected] = useState<string>("");
   const [note, setNote] = useState("");
@@ -54,9 +55,9 @@ export function CancelReasonModal({ role, onClose, onSubmit }: Props) {
               <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <div>
-              <div className="font-black text-base">{role === "customer" ? "إلغاء الرحلة أو الطلب" : "الاعتذار عن الطلب"}</div>
+              <div className="font-black text-base">{role === "customer" ? (requestType === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب") : (requestType === "taxi" ? "الاعتذار عن الرحلة" : "الاعتذار عن الطلب") }</div>
               <div className="text-[11px] text-muted-foreground">
-                {role === "customer" ? "سيتم إيقاف الطلب وإبلاغ الطرف الآخر" : "سيتم فك ارتباطك بالطلب وإعادته للبحث عن مزوّد آخر"}
+                {role === "customer" ? "سيتم إيقاف الطلب وإبلاغ الطرف الآخر" : requestType === "taxi" ? "سيتم فك ارتباطك بالرحلة وإعادتها للبحث عن سائق آخر" : "سيتم فك ارتباطك بالطلب وإعادته للبحث عن فني آخر"}
               </div>
             </div>
           </div>
@@ -113,7 +114,7 @@ export function CancelReasonModal({ role, onClose, onSubmit }: Props) {
             }}
             className="py-3.5 rounded-2xl bg-destructive text-destructive-foreground font-black active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : role === "customer" ? "تأكيد إلغاء الطلب" : "تأكيد الاعتذار وإعادة البحث"}
+            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : role === "customer" ? (requestType === "taxi" ? "تأكيد إلغاء الرحلة" : "تأكيد إلغاء الطلب") : (requestType === "taxi" ? "تأكيد الاعتذار وإعادة الرحلة للبحث" : "تأكيد الاعتذار وإعادة الطلب للبحث")}
           </button>
         </div>
       </div>
