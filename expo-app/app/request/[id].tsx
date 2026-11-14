@@ -71,6 +71,8 @@ type RequestRecord = {
   pickup_text: string;
   dest_text: string | null;
   price_estimate: number | null;
+  customer_payable?: number | null;
+  payment_method?: string | null;
   customer_price: number | null;
   pricing_mode: string | null;
   work_hours: number | null;
@@ -117,6 +119,7 @@ export default function RequestDetail() {
   const [reportReason, setReportReason] = useState("مشكلة أثناء الطلب");
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const isProvider = request?.provider_id === user?.id;
   const isCustomer = request?.customer_id === user?.id;
@@ -137,7 +140,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes",
+        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes",
       )
       .eq("id", id)
       .maybeSingle();
@@ -394,6 +397,19 @@ export default function RequestDetail() {
     currentUserId,
   ]);
 
+  async function payRequestWithZainCash() {
+    if (!user || !request || !isCustomer || paymentBusy || request.payment_method === "zaincash") return;
+    setPaymentBusy(true);
+    try {
+      const {data,error}=await supabase.functions.invoke("zaincash-create-payment",{body:{purpose:"service_request",requestId:id}});
+      if(error) throw error;
+      if(typeof data?.redirectUrl!=="string" || !data.redirectUrl.startsWith("https://")) throw new Error("لم يصل رابط الدفع الآمن");
+      await Linking.openURL(data.redirectUrl);
+    } catch(e:any) {
+      Alert.alert("تعذر بدء الدفع",e?.message || "حاول مرة ثانية لاحقاً.");
+    } finally { setPaymentBusy(false); }
+  }
+
   async function sendMessage(text?: string) {
     const msg = (text || newMsg).trim();
     if (!msg) return;
@@ -639,6 +655,15 @@ export default function RequestDetail() {
             <Text style={styles.infoPrice}>الأجر قابل للتفاوض</Text>
           )}
         </View>
+        {isCustomer && ["accepted","in_progress","completed"].includes(request.status) && request.payment_method !== "zaincash" && Number(request.customer_payable ?? request.customer_price ?? request.price_estimate) > 0 && (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoType}>الدفع الإلكتروني عبر زين كاش</Text>
+            <Text style={styles.infoRow}>تقدر تدفع الأجرة بعد تثبيت السعر. بوابة الدفع متوقفة حالياً لحين إكمال إعدادات التاجر والاختبار.</Text>
+            <TouchableOpacity onPress={payRequestWithZainCash} disabled={paymentBusy} style={[styles.primaryButton,paymentBusy&&styles.disabled]}>
+              <Text style={styles.primaryButtonText}>{paymentBusy ? "جاري تجهيز الدفع..." : "الدفع عبر زين كاش"}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {request.vehicle_category === "large" && isCustomer && ["pending", "searching"].includes(request.status) && (
           <View style={styles.largeOffersCard}>
             <Text style={styles.largeOffersTitle}>عروض أصحاب السيارات</Text>
