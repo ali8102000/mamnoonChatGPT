@@ -1896,6 +1896,7 @@ export type Database = {
           granted_by: string | null
           id: string
           is_trial: boolean
+          paused_at: string | null
           payment_token_ciphertext: string | null
           payment_token_iv: string | null
           payment_token_tag: string | null
@@ -1926,6 +1927,7 @@ export type Database = {
           granted_by?: string | null
           id?: string
           is_trial?: boolean
+          paused_at?: string | null
           payment_token_ciphertext?: string | null
           payment_token_iv?: string | null
           payment_token_tag?: string | null
@@ -1956,6 +1958,7 @@ export type Database = {
           granted_by?: string | null
           id?: string
           is_trial?: boolean
+          paused_at?: string | null
           payment_token_ciphertext?: string | null
           payment_token_iv?: string | null
           payment_token_tag?: string | null
@@ -2518,6 +2521,7 @@ export type Database = {
       }
       mamnoon_sql_test: { Args: never; Returns: boolean }
       mamnoon_test_offer: { Args: never; Returns: string }
+      pause_own_subscription: { Args: never; Returns: boolean }
       preview_my_coupon: {
         Args: { p_amount: number; p_code: string }
         Returns: {
@@ -2541,6 +2545,8 @@ export type Database = {
         Args: { _accept: boolean; _request_id: string }
         Returns: boolean
       }
+      restore_own_subscription_continuation: { Args: never; Returns: boolean }
+      resume_own_subscription: { Args: never; Returns: boolean }
       retry_large_vehicle_dispatch: {
         Args: { _request_id: string }
         Returns: number
