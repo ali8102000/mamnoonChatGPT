@@ -673,6 +673,16 @@ export const adminDistributeCoupon = createServerFn({ method: "POST" })
     return { sent: Number(sent ?? 0) };
   });
 
+export const adminCouponSubsidyReport = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { supabase } = context;
+    const { data, error } = await (supabase as any).rpc("admin_coupon_subsidy_report");
+    if (error) throw new Error(error.message);
+    return Array.isArray(data) ? data[0] ?? null : data;
+  });
+
 export const adminDeleteCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ coupon_id: z.string().uuid() }).parse(d))
