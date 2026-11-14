@@ -77,6 +77,7 @@ function RequestDetail() {
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   const [navModalOpen, setNavModalOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [otherRep, setOtherRep] = useState<ReputationData | null>(null);
@@ -122,6 +123,8 @@ function RequestDetail() {
         return;
       }
       setReq(r);
+      const { data: paymentSettings } = await supabase.from("subscription_settings").select("payment_gateway_enabled").eq("id",1).maybeSingle();
+      setPaymentGatewayEnabled(Boolean(paymentSettings?.payment_gateway_enabled));
       if (r.vehicle_category === "large" && sessionUser?.id === r.customer_id && ["pending", "searching"].includes(r.status)) {
         const { data: bids } = await (supabase as any)
           .from("request_offers")
@@ -402,8 +405,8 @@ function RequestDetail() {
         {myRole === "customer" && ["accepted","in_progress","completed"].includes(req.status) && req.payment_method !== "zaincash" && Number(req.customer_payable ?? req.customer_price ?? req.price_estimate) > 0 && (
           <div className="glass rounded-2xl p-4 space-y-2">
             <div className="text-sm font-black">الدفع الإلكتروني</div>
-            <p className="text-xs text-muted-foreground">تقدر تدفع أجرة الطلب عبر زين كاش بعد تثبيت السعر. الدفع يبقى متوقفاً إلى أن تكتمل تهيئة بوابة التاجر.</p>
-            <Button type="button" onClick={() => void payRequestWithZainCash()} disabled={paymentBusy} className="w-full">
+            <p className="text-xs text-muted-foreground">تقدر تدفع أجرة الطلب عبر زين كاش بعد تثبيت السعر. {paymentGatewayEnabled ? "بوابة الدفع مفعّلة." : "الدفع متوقف حالياً لحين إكمال تهيئة التاجر والاختبار."}</p>
+            <Button type="button" onClick={() => void payRequestWithZainCash()} disabled={paymentBusy || !paymentGatewayEnabled} className="w-full">
               {paymentBusy ? <Loader2 className="h-4 w-4 ml-2 animate-spin" /> : null}
               الدفع عبر زين كاش
             </Button>
