@@ -461,6 +461,11 @@ BEGIN
       AND (r.vehicle_type IS NULL OR dp.vehicle_type = r.vehicle_type)
   ) THEN RAISE EXCEPTION 'driver_vehicle_not_eligible'; END IF;
 
+  IF EXISTS (
+    SELECT 1 FROM public.service_requests
+    WHERE provider_id = auth.uid() AND status IN ('accepted','in_progress')
+  ) THEN RAISE EXCEPTION 'provider_has_active_request'; END IF;
+
   UPDATE public.request_offers
   SET proposed_price = _price,
       offer_message = NULLIF(left(trim(COALESCE(_message, '')), 500), ''),
@@ -522,6 +527,10 @@ BEGIN
        SELECT 1 FROM public.user_blocks b
        WHERE b.user_id = o.provider_id
          AND (b.expires_at IS NULL OR b.expires_at > now())
+     )
+     OR EXISTS (
+       SELECT 1 FROM public.service_requests sr
+       WHERE sr.provider_id = o.provider_id AND sr.status IN ('accepted','in_progress')
      )
      OR NOT EXISTS (
        SELECT 1 FROM public.driver_profiles dp
