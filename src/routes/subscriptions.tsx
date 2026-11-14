@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
 import { ArrowRight, BadgeCheck, Crown, CreditCard, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { cancelOwnSubscriptionAtPeriodEnd } from "@/lib/subscription.functions";
 
 type Plan = {
   id: string; code: string; name_ar: string; description_ar: string | null;
@@ -97,6 +98,17 @@ function ProviderSubscriptionsPage() {
               </div>;
             })}
           </div>
+          {subscription?.status === "active" && subscription?.current_period_end && !subscription?.cancel_at_period_end && (
+            <button type="button" onClick={async () => {
+              try {
+                await cancelOwnSubscriptionAtPeriodEnd();
+                setSubscription((current: any) => current ? { ...current, cancel_at_period_end: true, auto_renew: false } : current);
+                toast.success("تم إيقاف التجديد، وتبقى المزايا حتى نهاية الفترة");
+              } catch (error: any) { toast.error(error.message || "تعذر إيقاف التجديد"); }
+            }} className="w-full mt-3 rounded-xl border border-destructive/40 text-destructive py-3 text-xs font-bold">
+              إيقاف التجديد عند نهاية الفترة
+            </button>
+          )}
           <p className="text-[11px] text-muted-foreground text-center mt-5 leading-6">تتم عملية الدفع داخل صفحة بوابة QiCard الآمنة. لا يخزن ممنون رقم البطاقة أو رمز الأمان. لا يُفعّل الاشتراك إلا بعد تأكيد البوابة من الخادم.</p>
         </>}
       </div>
