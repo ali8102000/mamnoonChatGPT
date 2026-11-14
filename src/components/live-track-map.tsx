@@ -124,6 +124,8 @@ export function LiveTrackMap({
           clickableIcons: false,
         });
         mapRef.current = map;
+        lastDirectionsRequestRef.current = null;
+        directionsSequenceRef.current += 1;
         readyRef.current = true;
         setMapReady(true);
         syncMapElements(false);
@@ -137,6 +139,7 @@ export function LiveTrackMap({
       cancelled = true;
       readyRef.current = false;
       didInitialFitRef.current = false;
+      directionsSequenceRef.current += 1;
       if (pickupMarkerRef.current) pickupMarkerRef.current.setMap(null);
       if (destMarkerRef.current) destMarkerRef.current.setMap(null);
       if (markerRefForCleanup.current) markerRefForCleanup.current.setMap(null);
