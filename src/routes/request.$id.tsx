@@ -471,7 +471,7 @@ function RequestDetail() {
             <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Navigation className="h-3.5 w-3.5 text-primary animate-pulse" />
-                <span>{myRole === "customer" ? "موقع السائق" : "موقع العميل"}</span>
+                <span>{myRole === "customer" ? (req.type === "taxi" ? "موقع السائق" : "موقع الفني") : "موقع العميل"}</span>
               </div>
               <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${driverLocationFresh ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
                 {driverLocationFresh ? "GPS مباشر" : driverLiveLocation ? "آخر موقع معروف" : "بانتظار GPS"}
@@ -493,7 +493,7 @@ function RequestDetail() {
               status={req.status}
               myRole={myRole}
               serviceType={req.type}
-              driverName={other?.full_name ?? "الكابتن"}
+              driverName={other?.full_name ?? (req.type === "taxi" ? "الكابتن" : "الفني")}
               driverPhone={other?.phone}
               vehicleCategory={req.vehicle_category}
               height={280}
@@ -594,7 +594,7 @@ function RequestDetail() {
             <div className="h-12 w-12 shrink-0 rounded-2xl bg-emerald-500 text-white grid place-items-center text-2xl">✓</div>
             <div>
               <div className="font-black text-base text-emerald-700 dark:text-emerald-300">{req.type === "taxi" ? "اكتملت الرحلة" : "اكتملت الخدمة"}</div>
-              <div className="text-xs text-muted-foreground mt-1">{myRole === "customer" ? "أكد مقدّم الخدمة إكمال الطلب. تگدر هسه تقيّمه." : "تم تسجيل إكمال الطلب بنجاح."}</div>
+              <div className="text-xs text-muted-foreground mt-1">{myRole === "customer" ? (req.type === "taxi" ? "أكد السائق إكمال الرحلة. تگدر هسه تقيّمه." : "أكد الفني إكمال الطلب. تگدر هسه تقيّمه.") : "تم تسجيل الإكمال بنجاح."}</div>
             </div>
           </div>
         )}
