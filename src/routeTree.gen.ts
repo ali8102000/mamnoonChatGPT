@@ -200,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/messages': typeof MessagesRoute
   '/support-chat': typeof SupportChatRoute
   '/subscriptions': typeof SubscriptionsRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -230,6 +231,7 @@ export interface FileRoutesByTo {
   '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
   '/support-chat': typeof SupportChatRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -293,6 +295,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/support-chat'
     | '/subscriptions'
+    | '/subscriptions'
     | '/privacy'
     | '/profile'
     | '/reset-password'
@@ -323,6 +326,7 @@ export interface FileRouteTypes {
     | '/coupons'
     | '/messages'
     | '/support-chat'
+    | '/subscriptions'
     | '/privacy'
     | '/profile'
     | '/reset-password'
@@ -627,6 +631,7 @@ const rootRouteChildren: RootRouteChildren = {
   CouponsRoute: CouponsRoute,
   MessagesRoute: MessagesRoute,
   SupportChatRoute: SupportChatRoute,
+  SubscriptionsRoute: SubscriptionsRoute,
   PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
