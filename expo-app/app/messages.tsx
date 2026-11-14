@@ -24,10 +24,18 @@ export default function MessagesScreen() {
       setLoading(false);
       return;
     }
+    const { data: activeRequests } = await supabase
+      .from("service_requests")
+      .select("id")
+      .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
+      .in("status", ["pending", "searching", "accepted", "in_progress"]);
+    const activeIds = (activeRequests ?? []).map((request) => request.id);
+    if (!activeIds.length) { setChats([]); setLoading(false); return; }
     const { data, error } = await supabase
       .from("chats")
       .select("id, request_id, customer_id, provider_id, request:service_requests(type, status)")
       .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
+      .in("request_id", activeIds)
       .order("updated_at", { ascending: false });
     if (error || !data) {
       setChats([]);
