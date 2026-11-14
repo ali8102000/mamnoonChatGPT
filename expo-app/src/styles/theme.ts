@@ -16,6 +16,7 @@ const lightPalette = {
   goldSoft: "#F5EEDC",
   success: "#21845A",
   danger: "#B94B45",
+  dangerSoft: "#F9E9E7",
   white: "#FFFFFF",
   shadow: "rgba(20, 42, 32, 0.08)",
 } as const;
@@ -34,6 +35,7 @@ const darkPalette = {
   goldSoft: "#3A321F",
   success: "#4CC58A",
   danger: "#F07870",
+  dangerSoft: "#3A211F",
   white: "#FFFFFF",
   shadow: "rgba(0, 0, 0, 0.38)",
 } as const;
