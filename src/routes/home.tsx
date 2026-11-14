@@ -65,7 +65,9 @@ function HomePage() {
 
   const firstName = (profile?.full_name || "صديقنا").split(" ")[0];
   const roleTitle =
-    activeRole === "driver"
+    activeRole === "large_driver"
+      ? "سائق سيارات كبيرة 🚚"
+      : activeRole === "driver"
       ? "كابتن تكسي 🚗"
       : activeRole === "worker"
         ? "فني خدمات 🛠️"
@@ -152,9 +154,9 @@ function HomePage() {
           <span>تبديل الدور</span>
         </Link>
 
-        {activeRole === "driver" && <ProviderHome type="taxi" />}
+        {(activeRole === "driver" || activeRole === "large_driver") && <ProviderHome type="taxi" />}
         {activeRole === "worker" && <ProviderHome type="service" />}
-        {activeRole !== "driver" && activeRole !== "worker" && <CustomerHome />}
+        {activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker" && <CustomerHome />}
       </div>
     </MobileShell>
   );
