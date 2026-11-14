@@ -100,6 +100,9 @@ function RequestDetail() {
     myRole,
     active: trackingActive,
   });
+  const driverLiveLocation = myRole === "provider" ? myLive : otherLive;
+  const driverLocationFresh = !!driverLiveLocation?.updatedAt &&
+    Date.now() - new Date(driverLiveLocation.updatedAt).getTime() < 20_000;
 
   const loadAll = useCallback(async () => {
     try {
@@ -469,17 +472,12 @@ function RequestDetail() {
                 <Navigation className="h-3.5 w-3.5 text-primary animate-pulse" />
                 <span>{myRole === "customer" ? "موقع السائق" : "موقع العميل"}</span>
               </div>
-              <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200 font-bold">
-                مباشر GPS
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${driverLocationFresh ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                {driverLocationFresh ? "GPS مباشر" : driverLiveLocation ? "آخر موقع معروف" : "بانتظار GPS"}
               </span>
             </div>
             <LiveTrackMap
-              me={
-                myLive ??
-                (req && req.pickup_lat != null && req.pickup_lng != null
-                  ? { lat: Number(req.pickup_lat), lng: Number(req.pickup_lng) }
-                  : null)
-              }
+              me={myLive}
               other={otherLive}
               pickupCoords={
                 req.pickup_lat != null && req.pickup_lng != null
