@@ -28,6 +28,7 @@ import {
 import {
   adminAdjustWallet,
   adminBlockUser,
+  adminCouponSubsidyReport,
   adminBroadcastNotification,
   adminCancelRequest,
   adminDeleteCoupon,
@@ -1678,19 +1679,26 @@ function CouponsSection() {
   const [distributionTarget, setDistributionTarget] = useState<"all" | "drivers" | "workers" | "single">("all");
   const [singleUserId, setSingleUserId] = useState("");
   const [distributionMessage, setDistributionMessage] = useState("");
+  const [subsidyReport, setSubsidyReport] = useState<any | null>(null);
+  const [subsidyReportError, setSubsidyReportError] = useState("");
   const listCoupons = useServerFn(adminListCoupons);
   const saveCoupon = useServerFn(adminSaveCoupon);
   const deleteCoupon = useServerFn(adminDeleteCoupon);
   const distributeCoupon = useServerFn(adminDistributeCoupon);
+  const getSubsidyReport = useServerFn(adminCouponSubsidyReport);
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setCoupons(await listCoupons());
-    } catch (e) {
+      const [couponRows, report] = await Promise.all([listCoupons(), getSubsidyReport()]);
+      setCoupons(couponRows);
+      setSubsidyReport(report);
+      setSubsidyReportError("");
+    } catch (e: any) {
+      setSubsidyReportError(e?.message || "تعذّر تحميل ملخص الخصومات");
     } finally {
       setLoading(false);
     }
-  }, [listCoupons]);
+  }, [listCoupons, getSubsidyReport]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1728,6 +1736,24 @@ function CouponsSection() {
   return (
     <div>
       <h2 className="text-xl font-black mb-4">إدارة الكوبونات</h2>
+      <div className="glass rounded-2xl p-3 mb-4 space-y-2">
+        <div className="font-black text-sm">الحساب المالي لخصومات الكوبونات</div>
+        {subsidyReportError ? <div className="text-xs text-destructive">{subsidyReportError}</div> : subsidyReport ? (
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-xl bg-background/70 p-2">
+              <div className="text-muted-foreground">مبالغ مستحقة على المنصة</div>
+              <div className="font-black text-base">{Number(subsidyReport.payable_total ?? 0).toLocaleString("ar-IQ")} د.ع</div>
+              <div>{Number(subsidyReport.payable_count ?? 0)} طلب مكتمل</div>
+            </div>
+            <div className="rounded-xl bg-background/70 p-2">
+              <div className="text-muted-foreground">خصومات بطلبات قيد التنفيذ</div>
+              <div className="font-black text-base">{Number(subsidyReport.pending_total ?? 0).toLocaleString("ar-IQ")} د.ع</div>
+              <div>{Number(subsidyReport.pending_count ?? 0)} طلب</div>
+            </div>
+            <div className="col-span-2 text-[11px] text-muted-foreground">المبالغ المستحقة سجل محاسبي للمطابقة والتسوية، وليست إثباتاً على تحويل نقدي.</div>
+          </div>
+        ) : <div className="text-xs text-muted-foreground">جارٍ تحميل الحساب المالي...</div>}
+      </div>
       <div className="glass rounded-2xl p-3 mb-4 space-y-2">
         <div className="text-xs font-bold">توزيع الكوبون إلى</div>
         <select
