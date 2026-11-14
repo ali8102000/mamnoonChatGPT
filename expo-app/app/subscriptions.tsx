@@ -21,7 +21,7 @@ export default function SubscriptionsScreen() {
   const canTaxi = roles.includes("driver");
   const planCode = subscription?.is_trial ? "bronze" : subscription?.plan?.code;
   const maxRadius = planCode === "gold" ? 55 : planCode === "silver" ? 40 : 25;
-  const canDemandLookup = canTaxi && subscription?.status === "active" && ["silver","gold"].includes(planCode);
+  const canDemandLookup = canTaxi && subscription?.status === "active" && planCode === "gold";
   const radiusOptions = useMemo(() => [5,10,15,20,25,30,35,40,45,50,55].filter((v) => v <= maxRadius),[maxRadius]);
 
   const load = useCallback(async () => {
