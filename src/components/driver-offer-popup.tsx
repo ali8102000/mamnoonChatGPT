@@ -384,6 +384,11 @@ export function DriverOfferPopup() {
               </div>
             </div>
           )}
+          {isLargeVehicle && (
+            <div className="rounded-xl bg-orange-500/10 px-3 py-2 text-sm font-black text-orange-800">
+              نوع المركبة: {request.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}
+            </div>
+          )}
           {isLargeVehicle ? (
             <div className="bg-orange-500/10 rounded-2xl px-3 py-2.5 text-center border border-orange-500/30">
               <div className="text-[10px] text-orange-700">ميزانية الزبون</div>
