@@ -2,12 +2,14 @@ import { ReactNode } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   StyleSheet,
   ViewStyle,
   TextInput,
+  TextInputProps,
 } from "react-native";
+import { palette, radius, space } from "@/styles/theme";
 
 export function Button({
   title,
@@ -24,28 +26,27 @@ export function Button({
   variant?: "primary" | "secondary" | "danger" | "ghost";
   style?: ViewStyle;
 }) {
-  const bg =
-    variant === "primary"
-      ? "#2563eb"
-      : variant === "danger"
-        ? "#dc2626"
-        : variant === "secondary"
-          ? "#e2e8f0"
-          : "transparent";
-  const color = variant === "secondary" ? "#1e293b" : variant === "ghost" ? "#2563eb" : "#fff";
+  const backgroundColor =
+    variant === "primary" ? palette.brand :
+    variant === "danger" ? palette.danger :
+    variant === "secondary" ? palette.surfaceSoft : "transparent";
+  const color = variant === "secondary" ? palette.ink :
+    variant === "ghost" ? palette.brand : palette.white;
   return (
-    <TouchableOpacity
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.85}
-      style={[styles.button, { backgroundColor: bg }, disabled && styles.disabled, style]}
+      style={({ pressed }) => [
+        styles.button,
+        { backgroundColor, opacity: disabled || loading ? 0.55 : pressed ? 0.82 : 1 },
+        style,
+      ]}
     >
-      {loading ? (
-        <ActivityIndicator color={color} />
-      ) : (
-        <Text style={[styles.buttonText, { color }]}>{title}</Text>
-      )}
-    </TouchableOpacity>
+      {loading ? <ActivityIndicator color={color} /> : <Text style={[styles.buttonText, { color }]}>{title}</Text>}
+    </Pressable>
   );
 }
 
@@ -59,53 +60,73 @@ export function RealInput({
   autoFocus,
   autoCapitalize,
   maxLength,
+  ...props
 }: {
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
-  keyboardType?: "default" | "phone-pad" | "email-address" | "numeric";
+  keyboardType?: TextInputProps["keyboardType"];
   style?: ViewStyle;
   autoFocus?: boolean;
-  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  autoCapitalize?: TextInputProps["autoCapitalize"];
   maxLength?: number;
-}) {
+} & Pick<TextInputProps, "textContentType" | "autoComplete" | "returnKeyType" | "onSubmitEditing">) {
   return (
     <TextInput
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor="#94a3b8"
+      placeholderTextColor={palette.muted}
       secureTextEntry={secureTextEntry}
       keyboardType={keyboardType || "default"}
       autoFocus={autoFocus}
       autoCapitalize={autoCapitalize}
       maxLength={maxLength}
+      selectionColor={palette.brand}
       style={[styles.realInput, style]}
+      {...props}
     />
   );
 }
 
+export function Surface({ children, style }: { children: ReactNode; style?: ViewStyle }) {
+  return <View style={[styles.surface, style]}>{children}</View>;
+}
+
+export function Eyebrow({ children, style }: { children: ReactNode; style?: ViewStyle }) {
+  return <Text style={[styles.eyebrow, style]}>{children}</Text>;
+}
+
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: 16,
-    borderRadius: 16,
+    minHeight: 56,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.lg,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 52,
   },
-  buttonText: { fontSize: 16, fontWeight: "700" },
-  disabled: { opacity: 0.5 },
+  buttonText: { fontSize: 15, fontWeight: "800", letterSpacing: 0.1 },
   realInput: {
+    minHeight: 56,
     borderWidth: 1,
-    borderColor: "rgba(30,41,59,0.1)",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderColor: palette.line,
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
     fontSize: 15,
     fontWeight: "600",
-    color: "#1e293b",
-    backgroundColor: "rgba(30,41,59,0.03)",
+    color: palette.ink,
+    backgroundColor: palette.surfaceSoft,
     textAlign: "left",
   },
+  surface: {
+    backgroundColor: palette.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: palette.line,
+    padding: space.xl,
+  },
+  eyebrow: { color: palette.muted, fontSize: 11, fontWeight: "800", letterSpacing: 0.8 },
 });
