@@ -10,7 +10,7 @@ import { cancelOwnSubscriptionAtPeriodEnd } from "@/lib/subscription.functions";
 type Plan = {
   id: string; code: string; name_ar: string; description_ar: string | null;
   monthly_price: number; currency: string; badge_label: string | null;
-  badge_color: string | null; features: Record<string, unknown>;
+  badge_color: string | null;
 };
 export const Route = createFileRoute("/subscriptions")({
   ssr: false,
@@ -31,7 +31,7 @@ function ProviderSubscriptionsPage() {
     let active = true;
     (async () => {
       const [{ data: planRows, error: plansError }, { data: sub, error: subError }] = await Promise.all([
-        supabase.from("subscription_plans").select("id,code,name_ar,description_ar,monthly_price,currency,badge_label,badge_color,features")
+        supabase.from("subscription_plans").select("id,code,name_ar,description_ar,monthly_price,currency,badge_label,badge_color")
           .in("code", ["bronze", "silver", "gold"]).eq("is_active", true).order("tier"),
         supabase.from("user_subscriptions").select("status,is_trial,trial_started_at,trial_ends_at,current_period_end,auto_renew,cancel_at_period_end,plan:subscription_plans(code,name_ar,tier,badge_label)")
           .eq("user_id", userId).maybeSingle(),
