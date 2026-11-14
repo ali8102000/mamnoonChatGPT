@@ -100,6 +100,11 @@ BEGIN
       WHERE item.kind NOT IN ('vehicle_document','face_photo','id_card','id_card_back')
          OR item.path IS NULL
          OR item.path NOT LIKE auth.uid()::text || '/' || _provider_type || '/%'
+         OR NOT EXISTS (
+           SELECT 1 FROM storage.objects o
+           WHERE o.bucket_id = 'provider-verification' AND o.name = item.path
+             AND (storage.foldername(o.name))[1] = auth.uid()::text
+         )
     ) THEN RAISE EXCEPTION 'invalid_verification_document_path'; END IF;
 
     IF NOT EXISTS (
@@ -126,6 +131,7 @@ DECLARE
   r public.provider_change_requests%ROWTYPE;
   v_vehicle jsonb;
   v_documents jsonb;
+  v_updated integer;
 BEGIN
   PERFORM public.assert_staff('admin');
   IF _status NOT IN ('approved','rejected') THEN RAISE EXCEPTION 'invalid_review_status'; END IF;
@@ -185,6 +191,10 @@ BEGIN
           )),
           updated_at = now()
       WHERE user_id = r.user_id AND provider_type = r.provider_type;
+      GET DIAGNOSTICS v_updated = ROW_COUNT;
+      IF v_documents <> '{}'::jsonb AND v_updated = 0 THEN
+        RAISE EXCEPTION 'provider_verification_record_not_found';
+      END IF;
     END IF;
   END IF;
 

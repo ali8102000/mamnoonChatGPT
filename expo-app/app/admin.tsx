@@ -240,22 +240,24 @@ export default function AdminScreen() {
           <Text style={styles.reportMeta}>{request.profiles?.phone || "—"} · {request.provider_type === "worker" ? "فني" : request.provider_type === "large_driver" ? "سائق مركبة كبيرة" : "سائق تكسي"}</Text>
           {request.provider_type === "worker" ? (
             <Text style={styles.reportDetails}>الاختصاصات: {(request.requested_service_names ?? []).join("، ")}</Text>
-          ) : request.requested_data?.vehicle_update ? (
+          ) : request.requested_data?.vehicle_update || Object.keys(request.requested_data?.documents ?? {}).length ? (
             <View>
-              {Object.entries(request.requested_data.vehicle_update).map(([key, value]) => (
+              {Object.entries(request.requested_data?.vehicle_update ?? {}).map(([key, value]) => (
                 <Text key={key} style={styles.reportMeta}>{({
                   vehicle_make: "الشركة", vehicle_model: "الموديل", vehicle_year: "سنة الصنع",
                   vehicle_plate: "رقم اللوحة", vehicle_color: "اللون",
                   vehicle_category: "الفئة", vehicle_type: "نوع المركبة",
                 } as Record<string, string>)[key] ?? key}: {String(value)}</Text>
               ))}
-              {Object.entries(request.requested_document_urls ?? {}).map(([kind, url]) => typeof url === "string" ? (
-                <TouchableOpacity key={kind} onPress={() => void Linking.openURL(url)}>
-                  <Text style={{ color: palette.brand, textAlign: "right", fontWeight: "800", marginTop: 6 }}>
-                    عرض {({ vehicle_document: "سنوية المركبة", face_photo: "صورة الوجه", id_card: "الهوية الأمامية", id_card_back: "الهوية الخلفية" } as Record<string, string>)[kind] ?? "المستند"}
-                  </Text>
-                </TouchableOpacity>
-              ) : null)}
+              {Object.entries(request.requested_data?.documents ?? {}).map(([kind]) => {
+                const url = request.requested_document_urls?.[kind];
+                const label = ({ vehicle_document: "سنوية المركبة", face_photo: "صورة الوجه", id_card: "الهوية الأمامية", id_card_back: "الهوية الخلفية" } as Record<string, string>)[kind] ?? "المستند";
+                return typeof url === "string" ? (
+                  <TouchableOpacity key={kind} onPress={() => void Linking.openURL(url)}>
+                    <Text style={{ color: palette.brand, textAlign: "right", fontWeight: "800", marginTop: 6 }}>عرض {label}</Text>
+                  </TouchableOpacity>
+                ) : <Text key={kind} style={styles.reportMeta}>{label} مرفق - المعاينة غير متاحة</Text>;
+              })}
             </View>
           ) : (
             <Text style={styles.reportDetails}>{request.provider_type === "large_driver" ? "نوع المركبة: " + (request.requested_data?.vehicle_type ?? "غير محدد") : "فئة التكسي: " + (request.requested_data?.vehicle_category ?? "غير محدد")}</Text>
