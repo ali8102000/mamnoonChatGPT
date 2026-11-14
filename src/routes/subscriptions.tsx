@@ -36,7 +36,7 @@ function ProviderSubscriptionsPage() {
       const [{ data: planRows, error: plansError }, { data: sub, error: subError }, { data: settings }] = await Promise.all([
         supabase.from("subscription_plans").select("id,code,name_ar,description_ar,monthly_price,currency,badge_label,badge_color,features,governorate_limit")
           .in("code", ["bronze", "silver", "gold"]).eq("is_active", true).order("tier"),
-        supabase.from("user_subscriptions").select("status,is_trial,trial_started_at,trial_ends_at,current_period_end,auto_renew,cancel_at_period_end,plan:subscription_plans(code,name_ar,tier,badge_label)")
+        supabase.from("user_subscriptions").select("status,is_trial,trial_started_at,trial_ends_at,current_period_end,auto_renew,cancel_at_period_end,grant_type,granted_by,plan:subscription_plans(code,name_ar,tier,badge_label)")
           .eq("user_id", userId).maybeSingle(),
         supabase.from("subscription_settings").select("*").eq("id", 1).maybeSingle(),
       ]);
@@ -69,7 +69,8 @@ function ProviderSubscriptionsPage() {
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
   if (!isProvider) return <Navigate to="/profile" />;
-  const planCode = subscription?.plan?.code;
+  const planCode = subscription?.is_trial ? "bronze" : subscription?.plan?.code;
+  const companyGranted = subscription?.grant_type === "admin";
   return (
     <MobileShell>
       <div className="max-w-xl mx-auto px-5 pt-8 pb-24" dir="rtl">
@@ -80,9 +81,10 @@ function ProviderSubscriptionsPage() {
         {loadingData ? <Loader2 className="h-7 w-7 animate-spin mx-auto mt-16" /> : <>
           {subscription && <div className="glass rounded-2xl p-4 mb-4">
             <div className="flex items-center gap-2 font-black"><ShieldCheck className="h-5 w-5 text-primary" /> اشتراكك الحالي</div>
-            <div className="mt-2 text-sm">{subscription.plan?.name_ar ?? "بدون باقة"} · {subscription.is_trial ? "تجربة مجانية" : subscription.status === "active" ? "نشط" : subscription.status === "paused" ? "موقوف مؤقتاً" : "منتهي"}</div>
-            {subscription.trial_ends_at && <div className="text-xs text-muted-foreground mt-1">نهاية التجربة: {new Date(subscription.trial_ends_at).toLocaleDateString("ar-IQ")}</div>}
-            {subscription.current_period_end && !subscription.is_trial && <div className="text-xs text-muted-foreground mt-1">ينتهي: {new Date(subscription.current_period_end).toLocaleDateString("ar-IQ")}</div>}
+            <div className="mt-2 text-sm">{subscription.plan?.name_ar ?? "بدون باقة"} · {subscription.is_trial ? "تجربة مجانية بميزات البرونزي" : subscription.status === "active" ? "نشط" : subscription.status === "paused" ? "موقوف مؤقتاً" : "منتهي"}{companyGranted ? " · منحة شركة ممنون" : ""}</div>
+            {subscription.trial_ends_at && <div className="text-xs text-muted-foreground mt-1">نهاية التجربة: {new Date(subscription.trial_ends_at).toLocaleString("ar-IQ", { dateStyle: "medium", timeStyle: "short" })}</div>}
+            {subscription.current_period_end && !subscription.is_trial && <div className="text-xs text-muted-foreground mt-1">ينتهي: {new Date(subscription.current_period_end).toLocaleString("ar-IQ", { dateStyle: "medium", timeStyle: "short" })}</div>}
+            {companyGranted && <div className="text-xs text-amber-700 mt-1">هذه المنحة تديرها شركة ممنون ولا يمكن تغيير الباقة من حسابك</div>}
             {subscription.cancel_at_period_end && <div className="text-xs text-amber-600 mt-1">تم إيقاف التجديد، وتبقى المزايا حتى نهاية الفترة</div>}
           </div>}
           <div className="space-y-3">
@@ -98,15 +100,15 @@ function ProviderSubscriptionsPage() {
                 {plan.governorate_limit ? <p className="text-[11px] text-muted-foreground mt-2">نطاق العمل: {plan.governorate_limit === 1 ? "محافظة واحدة كاملة" : "محافظتان كاملتان"}</p> : null}
                 {plan.features?.profile_promotion_monthly ? <p className="text-[11px] text-muted-foreground mt-1">ترويج الملف: {plan.features.profile_promotion_monthly} مرات شهرياً</p> : null}
                 <div className="text-2xl font-black mt-4">{Number(plan.monthly_price).toLocaleString("ar-IQ")} <span className="text-xs font-bold text-muted-foreground">د.ع / شهرياً</span></div>
-                <button type="button" onClick={() => setSelectedPlan(plan.code)} disabled={active}
+                <button type="button" onClick={() => setSelectedPlan(plan.code)} disabled={active || companyGranted}
                   className="w-full mt-4 rounded-xl bg-primary text-primary-foreground py-3 font-black text-sm disabled:opacity-50 flex items-center justify-center gap-2">
                   {busy === plan.code ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                  {active ? "مشترك بهذه الباقة" : selectedPlan === plan.code ? "تم اختيار الباقة" : "اختيار هذه الباقة"}
+                  {active ? "مشترك بهذه الباقة" : companyGranted ? "الباقة محددة من الشركة" : selectedPlan === plan.code ? "تم اختيار الباقة" : "اختيار هذه الباقة"}
                 </button>
               </div>;
             })}
           </div>
-          {selectedPlan && <div className="glass rounded-2xl p-4 mt-4"><p className="text-sm font-black">تم اختيار باقة {plans.find(p => p.code === selectedPlan)?.name_ar}</p><p className="text-xs text-muted-foreground mt-2">الدفع الإلكتروني غير متاح حالياً إلى حين إكمال ربط واختبار QiCard. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك.</p><button disabled className="w-full mt-3 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black opacity-60"><CreditCard className="inline h-4 w-4 ml-2" /> الدفع قيد الربط</button></div>}
+          {selectedPlan && !companyGranted && <div className="glass rounded-2xl p-4 mt-4"><p className="text-sm font-black">تم اختيار باقة {plans.find(p => p.code === selectedPlan)?.name_ar}</p><p className="text-xs text-muted-foreground mt-2">الدفع الإلكتروني غير متاح حالياً إلى حين إكمال ربط واختبار QiCard. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك.</p><button disabled className="w-full mt-3 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black opacity-60"><CreditCard className="inline h-4 w-4 ml-2" /> الدفع قيد الربط</button></div>}
           {subscription && ["active", "paused"].includes(subscription.status) && (
             <div className="glass rounded-2xl p-4 mt-3 space-y-3">
               <div className="text-sm font-black">إدارة اشتراكك</div>
