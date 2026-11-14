@@ -10,6 +10,10 @@ type DemandArea = { zone_lat:number; zone_lng:number; waiting_requests:number; o
 export default function SubscriptionsScreen() {
   const { user, roles } = useAuth();
   const [subscription,setSubscription] = useState<any>(null);
+  const [plans,setPlans] = useState<any[]>([]);
+  const [gatewayEnabled,setGatewayEnabled] = useState(false);
+  const [selectedPlan,setSelectedPlan] = useState<string|null>(null);
+  const [paying,setPaying] = useState(false);
   const [loading,setLoading] = useState(true);
   const [radiusKm,setRadiusKm] = useState(25);
   const [saving,setSaving] = useState(false);
@@ -28,13 +32,17 @@ export default function SubscriptionsScreen() {
     if (!user?.id) { setLoading(false); return; }
     setLoading(true);
     try {
-      const [subResult,workerResult,driverResult] = await Promise.all([
+      const [subResult,workerResult,driverResult,plansResult,settingsResult] = await Promise.all([
         (supabase as any).from("user_subscriptions").select("status,is_trial,current_period_end,grant_type,plan:subscription_plans(code,name_ar)").eq("user_id",user.id).maybeSingle(),
         (supabase as any).from("worker_profiles").select("service_radius_km").eq("user_id",user.id).maybeSingle(),
         (supabase as any).from("driver_profiles").select("service_radius_km").eq("user_id",user.id).maybeSingle(),
+        (supabase as any).from("subscription_plans").select("id,code,name_ar,monthly_price,currency,is_active").eq("is_active",true).order("sort_order"),
+        (supabase as any).from("subscription_settings").select("payment_gateway_enabled,subscription_enabled").eq("id",1).maybeSingle(),
       ]);
       if (subResult.error) throw subResult.error;
       setSubscription(subResult.data);
+      setPlans((plansResult.data ?? []).filter((p:any) => !["free","trial"].includes(p.code) && Number(p.monthly_price)>0));
+      setGatewayEnabled(Boolean(settingsResult.data?.payment_gateway_enabled && settingsResult.data?.subscription_enabled));
       setRadiusKm(Number(workerResult.data?.service_radius_km ?? driverResult.data?.service_radius_km ?? 25));
     } catch (e:any) {
       Alert.alert("اشتراكات ممنون",e?.message || "تعذر تحميل الاشتراك");
@@ -42,6 +50,20 @@ export default function SubscriptionsScreen() {
   },[user?.id]);
 
   useEffect(() => { void load(); },[load]);
+
+  async function paySelectedPlan() {
+    const plan=plans.find((p:any)=>p.id===selectedPlan);
+    if(!plan || !gatewayEnabled || paying || subscription?.grant_type==="admin") return;
+    setPaying(true);
+    try {
+      const {data,error}=await supabase.functions.invoke("zaincash-create-payment",{body:{purpose:"subscription",planId:plan.id}});
+      if(error) throw error;
+      if(typeof data?.redirectUrl!=="string" || !data.redirectUrl.startsWith("https://")) throw new Error("لم يصل رابط الدفع الآمن");
+      await Linking.openURL(data.redirectUrl);
+    } catch(e:any) {
+      Alert.alert("تعذر بدء الدفع",e?.message || "حاول مرة ثانية لاحقاً.");
+    } finally { setPaying(false); }
+  }
 
   async function saveRadius() {
     if (saving || radiusKm > maxRadius) return;
@@ -80,6 +102,19 @@ export default function SubscriptionsScreen() {
         <Text style={styles.current}>{subscription?.plan?.name_ar || "بدون باقة"} · {subscription?.status === "active" ? "نشط" : "غير نشط"}</Text>
         {subscription?.current_period_end ? <Text style={styles.muted}>ينتهي: {new Date(subscription.current_period_end).toLocaleString("ar-IQ")}</Text> : null}
       </View>
+
+      {plans.length>0 && <View style={styles.card}>
+        <Text style={styles.sectionTitle}>الباقات المدفوعة</Text>
+        <Text style={styles.muted}>الدفع الإلكتروني عبر زين كاش فقط. تبقى الباقة الحالية والمنح الإدارية كما هي ولا تتغير بمجرد اختيار باقة.</Text>
+        {plans.map((plan:any)=><Pressable key={plan.id} onPress={()=>setSelectedPlan(plan.id)} style={[styles.option,{padding:14,alignItems:"stretch",borderColor:selectedPlan===plan.id?palette.brand:palette.line,backgroundColor:selectedPlan===plan.id?palette.brand+"12":palette.surface}]}>
+          <Text style={[styles.sectionTitle,{fontSize:14}]}>{plan.name_ar}</Text>
+          <Text style={styles.muted}>{Number(plan.monthly_price).toLocaleString("ar-IQ")} د.ع شهرياً</Text>
+        </Pressable>)}
+        <Text style={styles.muted}>{gatewayEnabled ? "بوابة الدفع مفعّلة على الخادم." : "الدفع متوقف حالياً لحين إكمال تهيئة التاجر واختبار البوابة."}</Text>
+        <Pressable onPress={paySelectedPlan} disabled={!selectedPlan||!gatewayEnabled||paying||subscription?.grant_type==="admin"} style={[styles.primaryButton,(!selectedPlan||!gatewayEnabled||paying||subscription?.grant_type==="admin")&&styles.disabled]}>
+          {paying ? <ActivityIndicator color="#fff"/> : <Text style={styles.primaryText}>الدفع عبر زين كاش</Text>}
+        </Pressable>
+      </View>}
 
       {canSetRadius && <View style={styles.card}>
         <Text style={styles.sectionTitle}>نطاق استقبال الطلبات</Text>
