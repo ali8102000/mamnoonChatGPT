@@ -54,7 +54,7 @@ interface Service {
 }
 
 function OnboardingWorker() {
-  const { session, profile, loading, refresh } = useAuth();
+  const { session, profile, loading, refresh, setActiveRole } = useAuth();
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState("شركة ممنون");
   useEffect(() => {
@@ -85,6 +85,7 @@ function OnboardingWorker() {
   const idCardBackInputRef = useRef<HTMLInputElement>(null);
 
   const [existingDoc, setExistingDoc] = useState<any>(null);
+  const [hasApprovedWorkerRole, setHasApprovedWorkerRole] = useState(false);
   const [editingMode, setEditingMode] = useState(false);
 
   useEffect(() => {
@@ -152,18 +153,26 @@ function OnboardingWorker() {
       (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
         .eq("user_id", userId).eq("provider_type", "worker").maybeSingle(),
       (supabase as any).from("worker_profiles").select("status").eq("user_id", userId).maybeSingle(),
-    ]).then(([verification, workerProfile]: any[]) => {
-      const legacyApproved = workerProfile.data?.status === "approved";
+      (supabase as any).from("user_roles").select("role").eq("user_id", userId).eq("role", "worker").maybeSingle(),
+    ]).then(([verification, workerProfile, workerRole]: any[]) => {
+      if (!active) return;
+      // A worker role is only granted by the approval flow. Treat it as the
+      // authoritative approval signal if older verification/profile rows differ.
+      const roleApproved = !!workerRole.data;
+      const profileApproved = workerProfile.data?.status === "approved";
+      const verificationApproved = verification.data?.status === "approved";
+      const approved = roleApproved || profileApproved || verificationApproved;
+      setHasApprovedWorkerRole(roleApproved);
       if (verification.data) {
         applyReview({
           ...verification.data,
-          status: verification.data.status === "approved" || legacyApproved
-            ? "approved"
-            : verification.data.status,
+          status: approved ? "approved" : verification.data.status,
         });
-      } else if (!verification.error && legacyApproved) {
+      } else if (approved) {
         applyReview({ status: "approved", legal_name: profile?.full_name, metadata: {} });
       }
+    }).catch((error: any) => {
+      console.error("Unable to restore worker approval:", error);
     });
     const channel = supabase.channel(`worker-verification-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "provider_verifications", filter: `user_id=eq.${userId}` },
@@ -320,9 +329,9 @@ function OnboardingWorker() {
   }
 
   // If already submitted and not in editing mode, show Status Card
-  if (existingDoc && !editingMode) {
-    const isPending = existingDoc.status === "pending";
-    const isApproved = existingDoc.status === "approved";
+  if ((existingDoc || hasApprovedWorkerRole) && !editingMode) {
+    const isPending = existingDoc?.status === "pending";
+    const isApproved = hasApprovedWorkerRole || existingDoc?.status === "approved";
     const isRejected = existingDoc.status === "rejected";
 
     return (
@@ -407,7 +416,8 @@ function OnboardingWorker() {
             {isApproved ? (
               <button
                 onClick={async () => {
-                  await grantProviderRole({ data: { role: "worker" } });
+                  if (!hasApprovedWorkerRole) await grantProviderRole({ data: { role: "worker" } });
+                  setActiveRole("worker");
                   localStorage.setItem("mumnun-active-role", "worker");
                   await refresh();
                   navigate({ to: "/home" });
