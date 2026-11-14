@@ -38,6 +38,8 @@ function ProfilePage() {
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<any>(null);
   const [txs, setTxs] = useState<any[]>([]);
+  const [earnings, setEarnings] = useState({ today: 0, week: 0, month: 0 });
+  const [showEarningsDetails, setShowEarningsDetails] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [reputation, setReputation] = useState<ReputationData | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -54,20 +56,39 @@ function ProfilePage() {
 
   useEffect(() => {
     if (!uid) return;
-    if (isDriver) {
+    if (isProvider) {
       (supabase as any)
         .from("driver_wallets")
         .select("*")
         .eq("user_id", uid)
         .maybeSingle()
         .then(({ data }: any) => setWallet(data));
+
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const weekStart = new Date(todayStart);
+      weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
       (supabase as any)
         .from("transactions")
         .select("*")
         .eq("user_id", uid)
+        .gte("created_at", monthStart.toISOString())
         .order("created_at", { ascending: false })
-        .limit(10)
-        .then(({ data }: any) => setTxs(data ?? []));
+        .then(({ data, error }: any) => {
+          if (error) {
+            console.warn("[earnings] transaction summary unavailable:", error.message);
+            return;
+          }
+          const rows = data ?? [];
+          const earningRows = rows.filter((t: any) => t.type === "earning");
+          const sumSince = (start: Date) => earningRows.reduce((total: number, t: any) =>
+            new Date(t.created_at) >= start ? total + Number(t.amount || 0) : total, 0);
+          setEarnings({ today: sumSince(todayStart), week: sumSince(weekStart), month: sumSince(monthStart) });
+          setTxs(rows.slice(0, 10));
+        });
     }
     (supabase as any)
       .rpc("has_admin_access", { p_user_id: uid })
@@ -77,7 +98,7 @@ function ProfilePage() {
         .then((rep) => setReputation(rep))
         .catch(() => {});
     }
-  }, [uid, isDriver, isProvider, getRepFn]);
+  }, [uid, isProvider, getRepFn]);
 
   async function uploadAvatar(file?: File) {
     if (!file || !uid || avatarUploading) return;
@@ -242,33 +263,24 @@ function ProfilePage() {
             )}
           </div>
         )}
-        {isDriver && (
-          <div className="mt-5 rounded-3xl p-5 bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant glow-primary">
-            <div className="flex items-center gap-2 mb-3 opacity-90">
-              <Wallet className="h-4 w-4" />
-              <span className="text-xs font-bold">محفظتي</span>
+        {isProvider && (
+          <div className="mt-5 rounded-3xl p-5 bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant">
+            <div className="flex items-center gap-2 mb-3 opacity-90"><TrendingUp className="h-4 w-4" /><span className="text-sm font-black">أرباحي</span></div>
+            <div className="text-xs opacity-80 mb-1">أرباح اليوم</div>
+            <div className="text-3xl font-black tabular-nums">{earnings.today.toLocaleString("ar-IQ")} <span className="text-base font-bold opacity-80">د.ع</span></div>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-white/15 px-3 py-3">
+              <div><div className="text-[11px] opacity-80">الرصيد المتاح</div><div className="text-lg font-black tabular-nums">{Number(wallet?.balance ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
+              <button type="button" onClick={() => setShowEarningsDetails((value) => !value)} aria-expanded={showEarningsDetails} className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-primary active:scale-95 transition">{showEarningsDetails ? "إخفاء التفاصيل" : "تفاصيل الأرباح"}</button>
             </div>
-            <div className="text-3xl font-black">
-              {Number(wallet?.balance ?? 0).toLocaleString()}{" "}
-              <span className="text-base font-bold opacity-80">د.ع</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-4 text-xs">
-              <div className="bg-white/15 rounded-2xl p-2.5">
-                <div className="opacity-80">إجمالي الأرباح</div>
-                <div className="font-black mt-0.5">
-                  {Number(wallet?.total_earned ?? 0).toLocaleString()}
-                </div>
-              </div>
-              <div className="bg-white/15 rounded-2xl p-2.5">
-                <div className="opacity-80">إجمالي العمولة</div>
-                <div className="font-black mt-0.5">
-                  {Number(wallet?.total_commission ?? 0).toLocaleString()}
-                </div>
-              </div>
-            </div>
+            {showEarningsDetails && <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
+              <div className="bg-white/15 rounded-2xl p-3"><div className="opacity-80">أرباح هذا الأسبوع</div><div className="font-black text-lg mt-1 tabular-nums">{earnings.week.toLocaleString("ar-IQ")} د.ع</div></div>
+              <div className="bg-white/15 rounded-2xl p-3"><div className="opacity-80">أرباح هذا الشهر</div><div className="font-black text-lg mt-1 tabular-nums">{earnings.month.toLocaleString("ar-IQ")} د.ع</div></div>
+              <div className="bg-white/10 rounded-2xl p-3"><div className="opacity-80">إجمالي الأرباح</div><div className="font-black mt-1">{Number(wallet?.total_earned ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
+              <div className="bg-white/10 rounded-2xl p-3"><div className="opacity-80">إجمالي العمولة</div><div className="font-black mt-1">{Number(wallet?.total_commission ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
+            </div>}
           </div>
         )}
-        {isDriver && txs.length > 0 && (
+        {isProvider && txs.length > 0 && (
           <div className="mt-5">
             <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-1">
               <TrendingUp className="h-3 w-3" /> آخر الحركات
