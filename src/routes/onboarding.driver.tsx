@@ -211,7 +211,7 @@ function OnboardingDriver() {
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
 
-  const finalMake = make === "أخرى" ? customMake.trim() : make;
+  const finalMake = category === "large" ? "كيا" : make === "أخرى" ? customMake.trim() : make;
 
   // Handle Photo Uploads
   async function handleFacePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -322,7 +322,7 @@ function OnboardingDriver() {
       const { error: driverProfileError } = await supabase.from("driver_profiles").upsert({
         user_id: uid,
         vehicle_make: finalMake,
-        vehicle_model: modelName.trim(),
+        vehicle_model: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب") : modelName.trim(),
         vehicle_year: Number(year) || null,
         vehicle_category: category as any,
         vehicle_type: category === "large" ? vehicleType : null,
@@ -351,7 +351,7 @@ function OnboardingDriver() {
         verifiedAt: new Date().toISOString(),
         status: "pending",
         vehicleMake: finalMake,
-        vehicleModel: modelName.trim(),
+        vehicleModel: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب") : modelName.trim(),
         vehicleYear: Number(year) || undefined,
         vehiclePlate: plate.trim(),
         vehicleColor: color.trim() || undefined,
@@ -558,7 +558,7 @@ function OnboardingDriver() {
                   <button
                     key={k}
                     type="button"
-                    onClick={() => setCategory(k)}
+                    onClick={() => { setCategory(k); if (k === "large") { setMake("كيا"); setModelName(vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب"); } }}
                     className={`p-3 rounded-2xl text-center btn-press transition-all border ${
                       active
                         ? "bg-white ring-2 ring-primary border-primary shadow-lg scale-105"
