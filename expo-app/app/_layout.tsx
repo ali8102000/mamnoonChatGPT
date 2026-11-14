@@ -94,6 +94,8 @@ function PushNotificationSetup() {
         });
       } else if (data?.type === "taxi_high_demand") {
         router.push("/subscriptions" as any);
+      } else if (data?.type === "subscription_granted" || data?.type === "company_announcement") {
+        router.push("/home");
       } else {
         router.push("/profile");
       }
