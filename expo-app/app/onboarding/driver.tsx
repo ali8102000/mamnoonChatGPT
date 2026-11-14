@@ -44,11 +44,22 @@ export default function DriverOnboarding() {
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [checkingSavedDriver, setCheckingSavedDriver] = useState(true);
+  const [vehicleChangeMode, setVehicleChangeMode] = useState(false);
+  const [pendingVehicleChange, setPendingVehicleChange] = useState(false);
 
   useEffect(() => {
     (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
       .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    (supabase as any).from("provider_change_requests").select("id")
+      .eq("user_id", user.id).eq("provider_type", providerRole).eq("status", "pending").maybeSingle()
+      .then((result: any) => { if (active) setPendingVehicleChange(!!result.data); });
+    return () => { active = false; };
+  }, [user?.id, providerRole]);
 
   useEffect(() => {
     let active = true;
@@ -157,6 +168,28 @@ export default function DriverOnboarding() {
   async function submit() {
     if (!user) {
       Alert.alert("خطأ", "انتهت جلسة الدخول. سجّل الدخول مرة أخرى.");
+      return;
+    }
+    if (vehicleChangeMode) {
+      setBusy(true);
+      try {
+        const requestedData = largeDriverMode
+          ? { vehicle_type: vehicleType }
+          : { vehicle_category: category };
+        const { error } = await (supabase as any).rpc("submit_provider_change_request", {
+          _provider_type: providerRole,
+          _requested_data: requestedData,
+        });
+        if (error) throw error;
+        setPendingVehicleChange(true);
+        setVehicleChangeMode(false);
+        setStatus("approved");
+        Alert.alert("تم إرسال الطلب", "وصل طلب تغيير فئة المركبة إلى الإدارة. مركبتك الحالية تبقى فعالة لحين الموافقة.");
+      } catch (error: any) {
+        Alert.alert("تعذر إرسال الطلب", error?.message || "حاول مرة ثانية.");
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     const vehicleYear = Number(year.trim());
@@ -268,6 +301,9 @@ export default function DriverOnboarding() {
             : "استلمنا بيانات السيارة والهوية. طلبك الآن بانتظار موافقة " + companyName + "، وستتمكن من استقبال الرحلات بعد الاعتماد."}
         </Text>
         {status === "approved" ? (
+          <>
+          {pendingVehicleChange && <Text style={styles.note}>طلب تغيير فئة المركبة بانتظار موافقة الإدارة. مركبتك الحالية تبقى فعالة.</Text>}
+          {!pendingVehicleChange && <Button title="طلب تغيير فئة أو نوع المركبة" onPress={() => { setVehicleChangeMode(true); setStatus(null); }} />}
           <Button title="تفعيل دور السائق والمتابعة" onPress={async () => {
             if (!user) return;
             setBusy(true);
@@ -283,6 +319,7 @@ export default function DriverOnboarding() {
               setBusy(false);
             }
           }} loading={busy} />
+          </>
         ) : (
           <View style={{ gap: 10 }}>
             <Button title="تعديل البيانات وإعادة إرفاق السنوية والمستمسكات" onPress={() => setStatus(null)} />
@@ -295,8 +332,8 @@ export default function DriverOnboarding() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 48 }}>
-      <Text style={styles.title}>{largeDriverMode ? "تسجيل سائق السيارات الكبيرة" : "تسجيل كابتن التكسي"}</Text>
-      <Text style={styles.note}>{largeDriverMode ? "قسم مستقل لكيا الحمل وكيا الركاب والباص. أكمل بيانات المركبة والهوية." : "أكمل بيانات سيارة التكسي والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة."}</Text>
+      <Text style={styles.title}>{vehicleChangeMode ? "طلب تغيير فئة المركبة" : largeDriverMode ? "تسجيل سائق السيارات الكبيرة" : "تسجيل كابتن التكسي"}</Text>
+      <Text style={styles.note}>{vehicleChangeMode ? "حدد الفئة أو نوع المركبة الجديد. مركبتك الحالية تبقى فعالة حتى موافقة الإدارة." : largeDriverMode ? "قسم مستقل لكيا الحمل وكيا الركاب والباص. أكمل بيانات المركبة والهوية." : "أكمل بيانات سيارة التكسي والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة."}</Text>
       {!!rejectionReason && <Text style={styles.rejection}>سبب الرفض السابق: {rejectionReason}</Text>}
 
       <Text style={styles.label}>اختر نوع تسجيلك كسائق</Text>
