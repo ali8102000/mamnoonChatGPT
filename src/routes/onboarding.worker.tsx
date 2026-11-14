@@ -91,18 +91,28 @@ function OnboardingWorker() {
   useEffect(() => {
     let active = true;
     setServicesLoading(true);
-    supabase.rpc("get_worker_service_catalog").then(({ data, error }) => {
-      if (!active) return;
-      if (error) {
-        console.error("get_worker_service_catalog failed:", error);
-        setServicesError(`تعذر تحميل المهن (${error.code || "اتصال"}): ${error.message || "تحقق من اتصالك"}`);
-      } else {
-        const available = (data ?? []) as Service[];
-        setServices(available);
-        setServicesError(available.length ? null : "قائمة المهن فارغة حالياً. تواصل مع الإدارة.");
+    (async () => {
+      try {
+        const catalog = await supabase.rpc("get_worker_service_catalog");
+        let rows = !catalog.error && Array.isArray(catalog.data) ? catalog.data as Service[] : [];
+        if (!rows.length) {
+          const fallback = await supabase.from("services")
+            .select("id, slug, name_ar")
+            .order("sort_order");
+          if (fallback.error) throw fallback.error;
+          rows = (fallback.data ?? []) as Service[];
+        }
+        if (!active) return;
+        setServices(rows);
+        setServicesError(rows.length ? null : "قائمة المهن فارغة في قاعدة البيانات. يلزم تحديث كتالوج الخدمات.");
+      } catch (error: any) {
+        if (!active) return;
+        console.error("Unable to load worker service catalog:", error);
+        setServicesError(`تعذر تحميل المهن (${error?.code || "اتصال"}): ${error?.message || "تحقق من اتصالك"}`);
+      } finally {
+        if (active) setServicesLoading(false);
       }
-      setServicesLoading(false);
-    });
+    })();
     return () => { active = false; };
   }, []);
 
