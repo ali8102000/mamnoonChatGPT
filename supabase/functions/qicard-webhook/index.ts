@@ -16,7 +16,7 @@ async function verifyQiSignature(payload: Record<string, unknown>, signature: st
   const amount = Number(payload.amount);
   if (!Number.isFinite(amount)) return false;
   const signedData = [
-    payload.paymentId || "-", amount.toFixed(3), payload.currency || "-",
+    payload.paymentId || "-", (payload.amount ? String(payload.amount) + ".000" : "-"), payload.currency || "-",
     payload.creationDate || "-", payload.status || "-",
   ].join("|");
   const signatureBytes = Uint8Array.from(atob(signature), (char) => char.charCodeAt(0));
