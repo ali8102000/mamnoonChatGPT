@@ -2,7 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Send, Loader2, ArrowRight } from "lucide-react";
+import { MessageCircle, Send, Loader2, ArrowRight, ShieldCheck } from "lucide-react";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/support-chat")({
@@ -162,9 +162,10 @@ function SupportChatPage() {
           <div className="p-4 border-b border-border flex items-center gap-2"><MessageCircle className="text-primary" /><div className="font-bold">{isStaff ? selected?.profile?.full_name || "اختر محادثة" : "فريق دعم ممنون"}</div></div>
           {loadError && <div role="alert" className="mx-3 mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{loadError} — حدّث الصفحة وحاول مرة ثانية</div>}
           <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-            {messages.length === 0 ? <div className="text-center text-sm text-muted-foreground py-12">أهلاً بك، اكتب رسالتك وسيقوم فريق ممنون بالرد عليك.</div> : messages.map((m) => <div key={m.id} className={"max-w-[85%] rounded-2xl px-3 py-2 text-sm " + (m.sender_id === uid ? "mr-auto bg-primary text-primary-foreground" : "ml-auto bg-card border border-border")}>
-              <p className="whitespace-pre-wrap break-words">{m.body}</p><div className="text-[10px] opacity-70 mt-1">{new Date(m.created_at).toLocaleString("ar-IQ")}</div>
-            </div>)}
+            {messages.length === 0 ? <div className="text-center text-sm text-muted-foreground py-12">أهلاً بك، اكتب رسالتك وسيقوم فريق ممنون بالرد عليك.</div> : messages.map((m) => { const isCompanyMessage = isStaff ? m.sender_id === uid : m.sender_id !== uid; return <div key={m.id} className={"max-w-[85%] rounded-2xl px-3 py-2 text-sm border shadow-sm " + (isCompanyMessage ? "ml-auto border-[#B98A24] bg-gradient-to-br from-[#F8E7A1] via-[#E5BD50] to-[#C99A2E] text-[#2C2108] shadow-[#C99A2E]/20" : "mr-auto border-primary/20 bg-primary text-primary-foreground")}>
+              {isCompanyMessage && <div className="flex items-center gap-1 text-[10px] font-black mb-1.5 text-[#5B4210]"><ShieldCheck className="h-3 w-3" /> شركة ممنون <span className="rounded-full bg-[#6D5015] text-[#FFF4C2] px-1.5 py-0.5 text-[9px]">موثّقة</span></div>}
+              <p className="whitespace-pre-wrap break-words">{m.body}</p><div className={"text-[10px] mt-1 " + (isCompanyMessage ? "text-[#5B4210]/75" : "opacity-70")}>{new Date(m.created_at).toLocaleString("ar-IQ")}</div>
+            </div>; })}
             <div ref={messagesEndRef} />
           </div>
           {selected?.status === "open" && <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="p-3 border-t border-border flex gap-2">
