@@ -253,6 +253,7 @@ export interface FileRoutesByTo {
   '/onboarding/worker': typeof OnboardingWorkerRoute
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
+  '/api/mobile-maps': typeof ApiMobileMapsRoute
 }
 export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
@@ -284,6 +285,7 @@ export interface FileRoutesById {
   '/onboarding/worker': typeof OnboardingWorkerRoute
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
+  '/api/mobile-maps': typeof ApiMobileMapsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -349,6 +351,7 @@ export interface FileRouteTypes {
     | '/onboarding/worker'
     | '/request/$id'
     | '/request/new'
+    | '/api/mobile-maps'
   id:
     | '__root__'
     | '/auth/callback'
@@ -379,6 +382,7 @@ export interface FileRouteTypes {
     | '/onboarding/worker'
     | '/request/$id'
     | '/request/new'
+    | '/api/mobile-maps'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
