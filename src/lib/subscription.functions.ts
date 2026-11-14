@@ -203,7 +203,7 @@ export const adminGetStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await (supabaseAdmin as any).rpc("get_subscription_stats");
+    const { data, error } = await (supabaseAdmin as any).rpc("get_subscription_stats_v2");
     if (error || !data || data.length === 0) {
       return {
         totalSubscribers: 0,
@@ -244,7 +244,7 @@ export const adminGetSubscriptions = createServerFn({ method: "GET" })
       `,
       )
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(500);
     if (error) throw new Error("Failed to load subscriptions");
     return data ?? [];
   });
@@ -385,4 +385,32 @@ export const adminGrantSubscription = createServerFn({ method: "POST" })
     });
     if (error) throw new Error("فشل منح الاشتراك: " + error.message);
     return { ok: true, subscription_id: subscriptionId };
+  });
+
+
+export const adminSetSubscriptionStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ user_id: z.string().uuid(), status: z.enum(["active", "paused", "cancelled"]) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabase } = context;
+    const { data: changed, error } = await (supabase as any).rpc("admin_set_subscription_status", {
+      p_user_id: data.user_id, p_status: data.status,
+    });
+    if (error) throw new Error(error.message);
+    if (!changed) throw new Error("لم يتم العثور على اشتراك لهذا الحساب");
+    return { ok: true };
+  });
+
+export const adminExtendSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ user_id: z.string().uuid(), days: z.number().int().min(1).max(3650) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabase } = context;
+    const { data: endAt, error } = await (supabase as any).rpc("admin_extend_subscription", {
+      p_user_id: data.user_id, p_days: data.days,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true, current_period_end: endAt };
   });
