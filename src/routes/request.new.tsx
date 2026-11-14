@@ -690,7 +690,7 @@ function NewRequest() {
         {/* STEP 3: CARS ONLY */}
         {mapStep === "dest" && destConfirmed && (
           <div className="mt-auto relative z-30 bg-white rounded-t-[32px] shadow-2xl border-t border-border/60 max-w-lg mx-auto w-full p-5 space-y-3">
-            {routeKm === null && !routeError && (
+            {vehicle !== "large" && routeKm === null && !routeError && (
               <div
                 className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
                 role="status"
