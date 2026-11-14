@@ -11,7 +11,7 @@ import {
   adminGetStats,
   adminGetSubscriptions,
   adminSearchSubscriptionUsers,
-  adminGrantSubscription,
+  adminGrantSubscription,\n  adminSetSubscriptionStatus,\n  adminExtendSubscription,
 } from "@/lib/subscription.functions";
 import {
   Loader2,
@@ -93,7 +93,7 @@ type SubscriptionRow = {
   request_count: number;
   auto_renew: boolean;
   created_at: string;
-  plan: { code: string; name_ar: string; tier: number } | null;
+  grant_type: string; granted_by: string | null; is_trial: boolean; paused_at: string | null; cancel_at_period_end: boolean;\n  profile: { full_name: string | null; email: string | null; phone: string | null } | null;\n  plan: { code: string; name_ar: string; tier: number } | null;
 };
 
 function SubscriptionsAdmin() {
@@ -205,7 +205,7 @@ function SubscriptionsAdmin() {
           }}
         />
       )}
-      {tab === "subscriptions" && <SubscriptionsTab subs={subs} />}
+      {tab === "subscriptions" && <SubscriptionsTab subs={subs} onRefresh={loadAll} />}
       {tab === "grant" && <GrantSubscriptionTab plans={plans} onGranted={() => { loadAll(); setGrantRefresh((v) => v + 1); }} refreshKey={grantRefresh} />}
       {tab === "settings" && (
         <SettingsTab
@@ -413,38 +413,67 @@ function Feature({ icon: Icon, label, value }: any) {
   );
 }
 
-function SubscriptionsTab({ subs }: { subs: SubscriptionRow[] }) {
-  if (subs.length === 0)
-    return (
-      <div className="glass rounded-2xl p-8 text-center">
-        <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-        <div className="text-sm text-muted-foreground">لا يوجد مشتركون بعد</div>
+function SubscriptionsTab({ subs, onRefresh }: { subs: SubscriptionRow[]; onRefresh: () => void }) {
+  const [filter, setFilter] = useState("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [days, setDays] = useState<Record<string, number>>({});
+  const filtered = subs.filter((s) => filter === "all" || (filter === "company" ? s.grant_type === "admin" : filter === "trial" ? s.is_trial || s.grant_type === "trial" : s.plan?.code === filter));
+  async function changeStatus(s: SubscriptionRow, status: "active" | "paused" | "cancelled") {
+    const confirmText = status === "cancelled" ? "متأكد تريد إلغاء الاشتراك نهائياً؟" : status === "paused" ? "توقف الاشتراك واستقبال الطلبات الجديدة؟" : "تريد إعادة تفعيل الاشتراك؟";
+    if (!window.confirm(confirmText)) return;
+    setBusyId(s.id);
+    try { await adminSetSubscriptionStatus({ data: { user_id: s.user_id, status } }); toast.success(status === "paused" ? "تم إيقاف الاشتراك فعلياً" : status === "active" ? "تم تفعيل الاشتراك فعلياً" : "تم إلغاء الاشتراك"); onRefresh(); }
+    catch (e: any) { toast.error(e.message || "تعذر تحديث الاشتراك"); }
+    finally { setBusyId(null); }
+  }
+  async function extend(s: SubscriptionRow) {
+    const amount = Math.max(1, Math.min(3650, Number(days[s.id] ?? 30)));
+    setBusyId(s.id);
+    try { await adminExtendSubscription({ data: { user_id: s.user_id, days: amount } }); toast.success(`تم تمديد الاشتراك ${amount} يوم فعلياً`); onRefresh(); }
+    catch (e: any) { toast.error(e.message || "تعذر تمديد الاشتراك"); }
+    finally { setBusyId(null); }
+  }
+  return <div className="space-y-3">
+    <div className="glass rounded-2xl p-3">
+      <div className="font-black text-sm mb-2">سجل الاشتراكات الفعلي ({subs.length})</div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {[["all","الكل"],["company","اشتراكات ممنوحة من الشركة"],["bronze","برونزي"],["silver","فضي"],["gold","ذهبي"],["trial","تجريبي"]].map(([key,label]) =>
+          <button key={key} onClick={() => setFilter(key)} className={`rounded-xl px-2 py-2 text-[11px] font-bold ${filter===key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{label}</button>
+        )}
       </div>
-    );
-  return (
-    <div className="space-y-2">
-      {subs.map((s) => (
-        <div key={s.id} className="glass rounded-2xl p-3 text-sm">
-          <div className="flex items-center justify-between mb-1">
-            <div className="font-bold">{s.plan?.name_ar ?? "—"}</div>
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.status === "active" ? "bg-emerald-100 text-emerald-700" : s.status === "expired" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}
-            >
-              {s.status === "active" ? "نشط" : s.status === "expired" ? "منتهي" : s.status}
-            </span>
-          </div>
-          <div className="text-[10px] text-muted-foreground">
-            المستخدم: {s.user_id.slice(0, 8)}... · طلبات: {s.request_count}
-          </div>
-          {s.current_period_end && (
-            <div className="text-[10px] text-muted-foreground">
-              ينتهي: {new Date(s.current_period_end).toLocaleDateString("ar-IQ")}
-            </div>
-          )}
-        </div>
-      ))}
     </div>
-  );
+    {filtered.length === 0 ? <div className="glass rounded-2xl p-8 text-center text-sm text-muted-foreground">ماكو اشتراكات ضمن هذا التصنيف</div> :
+    filtered.map((s) => {
+      const name = s.profile?.full_name || s.profile?.phone || s.profile?.email || s.user_id;
+      const grantLabel = s.grant_type === "admin" ? "منحة من شركة ممنون" : s.is_trial || s.grant_type === "trial" ? "تجربة مجانية" : s.grant_type === "paid" ? "اشتراك مدفوع" : s.grant_type || "—";
+      const statusLabel = s.status === "active" ? "نشط" : s.status === "paused" ? "موقوف مؤقتاً" : s.status === "expired" ? "منتهي" : s.status === "cancelled" ? "ملغي" : s.status;
+      return <div key={s.id} className="glass rounded-2xl p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0"><div className="font-black text-sm">{name}</div><div className="text-[10px] text-muted-foreground break-all" dir="ltr">{s.profile?.email || "لا يوجد بريد مسجل"}</div><div className="text-[10px] text-muted-foreground" dir="ltr">{s.profile?.phone || ""}</div></div>
+          <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${s.status === "active" ? "bg-emerald-100 text-emerald-700" : s.status === "paused" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>{statusLabel}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div><span className="text-muted-foreground">الباقة: </span><b>{s.plan?.name_ar || "—"}</b></div>
+          <div><span className="text-muted-foreground">نوع الاشتراك: </span><b>{grantLabel}</b></div>
+          <div><span className="text-muted-foreground">بداية الفترة: </span><b>{new Date(s.current_period_start).toLocaleDateString("ar-IQ")}</b></div>
+          <div><span className="text-muted-foreground">نهاية الفترة: </span><b>{s.current_period_end ? new Date(s.current_period_end).toLocaleDateString("ar-IQ") : "دائم"}</b></div>
+          <div><span className="text-muted-foreground">الطلبات: </span><b>{s.request_count}</b></div>
+          <div><span className="text-muted-foreground">إيقاف عند النهاية: </span><b>{s.cancel_at_period_end ? "نعم" : "لا"}</b></div>
+        </div>
+        <div className="border-t border-border pt-3 space-y-2">
+          <div className="text-xs font-black">إدارة الاشتراك من لوحة الأدمن</div>
+          <div className="grid grid-cols-2 gap-2">
+            {s.status === "active" ? <button disabled={!!busyId} onClick={() => changeStatus(s,"paused")} className="rounded-xl bg-amber-500/10 text-amber-700 py-2 text-xs font-bold disabled:opacity-50">إيقاف مؤقت</button> : <button disabled={!!busyId || (s.current_period_end != null && new Date(s.current_period_end).getTime() <= Date.now())} onClick={() => changeStatus(s,"active")} className="rounded-xl bg-emerald-500/10 text-emerald-700 py-2 text-xs font-bold disabled:opacity-50">تفعيل الاشتراك</button>}
+            <button disabled={!!busyId || s.status === "cancelled"} onClick={() => changeStatus(s,"cancelled")} className="rounded-xl bg-red-500/10 text-red-700 py-2 text-xs font-bold disabled:opacity-50">إلغاء الاشتراك</button>
+          </div>
+          <div className="flex gap-2">
+            <input type="number" min={1} max={3650} value={days[s.id] ?? 30} onChange={(e) => setDays(v => ({...v,[s.id]:Number(e.target.value)}))} className="input-base w-24 text-center" aria-label="عدد أيام التمديد" />
+            <button disabled={!!busyId || Number(days[s.id] ?? 30) < 1 || Number(days[s.id] ?? 30) > 3650} onClick={() => extend(s)} className="flex-1 rounded-xl bg-primary text-primary-foreground py-2 text-xs font-bold disabled:opacity-50">{busyId === s.id ? "جارٍ التنفيذ..." : "تمديد الاشتراك بالأيام"}</button>
+          </div>
+        </div>
+      </div>;
+    })}
+  </div>;
 }
 
 function GrantSubscriptionTab({ plans, onGranted }: { plans: Plan[]; onGranted: () => void; refreshKey: number }) {
