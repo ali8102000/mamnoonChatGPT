@@ -784,19 +784,6 @@ function NewRequest() {
                 })}
               </div>
             )}
-            {false && vehicleCategory === "large" && (
-              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
-                <div className="font-black text-sm">اختر كيا حمل أو كيا ركاب</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {([{ key: "kia_cargo", label: "كيا حمل", image: "/images/kia-cargo.svg" }, { key: "kia_passenger", label: "كيا ركاب", image: "/images/kia-passenger.svg" }] as const).map((item) => (
-                    <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-2xl border p-2.5 font-black flex flex-col items-center gap-1 ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
-                      <img src={item.image} alt={item.label} className="w-full h-16 object-contain" />
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             {vehicle === "large" && (
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري) — اكتب الوجهة أو أي تفاصيل تريدها" rows={2} className="w-full resize-none bg-white border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
             )}
