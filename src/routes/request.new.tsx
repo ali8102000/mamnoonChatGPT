@@ -548,11 +548,12 @@ function NewRequest() {
       <div className="fixed inset-0 overflow-hidden flex flex-col bg-slate-900 select-none">
         {govReady && (!gov || govPickerOpen) && (
           <div
-            className="absolute inset-0 z-50 bg-background/95 backdrop-blur p-5 overflow-y-auto"
+            className="absolute inset-0 z-50 backdrop-blur p-5 overflow-y-auto"
+            style={{ backgroundColor: "#0b1220", color: "#f8fafc" }}
             dir="rtl"
           >
-            <h2 className="text-xl font-black mb-1 text-foreground">اختر محافظتك</h2>
-            <p className="text-sm text-muted-foreground mb-4">ستكون طلباتك داخل هذه المحافظة.</p>
+            <h2 className="text-xl font-black mb-1" style={{ color: "#ffffff" }}>اختر محافظتك</h2>
+            <p className="text-sm mb-4" style={{ color: "#cbd5e1" }}>ستكون طلباتك داخل هذه المحافظة.</p>
             <div className="grid grid-cols-2 gap-2">
               {GOVERNORATES.map((g) => {
                 const selected = g.key === govKey;
@@ -562,7 +563,13 @@ function NewRequest() {
                     type="button"
                     aria-pressed={selected}
                     onClick={() => chooseGov(g.key)}
-                    className={`min-h-12 py-3 px-2 rounded-2xl border font-extrabold text-sm btn-press transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? "bg-primary text-primary-foreground border-primary shadow-md" : "bg-card text-card-foreground border-border hover:bg-surface-2"}`}
+                    className="min-h-12 py-3 px-2 rounded-2xl border font-extrabold text-sm btn-press transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                    style={{
+                      backgroundColor: selected ? "#0e7490" : "#263449",
+                      color: "#ffffff",
+                      borderColor: selected ? "#67e8f9" : "#64748b",
+                      boxShadow: selected ? "0 0 0 2px rgba(103,232,249,.28)" : "none",
+                    }}
                   >
                     {g.name}
                   </button>
@@ -1081,6 +1088,7 @@ function NewRequest() {
       {/* Map location for service */}
       <div className="mt-4 mb-2 text-sm font-bold text-muted-foreground">📍 موقع تقديم الخدمة</div>
       <MapPicker
+        key={gov?.key ?? "no-governorate"}
         value={pickupCoords}
         accent="#0284c7"
         nearby={nearby}
