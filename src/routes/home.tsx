@@ -213,6 +213,20 @@ function CustomerHome() {
         />
       </div>
 
+      <Link
+        to="/coupons"
+        className="glass rounded-2xl p-3 flex items-center justify-between border border-amber-500/20"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">🎁</span>
+          <div>
+            <div className="font-black text-sm">كوبوناتي</div>
+            <div className="text-xs text-muted-foreground">شوف العروض والكوبونات اللي وصلتك</div>
+          </div>
+        </div>
+        <span className="text-primary font-bold text-sm">عرض الكل ←</span>
+      </Link>
+
       <div className="grid grid-cols-2 gap-2.5 animate-pop-in" style={{ animationDelay: "0.15s" }}>
         <MiniStat icon={<Clock className="h-4 w-4" />} label="أقل من" value="٣ د" />
         <MiniStat icon={<ShieldCheck className="h-4 w-4" />} label="مزودون" value="موثق" />
