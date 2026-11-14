@@ -315,13 +315,43 @@ export const adminSearchSubscriptionUsers = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const term = data.query.replace(/[,%()]/g, " ").trim();
+    const rawTerm = data.query.trim().replace(/[,%()]/g, " ");
+    // Normalize Arabic-Indic and Persian digits, then support common Iraqi
+    // phone formats: 07..., 7..., 9647..., and +9647...
+    const westernDigits = rawTerm.replace(/[٠-٩۰-۹]/g, (digit) => {
+      const code = digit.charCodeAt(0);
+      return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
+    });
+    const digits = westernDigits.replace(/\\D/g, "");
+    const phoneVariants = new Set<string>();
+    if (digits) {
+      phoneVariants.add(digits);
+      if (digits.startsWith("00")) phoneVariants.add(digits.slice(2));
+      if (digits.startsWith("964")) {
+        phoneVariants.add("+" + digits);
+        phoneVariants.add("0" + digits.slice(3));
+        phoneVariants.add(digits.slice(3));
+      } else if (digits.startsWith("0")) {
+        phoneVariants.add("964" + digits.slice(1));
+        phoneVariants.add("+964" + digits.slice(1));
+      } else if (digits.startsWith("7")) {
+        phoneVariants.add("0" + digits);
+        phoneVariants.add("964" + digits);
+        phoneVariants.add("+964" + digits);
+      }
+    }
+    const filters = [
+      `email.ilike.%${rawTerm}%`,
+      `full_name.ilike.%${rawTerm}%`,
+      ...Array.from(phoneVariants).map((value) => `phone.ilike.%${value}%`),
+      ...(digits ? [`email.ilike.%phone${digits}%`] : []),
+    ];
     const { data: users, error } = await (supabaseAdmin as any)
       .from("profiles")
       .select("id,email,phone,full_name")
-      .or(`email.ilike.%${term}%,phone.ilike.%${term}%,full_name.ilike.%${term}%`)
+      .or(filters.join(","))
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(100);
     if (error) throw new Error("تعذر البحث عن المستخدمين");
     const ids = (users ?? []).map((u: any) => u.id);
     if (!ids.length) return [];
