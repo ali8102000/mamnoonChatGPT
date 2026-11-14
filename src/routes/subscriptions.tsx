@@ -82,7 +82,7 @@ function ProviderSubscriptionsPage() {
   const canSetRadius = roles.some((r) => r === "worker" || r === "large_driver");
   const canTaxiPerks = roles.includes("driver");
   const maxRadius = planCode === "gold" ? 55 : planCode === "silver" ? 40 : 25;
-  const canUseTaxiDemand = canTaxiPerks && subscription?.status === "active" && ["silver", "gold"].includes(planCode);
+  const canUseTaxiDemand = canTaxiPerks && subscription?.status === "active" && planCode === "gold";
   async function saveProviderRadius() {
     setRadiusSaving(true);
     try {
