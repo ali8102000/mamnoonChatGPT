@@ -24,30 +24,33 @@ function ProviderSubscriptionsPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
     if (!userId || !isProvider) { setLoadingData(false); return; }
     let active = true;
     (async () => {
-      const [{ data: planRows, error: plansError }, { data: sub, error: subError }] = await Promise.all([
+      const [{ data: planRows, error: plansError }, { data: sub, error: subError }, { data: settings }] = await Promise.all([
         supabase.from("subscription_plans").select("id,code,name_ar,description_ar,monthly_price,currency,badge_label,badge_color")
           .in("code", ["bronze", "silver", "gold"]).eq("is_active", true).order("tier"),
         supabase.from("user_subscriptions").select("status,is_trial,trial_started_at,trial_ends_at,current_period_end,auto_renew,cancel_at_period_end,plan:subscription_plans(code,name_ar,tier,badge_label)")
           .eq("user_id", userId).maybeSingle(),
+        supabase.from("subscription_settings").select("*").eq("id", 1).maybeSingle(),
       ]);
       if (!active) return;
       if (plansError) toast.error("تعذر تحميل باقات الاشتراك");
       if (subError) toast.error("تعذر تحميل حالة اشتراكك");
       setPlans((planRows ?? []) as Plan[]);
       setSubscription(sub);
+      setPaymentGatewayEnabled(Boolean((settings as any)?.payment_gateway_enabled));
       setLoadingData(false);
     })();
     return () => { active = false; };
   }, [userId, isProvider]);
 
   async function pay(planCode: string) {
-    if (!session || busy) return;
+    if (!session || busy || !paymentGatewayEnabled) return;
     setBusy(planCode);
     try {
       const { data, error } = await supabase.functions.invoke("qicard-create-payment", {
@@ -91,10 +94,10 @@ function ProviderSubscriptionsPage() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">{plan.description_ar}</p>
                 <div className="text-2xl font-black mt-4">{Number(plan.monthly_price).toLocaleString("ar-IQ")} <span className="text-xs font-bold text-muted-foreground">د.ع / شهرياً</span></div>
-                <button type="button" onClick={() => pay(plan.code)} disabled={!!busy || active}
+                <button type="button" onClick={() => pay(plan.code)} disabled={!!busy || active || !paymentGatewayEnabled}
                   className="w-full mt-4 rounded-xl bg-primary text-primary-foreground py-3 font-black text-sm disabled:opacity-50 flex items-center justify-center gap-2">
                   {busy === plan.code ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                  {active ? "مشترك بهذه الباقة" : "اشترك وادفع بالبطاقة"}
+                  {!paymentGatewayEnabled ? "الدفع قيد التفعيل" : active ? "مشترك بهذه الباقة" : "اشترك وادفع بالبطاقة"}
                 </button>
               </div>;
             })}
@@ -110,7 +113,7 @@ function ProviderSubscriptionsPage() {
               إيقاف التجديد عند نهاية الفترة
             </button>
           )}
-          <p className="text-[11px] text-muted-foreground text-center mt-5 leading-6">تتم عملية الدفع داخل صفحة بوابة QiCard الآمنة. لا يخزن ممنون رقم البطاقة أو رمز الأمان. لا يُفعّل الاشتراك إلا بعد تأكيد البوابة من الخادم.</p>
+          <p className="text-[11px] text-muted-foreground text-center mt-5 leading-6">عند تفعيل حساب التاجر وربط مفاتيح QiCard سيُتاح الدفع الآمن. لا يخزن ممنون رقم البطاقة أو رمز الأمان، ولا يُفعّل الاشتراك إلا بعد تأكيد البوابة من الخادم.</p>
         </>}
       </div>
     </MobileShell>
