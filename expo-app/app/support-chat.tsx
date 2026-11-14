@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { palette, radius } from "@/styles/theme";
 
 export default function SupportChatScreen() {
   const { user } = useAuth();
@@ -139,27 +140,27 @@ export default function SupportChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc", paddingTop: 52, paddingHorizontal: 16 },
+  container: { flex: 1, backgroundColor: palette.canvas, paddingTop: 52, paddingHorizontal: 16 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 23, fontWeight: "900", color: "#172033", marginBottom: 14, textAlign: "right" },
-  startBox: { backgroundColor: "#fff", borderRadius: 14, padding: 10, marginBottom: 10 },
-  startTitle: { fontSize: 13, fontWeight: "800", color: "#172033", textAlign: "right", marginBottom: 8 },
-  searchInput: { backgroundColor: "#f1f5f9", borderRadius: 10, padding: 10, textAlign: "right", marginBottom: 8 },
+  title: { fontSize: 23, fontWeight: "900", color: palette.ink, marginBottom: 14, textAlign: "right" },
+  startBox: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: palette.line },
+  startTitle: { fontSize: 13, fontWeight: "900", color: palette.ink, textAlign: "right", marginBottom: 8 },
+  searchInput: { backgroundColor: palette.canvas, borderRadius: radius.md, padding: 12, textAlign: "right", marginBottom: 8, color: palette.ink },
   list: { maxHeight: 76, marginBottom: 10 },
-  person: { backgroundColor: "#fff", borderRadius: 12, padding: 10, marginRight: 8, minWidth: 130, borderWidth: 1, borderColor: "#e2e8f0" },
-  personActive: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
-  personName: { fontWeight: "800", color: "#172033", textAlign: "right" },
-  personPhone: { fontSize: 11, color: "#64748b", textAlign: "right" },
-  messages: { flex: 1, backgroundColor: "#fff", borderRadius: 16, paddingHorizontal: 10 },
-  empty: { color: "#94a3b8", textAlign: "center", marginTop: 40 },
-  bubble: { padding: 11, borderRadius: 14, maxWidth: "86%" },
-  mine: { alignSelf: "flex-start", backgroundColor: "#2563eb" },
-  theirs: { alignSelf: "flex-end", backgroundColor: "#f1f5f9" },
-  mineText: { color: "#fff", fontSize: 14, textAlign: "right" },
-  theirText: { color: "#172033", fontSize: 14, textAlign: "right" },
-  time: { color: "#94a3b8", fontSize: 9, marginTop: 5, textAlign: "right" },
+  person: { backgroundColor: palette.surface, borderRadius: radius.md, padding: 10, marginRight: 8, minWidth: 130, borderWidth: 1, borderColor: palette.line },
+  personActive: { borderColor: palette.gold, backgroundColor: palette.goldSoft },
+  personName: { fontWeight: "900", color: palette.ink, textAlign: "right" },
+  personPhone: { fontSize: 11, color: palette.muted, textAlign: "right" },
+  messages: { flex: 1, backgroundColor: palette.surface, borderRadius: radius.lg, paddingHorizontal: 10, borderWidth: 1, borderColor: palette.line },
+  empty: { color: palette.muted, textAlign: "center", marginTop: 40 },
+  bubble: { padding: 12, borderRadius: radius.lg, maxWidth: "86%" },
+  mine: { alignSelf: "flex-start", backgroundColor: palette.brand },
+  theirs: { alignSelf: "flex-end", backgroundColor: palette.surfaceSoft },
+  mineText: { color: palette.white, fontSize: 14, textAlign: "right" },
+  theirText: { color: palette.ink, fontSize: 14, textAlign: "right" },
+  time: { color: palette.muted, fontSize: 9, marginTop: 5, textAlign: "right" },
   composer: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10 },
-  input: { flex: 1, backgroundColor: "#fff", borderRadius: 12, padding: 12, maxHeight: 100, textAlign: "right" },
-  send: { backgroundColor: "#2563eb", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 13 },
-  sendText: { color: "#fff", fontWeight: "800" },
+  input: { flex: 1, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.pill, padding: 13, maxHeight: 100, textAlign: "right", color: palette.ink },
+  send: { backgroundColor: palette.brand, borderRadius: radius.pill, paddingHorizontal: 17, paddingVertical: 14 },
+  sendText: { color: palette.white, fontWeight: "900" },
 });
