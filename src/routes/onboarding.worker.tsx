@@ -355,13 +355,10 @@ function OnboardingWorker() {
       });
       if (pErr) throw pErr;
 
-      // 4. Update worker specialties
-      await supabase.from("worker_services").delete().eq("worker_id", uid);
-      const rows = Array.from(selected).map((service_id) => ({
-        worker_id: uid,
-        service_id,
-      }));
-      const { error: sErr } = await supabase.from("worker_services").insert(rows);
+      // 4. Save initial specialties through the guarded registration RPC.
+      const { error: sErr } = await (supabase as any).rpc("save_initial_worker_services", {
+        _service_ids: Array.from(selected),
+      });
       if (sErr) throw sErr;
 
       setExistingDoc(getProviderVerification(uid, 'worker'));
