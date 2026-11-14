@@ -480,6 +480,8 @@ BEGIN
   IF NEW.provider_id IS DISTINCT FROM OLD.provider_id THEN RAISE EXCEPTION 'provider_id_readonly_for_customer'; END IF;
   IF NEW.type IS DISTINCT FROM OLD.type THEN RAISE EXCEPTION 'type_immutable'; END IF;
   IF NEW.service_id IS DISTINCT FROM OLD.service_id THEN RAISE EXCEPTION 'service_id_immutable'; END IF;
+  IF NEW.vehicle_category IS DISTINCT FROM OLD.vehicle_category THEN RAISE EXCEPTION 'vehicle_category_immutable'; END IF;
+  IF NEW.vehicle_type IS DISTINCT FROM OLD.vehicle_type THEN RAISE EXCEPTION 'vehicle_type_immutable'; END IF;
   IF NEW.price_estimate IS DISTINCT FROM OLD.price_estimate THEN RAISE EXCEPTION 'price_readonly_for_customer'; END IF;
   IF NEW.commission IS DISTINCT FROM OLD.commission THEN RAISE EXCEPTION 'commission_readonly'; END IF;
   IF NEW.accepted_at IS DISTINCT FROM OLD.accepted_at THEN RAISE EXCEPTION 'accepted_at_readonly'; END IF;
