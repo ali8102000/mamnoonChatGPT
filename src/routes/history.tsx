@@ -27,6 +27,7 @@ function HistoryPage() {
   const { session, loading } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [tab, setTab] = useState<"all" | "active" | "done">("all");
+  const [showAllRequests, setShowAllRequests] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -42,19 +43,26 @@ function HistoryPage() {
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
 
-  const filtered = items.filter((r) =>
-    tab === "all"
+  const lastHour = Date.now() - 60 * 60 * 1000;
+  const filtered = items.filter((r) => {
+    const matchesTime = showAllRequests || new Date(r.created_at).getTime() >= lastHour;
+    const matchesTab = tab === "all"
       ? true
       : tab === "active"
         ? ["pending", "searching", "accepted", "in_progress"].includes(r.status)
-        : r.status === "completed",
-  );
+        : ["completed", "cancelled"].includes(r.status);
+    return matchesTime && matchesTab;
+  });
 
   return (
     <MobileShell>
       <div className="px-5 pt-10">
         <h1 className="text-3xl font-black mb-4">سجل الطلبات</h1>
 
+        <div className="flex gap-2 mb-3">
+          <button type="button" onClick={() => setShowAllRequests(false)} className={"px-4 py-2 rounded-xl text-xs font-bold btn-press " + (!showAllRequests ? "bg-primary text-primary-foreground" : "glass")}>آخر ساعة</button>
+          <button type="button" onClick={() => setShowAllRequests(true)} className={"px-4 py-2 rounded-xl text-xs font-bold btn-press " + (showAllRequests ? "bg-primary text-primary-foreground" : "glass")}>كل الطلبات</button>
+        </div>
         <div className="flex gap-2 mb-4">
           {(["all", "active", "done"] as const).map((t) => (
             <button
