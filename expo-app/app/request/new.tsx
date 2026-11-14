@@ -76,7 +76,8 @@ export default function NewRequest() {
   const [workHours, setWorkHours] = useState("");
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState<number | null>(null);
-  const isTaxi = selectedService === "taxi";\n  const isLargeVehicle = vehicle === "large";
+  const isTaxi = selectedService === "taxi";
+  const isLargeVehicle = vehicle === "large";
 
   useEffect(() => {
     let active = true;
@@ -210,7 +211,11 @@ export default function NewRequest() {
     }
 
     const proposedPrice = customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;
-    if (isLargeVehicle && customerPrice.trim() && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {\n      Alert.alert("السعر غير صحيح", "السعر المقترح يجب أن يكون 250 ديناراً أو أكثر ومن مضاعفات 250.");\n      return;\n    }\n    if (!isTaxi && pricingMode !== "negotiable" && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
+    if (isLargeVehicle && customerPrice.trim() && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
+      Alert.alert("السعر غير صحيح", "السعر المقترح يجب أن يكون 250 ديناراً أو أكثر ومن مضاعفات 250.");
+      return;
+    }
+    if (!isTaxi && pricingMode !== "negotiable" && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
       Alert.alert("الأجر غير صحيح", "اكتب أجراً صحيحاً لا يقل عن 250 ديناراً ويكون من مضاعفات 250.");
       return;
     }
