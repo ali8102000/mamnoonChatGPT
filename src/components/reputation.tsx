@@ -165,24 +165,6 @@ export function ReputationCard({ reputation }: { reputation: any }) {
         </div>
       </div>
 
-      <div className="space-y-2.5">
-        <SubScoreBar
-          label="الاحترافية"
-          value={Number(reputation.professionalism_avg)}
-          icon={<Trophy className="h-3.5 w-3.5" />}
-        />
-        <SubScoreBar
-          label="الالتزام بالوقت"
-          value={Number(reputation.punctuality_avg)}
-          icon={<Zap className="h-3.5 w-3.5" />}
-        />
-        <SubScoreBar
-          label="جودة العمل"
-          value={Number(reputation.quality_avg)}
-          icon={<Award className="h-3.5 w-3.5" />}
-        />
-      </div>
-
       {reputation.badges?.length > 0 && (
         <div>
           <div className="text-[10px] font-bold text-muted-foreground mb-2">الشارات</div>
