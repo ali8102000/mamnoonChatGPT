@@ -261,6 +261,7 @@ export interface FileRoutesById {
   '/home': typeof HomeRoute
   '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -354,6 +355,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/coupons'
     | '/messages'
+    | '/subscriptions'
     | '/privacy'
     | '/profile'
     | '/reset-password'
