@@ -76,7 +76,7 @@ export default function NewRequest() {
   const [workHours, setWorkHours] = useState("");
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState<number | null>(null);
-  const isTaxi = selectedService === "taxi";
+  const isTaxi = selectedService === "taxi";\n  const isLargeVehicle = vehicle === "large";
 
   useEffect(() => {
     let active = true;
@@ -138,7 +138,7 @@ export default function NewRequest() {
   }, []);
 
   useEffect(() => {
-    if (!pickupCoords || !destinationCoords || !isTaxi) {
+    if (!pickupCoords || !destinationCoords || !isTaxi || isLargeVehicle) {
       setPrice(null);
       return;
     }
@@ -150,7 +150,7 @@ export default function NewRequest() {
     );
     // A display-only estimate. The server must calculate and confirm the final fare.
     setPrice(estimateFare(straightDistance * 1.35, vehicleCat));
-  }, [pickupCoords, destinationCoords, isTaxi, vehicleCat]);
+  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat]);
 
   async function locateMe() {
     setLocationLoading(true);
@@ -210,7 +210,7 @@ export default function NewRequest() {
     }
 
     const proposedPrice = customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;
-    if (!isTaxi && pricingMode !== "negotiable" && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
+    if (isLargeVehicle && customerPrice.trim() && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {\n      Alert.alert("السعر غير صحيح", "السعر المقترح يجب أن يكون 250 ديناراً أو أكثر ومن مضاعفات 250.");\n      return;\n    }\n    if (!isTaxi && pricingMode !== "negotiable" && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
       Alert.alert("الأجر غير صحيح", "اكتب أجراً صحيحاً لا يقل عن 250 ديناراً ويكون من مضاعفات 250.");
       return;
     }
@@ -223,7 +223,33 @@ export default function NewRequest() {
     setBusy(true);
     try {
       let requestId: string;
-      if (isTaxi) {
+      if (isTaxi && isLargeVehicle) {
+        const { data: largeRequest, error: largeError } = await supabase
+          .from("service_requests")
+          .insert({
+            customer_id: user.id,
+            type: "taxi",
+            status: "pending",
+            vehicle_category: "large",
+            vehicle_type: vehicleType,
+            pickup_text: pickup,
+            pickup_lat: pickupCoords.latitude,
+            pickup_lng: pickupCoords.longitude,
+            dest_text: destination,
+            dest_lat: destinationCoords!.latitude,
+            dest_lng: destinationCoords!.longitude,
+            distance_km: null,
+            price_estimate: null,
+            customer_price: proposedPrice,
+            pricing_mode: proposedPrice === null ? "negotiable" : "fixed",
+            notes: `نوع السيارة: ${vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب"}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
+          } as any)
+          .select("id")
+          .single();
+        if (largeError || !largeRequest) throw largeError ?? new Error("تعذّر إنشاء طلب السيارة الكبيرة.");
+        requestId = largeRequest.id;
+        // The database trigger starts the nearby large-driver offer flow.
+      } else if (isTaxi) {
         const { data: taxiRequest, error: taxiError } = await supabase.functions.invoke(
           "create-taxi-request",
           {
@@ -235,8 +261,8 @@ export default function NewRequest() {
               destinationLng: destinationCoords!.longitude,
               destinationText: destination,
               vehicleCategory: vehicleCat,
-              vehicleType: vehicleCat === "large" ? vehicleType : null,
-              notes: vehicleCat === "large" ? `نوع السيارة: ${vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب"}${notes.trim() ? ` | ${notes.trim()}` : ""}` : notes,
+              vehicleType: null,
+              notes,
             },
           },
         );
@@ -427,6 +453,20 @@ export default function NewRequest() {
               </View>
             </>
           )}
+          {isLargeVehicle && (
+            <View style={{ marginTop: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
+              <Text style={styles.label}>السعر اللي تقترحه (اختياري)</Text>
+              <TextInput
+                style={styles.input}
+                value={customerPrice}
+                onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
+                placeholder="مثلاً 25000 دينار"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+              />
+              <Text style={{ color: "#9a3412", fontSize: 11, marginTop: 6 }}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب</Text>
+            </View>
+          )}
           {vehicleCat === "large" && (
             <View style={{ marginTop: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
               <Text style={styles.label}>اختر كيا حمل أو كيا ركاب</Text>
@@ -546,7 +586,7 @@ export default function NewRequest() {
         multiline
       />
 
-      {price !== null && isTaxi && (
+      {price !== null && isTaxi && !isLargeVehicle && (
         <View style={styles.priceBox}>
           <Text style={styles.priceLabel}>تقدير أولي تقريبي (ليس السعر النهائي)</Text>
           <Text style={styles.priceValue}>{price.toLocaleString("en")} د.ع</Text>
