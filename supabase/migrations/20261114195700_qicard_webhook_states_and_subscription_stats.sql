@@ -51,7 +51,7 @@ begin
   select * into v_plan from public.subscription_plans where id=v_payment.plan_id and is_active;
   if not found then raise exception 'subscription_plan_unavailable'; end if;
 
-  select case when us.status='active' and us.current_period_end > now()
+  select case when us.status='active' and not us.is_trial and us.current_period_end > now()
               then us.current_period_end else now() end
   into v_start from public.user_subscriptions us where us.user_id=v_payment.user_id;
   if v_start is null then v_start:=now(); end if;
