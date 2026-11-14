@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { palette, radius, space } from "@/styles/theme";
+import { palette, radius } from "@/styles/theme";
 
 type ChatListItem = {
   id: string;
