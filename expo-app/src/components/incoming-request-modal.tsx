@@ -106,6 +106,8 @@ export function IncomingRequestModal() {
     }
     if (data?.service_requests?.status === "pending" || data?.service_requests?.status === "searching") {
       setOffer(data as Offer);
+      setLargeOfferPrice("");
+      setLargeOfferMessage("");
       setVisible(true);
     } else {
       setOffer(null);
@@ -269,12 +271,14 @@ export function IncomingRequestModal() {
               <Text style={styles.detailValue}>{amount != null ? `${Number(amount).toLocaleString("en")} د.ع` : "بانتظار عروض الأسعار"}</Text>
             </View>
           ) : null}
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>الأجر المعروض</Text>
-            <Text style={styles.priceValue}>
-              {amount != null ? `${Number(amount).toLocaleString("en")} د.ع${request?.pricing_mode === "hourly" ? " / ساعة" : ""}` : "قابل للتفاوض"}
-            </Text>
-          </View>
+          {!isLargeVehicle ? (
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>الأجر المعروض</Text>
+              <Text style={styles.priceValue}>
+                {amount != null ? `${Number(amount).toLocaleString("en")} د.ع${request?.pricing_mode === "hourly" ? " / ساعة" : ""}` : "قابل للتفاوض"}
+              </Text>
+            </View>
+          ) : null}
 
           {isLargeVehicle ? (
             <View style={{ marginTop: 14, gap: 10 }}>
@@ -319,7 +323,6 @@ export function IncomingRequestModal() {
               {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>قبول الطلب</Text>}
             </TouchableOpacity>
           </View>
-              </View>
             </>
           )}
           {busy === "reject" ? <ActivityIndicator style={{ marginTop: 10 }} color="#64748b" /> : null}
