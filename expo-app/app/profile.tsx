@@ -4,6 +4,7 @@ import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, Act
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { palette, radius, space } from "@/styles/theme";
 
 type DriverWallet = { balance: number; total_earned: number; total_commission: number };
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
@@ -102,7 +103,7 @@ export default function ProfileScreen() {
           )}
         </View>
         {!isProvider && <TouchableOpacity style={styles.avatarButton} onPress={chooseAndUploadAvatar} disabled={uploadingAvatar}>
-          {uploadingAvatar ? <ActivityIndicator color="#fff" /> : <Text style={styles.avatarButtonText}>📷 تغيير الصورة الشخصية</Text>}
+          {uploadingAvatar ? <ActivityIndicator color="#fff" /> : <Text style={styles.avatarButtonText}>تغيير الصورة الشخصية</Text>}
         </TouchableOpacity>}
         <View style={styles.nameRow}>
           <Text style={styles.name}>{profile?.full_name || "مستخدم"}</Text>
@@ -125,7 +126,7 @@ export default function ProfileScreen() {
       </View>
       {wallet && (
         <View style={styles.walletCard}>
-          <Text style={styles.walletTitle}>محفظة السائق</Text>
+          <Text style={styles.walletTitle}>أرباحي</Text>
           <Text style={styles.walletBalance}>{(wallet.balance || 0).toLocaleString("en")} د.ع</Text>
           <View style={styles.walletStats}>
             <View style={{ flex: 1 }}>
@@ -206,61 +207,33 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f7f8f5", paddingHorizontal: 20, paddingTop: 50 },
-  header: { alignItems: "center", marginBottom: 24 },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#0f766e",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  avatarText: { fontSize: 32, fontWeight: "900", color: "#fff" },
-  avatarImage: { width: "100%", height: "100%", borderRadius: 40 },
-  avatarButton: { backgroundColor: "#0f766e", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12, minWidth: 190, alignItems: "center" },
-  avatarButtonText: { color: "#fff", fontSize: 13, fontWeight: "800" },
-  name: { fontSize: 22, fontWeight: "800", color: "#1e293b" },
+  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: space.xl, paddingTop: 54 },
+  header: { alignItems: "center", marginBottom: 20, backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.xl, borderWidth: 1, borderColor: palette.line },
+  avatar: { width: 84, height: 84, borderRadius: 28, backgroundColor: palette.brand, borderWidth: 1, borderColor: palette.gold, alignItems: "center", justifyContent: "center", marginBottom: 12, overflow: "hidden" },
+  avatarText: { fontSize: 32, fontWeight: "900", color: palette.white },
+  avatarImage: { width: "100%", height: "100%", borderRadius: 27 },
+  avatarButton: { backgroundColor: palette.brandSoft, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12, minWidth: 190, alignItems: "center" },
+  avatarButtonText: { color: palette.brand, fontSize: 12, fontWeight: "900" },
+  name: { fontSize: 22, fontWeight: "900", color: palette.ink },
   nameRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 8 },
-  adminVerifiedBadge: { backgroundColor: "#FDE68A", borderColor: "#D97706", borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  adminVerifiedBadgeText: { color: "#78350F", fontSize: 11, fontWeight: "900" },
-  phone: { fontSize: 14, color: "#64748b", marginTop: 4 },
-  rolesRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 24 },
-  roleBadge: {
-    backgroundColor: "#0f766e10",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  roleBadgeText: { fontSize: 13, fontWeight: "700", color: "#0f766e" },
-  walletCard: { backgroundColor: "#0f766e", borderRadius: 20, padding: 20, marginBottom: 24 },
-  walletTitle: { fontSize: 14, color: "rgba(255,255,255,0.8)", fontWeight: "600" },
-  walletBalance: { fontSize: 32, fontWeight: "900", color: "#fff", marginTop: 4 },
-  walletStats: { flexDirection: "row", gap: 16, marginTop: 16 },
-  walletStatLabel: { fontSize: 12, color: "rgba(255,255,255,0.7)" },
-  walletStatValue: { fontSize: 16, fontWeight: "700", color: "#fff", marginTop: 2 },
-  sectionTitle: { fontSize: 16, fontWeight: "800", color: "#1e293b", marginBottom: 12 },
-  txnCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-  },
-  txnType: { fontSize: 14, fontWeight: "700", color: "#1e293b" },
-  txnDate: { fontSize: 12, color: "#94a3b8", marginTop: 2 },
-  txnAmount: { fontSize: 15, fontWeight: "800" },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 8,
-  },
-  menuItemText: { fontSize: 16, fontWeight: "700", color: "#1e293b" },
-  menuArrow: { fontSize: 20, color: "#94a3b8" },
+  adminVerifiedBadge: { backgroundColor: palette.goldSoft, borderColor: palette.gold, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
+  adminVerifiedBadgeText: { color: palette.brandDeep, fontSize: 10, fontWeight: "900" },
+  phone: { fontSize: 13, color: palette.muted, marginTop: 5 },
+  rolesRow: { flexDirection: "row", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 20 },
+  roleBadge: { backgroundColor: palette.brandSoft, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7 },
+  roleBadgeText: { fontSize: 11, fontWeight: "900", color: palette.brand },
+  walletCard: { backgroundColor: palette.brand, borderRadius: radius.xl, padding: 22, marginBottom: 22, borderWidth: 1, borderColor: palette.gold },
+  walletTitle: { fontSize: 13, color: "rgba(255,255,255,0.78)", fontWeight: "800" },
+  walletBalance: { fontSize: 32, fontWeight: "900", color: palette.white, marginTop: 6 },
+  walletStats: { flexDirection: "row", gap: 16, marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.18)" },
+  walletStatLabel: { fontSize: 11, color: "rgba(255,255,255,0.72)" },
+  walletStatValue: { fontSize: 15, fontWeight: "900", color: palette.white, marginTop: 4 },
+  sectionTitle: { fontSize: 17, fontWeight: "900", color: palette.ink, marginBottom: 12 },
+  txnCard: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.md, padding: 15, marginBottom: 9, borderWidth: 1, borderColor: palette.line },
+  txnType: { fontSize: 13, fontWeight: "900", color: palette.ink },
+  txnDate: { fontSize: 11, color: palette.muted, marginTop: 4 },
+  txnAmount: { fontSize: 14, fontWeight: "900" },
+  menuItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 17, marginBottom: 9 },
+  menuItemText: { fontSize: 14, fontWeight: "800", color: palette.ink },
+  menuArrow: { fontSize: 20, color: palette.gold },
 });
