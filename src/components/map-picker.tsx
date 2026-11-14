@@ -453,7 +453,7 @@ export function MapPicker({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={placeholder}
-                className="flex-1 bg-transparent outline-none text-sm font-medium min-w-0"
+                className="flex-1 bg-transparent outline-none text-sm font-medium min-w-0 text-slate-900 placeholder:text-slate-500"
               />
               {searchOpen && (
                 <button
@@ -471,12 +471,12 @@ export function MapPicker({
               )}
             </div>
             {searchOpen && (searchingPlaces || (searchQuery.trim().length >= 2 && suggestions.length === 0)) && (
-              <div className="mt-2 bg-white rounded-2xl shadow-lg px-3 py-3 text-xs text-muted-foreground">
+              <div className="mt-2 bg-white text-slate-700 rounded-2xl shadow-lg px-3 py-3 text-xs">
                 {searchingPlaces ? "جاري البحث داخل المحافظة..." : "ما لكينا أماكن مطابقة داخل المحافظة"}
               </div>
             )}
             {searchOpen && suggestions.length > 0 && (
-              <div className="mt-2 bg-white rounded-2xl shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+              <div className="mt-2 bg-white text-slate-900 rounded-2xl shadow-lg overflow-hidden max-h-64 overflow-y-auto">
                 {suggestions.map((s) => (
                   <button
                     key={s.id}
