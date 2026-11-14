@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   try {
     const authorization = req.headers.get("Authorization") ?? "";
-    const token = authorization.replace(/^Bearer\\s+/i, "");
+    const token = authorization.replace(/^Bearer\s+/i, "");
     if (!token || token === authorization) return json({ error: "unauthorized" }, 401);
     const supabaseUrl = requiredEnv("SUPABASE_URL");
     const serviceKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
