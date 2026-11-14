@@ -393,7 +393,7 @@ function ProviderHome({
             <View style={{ flex: 1 }}>
               <Text style={styles.requestCustomer}>طلب جديد</Text>
               <Text style={styles.requestType}>
-                {req.vehicle_category === "large" ? `🚚 سيارة كبيرة — ${req.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}` : req.type === "taxi" ? "🚕 طلب سيارة" : `🔧 ${req.type}`}
+                {req.vehicle_category === "large" ? `🚚 سيارة كبيرة — ${req.vehicle_type === "kia_passenger" ? "كيا ركاب" : req.vehicle_type === "bus" ? "باص" : "كيا حمل"}` : req.type === "taxi" ? "🚕 طلب سيارة" : `🔧 ${req.type}`}
               </Text>
               <Text style={styles.requestPrice}>
                 {(req.customer_price ?? req.price_estimate) != null ? `${Number(req.customer_price ?? req.price_estimate).toLocaleString("en")} د.ع` : req.vehicle_category === "large" ? "بانتظار عروض الأسعار" : "السعر قيد التحديد"}
