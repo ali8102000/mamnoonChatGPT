@@ -191,7 +191,6 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/coupons': typeof CouponsRoute
-  '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
   '/support-chat': typeof SupportChatRoute
   '/privacy': typeof PrivacyRoute
@@ -221,6 +220,7 @@ export interface FileRoutesByTo {
   '/friends': typeof FriendsRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
   '/support-chat': typeof SupportChatRoute
   '/privacy': typeof PrivacyRoute
@@ -281,6 +281,7 @@ export interface FileRouteTypes {
     | '/friends'
     | '/history'
     | '/home'
+    | '/coupons'
     | '/messages'
     | '/support-chat'
     | '/privacy'
@@ -455,6 +456,13 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coupons': {
+      id: '/coupons'
+      path: '/coupons'
+      fullPath: '/coupons'
+      preLoaderRoute: typeof CouponsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/messages': {
