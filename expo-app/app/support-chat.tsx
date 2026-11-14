@@ -15,6 +15,7 @@ export default function SupportChatScreen() {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const messagesScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -70,13 +71,13 @@ export default function SupportChatScreen() {
 
   useEffect(() => {
     let alive = true;
-    loadConversations().catch((e: any) => Alert.alert("ممنون", e.message ?? "تعذر تحميل المحادثات")).finally(() => { if (alive) setLoading(false); });
+    loadConversations().catch((e: any) => { setLoadError(e.message ?? "تعذر تحميل المحادثات"); Alert.alert("ممنون", e.message ?? "تعذر تحميل المحادثات"); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [loadConversations]);
 
   useEffect(() => {
     if (!selected?.id) return;
-    loadMessages(selected.id).catch((e: any) => Alert.alert("ممنون", e.message ?? "تعذر تحميل الرسائل"));
+    loadMessages(selected.id).catch((e: any) => { setLoadError(e.message ?? "تعذر تحميل الرسائل"); Alert.alert("ممنون", e.message ?? "تعذر تحميل الرسائل"); });
     const ch = supabase.channel("support-mobile-" + selected.id)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: "conversation_id=eq." + selected.id }, (payload: any) => {
         setMessages((old) => old.some((m) => m.id === payload.new.id) ? old : [...old, payload.new]);
@@ -126,6 +127,7 @@ export default function SupportChatScreen() {
         <Text style={styles.personPhone}>{c.profile?.phone || ""}</Text>
       </TouchableOpacity>)}
     </ScrollView>}
+    {!!loadError && <Text style={styles.loadError}>{loadError} — حدّث الصفحة وحاول مرة ثانية</Text>}
     <ScrollView ref={messagesScrollRef} style={styles.messages} contentContainerStyle={{ paddingVertical: 14, gap: 10 }}>
       {messages.length === 0 ? <Text style={styles.empty}>أهلاً بك، اكتب رسالتك لفريق دعم ممنون.</Text> : messages.map((m) => <View key={m.id} style={[styles.bubble, m.sender_id === user?.id ? styles.mine : styles.theirs]}>
         <Text style={m.sender_id === user?.id ? styles.mineText : styles.theirText}>{m.body}</Text>
@@ -153,6 +155,7 @@ const styles = StyleSheet.create({
   personPhone: { fontSize: 11, color: palette.muted, textAlign: "right" },
   messages: { flex: 1, backgroundColor: palette.surface, borderRadius: radius.lg, paddingHorizontal: 10, borderWidth: 1, borderColor: palette.line },
   empty: { color: palette.muted, textAlign: "center", marginTop: 40 },
+  loadError: { color: "#B42318", backgroundColor: "#FEE4E2", padding: 10, borderRadius: 10, marginBottom: 8, textAlign: "right", fontSize: 12 },
   bubble: { padding: 12, borderRadius: radius.lg, maxWidth: "86%" },
   mine: { alignSelf: "flex-start", backgroundColor: palette.brand },
   theirs: { alignSelf: "flex-end", backgroundColor: palette.surfaceSoft },
