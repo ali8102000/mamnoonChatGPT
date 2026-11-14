@@ -263,6 +263,7 @@ export interface FileRoutesById {
   '/messages': typeof MessagesRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-role': typeof SelectRoleRoute
   '/support': typeof SupportRoute
@@ -326,6 +327,7 @@ export interface FileRouteTypes {
     | '/support-chat'
     | '/privacy'
     | '/profile'
+    | '/subscriptions'
     | '/reset-password'
     | '/select-role'
     | '/support'
