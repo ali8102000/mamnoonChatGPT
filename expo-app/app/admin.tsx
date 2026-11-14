@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity, TextInput } from "react-native";
 import { router } from "expo-router";
+import { Linking } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
@@ -36,6 +37,10 @@ export default function AdminScreen() {
   const [supportInbox, setSupportInbox] = useState<any[]>([]);
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [reports, setReports] = useState<any[]>([]);
+  const [changeRequests, setChangeRequests] = useState<any[]>([]);
+  const [rejectingChangeId, setRejectingChangeId] = useState<string | null>(null);
+  const [changeRejectReason, setChangeRejectReason] = useState("");
+  const [reviewingChangeId, setReviewingChangeId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data: superAdminCheck, error: permissionError } = await supabase.rpc("is_super_admin", {
@@ -91,6 +96,26 @@ export default function AdminScreen() {
       : { data: [] as any[] };
     const reportProfileById = new Map((reportProfiles ?? []).map((profile: any) => [profile.id, profile]));
     setReports((reportRows ?? []).map((report: any) => ({ ...report, reporter: reportProfileById.get(report.reporter_id), reported: reportProfileById.get(report.reported_id) })));
+
+    const { data: pendingChanges, error: changeError } = await (supabase as any)
+      .from("provider_change_requests")
+      .select("*, profiles!provider_change_requests_user_id_fkey(full_name,phone)")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+    if (!changeError) {
+      const serviceIds = [...new Set((pendingChanges ?? []).flatMap((row: any) =>
+        row.provider_type === "worker" && Array.isArray(row.requested_data?.service_ids) ? row.requested_data.service_ids : [],
+      ))];
+      const { data: serviceRows } = serviceIds.length
+        ? await (supabase as any).from("services").select("id,name_ar").in("id", serviceIds)
+        : { data: [] };
+      const serviceNames = new Map((serviceRows ?? []).map((row: any) => [row.id, row.name_ar]));
+      const enriched = (pendingChanges ?? []).map((row: any) => ({
+        ...row,
+        requested_service_names: (row.requested_data?.service_ids ?? []).map((id: string) => serviceNames.get(id) ?? "اختصاص غير معروف"),
+      }));
+      setChangeRequests(enriched);
+    }
     setLoading(false);
   }, [user?.id]);
 
@@ -110,6 +135,28 @@ export default function AdminScreen() {
     const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, updated_by: user?.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
     Alert.alert(error ? "تعذر الحفظ" : "تم الحفظ", error ? error.message : "تم تحديث اسم الشركة");
     setSavingCompanyName(false);
+  };
+
+  const reviewProviderChange = async (requestId: string, status: "approved" | "rejected", reason?: string) => {
+    if (status === "rejected" && !reason?.trim()) {
+      Alert.alert("سبب الرفض مطلوب", "اكتب سبب الرفض حتى يصل لمقدم الخدمة.");
+      return;
+    }
+    setReviewingChangeId(requestId);
+    const { error } = await (supabase as any).rpc("admin_review_provider_change_request", {
+      _request_id: requestId,
+      _status: status,
+      _reason: reason?.trim() || null,
+    });
+    setReviewingChangeId(null);
+    if (error) {
+      Alert.alert("تعذر تنفيذ الطلب", error.message);
+      return;
+    }
+    setRejectingChangeId(null);
+    setChangeRejectReason("");
+    Alert.alert("تم", status === "approved" ? "تمت الموافقة وتفعيل التحديث." : "تم رفض طلب التحديث.");
+    await load();
   };
 
   const onRefresh = async () => {
@@ -168,6 +215,69 @@ export default function AdminScreen() {
           <Text style={styles.reportMeta}>من: {report.reporter?.full_name || "مستخدم"} · ضد: {report.reported?.full_name || "مستخدم"}</Text>
           <Text style={styles.reportMeta}>الحالة: {report.status} · {new Date(report.created_at).toLocaleString("ar-IQ")}</Text>
           {!!report.request_id && <Text style={styles.reportMeta}>رقم الطلب: {report.request_id}</Text>}
+        </View>
+      ))}
+      <View style={styles.inboxHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sectionTitle}>طلبات تحديث بيانات السائقين والفنيين</Text>
+          <Text style={styles.inboxHint}>التغييرات تبقى معلّقة حتى موافقة الإدارة</Text>
+        </View>
+        <TouchableOpacity onPress={onRefresh}><Text style={styles.inboxOpenText}>تحديث</Text></TouchableOpacity>
+      </View>
+      {changeRequests.length === 0 ? <Text style={styles.emptyHint}>ماكو طلبات تحديث معلّقة</Text> : changeRequests.map((request) => (
+        <View key={request.id} style={styles.reportCard}>
+          <Text style={styles.inboxName}>{request.profiles?.full_name || "مستخدم ممنون"}</Text>
+          <Text style={styles.reportMeta}>{request.profiles?.phone || "—"} · {request.provider_type === "worker" ? "فني" : request.provider_type === "large_driver" ? "سائق مركبة كبيرة" : "سائق تكسي"}</Text>
+          {request.provider_type === "worker" ? (
+            <Text style={styles.reportDetails}>الاختصاصات: {(request.requested_service_names ?? []).join("، ")}</Text>
+          ) : request.requested_data?.vehicle_update || Object.keys(request.requested_data?.documents ?? {}).length ? (
+            <View>
+              {Object.entries(request.requested_data?.vehicle_update ?? {}).map(([key, value]) => (
+                <Text key={key} style={styles.reportMeta}>{({
+                  vehicle_make: "الشركة", vehicle_model: "الموديل", vehicle_year: "سنة الصنع",
+                  vehicle_plate: "رقم اللوحة", vehicle_color: "اللون",
+                  vehicle_category: "الفئة", vehicle_type: "نوع المركبة",
+                } as Record<string, string>)[key] ?? key}: {String(value)}</Text>
+              ))}
+              {Object.entries(request.requested_data?.documents ?? {}).map(([kind]) => {
+                const path = request.requested_data?.documents?.[kind] as string | undefined;
+                const label = ({ vehicle_document: "سنوية المركبة", face_photo: "صورة الوجه", id_card: "الهوية الأمامية", id_card_back: "الهوية الخلفية" } as Record<string, string>)[kind] ?? "المستند";
+                return path ? (
+                  <TouchableOpacity key={kind} onPress={async () => {
+                    const { data: signed, error } = await supabase.storage.from("provider-verification").createSignedUrl(path, 600);
+                    if (error || !signed?.signedUrl) { Alert.alert("تعذر فتح المستند", "حدّث القائمة وحاول مرة ثانية."); return; }
+                    await Linking.openURL(signed.signedUrl);
+                  }}>
+                    <Text style={{ color: palette.brand, textAlign: "right", fontWeight: "800", marginTop: 6 }}>عرض {label}</Text>
+                  </TouchableOpacity>
+                ) : <Text key={kind} style={styles.reportMeta}>{label} غير متوفر</Text>;
+              })}
+            </View>
+          ) : (
+            <Text style={styles.reportDetails}>{request.provider_type === "large_driver" ? "نوع المركبة: " + (request.requested_data?.vehicle_type ?? "غير محدد") : "فئة التكسي: " + (request.requested_data?.vehicle_category ?? "غير محدد")}</Text>
+          )}
+          {rejectingChangeId === request.id ? (
+            <View style={{ marginTop: 10 }}>
+              <TextInput value={changeRejectReason} onChangeText={setChangeRejectReason} placeholder="اكتب سبب الرفض" placeholderTextColor={palette.muted} multiline style={styles.companyInput} textAlign="right" />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TouchableOpacity disabled={!!reviewingChangeId} onPress={() => void reviewProviderChange(request.id, "rejected", changeRejectReason)} style={[styles.companySave, { flex: 1, backgroundColor: "#b91c1c" }]}>
+                  <Text style={styles.companySaveText}>{reviewingChangeId === request.id ? "جارٍ التنفيذ..." : "تأكيد الرفض"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setRejectingChangeId(null); setChangeRejectReason(""); }} style={[styles.companySave, { flex: 1, backgroundColor: palette.muted }]}>
+                  <Text style={styles.companySaveText}>إلغاء</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+              <TouchableOpacity disabled={!!reviewingChangeId} onPress={() => void reviewProviderChange(request.id, "approved")} style={[styles.companySave, { flex: 1, backgroundColor: "#15803d" }]}>
+                <Text style={styles.companySaveText}>{reviewingChangeId === request.id ? "جارٍ التنفيذ..." : "موافقة وتفعيل"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={!!reviewingChangeId} onPress={() => { setRejectingChangeId(request.id); setChangeRejectReason(""); }} style={[styles.companySave, { flex: 1, backgroundColor: "#b91c1c" }]}>
+                <Text style={styles.companySaveText}>رفض</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       ))}
       <View style={styles.statsGrid}>

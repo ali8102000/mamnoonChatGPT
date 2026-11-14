@@ -985,6 +985,30 @@ function ProvidersSection() {
                 <div className="mt-2 text-xs leading-6">
                   {request.provider_type === "worker" ? (
                     <span>الاختصاصات المطلوبة: {(request.requested_service_names ?? []).join("، ")}</span>
+                  ) : request.requested_data?.vehicle_update || Object.keys(request.requested_data?.documents ?? {}).length ? (
+                    <div className="space-y-1">
+                      {Object.keys(request.requested_data?.vehicle_update ?? {}).length > 0 && <div className="font-bold">تحديث بيانات المركبة:</div>}
+                      {Object.entries(request.requested_data?.vehicle_update ?? {}).map(([key, value]) => (
+                        <div key={key}>{({
+                          vehicle_make: "الشركة", vehicle_model: "الموديل", vehicle_year: "سنة الصنع",
+                          vehicle_plate: "رقم اللوحة", vehicle_color: "اللون",
+                          vehicle_category: "الفئة", vehicle_type: "نوع المركبة",
+                        } as Record<string, string>)[key] ?? key}: {String(value)}</div>
+                      ))}
+                      {Object.entries(request.requested_data?.documents ?? {}).map(([kind]) => {
+                        const path = request.requested_data?.documents?.[kind] as string | undefined;
+                        const label = ({ vehicle_document: "سنوية المركبة", face_photo: "صورة الوجه", id_card: "الهوية الأمامية", id_card_back: "الهوية الخلفية" } as Record<string, string>)[kind] ?? "المستند";
+                        return path ? (
+                          <button key={kind} type="button" onClick={async () => {
+                            const preview = window.open("about:blank", "_blank");
+                            if (!preview) { toast.error("اسمح بفتح نافذة المعاينة للمستند"); return; }
+                            const { data: signed, error: signedError } = await supabase.storage.from("provider-verification").createSignedUrl(path, 600);
+                            if (signedError || !signed?.signedUrl) { preview.close(); toast.error("تعذر فتح المستند. حدّث القائمة وحاول مرة ثانية."); return; }
+                            preview.location.href = signed.signedUrl;
+                          }} className="inline-block text-primary underline ml-3">عرض {label}</button>
+                        ) : <div key={kind} className="text-muted-foreground">{label} غير متوفر</div>;
+                      })}
+                    </div>
                   ) : request.provider_type === "large_driver" ? (
                     <span>نوع المركبة المطلوب: {request.requested_data?.vehicle_type === "kia_cargo" ? "كيا حمل" : request.requested_data?.vehicle_type === "kia_passenger" ? "كيا ركاب" : "باص"}</span>
                   ) : (

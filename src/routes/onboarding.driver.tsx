@@ -26,6 +26,7 @@ import {
   saveProviderVerification,
   getProviderVerification,
   saveProviderVerificationRemote,
+  uploadProviderChangeDocuments,
 } from "@/lib/verification";
 
 export const Route = createFileRoute("/onboarding/driver")({
@@ -132,6 +133,8 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [idCardPhoto, setIdCardPhoto] = useState<string | null>(null);
   const [idCardBackPhoto, setIdCardBackPhoto] = useState<string | null>(null);
   const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<string | null>(null);
+  const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
+  const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: largeDriverMode ? "كيا" : "تويوتا", model: largeDriverMode ? "" : "كورولا", year: String(new Date().getFullYear() - 2), plate: "", color: "أبيض", category: largeDriverMode ? "large" : "economy", vehicleType: null });
   const [documentType, setDocumentType] = useState<"national_id" | "driver_license">("national_id");
   const [idNumber, setIdNumber] = useState("");
   const [confirmedNameMatch, setConfirmedNameMatch] = useState(true);
@@ -169,6 +172,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         if (existing.vehicleColor) setColor(existing.vehicleColor);
         if (existing.vehicleCategory) setCategory(existing.vehicleCategory as VehicleCategory);
         if (existing.vehicleType === "kia_cargo" || existing.vehicleType === "kia_passenger") setVehicleType(existing.vehicleType);
+        setOriginalVehicle({ make: existing.vehicleMake ?? "تويوتا", model: existing.vehicleModel ?? "كورولا", year: String(existing.vehicleYear ?? new Date().getFullYear() - 2), plate: existing.vehiclePlate ?? "", color: existing.vehicleColor ?? "أبيض", category: existing.vehicleCategory ?? (largeDriverMode ? "large" : "economy"), vehicleType: existing.vehicleType ?? null });
       }
     }
   }, [session?.user?.id, providerRole]);
@@ -188,9 +192,24 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     const userId = session?.user?.id;
     if (!userId) return;
     let active = true;
-    const applyReview = (row: any) => {
+    const applyReview = (row: any, savedProfile?: any) => {
       if (!active || !row) return;
       const metadata = row.metadata ?? {};
+      const vehicleMake = savedProfile?.vehicle_make ?? metadata.vehicleMake;
+      const vehicleModel = savedProfile?.vehicle_model ?? metadata.vehicleModel;
+      const vehicleYear = savedProfile?.vehicle_year ?? metadata.vehicleYear;
+      const vehiclePlate = savedProfile?.vehicle_plate ?? metadata.vehiclePlate;
+      const vehicleColor = savedProfile?.vehicle_color ?? metadata.vehicleColor;
+      const vehicleCategory = savedProfile?.vehicle_category ?? metadata.vehicleCategory;
+      const vehicleType = savedProfile?.vehicle_type ?? metadata.vehicleType;
+      setOriginalVehicle({ make: vehicleMake ?? (largeDriverMode ? "كيا" : "تويوتا"), model: vehicleModel ?? (largeDriverMode ? "" : "كورولا"), year: String(vehicleYear ?? new Date().getFullYear() - 2), plate: vehiclePlate ?? "", color: vehicleColor ?? "أبيض", category: vehicleCategory ?? (largeDriverMode ? "large" : "economy"), vehicleType: vehicleType ?? null });
+      if (typeof vehicleMake === "string") setMake(vehicleMake);
+      if (typeof vehicleModel === "string") setModelName(vehicleModel);
+      if (vehicleYear != null) setYear(String(vehicleYear));
+      if (typeof vehiclePlate === "string") setPlate(vehiclePlate);
+      if (typeof vehicleColor === "string") setColor(vehicleColor);
+      if (vehicleCategory === "economy" || vehicleCategory === "premium" || vehicleCategory === "luxury" || vehicleCategory === "large") setCategory(vehicleCategory);
+      if (vehicleType === "kia_cargo" || vehicleType === "kia_passenger" || vehicleType === "bus") setVehicleType(vehicleType);
       setExistingDoc((current: any) => ({
         ...(current ?? {
           userId,
@@ -203,23 +222,31 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         }),
         status: row.status,
         rejectionReason: row.rejection_reason ?? undefined,
-        vehicleMake: metadata.vehicleMake ?? current?.vehicleMake,
-        vehicleModel: metadata.vehicleModel ?? current?.vehicleModel,
-        vehicleYear: metadata.vehicleYear ?? current?.vehicleYear,
-        vehiclePlate: metadata.vehiclePlate ?? current?.vehiclePlate,
-        vehicleColor: metadata.vehicleColor ?? current?.vehicleColor,
-        vehicleCategory: metadata.vehicleCategory ?? current?.vehicleCategory,
-        vehicleType: metadata.vehicleType ?? current?.vehicleType,
+        vehicleMake: vehicleMake ?? current?.vehicleMake,
+        vehicleModel: vehicleModel ?? current?.vehicleModel,
+        vehicleYear: vehicleYear ?? current?.vehicleYear,
+        vehiclePlate: vehiclePlate ?? current?.vehiclePlate,
+        vehicleColor: vehicleColor ?? current?.vehicleColor,
+        vehicleCategory: vehicleCategory ?? current?.vehicleCategory,
+        vehicleType: vehicleType ?? current?.vehicleType,
       }));
     };
     (async () => {
-      let result = await (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
-        .eq("user_id", userId).eq("provider_type", providerRole).maybeSingle();
+      const [driverProfile, verification] = await Promise.all([
+        (supabase as any).from("driver_profiles")
+          .select("vehicle_make,vehicle_model,vehicle_year,vehicle_plate,vehicle_color,vehicle_category,vehicle_type")
+          .eq("user_id", userId).maybeSingle(),
+        (supabase as any).from("provider_verifications")
+          .select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+          .eq("user_id", userId).eq("provider_type", providerRole).maybeSingle(),
+      ]);
+      let result = verification;
       if (!result.data && largeDriverMode) {
-        result = await (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+        result = await (supabase as any).from("provider_verifications")
+          .select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
           .eq("user_id", userId).eq("provider_type", "driver").maybeSingle();
       }
-      if (!result.error && result.data) applyReview(result.data);
+      if (!result.error && result.data) applyReview(result.data, driverProfile.data);
     })();
     const channel = supabase.channel(`driver-verification-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "provider_verifications", filter: `user_id=eq.${userId}` },
@@ -241,6 +268,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     try {
       const dataUrl = await fileToCompressedDataUrl(file, 800, 800, 0.8);
       setFacePhoto(dataUrl);
+      setChangedDocuments((current) => ({ ...current, face_photo: true }));
       toast.success("تم التقاط صورة الوجه بنجاح ✓");
     } catch {
       toast.error("تعذر معالجة الصورة، يرجى المحاولة بصورة أخرى");
@@ -253,6 +281,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     try {
       const dataUrl = await fileToCompressedDataUrl(file, 1200, 1200, 0.8);
       setIdCardPhoto(dataUrl);
+      setChangedDocuments((current) => ({ ...current, id_card: true }));
       toast.success("تم إرفاق صورة الهوية بنجاح ✓");
     } catch {
       toast.error("تعذر معالجة صورة الهوية");
@@ -265,6 +294,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     try {
       const dataUrl = await fileToCompressedDataUrl(file, 1200, 1200, 0.8);
       setIdCardBackPhoto(dataUrl);
+      setChangedDocuments((current) => ({ ...current, id_card_back: true }));
       toast.success("تم إرفاق الجهة الخلفية للبطاقة الوطنية ✓");
     } catch {
       toast.error("تعذر معالجة صورة الجهة الخلفية");
@@ -277,6 +307,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     try {
       const dataUrl = await fileToCompressedDataUrl(file, 1600, 1600, 0.82);
       setVehicleDocumentPhoto(dataUrl);
+      setChangedDocuments((current) => ({ ...current, vehicle_document: true }));
       toast.success("تم إرفاق صورة سنوية السيارة أو الوكالة ✓");
     } catch {
       toast.error("تعذر معالجة صورة مستند السيارة");
@@ -287,23 +318,71 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     if (vehicleChangeMode && existingDoc?.status === "approved") {
       setBusy(true);
       try {
-        if (largeDriverMode && !vehicleType) {
-          toast.error("يرجى اختيار كيا حمل أو كيا ركاب");
+        const candidateVehicle = {
+          make: largeDriverMode ? (String(originalVehicle.make || "كيا")) : finalMake,
+          model: largeDriverMode ? (vehicleType ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : String(originalVehicle.model || "")) : modelName.trim(),
+          year: year.trim(),
+          plate: plate.trim(),
+          color: color.trim() || null,
+          category,
+          vehicleType: largeDriverMode ? vehicleType : null,
+        };
+        const changedVehicle: Record<string, unknown> = {};
+        if (candidateVehicle.make !== originalVehicle.make) changedVehicle.vehicle_make = candidateVehicle.make;
+        if (candidateVehicle.model !== originalVehicle.model) changedVehicle.vehicle_model = candidateVehicle.model;
+        if (candidateVehicle.year !== originalVehicle.year) {
+          if (candidateVehicle.year.length !== 4 || !Number.isInteger(Number(candidateVehicle.year)) || Number(candidateVehicle.year) < 1900 || Number(candidateVehicle.year) > new Date().getFullYear() + 1) {
+            toast.error("أدخل سنة الصنع بشكل صحيح");
+            setActiveStep("car");
+            return;
+          }
+          changedVehicle.vehicle_year = Number(candidateVehicle.year);
+        }
+        if (candidateVehicle.plate !== originalVehicle.plate) {
+          if (candidateVehicle.plate.length < 2) {
+            toast.error("أدخل رقم اللوحة بشكل صحيح");
+            setActiveStep("car");
+            return;
+          }
+          changedVehicle.vehicle_plate = candidateVehicle.plate;
+        }
+        if (candidateVehicle.color !== originalVehicle.color) changedVehicle.vehicle_color = candidateVehicle.color;
+        if (!largeDriverMode && candidateVehicle.category !== originalVehicle.category) changedVehicle.vehicle_category = candidateVehicle.category;
+        if (largeDriverMode && candidateVehicle.vehicleType !== originalVehicle.vehicleType) changedVehicle.vehicle_type = candidateVehicle.vehicleType;
+        if (Object.keys(changedVehicle).length && !largeDriverMode && (!candidateVehicle.make || !candidateVehicle.model)) {
+          toast.error("اختر ماركة وموديل المركبة");
           setActiveStep("car");
           return;
         }
-        const requestedData = largeDriverMode
-          ? { vehicle_type: vehicleType }
-          : { vehicle_category: category };
+        if (Object.keys(changedVehicle).length && largeDriverMode && !candidateVehicle.vehicleType) {
+          toast.error("يرجى اختيار نوع المركبة");
+          setActiveStep("car");
+          return;
+        }
+        const uid = session!.user.id;
+        const documents = await uploadProviderChangeDocuments(uid, providerRole, {
+          ...(changedDocuments.face_photo && facePhoto ? { face_photo: facePhoto } : {}),
+          ...(changedDocuments.id_card && idCardPhoto ? { id_card: idCardPhoto } : {}),
+          ...(changedDocuments.id_card_back && idCardBackPhoto ? { id_card_back: idCardBackPhoto } : {}),
+          ...(changedDocuments.vehicle_document && vehicleDocumentPhoto ? { vehicle_document: vehicleDocumentPhoto } : {}),
+        });
+        if (!Object.keys(changedVehicle).length && !Object.keys(documents).length) {
+          toast.error("ماكو تغييرات جديدة لإرسالها");
+          return;
+        }
         const { error } = await (supabase as any).rpc("submit_provider_change_request", {
           _provider_type: providerRole,
-          _requested_data: requestedData,
+          _requested_data: {
+            ...(Object.keys(changedVehicle).length ? { vehicle_update: changedVehicle } : {}),
+            ...(Object.keys(documents).length ? { documents } : {}),
+          },
         });
         if (error) throw error;
         setPendingVehicleChange(true);
+        setChangedDocuments({});
         setVehicleChangeMode(false);
         setEditingMode(false);
-        toast.success("وصل طلب تغيير فئة المركبة للإدارة. فئتك الحالية تبقى فعالة لحين الموافقة.");
+        toast.success("وصل طلب تحديث بياناتك للإدارة. بياناتك الحالية تبقى فعالة لحين الموافقة.");
       } catch (error: any) {
         toast.error(error?.message || "تعذر إرسال طلب تغيير المركبة");
       } finally {
@@ -513,7 +592,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
 
           {isApproved && pendingVehicleChange && (
             <div className="rounded-xl bg-amber-50 text-amber-800 p-2 text-[11px] leading-5">
-              طلب تغيير فئة المركبة بانتظار موافقة الإدارة. مركبتك الحالية تبقى فعالة.
+              طلب تحديث بيانات المركبة أو مستنداتها بانتظار موافقة الإدارة. بياناتك الحالية تبقى فعالة.
             </div>
           )}
           <div className="pt-2 space-y-2">
@@ -533,7 +612,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               {!pendingVehicleChange && (
                 <button onClick={() => { setVehicleChangeMode(true); setEditingMode(true); setActiveStep("car"); }}
                   className="w-full py-3 rounded-2xl bg-primary/10 text-primary font-bold text-xs btn-press">
-                  طلب تغيير فئة أو نوع المركبة 🚚
+                  تحديث بيانات المركبة أو مستنداتها 🚚
                 </button>
               )}
               </>
@@ -796,7 +875,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           <button
             type="button"
             onClick={() => {
-              if (!plate.trim()) {
+              if (!plate.trim() && !vehicleChangeMode) {
                 toast.error("يرجى كتابة رقم اللوحة");
                 return;
               }
