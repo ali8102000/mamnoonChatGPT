@@ -666,9 +666,9 @@ function RequestDetail() {
               </div>
               {(myRating.professionalism || myRating.punctuality || myRating.quality) && (
                 <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
-                  <span>{myRole === "provider" ? "حسن التعامل" : req.type === "taxi" ? "القيادة الآمنة" : "جودة العمل"}: {myRating.professionalism ?? "—"}</span>
+                  <span>{myRole === "provider" ? "الاحترام" : req.type === "taxi" ? "الخصوصية والهدوء" : "جودة العمل"}: {myRating.professionalism ?? "—"}</span>
                   <span>الالتزام بالموعد: {myRating.punctuality ?? "—"}</span>
-                  <span>{myRole === "provider" ? "التعاون والوضوح" : req.type === "taxi" ? "نظافة السيارة" : "حسن التعامل"}: {myRating.quality ?? "—"}</span>
+                  <span>{myRole === "provider" ? "التعاون والوضوح" : req.type === "taxi" ? "النظافة والقيادة الآمنة" : "التعامل والمحافظة على المكان"}: {myRating.quality ?? "—"}</span>
                 </div>
               )}
               {myRating.comment && (
@@ -844,10 +844,10 @@ function RequestDetail() {
         <RatingModal
           target={other}
           labels={myRole === "provider"
-            ? ["حسن التعامل والاحترام", "الالتزام بالموعد", "التعاون والوضوح"]
+            ? ["الاحترام وحسن التعامل", "الالتزام بالموعد", "التعاون والوضوح"]
             : req.type === "taxi"
-              ? ["القيادة الآمنة", "الالتزام بالموعد", "نظافة السيارة"]
-              : ["جودة العمل والإتقان", "الالتزام بالوقت", "حسن التعامل"]}
+              ? ["احترام الخصوصية وهدوء التعامل", "الالتزام بالموعد وتشغيل المكيف", "نظافة السيارة والقيادة الآمنة"]
+              : ["جودة العمل والإتقان", "الالتزام بالوقت والسعر المتفق", "حسن التعامل والمحافظة على المكان"]}
           onClose={() => setShowRating(false)}
           onSubmit={async (stars, comment, subscores) => {
             const { data, error } = await (supabase as any)
