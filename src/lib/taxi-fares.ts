@@ -78,7 +78,7 @@ export function calculateFareBreakdown(
 
   const economyFare = subtotal * demandMultiplier;
   const tierMultiplier =
-    category === "economy"
+    category === "economy" || category === "large"
       ? 1
       : isIntercity || economyFare >= 5000
         ? category === "premium" ? 1.05 : 1.10
