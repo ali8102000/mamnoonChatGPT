@@ -37,6 +37,19 @@ if (supabaseHost.split(".")[0] !== expectedSupabaseProjectRef) {
   process.exit(1);
 }
 
+const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.trim();
+const authSettingsResponse = await fetch(`https://${supabaseHost}/auth/v1/settings`, {
+  headers: { apikey: publishableKey },
+});
+if (!authSettingsResponse.ok) {
+  const responseText = await authSettingsResponse.text();
+  console.error(
+    `Supabase rejected the Production publishable key (HTTP ${authSettingsResponse.status}). Update EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY in EAS Production; response: ${responseText.slice(0, 240)}`,
+  );
+  process.exit(1);
+}
+console.log("Supabase Production publishable key accepted by the project.");
+
 if (process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
   console.error("لا يجوز وضع Supabase secret key داخل تطبيق الهاتف؛ استخدم Publishable key.");
   process.exit(1);
