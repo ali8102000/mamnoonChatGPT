@@ -31,6 +31,13 @@ export function useLiveTracking(opts: {
   const lastPushTimeRef = useRef<number>(0);
   const channelRef = useRef<string>("");
 
+  useEffect(() => {
+    setMe(null);
+    setOther(null);
+    lastPushRef.current = null;
+    lastPushTimeRef.current = 0;
+  }, [requestId, myUserId, otherUserId]);
+
   const push = useCallback((lat: number, lng: number, heading: number | null, accuracy: number) => {
     if (!requestId || !myUserId) return;
     if (!Number.isFinite(accuracy) || accuracy > 100) return;
