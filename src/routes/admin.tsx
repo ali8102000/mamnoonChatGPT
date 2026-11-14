@@ -486,15 +486,6 @@ function UsersSection() {
   useEffect(() => {
     load();
   }, [load]);
-  useEffect(() => {
-    let active = true;
-    setAudienceCountLoading(true);
-    getAudienceCount({ data: { target: distributionTarget } })
-      .then((result) => { if (active) setAudienceCount(result.count); })
-      .catch(() => { if (active) setAudienceCount(null); })
-      .finally(() => { if (active) setAudienceCountLoading(false); });
-    return () => { active = false; };
-  }, [distributionTarget, getAudienceCount]);
   async function viewUser(userId: string) {
     try {
       setSelectedUser(await getUserDetail({ data: { user_id: userId } }));
@@ -1687,7 +1678,7 @@ function CouponsSection() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [distributionTarget, setDistributionTarget] = useState<"all" | "drivers" | "workers" | "single">("all");
+  const [distributionTarget, setDistributionTarget] = useState<"all" | "customers" | "drivers" | "workers" | "single" | "customers_1" | "customers_2" | "customers_3" | "customers_4" | "customers_5">("all");
   const [singleUserId, setSingleUserId] = useState("");
   const [distributionMessage, setDistributionMessage] = useState("");
   const [audienceCount, setAudienceCount] = useState<number | null>(null);
@@ -1721,6 +1712,15 @@ function CouponsSection() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    let active = true;
+    setAudienceCountLoading(true);
+    getAudienceCount({ data: { target: distributionTarget } })
+      .then((result) => { if (active) setAudienceCount(result.count); })
+      .catch(() => { if (active) setAudienceCount(null); })
+      .finally(() => { if (active) setAudienceCountLoading(false); });
+    return () => { active = false; };
+  }, [distributionTarget, getAudienceCount]);
   async function handleSave(data: any) {
     if (!data.id && distributionTarget === "single" && !singleUserId.trim()) {
       toast.error("أدخل معرّف المستخدم أولاً");
