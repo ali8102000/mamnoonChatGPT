@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { palette, radius, space } from "@/styles/theme";
 
 type ChatListItem = {
   id: string;
@@ -110,38 +111,18 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb", paddingHorizontal: 20, paddingTop: 50 },
-  title: { fontSize: 28, fontWeight: "900", color: "#1e293b", marginBottom: 20 },
-  supportButton: { backgroundColor: "#2563eb", borderRadius: 14, padding: 13, marginBottom: 16 },
-  supportButtonText: { color: "#fff", fontWeight: "800", textAlign: "center" },
-  empty: { textAlign: "center", color: "#94a3b8", marginTop: 40 },
+  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
+  title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
+  supportButton: { backgroundColor: palette.brand, borderRadius: radius.md, padding: 15, marginBottom: 16 },
+  supportButtonText: { color: palette.white, fontWeight: "900", textAlign: "center" },
+  empty: { textAlign: "center", color: palette.muted, marginTop: 40 },
   emptyBox: { alignItems: "center", paddingTop: 60 },
-  emptyTitle: { fontSize: 18, fontWeight: "700", color: "#94a3b8" },
-  emptySub: { fontSize: 14, color: "#cbd5e1", marginTop: 4 },
-  chatCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 10,
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  chatAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#2563eb",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  chatAvatarText: { fontSize: 20, fontWeight: "800", color: "#fff" },
-  chatName: { fontSize: 16, fontWeight: "700", color: "#1e293b" },
-  chatType: { fontSize: 13, color: "#64748b", marginTop: 2 },
-  chatArrow: { fontSize: 20, color: "#94a3b8" },
+  emptyTitle: { fontSize: 17, fontWeight: "900", color: palette.ink },
+  emptySub: { fontSize: 12, color: palette.muted, marginTop: 5 },
+  chatCard: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.lg, padding: 16, marginBottom: 10, gap: 12, borderWidth: 1, borderColor: palette.line },
+  chatAvatar: { width: 48, height: 48, borderRadius: 17, backgroundColor: palette.brand, alignItems: "center", justifyContent: "center" },
+  chatAvatarText: { fontSize: 20, fontWeight: "900", color: palette.white },
+  chatName: { fontSize: 15, fontWeight: "900", color: palette.ink },
+  chatType: { fontSize: 12, color: palette.muted, marginTop: 3 },
+  chatArrow: { fontSize: 20, color: palette.gold },
 });
