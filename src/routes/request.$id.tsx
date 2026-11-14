@@ -63,7 +63,7 @@ function RequestDetail() {
   const [req, setReq] = useState<any>(null);
   const [other, setOther] = useState<any>(null);
   const [largeOffers, setLargeOffers] = useState<any[]>([]);
-  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
+  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);\n  const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
   const [chat, setChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [draft, setDraft] = useState("");
@@ -266,6 +266,20 @@ function RequestDetail() {
     if (error) toast.error(error.message);
   }
 
+  async function retryLargeOffers() {
+    setRetryingLargeOffers(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("retry_large_vehicle_dispatch", { _request_id: id });
+      if (error) throw error;
+      toast(Number(data) > 0 ? "تم إرسال الطلب لأصحاب السيارات المتاحين" : "ماكو سيارة متاحة حالياً، طلبك يبقى محفوظ");
+      await loadAll();
+    } catch (error: any) {
+      toast.error(error?.message ?? "تعذر إعادة إرسال الطلب");
+    } finally {
+      setRetryingLargeOffers(false);
+    }
+  }
+
   async function acceptLargeOffer(offerId: string) {
     setAcceptingLargeOffer(offerId);
     try {
@@ -425,6 +439,14 @@ function RequestDetail() {
                   </button>
                 </div>
               </div>
+            <button
+              type="button"
+              onClick={retryLargeOffers}
+              disabled={retryingLargeOffers}
+              className="w-full rounded-xl border border-orange-300 bg-white py-3 text-sm font-black text-orange-800 disabled:opacity-50"
+            >
+              {retryingLargeOffers ? "جارٍ إعادة إرسال الطلب..." : "إعادة إرسال الطلب لأصحاب السيارات"}
+            </button>
             ))}
           </div>
         )}
