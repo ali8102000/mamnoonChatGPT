@@ -48,14 +48,14 @@ export default function HomeScreen() {
   const [verificationStatus, setVerificationStatus] = useState("pending");
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const isWorker = activeRole === "worker" || activeRole === "driver";
+  const isWorker = activeRole === "worker" || activeRole === "driver" || activeRole === "large_driver";
 
   const loadIncoming = useCallback(async () => {
-    if (!user || (activeRole !== "driver" && activeRole !== "worker")) {
+    if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
       setIncoming([]);
       return;
     }
-    const isDriver = activeRole === "driver";
+    const isDriver = activeRole === "driver" || activeRole === "large_driver";
     const { data: offerRows, error: offersError } = await (supabase as any)
       .from("request_offers")
       .select("request_id")
@@ -115,7 +115,7 @@ export default function HomeScreen() {
       setVerificationStatus("pending");
       return;
     }
-    const table = activeRole === "driver" ? "driver_profiles" : "worker_profiles";
+    const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
     supabase
       .from(table)
       .select("available, status")
@@ -244,7 +244,7 @@ export default function HomeScreen() {
         <View>
           <Text style={styles.greeting}>أهلاً {profile?.full_name || ""}</Text>
           <Text style={styles.roleText}>
-            دورك: {activeRole === "customer" ? "زبون" : activeRole === "driver" ? "سائق" : "فني"}
+            دورك: {activeRole === "customer" ? "زبون" : activeRole === "large_driver" ? "سائق سيارات كبيرة" : activeRole === "driver" ? "كابتن تكسي" : "فني"}
           </Text>
         </View>
         <TouchableOpacity onPress={() => router.push("/profile")}>
