@@ -61,7 +61,7 @@ function RequestDetail() {
   const navigate = useNavigate();
   const { session, loading: authLoading } = useAuth();
   const [req, setReq] = useState<any>(null);
-  const [other, setOther] = useState<any>(null);
+  const [other, setOther] = useState<any>(null);\n  const [largeOffers, setLargeOffers] = useState<any[]>([]);\n  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
   const [chat, setChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [draft, setDraft] = useState("");
@@ -110,6 +110,23 @@ function RequestDetail() {
         return;
       }
       setReq(r);
+      if (r.vehicle_category === "large" && sessionUser?.id === r.customer_id && ["pending", "searching"].includes(r.status)) {
+        const { data: bids } = await (supabase as any)
+          .from("request_offers")
+          .select("id, provider_id, proposed_price, offer_message, sent_at")
+          .eq("request_id", id)
+          .eq("status", "pending")
+          .not("proposed_price", "is", null)
+          .order("sent_at", { ascending: false });
+        const providerIds = [...new Set((bids ?? []).map((bid: any) => bid.provider_id))];
+        const { data: profiles } = providerIds.length
+          ? await supabase.from("profiles").select("id, full_name, phone, avatar_url").in("id", providerIds)
+          : { data: [] };
+        const profileById = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+        setLargeOffers((bids ?? []).map((bid: any) => ({ ...bid, profile: profileById.get(bid.provider_id) ?? null })));
+      } else {
+        setLargeOffers([]);
+      }
       const otherId = sessionUser?.id === r.customer_id ? r.provider_id : r.customer_id;
       if (otherId) {
         const { data: p } = await supabase
@@ -190,6 +207,11 @@ function RequestDetail() {
         { event: "UPDATE", schema: "public", table: "service_requests", filter: `id=eq.${id}` },
         () => loadAll(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "request_offers", filter: `request_id=eq.${id}` },
+        () => loadAll(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -242,6 +264,20 @@ function RequestDetail() {
     if (error) toast.error(error.message);
   }
 
+  async function acceptLargeOffer(offerId: string) {
+    setAcceptingLargeOffer(offerId);
+    try {
+      const { error } = await supabase.rpc("accept_large_vehicle_offer", { _offer_id: offerId });
+      if (error) throw error;
+      toast.success("تم قبول عرض السعر وإنشاء المحادثة");
+      await loadAll();
+    } catch (error: any) {
+      toast.error(error?.message ?? "تعذر قبول العرض");
+    } finally {
+      setAcceptingLargeOffer(null);
+    }
+  }
+
   async function markCompleted() {
     try {
       await runCompleteRide({ data: { requestId: id } });
@@ -267,7 +303,7 @@ function RequestDetail() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-lg font-black">
-              {req.type === "taxi" ? "رحلة تكسي" : "خدمة فنية"}
+              {req.vehicle_category === "large" ? "طلب سيارة كبيرة" : req.type === "taxi" ? "رحلة تكسي" : "خدمة فنية"}
             </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
               {req.status === "pending" ? (
@@ -312,6 +348,16 @@ function RequestDetail() {
           </div>
         )}
 
+        {req.vehicle_category === "large" && (
+          <div className="glass rounded-2xl p-3 space-y-1">
+            <div className="font-black text-sm">🚚 {req.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}</div>
+            <div className="text-xs text-muted-foreground">التسعير بالاتفاق بين الزبون وصاحب السيارة، وليس بالكيلومتر</div>
+            {(req.customer_price ?? req.price_estimate) != null && (
+              <div className="font-black text-primary">{Number(req.customer_price ?? req.price_estimate).toLocaleString()} د.ع</div>
+            )}
+          </div>
+        )}
+
         {req.type === "service" && ((req as any).pricing_mode || (req as any).work_description) && (
           <div className="glass rounded-2xl p-3 space-y-1">
             <div className="text-[11px] text-muted-foreground">السعر والشغل</div>
@@ -323,6 +369,37 @@ function RequestDetail() {
                 ? "💰 السعر يتفق عليه الطرفين"
                 : `💰 ${Number((req as any).customer_price ?? 0).toLocaleString()} د.ع${(req as any).pricing_mode === "hourly" && (req as any).work_hours ? ` · ${(req as any).work_hours} ساعة` : " · إنجاز تام"}`}
             </div>
+          </div>
+        )}
+
+        {req.vehicle_category === "large" && myRole === "customer" && ["pending", "searching"].includes(req.status) && (
+          <div className="glass rounded-2xl p-4 space-y-3">
+            <div className="font-black text-base">عروض أصحاب السيارات</div>
+            {largeOffers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">بانتظار أصحاب السيارات يرسلون أسعارهم...</p>
+            ) : largeOffers.map((offer) => (
+              <div key={offer.id} className="rounded-xl border border-orange-200 bg-orange-50/70 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-10 w-10 rounded-full bg-orange-100 grid place-items-center font-black text-orange-700">
+                    {(offer.profile?.full_name || "س")[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm">{offer.profile?.full_name || "صاحب سيارة"}</div>
+                    <div className="text-xs text-muted-foreground">{req.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}</div>
+                  </div>
+                  <div className="font-black text-primary">{Number(offer.proposed_price).toLocaleString()} د.ع</div>
+                </div>
+                {offer.offer_message && <p className="text-xs text-muted-foreground">{offer.offer_message}</p>}
+                <button
+                  type="button"
+                  disabled={!!acceptingLargeOffer}
+                  onClick={() => acceptLargeOffer(offer.id)}
+                  className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black disabled:opacity-50"
+                >
+                  {acceptingLargeOffer === offer.id ? "جارٍ قبول العرض..." : "الموافقة على هذا العرض"}
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
