@@ -34,7 +34,8 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "VIBRATE",
-        "INTERNET"
+        "INTERNET",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
