@@ -424,7 +424,7 @@ export default function RequestDetail() {
       return;
     }
     setLargeOfferBusy(true);
-    const { error } = await supabase.rpc("submit_large_vehicle_offer", {
+    const { error } = await (supabase as any).rpc("submit_large_vehicle_offer", {
       _request_id: id,
       _price: amount,
       _message: largeOfferMessage.trim() || null,
@@ -440,7 +440,7 @@ export default function RequestDetail() {
 
   async function acceptLargeOffer(offerId: string) {
     setAcceptingLargeOffer(offerId);
-    const { error } = await supabase.rpc("accept_large_vehicle_offer", { _offer_id: offerId });
+    const { error } = await (supabase as any).rpc("accept_large_vehicle_offer", { _offer_id: offerId });
     setAcceptingLargeOffer(null);
     if (error) {
       Alert.alert("تعذر قبول العرض", error.message);
@@ -452,7 +452,7 @@ export default function RequestDetail() {
 
   async function rejectLargeOffer(offerId: string) {
     setAcceptingLargeOffer(offerId);
-    const { error } = await supabase.rpc("reject_large_vehicle_offer", { _offer_id: offerId });
+    const { error } = await (supabase as any).rpc("reject_large_vehicle_offer", { _offer_id: offerId });
     setAcceptingLargeOffer(null);
     if (error) {
       Alert.alert("تعذر رفض العرض", error.message);
