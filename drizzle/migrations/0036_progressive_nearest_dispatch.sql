@@ -461,14 +461,14 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   IF NEW.type = 'service' THEN
     PERFORM public.dispatch_service_request(NEW.id);
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.on_service_request_created() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS service_request_dispatch_created ON public.service_requests;
