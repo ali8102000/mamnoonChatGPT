@@ -133,6 +133,10 @@ function NewRequest() {
   const [customerPrice, setCustomerPrice] = useState("");
   const [workHours, setWorkHours] = useState("");
   const [workDescription, setWorkDescription] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponPreview, setCouponPreview] = useState<{ discount: number; payable: number } | null>(null);
+  const [couponError, setCouponError] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
 
   // Taxi State
   const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
@@ -198,6 +202,60 @@ function NewRequest() {
   const [routeRetry, setRouteRetry] = useState(0);
   const runLookup = useServerFn(lookupMapPlace);
   const [busy, setBusy] = useState(false);
+  const getCouponBaseAmount = () => {
+    if (type === "taxi") {
+      if (vehicle === "large") return customerPrice.trim() ? Number(customerPrice) : null;
+      if (routeKm === null) return null;
+      return taxiFare(vehicleCategory, routeKm, {
+        weather: "mild" as const,
+        roadCondition,
+        demandMultiplier,
+        isIntercity: interCity,
+      });
+    }
+    if (pricingMode === "negotiable") return null;
+    const amount = Number(customerPrice);
+    return Number.isFinite(amount) && amount > 0 ? amount : null;
+  };
+
+  async function previewCoupon() {
+    const code = couponCode.trim();
+    const amount = getCouponBaseAmount();
+    if (!code) { setCouponError("اكتب رمز الكوبون"); return; }
+    if (!amount || amount <= 0) { setCouponError("حدد سعر الطلب أولاً حتى نتحقق من الخصم"); return; }
+    setCouponLoading(true);
+    setCouponError("");
+    setCouponPreview(null);
+    try {
+      const { data, error } = await (supabase as any).rpc("preview_my_coupon", { p_code: code, p_amount: amount });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) throw new Error("الكوبون غير متاح");
+      setCouponPreview({ discount: Number(row.discount), payable: Number(row.payable) });
+    } catch (error: any) {
+      setCouponError(error?.message || "تعذّر التحقق من الكوبون");
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
+  const couponPanel = (
+    <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-3 space-y-2" dir="rtl">
+      <div className="font-black text-sm text-foreground">🎁 عندك كوبون خصم؟</div>
+      <div className="flex gap-2">
+        <input value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponPreview(null); setCouponError(""); }} placeholder="اكتب رمز الكوبون" className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-sm font-bold outline-none" />
+        <button type="button" disabled={couponLoading} onClick={previewCoupon} className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50">{couponLoading ? "..." : "تحقق"}</button>
+      </div>
+      {couponError && <p className="text-xs font-bold text-red-600">{couponError}</p>}
+      {couponPreview && <div className="rounded-xl bg-white p-3 text-sm space-y-1">
+        <div className="font-bold text-emerald-700">تم التحقق من الكوبون</div>
+        <div>قيمة الخصم: <b>{couponPreview.discount.toLocaleString("ar-IQ")} د.ع</b></div>
+        <div>المبلغ بعد الخصم: <b>{couponPreview.payable.toLocaleString("ar-IQ")} د.ع</b></div>
+        <div className="text-[11px] text-muted-foreground">الخصم تتحمله ممنون ولا يقلل مستحقات السائق أو الفني.</div>
+      </div>}
+    </div>
+  );
+
   const pickupLat = pickupCoords?.lat;
   const pickupLng = pickupCoords?.lng;
   const destLat = destCoords?.lat;
@@ -399,10 +457,21 @@ function NewRequest() {
 
     setBusy(true);
     try {
+      if (couponCode.trim()) {
+        const amount = getCouponBaseAmount();
+        if (!amount || amount <= 0) throw new Error("حدد سعر الطلب أولاً حتى نطبق الكوبون");
+        const { data: couponData, error: couponCheckError } = await (supabase as any).rpc("preview_my_coupon", {
+          p_code: couponCode.trim(),
+          p_amount: amount,
+        });
+        if (couponCheckError) throw couponCheckError;
+        if (!couponData || !couponData.length) throw new Error("الكوبون غير متاح لهذا الطلب");
+      }
       const { data, error } = await supabase
         .from("service_requests")
         .insert({
           customer_id: session.user.id,
+          coupon_code: couponCode.trim() || null,
           type,
           status: "pending",
           service_id: type === "service" ? serviceId : null,
@@ -784,6 +853,7 @@ function NewRequest() {
                 })}
               </div>
             )}
+            {couponPanel}
             {vehicle === "large" && (
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري) — اكتب الوجهة أو أي تفاصيل تريدها" rows={2} className="w-full resize-none bg-white border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
             )}
@@ -1089,6 +1159,8 @@ function NewRequest() {
           </>
         )}
       </div>
+
+      <div className="mt-5">{couponPanel}</div>
 
       <div className="mt-5">
         <div className="text-xs font-bold text-muted-foreground mb-2">
