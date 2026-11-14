@@ -1,4 +1,4 @@
-# كفو (Kafo)
+# ممنون (Mamnoon)
 
 منصة عراقية لطلبات سيارات الأجرة والخدمات المنزلية، مبنية باستخدام React وTanStack Start وSupabase، ويحتوي المستودع أيضاً على تطبيق Android/iOS باستخدام Expo Router.
 
@@ -35,7 +35,7 @@ bun install --frozen-lockfile
 bunx expo start
 ```
 
-لإنتاج Android App Bundle استخدم ملف `expo-app/eas.json` وسير عمل GitHub Actions المسمى `Kafo Android production AAB`. يتطلب ذلك إعداد `EXPO_TOKEN` في GitHub وإعداد متغيرات EAS production.
+لإنتاج Android App Bundle استخدم ملف `expo-app/eas.json` وسير عمل GitHub Actions المسمى `Mamnoon Android production AAB`. يتطلب ذلك إعداد `EXPO_TOKEN` في GitHub وإعداد متغيرات EAS production.
 
 ## فحوصات الجودة
 
@@ -71,7 +71,7 @@ bun run db:migrate
 
 ## هوية تطبيق الهاتف
 
-- الاسم المعروض: كفو.
+- الاسم المعروض: ممنون.
 - Expo slug: `kfw`.
 - Android package: `com.mamnoon.app` محفوظ للتوافق مع التثبيتات الحالية.
 - Deep-link scheme: `mamnoon` محفوظ للتوافق مع روابط المصادقة الحالية.
