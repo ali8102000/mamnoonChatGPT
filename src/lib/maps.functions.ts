@@ -2,7 +2,7 @@ import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getGovernorate, isInGovernorate } from "./governorates";
+import { getGovernorate, governorateBounds, isInGovernorate } from "./governorates";
 import { parseDrivingRoute } from "./route-distance";
 
 // Only the referrer-restricted rendering key is intentionally public.
@@ -57,23 +57,20 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
     if (data.action === "autocomplete") {
       const governorate = getGovernorate(data.governorateKey);
       if (governorate) {
-        // One bounded request returns coordinates, so exact boundary filtering needs no per-place fan-out.
+        // Restrict Google's candidate search to the selected governorate's
+        // bounding rectangle, then apply the exact administrative polygon below.
+        const bounds = governorateBounds(governorate.key);
         path = "/places/v1/places:searchText";
         headers["X-Goog-FieldMask"] =
           "places.id,places.displayName,places.formattedAddress,places.location";
         body = JSON.stringify({
-          textQuery: `${data.input} ${governorate.name}`,
+          textQuery: data.input,
           languageCode: "ar",
           regionCode: "IQ",
           pageSize: 20,
           rankPreference: "DISTANCE",
-          // Bias toward the currently selected map area instead of restricting
-          // Google's search to a large administrative bounding rectangle.
-          locationBias: {
-            circle: {
-              center: { latitude: data.center.lat, longitude: data.center.lng },
-              radius: 50000,
-            },
+          locationRestriction: {
+            rectangle: { low: bounds.low, high: bounds.high },
           },
         });
       } else {
@@ -128,16 +125,14 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
           `${data.input} ${governorate.name} العراق`,
         ]) {
           if (hasLocalResult(payload)) break;
+          const bounds = governorateBounds(governorate.key);
           body = JSON.stringify({
             textQuery,
             languageCode: "ar",
             regionCode: "IQ",
             pageSize: 20,
-            locationBias: {
-              circle: {
-                center: { latitude: data.center.lat, longitude: data.center.lng },
-                radius: 50000,
-              },
+            locationRestriction: {
+              rectangle: { low: bounds.low, high: bounds.high },
             },
           });
           response = await fetch(gateway + path, { method: "POST", headers, body });
