@@ -120,6 +120,7 @@ export default function RequestDetail() {
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const isProvider = request?.provider_id === user?.id;
   const isCustomer = request?.customer_id === user?.id;
@@ -150,6 +151,8 @@ export default function RequestDetail() {
       return;
     }
     setRequest(data as RequestRecord | null);
+    const {data:paymentSettings}=await supabase.from("subscription_settings").select("payment_gateway_enabled").eq("id",1).maybeSingle();
+    setPaymentGatewayEnabled(Boolean(paymentSettings?.payment_gateway_enabled));
     if (data?.vehicle_category === "large") {
       if (data.customer_id === user?.id && ["pending", "searching"].includes(data.status)) {
         const { data: bids } = await (supabase as any)
@@ -658,8 +661,8 @@ export default function RequestDetail() {
         {isCustomer && ["accepted","in_progress","completed"].includes(request.status) && request.payment_method !== "zaincash" && Number(request.customer_payable ?? request.customer_price ?? request.price_estimate) > 0 && (
           <View style={styles.infoCard}>
             <Text style={styles.infoType}>الدفع الإلكتروني عبر زين كاش</Text>
-            <Text style={styles.infoRow}>تقدر تدفع الأجرة بعد تثبيت السعر. بوابة الدفع متوقفة حالياً لحين إكمال إعدادات التاجر والاختبار.</Text>
-            <TouchableOpacity onPress={payRequestWithZainCash} disabled={paymentBusy} style={[styles.actionBtn,paymentBusy&&{opacity:0.5}]}>
+            <Text style={styles.infoRow}>تقدر تدفع الأجرة بعد تثبيت السعر. {paymentGatewayEnabled ? "بوابة الدفع مفعّلة." : "بوابة الدفع متوقفة حالياً لحين إكمال إعدادات التاجر والاختبار."}</Text>
+            <TouchableOpacity onPress={payRequestWithZainCash} disabled={paymentBusy || !paymentGatewayEnabled} style={[styles.actionBtn,(paymentBusy || !paymentGatewayEnabled)&&{opacity:0.5}]}>
               <Text style={styles.actionBtnText}>{paymentBusy ? "جاري تجهيز الدفع..." : "الدفع عبر زين كاش"}</Text>
             </TouchableOpacity>
           </View>
