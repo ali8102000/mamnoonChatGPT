@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { Button, RealInput } from "@/components/ui";
+import { palette, radius } from "@/styles/theme";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -38,7 +39,7 @@ export default function ForgotPassword() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 50 },
-  title: { fontSize: 26, fontWeight: "900", color: "#1e293b", marginBottom: 8 },
-  subtitle: { fontSize: 14, color: "#64748b", marginBottom: 24, lineHeight: 22 },
+  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
+  title: { fontSize: 26, fontWeight: "900", color: palette.ink, marginBottom: 8 },
+  subtitle: { fontSize: 13, color: palette.muted, marginBottom: 24, lineHeight: 22 },
 });
