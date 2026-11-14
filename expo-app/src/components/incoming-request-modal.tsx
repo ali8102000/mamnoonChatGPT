@@ -29,6 +29,7 @@ import service_wood_carpentry from "../../assets/services/wood_carpentry.png";
 import service_blacksmith from "../../assets/services/blacksmith.png";
 import service_general from "../../assets/services/general.png";
 import type { AppRole } from "@/lib/auth-context";
+import { palette, radius } from "@/styles/theme";
 
 type Offer = {
   id: string;
@@ -260,30 +261,30 @@ export function IncomingRequestModal() {
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "rgba(15,23,42,0.68)", justifyContent: "center", padding: 18 },
-  card: { backgroundColor: "#fff", borderRadius: 26, padding: 18, elevation: 16 },
+  backdrop: { flex: 1, backgroundColor: "rgba(12, 29, 23, 0.72)", justifyContent: "center", padding: 18 },
+  card: { backgroundColor: palette.surface, borderRadius: 28, padding: 20, borderWidth: 1, borderColor: palette.gold },
   topLine: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
-  pulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#16a34a" },
-  topText: { flex: 1, color: "#0f766e", fontSize: 15, fontWeight: "900" },
-  code: { color: "#64748b", fontSize: 12, fontWeight: "800" },
+  pulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: palette.success },
+  topText: { flex: 1, color: palette.brand, fontSize: 14, fontWeight: "900" },
+  code: { color: palette.muted, fontSize: 11, fontWeight: "900" },
   serviceRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
-  serviceImage: { width: 78, height: 78, borderRadius: 18, backgroundColor: "#f1f5f9" },
-  taxiImage: { width: 78, height: 78, borderRadius: 18, backgroundColor: "#e0f2fe", alignItems: "center", justifyContent: "center" },
-  taxiEmoji: { fontSize: 34 },
+  serviceImage: { width: 76, height: 76, borderRadius: radius.lg, backgroundColor: palette.surfaceSoft },
+  taxiImage: { width: 76, height: 76, borderRadius: radius.lg, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center" },
+  taxiEmoji: { fontSize: 32 },
   serviceInfo: { flex: 1 },
-  serviceTitle: { color: "#0f172a", fontSize: 20, fontWeight: "900" },
-  distance: { color: "#64748b", fontSize: 13, marginTop: 5 },
-  details: { backgroundColor: "#f8fafc", borderRadius: 16, padding: 13 },
-  detailLabel: { color: "#64748b", fontSize: 11, fontWeight: "800", marginTop: 5 },
-  detailValue: { color: "#1e293b", fontSize: 13, fontWeight: "600", marginTop: 2, lineHeight: 20 },
+  serviceTitle: { color: palette.ink, fontSize: 19, fontWeight: "900" },
+  distance: { color: palette.muted, fontSize: 12, marginTop: 5 },
+  details: { backgroundColor: palette.canvas, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: palette.line },
+  detailLabel: { color: palette.muted, fontSize: 10, fontWeight: "900", marginTop: 5 },
+  detailValue: { color: palette.ink, fontSize: 13, fontWeight: "700", marginTop: 3, lineHeight: 20 },
   priceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 },
-  priceLabel: { color: "#475569", fontSize: 13, fontWeight: "700" },
-  priceValue: { color: "#0f766e", fontSize: 18, fontWeight: "900" },
-  expiry: { color: "#b45309", fontSize: 11, marginTop: 10, textAlign: "center" },
-  actions: { flexDirection: "row", gap: 10, marginTop: 14 },
-  action: { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
-  reject: { backgroundColor: "#f1f5f9" },
-  accept: { backgroundColor: "#0f766e" },
-  rejectText: { color: "#475569", fontWeight: "800" },
-  acceptText: { color: "#fff", fontWeight: "900" },
+  priceLabel: { color: palette.muted, fontSize: 12, fontWeight: "800" },
+  priceValue: { color: palette.brand, fontSize: 19, fontWeight: "900" },
+  expiry: { color: "#9A7130", fontSize: 11, marginTop: 10, textAlign: "center" },
+  actions: { flexDirection: "row", gap: 10, marginTop: 16 },
+  action: { flex: 1, borderRadius: radius.md, paddingVertical: 15, alignItems: "center", justifyContent: "center" },
+  reject: { backgroundColor: palette.surfaceSoft },
+  accept: { backgroundColor: palette.brand },
+  rejectText: { color: palette.ink, fontWeight: "900" },
+  acceptText: { color: palette.white, fontWeight: "900" },
 });
