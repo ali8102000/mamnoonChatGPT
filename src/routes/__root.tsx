@@ -159,10 +159,14 @@ function RootComponent() {
     }
     const onPreloadError = () => {
       const key = "mamnoon-reloaded-at";
-      const last = Number(sessionStorage.getItem(key) ?? 0);
-      if (Date.now() - last > 30_000) {
-        sessionStorage.setItem(key, String(Date.now()));
-        window.location.reload();
+      try {
+        const last = Number(sessionStorage.getItem(key) ?? 0);
+        if (Date.now() - last > 30_000) {
+          sessionStorage.setItem(key, String(Date.now()));
+          window.location.reload();
+        }
+      } catch {
+        // Ignore blocked session storage; the application must still render.
       }
     };
     window.addEventListener("vite:preloadError", onPreloadError);
