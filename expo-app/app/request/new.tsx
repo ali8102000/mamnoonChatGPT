@@ -20,7 +20,7 @@ import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
 
 type Coordinates = { latitude: number; longitude: number };
-type VehicleCategory = "economy" | "premium" | "luxury";
+type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 
 const TAXI_SERVICE = { slug: "taxi", label: "سيارة", emoji: "🚕", color: "#0f766e" };
 type CatalogService = { id: string; slug: string; name_ar: string };
@@ -30,6 +30,7 @@ const VEHICLE_CATS: { key: VehicleCategory; label: string; emoji: string }[] = [
   { key: "economy", label: "اقتصادية", emoji: "🚗" },
   { key: "premium", label: "فاخرة", emoji: "🚙" },
   { key: "luxury", label: "VIP", emoji: "🚘" },
+  { key: "large", label: "سيارة كبيرة", emoji: "🚚" },
 ];
 
 // Start with an Iraq-wide view when location permission is unavailable.
@@ -65,6 +66,7 @@ export default function NewRequest() {
   const [region, setRegion] = useState(IRAQ_REGION);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>("economy");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
   const [workerLevel, setWorkerLevel] = useState<"fani" | "khabir">("fani");
   const [extraWorkers, setExtraWorkers] = useState(0);
   const [notes, setNotes] = useState("");
@@ -420,6 +422,19 @@ export default function NewRequest() {
               </TouchableOpacity>
             ))}
           </View>
+          {vehicleCat === "large" && (
+            <View style={{ marginTop: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
+              <Text style={styles.label}>نوع السيارة الكبيرة</Text>
+              <View style={styles.catRow}>
+                {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
+                  <TouchableOpacity key={item.key} style={[styles.catChip, vehicleType === item.key && styles.catChipActive]} onPress={() => setVehicleType(item.key)}>
+                    <Text style={styles.catEmoji}>{item.emoji}</Text>
+                    <Text style={[styles.catLabel, vehicleType === item.key && styles.catLabelActive]}>{item.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
         </>
       ) : (
         <>
