@@ -15,6 +15,8 @@ export default function ProfileScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [wallet, setWallet] = useState<DriverWallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [showWalletDetails, setShowWalletDetails] = useState(false);
+  const [showRecentTransactions, setShowRecentTransactions] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -25,12 +27,13 @@ export default function ProfileScreen() {
           .eq("user_id", user?.id)
           .maybeSingle();
         setWallet(data);
+        const since24Hours = new Date(Date.now() - 86400000).toISOString();
         const { data: txns } = await supabase
           .from("transactions")
           .select("*")
           .eq("user_id", user?.id)
-          .order("created_at", { ascending: false })
-          .limit(10);
+          .gte("created_at", since24Hours)
+          .order("created_at", { ascending: false });
         setTransactions(txns || []);
       }
     }
@@ -128,47 +131,33 @@ export default function ProfileScreen() {
         <View style={styles.walletCard}>
           <Text style={styles.walletTitle}>أرباحي</Text>
           <Text style={styles.walletBalance}>{(wallet.balance || 0).toLocaleString("en")} د.ع</Text>
-          <View style={styles.walletStats}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.walletStatLabel}>إجمالي الأرباح</Text>
-              <Text style={styles.walletStatValue}>
-                {(wallet.total_earned || 0).toLocaleString("en")} د.ع
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.walletStatLabel}>العمولة</Text>
-              <Text style={styles.walletStatValue}>
-                {(wallet.total_commission || 0).toLocaleString("en")} د.ع
-              </Text>
-            </View>
-          </View>
-        </View>
-      )}
-      {transactions.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>آخر العمليات</Text>
-          {transactions.map((txn) => (
-            <View key={txn.id} style={styles.txnCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.txnType}>
-                  {txn.type === "earning" ? "أرباح" :
-                    txn.type === "commission" ? "عمولة" :
-                    txn.type === "withdrawal" ? "سحب" :
-                    txn.type === "refund" ? "استرجاع" : "تسوية"}
-                </Text>
-                <Text style={styles.txnDate}>
-                  {new Date(txn.created_at).toLocaleDateString("ar")}
-                </Text>
+          <TouchableOpacity style={styles.walletDetailsButton} onPress={() => setShowWalletDetails((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showWalletDetails }}>
+            <Text style={styles.walletDetailsButtonText}>{showWalletDetails ? "إخفاء التفاصيل" : "تفاصيل المحفظة"}</Text>
+            <Text style={styles.walletDetailsArrow}>{showWalletDetails ? "⌄" : "←"}</Text>
+          </TouchableOpacity>
+          {showWalletDetails && (
+            <View style={styles.walletDetails}>
+              <View style={styles.walletStats}>
+                <View style={{ flex: 1 }}><Text style={styles.walletStatLabel}>إجمالي الأرباح</Text><Text style={styles.walletStatValue}>{(wallet.total_earned || 0).toLocaleString("en")} د.ع</Text></View>
+                <View style={{ flex: 1 }}><Text style={styles.walletStatLabel}>العمولة</Text><Text style={styles.walletStatValue}>{(wallet.total_commission || 0).toLocaleString("en")} د.ع</Text></View>
               </View>
-              <Text
-                style={[styles.txnAmount, { color: txn.amount >= 0 ? "#16a34a" : "#dc2626" }]}
-              >
-                {txn.amount >= 0 ? "+" : "-"}
-                {Math.abs(txn.amount || 0).toLocaleString("en")} د.ع
-              </Text>
+              <TouchableOpacity style={styles.recentTransactionsButton} onPress={() => setShowRecentTransactions((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showRecentTransactions }}>
+                <Text style={styles.recentTransactionsText}>آخر الحركات · آخر ٢٤ ساعة</Text>
+                <Text style={styles.walletDetailsArrow}>{showRecentTransactions ? "⌄" : "←"}</Text>
+              </TouchableOpacity>
+              {showRecentTransactions && (
+                <View style={styles.recentTransactionsList}>
+                  {transactions.length === 0 ? <Text style={styles.emptyTransactions}>ماكو حركات مالية خلال آخر ٢٤ ساعة</Text> : transactions.map((txn) => (
+                    <View key={txn.id} style={styles.txnCard}>
+                      <View style={{ flex: 1 }}><Text style={styles.txnType}>{txn.type === "earning" ? "أرباح" : txn.type === "commission" ? "عمولة" : txn.type === "withdrawal" ? "سحب" : txn.type === "refund" ? "استرجاع" : "تسوية"}</Text><Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text></View>
+                      <Text style={[styles.txnAmount, { color: txn.amount >= 0 ? "#16a34a" : "#dc2626" }]}>{txn.amount >= 0 ? "+" : "-"}{Math.abs(txn.amount || 0).toLocaleString("en")} د.ع</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
-          ))}
-        </>
+          )}
+        </View>
       )}
       <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/account-settings")}>
         <Text style={styles.menuItemText}>تبديل الدور وإعدادات الحساب</Text>
@@ -226,6 +215,14 @@ const styles = StyleSheet.create({
   walletTitle: { fontSize: 13, color: "rgba(255,255,255,0.78)", fontWeight: "800" },
   walletBalance: { fontSize: 32, fontWeight: "900", color: palette.white, marginTop: 6 },
   walletStats: { flexDirection: "row", gap: 16, marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.18)" },
+  walletDetailsButton: { marginTop: 18, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: "rgba(255,255,255,0.14)", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  walletDetailsButtonText: { color: palette.white, fontSize: 13, fontWeight: "900" },
+  walletDetailsArrow: { color: palette.white, fontSize: 18, fontWeight: "900" },
+  walletDetails: { marginTop: 10 },
+  recentTransactionsButton: { marginTop: 16, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: "rgba(255,255,255,0.14)", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  recentTransactionsText: { color: palette.white, fontSize: 12, fontWeight: "900" },
+  recentTransactionsList: { marginTop: 10, gap: 8 },
+  emptyTransactions: { color: "rgba(255,255,255,0.8)", fontSize: 12, textAlign: "center", paddingVertical: 14 },
   walletStatLabel: { fontSize: 11, color: "rgba(255,255,255,0.72)" },
   walletStatValue: { fontSize: 15, fontWeight: "900", color: palette.white, marginTop: 4 },
   sectionTitle: { fontSize: 17, fontWeight: "900", color: palette.ink, marginBottom: 12 },
