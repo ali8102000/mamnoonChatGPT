@@ -113,6 +113,13 @@
       "when": 1794550000000,
       "tag": "0015_mamnoon_vehicle_tier_and_intercity_pricing",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794700800000,
+      "tag": "0044_provider_partial_change_requests",
+      "breakpoints": true
     }
   ]
 }
