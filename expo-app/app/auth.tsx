@@ -39,7 +39,7 @@ export default function AuthScreen() {
         if (!isValidPhone(phone)) throw new Error("رقم الهاتف غير صالح");
         const normalized = normalizePhone(phone);
         const contactEmail = email.trim().toLowerCase();
-        if (contactEmail && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(contactEmail)) {
+        if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
           throw new Error("البريد الإلكتروني غير صالح");
         }
         const result = await authProxy<{ session: AuthSessionTokens | null }>("/signup", {
@@ -69,7 +69,7 @@ export default function AuthScreen() {
           payload = { phone: normalizePhone(id), password };
         } else {
           const normalizedEmail = id.toLowerCase();
-          if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail)) {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
             throw new Error("البريد الإلكتروني غير صالح");
           }
           payload = { email: normalizedEmail, password };
