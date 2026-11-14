@@ -324,7 +324,7 @@ function OnboardingDriver() {
         vehicle_make: finalMake,
         vehicle_model: modelName.trim(),
         vehicle_year: Number(year) || null,
-        vehicle_category: category,
+        vehicle_category: category as any,
         vehicle_type: category === "large" ? vehicleType : null,
         vehicle_plate: plate.trim(),
         vehicle_color: color.trim() || null,
