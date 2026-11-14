@@ -58,10 +58,22 @@ function SelectRolePage() {
     setBusy(true);
     try {
       if (picked === "customer") {
-        const { error } = await supabase
+        // handle_new_user already creates the default customer role during signup.
+        // Avoid upsert here: user_roles intentionally has no UPDATE grant for customers.
+        const { data: existingRole, error: lookupError } = await supabase
           .from("user_roles")
-          .insert({ user_id: session.user.id, role: "customer" });
-        if (error && !error.message.toLowerCase().includes("duplicate")) throw error;
+          .select("role")
+          .eq("user_id", session.user.id)
+          .eq("role", "customer")
+          .maybeSingle();
+        if (lookupError) throw lookupError;
+        if (!existingRole) {
+          const { error: insertError } = await supabase
+            .from("user_roles")
+            .insert({ user_id: session.user.id, role: "customer" });
+          // Another request or the auth trigger may have inserted it concurrently.
+          if (insertError && insertError.code !== "23505") throw insertError;
+        }
         await refresh();
         navigate({ to: "/home" });
       } else if (picked === "driver") {
