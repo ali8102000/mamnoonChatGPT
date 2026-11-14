@@ -333,7 +333,7 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 DECLARE
   o public.request_offers%ROWTYPE;
   v_customer uuid;
@@ -354,7 +354,7 @@ BEGIN
   WHERE id = _offer_id AND status = 'pending';
   RETURN FOUND;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.reject_large_vehicle_offer(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.reject_large_vehicle_offer(uuid) TO authenticated;
 
@@ -364,7 +364,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   IF current_setting('mamnoon.allow_large_vehicle_accept', true) = 'true'
      AND OLD.vehicle_category::text = 'large'
@@ -389,7 +389,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 
 -- Customers may view the public profile card of drivers who have bid on their large request.
 DROP POLICY IF EXISTS "Customer views large vehicle bidders" ON public.profiles;
