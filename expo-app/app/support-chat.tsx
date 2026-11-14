@@ -125,7 +125,7 @@ export default function SupportChatScreen() {
     {staff && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.list}>
       {conversations.map((c) => <TouchableOpacity key={c.id} onPress={() => setSelected(c)} style={[styles.person, selected?.id === c.id && styles.personActive]}>
         <Text style={styles.personName}>{c.profile?.full_name || "مستخدم"}</Text>
-        <Text style={styles.personPhone}>{c.profile?.phone || ""}</Text>
+        <Text style={styles.personPhone}>{c.profile?.phone || ""}</Text><Text style={styles.personPhone}>{c.priority_tier === 3 ? "أولوية ذهبية" : c.priority_tier === 2 ? "أولوية فضية" : c.priority_tier === 1 ? "أولوية برونزية" : "اعتيادي"}</Text>
       </TouchableOpacity>)}
     </ScrollView>}
     {!!loadError && <Text style={styles.loadError}>{loadError} — حدّث الصفحة وحاول مرة ثانية</Text>}
