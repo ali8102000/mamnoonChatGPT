@@ -415,14 +415,14 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           <div>
             <h2 className="text-xl font-black text-foreground">
               {isApproved
-                ? "تم قبول واعتماد حسابك ككابتن! 🚗"
+                ? (largeDriverMode ? "تم اعتماد حسابك كسائق سيارات كبيرة! 🚚" : "تم قبول واعتماد حسابك ككابتن! 🚗")
                 : isRejected
                   ? "تم رفض طلب التسجيل"
                   : "طلبك قيد المراجعة والتدقيق"}
             </h2>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
               {isApproved
-                ? "تم تفعيل حسابك كسائق تكسي بعد تدقيق مستمسكاتك وسيارتك. نرحب بك ضمن أسرة شركة ممنون الموثّقة ونتمنى لك التوفيق والنجاح."
+                ? (largeDriverMode ? "تم تفعيل حسابك كسائق سيارات كبيرة بعد تدقيق المستمسكات والمركبة." : "تم تفعيل حسابك كسائق تكسي بعد تدقيق مستمسكاتك وسيارتك. نرحب بك ضمن أسرة شركة ممنون الموثّقة ونتمنى لك التوفيق والنجاح.")
                 : isRejected
                   ? existingDoc.rejectionReason ||
                     "تمت مراجعة طلبك ولم نتمكن من قبوله حالياً. سبب الرفض موضح أدناه، يرجى معالجة الملاحظة والمحاولة مرة أخرى. شركة ممنون الموثّقة."
