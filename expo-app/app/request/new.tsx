@@ -298,34 +298,38 @@ export default function NewRequest() {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "طلب جديد"}</Text>
-      <Text style={styles.label}>نوع الخدمة</Text>
-      {servicesLoading && <ActivityIndicator style={{ marginVertical: 12 }} color="#0f766e" />}
-      {!!servicesError && <TouchableOpacity onPress={() => router.replace("/request/new" as never)}><Text style={{ color: "#dc2626", marginBottom: 10 }}>{servicesError} اضغط لإعادة المحاولة.</Text></TouchableOpacity>}
-      <View style={styles.serviceGrid}>
-        {[TAXI_SERVICE, ...serviceCatalog.map((service) => ({ ...service, label: service.name_ar, emoji: "", color: "#0f766e" }))].map((service) => (
-          <TouchableOpacity
-            key={service.slug}
-            style={[
-              styles.serviceTile,
-              selectedService === service.slug && {
-                backgroundColor: service.color + "20",
-                borderColor: service.color,
-              },
-            ]}
-            onPress={() => setSelectedService(service.slug)}
-          >
-            {service.slug === "taxi" ? <Text style={styles.serviceEmoji}>{service.emoji}</Text> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
-            <Text
-              style={[
-                styles.serviceLabel,
-                { color: selectedService === service.slug ? service.color : "#64748b" },
-              ]}
-            >
-              {service.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {vehicle !== "large" && (
+        <>
+          <Text style={styles.label}>نوع الخدمة</Text>
+          {servicesLoading && <ActivityIndicator style={{ marginVertical: 12 }} color="#0f766e" />}
+          {!!servicesError && <TouchableOpacity onPress={() => router.replace("/request/new" as never)}><Text style={{ color: "#dc2626", marginBottom: 10 }}>{servicesError} اضغط لإعادة المحاولة.</Text></TouchableOpacity>}
+          <View style={styles.serviceGrid}>
+            {[TAXI_SERVICE, ...serviceCatalog.map((service) => ({ ...service, label: service.name_ar, emoji: "", color: "#0f766e" }))].map((service) => (
+              <TouchableOpacity
+                key={service.slug}
+                style={[
+                  styles.serviceTile,
+                  selectedService === service.slug && {
+                    backgroundColor: service.color + "20",
+                    borderColor: service.color,
+                  },
+                ]}
+                onPress={() => setSelectedService(service.slug)}
+              >
+                {service.slug === "taxi" ? <Text style={styles.serviceEmoji}>{service.emoji}</Text> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
+                <Text
+                  style={[
+                    styles.serviceLabel,
+                    { color: selectedService === service.slug ? service.color : "#64748b" },
+                  ]}
+                >
+                  {service.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
 
       <Text style={styles.label}>حدد النقطة على الخريطة</Text>
       <View style={styles.mapModeRow}>
@@ -406,26 +410,26 @@ export default function NewRequest() {
 
       {isTaxi ? (
         <>
-          <Text style={styles.label}>{vehicle === "large" ? "اختر نوع السيارة الكبيرة" : "فئة السيارة"}</Text>
-          <View style={styles.catRow}>
-            {(vehicle === "large" ? VEHICLE_CATS.filter((item) => item.key === "large") : VEHICLE_CATS).map((category) => (
-              <TouchableOpacity
-                key={category.key}
-                style={[styles.catChip, vehicleCat === category.key && styles.catChipActive]}
-                onPress={() => setVehicleCat(category.key)}
-              >
-                <Text style={styles.catEmoji}>{category.emoji}</Text>
-                <Text
-                  style={[styles.catLabel, vehicleCat === category.key && styles.catLabelActive]}
-                >
-                  {category.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {vehicle !== "large" && (
+            <>
+              <Text style={styles.label}>فئة السيارة</Text>
+              <View style={styles.catRow}>
+                {VEHICLE_CATS.filter((category) => category.key !== "large").map((category) => (
+                  <TouchableOpacity
+                    key={category.key}
+                    style={[styles.catChip, vehicleCat === category.key && styles.catChipActive]}
+                    onPress={() => setVehicleCat(category.key)}
+                  >
+                    <Text style={styles.catEmoji}>{category.emoji}</Text>
+                    <Text style={[styles.catLabel, vehicleCat === category.key && styles.catLabelActive]}>{category.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
           {vehicleCat === "large" && (
             <View style={{ marginTop: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
-              <Text style={styles.label}>نوع السيارة الكبيرة</Text>
+              <Text style={styles.label}>اختر كيا حمل أو كيا ركاب</Text>
               <View style={styles.catRow}>
                 {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
                   <TouchableOpacity key={item.key} style={[styles.catChip, vehicleType === item.key && styles.catChipActive]} onPress={() => setVehicleType(item.key)}>
