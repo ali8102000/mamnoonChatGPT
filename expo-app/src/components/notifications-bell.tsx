@@ -61,7 +61,7 @@ export function NotificationsBell() {
   return (
     <>
       <TouchableOpacity onPress={showNotifications} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="الإشعارات" style={styles.bell}>
-        <Text style={styles.bellIcon}>♧</Text>
+        <Text style={styles.bellIcon}>🔔</Text>
         {unread > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text></View>}
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)} statusBarTranslucent>
