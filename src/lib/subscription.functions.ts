@@ -10,14 +10,12 @@ export const checkSubscriptionAllowed = createServerFn({ method: "GET" })
     const { data, error } = await (supabaseAdmin as any).rpc("check_request_allowed", {
       _user_id: userId,
     });
-    if (error || !data || data.length === 0) {
-      return {
-        allowed: true,
-        reason: "system_disabled",
-        planCode: "free",
-        requestsUsed: 0,
-        requestsLimit: null,
-      };
+    if (error) {
+      console.error("[subscription] check_request_allowed failed:", error.message);
+      return { allowed: false, reason: "subscription_check_failed", planCode: "free", requestsUsed: 0, requestsLimit: null };
+    }
+    if (!data || data.length === 0) {
+      return { allowed: false, reason: "subscription_required", planCode: "free", requestsUsed: 0, requestsLimit: null };
     }
     const row = data[0];
     return {
@@ -232,13 +230,13 @@ export const adminGetSubscriptions = createServerFn({ method: "GET" })
         `
         id, user_id, status, billing_cycle, current_period_start, current_period_end,
         request_count, auto_renew, created_at, grant_type, granted_by, is_trial, paused_at, cancel_at_period_end,
-        profile:profiles(full_name,email,phone),
+        profile:profiles!user_subscriptions_user_id_fkey(full_name,email,phone),
         plan:subscription_plans(code, name_ar, tier)
       `,
       )
       .order("created_at", { ascending: false })
       .limit(500);
-    if (error) throw new Error("Failed to load subscriptions");
+    if (error) throw new Error("تعذر تحميل سجل الاشتراكات: " + error.message);
     return data ?? [];
   });
 
@@ -406,4 +404,46 @@ export const adminExtendSubscription = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
     return { ok: true, current_period_end: endAt };
+  });
+
+
+export const adminPauseAllSubscriptions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { data, error } = await (context.supabase as any).rpc("admin_pause_all_subscriptions");
+    if (error) throw new Error("تعذر إيقاف اشتراكات المشتركين: " + error.message);
+    return { count: Number(data ?? 0) };
+  });
+
+export const adminGrantSubscriptionsBulk = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    user_ids: z.array(z.string().uuid()).min(1).max(500),
+    plan_code: z.enum(["bronze", "silver", "gold"]),
+    duration: z.enum(["month", "two_months", "year", "permanent"]),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { data: count, error } = await (context.supabase as any).rpc("admin_grant_subscriptions_bulk", {
+      p_user_ids: data.user_ids, p_plan_code: data.plan_code, p_duration: data.duration,
+    });
+    if (error) throw new Error("تعذر منح الاشتراكات للمحددين: " + error.message);
+    return { count: Number(count ?? 0) };
+  });
+
+export const adminBroadcastAnnouncement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target: z.enum(["all", "worker", "large_driver", "driver"]),
+    title: z.string().trim().min(2).max(100),
+    body: z.string().trim().min(2).max(1500),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { data: count, error } = await (context.supabase as any).rpc("admin_broadcast_announcement", {
+      p_target: data.target, p_title: data.title, p_body: data.body,
+    });
+    if (error) throw new Error("تعذر إرسال الرسالة العامة: " + error.message);
+    return { count: Number(count ?? 0) };
   });
