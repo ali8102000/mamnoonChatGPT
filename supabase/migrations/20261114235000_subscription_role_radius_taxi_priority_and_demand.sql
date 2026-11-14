@@ -58,6 +58,7 @@ DROP TRIGGER IF EXISTS trg_sync_support_priority_after_subscription_change ON pu
 CREATE TRIGGER trg_sync_support_priority_after_subscription_change AFTER INSERT OR UPDATE OF plan_id,status,current_period_end ON public.user_subscriptions FOR EACH ROW EXECUTE FUNCTION public.sync_support_priority_after_subscription_change();
 
 
+DROP POLICY IF EXISTS provider_demand_alert_log_service_role_only ON public.provider_demand_alert_log;
 CREATE POLICY provider_demand_alert_log_service_role_only ON public.provider_demand_alert_log FOR ALL TO service_role USING(true) WITH CHECK(true);
 CREATE OR REPLACE FUNCTION public.notify_taxi_drivers_on_new_demand()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
