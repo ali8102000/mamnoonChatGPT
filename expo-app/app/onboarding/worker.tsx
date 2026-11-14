@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
-import { palette, radius, space } from "@/styles/theme";
+import { palette, radius } from "@/styles/theme";
 
 type WorkerService = { id: string; slug: string; name_ar: string };
 type PickedImage = { uri: string; mimeType?: string | null; fileName?: string | null };
