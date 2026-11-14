@@ -38,32 +38,47 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error }: ErrorComponentProps) {
-  console.error(error);
+  console.error("[Mamnoon route error]", error);
+
+  const rawMessage = String((error as any)?.message ?? error ?? "Unknown error");
+  // Keep the on-screen diagnostic useful without exposing credentials or personal data.
+  const diagnostic = rawMessage
+    .replace(/Bearer\\s+[A-Za-z0-9._~-]+/gi, "Bearer [hidden]")
+    .replace(/(?:sb_(?:publishable|secret)_)[A-Za-z0-9_-]+/gi, "[hidden key]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, "[hidden email]")
+    .replace(/\\+?\\d[\\d\\s()-]{7,}\\d/g, "[hidden number]")
+    .slice(0, 240);
+  const errorName = String((error as any)?.name ?? "Error").slice(0, 60);
 
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-    // After a new publish, old page files disappear; reload once to fetch the latest version.
-    const msg = String((error as any)?.message ?? error);
-    if (/dynamically imported module|Importing a module script failed|Loading chunk|Failed to fetch/i.test(msg)) {
-      const key = "mamnoon-reloaded-at";
-      const last = Number(sessionStorage.getItem(key) ?? 0);
-      if (Date.now() - last > 30_000) {
-        sessionStorage.setItem(key, String(Date.now()));
-        window.location.reload();
+    reportLovableError(error, { boundary: "tanstack_root_error_component", errorName, diagnostic });
+    // Retry stale deployment chunks once; storage can be disabled in private browsers.
+    if (/dynamically imported module|Importing a module script failed|Loading chunk|Failed to fetch/i.test(rawMessage)) {
+      try {
+        const key = "mamnoon-reloaded-at";
+        const last = Number(sessionStorage.getItem(key) ?? 0);
+        if (Date.now() - last > 30_000) {
+          sessionStorage.setItem(key, String(Date.now()));
+          window.location.reload();
+        }
+      } catch {
+        // Keep the diagnostic screen available when browser storage is blocked.
       }
     }
-  }, [error]);
+  }, [error, errorName, diagnostic, rawMessage]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+      <div className="max-w-md w-full text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">تعذّر تحميل الصفحة</h1>
-        <p className="mt-2 text-sm text-muted-foreground">حدث خطأ ما. جرّب إعادة المحاولة.</p>
+        <p className="mt-2 text-sm text-muted-foreground">ظهر خطأ تقني محدد. احتفظ بالتفاصيل التالية لإصلاحه:</p>
+        <div dir="ltr" className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-left">
+          <div className="text-xs font-bold text-destructive">{errorName}</div>
+          <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-foreground">{diagnostic}</pre>
+        </div>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => {
-              window.location.reload();
-            }}
+            onClick={() => window.location.reload()}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             إعادة المحاولة
