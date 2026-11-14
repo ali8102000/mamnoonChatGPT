@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { loadGoogleMaps } from "@/lib/google-maps";
-import { Loader2, Navigation, Maximize2, Minimize2, Compass, MapPin } from "lucide-react";
+import { Loader2, Navigation, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "@/lib/toast";
 
 export type Coords = { lat: number; lng: number; heading?: number | null; updatedAt?: string; accuracy?: number };
@@ -309,6 +309,7 @@ export function LiveTrackMap({
 
       if (hasRoadRouting && moved) {
         setRouteMode("waiting");
+        setRouteProvider("none");
         const sequence = ++directionsSequenceRef.current;
         lastDirectionsRequestRef.current = {
           origin: { lat: activeDriverCoord.lat, lng: activeDriverCoord.lng },
@@ -384,27 +385,9 @@ export function LiveTrackMap({
     routeMode,
   ]);
 
-  function recenterBounds() {
-    const g = (window as any).google;
-    const map = mapRef.current;
-    if (!g || !map) return;
-    const bounds = new g.maps.LatLngBounds();
-    if (activeDriverCoord) bounds.extend(activeDriverCoord);
-    if (effectivePickup) bounds.extend(effectivePickup);
-    if (destCoords) bounds.extend(destCoords);
-    map.fitBounds(bounds, 80);
-  }
-
   function centerOnDriver() {
     if (mapRef.current && activeDriverCoord) {
       mapRef.current.panTo(activeDriverCoord);
-      mapRef.current.setZoom(17);
-    }
-  }
-
-  function centerOnPickup() {
-    if (mapRef.current && effectivePickup) {
-      mapRef.current.panTo(effectivePickup);
       mapRef.current.setZoom(17);
     }
   }
@@ -463,15 +446,6 @@ export function LiveTrackMap({
           >
             <Navigation className="h-4 w-4" />
           </Button>
-          <Button
-            type="button"
-            onClick={centerOnPickup}
-            className="h-10 w-10 rounded-2xl bg-white shadow-lg grid place-items-center btn-press border border-border/40 text-sky-600"
-            title="نقطة الركوب"
-            aria-label="نقطة الركوب"
-          >
-            <MapPin className="h-4 w-4" />
-          </Button>
           {myRole === "provider" && onOpenNavigation && (
             <Button
               type="button"
@@ -483,15 +457,6 @@ export function LiveTrackMap({
               <span>ملاحة</span>
             </Button>
           )}
-          <Button
-            type="button"
-            onClick={recenterBounds}
-            className="h-10 w-10 rounded-2xl bg-white shadow-lg grid place-items-center btn-press border border-border/40 text-muted-foreground"
-            title="إعادة ضبط الرؤية"
-            aria-label="إعادة ضبط الرؤية"
-          >
-            <Compass className="h-4 w-4" />
-          </Button>
           <Button
             type="button"
             onClick={() => {
