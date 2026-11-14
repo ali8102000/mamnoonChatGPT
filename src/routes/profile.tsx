@@ -77,7 +77,7 @@ function ProfilePage() {
         .from("transactions")
         .select("*")
         .eq("user_id", uid)
-        .gte("created_at", last24Hours.toISOString())
+        .gte("created_at", monthStart.toISOString())
         .order("created_at", { ascending: false })
         .then(({ data, error }: any) => {
           if (error) {
@@ -89,7 +89,7 @@ function ProfilePage() {
           const sumSince = (start: Date) => earningRows.reduce((total: number, t: any) =>
             new Date(t.created_at) >= start ? total + Number(t.amount || 0) : total, 0);
           setEarnings({ today: sumSince(todayStart), week: sumSince(weekStart), month: sumSince(monthStart) });
-          setTxs(rows.slice(0, 10));
+          setTxs(rows.filter((t: any) => new Date(t.created_at).getTime() >= last24Hours.getTime()));
         });
     }
     (supabase as any)
