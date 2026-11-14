@@ -2260,6 +2260,10 @@ export type Database = {
         }
         Returns: number
       }
+      admin_extend_subscription: {
+        Args: { p_days: number; p_user_id: string }
+        Returns: string
+      }
       admin_grant_role: {
         Args: { p_role: string; p_target_user: string }
         Returns: undefined
@@ -2305,6 +2309,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      admin_set_subscription_status: {
+        Args: { p_status: string; p_user_id: string }
+        Returns: boolean
       }
       admin_unblock_user: { Args: { p_user_id: string }; Returns: undefined }
       advance_service_dispatch: {
