@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   try {
     const authorization = req.headers.get("Authorization") ?? "";
-    const token = authorization.replace(/^Bearer\s+/i, "");
+    const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
     if (!token || token === authorization) return json({ error: "unauthorized" }, 401);
     const supabaseUrl = requiredEnv("SUPABASE_URL");
     const serviceKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       metadata: { plan_code: planCode, plan_name_ar: plan.name_ar },
     });
     if (insertError) throw insertError;
-    const apiBase = (Deno.env.get("QICARD_API_BASE_URL") || "https://uat-sandbox-3ds-api.qi.iq/api/v1").replace(/\\/+$/, "");
+    const apiBase = Deno.env.get("QICARD_API_BASE_URL") || "https://uat-sandbox-3ds-api.qi.iq/api/v1";
     const basic = btoa(requiredEnv("QICARD_USERNAME") + ":" + requiredEnv("QICARD_PASSWORD"));
     const gatewayResponse = await fetch(apiBase + "/payment", {
       method: "POST",
