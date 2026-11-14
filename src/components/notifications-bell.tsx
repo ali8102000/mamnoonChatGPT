@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Bell, Check } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
@@ -94,9 +95,9 @@ export function NotificationsBell() {
         )}
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-[100] bg-black/45 backdrop-blur-md"
+          className="fixed inset-0 z-[2147483000] isolate bg-black/55 backdrop-blur-md"
           onClick={() => setOpen(false)}
         >
           <div
@@ -140,7 +141,8 @@ export function NotificationsBell() {
               </ul>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
