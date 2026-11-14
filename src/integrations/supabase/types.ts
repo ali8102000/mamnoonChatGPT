@@ -758,10 +758,10 @@ export type Database = {
           workers_count?: number
         }
         Update: {
-          coupon_code: string | null
-          coupon_id: string | null
-          coupon_discount: number
-          customer_payable: number | null
+          coupon_code?: string | null
+          coupon_id?: string | null
+          coupon_discount?: number
+          customer_payable?: number | null
           accepted_at?: string | null
           admin_notes?: string | null
           cancellation_reason?: string | null
