@@ -256,7 +256,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 DECLARE
   v_defer_scheduler boolean :=
     COALESCE(current_setting('mamnoon.defer_taxi_scheduler_lock', true), 'false') = 'true';
