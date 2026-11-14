@@ -1,0 +1,105 @@
+import { createFileRoute, Navigate, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/integrations/supabase/client";
+import { MobileShell } from "@/components/mobile-shell";
+import { ArrowRight, BadgeCheck, Crown, CreditCard, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { toast } from "@/lib/toast";
+
+type Plan = {
+  id: string; code: string; name_ar: string; description_ar: string | null;
+  monthly_price: number; currency: string; badge_label: string | null;
+  badge_color: string | null; features: Record<string, unknown>;
+};
+export const Route = createFileRoute("/subscriptions")({
+  ssr: false,
+  head: () => ({ meta: [{ title: "اشتراكات ممنون" }, { name: "description", content: "باقات مقدمي الخدمة في ممنون" }] }),
+  component: ProviderSubscriptionsPage,
+});
+function ProviderSubscriptionsPage() {
+  const { session, roles, loading } = useAuth();
+  const isProvider = roles.some((r) => ["worker", "driver", "large_driver"].includes(r));
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [loadingData, setLoadingData] = useState(true);
+
+  useEffect(() => {
+    if (!session || !isProvider) { setLoadingData(false); return; }
+    let active = true;
+    (async () => {
+      const [{ data: planRows, error: plansError }, { data: sub, error: subError }] = await Promise.all([
+        supabase.from("subscription_plans").select("id,code,name_ar,description_ar,monthly_price,currency,badge_label,badge_color,features")
+          .in("code", ["bronze", "silver", "gold"]).eq("is_active", true).order("tier"),
+        supabase.from("user_subscriptions").select("status,is_trial,trial_started_at,trial_ends_at,current_period_end,auto_renew,cancel_at_period_end,plan:subscription_plans(code,name_ar,tier,badge_label)")
+          .eq("user_id", session.user.id).maybeSingle(),
+      ]);
+      if (!active) return;
+      if (plansError) toast.error("تعذر تحميل باقات الاشتراك");
+      if (subError) toast.error("تعذر تحميل حالة اشتراكك");
+      setPlans((planRows ?? []) as Plan[]);
+      setSubscription(sub);
+      setLoadingData(false);
+    })();
+    return () => { active = false; };
+  }, [session?.user.id, isProvider]);
+
+  async function pay(planCode: string) {
+    if (!session || busy) return;
+    setBusy(planCode);
+    try {
+      const { data, error } = await supabase.functions.invoke("qicard-create-payment", {
+        body: { planCode, billingCycle: "monthly" },
+      });
+      if (error || !data?.checkoutUrl) throw new Error(data?.error || error?.message || "تعذر إنشاء عملية الدفع");
+      window.location.assign(data.checkoutUrl);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر بدء الدفع");
+      setBusy(null);
+    }
+  }
+
+  if (loading) return null;
+  if (!session) return <Navigate to="/auth" />;
+  if (!isProvider) return <Navigate to="/profile" />;
+  const planCode = subscription?.plan?.code;
+  return (
+    <MobileShell>
+      <div className="max-w-xl mx-auto px-5 pt-8 pb-24" dir="rtl">
+        <div className="flex items-center gap-3 mb-5">
+          <Link to="/profile" className="glass rounded-xl p-2"><ArrowRight className="h-5 w-5" /></Link>
+          <div><h1 className="text-xl font-black">اشتراكات ممنون</h1><p className="text-xs text-muted-foreground">باقات مقدمي الخدمة</p></div>
+        </div>
+        {loadingData ? <Loader2 className="h-7 w-7 animate-spin mx-auto mt-16" /> : <>
+          {subscription && <div className="glass rounded-2xl p-4 mb-4">
+            <div className="flex items-center gap-2 font-black"><ShieldCheck className="h-5 w-5 text-primary" /> اشتراكك الحالي</div>
+            <div className="mt-2 text-sm">{subscription.plan?.name_ar ?? "بدون باقة"} · {subscription.is_trial ? "تجربة مجانية" : subscription.status === "active" ? "نشط" : "منتهي"}</div>
+            {subscription.trial_ends_at && <div className="text-xs text-muted-foreground mt-1">نهاية التجربة: {new Date(subscription.trial_ends_at).toLocaleDateString("ar-IQ")}</div>}
+            {subscription.current_period_end && !subscription.is_trial && <div className="text-xs text-muted-foreground mt-1">ينتهي: {new Date(subscription.current_period_end).toLocaleDateString("ar-IQ")}</div>}
+            {subscription.cancel_at_period_end && <div className="text-xs text-amber-600 mt-1">تم إيقاف التجديد، وتبقى المزايا حتى نهاية الفترة</div>}
+          </div>}
+          <div className="space-y-3">
+            {plans.map((plan) => {
+              const active = subscription?.status === "active" && planCode === plan.code;
+              const Icon = plan.code === "gold" ? Crown : plan.code === "silver" ? BadgeCheck : Sparkles;
+              return <div key={plan.id} className="glass rounded-3xl p-5 border border-border/70">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2"><Icon className="h-6 w-6" style={{ color: plan.badge_color || "currentColor" }} /><div className="font-black text-lg">{plan.name_ar}</div></div>
+                  {active && <span className="text-[10px] rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 font-bold">باقتك الحالية</span>}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">{plan.description_ar}</p>
+                <div className="text-2xl font-black mt-4">{Number(plan.monthly_price).toLocaleString("ar-IQ")} <span className="text-xs font-bold text-muted-foreground">د.ع / شهرياً</span></div>
+                <button type="button" onClick={() => pay(plan.code)} disabled={!!busy || active}
+                  className="w-full mt-4 rounded-xl bg-primary text-primary-foreground py-3 font-black text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                  {busy === plan.code ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {active ? "مشترك بهذه الباقة" : "اشترك وادفع بالبطاقة"}
+                </button>
+              </div>;
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground text-center mt-5 leading-6">تتم عملية الدفع داخل صفحة بوابة QiCard الآمنة. لا يخزن ممنون رقم البطاقة أو رمز الأمان. لا يُفعّل الاشتراك إلا بعد تأكيد البوابة من الخادم.</p>
+        </>}
+      </div>
+    </MobileShell>
+  );
+}
