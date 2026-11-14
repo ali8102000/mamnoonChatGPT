@@ -165,6 +165,10 @@ function AccountSettingsPage() {
       </div>
     </section>
 
+    <button type="button" onClick={() => navigate({ to: "/support-chat" })} className="w-full mb-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-center justify-between text-right active:scale-[0.99] transition">
+      <span><span className="block text-sm font-black text-foreground">مراسلة دعم ممنون</span><span className="block text-[11px] text-muted-foreground mt-1">أرسل استفسارك أو بلاغك وتابع رد الإدارة</span></span>
+      <span className="rounded-xl bg-primary text-primary-foreground px-4 py-2 text-xs font-black">مراسلة الدعم</span>
+    </button>
     <div className="rounded-2xl bg-primary/5 border border-primary/10 p-3 flex items-center gap-2 text-xs text-muted-foreground">
       <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
       <span>بيانات حسابك محمية، ولا يتغير البريد أو الهاتف إلا بعد إكمال التحقق.</span>
