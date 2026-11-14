@@ -181,10 +181,11 @@ function createLeafletAdapter(L: any): any {
             center: [lat, lng],
             zoom: opts.zoom || 14,
             zoomControl: opts.zoomControl !== false,
-            attributionControl: false,
+            attributionControl: true,
           });
           L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>',
           }).addTo(map);
           this._map = map;
           this._listeners = {};
