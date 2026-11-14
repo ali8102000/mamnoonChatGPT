@@ -1365,6 +1365,9 @@ function RequestsSection() {
 }
 
 function ChatSection() {
+  const { session } = useAuth();
+  const [supportPreview, setSupportPreview] = useState<any[]>([]);
+  const [supportUnread, setSupportUnread] = useState(0);
   const [tab, setTab] = useState("chats");
   const [chats, setChats] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
@@ -1385,6 +1388,26 @@ function ChatSection() {
   useEffect(() => {
     load();
   }, [load]);
+  const loadSupportPreview = useCallback(async () => {
+    const { data: conversations } = await (supabase as any).from("support_conversations").select("id,user_id,status,updated_at").order("updated_at", { ascending: false }).limit(10);
+    const rows = conversations ?? [];
+    const ids = rows.map((row: any) => row.id);
+    const userIds = [...new Set(rows.map((row: any) => row.user_id))];
+    const [{ data: profiles }, { data: incoming }] = await Promise.all([
+      userIds.length ? supabase.from("profiles").select("id,full_name,phone").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
+      ids.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,read_at,created_at").in("conversation_id", ids).order("created_at", { ascending: false }) : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const profileMap = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+    const latest = new Map<string, any>();
+    let unread = 0;
+    for (const message of incoming ?? []) {
+      if (!latest.has(message.conversation_id)) latest.set(message.conversation_id, message);
+      if (message.sender_id !== session?.user.id && !message.read_at) unread += 1;
+    }
+    setSupportUnread(unread);
+    setSupportPreview(rows.map((row: any) => ({ ...row, profile: profileMap.get(row.user_id), latest: latest.get(row.id) })));
+  }, [session?.user.id]);
+  useEffect(() => { void loadSupportPreview(); }, [loadSupportPreview]);
   async function handleDelete(id: string) {
     try {
       await deleteMessage({ data: { message_id: id } });
@@ -1393,7 +1416,16 @@ function ChatSection() {
   }
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-xl font-black">إدارة الدردشة</h2><a href="/support-chat" className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">رسائل المستخدمين للإدارة</a></div>
+      <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-xl font-black">إدارة الدردشة</h2><a href="/support-chat" className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">فتح صندوق رسائل الدعم ({supportUnread} غير مقروءة)</a></div>
+      <div className="glass rounded-2xl p-3 mb-4">
+        <div className="font-black text-sm mb-2">آخر رسائل المستخدمين للإدارة</div>
+        {supportPreview.length === 0 ? <p className="text-xs text-muted-foreground">ماكو رسائل دعم واردة حالياً</p> : <div className="space-y-2">
+          {supportPreview.slice(0, 5).map((conversation) => <a key={conversation.id} href="/support-chat" className="flex items-center justify-between gap-3 rounded-xl bg-card border border-border p-3">
+            <div className="min-w-0"><div className="font-bold text-xs">{conversation.profile?.full_name || "مستخدم ممنون"}</div><div className="text-[11px] text-muted-foreground truncate mt-1">{conversation.latest?.body || "بدأ محادثة دعم جديدة"}</div></div>
+            {!conversation.latest?.read_at && conversation.latest?.sender_id !== session?.user.id ? <span className="text-[9px] font-black bg-primary text-primary-foreground rounded-full px-2 py-1">جديد</span> : null}
+          </a>)}
+        </div>}
+      </div>
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
         {["chats", "messages"].map((t) => (
           <button
