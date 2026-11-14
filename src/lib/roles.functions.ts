@@ -3,8 +3,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const grantProviderRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { role: "driver" | "worker" }) => {
-    if (input?.role !== "driver" && input?.role !== "worker") {
+  .inputValidator((input: { role: "driver" | "large_driver" | "worker" }) => {
+    if (input?.role !== "driver" && input?.role !== "large_driver" && input?.role !== "worker") {
       throw new Error("Invalid role");
     }
     return input;
@@ -17,6 +17,7 @@ export const grantProviderRole = createServerFn({ method: "POST" })
     });
     if (error) {
       console.error("[grantProviderRole]", error.message);
+      if (/large_driver_profile_required/.test(error.message)) throw new Error("أكمل بيانات السيارة الكبيرة أولاً");
       if (/driver_profile_required/.test(error.message))
         throw new Error("أكمل بيانات السيارة أولاً");
       if (/worker_profile_required/.test(error.message)) throw new Error("أكمل بيانات الفني أولاً");
