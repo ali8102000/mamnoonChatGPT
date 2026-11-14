@@ -26,10 +26,18 @@ function MessagesPage() {
   const userId = session?.user.id;
 
   const loadChats = useCallback(async () => {
+    const { data: activeRequests } = await supabase
+      .from("service_requests")
+      .select("id")
+      .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
+      .in("status", ["pending", "searching", "accepted", "in_progress"]);
+    const activeIds = (activeRequests ?? []).map((request) => request.id);
+    if (activeIds.length === 0) { setChats([]); return; }
     const { data } = await supabase
       .from("chats")
       .select("id, request_id, customer_id, provider_id, created_at")
       .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
+      .in("request_id", activeIds)
       .order("created_at", { ascending: false });
     if (!data) return;
     const otherIds = data
