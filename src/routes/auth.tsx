@@ -67,7 +67,7 @@ function AuthPage() {
         const isSuperAdminEmail = contactEmail === SUPER_ADMIN_EMAIL.toLowerCase();
         // Phone accounts use a private internal email; the optional contact email
         // remains profile metadata and must never replace the phone login identity.
-        const accountEmail = isSuperAdminEmail ? contactEmail : phoneToEmail(normalized);
+        const accountEmail = isSuperAdminEmail ? contactEmail : contactEmail || phoneToEmail(normalized);
         const { data: signupResult, error: signupError } = await supabase.functions.invoke(
           "auth-proxy/signup",
           {
