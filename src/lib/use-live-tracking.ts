@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-type Coords = { lat: number; lng: number; heading?: number | null };
+type Coords = { lat: number; lng: number; heading?: number | null; updatedAt?: string; accuracy?: number };
 
 const MIN_DISTANCE_M = 15;
 const MAX_INTERVAL_MS = 4000;
@@ -31,10 +31,11 @@ export function useLiveTracking(opts: {
   const lastPushTimeRef = useRef<number>(0);
   const channelRef = useRef<string>("");
 
-  const push = useCallback((lat: number, lng: number, heading: number | null) => {
+  const push = useCallback((lat: number, lng: number, heading: number | null, accuracy: number) => {
     if (!requestId || !myUserId) return;
+    if (!Number.isFinite(accuracy) || accuracy > 100) return;
     const now = Date.now();
-    const coords: Coords = { lat, lng, heading };
+    const coords: Coords = { lat, lng, heading, accuracy, updatedAt: new Date(now).toISOString() };
     if (lastPushRef.current) {
       const dist = distanceMeters(lastPushRef.current, coords);
       const elapsed = now - lastPushTimeRef.current;
@@ -52,7 +53,7 @@ export function useLiveTracking(opts: {
           lat,
           lng,
           heading,
-          updated_at: new Date().toISOString(),
+          updated_at: coords.updatedAt,
         } as any,
         { onConflict: "request_id,user_id" } as any,
       )
@@ -69,9 +70,12 @@ export function useLiveTracking(opts: {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           heading: pos.coords.heading,
+          accuracy: pos.coords.accuracy,
         };
-        setMe(c);
-        push(c.lat, c.lng, c.heading ?? null);
+        if (c.accuracy <= 100) {
+          setMe({ ...c, updatedAt: new Date().toISOString() });
+          push(c.lat, c.lng, c.heading ?? null, c.accuracy);
+        }
       },
       (err) => {
         console.warn("[live-tracking] geolocation error:", err.message);
@@ -104,7 +108,7 @@ export function useLiveTracking(opts: {
         (payload: any) => {
           const row = payload.new;
           if (row.user_id === otherUserId) {
-            setOther({ lat: row.lat, lng: row.lng, heading: row.heading });
+            setOther({ lat: row.lat, lng: row.lng, heading: row.heading, updatedAt: row.updated_at });
           }
         },
       )
@@ -119,7 +123,7 @@ export function useLiveTracking(opts: {
       .eq("user_id", otherUserId)
       .maybeSingle()
       .then(({ data }: any) => {
-        if (data) setOther({ lat: data.lat, lng: data.lng, heading: data.heading });
+        if (data) setOther({ lat: data.lat, lng: data.lng, heading: data.heading, updatedAt: data.updated_at });
       });
 
     return () => {
