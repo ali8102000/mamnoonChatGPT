@@ -162,7 +162,6 @@ function RequestDetail() {
             .order("created_at");
           setMessages(m ?? []);
         }
-      }
       } else {
         setChat(null);
         setMessages([]);
