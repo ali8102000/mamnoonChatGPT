@@ -41,7 +41,7 @@ import {
 } from "@/lib/taxi-fares";
 import { detectWeatherCondition, seasonalWeatherFallback } from "@/lib/weather";
 
-const search = z.object({ type: z.enum(["taxi", "service"]).default("taxi") });
+const search = z.object({ type: z.enum(["taxi", "service"]).default("taxi"), vehicle: z.enum(["large"]).optional() });
 
 export const Route = createFileRoute("/request/new")({
   ssr: false,
@@ -116,7 +116,7 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
 }
 
 function NewRequest() {
-  const { type } = Route.useSearch();
+  const { type, vehicle } = Route.useSearch();
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const runDispatch = useServerFn(dispatchRequest);
@@ -135,7 +135,7 @@ function NewRequest() {
   const [workDescription, setWorkDescription] = useState("");
 
   // Taxi State
-  const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>("economy");
+  const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
   const [weatherCondition, setWeatherCondition] = useState<WeatherCondition>(() =>
     seasonalWeatherFallback(),
@@ -709,7 +709,8 @@ function NewRequest() {
               </div>
             )}
             <div className="space-y-2">
-              {VEHICLE_CATS.map((c) => {
+              {vehicle === "large" && <div className="font-black text-sm text-foreground">طلب سيارة كبيرة</div>}
+              {(vehicle === "large" ? VEHICLE_CATS.filter((item) => item.key === "large") : VEHICLE_CATS).map((c) => {
                 const active = vehicleCategory === c.key;
                 const fare =
                   routeKm !== null
