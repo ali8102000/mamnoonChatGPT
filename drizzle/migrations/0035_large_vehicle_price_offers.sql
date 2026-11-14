@@ -215,7 +215,7 @@ RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 DECLARE
   r public.service_requests%ROWTYPE;
   v_count integer;
@@ -233,7 +233,7 @@ BEGIN
   v_count := public.advance_taxi_dispatch(_request_id);
   RETURN v_count;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.retry_large_vehicle_dispatch(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.retry_large_vehicle_dispatch(uuid) TO authenticated;
 
