@@ -206,6 +206,7 @@ export default function DriverOnboarding() {
         });
         if (error) throw error;
         setPendingVehicleChange(true);
+        setChangedDocuments({});
         setVehicleChangeMode(false);
         setStatus("approved");
         Alert.alert("تم إرسال الطلب", "وصل طلب تغيير فئة المركبة إلى الإدارة. مركبتك الحالية تبقى فعالة لحين الموافقة.");
@@ -301,6 +302,7 @@ export default function DriverOnboarding() {
       if (verificationError) throw new Error(`تعذر حفظ طلب التوثيق: ${verificationError.message}`);
 
       setStatus("pending");
+      setChangedDocuments({});
       setRejectionReason(null);
       await refresh();
       Alert.alert("تم إرسال الطلب", "وصل طلبك إلى إدارة " + companyName + " وهو الآن بانتظار الموافقة. لا يمكنك استقبال الرحلات قبل الاعتماد.");

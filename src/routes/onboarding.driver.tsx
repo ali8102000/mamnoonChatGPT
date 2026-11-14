@@ -354,6 +354,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         });
         if (error) throw error;
         setPendingVehicleChange(true);
+        setChangedDocuments({});
         setVehicleChangeMode(false);
         setEditingMode(false);
         toast.success("وصل طلب تغيير فئة المركبة للإدارة. فئتك الحالية تبقى فعالة لحين الموافقة.");
