@@ -62,9 +62,8 @@ function MessagesPage() {
 
     const ch = supabase
       .channel(`chats-${userId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () =>
-        loadChats(),
-      )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () => loadChats())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "service_requests" }, () => loadChats())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
