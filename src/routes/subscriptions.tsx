@@ -20,20 +20,21 @@ export const Route = createFileRoute("/subscriptions")({
 function ProviderSubscriptionsPage() {
   const { session, roles, loading } = useAuth();
   const isProvider = roles.some((r) => ["worker", "driver", "large_driver"].includes(r));
+  const userId = session?.user.id;
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
-    if (!session || !isProvider) { setLoadingData(false); return; }
+    if (!userId || !isProvider) { setLoadingData(false); return; }
     let active = true;
     (async () => {
       const [{ data: planRows, error: plansError }, { data: sub, error: subError }] = await Promise.all([
         supabase.from("subscription_plans").select("id,code,name_ar,description_ar,monthly_price,currency,badge_label,badge_color,features")
           .in("code", ["bronze", "silver", "gold"]).eq("is_active", true).order("tier"),
         supabase.from("user_subscriptions").select("status,is_trial,trial_started_at,trial_ends_at,current_period_end,auto_renew,cancel_at_period_end,plan:subscription_plans(code,name_ar,tier,badge_label)")
-          .eq("user_id", session.user.id).maybeSingle(),
+          .eq("user_id", userId).maybeSingle(),
       ]);
       if (!active) return;
       if (plansError) toast.error("تعذر تحميل باقات الاشتراك");
@@ -43,7 +44,7 @@ function ProviderSubscriptionsPage() {
       setLoadingData(false);
     })();
     return () => { active = false; };
-  }, [session?.user.id, isProvider]);
+  }, [userId, isProvider]);
 
   async function pay(planCode: string) {
     if (!session || busy) return;
