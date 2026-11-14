@@ -69,13 +69,19 @@ BEGIN
   END IF;
 
   IF _provider_type = 'worker' THEN
-    IF jsonb_typeof(_requested_data->'service_ids') IS DISTINCT FROM 'array'
-       OR jsonb_array_length(_requested_data->'service_ids') = 0 THEN
+    IF jsonb_typeof(_requested_data->'service_ids') IS DISTINCT FROM 'array' THEN
       RAISE EXCEPTION 'select_at_least_one_specialty';
     END IF;
+    IF jsonb_array_length(_requested_data->'service_ids') = 0 THEN
+      RAISE EXCEPTION 'select_at_least_one_specialty';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.worker_profiles
+      WHERE user_id = auth.uid() AND status = 'approved'
+    ) THEN RAISE EXCEPTION 'approved_worker_profile_required'; END IF;
     IF EXISTS (
       SELECT 1 FROM jsonb_array_elements_text(_requested_data->'service_ids') AS item(value)
-      LEFT JOIN public.services s ON s.id = item.value::uuid WHERE s.id IS NULL
+      LEFT JOIN public.services s ON s.id = item.value::uuid WHERE s.id IS NULL OR s.slug = 'taxi'
     ) THEN RAISE EXCEPTION 'invalid_service_selection'; END IF;
   ELSE
     v_vehicle := _requested_data->'vehicle_update';
@@ -146,6 +152,10 @@ BEGIN
 
   IF _status = 'approved' THEN
     IF r.provider_type = 'worker' THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM public.worker_profiles
+        WHERE user_id = r.user_id AND status = 'approved'
+      ) THEN RAISE EXCEPTION 'approved_worker_profile_required'; END IF;
       DELETE FROM public.worker_services WHERE worker_id = r.user_id;
       INSERT INTO public.worker_services(worker_id, service_id)
       SELECT r.user_id, item.value::uuid
