@@ -876,6 +876,8 @@ function ProvidersSection() {
   const [selectedProvider, setSelectedProvider] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [changeRequests, setChangeRequests] = useState<any[]>([]);
+  const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
+  const [bulkProviderBusy, setBulkProviderBusy] = useState(false);
   const [changeRequestsLoading, setChangeRequestsLoading] = useState(true);
   const [rejectingChangeRequest, setRejectingChangeRequest] = useState<any | null>(null);
   const [changeRequestReason, setChangeRequestReason] = useState("");
@@ -896,6 +898,7 @@ function ProvidersSection() {
     }
   }, [type, statusFilter, categoryFilter, listProviders]);
   useEffect(() => {
+    setSelectedProviderIds([]);
     load();
   }, [load]);
   const loadChangeRequests = useCallback(async () => {
@@ -1033,6 +1036,13 @@ function ProvidersSection() {
           </>}
         </select>
       </div>
+      <div className="mb-3 glass rounded-2xl p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-black">تحديد الحسابات الظاهرة ({selectedProviderIds.length}/{providers.length})</div>
+          <button onClick={() => setSelectedProviderIds(selectedProviderIds.length===providers.length ? [] : providers.map(p=>p.user_id))} className="text-xs font-black text-primary">{selectedProviderIds.length===providers.length ? "إلغاء تحديد الكل" : "تحديد الكل"}</button>
+        </div>
+        <button disabled={bulkProviderBusy || selectedProviderIds.length===0 || !["pending","suspended"].includes(statusFilter)} onClick={async()=>{const action=statusFilter==="pending"?"approved":"approved";const label=statusFilter==="pending"?"الموافقة وتفعيل كل المحددين":"رفع التعليق وإعادة تفعيل كل المحددين";if(!window.confirm("سيتم "+label+" ("+selectedProviderIds.length+" حساب). هل أنت متأكد؟"))return;setBulkProviderBusy(true);setActionMessage("");try{const results=await Promise.allSettled(selectedProviderIds.map(user_id=>setStatus({data:{user_id,type,status:action}})));const succeeded=results.filter(r=>r.status==="fulfilled").length;const failed=results.length-succeeded;setActionMessage("اكتمل تنفيذ "+succeeded+" من "+results.length+(failed?"، وفشل "+failed+" حساب":"")+"؛ راجع السجل إذا ظهرت حالات فشل.");setSelectedProviderIds([]);await load();}catch(e:any){setActionMessage(e.message||"تعذر تنفيذ الإجراء الجماعي");}finally{setBulkProviderBusy(false);}}} className="w-full rounded-xl bg-emerald-600 text-white py-2.5 text-xs font-black disabled:opacity-40">{bulkProviderBusy?"جارٍ تنفيذ الإجراء على المحددين...":statusFilter==="pending"?"الموافقة على الكل وتفعيل المحددين":statusFilter==="suspended"?"رفع التعليق عن الكل المحدد":"اختر حالة (بانتظار التفعيل أو المعلّقون) لتفعيل الإجراء الجماعي"}</button>
+      </div>
       {loading ? (
         <Loader2 className="h-6 w-6 animate-spin mx-auto" />
       ) : providers.length === 0 ? (
@@ -1043,6 +1053,7 @@ function ProvidersSection() {
         <div className="space-y-2">
           {providers.map((p) => (
             <div key={p.id} className="glass rounded-2xl p-3">
+              <label className="flex items-center gap-2 text-xs font-bold mb-2"><input type="checkbox" checked={selectedProviderIds.includes(p.user_id)} onChange={(e)=>setSelectedProviderIds(current=>e.target.checked?[...current,p.user_id]:current.filter(id=>id!==p.user_id))}/> تحديد هذا الحساب للإجراء الجماعي</label>
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <div className="font-bold text-sm">{p.profiles?.full_name ?? "—"}</div>
