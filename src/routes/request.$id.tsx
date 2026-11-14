@@ -567,7 +567,7 @@ function RequestDetail() {
                 }}
                 className="min-w-[112px] min-h-12 px-3 py-2 rounded-xl bg-primary text-primary-foreground font-black text-sm btn-press shadow-md"
               >
-                بدء الرحلة
+                {req.type === "taxi" ? "بدء الرحلة" : "بدء تنفيذ الخدمة"}
               </button>
             )}
             {req.status === "in_progress" && session.user.id === req.provider_id && (
@@ -575,7 +575,7 @@ function RequestDetail() {
                 onClick={markCompleted}
                 className="min-w-[120px] min-h-12 px-3 py-2 rounded-xl bg-success text-success-foreground font-black text-sm btn-press shadow-md"
               >
-                تأكيد إكمال الرحلة
+                {req.type === "taxi" ? "تأكيد إكمال الرحلة" : "تأكيد إكمال الطلب"}
               </button>
             )}
             {["pending", "searching", "accepted", "in_progress"].includes(req.status as string) && (
