@@ -115,6 +115,8 @@ function NewRequest() {
 
   // Common & Service State
   const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoadError, setServicesLoadError] = useState<string | null>(null);
+  const [servicesLoading, setServicesLoading] = useState(false);
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [level, setLevel] = useState<"fani" | "khabir">("fani");
   const [khabirMode, setKhabirMode] = useState<"alone" | "with_workers">("alone");
@@ -272,16 +274,45 @@ function NewRequest() {
     enabled: !!pickupCoords,
   });
 
-  useEffect(() => {
-    if (type === "service") {
-      supabase
+  async function loadServiceCatalog() {
+    setServicesLoading(true);
+    setServicesLoadError(null);
+    try {
+      // Use the same authenticated catalog RPC as technician onboarding.
+      const catalog = await supabase.rpc("get_worker_service_catalog");
+      if (!catalog.error && Array.isArray(catalog.data) && catalog.data.length > 0) {
+        setServices((catalog.data as Service[]).filter((service) => service.slug !== "taxi"));
+        return;
+      }
+
+      // Backward-compatible fallback for deployments where the catalog RPC
+      // has not yet been applied. Never silently turn a failed query into an
+      // empty service picker.
+      const fallback = await supabase
         .from("services")
         .select("id, slug, name_ar")
-        .order("sort_order")
-        .then(({ data }) => {
-          setServices((data ?? []) as Service[]);
-        });
+        .order("sort_order");
+      if (fallback.error) throw fallback.error;
+      const rows = (fallback.data ?? []) as Service[];
+      setServices(rows.filter((service) => service.slug !== "taxi"));
+      if (!rows.length) {
+        throw new Error("قائمة الخدمات فارغة في قاعدة البيانات. يلزم تطبيق تحديث كتالوج الخدمات.");
+      }
+    } catch (error: unknown) {
+      console.error("[service catalog] failed to load:", error);
+      setServices([]);
+      setServicesLoadError(
+        error instanceof Error
+          ? error.message
+          : "تعذر تحميل الخدمات. تحقق من اتصال قاعدة البيانات ثم أعد المحاولة.",
+      );
+    } finally {
+      setServicesLoading(false);
     }
+  }
+
+  useEffect(() => {
+    if (type === "service") void loadServiceCatalog();
   }, [type]);
 
   if (loading) return null;
@@ -743,6 +774,19 @@ function NewRequest() {
 
       {/* Services Grid */}
       <div className="mt-6 mb-3 text-sm font-bold text-muted-foreground">اختر الخدمة</div>
+      {servicesLoading && (
+        <div className="mb-4 rounded-2xl bg-card p-4 text-center text-sm text-muted-foreground">
+          جارٍ تحميل صور وخدمات المهن...
+        </div>
+      )}
+      {servicesLoadError && (
+        <div className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-right">
+          <p className="text-sm font-bold text-destructive">{servicesLoadError}</p>
+          <button type="button" onClick={() => void loadServiceCatalog()} className="mt-3 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">
+            إعادة تحميل الخدمات
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {services.map((s) => {
           const active = serviceId === s.id;
