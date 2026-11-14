@@ -63,7 +63,8 @@ function RequestDetail() {
   const [req, setReq] = useState<any>(null);
   const [other, setOther] = useState<any>(null);
   const [largeOffers, setLargeOffers] = useState<any[]>([]);
-  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);\n  const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
+  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
+  const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
   const [chat, setChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [draft, setDraft] = useState("");
