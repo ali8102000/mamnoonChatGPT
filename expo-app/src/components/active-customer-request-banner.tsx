@@ -3,6 +3,7 @@ import { Text, TouchableOpacity, View, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { palette, radius } from "@/styles/theme";
 
 type ActiveRequest = {
   id: string;
@@ -80,21 +81,9 @@ export function ActiveCustomerRequestBanner() {
 }
 
 const styles = StyleSheet.create({
-  banner: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
-    padding: 13,
-    borderRadius: 16,
-    backgroundColor: "#ecfdf5",
-    borderWidth: 1,
-    borderColor: "#86efac",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#16a34a" },
-  title: { color: "#065f46", fontSize: 13, fontWeight: "900" },
-  subtitle: { color: "#475569", fontSize: 11, marginTop: 3 },
-  action: { color: "#047857", fontSize: 12, fontWeight: "900" },
+  banner: { marginHorizontal: 16, marginTop: 8, marginBottom: 8, padding: 14, borderRadius: radius.lg, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: "#C8DCCF", flexDirection: "row", alignItems: "center", gap: 10 },
+  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: palette.success },
+  title: { color: palette.brandDeep, fontSize: 13, fontWeight: "900" },
+  subtitle: { color: palette.muted, fontSize: 11, marginTop: 3 },
+  action: { color: palette.brand, fontSize: 12, fontWeight: "900" },
 });
