@@ -81,10 +81,16 @@ export default function DriverOnboarding() {
         supabase.from("driver_profiles")
           .select("status,vehicle_make,vehicle_model,vehicle_year,vehicle_plate,vehicle_color,vehicle_category,vehicle_type")
           .eq("user_id", user.id).maybeSingle(),
-      ]).then(([verification, driverProfile]) => {
+      ]).then(async ([verification, driverProfile]) => {
         if (!active) return;
         const saved = driverProfile.data;
-        const verificationData = verification.data;
+        let verificationData = verification.data;
+        if (!verificationData && largeDriverMode) {
+          const legacyVerification = await supabase.from("provider_verifications")
+            .select("status,rejection_reason,metadata")
+            .eq("user_id", user.id).eq("provider_type", "driver").maybeSingle();
+          verificationData = legacyVerification.data;
+        }
         const m = (verificationData?.metadata ?? {}) as Record<string, unknown>;
         const resolvedStatus = verificationData?.status ?? saved?.status ?? null;
         if (resolvedStatus) setStatus(resolvedStatus);

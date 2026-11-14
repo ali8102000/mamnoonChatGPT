@@ -133,6 +133,7 @@ DECLARE
   v_vehicle jsonb;
   v_documents jsonb;
   v_updated integer;
+  v_verification_type text;
 BEGIN
   PERFORM public.assert_staff('admin');
   IF _status NOT IN ('approved','rejected') THEN RAISE EXCEPTION 'invalid_review_status'; END IF;
@@ -176,6 +177,14 @@ BEGIN
           OR (r.provider_type = 'large_driver' AND vehicle_category::text = 'large'));
       IF NOT FOUND THEN RAISE EXCEPTION 'approved_driver_profile_not_found'; END IF;
 
+      v_verification_type := r.provider_type;
+      IF r.provider_type = 'large_driver' AND NOT EXISTS (
+        SELECT 1 FROM public.provider_verifications
+        WHERE user_id = r.user_id AND provider_type = 'large_driver'
+      ) THEN
+        v_verification_type := 'driver';
+      END IF;
+
       UPDATE public.provider_verifications
       SET face_photo_path = CASE WHEN v_documents ? 'face_photo' THEN v_documents->>'face_photo' ELSE face_photo_path END,
           id_card_photo_path = CASE WHEN v_documents ? 'id_card' THEN v_documents->>'id_card' ELSE id_card_photo_path END,
@@ -191,7 +200,7 @@ BEGIN
             'vehicleType', v_vehicle->'vehicle_type'
           )),
           updated_at = now()
-      WHERE user_id = r.user_id AND provider_type = r.provider_type;
+      WHERE user_id = r.user_id AND provider_type = v_verification_type;
       GET DIAGNOSTICS v_updated = ROW_COUNT;
       IF v_documents <> '{}'::jsonb AND v_updated = 0 THEN
         RAISE EXCEPTION 'provider_verification_record_not_found';
