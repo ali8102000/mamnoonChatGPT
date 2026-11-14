@@ -1,17 +1,24 @@
 import { useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { router } from "expo-router";
-import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import {
+  View, Text, StyleSheet, ScrollView, Alert, Pressable,
+  KeyboardAvoidingView, Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { authProxy, supabase } from "@/lib/supabase";
 import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
+import { palette, radius, space } from "@/styles/theme";
 
 type Mode = "signup" | "login";
+type LoginMethod = "phone" | "email";
 type AuthSessionTokens = Pick<Session, "access_token" | "refresh_token">;
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState<Mode>("signup");
+  const [mode, setMode] = useState<Mode>("login");
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>("phone");
   const [identifier, setIdentifier] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -22,28 +29,18 @@ export default function AuthScreen() {
 
   async function onSubmit() {
     if (password.length < 6) {
-      Alert.alert("خطأ", "كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      Alert.alert("تحقق من كلمة المرور", "كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       return;
     }
     setBusy(true);
     try {
       if (mode === "signup") {
-        if (name.trim().length < 2) {
-          Alert.alert("خطأ", "الرجاء إدخال الاسم");
-          setBusy(false);
-          return;
-        }
-        if (!isValidPhone(phone)) {
-          Alert.alert("خطأ", "رقم الهاتف غير صالح");
-          setBusy(false);
-          return;
-        }
+        if (name.trim().length < 2) throw new Error("الرجاء إدخال الاسم الكامل");
+        if (!isValidPhone(phone)) throw new Error("رقم الهاتف غير صالح");
         const normalized = normalizePhone(phone);
         const contactEmail = email.trim().toLowerCase();
-        if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
-          Alert.alert("خطأ", "البريد الإلكتروني غير صالح");
-          setBusy(false);
-          return;
+        if (contactEmail && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(contactEmail)) {
+          throw new Error("البريد الإلكتروني غير صالح");
         }
         const result = await authProxy<{ session: AuthSessionTokens | null }>("/signup", {
           email: contactEmail || phoneToEmail(normalized),
@@ -52,9 +49,7 @@ export default function AuthScreen() {
           full_name: name.trim(),
           contact_email: contactEmail || null,
         });
-        if (!result.session) {
-          throw new Error("تعذّر إكمال التسجيل لأن خادم المصادقة لم يُرجع جلسة دخول. حاول مرة أخرى، وإذا تكررت المشكلة فيلزم فحص وظيفة التسجيل على الخادم.");
-        }
+        if (!result.session) throw new Error("تعذّر إكمال التسجيل. حاول مرة أخرى.");
         const { error } = await supabase.auth.setSession(result.session);
         if (error) throw error;
         if (contactEmail) {
@@ -67,23 +62,19 @@ export default function AuthScreen() {
         router.replace("/select-role");
       } else {
         const id = identifier.trim();
-        if (!id) {
-          Alert.alert("خطأ", "أدخل رقم الهاتف أو البريد الإلكتروني");
-          setBusy(false);
-          return;
+        if (!id) throw new Error(loginMethod === "phone" ? "أدخل رقم الهاتف" : "أدخل البريد الإلكتروني");
+        let payload: { phone: string; password: string } | { email: string; password: string };
+        if (loginMethod === "phone") {
+          if (!isValidPhone(id)) throw new Error("رقم الهاتف غير صالح");
+          payload = { phone: normalizePhone(id), password };
+        } else {
+          const normalizedEmail = id.toLowerCase();
+          if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail)) {
+            throw new Error("البريد الإلكتروني غير صالح");
+          }
+          payload = { email: normalizedEmail, password };
         }
-        const isEmail = id.includes("@");
-        const finalId = isEmail ? id : normalizePhone(id);
-        if (!isEmail && !isValidPhone(id)) {
-          Alert.alert("خطأ", "رقم الهاتف غير صالح");
-          setBusy(false);
-          return;
-        }
-        const loginPayload = isEmail ? { email: finalId, password } : { phone: finalId, password };
-        const result = await authProxy<{ session: AuthSessionTokens | null }>(
-          "/login",
-          loginPayload,
-        );
+        const result = await authProxy<{ session: AuthSessionTokens | null }>("/login", payload);
         if (!result.session) throw new Error("تعذر إنشاء جلسة تسجيل الدخول");
         const { error } = await supabase.auth.setSession(result.session);
         if (error) throw error;
@@ -93,139 +84,198 @@ export default function AuthScreen() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "حدث خطأ";
       if (/Failed to fetch|NetworkError/i.test(msg)) {
-        Alert.alert("خطأ", "تعذّر الاتصال بالخادم. تحقق من اتصال الإنترنت");
+        Alert.alert("الاتصال غير متاح", "تحقق من اتصال الإنترنت وحاول مرة ثانية.");
       } else if (/already registered|User already/i.test(msg)) {
-        Alert.alert("خطأ", "هذا الحساب مسجّل مسبقاً. حاول تسجيل الدخول");
+        Alert.alert("الحساب موجود", "هذا الحساب مسجّل مسبقاً. انتقل إلى تسجيل الدخول.");
+        setMode("login");
+        setLoginMethod("phone");
+        setIdentifier(phone);
       } else if (/Invalid login|Invalid credentials/i.test(msg)) {
-        Alert.alert("خطأ", "بيانات الدخول غير صحيحة");
+        Alert.alert("تعذر الدخول", "بيانات الدخول غير صحيحة.");
       } else {
-        Alert.alert("خطأ", msg);
+        Alert.alert("تعذر إكمال العملية", msg);
       }
     } finally {
       setBusy(false);
     }
   }
 
+  const isSignup = mode === "signup";
+
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <View style={styles.logoWrap}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>م</Text>
-        </View>
-        <Text style={styles.title}>ممنون</Text>
-        <Text style={styles.subtitle}>منصة النقل والخدمات</Text>
-      </View>
-      <View style={styles.card}>
-        <View style={styles.tabs}>
-          {(["signup", "login"] as Mode[]).map((m) => (
-            <View key={m} style={[styles.tab, mode === m && styles.tabActive]}>
-              <Text
-                style={[styles.tabText, mode === m && styles.tabTextActive]}
-                onPress={() => setMode(m)}
-              >
-                {m === "signup" ? "حساب جديد" : "تسجيل دخول"}
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.brandTop}>
+            <View style={styles.brandMark}><Text style={styles.brandLetter}>م</Text></View>
+            <Text style={styles.brandName}>ممنون</Text>
+            <Text style={styles.brandCaption}>كل مشاويرك وخدمات بيتك بمكان واحد</Text>
+            <View style={styles.brandRule}><View style={styles.brandRuleGold} /></View>
+          </View>
+
+          <View style={styles.panel}>
+            <View style={styles.panelIntro}>
+              <Text style={styles.kicker}>{isSignup ? "ابدأ رحلتك ويانه" : "أهلاً بعودتك"}</Text>
+              <Text style={styles.title}>{isSignup ? "أنشئ حسابك" : "سجّل دخولك"}</Text>
+              <Text style={styles.subtitle}>
+                {isSignup ? "بيانات بسيطة وتكون جاهز تستخدم ممنون" : "ادخل لحسابك وتابع طلباتك بسهولة"}
               </Text>
             </View>
-          ))}
-        </View>
-        {mode === "signup" ? (
-          <>
-            <Text style={styles.label}>الاسم الكامل</Text>
-            <RealInput value={name} onChangeText={setName} placeholder="مثال: أحمد محمد" />
-            <Text style={styles.label}>رقم الهاتف</Text>
+
+            <View style={styles.modeSwitch}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: !isSignup }}
+                onPress={() => setMode("login")}
+                style={[styles.modeOption, !isSignup && styles.modeOptionActive]}
+              >
+                <Text style={[styles.modeText, !isSignup && styles.modeTextActive]}>تسجيل الدخول</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSignup }}
+                onPress={() => setMode("signup")}
+                style={[styles.modeOption, isSignup && styles.modeOptionActive]}
+              >
+                <Text style={[styles.modeText, isSignup && styles.modeTextActive]}>حساب جديد</Text>
+              </Pressable>
+            </View>
+
+            {!isSignup && (
+              <View style={styles.methodBlock}>
+                <Text style={styles.fieldLabel}>طريقة تسجيل الدخول</Text>
+                <View style={styles.methodSwitch}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: loginMethod === "phone" }}
+                    onPress={() => { setLoginMethod("phone"); setIdentifier(""); }}
+                    style={[styles.methodOption, loginMethod === "phone" && styles.methodOptionActive]}
+                  >
+                    <Text style={[styles.methodText, loginMethod === "phone" && styles.methodTextActive]}>رقم الهاتف</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: loginMethod === "email" }}
+                    onPress={() => { setLoginMethod("email"); setIdentifier(""); }}
+                    style={[styles.methodOption, loginMethod === "email" && styles.methodOptionActive]}
+                  >
+                    <Text style={[styles.methodText, loginMethod === "email" && styles.methodTextActive]}>البريد الإلكتروني</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
+            {isSignup ? (
+              <>
+                <FieldLabel title="الاسم الكامل" />
+                <RealInput value={name} onChangeText={setName} placeholder="اكتب اسمك الثلاثي" autoCapitalize="words" textContentType="name" />
+                <FieldLabel title="رقم الهاتف" />
+                <RealInput value={phone} onChangeText={setPhone} placeholder="07XXXXXXXXX" keyboardType="phone-pad" textContentType="telephoneNumber" />
+                <FieldLabel title="البريد الإلكتروني" hint="اختياري" />
+                <RealInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" textContentType="emailAddress" />
+              </>
+            ) : (
+              <>
+                <FieldLabel title={loginMethod === "phone" ? "رقم الهاتف" : "البريد الإلكتروني"} />
+                <RealInput
+                  value={identifier}
+                  onChangeText={setIdentifier}
+                  placeholder={loginMethod === "phone" ? "07XXXXXXXXX" : "name@example.com"}
+                  keyboardType={loginMethod === "phone" ? "phone-pad" : "email-address"}
+                  autoCapitalize="none"
+                  textContentType={loginMethod === "phone" ? "telephoneNumber" : "emailAddress"}
+                />
+              </>
+            )}
+
+            <FieldLabel title="كلمة المرور" />
             <RealInput
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="07XXXXXXXXX"
-              keyboardType="phone-pad"
-            />
-            <Text style={styles.label}>البريد الإلكتروني (اختياري)</Text>
-            <RealInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              keyboardType="email-address"
-            />
-          </>
-        ) : (
-          <>
-            <Text style={styles.label}>رقم الهاتف أو البريد</Text>
-            <RealInput
-              value={identifier}
-              onChangeText={setIdentifier}
-              placeholder="07XXXXXXXXX أو name@example.com"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="ستة أحرف على الأقل"
+              secureTextEntry
               autoCapitalize="none"
+              textContentType={isSignup ? "newPassword" : "password"}
+              returnKeyType="done"
+              onSubmitEditing={onSubmit}
             />
-          </>
-        )}
-        <Text style={styles.label}>كلمة المرور</Text>
-        <RealInput
-          value={password}
-          onChangeText={setPassword}
-          placeholder="••••••"
-          secureTextEntry
-        />
-        {mode === "login" && (
-          <Text style={styles.forgotLink} onPress={() => router.push("/forgot-password")}>
-            نسيت كلمة المرور؟
-          </Text>
-        )}
-        <View style={{ height: 24 }} />
-        <Button
-          title={mode === "signup" ? "إنشاء الحساب" : "دخول"}
-          onPress={onSubmit}
-          loading={busy}
-        />
-        <Text style={styles.terms}>بمتابعتك أنت توافق على الشروط والأحكام وسياسة الخصوصية</Text>
-      </View>
-    </ScrollView>
+
+            {!isSignup && (
+              <Pressable onPress={() => router.push("/forgot-password")} style={styles.forgotButton}>
+                <Text style={styles.forgotText}>نسيت كلمة المرور؟</Text>
+              </Pressable>
+            )}
+
+            <Button
+              title={busy ? "جارٍ المتابعة..." : isSignup ? "إنشاء حسابي" : "الدخول إلى ممنون"}
+              onPress={onSubmit}
+              loading={busy}
+              style={styles.submit}
+            />
+            <Text style={styles.terms}>بمتابعتك، أنت توافق على شروط الاستخدام وسياسة الخصوصية.</Text>
+          </View>
+          <Text style={styles.footer}>ممنون — تجربة أسهل، وخدمة أقرب</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+function FieldLabel({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <View style={styles.labelRow}>
+      <Text style={styles.fieldLabel}>{title}</Text>
+      {!!hint && <Text style={styles.fieldHint}>{hint}</Text>}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 60, paddingBottom: 30 },
-  logoWrap: { alignItems: "center", marginBottom: 40 },
-  logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: "#0f766e",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
+  safe: { flex: 1, backgroundColor: palette.canvas },
+  flex: { flex: 1 },
+  content: { flexGrow: 1, paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.xxl },
+  brandTop: { alignItems: "center", paddingTop: space.md, paddingBottom: space.xxl },
+  brandMark: {
+    width: 68, height: 68, borderRadius: 22, backgroundColor: palette.brand,
+    alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: palette.gold,
   },
-  logoText: { fontSize: 32, fontWeight: "900", color: "#fff" },
-  title: { fontSize: 36, fontWeight: "900", color: "#1e293b" },
-  subtitle: { fontSize: 14, color: "#64748b", marginTop: 4 },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 24,
-    flex: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 6,
+  brandLetter: { color: palette.white, fontSize: 34, fontWeight: "900" },
+  brandName: { color: palette.ink, fontSize: 30, fontWeight: "900", marginTop: 10, letterSpacing: -0.5 },
+  brandCaption: { color: palette.muted, fontSize: 13, fontWeight: "600", marginTop: 4 },
+  brandRule: { height: 2, width: 58, backgroundColor: palette.line, marginTop: 16, borderRadius: 2 },
+  brandRuleGold: { width: 22, height: 2, backgroundColor: palette.gold, alignSelf: "center", borderRadius: 2 },
+  panel: {
+    backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.xl,
+    borderWidth: 1, borderColor: palette.line,
   },
-  tabs: {
-    flexDirection: "row",
-    backgroundColor: "#f1f5f9",
-    borderRadius: 16,
-    padding: 4,
-    marginBottom: 24,
-  },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: "center" },
-  tabActive: { backgroundColor: "#0f766e" },
-  tabText: { fontSize: 14, fontWeight: "700", color: "#64748b" },
-  tabTextActive: { color: "#fff" },
-  label: { fontSize: 12, fontWeight: "700", color: "#64748b", marginBottom: 8, marginTop: 16 },
-  forgotLink: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#0f766e",
-    marginTop: 12,
-    textAlign: "left",
-  },
-  terms: { fontSize: 11, color: "#94a3b8", textAlign: "center", marginTop: 16, lineHeight: 18 },
+  panelIntro: { marginBottom: space.xl },
+  kicker: { color: palette.gold, fontSize: 11, fontWeight: "900", marginBottom: 7 },
+  title: { color: palette.ink, fontSize: 25, fontWeight: "900" },
+  subtitle: { color: palette.muted, fontSize: 13, lineHeight: 21, marginTop: 6 },
+  modeSwitch: { flexDirection: "row", backgroundColor: palette.surfaceSoft, borderRadius: radius.md, padding: 4, marginBottom: space.xl },
+  modeOption: { flex: 1, minHeight: 46, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+  modeOptionActive: { backgroundColor: palette.brand },
+  modeText: { color: palette.muted, fontSize: 13, fontWeight: "800" },
+  modeTextActive: { color: palette.white },
+  methodBlock: { marginBottom: space.md },
+  methodSwitch: { flexDirection: "row", gap: 8, backgroundColor: palette.canvas, padding: 5, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line },
+  methodOption: { flex: 1, minHeight: 46, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+  methodOptionActive: { backgroundColor: palette.goldSoft, borderWidth: 1, borderColor: "#E4D4AD" },
+  methodText: { color: palette.muted, fontSize: 12, fontWeight: "800" },
+  methodTextActive: { color: palette.brandDeep },
+  labelRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: space.md, marginBottom: space.sm },
+  fieldLabel: { color: palette.ink, fontSize: 13, fontWeight: "800" },
+  fieldHint: { color: palette.muted, fontSize: 11 },
+  forgotButton: { alignSelf: "flex-start", paddingVertical: space.md },
+  forgotText: { color: palette.brand, fontSize: 12, fontWeight: "800" },
+  submit: { marginTop: space.xl },
+  terms: { color: palette.muted, fontSize: 10, lineHeight: 17, textAlign: "center", marginTop: space.lg },
+  footer: { textAlign: "center", color: palette.muted, fontSize: 11, fontWeight: "700", marginTop: space.xl },
 });
