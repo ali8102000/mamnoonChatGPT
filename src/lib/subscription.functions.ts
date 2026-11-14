@@ -259,62 +259,26 @@ export const adminGetSubscriptions = createServerFn({ method: "GET" })
 export const adminAssignSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z
-      .object({
-        user_id: z.string().uuid(),
-        plan_id: z.string().uuid(),
-        billing_cycle: z.enum(["monthly", "yearly"]).default("monthly"),
-        period_days: z.number().int().min(1).max(365).default(30),
-      })
-      .parse(d),
+    z.object({
+      user_id: z.string().uuid(),
+      plan_id: z.string().uuid(),
+      billing_cycle: z.enum(["monthly", "yearly"]).default("monthly"),
+      period_days: z.number().int().refine((v) => [30, 60, 365].includes(v), "المدة غير مدعومة"),
+    }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const periodEnd = new Date();
-    periodEnd.setDate(periodEnd.getDate() + data.period_days);
-
-    const { error: upErr } = await (supabaseAdmin as any).from("user_subscriptions").upsert(
-      {
-        user_id: data.user_id,
-        plan_id: data.plan_id,
-        status: "active",
-        billing_cycle: data.billing_cycle,
-        current_period_start: new Date().toISOString(),
-        current_period_end: periodEnd.toISOString(),
-        request_count: 0,
-        resets_count_period_start: new Date().toISOString(),
-        auto_renew: false,
-      },
-      { onConflict: "user_id" },
-    );
-
-    if (upErr) throw new Error("Failed to assign subscription: " + upErr.message);
-
-    const { data: plan } = await (supabaseAdmin as any)
-      .from("subscription_plans")
-      .select("monthly_price, yearly_price")
-      .eq("id", data.plan_id)
-      .maybeSingle();
-
-    const amount =
-      data.billing_cycle === "yearly" ? (plan?.yearly_price ?? 0) : (plan?.monthly_price ?? 0);
-    if (amount > 0) {
-      await (supabaseAdmin as any).from("subscription_payments").insert({
-        user_id: data.user_id,
-        plan_id: data.plan_id,
-        amount,
-        billing_cycle: data.billing_cycle,
-        status: "paid",
-        period_start: new Date().toISOString(),
-        period_end: periodEnd.toISOString(),
-      });
-    }
-
-    return { ok: true };
+    const { data: plan, error: planError } = await (supabaseAdmin as any)
+      .from("subscription_plans").select("code").eq("id", data.plan_id).maybeSingle();
+    if (planError || !plan) throw new Error("الباقة غير موجودة");
+    const duration = data.period_days === 30 ? "month" : data.period_days === 60 ? "two_months" : "year";
+    const { data: id, error } = await (context.supabase as any).rpc("admin_grant_subscription", {
+      p_user_id: data.user_id, p_plan_code: plan.code, p_duration: duration,
+    });
+    if (error) throw new Error(error.message || "تعذر منح الاشتراك");
+    return { ok: true, subscriptionId: id };
   });
-
 
 export const adminGrantSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
