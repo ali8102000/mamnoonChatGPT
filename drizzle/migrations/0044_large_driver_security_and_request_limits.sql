@@ -220,9 +220,9 @@ AS $$
       )
     ORDER BY dp.user_id, loc.updated_at DESC
   ) x
-  WHERE x.distance_km <= _radius_km
+  WHERE x.distance_km <= LEAST(GREATEST(COALESCE(_radius_km, 5), 0.1), 25)
   ORDER BY x.distance_km ASC, x.rating_avg DESC NULLS LAST
-  LIMIT _limit;
+  LIMIT LEAST(GREATEST(COALESCE(_limit, 10), 1), 250);
 $$;
 -- CREATE OR REPLACE preserves the function's existing execution grants.
 
