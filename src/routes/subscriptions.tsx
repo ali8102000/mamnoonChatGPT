@@ -28,23 +28,31 @@ function ProviderSubscriptionsPage() {
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const [providerRadius, setProviderRadius] = useState(25);
+  const [radiusSaving, setRadiusSaving] = useState(false);
+  const [demandAreas, setDemandAreas] = useState<any[]>([]);
+  const [demandLoading, setDemandLoading] = useState(false);
+  const [demandLoaded, setDemandLoaded] = useState(false);
 
   useEffect(() => {
     if (!userId || !isProvider) { setLoadingData(false); return; }
     let active = true;
     (async () => {
-      const [{ data: planRows, error: plansError }, { data: sub, error: subError }, { data: settings }] = await Promise.all([
+      const [{ data: planRows, error: plansError }, { data: sub, error: subError }, { data: settings }, { data: workerProfile }, { data: driverProfile }] = await Promise.all([
         supabase.from("subscription_plans").select("id,code,name_ar,description_ar,monthly_price,currency,badge_label,badge_color,features,governorate_limit")
           .in("code", ["bronze", "silver", "gold"]).eq("is_active", true).order("tier"),
         supabase.from("user_subscriptions").select("status,is_trial,trial_started_at,trial_ends_at,current_period_end,auto_renew,cancel_at_period_end,grant_type,granted_by,plan:subscription_plans(code,name_ar,tier,badge_label)")
           .eq("user_id", userId).maybeSingle(),
         supabase.from("subscription_settings").select("*").eq("id", 1).maybeSingle(),
+        (supabase as any).from("worker_profiles").select("service_radius_km").eq("user_id", userId).maybeSingle(),
+        (supabase as any).from("driver_profiles").select("service_radius_km").eq("user_id", userId).maybeSingle(),
       ]);
       if (!active) return;
       if (plansError) toast.error("تعذر تحميل باقات الاشتراك");
       if (subError) toast.error("تعذر تحميل حالة اشتراكك");
       setPlans((planRows ?? []) as Plan[]);
       setSubscription(sub);
+      setProviderRadius(Number(workerProfile?.service_radius_km ?? driverProfile?.service_radius_km ?? 25));
       setPaymentGatewayEnabled(Boolean((settings as any)?.payment_gateway_enabled));
       setLoadingData(false);
     })();
@@ -71,6 +79,32 @@ function ProviderSubscriptionsPage() {
   if (!isProvider) return <Navigate to="/profile" />;
   const planCode = subscription?.is_trial ? "bronze" : subscription?.plan?.code;
   const companyGranted = subscription?.grant_type === "admin";
+  const canSetRadius = roles.some((r) => r === "worker" || r === "large_driver");
+  const canTaxiPerks = roles.includes("driver");
+  const maxRadius = planCode === "gold" ? 55 : planCode === "silver" ? 40 : 25;
+  const canUseTaxiDemand = canTaxiPerks && subscription?.status === "active" && ["silver", "gold"].includes(planCode);
+  async function saveProviderRadius() {
+    setRadiusSaving(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("set_provider_service_radius", { p_radius_km: providerRadius });
+      if (error) throw error;
+      setProviderRadius(Number(data ?? providerRadius));
+      toast.success("تم حفظ نطاق استقبال الطلبات وتطبيقه على التوزيع");
+    } catch (error: any) {
+      toast.error(error?.message === "radius_exceeds_subscription_limit" ? "نطاقك يتجاوز حد باقتك الحالية" : error?.message || "تعذر حفظ النطاق");
+    } finally { setRadiusSaving(false); }
+  }
+  async function loadTaxiDemandAreas() {
+    setDemandLoading(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("get_taxi_high_demand_areas", { p_category: null });
+      if (error) throw error;
+      setDemandAreas(data ?? []);
+      setDemandLoaded(true);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر جلب مناطق الطلب العالي");
+    } finally { setDemandLoading(false); }
+  }
   return (
     <MobileShell>
       <div className="max-w-xl mx-auto px-5 pt-8 pb-24" dir="rtl">
@@ -87,6 +121,31 @@ function ProviderSubscriptionsPage() {
             {companyGranted && <div className="text-xs text-amber-700 mt-1">هذه المنحة تديرها شركة ممنون ولا يمكن تغيير الباقة من حسابك</div>}
             {subscription.cancel_at_period_end && <div className="text-xs text-amber-600 mt-1">تم إيقاف التجديد، وتبقى المزايا حتى نهاية الفترة</div>}
           </div>}
+          {canSetRadius && <div className="glass rounded-2xl p-4 mb-4 space-y-3">
+            <div className="font-black">نطاق استقبال الطلبات</div>
+            <p className="text-xs text-muted-foreground">هذا اختيار فعلي يحدد أبعد مسافة تُرسل منها الطلبات إليك، ويُطبّق من خادم ممنون.</p>
+            <div className="flex items-center justify-between text-sm font-bold"><span>النطاق الحالي</span><span>{providerRadius} كم</span></div>
+            <input type="range" min={1} max={maxRadius} step={1} value={Math.min(providerRadius,maxRadius)} onChange={(e) => setProviderRadius(Number(e.target.value))} disabled={subscription?.status !== "active"} className="w-full accent-primary" />
+            <div className="flex justify-between text-[10px] text-muted-foreground"><span>1 كم</span><span>الحد الأعلى لباقة {planCode === "gold" ? "الذهبي" : planCode === "silver" ? "الفضي" : "البرونزي"}: {maxRadius} كم</span></div>
+            <button type="button" onClick={saveProviderRadius} disabled={radiusSaving || subscription?.status !== "active"} className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black disabled:opacity-50">{radiusSaving ? "جارٍ الحفظ..." : "حفظ نطاق الاستقبال"}</button>
+          </div>}
+          {canTaxiPerks && <div className="glass rounded-2xl p-4 mb-4 space-y-3">
+            <div className="font-black">امتيازات الكابتن</div>
+            {["silver","gold"].includes(planCode) ? <ul className="text-xs leading-7 text-muted-foreground list-disc pr-5">
+              <li>تنبيه عند الاقتراب من مناطق الطلب العالي.</li>
+              <li>أولوية فعلية في ترتيب إرسال عروض الرحلات حسب مستوى الاشتراك.</li>
+              <li>تقديم محادثات الدعم حسب أولوية الباقة.</li>
+              {planCode === "gold" && <><li>أعلى أولوية متاحة في توزيع العروض.</li><li>استعلام مباشر عن مناطق الطلب العالي.</li><li>تنبيه مميز عند رصد طلب مرتفع قريب.</li></>}
+            </ul> : <p className="text-xs text-muted-foreground">تنبيهات مناطق الطلب العالي وأولوية توزيع الرحلات والاستعلام عن المناطق متاحة ضمن الفضي والذهبي.</p>}
+            {canUseTaxiDemand && <button type="button" onClick={loadTaxiDemandAreas} disabled={demandLoading} className="w-full rounded-xl border border-primary/30 py-3 text-xs font-black disabled:opacity-50">{demandLoading ? "جارٍ فحص الطلب..." : "استعلام عن مناطق الطلب العالي"}</button>}
+            {demandLoaded && <div className="space-y-2">
+              {demandAreas.length === 0 ? <p className="text-xs text-muted-foreground">ماكو حالياً مناطق طلب مرتفع حسب الطلبات المسجلة خلال آخر 30 دقيقة.</p> : demandAreas.map((area:any,index:number) => <div key={String(area.zone_lat)+"-"+String(area.zone_lng)+"-"+index} className="rounded-xl border border-border p-3 text-xs">
+                <div className="flex justify-between font-black"><span>{area.demand_level === "high" ? "طلب مرتفع" : "طلب متوسط"}</span><span>{area.waiting_requests} طلبات · {area.online_drivers} سائقين</span></div>
+                <p className="text-muted-foreground mt-1">مؤشر الطلب إلى السائقين: {area.demand_ratio}</p>
+                <a className="text-primary underline mt-2 inline-block" target="_blank" rel="noreferrer" href={"https://www.google.com/maps?q="+area.zone_lat+","+area.zone_lng}>فتح المنطقة على الخريطة</a>
+              </div>)}
+            </div>}
+          </div>}
           <div className="space-y-3">
             {plans.map((plan) => {
               const active = subscription?.status === "active" && planCode === plan.code;
@@ -99,6 +158,9 @@ function ProviderSubscriptionsPage() {
                 <p className="text-xs text-muted-foreground mt-2">{plan.description_ar}</p>
                 {plan.governorate_limit ? <p className="text-[11px] text-muted-foreground mt-2">نطاق العمل: {plan.governorate_limit === 1 ? "محافظة واحدة كاملة" : "محافظتان كاملتان"}</p> : null}
                 {plan.features?.profile_promotion_monthly ? <p className="text-[11px] text-muted-foreground mt-1">ترويج الملف: {plan.features.profile_promotion_monthly} مرات شهرياً</p> : null}
+                {roles.some((r) => r === "worker" || r === "large_driver") && plan.code === "silver" && <p className="text-[11px] text-muted-foreground mt-1">للفنيين وسائقي الكيات: اختيار نطاق استقبال حتى 40 كم</p>}
+                {roles.some((r) => r === "worker" || r === "large_driver") && plan.code === "gold" && <p className="text-[11px] text-muted-foreground mt-1">للفنيين وسائقي الكيات: اختيار نطاق استقبال حتى 55 كم</p>}
+                {roles.includes("driver") && ["silver","gold"].includes(plan.code) && <p className="text-[11px] text-muted-foreground mt-1">للكابتن: تنبيهات الطلب العالي وأولوية فعلية بالدور والدعم، والذهبي يشمل الاستعلام والأولوية القصوى</p>}
                 <div className="text-2xl font-black mt-4">{Number(plan.monthly_price).toLocaleString("ar-IQ")} <span className="text-xs font-bold text-muted-foreground">د.ع / شهرياً</span></div>
                 <button type="button" onClick={() => setSelectedPlan(plan.code)} disabled={active || companyGranted}
                   className="w-full mt-4 rounded-xl bg-primary text-primary-foreground py-3 font-black text-sm disabled:opacity-50 flex items-center justify-center gap-2">
