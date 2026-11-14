@@ -155,7 +155,7 @@ function SupportChatPage() {
         {isStaff && <aside className="glass rounded-2xl p-3 space-y-2">
           <div className="font-bold text-sm mb-2">المحادثات الواردة</div>
           {conversations.length === 0 ? <p className="text-xs text-muted-foreground p-3">لا توجد محادثات بعد</p> : conversations.map((c) => <button key={c.id} onClick={() => setSelected(c)} className={"w-full text-right rounded-xl p-3 " + (selected?.id === c.id ? "bg-primary/10 border border-primary/30" : "bg-card border border-border")}>
-            <div className="font-bold text-sm">{c.profile?.full_name || "مستخدم ممنون"}</div><div className="text-xs text-muted-foreground" dir="ltr">{c.profile?.phone || ""}</div><div className="text-[10px] text-muted-foreground mt-1">{c.status === "open" ? "مفتوحة" : "مغلقة"}</div>
+            <div className="font-bold text-sm">{c.profile?.full_name || "مستخدم ممنون"}</div><div className="text-xs text-muted-foreground" dir="ltr">{c.profile?.phone || ""}</div><div className="text-[10px] text-muted-foreground mt-1">{c.status === "open" ? "مفتوحة" : "مغلقة"} · {c.priority_tier === 3 ? "أولوية ذهبية" : c.priority_tier === 2 ? "أولوية فضية" : c.priority_tier === 1 ? "أولوية برونزية" : "اعتيادي"}</div>
           </button>)}
         </aside>}
         <section className="glass rounded-2xl min-h-[70vh] flex flex-col overflow-hidden">
