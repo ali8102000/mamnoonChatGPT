@@ -1,10 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
-import { signInWithIdentifier, signUpWithPhone } from "@/lib/auth.functions";
 import { Loader2, Phone, Lock, ArrowLeft, ArrowRight, Mail, User } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
@@ -48,8 +46,6 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { refresh } = useAuth();
-  const signIn = useServerFn(signInWithIdentifier);
-  const signUp = useServerFn(signUpWithPhone);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,19 +65,38 @@ function AuthPage() {
         }
         const { phone: normalized, email: contactEmail, name: fullName } = parsed.data;
         const isSuperAdminEmail = contactEmail === SUPER_ADMIN_EMAIL.toLowerCase();
-        const accountEmail = isSuperAdminEmail ? contactEmail : contactEmail || phoneToEmail(normalized);
-
-        const tokens = await signUp({
-          data: {
-            name: fullName,
-            phone: normalized,
-            email: contactEmail,
-            password,
+        // Phone accounts use a private internal email; the optional contact email
+        // remains profile metadata and must never replace the phone login identity.
+        const accountEmail = isSuperAdminEmail ? contactEmail : phoneToEmail(normalized);
+        const { data: signupResult, error: signupError } = await supabase.functions.invoke(
+          "auth-proxy/signup",
+          {
+            body: {
+              full_name: fullName,
+              phone: normalized,
+              email: accountEmail,
+              contact_email: contactEmail,
+              password,
+            },
           },
-        });
+        );
+        if (signupError) {
+          let message = signupError.message;
+          try {
+            const payload = await (signupError as any).context?.json?.();
+            if (typeof payload?.error === "string") message = payload.error;
+          } catch {
+            // Keep the safe SDK error if the response body is unavailable.
+          }
+          throw new Error(message);
+        }
+        const tokens = signupResult?.session;
+        if (!tokens?.access_token || !tokens?.refresh_token) {
+          throw new Error(signupResult?.error || "تعذّر إنشاء جلسة الحساب. حاول مرة أخرى.");
+        }
         const { error: sessionError } = await supabase.auth.setSession({
-          access_token: tokens.accessToken,
-          refresh_token: tokens.refreshToken,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
         });
         if (sessionError) throw sessionError;
         await refresh();
@@ -110,10 +125,32 @@ function AuthPage() {
           return;
         }
         const finalId = isEmail ? id : normalizePhone(id);
-        const tokens = await signIn({ data: { identifier: finalId, password } });
+        const { data: loginResult, error: loginError } = await supabase.functions.invoke(
+          "auth-proxy/login",
+          {
+            body: {
+              ...(isEmail ? { email: finalId } : { phone: finalId }),
+              password,
+            },
+          },
+        );
+        if (loginError) {
+          let message = loginError.message;
+          try {
+            const payload = await (loginError as any).context?.json?.();
+            if (typeof payload?.error === "string") message = payload.error;
+          } catch {
+            // Keep the safe SDK error if the response body is unavailable.
+          }
+          throw new Error(message);
+        }
+        const tokens = loginResult?.session;
+        if (!tokens?.access_token || !tokens?.refresh_token) {
+          throw new Error(loginResult?.error || "تعذّر تسجيل الدخول. تحقق من بياناتك.");
+        }
         const { data, error } = await supabase.auth.setSession({
-          access_token: tokens.accessToken,
-          refresh_token: tokens.refreshToken,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
         });
         if (error) throw error;
         const authenticatedEmail = data.user?.email?.toLowerCase();
@@ -138,7 +175,7 @@ function AuthPage() {
             "Unable to connect. Check your internet and try again.",
           ),
         );
-      } else if (/already registered|User already/i.test(msg)) {
+      } else if (/already registered|User already|مسجّل مسبقاً/i.test(msg)) {
         toast.error(
           t(
             "هذا الحساب مسجّل مسبقاً. أدخل كلمة المرور لتسجيل الدخول.",
