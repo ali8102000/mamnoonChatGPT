@@ -33,6 +33,9 @@ export default function AdminScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [savingCompanyName, setSavingCompanyName] = useState(false);
+  const [supportInbox, setSupportInbox] = useState<any[]>([]);
+  const [unreadSupport, setUnreadSupport] = useState(0);
+  const [reports, setReports] = useState<any[]>([]);
   const isOwnerAccount = user?.email?.toLowerCase() === "a7md0555666@gmail.com";
 
   const load = useCallback(async () => {
@@ -67,6 +70,25 @@ export default function AdminScreen() {
     });
     setPricing(pricingRules.data || []);
     setRecent(recentReqs.data || []);
+    const { data: conversations } = await (supabase as any).from("support_conversations").select("id,user_id,status,updated_at").order("updated_at", { ascending: false }).limit(12);
+    const conversationRows = conversations ?? [];
+    const conversationIds = conversationRows.map((row: any) => row.id);
+    const userIds = [...new Set(conversationRows.map((row: any) => row.user_id))];
+    const [{ data: supportProfiles }, { data: supportMessages }, { data: reportRows }] = await Promise.all([
+      userIds.length ? supabase.from("profiles").select("id,full_name,phone").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
+      conversationIds.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,read_at,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [] as any[] }),
+      (supabase as any).from("user_reports").select("id,reporter_id,reported_id,request_id,reason,details,status,created_at").order("created_at", { ascending: false }).limit(8),
+    ]);
+    const profileById = new Map((supportProfiles ?? []).map((profile: any) => [profile.id, profile]));
+    const latestByConversation = new Map<string, any>();
+    let unread = 0;
+    for (const message of supportMessages ?? []) {
+      if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
+      if (message.sender_id !== user?.id && !message.read_at) unread += 1;
+    }
+    setUnreadSupport(unread);
+    setSupportInbox(conversationRows.map((row: any) => ({ ...row, profile: profileById.get(row.user_id), latest: latestByConversation.get(row.id) })));
+    setReports(reportRows ?? []);
     setLoading(false);
   }, [user?.id, isOwnerAccount]);
 
@@ -117,6 +139,34 @@ export default function AdminScreen() {
         </TouchableOpacity>
       </View>}
       <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></TouchableOpacity>
+      <View style={styles.inboxHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sectionTitle}>رسائل المستخدمين إلى الإدارة</Text>
+          <Text style={styles.inboxHint}>{unreadSupport} رسالة غير مقروءة</Text>
+        </View>
+        <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.inboxOpen}><Text style={styles.inboxOpenText}>فتح الصندوق</Text></TouchableOpacity>
+      </View>
+      {supportInbox.length === 0 ? <Text style={styles.emptyHint}>ماكو رسائل دعم واردة حالياً</Text> : supportInbox.slice(0, 5).map((conversation) => (
+        <TouchableOpacity key={conversation.id} onPress={() => router.push("/support-chat")} style={styles.inboxCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inboxName}>{conversation.profile?.full_name || "مستخدم ممنون"}</Text>
+            <Text style={styles.inboxPreview} numberOfLines={1}>{conversation.latest?.body || "بدأ محادثة دعم جديدة"}</Text>
+          </View>
+          {!conversation.latest?.read_at && conversation.latest?.sender_id !== user?.id ? <Text style={styles.unreadMark}>جديد</Text> : null}
+        </TouchableOpacity>
+      ))}
+      <View style={styles.inboxHeader}>
+        <Text style={styles.sectionTitle}>بلاغات المستخدمين</Text>
+        <TouchableOpacity onPress={() => onRefresh()}><Text style={styles.inboxOpenText}>تحديث</Text></TouchableOpacity>
+      </View>
+      {reports.length === 0 ? <Text style={styles.emptyHint}>ماكو بلاغات واردة حالياً</Text> : reports.map((report) => (
+        <View key={report.id} style={styles.reportCard}>
+          <Text style={styles.inboxName}>{report.reason || "بلاغ بدون عنوان"}</Text>
+          {!!report.details && <Text style={styles.reportDetails}>{report.details}</Text>}
+          <Text style={styles.reportMeta}>الحالة: {report.status} · {new Date(report.created_at).toLocaleString("ar-IQ")}</Text>
+          {!!report.request_id && <Text style={styles.reportMeta}>رقم الطلب: {report.request_id}</Text>}
+        </View>
+      ))}
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.totalRequests}</Text>
@@ -164,6 +214,18 @@ const styles = StyleSheet.create({
   companySaveText: { color: palette.white, fontWeight: "900" },
   supportButton: { backgroundColor: palette.brand, borderRadius: radius.md, padding: 14, marginBottom: 18 },
   supportButtonText: { color: palette.white, fontWeight: "900", textAlign: "center" },
+  inboxHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, marginBottom: 8 },
+  inboxHint: { color: palette.muted, fontSize: 11, marginTop: -5, marginBottom: 8 },
+  inboxOpen: { backgroundColor: palette.brandSoft, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 9 },
+  inboxOpenText: { color: palette.brand, fontSize: 11, fontWeight: "900" },
+  inboxCard: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, marginBottom: 7 },
+  inboxName: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
+  inboxPreview: { color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 },
+  unreadMark: { color: palette.white, backgroundColor: palette.brand, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "900" },
+  emptyHint: { color: palette.muted, fontSize: 12, textAlign: "center", padding: 12 },
+  reportCard: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, marginBottom: 8 },
+  reportDetails: { color: palette.ink, fontSize: 12, lineHeight: 20, textAlign: "right", marginTop: 5 },
+  reportMeta: { color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 5 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 18 },
   statsGrid: { flexDirection: "row", gap: 10, marginBottom: 22 },
