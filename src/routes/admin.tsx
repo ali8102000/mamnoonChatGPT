@@ -956,7 +956,7 @@ function ProvidersSection() {
           className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm">
           <option value="all">كل الفئات</option>
           {type === "driver" ? <>
-            <option value="economy">اقتصادي</option><option value="premium">متميز</option><option value="luxury">فاخر</option>
+            <option value="economy">اقتصادي</option><option value="premium">متميز</option><option value="luxury">فاخر</option><option value="large">سائقو كيا (حمل / ركاب / باص)</option>
           </> : <>
             <option value="fani">فني</option><option value="khabir">خبير</option>
           </>}
@@ -988,7 +988,7 @@ function ProvidersSection() {
               </div>
               {type === "driver" && p.vehicle_make && (
                 <div className="text-[10px] text-muted-foreground mb-2">
-                  {p.vehicle_make} {p.vehicle_model} · {p.vehicle_plate} · {({economy:"اقتصادي",premium:"متميز",luxury:"فاخر"} as any)[p.vehicle_category] ?? "غير محدد"}
+                  {p.vehicle_make} {p.vehicle_model} · {p.vehicle_plate} · {({economy:"اقتصادي",premium:"متميز",luxury:"فاخر",large:"سائق كيا"} as any)[p.vehicle_category] ?? "غير محدد"}
                 </div>
               )}
               <div className="flex flex-wrap gap-1.5 mb-2">
