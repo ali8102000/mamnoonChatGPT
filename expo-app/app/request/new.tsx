@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   View,
@@ -89,8 +89,19 @@ export default function NewRequest() {
   const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number } }>>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [placeSearchError, setPlaceSearchError] = useState<string | null>(null);
+  const [focusSearchAfterProvince, setFocusSearchAfterProvince] = useState(false);
+  const placeSearchInputRef = useRef<TextInput>(null);
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
+
+  useEffect(() => {
+    if (!focusSearchAfterProvince) return;
+    const timer = setTimeout(() => {
+      placeSearchInputRef.current?.focus();
+      setFocusSearchAfterProvince(false);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [focusSearchAfterProvince, activeGovernorateKey, mapMode]);
 
   useEffect(() => {
     let active = true;
@@ -297,6 +308,7 @@ export default function NewRequest() {
     setPlaceQuery("");
     setPlaceSuggestions([]);
     setPlaceSearchError(null);
+    setFocusSearchAfterProvince(true);
     setRegion({ latitude: governorate.latitude, longitude: governorate.longitude, latitudeDelta: 0.12, longitudeDelta: 0.12 });
     if (mapMode === "pickup") {
       setPickupCoords(null);
@@ -546,6 +558,7 @@ export default function NewRequest() {
         ))}
       </ScrollView>
       <TextInput
+        ref={placeSearchInputRef}
         style={styles.input}
         value={placeQuery}
         onChangeText={setPlaceQuery}
