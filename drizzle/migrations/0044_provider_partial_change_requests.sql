@@ -4,11 +4,11 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.provider_verification_history (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   provider_type text NOT NULL,
   snapshot jsonb NOT NULL,
   changed_at timestamptz NOT NULL DEFAULT now(),
-  changed_by uuid
+  changed_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_provider_verification_history_user
   ON public.provider_verification_history(user_id, provider_type, changed_at DESC);
