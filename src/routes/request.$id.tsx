@@ -747,7 +747,7 @@ function RequestDetail() {
           {myRole === "customer" && (
             <button
               onClick={() => setShowCancel(true)}
-              className="block mx-auto mt-5 px-5 py-2.5 rounded-2xl bg-destructive/10 text-destructive font-bold text-xs btn-press"
+              className="block w-full max-w-sm mx-auto mt-5 min-h-14 px-5 py-3 rounded-2xl border-2 border-destructive/20 bg-destructive text-white font-black text-base shadow-md btn-press"
             >
               {req.type === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب"}
             </button>
