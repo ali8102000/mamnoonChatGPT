@@ -6,7 +6,6 @@ import {
   LogOut,
   Star,
   Settings,
-  Wallet,
   TrendingUp,
   ShieldCheck,
   ChevronLeft,
