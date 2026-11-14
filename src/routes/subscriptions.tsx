@@ -59,19 +59,8 @@ function ProviderSubscriptionsPage() {
     return () => { active = false; };
   }, [userId, isProvider]);
 
-  async function pay(planCode: string) {
-    if (!session || busy || !paymentGatewayEnabled) return;
-    setBusy(planCode);
-    try {
-      const { data, error } = await supabase.functions.invoke("qicard-create-payment", {
-        body: { planCode, billingCycle: "monthly", appChannel: false },
-      });
-      if (error || !data?.checkoutUrl) throw new Error(data?.error || error?.message || "تعذر إنشاء عملية الدفع");
-      window.location.assign(data.checkoutUrl);
-    } catch (error: any) {
-      toast.error(error?.message || "تعذر بدء الدفع");
-      setBusy(null);
-    }
+  async function pay(_planCode: string) {
+    toast.error("الدفع عبر زين كاش قيد الإعداد، ولن يتم خصم أي مبلغ حالياً");
   }
 
   if (loading) return null;
@@ -170,7 +159,7 @@ function ProviderSubscriptionsPage() {
               </div>;
             })}
           </div>
-          {selectedPlan && !companyGranted && <div className="glass rounded-2xl p-4 mt-4"><p className="text-sm font-black">تم اختيار باقة {plans.find(p => p.code === selectedPlan)?.name_ar}</p><p className="text-xs text-muted-foreground mt-2">الدفع الإلكتروني غير متاح حالياً إلى حين إكمال ربط واختبار QiCard. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك.</p><button disabled className="w-full mt-3 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black opacity-60"><CreditCard className="inline h-4 w-4 ml-2" /> الدفع قيد الربط</button></div>}
+          {selectedPlan && !companyGranted && <div className="glass rounded-2xl p-4 mt-4"><p className="text-sm font-black">تم اختيار باقة {plans.find(p => p.code === selectedPlan)?.name_ar}</p><p className="text-xs text-muted-foreground mt-2">الدفع عبر زين كاش قيد الإعداد والاختبار. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك.</p><button disabled className="w-full mt-3 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black opacity-60"><CreditCard className="inline h-4 w-4 ml-2" /> الدفع قيد الربط</button></div>}
           {subscription && !companyGranted && ["active", "paused"].includes(subscription.status) && (
             <div className="glass rounded-2xl p-4 mt-3 space-y-3">
               <div className="text-sm font-black">إدارة اشتراكك</div>
@@ -225,7 +214,7 @@ function ProviderSubscriptionsPage() {
               )}
             </div>
           )}
-          <p className="text-[11px] text-muted-foreground text-center mt-5 leading-6">عند تفعيل حساب التاجر وربط مفاتيح QiCard سيُتاح الدفع الآمن. لا يخزن ممنون رقم البطاقة أو رمز الأمان، ولا يُفعّل الاشتراك إلا بعد تأكيد البوابة من الخادم.</p>
+          <p className="text-[11px] text-muted-foreground text-center mt-5 leading-6">سيُتاح الدفع عبر زين كاش بعد تفعيل حساب التاجر وربط مفاتيح API واختبار تأكيد الدفع من الخادم. لا يخزن ممنون رقم البطاقة أو رمز الأمان، ولا يُفعّل الاشتراك إلا بعد تأكيد البوابة من الخادم.</p>
         </>}
       </div>
     </MobileShell>
