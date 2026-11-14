@@ -7,7 +7,7 @@ import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui";
-import { palette, radius, space } from "@/styles/theme";
+import { palette, radius } from "@/styles/theme";
 
 type VehicleModel = { id: string; make: string; model: string; category: string; min_year: number };
 type DocumentType = "national_id" | "driver_license";
