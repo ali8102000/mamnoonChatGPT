@@ -151,7 +151,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   // Load existing verification if stored
   useEffect(() => {
     if (session?.user?.id) {
-      const existing = getProviderVerification(session.user.id, providerRole);
+      const existing = getProviderVerification(session.user.id, providerRole) ?? (largeDriverMode ? getProviderVerification(session.user.id, "driver") : null);
       if (existing) {
         setExistingDoc(existing);
         if (existing.legalName) setLegalName(existing.legalName);
@@ -200,12 +200,18 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         vehicleType: metadata.vehicleType ?? current?.vehicleType,
       }));
     };
-    (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
-      .eq("user_id", userId).eq("provider_type", providerRole).maybeSingle()
-      .then((result: any) => { if (!result.error && result.data) applyReview(result.data); });
+    (async () => {
+      let result = await (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+        .eq("user_id", userId).eq("provider_type", providerRole).maybeSingle();
+      if (!result.data && largeDriverMode) {
+        result = await (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
+          .eq("user_id", userId).eq("provider_type", "driver").maybeSingle();
+      }
+      if (!result.error && result.data) applyReview(result.data);
+    })();
     const channel = supabase.channel(`driver-verification-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "provider_verifications", filter: `user_id=eq.${userId}` },
-        (payload: any) => { if (payload.new?.provider_type === providerRole) applyReview(payload.new); })
+        (payload: any) => { if (payload.new?.provider_type === providerRole || (largeDriverMode && payload.new?.provider_type === "driver")) applyReview(payload.new); })
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
   }, [session?.user?.id, profile?.full_name, providerRole]);
