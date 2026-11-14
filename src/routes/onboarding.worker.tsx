@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
+import { serviceIcon } from "@/lib/service-visuals";
 import { toast } from "@/lib/toast";
 import {
   Loader2,
@@ -580,7 +581,7 @@ function OnboardingWorker() {
                         : "bg-white/80 border-border/70 hover:bg-white text-foreground"
                     }`}
                   >
-                    <span className="truncate">{s.name_ar}</span>
+                    <span className="flex items-center gap-2 min-w-0"><img src={serviceIcon(s.slug)} alt="" loading="lazy" className="h-10 w-10 object-contain shrink-0" /><span className="truncate">{s.name_ar}</span></span>
                     {on ? (
                       <Check className="h-4 w-4 text-primary shrink-0" />
                     ) : (
