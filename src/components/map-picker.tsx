@@ -445,15 +445,16 @@ export function MapPicker({
             className="absolute top-3 left-3 right-3 z-10"
             style={searchTop != null ? { top: searchTop } : undefined}
           >
-            <div className="flex items-center gap-2 bg-white rounded-2xl shadow-lg px-3 py-2">
+            <div className="flex items-center gap-2 bg-white dark:bg-black/95 dark:border dark:border-slate-600 rounded-2xl shadow-lg px-3 py-2">
               <Search className="h-4 w-4 text-muted-foreground shrink-0" />
               <input
                 ref={inputRef}
+                autoFocus={Boolean(governorateKey)}
                 onFocus={() => setSearchOpen(true)}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={placeholder}
-                className="flex-1 bg-transparent outline-none text-sm font-medium min-w-0 text-slate-900 placeholder:text-slate-500"
+                className="flex-1 bg-transparent outline-none text-sm font-medium min-w-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400"
               />
               {searchOpen && (
                 <button
@@ -471,12 +472,12 @@ export function MapPicker({
               )}
             </div>
             {searchOpen && (searchingPlaces || (searchQuery.trim().length >= 2 && suggestions.length === 0)) && (
-              <div className="mt-2 bg-white text-slate-700 rounded-2xl shadow-lg px-3 py-3 text-xs">
+              <div className="mt-2 bg-white dark:bg-black/95 dark:border dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-2xl shadow-lg px-3 py-3 text-xs">
                 {searchingPlaces ? "جاري البحث داخل المحافظة..." : "ما لكينا أماكن مطابقة داخل المحافظة"}
               </div>
             )}
             {searchOpen && suggestions.length > 0 && (
-              <div className="mt-2 bg-white text-slate-900 rounded-2xl shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+              <div className="mt-2 bg-white dark:bg-black/95 dark:border dark:border-slate-600 text-slate-900 dark:text-slate-100 rounded-2xl shadow-lg overflow-hidden max-h-64 overflow-y-auto">
                 {suggestions.map((s) => (
                   <button
                     key={s.id}
@@ -516,7 +517,7 @@ export function MapPicker({
 
         {!loading && !error && address && !isFullScreen && (
           <div
-            className={`absolute ${full ? "bottom-24" : "bottom-3"} left-3 right-16 bg-white/95 backdrop-blur rounded-2xl px-3 py-2 shadow-lg z-10`}
+            className={`absolute ${full ? "bottom-24" : "bottom-3"} left-3 right-16 bg-white/95 dark:bg-black/95 dark:border dark:border-slate-700 dark:text-slate-100 backdrop-blur rounded-2xl px-3 py-2 shadow-lg z-10`}
           >
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
               الموقع المحدد
@@ -526,12 +527,12 @@ export function MapPicker({
         )}
 
         {loading && (
-          <div className="absolute inset-0 grid place-items-center bg-white/60 z-20">
+          <div className="absolute inset-0 grid place-items-center bg-white/60 dark:bg-black/60 z-20">
             <Loader2 className="h-6 w-6 animate-spin" style={{ color: accent }} />
           </div>
         )}
         {error && (
-          <div className="absolute inset-0 grid place-items-center text-center px-4 bg-white/80">
+          <div className="absolute inset-0 grid place-items-center text-center px-4 bg-white/80 dark:bg-black/80 dark:text-slate-100">
             <div className="text-sm text-muted-foreground flex flex-col items-center gap-2">
               <MapPin className="h-5 w-5" />
               {error}
@@ -569,7 +570,7 @@ export function MapPicker({
               setFull((f) => !f);
               setTimeout(() => window.dispatchEvent(new Event("resize")), 60);
             }}
-            className={`absolute ${full ? "bottom-40" : "bottom-16"} right-3 h-11 w-11 rounded-full bg-white shadow-lg grid place-items-center btn-press z-10`}
+            className={`absolute ${full ? "bottom-40" : "bottom-16"} right-3 h-11 w-11 rounded-full bg-white dark:bg-black/90 dark:border dark:border-slate-600 shadow-lg grid place-items-center btn-press z-10`}
             aria-label={full ? "تصغير الخريطة" : "خريطة بشاشة كاملة"}
           >
             {full ? (
@@ -604,7 +605,7 @@ export function MapPicker({
             onClick={() => autoLocate()}
             disabled={locating}
             style={{ bottom: bottomOffset ? `${bottomOffset + 14}px` : undefined }}
-            className={`absolute ${bottomOffset ? "" : full ? "bottom-24" : "bottom-3"} right-3 h-12 w-12 rounded-full bg-white shadow-xl border border-border/40 grid place-items-center btn-press disabled:opacity-70 z-20`}
+            className={`absolute ${bottomOffset ? "" : full ? "bottom-24" : "bottom-3"} right-3 h-12 w-12 rounded-full bg-white dark:bg-black/90 dark:border dark:border-slate-600 shadow-xl border border-border/40 grid place-items-center btn-press disabled:opacity-70 z-20`}
             aria-label="موقعي الحالي"
           >
             {locating ? (
