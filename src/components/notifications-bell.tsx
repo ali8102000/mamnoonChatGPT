@@ -32,6 +32,9 @@ export function NotificationsBell() {
     if (!uid) return;
     void loadNotifications();
     const refresh = window.setInterval(() => { setNow(Date.now()); void loadNotifications(); }, 60_000);
+    const refreshOnFocus = () => { setNow(Date.now()); void loadNotifications(); };
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
     const ch = supabase.channel("notif-" + uid).on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: "user_id=eq." + uid }, (payload: any) => {
       const n = payload.new as Notif;
       if (Date.now() - new Date(n.created_at).getTime() > 24 * 60 * 60 * 1000) return;
@@ -43,11 +46,16 @@ export function NotificationsBell() {
           const audio = new AudioContextClass(); const oscillator = audio.createOscillator(); const gain = audio.createGain();
           oscillator.type = "sine"; oscillator.frequency.setValueAtTime(880, audio.currentTime); oscillator.frequency.setValueAtTime(1174, audio.currentTime + 0.11);
           gain.gain.setValueAtTime(0.0001, audio.currentTime); gain.gain.exponentialRampToValueAtTime(0.12, audio.currentTime + 0.025); gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.32);
-          oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(); oscillator.stop(audio.currentTime + 0.34); oscillator.onended = () => { void audio.close(); };
+          oscillator.connect(gain); gain.connect(audio.destination); void audio.resume(); oscillator.start(); oscillator.stop(audio.currentTime + 0.34); oscillator.onended = () => { void audio.close(); };
         }
       } catch {}
     }).subscribe();
-    return () => { window.clearInterval(refresh); supabase.removeChannel(ch); };
+    return () => {
+      window.clearInterval(refresh);
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+      supabase.removeChannel(ch);
+    };
   }, [uid, loadNotifications]);
   const visibleItems = items.filter((n) => now - new Date(n.created_at).getTime() <= 24 * 60 * 60 * 1000);
   const unread = visibleItems.filter((n) => !n.read_at).length;
