@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
+import { Linking } from "react-native";
 import {
   View,
   Text,

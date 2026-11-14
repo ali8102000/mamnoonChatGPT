@@ -1,18 +1,12 @@
 name: Mamnoon mobile CI
 
+# Run native Android validation for every repository change, not only expo-app edits.
+# This keeps web/native behavior changes coupled and prevents one platform from
+# silently missing a regression introduced by shared backend or database work.
 on:
   push:
-    branches: [main, integrate-expo-mobile-safe]
-    paths:
-      - "expo-app/**"
-      - ".github/workflows/mobile-ci.yml"
-      - ".github/workflows/android-aab.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "expo-app/**"
-      - ".github/workflows/mobile-ci.yml"
-      - ".github/workflows/android-aab.yml"
   workflow_dispatch:
 
 permissions:
