@@ -42,6 +42,7 @@ jobs:
         env:
           APP_ENV: production
           EAS_BUILD: "true"
+          MAMNOON_CI_CONFIG_ONLY: "true"
           EAS_PROJECT_ID: "00000000-0000-4000-8000-000000000000"
           EXPO_PUBLIC_SUPABASE_URL: "https://enteiolvirenbhkyskgb.supabase.co"
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_ci_placeholder"
