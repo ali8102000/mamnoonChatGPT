@@ -269,7 +269,7 @@ function RequestDetail() {
   async function acceptLargeOffer(offerId: string) {
     setAcceptingLargeOffer(offerId);
     try {
-      const { error } = await supabase.rpc("accept_large_vehicle_offer", { _offer_id: offerId });
+      const { error } = await (supabase as any).rpc("accept_large_vehicle_offer", { _offer_id: offerId });
       if (error) throw error;
       toast.success("تم قبول عرض السعر وإنشاء المحادثة");
       await loadAll();
@@ -283,7 +283,7 @@ function RequestDetail() {
   async function rejectLargeOffer(offerId: string) {
     setAcceptingLargeOffer(offerId);
     try {
-      const { error } = await supabase.rpc("reject_large_vehicle_offer", { _offer_id: offerId });
+      const { error } = await (supabase as any).rpc("reject_large_vehicle_offer", { _offer_id: offerId });
       if (error) throw error;
       toast("تم رفض العرض");
       await loadAll();
