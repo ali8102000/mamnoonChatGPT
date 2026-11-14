@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { useServerFn } from "@tanstack/react-start";
 import { getReputation, getProviderReviews, type ReputationData } from "@/lib/reputation.functions";
-import { ReputationCard, StarRating } from "@/components/reputation";
+import { ReputationCard, StarRating, SubScoreBar } from "@/components/reputation";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/profile")({
@@ -43,6 +43,7 @@ function ProfilePage() {
   const [reputation, setReputation] = useState<ReputationData | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [showReviews, setShowReviews] = useState(false);
+  const [showRatingDetails, setShowRatingDetails] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const uid = session?.user.id;
@@ -234,6 +235,26 @@ function ProfilePage() {
                   className={`h-4 w-4 text-muted-foreground transition-transform ${showReviews ? "rotate-90" : ""}`}
                 />
               </button>
+            )}
+            {showReviews && reputation && (
+              <div className="mt-2 glass rounded-2xl p-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRatingDetails((value) => !value)}
+                  aria-expanded={showRatingDetails}
+                  className="w-full flex items-center justify-between text-right"
+                >
+                  <span className="text-[11px] font-bold text-primary">تفاصيل التقييم</span>
+                  <ChevronLeft className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showRatingDetails ? "-rotate-90" : ""}`} />
+                </button>
+                {showRatingDetails && (
+                  <div className="mt-3 space-y-3">
+                    <SubScoreBar label="الاحترافية" value={Number(reputation.professionalism_avg)} icon={<ShieldCheck className="h-3.5 w-3.5" />} />
+                    <SubScoreBar label="الالتزام بالوقت" value={Number(reputation.punctuality_avg)} icon={<TrendingUp className="h-3.5 w-3.5" />} />
+                    <SubScoreBar label="جودة العمل" value={Number(reputation.quality_avg)} icon={<Star className="h-3.5 w-3.5" />} />
+                  </div>
+                )}
+              </div>
             )}
             {showReviews && reviews.length > 0 && (
               <div className="mt-2 space-y-2">
