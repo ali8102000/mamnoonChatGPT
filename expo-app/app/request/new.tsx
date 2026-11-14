@@ -235,7 +235,8 @@ export default function NewRequest() {
               destinationLng: destinationCoords!.longitude,
               destinationText: destination,
               vehicleCategory: vehicleCat,
-              notes,
+              vehicleType: vehicleCat === "large" ? vehicleType : null,
+              notes: vehicleCat === "large" ? `نوع السيارة: ${vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب"}${notes.trim() ? ` | ${notes.trim()}` : ""}` : notes,
             },
           },
         );
