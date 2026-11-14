@@ -765,7 +765,16 @@ function NewRequest() {
               </div>
               <button
                 type="button"
-                onClick={() => setInterCity((v) => !v)}
+                onClick={() => {
+                  const next = !interCity;
+                  setInterCity(next);
+                  if (!next && gov) {
+                    setDestinationGovernorateKey(null);
+                    setDestCoords({ lat: gov.lat, lng: gov.lng });
+                    setDestLabel(gov.name);
+                    setDestConfirmed(false);
+                  }
+                }}
                 className={`w-full py-2 rounded-xl text-xs font-bold border btn-press ${interCity ? "bg-primary text-primary-foreground border-primary" : "border-border/60 text-muted-foreground"}`}
               >
                 {interCity ? "✓ رحلة لمحافظة أخرى" : "رحلة لمحافظة أخرى؟"}
@@ -783,9 +792,9 @@ function NewRequest() {
                         setDestLabel(g.name);
                         setDestConfirmed(false);
                       }}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold border border-border/60 shrink-0 btn-press"
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border shrink-0 btn-press ${destinationGovernorateKey === g.key ? "bg-primary text-primary-foreground border-primary" : "border-border/60 text-muted-foreground"}`}
                     >
-                      {g.name}
+                      {destinationGovernorateKey === g.key ? `✓ ${g.name}` : g.name}
                     </button>
                   ))}
                 </div>
