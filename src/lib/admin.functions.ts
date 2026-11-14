@@ -652,6 +652,27 @@ export const adminSaveCoupon = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminDistributeCoupon = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      coupon_id: z.string().uuid(),
+      target: z.enum(["all", "drivers", "workers", "single"]),
+      single_user_id: z.string().uuid().optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabase } = context;
+    const { data: sent, error } = await (supabase as any).rpc("admin_distribute_coupon", {
+      p_coupon_id: data.coupon_id,
+      p_target: data.target,
+      p_single_user_id: data.single_user_id ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { sent: Number(sent ?? 0) };
+  });
+
 export const adminDeleteCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ coupon_id: z.string().uuid() }).parse(d))
