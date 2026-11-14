@@ -85,7 +85,7 @@ begin
 end;
 $$;
 
-create or replace function public.get_subscription_stats()
+create or replace function public.get_subscription_stats_v2()
 returns table(
   total_subscribers bigint,
   active_subscriptions bigint,
@@ -123,5 +123,5 @@ begin
   join public.subscription_plans p on p.id=us.plan_id;
 end;
 $$;
-revoke all on function public.get_subscription_stats() from public, anon;
-grant execute on function public.get_subscription_stats() to authenticated;
+revoke all on function public.get_subscription_stats_v2() from public, anon;
+grant execute on function public.get_subscription_stats_v2() to authenticated;
