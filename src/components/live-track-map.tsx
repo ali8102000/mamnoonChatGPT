@@ -85,6 +85,7 @@ export function LiveTrackMap({
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [routeMode, setRouteMode] = useState<"road" | "direct" | "waiting">("waiting");
+  const [routeProvider, setRouteProvider] = useState<"google" | "osrm" | "none">("none");
   useEffect(() => {
     setIsFullscreen(fullscreen);
   }, [fullscreen]);
@@ -269,6 +270,35 @@ export function LiveTrackMap({
         });
       }
 
+      const requestOsrmRoute = async (sequence: number) => {
+        try {
+          const configuredBase = typeof import.meta !== "undefined" && import.meta.env
+            ? (import.meta.env["VITE_OSRM_ROUTING_URL"] as string | undefined)
+            : undefined;
+          const rawBase = configuredBase || "https://router.project-osrm.org";
+          const base = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
+          const url = base + "/route/v1/driving/" + activeDriverCoord.lng + "," + activeDriverCoord.lat + ";" + targetPoint.lng + "," + targetPoint.lat + "?overview=full&geometries=geojson&steps=false";
+          const response = await fetch(url, { headers: { Accept: "application/json" } });
+          if (!response.ok) throw new Error("OSRM HTTP " + response.status);
+          const data = await response.json();
+          if (sequence !== directionsSequenceRef.current || !readyRef.current) return;
+          const route = data?.code === "Ok" ? data.routes?.[0] : null;
+          const coordinates = route?.geometry?.coordinates;
+          if (!Array.isArray(coordinates) || coordinates.length < 2) throw new Error("No road route returned");
+          routeLineRef.current?.setPath(coordinates.map((point: [number, number]) => ({ lat: point[1], lng: point[0] })));
+          setRouteMode("road");
+          setRouteProvider("osrm");
+          if (typeof route.distance === "number") setDistanceKm(route.distance / 1000);
+          if (typeof route.duration === "number") setEtaMinutes(Math.max(1, Math.round(route.duration / 60)));
+        } catch (error) {
+          if (sequence !== directionsSequenceRef.current || !readyRef.current) return;
+          setRouteMode("direct");
+          setRouteProvider("none");
+          setDistanceKm(directDistance);
+          setEtaMinutes(Math.max(1, Math.round((directDistance / 28) * 60)));
+          console.warn("[live-map] OSRM road routing unavailable; direct fallback:", error);
+        }
+      };
       const signature = `${status}:${targetPoint.lat.toFixed(5)}:${targetPoint.lng.toFixed(5)}`;
       const previous = lastDirectionsRequestRef.current;
       const moved = !previous ||
@@ -300,19 +330,17 @@ export function LiveTrackMap({
           if (routeStatus === "OK" && route?.overview_path?.length && leg) {
             routeLineRef.current?.setPath(route.overview_path);
             setRouteMode("road");
+            setRouteProvider("google");
             if (typeof leg.distance?.value === "number") setDistanceKm(leg.distance.value / 1000);
             const durationSeconds = leg.duration_in_traffic?.value ?? leg.duration?.value;
             if (typeof durationSeconds === "number") setEtaMinutes(Math.max(1, Math.round(durationSeconds / 60)));
           } else {
-            setRouteMode("direct");
-            setDistanceKm(directDistance);
-            setEtaMinutes(Math.max(1, Math.round((directDistance / 28) * 60)));
-            console.warn("[live-map] road directions unavailable; direct line fallback:", routeStatus);
+            void requestOsrmRoute(sequence);
+            console.warn("[live-map] Google road directions unavailable; trying OSRM:", routeStatus);
           }
         });
-      } else if (!hasRoadRouting) {
-        setRouteMode("direct");
-        routeLineRef.current.setPath([activeDriverCoord, targetPoint]);
+      } else if (!hasRoadRouting && moved) {
+        void requestOsrmRoute(++directionsSequenceRef.current);
       }
 
       if (directDistance < 0.07 && !arrivedNotifiedRef.current) {
@@ -499,6 +527,9 @@ export function LiveTrackMap({
           )}
         </div>
 
+          {routeProvider === "osrm" && (
+            <span className="text-[9px] text-muted-foreground bg-white/90 px-2 py-1 rounded-lg">© OpenStreetMap · OSRM</span>
+          )}
         {isFullscreen && (
           <Button
             type="button"
