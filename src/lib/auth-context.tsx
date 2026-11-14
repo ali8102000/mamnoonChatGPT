@@ -46,6 +46,18 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
+const AUTH_STARTUP_TIMEOUT_MS = 8_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Authentication initialization timed out")), timeoutMs);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -145,27 +157,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfile]);
 
   useEffect(() => {
+    let mounted = true;
+    let startupFinished = false;
+    const finishStartup = () => {
+      if (!mounted || startupFinished) return;
+      startupFinished = true;
+      setLoading(false);
+    };
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (!mounted) return;
       setSession(s);
       if (s?.user) {
-        setTimeout(() => loadProfile(s.user.id), 0);
+        setTimeout(() => { if (mounted) void loadProfile(s.user.id); }, 0);
       } else {
         setProfile(null);
         setRoles([]);
         setBanStatus(null);
       }
     });
-    supabase.auth
-      .getSession()
+
+    const startupTimer = setTimeout(() => {
+      console.error("[Mamnoon] Auth startup timed out; continuing in guest mode");
+      if (mounted) {
+        setSession(null);
+        setProfile(null);
+        setRoles([]);
+        setBanStatus(null);
+      }
+      finishStartup();
+    }, AUTH_STARTUP_TIMEOUT_MS);
+
+    void withTimeout(supabase.auth.getSession(), AUTH_STARTUP_TIMEOUT_MS)
       .then(async ({ data }) => {
+        if (!mounted) return;
         setSession(data.session);
-        if (data.session?.user) {
-          await loadProfile(data.session.user.id);
-        }
-        setLoading(false);
+        if (data.session?.user) await loadProfile(data.session.user.id);
       })
-      .catch(() => setLoading(false));
-    return () => sub.subscription.unsubscribe();
+      .catch((error) => {
+        console.error("[Mamnoon] Initial session lookup failed", error);
+        if (mounted) {
+          setSession(null);
+          setProfile(null);
+          setRoles([]);
+          setBanStatus(null);
+        }
+      })
+      .finally(() => {
+        clearTimeout(startupTimer);
+        finishStartup();
+      });
+
+    return () => {
+      mounted = false;
+      clearTimeout(startupTimer);
+      sub.subscription.unsubscribe();
+    };
   }, [loadProfile]);
 
   const signOut = async () => {
