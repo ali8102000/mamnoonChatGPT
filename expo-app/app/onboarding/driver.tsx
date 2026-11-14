@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
   statusContainer: { flex: 1, justifyContent: "center", padding: 24, gap: 18, backgroundColor: palette.canvas },
   title: { fontSize: 26, fontWeight: "900", color: palette.ink, marginBottom: 12, textAlign: "right" },
   note: { color: palette.muted, fontSize: 13, lineHeight: 22, textAlign: "right" },
-  rejection: { color: palette.danger, backgroundColor: "#F9E9E7", padding: 13, borderRadius: radius.md, marginTop: 12, textAlign: "right", lineHeight: 22 },
+  rejection: { color: palette.danger, backgroundColor: palette.dangerSoft, padding: 13, borderRadius: radius.md, marginTop: 12, textAlign: "right", lineHeight: 22 },
   statusText: { color: palette.ink, fontSize: 14, lineHeight: 26, textAlign: "right" },
   label: { fontSize: 13, fontWeight: "900", color: palette.ink, marginBottom: 8, marginTop: 18, textAlign: "right" },
   row: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
