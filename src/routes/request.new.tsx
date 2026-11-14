@@ -380,7 +380,11 @@ function NewRequest() {
     }
 
     const priceNum = parseInt(customerPrice.replace(/[^0-9]/g, ""), 10);
-    if (vehicle === "large" && customerPrice.trim() && (!Number.isSafeInteger(priceNum) || priceNum < 250 || priceNum % 250 !== 0)) {\n      toast.error("السعر المقترح يجب أن يكون 250 ديناراً أو أكثر ومن مضاعفات 250");\n      return;\n    }\n    if (type === "service" && pricingMode !== "negotiable" && !(priceNum > 0)) {
+    if (vehicle === "large" && customerPrice.trim() && (!Number.isSafeInteger(priceNum) || priceNum < 250 || priceNum % 250 !== 0)) {
+      toast.error("السعر المقترح يجب أن يكون 250 ديناراً أو أكثر ومن مضاعفات 250");
+      return;
+    }
+    if (type === "service" && pricingMode !== "negotiable" && !(priceNum > 0)) {
       toast.error("اكتب المبلغ اللي تريد تدفعه");
       return;
     }
@@ -402,7 +406,8 @@ function NewRequest() {
           workers_count: finalWorkers,
           vehicle_category: type === "taxi" ? vehicleCategory : null,
           vehicle_type: type === "taxi" && vehicleCategory === "large" ? vehicleType : null,
-          price_estimate: vehicle === "large" ? null : priceEstimate,\n          ...(vehicle === "large" ? { pricing_mode: customerPrice.trim() ? "fixed" : "negotiable", customer_price: customerPrice.trim() ? priceNum : null } : {}),
+          price_estimate: vehicle === "large" ? null : priceEstimate,
+          ...(vehicle === "large" ? { pricing_mode: customerPrice.trim() ? "fixed" : "negotiable", customer_price: customerPrice.trim() ? priceNum : null } : {}),
           pickup_text: pickupLabel || "موقع محدد على الخريطة",
           pickup_lat: pickupCoords?.lat ?? null,
           pickup_lng: pickupCoords?.lng ?? null,
