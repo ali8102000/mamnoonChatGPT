@@ -147,7 +147,7 @@ function RequestDetail() {
           .then((rep) => setOtherRep(rep))
           .catch(() => {});
       }
-      if (r.status !== "pending") {
+      if (["pending", "searching", "accepted", "in_progress"].includes(r.status)) {
         const { data: c } = await supabase
           .from("chats")
           .select("*")
@@ -162,6 +162,10 @@ function RequestDetail() {
             .order("created_at");
           setMessages(m ?? []);
         }
+      }
+      } else {
+        setChat(null);
+        setMessages([]);
       }
       if (sessionUser) {
         const { data: rate } = await supabase
@@ -528,7 +532,7 @@ function RequestDetail() {
           )}
         </div>
 
-        {other && req.status !== "pending" && (
+        {other && req.status !== "pending" && !["completed", "cancelled"].includes(req.status as string) && (
           <div className="glass rounded-2xl p-4 space-y-4">
             <div className="flex items-center gap-3 min-w-0">
               <div className="h-12 w-12 rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black shrink-0">
@@ -635,7 +639,7 @@ function RequestDetail() {
           ))}
       </div>
 
-      {chat && (
+      {chat && !["completed", "cancelled"].includes(req.status as string) && (
         <>
           <div className="px-5 pt-3 pb-1 flex items-center justify-between text-xs text-muted-foreground border-b border-border/40">
             <span className="font-bold flex items-center gap-1.5">
