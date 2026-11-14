@@ -132,14 +132,14 @@ export default function AdminScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>لوحة التحكم</Text>
-      {<View style={styles.companyCard}>
+      <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
         <Text style={styles.companyHint}>تغيير الاسم الظاهر للمنصة</Text>
         <TextInput value={companyName} onChangeText={setCompanyName} maxLength={80} placeholder="اسم الشركة" style={styles.companyInput} textAlign="right" />
         <TouchableOpacity onPress={saveCompanyName} disabled={savingCompanyName} style={styles.companySave}>
           <Text style={styles.companySaveText}>{savingCompanyName ? "جاري الحفظ..." : "حفظ اسم الشركة"}</Text>
         </TouchableOpacity>
-      </View>}
+      </View>
       <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></TouchableOpacity>
       <View style={styles.inboxHeader}>
         <View style={{ flex: 1 }}>
