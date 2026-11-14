@@ -202,20 +202,10 @@ export const adminGetStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await requireAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await (supabaseAdmin as any).rpc("get_subscription_stats_v2");
-    if (error || !data || data.length === 0) {
-      return {
-        totalSubscribers: 0,
-        activeSubscriptions: 0,
-        expiredSubscriptions: 0,
-        monthlyRevenue: 0,
-        yearlyRevenue: 0,
-        freeCount: 0,
-        silverCount: 0,
-        goldCount: 0,
-      };
-    }
+    // This RPC checks auth.uid() through assert_staff, so use the caller JWT.
+    const { data, error } = await (context.supabase as any).rpc("get_subscription_stats_v2");
+    if (error) throw new Error("تعذر تحميل إحصائيات الاشتراكات: " + error.message);
+    if (!data || data.length === 0) throw new Error("لا توجد بيانات إحصائية متاحة");
     const r = data[0];
     return {
       totalSubscribers: r.total_subscribers ?? 0,
@@ -224,8 +214,10 @@ export const adminGetStats = createServerFn({ method: "GET" })
       monthlyRevenue: r.monthly_revenue ?? 0,
       yearlyRevenue: r.yearly_revenue ?? 0,
       freeCount: r.free_count ?? 0,
+      bronzeCount: r.bronze_count ?? 0,
       silverCount: r.silver_count ?? 0,
       goldCount: r.gold_count ?? 0,
+      trialCount: r.trial_count ?? 0,
     };
   });
 
