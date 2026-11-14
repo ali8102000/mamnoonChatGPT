@@ -304,7 +304,7 @@ export function DriverOfferPopup() {
 
   const isLargeVehicle = request.vehicle_category === "large";
   const pct = totalSeconds > 0 ? (secondsLeft / totalSeconds) * 100 : 0;
-  const urgent = secondsLeft <= Math.max(5, Math.round(totalSeconds * 0.2));
+  const urgent = !isLargeVehicle && secondsLeft <= Math.max(5, Math.round(totalSeconds * 0.2));
 
   return (
     <div
