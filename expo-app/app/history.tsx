@@ -34,6 +34,7 @@ export default function HistoryScreen() {
   const { user } = useAuth();
   const [requests, setRequests] = useState<HistoryRequest[]>([]);
   const [tab, setTab] = useState<"all" | "active" | "done">("all");
+  const [showAllRequests, setShowAllRequests] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
@@ -43,8 +44,7 @@ export default function HistoryScreen() {
         "*, customer:profiles!service_requests_customer_id_fkey(full_name), provider:profiles!service_requests_provider_id_fkey(full_name)",
       )
       .or(`customer_id.eq.${user?.id},provider_id.eq.${user?.id}`)
-      .order("created_at", { ascending: false })
-      .limit(50);
+      .order("created_at", { ascending: false });
     if (tab === "active")
       query = query.in("status", ["searching", "pending", "accepted", "in_progress"]);
     if (tab === "done") query = query.in("status", ["completed", "cancelled"]);
@@ -55,6 +55,10 @@ export default function HistoryScreen() {
   useEffect(() => {
     load();
   }, [load]);
+  const visibleRequests = showAllRequests
+    ? requests
+    : requests.filter((request) => new Date(request.created_at).getTime() >= Date.now() - 60 * 60 * 1000);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await load();
@@ -64,6 +68,14 @@ export default function HistoryScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>السجل</Text>
+      <View style={styles.tabs}>
+        <TouchableOpacity style={[styles.tab, !showAllRequests && styles.tabActive]} onPress={() => setShowAllRequests(false)}>
+          <Text style={[styles.tabText, !showAllRequests && styles.tabTextActive]}>آخر ساعة</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.tab, showAllRequests && styles.tabActive]} onPress={() => setShowAllRequests(true)}>
+          <Text style={[styles.tabText, showAllRequests && styles.tabTextActive]}>كل الطلبات</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.tabs}>
         {(["all", "active", "done"] as const).map((t) => (
           <TouchableOpacity
@@ -81,13 +93,13 @@ export default function HistoryScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {requests.length === 0 ? (
+        {visibleRequests.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>لا توجد طلبات</Text>
             <Text style={styles.emptySub}>ستظهر طلباتك هنا</Text>
           </View>
         ) : (
-          requests.map((req) => (
+          visibleRequests.map((req) => (
             <TouchableOpacity
               key={req.id}
               style={styles.card}
