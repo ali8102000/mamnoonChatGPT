@@ -6,7 +6,7 @@ function requiredEnv(name: string): string {
 }
 function pemToBytes(pem: string): Uint8Array {
   const body = pem.replace(/-----BEGIN PUBLIC KEY-----/g, "")
-    .replace(/-----END PUBLIC KEY-----/g, "").replace(/\s/g, "");
+    .replace(/-----END PUBLIC KEY-----/g, "").replaceAll(" ", "").replaceAll("\n", "").replaceAll("\r", "").replaceAll("\t", "");
   const binary = atob(body);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     if (payment.gateway_payment_id && payment.gateway_payment_id !== paymentId) {
       return json({ error: "payment_reference_mismatch" }, 409);
     }
-    const apiBase = (Deno.env.get("QICARD_API_BASE_URL") || "https://uat-sandbox-3ds-api.qi.iq/api/v1").replace(/\\/+$/, "");
+    const apiBase = Deno.env.get("QICARD_API_BASE_URL") || "https://uat-sandbox-3ds-api.qi.iq/api/v1";
     const basic = btoa(requiredEnv("QICARD_USERNAME") + ":" + requiredEnv("QICARD_PASSWORD"));
     const statusResponse = await fetch(apiBase + "/payment/" + encodeURIComponent(paymentId) + "/status", {
       headers: {
