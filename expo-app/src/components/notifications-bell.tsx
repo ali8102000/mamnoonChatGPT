@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
+import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
@@ -27,6 +28,13 @@ export function NotificationsBell() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: "user_id=eq." + user.id }, (payload: any) => {
         const item = payload.new as NotificationRow;
         if (Date.now() - new Date(item.created_at).getTime() <= 24 * 60 * 60 * 1000) setItems((current) => [item, ...current.filter((row) => row.id !== item.id)]);
+        // Request offers already receive a dedicated Expo push; other in-app events get a local audible alert.
+        if (item.type !== "request_offer") {
+          void Notifications.scheduleNotificationAsync({
+            content: { title: item.title, body: item.body ?? undefined, sound: true, data: { url: item.link ?? "/home" } },
+            trigger: null,
+          }).catch((error) => console.warn("[notifications] local sound alert failed:", error));
+        }
       }).subscribe();
     return () => { clearInterval(refresh); supabase.removeChannel(channel); };
   }, [user?.id, load]);
