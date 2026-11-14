@@ -91,6 +91,11 @@ export default function NewRequest() {
   const [placeSearchError, setPlaceSearchError] = useState<string | null>(null);
   const [focusSearchAfterProvince, setFocusSearchAfterProvince] = useState(false);
   const placeSearchInputRef = useRef<TextInput>(null);
+  const regionChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
+  }, []);
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
 
@@ -270,7 +275,7 @@ export default function NewRequest() {
         .catch(() => {});
       setRegion({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
       const address = formatAddress(await Location.reverseGeocodeAsync(coords));
-      setPickup(address || "موقعي الحالي");
+      setPickup(address || "موقع محدد على الخريطة");
       setMapMode("pickup");
       setPlaceQuery("");
       setPlaceSuggestions([]);
@@ -279,6 +284,35 @@ export default function NewRequest() {
     } finally {
       setLocationLoading(false);
     }
+  }
+
+  function handleRegionChangeComplete(nextRegion: typeof region, details?: { isGesture?: boolean }) {
+    setRegion(nextRegion);
+    if (!details?.isGesture) return;
+    if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
+    regionChangeTimerRef.current = setTimeout(async () => {
+      const coords = { latitude: nextRegion.latitude, longitude: nextRegion.longitude };
+      if (activeGovernorateKey) {
+        try {
+          const validation = await callMamnoonMapsApi<{ valid: boolean }>({
+            action: "validateGovernorate",
+            center: { lat: coords.latitude, lng: coords.longitude },
+            governorateKey: activeGovernorateKey,
+          });
+          if (!validation.valid) return;
+        } catch {
+          return;
+        }
+      }
+      const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
+      if (mapMode === "pickup") {
+        setPickupCoords(coords);
+        setPickup(address || "موقع محدد على الخريطة");
+      } else {
+        setDestinationCoords(coords);
+        setDestination(address || "وجهة محددة على الخريطة");
+      }
+    }, 450);
   }
 
   async function chooseMapPoint(coords: Coordinates) {
@@ -301,11 +335,11 @@ export default function NewRequest() {
     if (mapMode === "pickup") {
       setPickupCoords(coords);
       const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
-      setPickup(address || `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`);
+      setPickup(address || "موقع محدد على الخريطة");
     } else {
       setDestinationCoords(coords);
       const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
-      setDestination(address || `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`);
+      setDestination(address || "وجهة محددة على الخريطة");
     }
   }
 
@@ -594,7 +628,7 @@ export default function NewRequest() {
           style={styles.map}
           provider={PROVIDER_GOOGLE}
           region={region}
-          onRegionChangeComplete={setRegion}
+          onRegionChangeComplete={handleRegionChangeComplete}
           onPress={(event) => chooseMapPoint(event.nativeEvent.coordinate)}
           showsUserLocation
           showsMyLocationButton={false}

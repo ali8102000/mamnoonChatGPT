@@ -100,24 +100,27 @@ export default function HomeScreen() {
   }, [activeRole, user]);
 
   useEffect(() => {
-    loadIncoming();
-    const sub = supabase
-      .channel("incoming-requests")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "service_requests" },
-        () => loadIncoming(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "service_requests" },
-        () => loadIncoming(),
-      )
-      .subscribe();
+    void loadIncoming();
+    const channel = supabase.channel("incoming-requests")
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_requests" }, () => {
+        void loadIncoming();
+      });
+    if (user?.id) {
+      channel.on("postgres_changes", {
+        event: "*", schema: "public", table: "request_offers", filter: `provider_id=eq.${user.id}`,
+      }, () => {
+        void loadIncoming();
+      });
+    }
+    channel.subscribe();
+    // Dispatch expands its search radius in 60-second waves. Polling keeps
+    // later waves visible if Realtime is temporarily disconnected.
+    const refreshTimer = setInterval(() => { void loadIncoming(); }, 3000);
     return () => {
-      supabase.removeChannel(sub);
+      clearInterval(refreshTimer);
+      supabase.removeChannel(channel);
     };
-  }, [loadIncoming]);
+  }, [loadIncoming, user?.id]);
 
   useEffect(() => {
     if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
