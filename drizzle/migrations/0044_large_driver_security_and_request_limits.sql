@@ -26,6 +26,10 @@ BEGIN
       IF NEW.pickup_lat IS NULL OR NEW.pickup_lng IS NULL THEN
         RAISE EXCEPTION 'موقع الانطلاق مطلوب';
       END IF;
+      IF NEW.customer_price IS NOT NULL
+         AND (NEW.customer_price < 250 OR NEW.customer_price > 50000 OR NEW.customer_price % 250 <> 0) THEN
+        RAISE EXCEPTION 'السعر المقترح يجب أن يكون من 250 إلى 50000 دينار ومن مضاعفات 250';
+      END IF;
       NEW.distance_km := NULL;
       NEW.duration_min := NULL;
       NEW.price_estimate := NULL;
@@ -174,6 +178,76 @@ AS $$
   LIMIT _limit;
 $$;
 -- CREATE OR REPLACE preserves the function's existing execution grants.
+
+-- Keep the customer-facing nearby map aligned with the 25 km service/large-vehicle radius.
+-- Coordinates remain rounded to three decimals; this RPC is for map preview, not dispatch.
+CREATE OR REPLACE FUNCTION public.find_nearby_provider_pins(
+  _lat numeric,
+  _lng numeric,
+  _type text,
+  _category text DEFAULT NULL,
+  _service_id uuid DEFAULT NULL,
+  _radius_km numeric DEFAULT 5,
+  _limit int DEFAULT 30
+)
+RETURNS TABLE(pin_id text, lat numeric, lng numeric, heading numeric)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $
+  SELECT
+    md5(pp.user_id::text),
+    round(pp.lat::numeric, 3),
+    round(pp.lng::numeric, 3),
+    pp.heading::numeric
+  FROM public.provider_presence pp
+  WHERE auth.uid() IS NOT NULL
+    AND _lat BETWEEN -90 AND 90
+    AND _lng BETWEEN -180 AND 180
+    AND _type IN ('taxi', 'service')
+    AND pp.updated_at > now() - interval '5 minutes'
+    AND (
+      (_type = 'taxi' AND EXISTS (
+        SELECT 1
+        FROM public.driver_profiles dp
+        WHERE dp.user_id = pp.user_id
+          AND dp.available = true
+          AND dp.status = 'approved'
+          AND (_category IS NULL OR dp.vehicle_category::text = _category)
+          AND (
+            (_category = 'large' AND public.has_role(dp.user_id, 'large_driver'))
+            OR
+            (_category IS DISTINCT FROM 'large' AND public.has_role(dp.user_id, 'driver'))
+          )
+      ))
+      OR
+      (_type = 'service' AND EXISTS (
+        SELECT 1
+        FROM public.worker_profiles wp
+        WHERE wp.user_id = pp.user_id
+          AND wp.available = true
+          AND wp.status = 'approved'
+          AND (_service_id IS NULL OR EXISTS (
+            SELECT 1
+            FROM public.worker_services ws
+            WHERE ws.worker_id = wp.user_id
+              AND ws.service_id = _service_id
+          ))
+      ))
+    )
+    AND 6371 * acos(LEAST(1.0, GREATEST(-1.0,
+      cos(radians(_lat)) * cos(radians(pp.lat)) *
+      cos(radians(pp.lng) - radians(_lng)) +
+      sin(radians(_lat)) * sin(radians(pp.lat))
+    ))) <= LEAST(GREATEST(COALESCE(_radius_km, 5), 0.1), 25)
+  ORDER BY pp.updated_at DESC
+  LIMIT LEAST(GREATEST(COALESCE(_limit, 30), 1), 30)
+$;
+REVOKE ALL ON FUNCTION public.find_nearby_provider_pins(numeric,numeric,text,text,uuid,numeric,int)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.find_nearby_provider_pins(numeric,numeric,text,text,uuid,numeric,int)
+  TO authenticated, service_role;
 
 -- Large drivers submit offers; they do not directly accept standard taxi/service requests.
 CREATE OR REPLACE FUNCTION public.accept_service_request(_request_id uuid)
@@ -365,5 +439,85 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.submit_large_vehicle_offer(uuid, integer, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.submit_large_vehicle_offer(uuid, integer, text) TO authenticated;
+
+-- Customer acceptance is valid only while the selected large driver remains approved and available.
+CREATE OR REPLACE FUNCTION public.accept_large_vehicle_offer(_offer_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+DECLARE
+  o public.request_offers%ROWTYPE;
+  r public.service_requests%ROWTYPE;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+
+  SELECT * INTO o FROM public.request_offers WHERE id = _offer_id FOR UPDATE;
+  IF NOT FOUND OR o.proposed_price IS NULL OR o.status <> 'pending'
+     OR o.expires_at <= now() THEN
+    RAISE EXCEPTION 'offer_unavailable';
+  END IF;
+
+  SELECT * INTO r FROM public.service_requests WHERE id = o.request_id FOR UPDATE;
+  IF NOT FOUND OR r.customer_id <> auth.uid()
+     OR r.type <> 'taxi' OR r.vehicle_category::text <> 'large'
+     OR r.status NOT IN ('pending','searching') OR r.provider_id IS NOT NULL THEN
+    RAISE EXCEPTION 'request_unavailable';
+  END IF;
+
+  IF NOT public.has_role(o.provider_id, 'large_driver')
+     OR EXISTS (
+       SELECT 1 FROM public.user_blocks b
+       WHERE b.user_id = o.provider_id
+         AND (b.expires_at IS NULL OR b.expires_at > now())
+     )
+     OR NOT EXISTS (
+       SELECT 1 FROM public.driver_profiles dp
+       WHERE dp.user_id = o.provider_id
+         AND dp.vehicle_category::text = 'large'
+         AND dp.status = 'approved'
+         AND dp.available = true
+         AND (r.vehicle_type IS NULL OR dp.vehicle_type = r.vehicle_type)
+     ) THEN
+    RAISE EXCEPTION 'large_driver_no_longer_eligible';
+  END IF;
+
+  PERFORM set_config('mamnoon.allow_large_vehicle_accept', 'true', true);
+  UPDATE public.service_requests
+  SET provider_id = o.provider_id,
+      status = 'accepted',
+      accepted_at = now(),
+      price_estimate = o.proposed_price,
+      customer_price = o.proposed_price,
+      pricing_mode = 'fixed'
+  WHERE id = r.id;
+
+  UPDATE public.request_offers
+  SET status = CASE WHEN id = _offer_id THEN 'accepted' ELSE 'cancelled' END,
+      responded_at = now()
+  WHERE request_id = r.id AND status = 'pending';
+
+  INSERT INTO public.chats(request_id, customer_id, provider_id)
+  VALUES (r.id, r.customer_id, o.provider_id)
+  ON CONFLICT (request_id) DO UPDATE
+    SET customer_id = EXCLUDED.customer_id,
+        provider_id = EXCLUDED.provider_id,
+        updated_at = now();
+
+  INSERT INTO public.notifications(user_id, type, title, body, link, data)
+  VALUES (
+    o.provider_id,
+    'large_vehicle_offer_accepted',
+    'تم قبول عرض سعرك',
+    'وافق الزبون على عرضك. افتح الطلب للتواصل والبدء.',
+    '/request/' || r.id,
+    jsonb_build_object('request_id', r.id, 'offer_id', _offer_id)
+  );
+  RETURN true;
+END;
+$;
+REVOKE ALL ON FUNCTION public.accept_large_vehicle_offer(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.accept_large_vehicle_offer(uuid) TO authenticated;
 
 COMMIT;
