@@ -651,7 +651,7 @@ export default function RequestDetail() {
                 {!!offer.offer_message && <Text style={styles.largeOfferMessage}>{offer.offer_message}</Text>}
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <TouchableOpacity
-                    style={[styles.largeOfferAccept, { flex: 1, backgroundColor: "#64748b" }]}
+                    style={[styles.largeOfferAccept, { flex: 1, backgroundColor: palette.muted }]}
                     disabled={!!acceptingLargeOffer}
                     onPress={() => rejectLargeOffer(offer.id)}
                   >
@@ -668,7 +668,7 @@ export default function RequestDetail() {
               </View>
             ))}
             <TouchableOpacity
-              style={[styles.largeOfferAccept, { backgroundColor: "#c2410c" }]}
+              style={[styles.largeOfferAccept, { backgroundColor: palette.gold }]}
               disabled={retryingLargeOffers}
               onPress={retryLargeOffers}
             >
@@ -760,7 +760,7 @@ export default function RequestDetail() {
           )}
           {isActive && isProvider && (
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: "#16a34a" }]}
+              style={[styles.actionBtn, { backgroundColor: palette.success }]}
               onPress={completeRide}
             >
               <Text style={styles.actionBtnText}>إنهاء</Text>
@@ -770,7 +770,7 @@ export default function RequestDetail() {
             request.status !== "cancelled" &&
             request.status !== "completed" && (
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: "#dc2626" }]}
+                style={[styles.actionBtn, { backgroundColor: palette.danger }]}
                 onPress={cancelRequest}
               >
                 <Text style={styles.actionBtnText}>إلغاء</Text>
