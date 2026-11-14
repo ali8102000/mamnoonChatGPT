@@ -51,7 +51,7 @@ function ProviderSubscriptionsPage() {
     setBusy(planCode);
     try {
       const { data, error } = await supabase.functions.invoke("qicard-create-payment", {
-        body: { planCode, billingCycle: "monthly" },
+        body: { planCode, billingCycle: "monthly", appChannel: false },
       });
       if (error || !data?.checkoutUrl) throw new Error(data?.error || error?.message || "تعذر إنشاء عملية الدفع");
       window.location.assign(data.checkoutUrl);
