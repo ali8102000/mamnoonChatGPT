@@ -670,6 +670,10 @@ export type Database = {
       }
       service_requests: {
         Row: {
+          coupon_code: string | null
+          coupon_id: string | null
+          coupon_discount: number
+          customer_payable: number | null
           accepted_at: string | null
           admin_notes: string | null
           cancellation_reason: string | null
@@ -710,6 +714,10 @@ export type Database = {
           workers_count: number
         }
         Insert: {
+          coupon_code?: string | null
+          coupon_id?: string | null
+          coupon_discount?: number
+          customer_payable?: number | null
           accepted_at?: string | null
           admin_notes?: string | null
           cancellation_reason?: string | null
@@ -750,6 +758,10 @@ export type Database = {
           workers_count?: number
         }
         Update: {
+          coupon_code: string | null
+          coupon_id: string | null
+          coupon_discount: number
+          customer_payable: number | null
           accepted_at?: string | null
           admin_notes?: string | null
           cancellation_reason?: string | null
@@ -790,6 +802,13 @@ export type Database = {
           workers_count?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "service_requests_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "service_requests_customer_id_fkey"
             columns: ["customer_id"]
