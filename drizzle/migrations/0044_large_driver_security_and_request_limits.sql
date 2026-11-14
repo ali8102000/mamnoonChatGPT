@@ -146,6 +146,15 @@ BEGIN
     END IF;
 
     IF TG_OP = 'UPDATE'
+       AND TG_TABLE_NAME = 'driver_profiles'
+       AND (
+         NEW.vehicle_category IS DISTINCT FROM OLD.vehicle_category
+         OR NEW.vehicle_type IS DISTINCT FROM OLD.vehicle_type
+       ) THEN
+      RAISE EXCEPTION 'vehicle_change_requires_admin_approval';
+    END IF;
+
+    IF TG_OP = 'UPDATE'
        AND NEW.rating_avg IS DISTINCT FROM OLD.rating_avg THEN
       RAISE EXCEPTION 'rating_readonly';
     END IF;
