@@ -274,15 +274,10 @@ export default function WorkerOnboarding() {
       }, { onConflict: "user_id" });
       if (workerError) throw workerError;
 
-      const { error: deleteServicesError } = await supabase
-        .from("worker_services")
-        .delete()
-        .eq("worker_id", user.id);
-      if (deleteServicesError) throw deleteServicesError;
-      const { error: insertServicesError } = await supabase
-        .from("worker_services")
-        .insert(selected.map((serviceId) => ({ worker_id: user.id, service_id: serviceId })));
-      if (insertServicesError) throw insertServicesError;
+      const { error: saveServicesError } = await (supabase as any).rpc("save_initial_worker_services", {
+        _service_ids: selected,
+      });
+      if (saveServicesError) throw saveServicesError;
 
       setStatus("pending");
       setRejectionReason(null);
