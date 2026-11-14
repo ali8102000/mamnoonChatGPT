@@ -183,13 +183,10 @@ export const signUpWithPhone = createServerFn({ method: "POST" })
     });
 
     if (signInError || !signedIn.session) {
-      // Avoid leaving an unusable account if session issuance unexpectedly fails.
-      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(created.user.id);
-      if (deleteError) {
-        console.error("[signUpWithPhone] Cleanup failed:", deleteError.message);
-      }
+      // Keep the newly created account: a transient session error must not delete
+      // the user's account or profile. They can retry sign-in with the same phone.
       console.error("[signUpWithPhone] Immediate sign-in failed:", signInError?.message);
-      throw new Error("تم إنشاء الحساب لكن تعذّر تسجيل الدخول تلقائياً. حاول تسجيل الدخول.");
+      throw new Error("تم إنشاء الحساب لكن تعذّر تسجيل الدخول تلقائياً. حسابك محفوظ؛ جرّب تسجيل الدخول برقم الهاتف وكلمة المرور نفسها.");
     }
 
     return {
