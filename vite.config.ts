@@ -8,8 +8,22 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { loadEnv } from "vite";
 import publicBackend from "./config/public-backend.json";
 
-// Only public browser configuration belongs here; runtime secrets remain in Cloud.
+// The committed public backend config is the single source of truth for both
+// preview and published builds. A stale Lovable VITE_* value must never silently
+// override the verified Supabase project and ship a production bundle with a
+// different/invalid API key. Update config/public-backend.json when rotating keys.
 const env = loadEnv(process.env.NODE_ENV === "development" ? "development" : "production", process.cwd(), "VITE_");
+const publicSupabaseUrl = publicBackend.VITE_SUPABASE_URL;
+const publicSupabaseKey = publicBackend.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+if (
+  (env.VITE_SUPABASE_URL && env.VITE_SUPABASE_URL !== publicSupabaseUrl) ||
+  (env.VITE_SUPABASE_PUBLISHABLE_KEY && env.VITE_SUPABASE_PUBLISHABLE_KEY !== publicSupabaseKey)
+) {
+  console.warn(
+    "[Mamnoon] Ignoring mismatched VITE_SUPABASE_* build environment values; using config/public-backend.json to keep preview and published builds on the same verified backend.",
+  );
+}
 
 export default defineConfig({
   tanstackStart: {
@@ -19,8 +33,8 @@ export default defineConfig({
   },
   vite: {
     define: {
-      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(env.VITE_SUPABASE_URL || publicBackend.VITE_SUPABASE_URL),
-      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(env.VITE_SUPABASE_PUBLISHABLE_KEY || publicBackend.VITE_SUPABASE_PUBLISHABLE_KEY),
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(publicSupabaseUrl),
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(publicSupabaseKey),
     },
   },
 });
