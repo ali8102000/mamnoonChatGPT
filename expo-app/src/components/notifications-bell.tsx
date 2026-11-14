@@ -6,6 +6,12 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
+const IMPORTANT_NOTIFICATION_TYPES = /^(support_message|provider_approved|provider_rejected|provider_suspended|coupon_received|coupon_redeemed|announcement|company_announcement|admin_alert|security_alert|account_verified|verification_approved)$/i;
+
+function isImportantNotificationType(type: string) {
+  return IMPORTANT_NOTIFICATION_TYPES.test(type);
+}
+
 type NotificationRow = { id: string; type: string; title: string; body: string | null; link: string | null; read_at: string | null; created_at: string };
 
 export function NotificationsBell() {
@@ -17,7 +23,7 @@ export function NotificationsBell() {
     if (!user?.id) return;
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await (supabase as any).from("notifications").select("id,type,title,body,link,read_at,created_at").eq("user_id", user.id).gte("created_at", since).order("created_at", { ascending: false }).limit(50);
-    if (!error) setItems(data ?? []);
+    if (!error) setItems((data ?? []).filter((item: NotificationRow) => isImportantNotificationType(item.type)));
   }, [user?.id]);
 
   useEffect(() => {
@@ -28,9 +34,9 @@ export function NotificationsBell() {
     const channel = supabase.channel("native-notifications-" + user.id)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: "user_id=eq." + user.id }, (payload: any) => {
         const item = payload.new as NotificationRow;
-        if (Date.now() - new Date(item.created_at).getTime() <= 24 * 60 * 60 * 1000) setItems((current) => [item, ...current.filter((row) => row.id !== item.id)]);
+        if (Date.now() - new Date(item.created_at).getTime() <= 24 * 60 * 60 * 1000 && isImportantNotificationType(item.type)) setItems((current) => [item, ...current.filter((row) => row.id !== item.id)]);
         // Request offers already receive a dedicated Expo push; other in-app events get a local audible alert.
-        if (item.type !== "request_offer") {
+        if (isImportantNotificationType(item.type)) {
           void Notifications.scheduleNotificationAsync({
             content: { title: item.title, body: item.body ?? undefined, sound: true, data: { url: item.link ?? "/home" } },
             trigger: null,
@@ -56,7 +62,7 @@ export function NotificationsBell() {
   }
 
   function isOfficial(item: NotificationRow) {
-    return /company|admin|provider_approved|provider_rejected|provider_suspended|support_message|coupon_received|coupon_redeemed|promotion|announcement/i.test(item.type);
+    return /company|admin|provider_approved|provider_rejected|provider_suspended|announcement|security_alert|account_verified|verification_approved/i.test(item.type);
   }
 
   function openItem(item: NotificationRow) {
