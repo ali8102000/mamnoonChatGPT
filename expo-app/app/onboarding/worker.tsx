@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
+import { palette, radius, space } from "@/styles/theme";
 
 type WorkerService = { id: string; slug: string; name_ar: string };
 type PickedImage = { uri: string; mimeType?: string | null; fileName?: string | null };
@@ -397,26 +398,26 @@ export default function WorkerOnboarding() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 50 },
-  statusContainer: { flex: 1, justifyContent: "center", padding: 24, gap: 18 },
-  title: { fontSize: 28, fontWeight: "900", color: "#1e293b", marginBottom: 16, textAlign: "right" },
-  note: { color: "#64748b", fontSize: 13, lineHeight: 22, textAlign: "right" },
-  rejection: { color: "#b91c1c", backgroundColor: "#fee2e2", padding: 12, borderRadius: 12, marginTop: 12, textAlign: "right", lineHeight: 22 },
-  statusText: { color: "#475569", fontSize: 15, lineHeight: 26, textAlign: "right" },
-  label: { fontSize: 13, fontWeight: "700", color: "#475569", marginBottom: 8, marginTop: 18, textAlign: "right" },
+  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
+  statusContainer: { flex: 1, justifyContent: "center", padding: 24, gap: 18, backgroundColor: palette.canvas },
+  title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 16, textAlign: "right" },
+  note: { color: palette.muted, fontSize: 13, lineHeight: 22, textAlign: "right" },
+  rejection: { color: palette.danger, backgroundColor: "#F9E9E7", padding: 13, borderRadius: radius.md, marginTop: 12, textAlign: "right", lineHeight: 22 },
+  statusText: { color: palette.ink, fontSize: 14, lineHeight: 26, textAlign: "right" },
+  label: { fontSize: 13, fontWeight: "900", color: palette.ink, marginBottom: 8, marginTop: 18, textAlign: "right" },
   servicesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  serviceChip: { width: "47%", minHeight: 150, alignItems: "center", justifyContent: "center", paddingHorizontal: 10, paddingVertical: 14, borderRadius: 18, backgroundColor: "#fff", borderWidth: 2, borderColor: "#e2e8f0", elevation: 2 },
-  serviceArtwork: { width: 88, height: 88, marginBottom: 8 },
-  serviceChipActive: { borderColor: "#0f766e", backgroundColor: "#e6fffb", elevation: 4 },
-  serviceChipText: { fontSize: 12, fontWeight: "700", color: "#64748b", textAlign: "center" },
-  serviceChipTextActive: { color: "#0f766e" },
+  serviceChip: { width: "47%", minHeight: 145, alignItems: "center", justifyContent: "center", paddingHorizontal: 10, paddingVertical: 14, borderRadius: radius.lg, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  serviceArtwork: { width: 84, height: 84, marginBottom: 8 },
+  serviceChipActive: { borderColor: palette.gold, backgroundColor: palette.brandSoft },
+  serviceChipText: { fontSize: 12, fontWeight: "800", color: palette.muted, textAlign: "center" },
+  serviceChipTextActive: { color: palette.brand },
   levelRow: { flexDirection: "row", gap: 10 },
-  levelChip: { flex: 1, alignItems: "center", paddingVertical: 14, borderRadius: 14, backgroundColor: "#fff", borderWidth: 2, borderColor: "transparent" },
-  levelChipActive: { borderColor: "#0f766e", backgroundColor: "#0f766e10" },
-  levelText: { fontSize: 15, fontWeight: "700", color: "#64748b" },
-  levelTextActive: { color: "#0f766e" },
-  input: { borderWidth: 1, borderColor: "rgba(30,41,59,0.1)", borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontWeight: "600", color: "#1e293b", backgroundColor: "rgba(30,41,59,0.03)", textAlign: "right" },
-  photoButton: { minHeight: 112, borderWidth: 1, borderStyle: "dashed", borderColor: "#94a3b8", borderRadius: 16, backgroundColor: "#f8fafc", alignItems: "center", justifyContent: "center", padding: 10 },
-  photoText: { color: "#0f766e", fontWeight: "700", textAlign: "center" },
-  preview: { width: 150, height: 110, borderRadius: 12, resizeMode: "cover" },
+  levelChip: { flex: 1, alignItems: "center", paddingVertical: 14, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  levelChipActive: { borderColor: palette.gold, backgroundColor: palette.brandSoft },
+  levelText: { fontSize: 14, fontWeight: "800", color: palette.muted },
+  levelTextActive: { color: palette.brand },
+  input: { minHeight: 54, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, fontWeight: "600", color: palette.ink, backgroundColor: palette.surface, textAlign: "right" },
+  photoButton: { minHeight: 112, borderWidth: 1, borderStyle: "dashed", borderColor: palette.gold, borderRadius: radius.lg, backgroundColor: palette.surface, alignItems: "center", justifyContent: "center", padding: 12 },
+  photoText: { color: palette.brand, fontWeight: "900", textAlign: "center" },
+  preview: { width: 150, height: 110, borderRadius: radius.md, resizeMode: "cover" },
 });
