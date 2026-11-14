@@ -567,7 +567,7 @@ function RequestDetail() {
                     toast.error(e.message ?? "تعذّر بدء الرحلة");
                   }
                 }}
-                className="text-xs px-3 py-2 rounded-xl bg-primary text-primary-foreground font-bold btn-press"
+                className="min-w-[112px] min-h-12 px-3 py-2 rounded-xl bg-primary text-primary-foreground font-black text-sm btn-press shadow-md"
               >
                 بدء الرحلة
               </button>
@@ -575,19 +575,29 @@ function RequestDetail() {
             {req.status === "in_progress" && session.user.id === req.provider_id && (
               <button
                 onClick={markCompleted}
-                className="text-xs px-3 py-2 rounded-xl bg-success text-success-foreground font-bold btn-press"
+                className="min-w-[120px] min-h-12 px-3 py-2 rounded-xl bg-success text-success-foreground font-black text-sm btn-press shadow-md"
               >
-                إنهاء الرحلة
+                تأكيد إكمال الرحلة
               </button>
             )}
             {["pending", "searching", "accepted", "in_progress"].includes(req.status as string) && (
               <button
                 onClick={() => setShowCancel(true)}
-                className="text-xs px-3 py-2 rounded-xl bg-destructive/10 text-destructive font-bold btn-press"
+                className="min-w-[112px] min-h-12 px-3 py-2 rounded-xl bg-destructive text-white font-black text-sm btn-press shadow-md"
               >
-                إلغاء
+                {myRole === "customer" ? (req.type === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب") : "اعتذار عن الطلب"}
               </button>
             )}
+          </div>
+        )}
+
+        {req.status === "completed" && (
+          <div className="mx-5 mb-4 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 flex items-center gap-3">
+            <div className="h-12 w-12 shrink-0 rounded-2xl bg-emerald-500 text-white grid place-items-center text-2xl">✓</div>
+            <div>
+              <div className="font-black text-base text-emerald-700 dark:text-emerald-300">اكتملت ${req.type === "taxi" ? "الرحلة" : "الخدمة"}</div>
+              <div className="text-xs text-muted-foreground mt-1">{myRole === "customer" ? "أكد مقدّم الخدمة إكمال الطلب. تگدر هسه تقيّمه." : "تم تسجيل إكمال الطلب بنجاح."}</div>
+            </div>
           </div>
         )}
 
@@ -736,7 +746,7 @@ function RequestDetail() {
               onClick={() => setShowCancel(true)}
               className="block mx-auto mt-5 px-5 py-2.5 rounded-2xl bg-destructive/10 text-destructive font-bold text-xs btn-press"
             >
-              إلغاء الطلب
+              {req.type === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب"}
             </button>
           )}
         </div>
@@ -753,9 +763,10 @@ function RequestDetail() {
               } else {
                 await providerCancelFn({ data: { requestId: id, reason } });
               }
-              toast.success("تم الإلغاء");
+              toast.success(myRole === "customer" ? "تم إلغاء الطلب وإبلاغ الطرف الآخر" : "تم الاعتذار وإعادة الطلب للبحث عن مزوّد آخر");
               setShowCancel(false);
-              loadAll();
+              if (myRole === "provider") navigate({ to: "/home" });
+              else await loadAll();
             } catch (e: any) {
               toast.error(e.message ?? "تعذّر الإلغاء");
             }
