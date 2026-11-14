@@ -40,6 +40,7 @@ export default function DriverOnboarding() {
   const [idPhoto, setIdPhoto] = useState<PickedImage | null>(null);
   const [idBackPhoto, setIdBackPhoto] = useState<PickedImage | null>(null);
   const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<PickedImage | null>(null);
+  const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
   const [status, setStatus] = useState<string | null>(null);
   const [savedModelName, setSavedModelName] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
@@ -142,10 +143,10 @@ export default function DriverOnboarding() {
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         const picked = { uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName };
-        if (kind === "face") setFacePhoto(picked);
-        else if (kind === "id") setIdPhoto(picked);
-        else if (kind === "id-back") setIdBackPhoto(picked);
-        else setVehicleDocumentPhoto(picked);
+        if (kind === "face") { setFacePhoto(picked); setChangedDocuments((current) => ({ ...current, face_photo: true })); }
+        else if (kind === "id") { setIdPhoto(picked); setChangedDocuments((current) => ({ ...current, id_card: true })); }
+        else if (kind === "id-back") { setIdBackPhoto(picked); setChangedDocuments((current) => ({ ...current, id_card_back: true })); }
+        else { setVehicleDocumentPhoto(picked); setChangedDocuments((current) => ({ ...current, vehicle_document: true })); }
       }
     } catch {
       Alert.alert("خطأ", "تعذر اختيار الصورة. حاول مرة أخرى.");
@@ -175,15 +176,19 @@ export default function DriverOnboarding() {
       setBusy(true);
       try {
         const vehicleYear = Number(year.trim());
+        if (!largeDriverMode && (!selectedMake || !(selectedModel?.model ?? savedModelName)?.trim())) {
+          Alert.alert("بيانات المركبة", "اختر ماركة وموديل المركبة.");
+          return;
+        }
         if (!plate.trim() || year.trim().length !== 4 || !Number.isInteger(Number(year.trim()))) {
           Alert.alert("بيانات المركبة", "أدخل رقم اللوحة وسنة الصنع بشكل صحيح.");
           return;
         }
         const documents: Record<string, string> = {};
-        if (facePhoto) documents.face_photo = await uploadImage(facePhoto, "face");
-        if (idPhoto) documents.id_card = await uploadImage(idPhoto, "id-card");
-        if (idBackPhoto) documents.id_card_back = await uploadImage(idBackPhoto, "id-card-back");
-        if (vehicleDocumentPhoto) documents.vehicle_document = await uploadImage(vehicleDocumentPhoto, "vehicle-registration");
+        if (changedDocuments.face_photo && facePhoto) documents.face_photo = await uploadImage(facePhoto, "face");
+        if (changedDocuments.id_card && idPhoto) documents.id_card = await uploadImage(idPhoto, "id-card");
+        if (changedDocuments.id_card_back && idBackPhoto) documents.id_card_back = await uploadImage(idBackPhoto, "id-card-back");
+        if (changedDocuments.vehicle_document && vehicleDocumentPhoto) documents.vehicle_document = await uploadImage(vehicleDocumentPhoto, "vehicle-registration");
         const vehicleUpdate = {
           vehicle_make: largeDriverMode ? "كيا" : selectedMake,
           vehicle_model: largeDriverMode ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : (selectedModel?.model ?? savedModelName ?? ""),

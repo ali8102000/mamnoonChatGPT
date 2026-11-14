@@ -320,6 +320,11 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           setActiveStep("car");
           return;
         }
+        if (!largeDriverMode && (!finalMake || !modelName.trim())) {
+          toast.error("اختر ماركة وموديل المركبة");
+          setActiveStep("car");
+          return;
+        }
         if (!plate.trim() || year.trim().length !== 4 || !Number.isInteger(Number(year.trim()))) {
           toast.error("أدخل رقم اللوحة وسنة الصنع بشكل صحيح");
           setActiveStep("car");
