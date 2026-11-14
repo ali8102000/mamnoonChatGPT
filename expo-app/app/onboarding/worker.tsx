@@ -48,7 +48,11 @@ export default function WorkerOnboarding() {
       if (!active) return;
       if (error) {
         console.error("get_worker_service_catalog failed:", error);
-        setServicesError(`تعذر تحميل المهن (${error.code || "اتصال"}): ${error.message || "تحقق من اتصالك"}`);
+        setServicesError(
+          /invalid api key/i.test(error.message || "")
+            ? "مفتاح اتصال Supabase في نسخة التطبيق غير صالح أو قديم. حدّث إعداد EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY في بيئة Production ثم أنشئ نسخة APK جديدة."
+            : `تعذر تحميل المهن (${error.code || "اتصال"}): ${error.message || "تحقق من اتصالك"}`,
+        );
       } else {
         const available = (data || []).filter((s: WorkerService) => s.slug !== "taxi");
         setServices(available);
@@ -282,7 +286,11 @@ export default function WorkerOnboarding() {
             if (error) console.error("get_worker_service_catalog retry failed:", error);
             const available = (data || []).filter((s: WorkerService) => s.slug !== "taxi");
             setServices(available);
-            setServicesError(error ? `تعذر تحميل المهن: ${error.message}` : available.length ? null : "قائمة المهن فارغة حالياً.");
+            setServicesError(error
+              ? (/invalid api key/i.test(error.message || "")
+                  ? "مفتاح اتصال Supabase في نسخة التطبيق غير صالح أو قديم. حدّث إعداد EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY في بيئة Production ثم أنشئ نسخة APK جديدة."
+                  : `تعذر تحميل المهن: ${error.message}`)
+              : available.length ? null : "قائمة المهن فارغة حالياً.");
             setServicesLoading(false);
           });
         }}>
