@@ -79,6 +79,9 @@ type RequestRecord = {
   pickup_lng: number | null;
   dest_lat: number | null;
   dest_lng: number | null;
+  vehicle_category?: string | null;
+  vehicle_type?: string | null;
+  notes?: string | null;
 };
 type ChatMessage = {
   id: string;
@@ -94,6 +97,12 @@ export default function RequestDetail() {
   const [request, setRequest] = useState<RequestRecord | null>(null);
   const [otherProfile, setOtherProfile] = useState<{ full_name: string | null; avatar_url: string | null; phone: string | null } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [largeOffers, setLargeOffers] = useState<any[]>([]);
+  const [myLargeOffer, setMyLargeOffer] = useState<any>(null);
+  const [largeOfferPrice, setLargeOfferPrice] = useState("");
+  const [largeOfferMessage, setLargeOfferMessage] = useState("");
+  const [largeOfferBusy, setLargeOfferBusy] = useState(false);
+  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
   const [chatId, setChatId] = useState<string | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
@@ -121,7 +130,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng",
+        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes",
       )
       .eq("id", id)
       .maybeSingle();
@@ -131,8 +140,41 @@ export default function RequestDetail() {
       return;
     }
     setRequest(data as RequestRecord | null);
+    if (data?.vehicle_category === "large") {
+      if (data.customer_id === user?.id && ["pending", "searching"].includes(data.status)) {
+        const { data: bids } = await (supabase as any)
+          .from("request_offers")
+          .select("id, provider_id, proposed_price, offer_message, sent_at")
+          .eq("request_id", id)
+          .eq("status", "pending")
+          .not("proposed_price", "is", null)
+          .order("sent_at", { ascending: false });
+        const providerIds = [...new Set((bids ?? []).map((bid: any) => bid.provider_id))];
+        const { data: profiles } = providerIds.length
+          ? await supabase.from("profiles").select("id, full_name, phone, avatar_url").in("id", providerIds)
+          : { data: [] };
+        const byId = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+        setLargeOffers((bids ?? []).map((bid: any) => ({ ...bid, profile: byId.get(bid.provider_id) ?? null })));
+      } else {
+        setLargeOffers([]);
+      }
+      if (roles.includes("driver") && data.customer_id !== user?.id) {
+        const { data: ownOffer } = await (supabase as any)
+          .from("request_offers")
+          .select("id, proposed_price, offer_message, status")
+          .eq("request_id", id)
+          .eq("provider_id", user?.id)
+          .maybeSingle();
+        setMyLargeOffer(ownOffer ?? null);
+        if (ownOffer?.proposed_price) setLargeOfferPrice(String(ownOffer.proposed_price));
+        if (ownOffer?.offer_message) setLargeOfferMessage(ownOffer.offer_message);
+      }
+    } else {
+      setLargeOffers([]);
+      setMyLargeOffer(null);
+    }
     setLoading(false);
-  }, [id]);
+  }, [id, user?.id, roles]);
 
   useEffect(() => {
     const otherId = request
@@ -196,6 +238,11 @@ export default function RequestDetail() {
           if (nextStatus === "completed") setShowRating(true);
           if (nextStatus === "accepted") loadChat();
         },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "request_offers", filter: `request_id=eq.${id}` },
+        () => { void loadRequest(); },
       )
       .subscribe();
     return () => {
@@ -369,6 +416,40 @@ export default function RequestDetail() {
     }
   }
 
+  async function sendLargeVehicleOffer() {
+    if (!user) return;
+    const amount = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
+    if (!Number.isSafeInteger(amount) || amount < 250 || amount % 250 !== 0) {
+      Alert.alert("السعر غير صحيح", "اكتب سعراً لا يقل عن 250 ديناراً ومن مضاعفات 250.");
+      return;
+    }
+    setLargeOfferBusy(true);
+    const { error } = await supabase.rpc("submit_large_vehicle_offer", {
+      _request_id: id,
+      _price: amount,
+      _message: largeOfferMessage.trim() || null,
+    });
+    setLargeOfferBusy(false);
+    if (error) {
+      Alert.alert("تعذر إرسال العرض", error.message);
+      return;
+    }
+    Alert.alert("تم إرسال العرض", "وصل سعرك للزبون، وتكدر تنتظر موافقته.");
+    await loadRequest();
+  }
+
+  async function acceptLargeOffer(offerId: string) {
+    setAcceptingLargeOffer(offerId);
+    const { error } = await supabase.rpc("accept_large_vehicle_offer", { _offer_id: offerId });
+    setAcceptingLargeOffer(null);
+    if (error) {
+      Alert.alert("تعذر قبول العرض", error.message);
+      return;
+    }
+    Alert.alert("تم الاتفاق", "تم قبول عرض السعر وفتح المحادثة بينكم.");
+    await Promise.all([loadRequest(), loadChat()]);
+  }
+
   async function startRide() {
     const { error } = await supabase.rpc("transition_service_request", {
       _request_id: id,
@@ -485,7 +566,7 @@ export default function RequestDetail() {
             <Image source={SERVICE_IMAGES[request.services.slug]} style={styles.serviceIllustration} resizeMode="cover" />
           ) : null}
           <Text style={styles.infoType}>
-            {request.type === "taxi" ? "🚕 طلب سيارة" : `🛠️ ${request.services?.name_ar || "خدمة منزلية"}`}
+            {request.vehicle_category === "large" ? `🚚 طلب سيارة كبيرة — ${request.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}` : request.type === "taxi" ? "🚕 طلب سيارة" : `🛠️ ${request.services?.name_ar || "خدمة منزلية"}`}
           </Text>
           {request.pickup_text && <Text style={styles.infoRow}>من: {request.pickup_text}</Text>}
           {request.dest_text && <Text style={styles.infoRow}>إلى: {request.dest_text}</Text>}
@@ -506,6 +587,53 @@ export default function RequestDetail() {
             <Text style={styles.infoPrice}>الأجر قابل للتفاوض</Text>
           )}
         </View>
+        {request.vehicle_category === "large" && isCustomer && ["pending", "searching"].includes(request.status) && (
+          <View style={styles.largeOffersCard}>
+            <Text style={styles.largeOffersTitle}>عروض أصحاب السيارات</Text>
+            {largeOffers.length === 0 ? (
+              <Text style={styles.largeOffersEmpty}>بانتظار أصحاب السيارات يرسلون أسعارهم...</Text>
+            ) : largeOffers.map((offer) => (
+              <View key={offer.id} style={styles.largeOfferItem}>
+                <Text style={styles.largeOfferName}>{offer.profile?.full_name || "صاحب سيارة"}</Text>
+                <Text style={styles.largeOfferPrice}>{Number(offer.proposed_price).toLocaleString("en")} د.ع</Text>
+                {!!offer.offer_message && <Text style={styles.largeOfferMessage}>{offer.offer_message}</Text>}
+                <TouchableOpacity
+                  style={styles.largeOfferAccept}
+                  disabled={!!acceptingLargeOffer}
+                  onPress={() => acceptLargeOffer(offer.id)}
+                >
+                  <Text style={styles.largeOfferAcceptText}>{acceptingLargeOffer === offer.id ? "جارٍ القبول..." : "الموافقة على العرض"}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+        {request.vehicle_category === "large" && !isCustomer && roles.includes("driver") && ["pending", "searching"].includes(request.status) && (
+          <View style={styles.largeOffersCard}>
+            <Text style={styles.largeOffersTitle}>أرسل عرض سعرك</Text>
+            {request.customer_price ? <Text style={styles.largeOffersEmpty}>ميزانية الزبون: {Number(request.customer_price).toLocaleString("en")} د.ع</Text> : <Text style={styles.largeOffersEmpty}>الزبون ينتظر عروض الأسعار</Text>}
+            {myLargeOffer?.proposed_price ? <Text style={styles.largeOffersEmpty}>عرضك الحالي: {Number(myLargeOffer.proposed_price).toLocaleString("en")} د.ع — تكدر تعدله وترسله من جديد</Text> : null}
+            <TextInput
+              style={styles.largeOfferInput}
+              value={largeOfferPrice}
+              onChangeText={(value) => setLargeOfferPrice(value.replace(/[^0-9]/g, ""))}
+              placeholder="أجرتك بالدينار"
+              placeholderTextColor="#94a3b8"
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[styles.largeOfferInput, { minHeight: 72 }]}
+              value={largeOfferMessage}
+              onChangeText={setLargeOfferMessage}
+              placeholder="ملاحظة للزبون (اختياري)"
+              placeholderTextColor="#94a3b8"
+              multiline
+            />
+            <TouchableOpacity style={styles.largeOfferAccept} disabled={largeOfferBusy} onPress={sendLargeVehicleOffer}>
+              <Text style={styles.largeOfferAcceptText}>{largeOfferBusy ? "جارٍ إرسال العرض..." : myLargeOffer?.proposed_price ? "تحديث عرض السعر" : "إرسال عرض السعر"}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {isActive &&
           request.pickup_lat != null &&
           request.pickup_lng != null && (
@@ -551,7 +679,7 @@ export default function RequestDetail() {
                 <Text style={styles.actionBtnText}>إعادة البحث عن سائقين</Text>
               </TouchableOpacity>
             )}
-          {["pending", "searching"].includes(request.status) && canAccept && (
+          {["pending", "searching"].includes(request.status) && canAccept && request.vehicle_category !== "large" && (
             <TouchableOpacity style={styles.actionBtn} onPress={acceptRequest}>
               <Text style={styles.actionBtnText}>قبول الطلب</Text>
             </TouchableOpacity>
@@ -677,6 +805,16 @@ const styles = StyleSheet.create({
   },
   trackingTitle: { fontSize: 15, fontWeight: "800", color: "#1e293b", marginBottom: 10 },
   trackingMap: { height: 220, borderRadius: 12 },
+  largeOffersCard: { backgroundColor: "#fff", borderRadius: 18, padding: 14, marginHorizontal: 16, marginTop: 12, borderWidth: 1, borderColor: "#fed7aa" },
+  largeOffersTitle: { fontSize: 16, fontWeight: "900", color: "#9a3412", marginBottom: 10, textAlign: "right" },
+  largeOffersEmpty: { fontSize: 12, color: "#64748b", textAlign: "right", marginBottom: 8 },
+  largeOfferItem: { backgroundColor: "#fff7ed", borderRadius: 14, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: "#fdba74" },
+  largeOfferName: { fontSize: 14, fontWeight: "800", color: "#1e293b", textAlign: "right" },
+  largeOfferPrice: { fontSize: 18, fontWeight: "900", color: "#0f766e", textAlign: "right", marginTop: 4 },
+  largeOfferMessage: { fontSize: 12, color: "#64748b", textAlign: "right", marginTop: 5 },
+  largeOfferInput: { backgroundColor: "#f8fafc", borderRadius: 12, borderWidth: 1, borderColor: "#e2e8f0", paddingHorizontal: 12, paddingVertical: 11, color: "#1e293b", marginTop: 8, textAlign: "right" },
+  largeOfferAccept: { backgroundColor: "#0f766e", borderRadius: 12, paddingVertical: 12, alignItems: "center", marginTop: 8 },
+  largeOfferAcceptText: { color: "#fff", fontWeight: "900", fontSize: 13 },
   trackingHint: { fontSize: 12, color: "#64748b", textAlign: "center", marginTop: 8 },
   serviceIllustration: { width: 96, height: 96, borderRadius: 18, marginBottom: 12, backgroundColor: "#f1f5f9" },
   infoType: { fontSize: 18, fontWeight: "800", color: "#1e293b", marginBottom: 8 },
