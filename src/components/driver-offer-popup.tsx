@@ -32,14 +32,15 @@ export function DriverOfferPopup() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const beepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const uid = session?.user.id;
-  const isDriver = roles.includes("driver");
+  const canReceiveTaxiOffers = roles.includes("driver") || roles.includes("large_driver");
+  const canReceiveRegularTaxi = roles.includes("driver");
 
   useEffect(() => {
     offerRef.current = offer;
   }, [offer]);
 
   useEffect(() => {
-    if (!uid || !isDriver) return;
+    if (!uid || !canReceiveTaxiOffers) return;
     let stopped = false;
 
     async function refreshOffer() {
@@ -55,7 +56,7 @@ export function DriverOfferPopup() {
       let offers: Offer[] | null = (fetchedOffers ?? []).filter((row: any) => !row.proposed_price);
 
       // 2. If no direct offer exists, check for unassigned pending taxi requests
-      if (!offers || offers.length === 0) {
+      if ((!offers || offers.length === 0) && canReceiveRegularTaxi) {
         const { data: pendingReqs } = await supabase
           .from("service_requests")
           .select("*")
@@ -198,7 +199,7 @@ export function DriverOfferPopup() {
       window.removeEventListener("storage", onStorage);
       supabase.removeChannel(ch);
     };
-  }, [uid, isDriver]);
+  }, [uid, canReceiveTaxiOffers, canReceiveRegularTaxi]);
 
   useEffect(() => {
     if (!offer) return;
@@ -276,8 +277,8 @@ export function DriverOfferPopup() {
   async function sendLargeVehicleOffer() {
     if (!offer || !request || !uid) return;
     const price = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
-    if (!Number.isSafeInteger(price) || price < 250 || price % 250 !== 0) {
-      toast.error("اكتب سعراً لا يقل عن 250 ديناراً ويكون من مضاعفات 250");
+    if (!Number.isSafeInteger(price) || price < 250 || price > 50000 || price % 250 !== 0) {
+      toast.error("اكتب سعراً من 250 إلى 50000 دينار ومن مضاعفات 250");
       return;
     }
     setBusy(true);
@@ -386,7 +387,7 @@ export function DriverOfferPopup() {
           )}
           {isLargeVehicle && (
             <div className="rounded-xl bg-orange-500/10 px-3 py-2 text-sm font-black text-orange-800">
-              نوع المركبة: {request.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}
+              نوع المركبة: {request.vehicle_type === "kia_passenger" ? "كيا ركاب" : request.vehicle_type === "bus" ? "باص" : "كيا حمل"}
             </div>
           )}
           {isLargeVehicle ? (
@@ -423,7 +424,8 @@ export function DriverOfferPopup() {
               inputMode="numeric"
               value={largeOfferPrice}
               onChange={(event) => setLargeOfferPrice(event.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="أدخل أجرتك بالدينار"
+              maxLength={5}
+              placeholder="أدخل أجرتك بالدينار (حتى 50000)"
               className="w-full h-12 rounded-xl border border-border bg-background px-4 text-sm font-bold outline-none focus:border-primary"
             />
             <input

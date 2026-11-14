@@ -279,7 +279,7 @@ function NewRequest() {
     type,
     category: type === "taxi" ? vehicleCategory : null,
     serviceId: type === "service" ? serviceId : null,
-    radiusKm: type === "service" ? 10 : 5,
+    radiusKm: type === "service" || vehicle === "large" ? 25 : 5,
     enabled: !!pickupCoords,
   });
 
@@ -384,8 +384,8 @@ function NewRequest() {
     }
 
     const priceNum = parseInt(customerPrice.replace(/[^0-9]/g, ""), 10);
-    if (vehicle === "large" && customerPrice.trim() && (!Number.isSafeInteger(priceNum) || priceNum < 250 || priceNum % 250 !== 0)) {
-      toast.error("السعر المقترح يجب أن يكون 250 ديناراً أو أكثر ومن مضاعفات 250");
+    if (vehicle === "large" && customerPrice.trim() && (!Number.isSafeInteger(priceNum) || priceNum < 250 || priceNum > 50000 || priceNum % 250 !== 0)) {
+      toast.error("السعر المقترح يجب أن يكون من 250 إلى 50000 دينار ومن مضاعفات 250");
       return;
     }
     if (type === "service" && pricingMode !== "negotiable" && !(priceNum > 0)) {

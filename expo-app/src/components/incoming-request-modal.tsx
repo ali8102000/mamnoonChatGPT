@@ -6,6 +6,7 @@ import {
   Modal,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -49,6 +50,8 @@ type Offer = {
     work_hours: number | null;
     workers_count: number | null;
     service_id: string | null;
+    vehicle_category: string | null;
+    vehicle_type: string | null;
     services: { name_ar: string; slug: string; icon: string } | null;
   };
 };
@@ -74,10 +77,12 @@ const SERVICE_IMAGES: Record<string, number> = {
 
 export function IncomingRequestModal() {
   const { user, roles } = useAuth();
-  const canReceive = roles.some((role: AppRole) => role === "driver" || role === "worker");
+  const canReceive = roles.some((role: AppRole) => role === "driver" || role === "large_driver" || role === "worker");
   const [offer, setOffer] = useState<Offer | null>(null);
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [visible, setVisible] = useState(false);
+  const [largeOfferPrice, setLargeOfferPrice] = useState("");
+  const [largeOfferMessage, setLargeOfferMessage] = useState("");
 
   const loadOffer = useCallback(async () => {
     if (!user || !canReceive) {
@@ -87,9 +92,10 @@ export function IncomingRequestModal() {
     }
     const { data, error } = await (supabase as any)
       .from("request_offers")
-      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, pickup_text, dest_text, notes, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
+      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, pickup_text, dest_text, notes, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, vehicle_category, vehicle_type, services(name_ar, slug, icon))")
       .eq("provider_id", user.id)
       .eq("status", "pending")
+      .is("proposed_price", null)
       .gt("expires_at", new Date().toISOString())
       .order("sent_at", { ascending: false })
       .limit(1)
@@ -101,6 +107,8 @@ export function IncomingRequestModal() {
     }
     if (data?.service_requests?.status === "pending" || data?.service_requests?.status === "searching") {
       setOffer(data as Offer);
+      setLargeOfferPrice("");
+      setLargeOfferMessage("");
       setVisible(true);
     } else {
       setOffer(null);
@@ -136,6 +144,7 @@ export function IncomingRequestModal() {
   const imageSource = useMemo(() => SERVICE_IMAGES[serviceSlug], [serviceSlug]);
   const amount = request?.customer_price ?? request?.price_estimate;
   const code = offer?.request_id.slice(-6).toUpperCase();
+  const isLargeVehicle = request?.type === "taxi" && request?.vehicle_category === "large";
 
   async function respond(action: "accept" | "reject") {
     if (!offer || busy) return;
@@ -164,6 +173,33 @@ export function IncomingRequestModal() {
         error instanceof Error ? error.message : "انتهت صلاحية العرض أو لم يعد متاحاً.",
       );
       await loadOffer();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function sendLargeVehicleOffer() {
+    if (!offer || !isLargeVehicle || busy) return;
+    const price = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
+    if (!Number.isSafeInteger(price) || price < 250 || price > 50000 || price % 250 !== 0) {
+      Alert.alert("السعر غير صحيح", "اكتب سعراً من 250 إلى 50000 دينار ومن مضاعفات 250.");
+      return;
+    }
+    setBusy("accept");
+    try {
+      const { error } = await (supabase as any).rpc("submit_large_vehicle_offer", {
+        _request_id: offer.request_id,
+        _price: price,
+        _message: largeOfferMessage.trim() || null,
+      });
+      if (error) throw error;
+      setVisible(false);
+      setOffer(null);
+      setLargeOfferPrice("");
+      setLargeOfferMessage("");
+      Alert.alert("تم إرسال عرض السعر", "وصل عرضك إلى الزبون، وسيختار العرض المناسب.");
+    } catch (error) {
+      Alert.alert("تعذر إرسال العرض", error instanceof Error ? error.message : "حاول مرة ثانية.");
     } finally {
       setBusy(null);
     }
@@ -228,15 +264,51 @@ export function IncomingRequestModal() {
             ) : null}
           </View>
 
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>الأجر المعروض</Text>
-            <Text style={styles.priceValue}>
-              {amount != null ? `${Number(amount).toLocaleString("en")} د.ع${request?.pricing_mode === "hourly" ? " / ساعة" : ""}` : "قابل للتفاوض"}
-            </Text>
-          </View>
+          {isLargeVehicle ? (
+            <View style={{ marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: "#fff7ed" }}>
+              <Text style={styles.detailLabel}>نوع المركبة</Text>
+              <Text style={styles.detailValue}>{request?.vehicle_type === "kia_passenger" ? "كيا ركاب" : request?.vehicle_type === "bus" ? "باص" : "كيا حمل"}</Text>
+              <Text style={styles.detailLabel}>ميزانية الزبون</Text>
+              <Text style={styles.detailValue}>{amount != null ? `${Number(amount).toLocaleString("en")} د.ع` : "بانتظار عروض الأسعار"}</Text>
+            </View>
+          ) : null}
+          {!isLargeVehicle ? (
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>الأجر المعروض</Text>
+              <Text style={styles.priceValue}>
+                {amount != null ? `${Number(amount).toLocaleString("en")} د.ع${request?.pricing_mode === "hourly" ? " / ساعة" : ""}` : "قابل للتفاوض"}
+              </Text>
+            </View>
+          ) : null}
 
-          <Text style={styles.expiry}>العرض مؤقت؛ اقبله قبل انتهاء المهلة.</Text>
-          <View style={styles.actions}>
+          {isLargeVehicle ? (
+            <View style={{ marginTop: 14, gap: 10 }}>
+              <TextInput
+                value={largeOfferPrice}
+                onChangeText={(value) => setLargeOfferPrice(value.replace(/[^0-9]/g, ""))}
+                placeholder="أدخل أجرتك بالدينار (250–50000)"
+                keyboardType="numeric"
+                maxLength={5}
+                style={{ borderWidth: 1, borderColor: "#fed7aa", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: "#1e293b", textAlign: "right" }}
+              />
+              <TextInput
+                value={largeOfferMessage}
+                onChangeText={setLargeOfferMessage}
+                placeholder="ملاحظة للزبون (اختياري)"
+                maxLength={500}
+                style={{ borderWidth: 1, borderColor: "#fed7aa", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: "#1e293b", textAlign: "right" }}
+              />
+              <TouchableOpacity style={[styles.action, styles.accept]} onPress={() => void sendLargeVehicleOffer()} disabled={Boolean(busy)}>
+                {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>إرسال عرض السعر</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.action, styles.reject]} onPress={() => void respond("reject")} disabled={Boolean(busy)}>
+                <Text style={styles.rejectText}>تجاهل الطلب</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.expiry}>العرض مؤقت؛ اقبله قبل انتهاء المهلة.</Text>
+              <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.action, styles.reject]}
               onPress={() => void respond("reject")}
@@ -252,6 +324,8 @@ export function IncomingRequestModal() {
               {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>قبول الطلب</Text>}
             </TouchableOpacity>
           </View>
+            </>
+          )}
           {busy === "reject" ? <ActivityIndicator style={{ marginTop: 10 }} color="#64748b" /> : null}
         </View>
       </View>
