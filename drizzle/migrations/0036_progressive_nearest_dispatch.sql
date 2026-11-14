@@ -453,4 +453,29 @@ $$;
 REVOKE ALL ON FUNCTION public.retry_large_vehicle_dispatch(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.retry_large_vehicle_dispatch(uuid) TO authenticated;
 
+
+-- Keep the existing service-request insert trigger, but route new requests
+-- through the progressive queue instead of the former one-shot 10 km dispatch.
+CREATE OR REPLACE FUNCTION public.on_service_request_created()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+BEGIN
+  IF NEW.type = 'service' THEN
+    PERFORM public.dispatch_service_request(NEW.id);
+  END IF;
+  RETURN NEW;
+END;
+$;
+REVOKE ALL ON FUNCTION public.on_service_request_created() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS service_request_dispatch_created ON public.service_requests;
+CREATE TRIGGER service_request_dispatch_created
+  AFTER INSERT ON public.service_requests
+  FOR EACH ROW
+  WHEN (NEW.type = 'service')
+  EXECUTE FUNCTION public.on_service_request_created();
+
 COMMIT;
