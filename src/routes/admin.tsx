@@ -129,9 +129,9 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   },
   {
     key: "chat",
-    label: "الدردشة",
+    label: "الدردشة ورسائل الدعم",
     icon: MessageSquare,
-    roles: ["super_admin", "admin", "moderator"],
+    roles: ["super_admin", "admin", "support", "moderator"],
   },
   {
     key: "friends",
@@ -1393,7 +1393,7 @@ function ChatSection() {
   }
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-xl font-black">إدارة الدردشة</h2><a href="/support-chat" className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">محادثات الدعم</a></div>
+      <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-xl font-black">إدارة الدردشة</h2><a href="/support-chat" className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">رسائل المستخدمين للإدارة</a></div>
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
         {["chats", "messages"].map((t) => (
           <button
