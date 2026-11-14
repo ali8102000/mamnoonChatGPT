@@ -157,12 +157,14 @@ export default function DriverOnboarding() {
       return;
     }
     const vehicleYear = Number(year.trim());
-    if (!selectedModel || !/^\d{4}$/.test(year.trim()) || !plate.trim()) {
+    const largeModelName = vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب";
+    const resolvedModel = category === "large" ? (models.find((m) => m.make === "Kia" && m.model === largeModelName) ?? null) : selectedModel;
+    if (!resolvedModel || !/^\d{4}$/.test(year.trim()) || !plate.trim()) {
       Alert.alert("بيانات السيارة", "اختر الماركة والموديل وأدخل سنة الصنع ورقم اللوحة.");
       return;
     }
-    if (!Number.isInteger(vehicleYear) || vehicleYear < selectedModel.min_year || vehicleYear > new Date().getFullYear() + 1) {
-      Alert.alert("سنة الصنع غير صحيحة", `السنة يجب أن تكون بين ${selectedModel.min_year} و${new Date().getFullYear() + 1}.`);
+    if (!Number.isInteger(vehicleYear) || vehicleYear < resolvedModel.min_year || vehicleYear > new Date().getFullYear() + 1) {
+      Alert.alert("سنة الصنع غير صحيحة", `السنة يجب أن تكون بين ${resolvedModel.min_year} و${new Date().getFullYear() + 1}.`);
       return;
     }
     if (legalName.trim().length < 5) {
@@ -182,8 +184,8 @@ export default function DriverOnboarding() {
 
       const { error: driverError } = await supabase.from("driver_profiles").upsert({
         user_id: user.id,
-        vehicle_make: selectedMake,
-        vehicle_model: selectedModel.model,
+        vehicle_make: category === "large" ? "Kia" : selectedMake,
+        vehicle_model: resolvedModel.model,
         vehicle_year: vehicleYear,
         vehicle_category: category as any,
         vehicle_type: category === "large" ? vehicleType : null,
@@ -213,7 +215,7 @@ export default function DriverOnboarding() {
         document_type: documentType,
         metadata: {
           vehicleMake: selectedMake,
-          vehicleModel: selectedModel.model,
+          vehicleModel: resolvedModel.model,
           vehicleYear,
           vehiclePlate: plate.trim(),
           vehicleColor: color.trim() || null,
