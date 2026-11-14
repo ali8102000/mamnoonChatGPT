@@ -292,6 +292,7 @@ BEGIN
     RAISE EXCEPTION 'request_unavailable';
   END IF;
 
+  PERFORM set_config('mamnoon.allow_large_vehicle_accept', 'true', true);
   UPDATE public.service_requests
   SET provider_id = o.provider_id,
       status = 'accepted',
@@ -325,6 +326,39 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.accept_large_vehicle_offer(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.accept_large_vehicle_offer(uuid) TO authenticated;
+
+-- Allow only the trusted acceptance RPC to assign a selected large-vehicle provider.
+CREATE OR REPLACE FUNCTION public.guard_customer_request_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+BEGIN
+  IF current_setting('mamnoon.allow_large_vehicle_accept', true) = 'true'
+     AND OLD.vehicle_category::text = 'large'
+     AND NEW.vehicle_category::text = 'large'
+     AND auth.uid() = OLD.customer_id THEN
+    RETURN NEW;
+  END IF;
+  IF auth.uid() IS DISTINCT FROM NEW.customer_id THEN RETURN NEW; END IF;
+  IF NEW.customer_id IS DISTINCT FROM OLD.customer_id THEN RAISE EXCEPTION 'customer_id_immutable'; END IF;
+  IF NEW.provider_id IS DISTINCT FROM OLD.provider_id THEN RAISE EXCEPTION 'provider_id_readonly_for_customer'; END IF;
+  IF NEW.type IS DISTINCT FROM OLD.type THEN RAISE EXCEPTION 'type_immutable'; END IF;
+  IF NEW.service_id IS DISTINCT FROM OLD.service_id THEN RAISE EXCEPTION 'service_id_immutable'; END IF;
+  IF NEW.price_estimate IS DISTINCT FROM OLD.price_estimate THEN RAISE EXCEPTION 'price_readonly_for_customer'; END IF;
+  IF NEW.commission IS DISTINCT FROM OLD.commission THEN RAISE EXCEPTION 'commission_readonly'; END IF;
+  IF NEW.accepted_at IS DISTINCT FROM OLD.accepted_at THEN RAISE EXCEPTION 'accepted_at_readonly'; END IF;
+  IF NEW.completed_at IS DISTINCT FROM OLD.completed_at THEN RAISE EXCEPTION 'completed_at_readonly'; END IF;
+  IF NEW.status IS DISTINCT FROM OLD.status THEN
+    IF NOT (NEW.status = 'cancelled' AND OLD.status IN ('pending','searching','accepted','in_progress')) THEN
+      RAISE EXCEPTION 'invalid_status_transition_for_customer';
+    END IF;
+    NEW.cancelled_by := auth.uid();
+  END IF;
+  RETURN NEW;
+END;
+$;
 
 -- Customers may view the public profile card of drivers who have bid on their large request.
 DROP POLICY IF EXISTS "Customer views large vehicle bidders" ON public.profiles;
