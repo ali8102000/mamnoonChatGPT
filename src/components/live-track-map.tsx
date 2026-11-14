@@ -5,7 +5,7 @@ import { loadGoogleMaps } from "@/lib/google-maps";
 import { Loader2, Navigation, Maximize2, Minimize2, Compass, MapPin } from "lucide-react";
 import { toast } from "@/lib/toast";
 
-export type Coords = { lat: number; lng: number; heading?: number | null };
+export type Coords = { lat: number; lng: number; heading?: number | null; updatedAt?: string; accuracy?: number };
 
 function haversineKm(a: Coords, b: Coords) {
   const R = 6371;
@@ -76,6 +76,8 @@ export function LiveTrackMap({
   const readyRef = useRef(false);
   const didInitialFitRef = useRef(false);
   const arrivedNotifiedRef = useRef(false);
+  const lastDirectionsRequestRef = useRef<{ origin: Coords; destination: Coords; requestedAt: number; signature: string } | null>(null);
+  const directionsSequenceRef = useRef(0);
 
   const [isFullscreen, setIsFullscreen] = useState(fullscreen);
   const [mapReady, setMapReady] = useState(false);
@@ -232,39 +234,66 @@ export function LiveTrackMap({
       }
     }
 
-    // 4. Polyline: Driver -> Pickup (when on the way to customer)
-    // or Driver -> Dest (when in progress)
+    // 4. Prefer a real road route from Google Directions. The direct line is only
+    // a fallback when road routing is unavailable.
     const targetPoint = status === "in_progress" && destCoords ? destCoords : effectivePickup;
     if (activeDriverCoord && targetPoint) {
-      const path = [activeDriverCoord, targetPoint];
-      if (routeLineRef.current) {
-        routeLineRef.current.setPath(path);
-      } else {
+      const directDistance = haversineKm(activeDriverCoord, targetPoint);
+      setDistanceKm(directDistance);
+      setEtaMinutes(Math.max(1, Math.round((directDistance / 28) * 60)));
+
+      if (!routeLineRef.current) {
         routeLineRef.current = new g.maps.Polyline({
-          path,
+          path: [activeDriverCoord, targetPoint],
           map,
           geodesic: true,
           strokeColor: "#0284c7",
-          strokeOpacity: 0.85,
-          strokeWeight: 4,
-          icons: [
-            {
-              icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 3 },
-              offset: "0",
-              repeat: "14px",
-            },
-          ],
+          strokeOpacity: 0.9,
+          strokeWeight: 5,
         });
       }
 
-      // Distance and ETA calculation
-      const dist = haversineKm(activeDriverCoord, targetPoint);
-      setDistanceKm(dist);
-      const minutes = Math.max(1, Math.round((dist / 32) * 60)); // ~32 km/h city average
-      setEtaMinutes(minutes);
+      const signature = `${status}:${targetPoint.lat.toFixed(5)}:${targetPoint.lng.toFixed(5)}`;
+      const previous = lastDirectionsRequestRef.current;
+      const moved = !previous ||
+        haversineKm(previous.origin, activeDriverCoord) >= 0.08 ||
+        haversineKm(previous.destination, targetPoint) >= 0.03 ||
+        previous.signature !== signature ||
+        Date.now() - previous.requestedAt >= 45000;
 
-      // Check arrival threshold (< 70m)
-      if (dist < 0.07 && !arrivedNotifiedRef.current) {
+      if (typeof g.maps.DirectionsService === "function" && moved) {
+        const sequence = ++directionsSequenceRef.current;
+        lastDirectionsRequestRef.current = {
+          origin: { lat: activeDriverCoord.lat, lng: activeDriverCoord.lng },
+          destination: { lat: targetPoint.lat, lng: targetPoint.lng },
+          requestedAt: Date.now(),
+          signature,
+        };
+        const service = new g.maps.DirectionsService();
+        service.route({
+          origin: activeDriverCoord,
+          destination: targetPoint,
+          travelMode: g.maps.TravelMode.DRIVING,
+          provideRouteAlternatives: false,
+          drivingOptions: { departureTime: new Date(), trafficModel: g.maps.TrafficModel?.BEST_GUESS },
+        }, (result: any, routeStatus: string) => {
+          if (sequence !== directionsSequenceRef.current || !readyRef.current) return;
+          const route = result?.routes?.[0];
+          const leg = route?.legs?.[0];
+          if (routeStatus === "OK" && route?.overview_path?.length && leg) {
+            routeLineRef.current?.setPath(route.overview_path);
+            if (typeof leg.distance?.value === "number") setDistanceKm(leg.distance.value / 1000);
+            const durationSeconds = leg.duration_in_traffic?.value ?? leg.duration?.value;
+            if (typeof durationSeconds === "number") setEtaMinutes(Math.max(1, Math.round(durationSeconds / 60)));
+          } else {
+            console.warn("[live-map] road directions unavailable; direct line fallback:", routeStatus);
+          }
+        });
+      } else if (typeof g.maps.DirectionsService !== "function") {
+        routeLineRef.current.setPath([activeDriverCoord, targetPoint]);
+      }
+
+      if (directDistance < 0.07 && !arrivedNotifiedRef.current) {
         arrivedNotifiedRef.current = true;
         if (myRole === "customer") toast.success("الكابتن وصل إلى موقعك الآن! 🚗");
       }
@@ -344,7 +373,7 @@ export function LiveTrackMap({
       {/* Top Floating Status & ETA Card */}
       <div className="absolute top-3 inset-x-3 z-10 flex flex-wrap gap-2 items-center justify-between pointer-events-none">
         <div className="bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl shadow-lg border border-border/40 pointer-events-auto flex items-center gap-2.5">
-          <div className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <div className={`h-3 w-3 rounded-full shrink-0 ${activeDriverCoord?.updatedAt && Date.now() - new Date(activeDriverCoord.updatedAt).getTime() < 20000 ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
           <div className="text-right">
             <div className="text-xs font-black flex items-center gap-1.5 text-foreground">
               <span>
