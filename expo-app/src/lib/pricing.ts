@@ -10,7 +10,7 @@ export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: numb
 
 export function estimateFare(
   km: number,
-  category: "economy" | "premium" | "luxury" = "economy",
+  category: "economy" | "premium" | "luxury" | "large" = "economy",
 ): number {
   void category;
   return Math.max(0, Math.round(km * 400));
