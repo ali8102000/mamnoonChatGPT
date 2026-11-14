@@ -356,6 +356,7 @@ function OnboardingDriver() {
         vehiclePlate: plate.trim(),
         vehicleColor: color.trim() || undefined,
         vehicleCategory: category,
+        vehicleType: category === "large" ? vehicleType : undefined,
       };
       await saveProviderVerificationRemote(verificationDoc);
       saveProviderVerification(verificationDoc);
