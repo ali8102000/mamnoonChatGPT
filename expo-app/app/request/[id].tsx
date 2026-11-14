@@ -450,6 +450,17 @@ export default function RequestDetail() {
     await Promise.all([loadRequest(), loadChat()]);
   }
 
+  async function rejectLargeOffer(offerId: string) {
+    setAcceptingLargeOffer(offerId);
+    const { error } = await supabase.rpc("reject_large_vehicle_offer", { _offer_id: offerId });
+    setAcceptingLargeOffer(null);
+    if (error) {
+      Alert.alert("تعذر رفض العرض", error.message);
+      return;
+    }
+    await loadRequest();
+  }
+
   async function startRide() {
     const { error } = await supabase.rpc("transition_service_request", {
       _request_id: id,
@@ -597,13 +608,22 @@ export default function RequestDetail() {
                 <Text style={styles.largeOfferName}>{offer.profile?.full_name || "صاحب سيارة"}</Text>
                 <Text style={styles.largeOfferPrice}>{Number(offer.proposed_price).toLocaleString("en")} د.ع</Text>
                 {!!offer.offer_message && <Text style={styles.largeOfferMessage}>{offer.offer_message}</Text>}
-                <TouchableOpacity
-                  style={styles.largeOfferAccept}
-                  disabled={!!acceptingLargeOffer}
-                  onPress={() => acceptLargeOffer(offer.id)}
-                >
-                  <Text style={styles.largeOfferAcceptText}>{acceptingLargeOffer === offer.id ? "جارٍ القبول..." : "الموافقة على العرض"}</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.largeOfferAccept, { flex: 1, backgroundColor: "#64748b" }]}
+                    disabled={!!acceptingLargeOffer}
+                    onPress={() => rejectLargeOffer(offer.id)}
+                  >
+                    <Text style={styles.largeOfferAcceptText}>رفض</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.largeOfferAccept, { flex: 1 }]}
+                    disabled={!!acceptingLargeOffer}
+                    onPress={() => acceptLargeOffer(offer.id)}
+                  >
+                    <Text style={styles.largeOfferAcceptText}>{acceptingLargeOffer === offer.id ? "جارٍ التنفيذ..." : "الموافقة"}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
           </View>
