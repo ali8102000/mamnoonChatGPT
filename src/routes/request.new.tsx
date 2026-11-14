@@ -160,6 +160,7 @@ function NewRequest() {
   const [govKey, setGovKey] = useState<string | null>(null);
   const [govReady, setGovReady] = useState(false);
   const [govPickerOpen, setGovPickerOpen] = useState(false);
+  const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const [interCity, setInterCity] = useState(false);
   useEffect(() => {
     const restoreGovernorate = () => {
@@ -177,6 +178,8 @@ function NewRequest() {
     localStorage.setItem(GOV_STORAGE_KEY, key);
     setGovKey(key);
     setGovPickerOpen(false);
+    setInterCity(false);
+    setDestinationGovernorateKey(null);
     const g = getGovernorate(key);
     if (!g) return;
     setPickupCoords({ lat: g.lat, lng: g.lng });
@@ -594,17 +597,17 @@ function NewRequest() {
         <div className="absolute inset-0 z-0">
           {govReady && gov && (
             <MapPicker
-              key={gov.key}
+              key={`${gov.key}-${mapStep}-${mapStep === "dest" ? destinationGovernorateKey ?? gov.key : gov.key}`}
               value={mapStep === "pickup" ? pickupCoords : destCoords}
               accent={mapStep === "pickup" ? "#0284c7" : "#e11d48"}
               nearby={mapStep === "pickup" ? nearby : undefined}
               nearbyKind="car"
               autoLocateOnMount={false}
-              governorateKey={gov?.key}
+              governorateKey={mapStep === "pickup" ? gov?.key : destinationGovernorateKey ?? gov?.key}
               placeholder={
                 mapStep === "pickup"
                   ? `ابحث عن موقع الانطلاق في ${gov?.name ?? "محافظتك"}...`
-                  : `ابحث عن وجهة الوصول في ${gov?.name ?? "محافظتك"}...`
+                  : `ابحث عن وجهة الوصول في ${getGovernorate(destinationGovernorateKey)?.name ?? gov?.name ?? "المحافظة المختارة"}...`
               }
               showLocateButton={true}
               isFullScreen={true}
@@ -775,8 +778,10 @@ function NewRequest() {
                       type="button"
                       onClick={() => {
                         setInterCity(true);
+                        setDestinationGovernorateKey(g.key);
                         setDestCoords({ lat: g.lat, lng: g.lng });
                         setDestLabel(g.name);
+                        setDestConfirmed(false);
                       }}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold border border-border/60 shrink-0 btn-press"
                     >
