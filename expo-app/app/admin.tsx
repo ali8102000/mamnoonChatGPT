@@ -88,7 +88,12 @@ export default function AdminScreen() {
     }
     setUnreadSupport(unread);
     setSupportInbox(conversationRows.map((row: any) => ({ ...row, profile: profileById.get(row.user_id), latest: latestByConversation.get(row.id) })));
-    setReports(reportRows ?? []);
+    const reportUserIds = [...new Set((reportRows ?? []).flatMap((report: any) => [report.reporter_id, report.reported_id]).filter(Boolean))];
+    const { data: reportProfiles } = reportUserIds.length
+      ? await supabase.from("profiles").select("id,full_name,phone").in("id", reportUserIds)
+      : { data: [] as any[] };
+    const reportProfileById = new Map((reportProfiles ?? []).map((profile: any) => [profile.id, profile]));
+    setReports((reportRows ?? []).map((report: any) => ({ ...report, reporter: reportProfileById.get(report.reporter_id), reported: reportProfileById.get(report.reported_id) })));
     setLoading(false);
   }, [user?.id, isOwnerAccount]);
 
@@ -163,6 +168,7 @@ export default function AdminScreen() {
         <View key={report.id} style={styles.reportCard}>
           <Text style={styles.inboxName}>{report.reason || "بلاغ بدون عنوان"}</Text>
           {!!report.details && <Text style={styles.reportDetails}>{report.details}</Text>}
+          <Text style={styles.reportMeta}>من: {report.reporter?.full_name || "مستخدم"} · ضد: {report.reported?.full_name || "مستخدم"}</Text>
           <Text style={styles.reportMeta}>الحالة: {report.status} · {new Date(report.created_at).toLocaleString("ar-IQ")}</Text>
           {!!report.request_id && <Text style={styles.reportMeta}>رقم الطلب: {report.request_id}</Text>}
         </View>
