@@ -404,6 +404,15 @@ function RequestDetail() {
           </div>
         )}
 
+        {myRole === "customer" && Number((req as any).coupon_discount ?? 0) > 0 && (
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50/70 p-3 space-y-1">
+            <div className="font-black text-sm text-emerald-700">🎁 خصم كوبون ممنون</div>
+            <div className="text-sm">قيمة الخصم: <b>{Number((req as any).coupon_discount).toLocaleString("ar-IQ")} د.ع</b></div>
+            <div className="text-sm">المبلغ بعد الخصم: <b>{Number((req as any).customer_payable ?? 0).toLocaleString("ar-IQ")} د.ع</b></div>
+            <div className="text-[11px] text-muted-foreground">هذا الخصم تتحمله ممنون ولا يؤثر على مستحقات مقدم الخدمة.</div>
+          </div>
+        )}
+
         {req.vehicle_category === "large" && myRole === "customer" && ["pending", "searching"].includes(req.status) && (
           <div className="glass rounded-2xl p-4 space-y-3">
             <div className="font-black text-base">عروض أصحاب السيارات</div>
