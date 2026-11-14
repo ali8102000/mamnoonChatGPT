@@ -129,6 +129,7 @@ export function LiveTrackMap({
         mapRef.current = map;
         lastDirectionsRequestRef.current = null;
         directionsSequenceRef.current += 1;
+        setRouteMode("waiting");
         readyRef.current = true;
         setMapReady(true);
         syncMapElements(false);
@@ -148,6 +149,11 @@ export function LiveTrackMap({
       if (markerRefForCleanup.current) markerRefForCleanup.current.setMap(null);
       if (driverMarkerRef.current) driverMarkerRef.current.setMap(null);
       if (routeLineRef.current) routeLineRef.current.setMap(null);
+      pickupMarkerRef.current = null;
+      destMarkerRef.current = null;
+      meMarkerRef.current = null;
+      driverMarkerRef.current = null;
+      routeLineRef.current = null;
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
