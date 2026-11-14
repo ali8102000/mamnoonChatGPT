@@ -49,7 +49,7 @@ export const Route = createFileRoute("/onboarding/driver")({
   component: OnboardingDriver,
 });
 
-type VehicleCategory = "economy" | "premium" | "luxury";
+type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 
 const POPULAR_MAKES = [
   "تويوتا",
@@ -98,6 +98,12 @@ const CATEGORY_META: Record<
     gradient: "from-amber-400 to-orange-500",
     desc: "أحدث الموديلات والفئات الراقية",
   },
+  large: {
+    label: "سيارة كبيرة",
+    emoji: "🚚",
+    gradient: "from-orange-500 to-amber-600",
+    desc: "كيا حمل أو كيا ركاب",
+  },
 };
 
 function OnboardingDriver() {
@@ -114,6 +120,7 @@ function OnboardingDriver() {
   const [customMake, setCustomMake] = useState<string>("");
   const [modelName, setModelName] = useState<string>("كورولا");
   const [category, setCategory] = useState<VehicleCategory>("economy");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
   const [year, setYear] = useState<string>(String(new Date().getFullYear() - 2));
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("أبيض");
@@ -157,7 +164,8 @@ function OnboardingDriver() {
         if (existing.vehicleYear) setYear(String(existing.vehicleYear));
         if (existing.vehiclePlate) setPlate(existing.vehiclePlate);
         if (existing.vehicleColor) setColor(existing.vehicleColor);
-        if (existing.vehicleCategory) setCategory(existing.vehicleCategory as any);
+        if (existing.vehicleCategory) setCategory(existing.vehicleCategory as VehicleCategory);
+        if (existing.vehicleType) setVehicleType(existing.vehicleType);
       }
     }
   }, [session?.user?.id]);
@@ -540,7 +548,7 @@ function OnboardingDriver() {
             <div className="text-xs font-bold text-muted-foreground mb-2">
               اختر فئة سيارتك في التطبيق
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {(Object.keys(CATEGORY_META) as VehicleCategory[]).map((k) => {
                 const c = CATEGORY_META[k];
                 const active = category === k;
@@ -561,6 +569,18 @@ function OnboardingDriver() {
                 );
               })}
             </div>
+            {category === "large" && (
+              <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+                <div className="font-black text-sm">نوع السيارة الكبيرة</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
+                    <button key={item.key} type="button" onClick={() => { setVehicleType(item.key); setMake("كيا"); setModelName(item.label); }} className={`rounded-xl border p-3 font-bold ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
+                      <div className="text-2xl">{item.emoji}</div>{item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div
               className={`mt-2.5 rounded-2xl p-3 bg-gradient-to-r ${catMeta.gradient} text-white shadow-sm text-xs`}
             >
