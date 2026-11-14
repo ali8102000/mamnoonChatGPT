@@ -1,7 +1,7 @@
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { I18nManager, LogBox, Platform } from "react-native";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
@@ -24,6 +24,7 @@ Notifications.setNotificationHandler({
 
 function PushNotificationSetup() {
   const { user } = useAuth();
+  const handledResponseId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -38,8 +39,10 @@ function PushNotificationSetup() {
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: "#D4AF37",
+            sound: "default",
           });
         }
+
         const current = await Notifications.getPermissionsAsync();
         const permission = current.granted
           ? current
@@ -53,22 +56,58 @@ function PushNotificationSetup() {
           console.warn("[notifications] Expo project ID is missing");
           return;
         }
+
         const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!active) return;
-        const { error } = await (supabase as any).from("user_push_tokens").upsert({
-          user_id: userId,
-          expo_push_token: tokenResult.data,
-          device_platform: Platform.OS,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id,expo_push_token" });
-        if (error) console.warn("[notifications] Could not save push token:", error.message);
+
+        const { error } = await supabase.from("user_push_tokens").upsert(
+          {
+            user_id: userId,
+            expo_push_token: tokenResult.data,
+            device_platform: Platform.OS,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,expo_push_token" },
+        );
+        if (error) {
+          console.warn("[notifications] Could not save push token:", error.message);
+        }
       } catch (error) {
         console.warn("[notifications] Push registration unavailable:", error);
       }
     }
 
+    function openRequestFromResponse(response: Notifications.NotificationResponse | null) {
+      if (!response) return;
+      const responseId = response.notification.request.identifier;
+      if (handledResponseId.current === responseId) return;
+      const data = response.notification.request.content.data as {
+        request_id?: unknown;
+      };
+      if (typeof data?.request_id !== "string") return;
+
+      handledResponseId.current = responseId;
+      router.push({
+        pathname: "/request/[id]",
+        params: { id: data.request_id },
+      });
+    }
+
+    const responseSubscription =
+      Notifications.addNotificationResponseReceivedListener(openRequestFromResponse);
+    void Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (active) openRequestFromResponse(response);
+      })
+      .catch((error) => {
+        console.warn("[notifications] Could not read notification response:", error);
+      });
+
     void registerPushToken();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      responseSubscription.remove();
+    };
   }, [user?.id]);
 
   return null;
@@ -93,7 +132,8 @@ export default function RootLayout() {
         <Stack.Screen name="home" />
         <Stack.Screen name="request/new" />
         <Stack.Screen name="request/[id]" />
-        <Stack.Screen name="messages" />\n        <Stack.Screen name="support-chat" />
+        <Stack.Screen name="messages" />
+        <Stack.Screen name="support-chat" />
         <Stack.Screen name="friends" />
         <Stack.Screen name="history" />
         <Stack.Screen name="profile" />
