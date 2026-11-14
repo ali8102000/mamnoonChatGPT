@@ -158,13 +158,23 @@ export default function DriverOnboarding() {
     }
     const vehicleYear = Number(year.trim());
     const largeModelName = vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب";
-    const resolvedModel = category === "large" ? (models.find((m) => m.make === "Kia" && m.model === largeModelName) ?? null) : selectedModel;
-    if (!resolvedModel || !/^\d{4}$/.test(year.trim()) || !plate.trim()) {
-      Alert.alert("بيانات السيارة", "اختر الماركة والموديل وأدخل سنة الصنع ورقم اللوحة.");
+    const catalogModel = category === "large" ? models.find((m) => m.make === "Kia" && m.model === largeModelName) : selectedModel;
+    const resolvedModel: VehicleModel = catalogModel ?? {
+      id: "large-kia-local",
+      make: "Kia",
+      model: largeModelName,
+      category: "large",
+      min_year: 1990,
+    };
+    if ((category !== "large" && !selectedModel) || !/^\d{4}$/.test(year.trim()) || !plate.trim()) {
+      Alert.alert("بيانات السيارة", category === "large"
+        ? "أدخل سنة الصنع ورقم اللوحة."
+        : "اختر ماركة وموديل السيارة وأدخل سنة الصنع ورقم اللوحة.");
       return;
     }
-    if (!Number.isInteger(vehicleYear) || vehicleYear < resolvedModel.min_year || vehicleYear > new Date().getFullYear() + 1) {
-      Alert.alert("سنة الصنع غير صحيحة", `السنة يجب أن تكون بين ${resolvedModel.min_year} و${new Date().getFullYear() + 1}.`);
+    if (!Number.isInteger(vehicleYear) || vehicleYear < (category === "large" ? 1990 : resolvedModel.min_year) || vehicleYear > new Date().getFullYear() + 1) {
+      const minimumYear = category === "large" ? 1990 : resolvedModel.min_year;
+      Alert.alert("سنة الصنع غير صحيحة", `السنة يجب أن تكون بين ${minimumYear} و${new Date().getFullYear() + 1}.`);
       return;
     }
     if (legalName.trim().length < 5) {
@@ -286,37 +296,45 @@ export default function DriverOnboarding() {
       <Text style={styles.note}>أكمل بيانات السيارة والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة.</Text>
       {!!rejectionReason && <Text style={styles.rejection}>سبب الرفض السابق: {rejectionReason}</Text>}
 
-      <Text style={styles.label}>ماركة السيارة</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        {makes.map((m) => (
-          <TouchableOpacity key={m} style={[styles.chip, selectedMake === m && styles.chipActive]}
-            onPress={() => { setSelectedMake(m); setSelectedModel(null); }}>
-            <Text style={[styles.chipText, selectedMake === m && styles.chipTextActive]}>{m}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {!!selectedMake && <>
-        <Text style={styles.label}>موديل السيارة</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {models.filter((m) => m.make === selectedMake).map((m) => (
-            <TouchableOpacity key={m.id} style={[styles.chip, selectedModel?.id === m.id && styles.chipActive]}
-              onPress={() => setSelectedModel(m)}>
-              <Text style={[styles.chipText, selectedModel?.id === m.id && styles.chipTextActive]}>{m.model}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </>}
-
-      <Text style={styles.label}>فئة السيارة في ممنون</Text>
+      <Text style={styles.label}>اختر نوع تسجيلك كسائق</Text>
       <View style={styles.row}>
         {CATEGORIES.map((item) => (
           <TouchableOpacity key={item.key} style={[styles.category, category === item.key && styles.chipActive]}
-            onPress={() => setCategory(item.key)}>
-            <Text style={[styles.chipText, category === item.key && styles.chipTextActive]}>{item.label}</Text>
+            onPress={() => {
+              setCategory(item.key);
+              if (item.key === "large") {
+                setSelectedMake("Kia");
+                setSelectedModel(null);
+              }
+            }}>
+            <Text style={[styles.chipText, category === item.key && styles.chipTextActive]}>{item.key === "large" ? "🚚 " : "🚗 "}{item.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
+
+      {category !== "large" && <>
+        <Text style={styles.label}>ماركة السيارة</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {makes.map((m) => (
+            <TouchableOpacity key={m} style={[styles.chip, selectedMake === m && styles.chipActive]}
+              onPress={() => { setSelectedMake(m); setSelectedModel(null); }}>
+              <Text style={[styles.chipText, selectedMake === m && styles.chipTextActive]}>{m}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {!!selectedMake && <>
+          <Text style={styles.label}>موديل السيارة</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {models.filter((m) => m.make === selectedMake).map((m) => (
+              <TouchableOpacity key={m.id} style={[styles.chip, selectedModel?.id === m.id && styles.chipActive]}
+                onPress={() => setSelectedModel(m)}>
+                <Text style={[styles.chipText, selectedModel?.id === m.id && styles.chipTextActive]}>{m.model}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </>}
+      </>}
 
       {category === "large" && (
         <View style={{ marginTop: 12 }}>
