@@ -638,9 +638,10 @@ function NewRequest() {
                 <div className="space-y-2">
                   <div className="font-black text-sm text-foreground">اختر نوع الكيا</div>
                   <div className="grid grid-cols-2 gap-2">
-                    {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
-                      <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-xl border p-3 font-black ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
-                        <div className="text-2xl">{item.emoji}</div>{item.label}
+                    {([{ key: "kia_cargo", label: "كيا حمل", image: "/images/kia-cargo.svg" }, { key: "kia_passenger", label: "كيا ركاب", image: "/images/kia-passenger.svg" }] as const).map((item) => (
+                      <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-2xl border p-2.5 font-black flex flex-col items-center gap-1 ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
+                        <img src={item.image} alt={item.label} className="w-full h-16 object-contain" />
+                        <span>{item.label}</span>
                       </button>
                     ))}
                   </div>
@@ -737,11 +738,18 @@ function NewRequest() {
               <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
                 <div className="font-black text-sm text-foreground">طلب سيارة كبيرة</div>
                 <div className="text-xs text-muted-foreground">ما نحسب السعر بالمسافة؛ اكتب السعر اللي تقترحه أو اتركه حتى توصلك عروض أصحاب السيارات</div>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {[15000, 20000, 25000, 30000, 35000].map((amount) => (
+                    <button key={amount} type="button" onClick={() => setCustomerPrice(String(amount))} className={`rounded-xl border px-2 py-2 text-xs font-black transition ${customerPrice === String(amount) ? "border-orange-500 bg-orange-100 text-orange-800 ring-1 ring-orange-300" : "border-orange-200 bg-white text-slate-700"}`}>
+                      {(amount / 1000).toLocaleString("en")} ألف
+                    </button>
+                  ))}
+                </div>
                 <input
                   inputMode="numeric"
                   value={customerPrice}
                   onChange={(e) => setCustomerPrice(e.target.value.replace(/[^0-9]/g, ""))}
-                  placeholder="السعر المقترح بالدينار (اختياري)"
+                  placeholder="أو اكتب أي سعر بالدينار"
                   className="w-full bg-white border border-orange-200 rounded-xl px-4 py-3 text-sm font-bold outline-none"
                 />
               </div>
@@ -780,9 +788,10 @@ function NewRequest() {
               <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
                 <div className="font-black text-sm">اختر كيا حمل أو كيا ركاب</div>
                 <div className="grid grid-cols-2 gap-2">
-                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
-                    <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-xl border p-3 font-black ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
-                      <div className="text-2xl">{item.emoji}</div>{item.label}
+                  {([{ key: "kia_cargo", label: "كيا حمل", image: "/images/kia-cargo.svg" }, { key: "kia_passenger", label: "كيا ركاب", image: "/images/kia-passenger.svg" }] as const).map((item) => (
+                    <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-2xl border p-2.5 font-black flex flex-col items-center gap-1 ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
+                      <img src={item.image} alt={item.label} className="w-full h-16 object-contain" />
+                      <span>{item.label}</span>
                     </button>
                   ))}
                 </div>
