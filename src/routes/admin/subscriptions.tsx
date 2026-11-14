@@ -787,7 +787,7 @@ function SubscriptionGrantsTab() {
         </div>
         {users.map((user) => (
           <button key={user.id} onClick={() => setSelected(user)}
-            className={\`w-full rounded-xl p-3 text-right border \${selected?.id === user.id ? "border-primary bg-primary/10" : "border-border"}\`}>
+            className={selected?.id === user.id ? "w-full rounded-xl p-3 text-right border border-primary bg-primary/10" : "w-full rounded-xl p-3 text-right border border-border"}>
             <div className="text-sm font-black">{user.full_name || "بدون اسم"}</div>
             <div className="text-xs text-muted-foreground">{user.phone || user.email || user.id}</div>
             <div className="text-[10px] text-muted-foreground" dir="ltr">{user.id}</div>
