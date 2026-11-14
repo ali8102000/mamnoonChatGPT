@@ -56,3 +56,42 @@ DROP TRIGGER IF EXISTS trg_support_conversation_priority ON public.support_conve
 CREATE TRIGGER trg_support_conversation_priority BEFORE INSERT OR UPDATE OF priority_tier,user_id ON public.support_conversations FOR EACH ROW EXECUTE FUNCTION public.set_new_support_conversation_priority();
 DROP TRIGGER IF EXISTS trg_sync_support_priority_after_subscription_change ON public.user_subscriptions;
 CREATE TRIGGER trg_sync_support_priority_after_subscription_change AFTER INSERT OR UPDATE OF plan_id,status,current_period_end ON public.user_subscriptions FOR EACH ROW EXECUTE FUNCTION public.sync_support_priority_after_subscription_change();
+
+
+CREATE POLICY provider_demand_alert_log_service_role_only ON public.provider_demand_alert_log FOR ALL TO service_role USING(true) WITH CHECK(true);
+CREATE OR REPLACE FUNCTION public.notify_taxi_drivers_on_new_demand()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE v_zone text;v_waiting integer;
+BEGIN
+ IF NEW.type<>'taxi' OR NEW.status NOT IN ('pending','searching') OR NEW.pickup_lat IS NULL OR NEW.pickup_lng IS NULL THEN RETURN NEW; END IF;
+ SELECT count(*)::integer INTO v_waiting FROM public.service_requests sr
+ WHERE sr.type='taxi' AND sr.status IN ('pending','searching') AND sr.created_at>now()-interval '30 minutes'
+ AND sr.pickup_lat IS NOT NULL AND sr.pickup_lng IS NOT NULL
+ AND 6371*acos(LEAST(1.0,GREATEST(-1.0,cos(radians(NEW.pickup_lat::double precision))*cos(radians(sr.pickup_lat::double precision))*cos(radians(sr.pickup_lng::double precision)-radians(NEW.pickup_lng::double precision))+sin(radians(NEW.pickup_lat::double precision))*sin(radians(sr.pickup_lat::double precision)))))<=2;
+ IF v_waiting<2 THEN RETURN NEW; END IF;
+ v_zone:=floor(NEW.pickup_lat::numeric*100)::text||':'||floor(NEW.pickup_lng::numeric*100)::text;
+ WITH eligible AS (
+  SELECT dp.user_id,sp.code plan_code FROM public.driver_profiles dp
+  JOIN public.user_roles ur ON ur.user_id=dp.user_id AND ur.role='driver'
+  JOIN public.provider_presence pp ON pp.user_id=dp.user_id AND pp.updated_at>now()-interval '5 minutes'
+  JOIN public.user_subscriptions us ON us.user_id=dp.user_id AND us.status='active' AND (us.current_period_end IS NULL OR us.current_period_end>now())
+  JOIN public.subscription_plans sp ON sp.id=us.plan_id AND sp.code IN ('silver','gold')
+  WHERE dp.available=true AND dp.status='approved'
+   AND 6371*acos(LEAST(1.0,GREATEST(-1.0,cos(radians(NEW.pickup_lat::double precision))*cos(radians(pp.lat))*cos(radians(pp.lng)-radians(NEW.pickup_lng::double precision))+sin(radians(NEW.pickup_lat::double precision))*sin(radians(pp.lat)))))<=2
+ ), logged AS (
+  INSERT INTO public.provider_demand_alert_log(user_id,zone_key,last_notified_at)
+  SELECT e.user_id,v_zone,now() FROM eligible e
+  ON CONFLICT(user_id,zone_key) DO UPDATE SET last_notified_at=now()
+   WHERE public.provider_demand_alert_log.last_notified_at<now()-interval '15 minutes'
+  RETURNING user_id
+ )
+ INSERT INTO public.notifications(user_id,type,title,body,link,data)
+ SELECT e.user_id,'taxi_high_demand',CASE WHEN e.plan_code='gold' THEN 'تنبيه فوري: طلبات تكسي مرتفعة' ELSE 'تنبيه: منطقة طلب مرتفع' END,
+ 'ازدادت طلبات التكسي ضمن 2 كم من موقعك. افتح ممنون لاستلام الرحلات المتاحة.','/profile',
+ jsonb_build_object('zone_key',v_zone,'waiting_requests',v_waiting,'radius_km',2,'plan',e.plan_code)
+ FROM eligible e JOIN logged l ON l.user_id=e.user_id;
+ RETURN NEW;
+END; $$;
+REVOKE ALL ON FUNCTION public.notify_taxi_drivers_on_new_demand() FROM PUBLIC,anon,authenticated;
+DROP TRIGGER IF EXISTS trg_notify_taxi_drivers_on_new_demand ON public.service_requests;
+CREATE TRIGGER trg_notify_taxi_drivers_on_new_demand AFTER INSERT OR UPDATE OF status,pickup_lat,pickup_lng ON public.service_requests FOR EACH ROW EXECUTE FUNCTION public.notify_taxi_drivers_on_new_demand();
