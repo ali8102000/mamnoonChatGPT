@@ -1,4 +1,4 @@
-name: Kafo web CI
+name: Mamnoon web CI
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: kafo-web-ci-${{ github.ref }}
+  group: mamnoon-web-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
