@@ -117,7 +117,7 @@ BEGIN
   WHERE request_id = _request_id AND status = 'pending' AND expires_at <= now();
 
   IF r.vehicle_category::text = 'large' THEN
-    v_radius := (ARRAY[2,5,10]::numeric[])[LEAST(q.stage, 2) + 1];
+    v_radius := 10;
     WITH inserted AS (
       INSERT INTO public.request_offers
         (request_id, provider_id, distance_km, status, sent_at, expires_at)
@@ -132,10 +132,10 @@ BEGIN
         AND NOT EXISTS (
           SELECT 1 FROM public.request_offers o
           WHERE o.request_id = r.id AND o.provider_id = d.user_id
-            AND o.status NOT IN ('expired')
+            AND o.status NOT IN ('expired', 'rejected')
         )
       ORDER BY d.distance_km
-      LIMIT 20
+      LIMIT 100
       ON CONFLICT (request_id, provider_id) DO UPDATE
         SET status = 'pending', sent_at = now(), expires_at = now() + interval '24 hours',
             responded_at = NULL, proposed_price = NULL, offer_message = NULL
@@ -155,10 +155,7 @@ BEGIN
     FROM inserted i;
 
     GET DIAGNOSTICS v_count = ROW_COUNT;
-    UPDATE public.taxi_dispatch_queue
-    SET stage = LEAST(q.stage + 1, 2),
-        next_at = now() + CASE WHEN q.stage >= 2 THEN interval '5 minutes' ELSE interval '60 seconds' END
-    WHERE request_id = _request_id;
+    DELETE FROM public.taxi_dispatch_queue WHERE request_id = _request_id;
     RETURN v_count;
   END IF;
 
@@ -212,6 +209,33 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.advance_taxi_dispatch(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.advance_taxi_dispatch(uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.retry_large_vehicle_dispatch(_request_id uuid)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+DECLARE
+  r public.service_requests%ROWTYPE;
+  v_count integer;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  SELECT * INTO r FROM public.service_requests WHERE id = _request_id FOR UPDATE;
+  IF NOT FOUND OR r.customer_id <> auth.uid()
+     OR r.type <> 'taxi' OR r.vehicle_category::text <> 'large'
+     OR r.provider_id IS NOT NULL OR r.status NOT IN ('pending','searching') THEN
+    RAISE EXCEPTION 'request_unavailable';
+  END IF;
+  INSERT INTO public.taxi_dispatch_queue(request_id, stage, next_at)
+  VALUES (_request_id, 2, now())
+  ON CONFLICT (request_id) DO UPDATE SET stage = 2, next_at = now();
+  v_count := public.advance_taxi_dispatch(_request_id);
+  RETURN v_count;
+END;
+$;
+REVOKE ALL ON FUNCTION public.retry_large_vehicle_dispatch(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.retry_large_vehicle_dispatch(uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.submit_large_vehicle_offer(
   _request_id uuid,
