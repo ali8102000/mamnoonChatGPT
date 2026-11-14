@@ -221,14 +221,14 @@ function RequestDetail() {
   }, [requestId, id, loadAll]);
 
   useEffect(() => {
-    if (!requestId || myRole !== "customer") return;
+    if (!requestId || myRole !== "customer" || req?.vehicle_category === "large") return;
     if (!["pending", "searching"].includes(requestStatus as string)) return;
     const t = setInterval(() => {
       retryFn({ data: { requestId } }).catch(() => {});
       loadAll();
     }, 5000);
     return () => clearInterval(t);
-  }, [requestId, requestStatus, myRole, loadAll, retryFn]);
+  }, [requestId, requestStatus, myRole, loadAll, retryFn, req?.vehicle_category]);
 
   const lastMessageId = messages[messages.length - 1]?.id;
   useEffect(() => {
