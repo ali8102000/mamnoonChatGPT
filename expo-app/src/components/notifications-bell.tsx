@@ -19,11 +19,19 @@ export function NotificationsBell() {
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [featured, setFeatured] = useState<NotificationRow | null>(null);
   const load = useCallback(async () => {
     if (!user?.id) return;
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await (supabase as any).from("notifications").select("id,type,title,body,link,read_at,created_at").eq("user_id", user.id).gte("created_at", since).order("created_at", { ascending: false }).limit(50);
-    if (!error) setItems((data ?? []).filter((item: NotificationRow) => isImportantNotificationType(item.type)));
+    const [{ data, error }, { data: pendingGrant }] = await Promise.all([
+      (supabase as any).from("notifications").select("id,type,title,body,link,read_at,created_at").eq("user_id", user.id).gte("created_at", since).order("created_at", { ascending: false }).limit(50),
+      (supabase as any).from("notifications").select("id,type,title,body,link,read_at,created_at").eq("user_id",user.id).eq("type","subscription_granted").is("read_at",null).order("created_at",{ascending:false}).limit(5),
+    ]);
+    if (!error) {
+      const merged=[...(pendingGrant??[]),...(data??[])].filter((item:NotificationRow,i:number,all:NotificationRow[])=>all.findIndex(x=>x.id===item.id)===i).filter((item:NotificationRow)=>isImportantNotificationType(item.type));
+      setItems(merged);
+      setFeatured(current=>current&&!current.read_at?current:merged.find((item:NotificationRow)=>!item.read_at&&(item.type==="subscription_granted"||item.type==="company_announcement"))??null);
+    }
   }, [user?.id]);
 
   useEffect(() => {
@@ -34,7 +42,8 @@ export function NotificationsBell() {
     const channel = supabase.channel("native-notifications-" + user.id)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: "user_id=eq." + user.id }, (payload: any) => {
         const item = payload.new as NotificationRow;
-        if (Date.now() - new Date(item.created_at).getTime() <= 24 * 60 * 60 * 1000 && isImportantNotificationType(item.type)) setItems((current) => [item, ...current.filter((row) => row.id !== item.id)]);
+        if ((Date.now() - new Date(item.created_at).getTime() <= 24 * 60 * 60 * 1000 || item.type === "subscription_granted") && isImportantNotificationType(item.type)) setItems((current) => [item, ...current.filter((row) => row.id !== item.id)]);
+        if (item.type === "subscription_granted" || item.type === "company_announcement") setFeatured(item);
         // Request offers already receive a dedicated Expo push; other in-app events get a local audible alert.
         if (isImportantNotificationType(item.type)) {
           void Notifications.scheduleNotificationAsync({
@@ -72,9 +81,27 @@ export function NotificationsBell() {
     else if (item.link === "/home" || !item.link) router.push("/home");
   }
 
+  async function dismissFeatured() {
+    if (!featured || !user?.id) { setFeatured(null); return; }
+    const stamp=new Date().toISOString();
+    const {error}=await (supabase as any).from("notifications").update({read_at:stamp}).eq("id",featured.id).eq("user_id",user.id);
+    if (!error) { setItems(current=>current.map(item=>item.id===featured.id?{...item,read_at:stamp}:item)); setFeatured(null); }
+  }
+
   if (!user) return null;
   return (
     <>
+      <Modal visible={!!featured} transparent animationType="fade" onRequestClose={dismissFeatured} statusBarTranslucent>
+        <View style={styles.featuredScrim}>
+          <View style={styles.featuredCard}>
+            <View style={styles.featuredSeal}><Text style={styles.featuredSealText}>✦</Text></View>
+            <Text style={styles.featuredKicker}>رسالة رسمية · شركة ممنون</Text>
+            <Text style={styles.featuredTitle}>{featured?.title}</Text>
+            <Text style={styles.featuredBody}>{featured?.body}</Text>
+            <TouchableOpacity onPress={dismissFeatured} style={styles.featuredButton}><Text style={styles.featuredButtonText}>استلمت الرسالة</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <TouchableOpacity onPress={showNotifications} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="الإشعارات" style={styles.bell}>
         <Text style={styles.bellIcon}>🔔</Text>
         {unread > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text></View>}
@@ -114,6 +141,15 @@ export function NotificationsBell() {
 }
 
 const styles = StyleSheet.create({
+  featuredScrim:{flex:1,backgroundColor:"rgba(0,0,0,0.72)",alignItems:"center",justifyContent:"center",padding:22},
+  featuredCard:{width:"100%",borderRadius:28,borderWidth:2,borderColor:"#D4AF37",backgroundColor:"#FFF8E7",padding:24,alignItems:"center",gap:10},
+  featuredSeal:{width:64,height:64,borderRadius:32,backgroundColor:"#F3E2B4",borderWidth:1,borderColor:"#D4AF37",alignItems:"center",justifyContent:"center"},
+  featuredSealText:{fontSize:34,color:"#956C16",fontWeight:"900"},
+  featuredKicker:{fontSize:10,fontWeight:"900",color:"#956C16"},
+  featuredTitle:{fontSize:21,fontWeight:"900",color:"#6E5015",textAlign:"center"},
+  featuredBody:{fontSize:13,lineHeight:23,color:"#70571F",textAlign:"center"},
+  featuredButton:{width:"100%",borderRadius:15,backgroundColor:"#B88925",padding:14,alignItems:"center",marginTop:8},
+  featuredButtonText:{color:"#fff",fontWeight:"900",fontSize:13},
   bell: { width: 46, height: 46, borderRadius: 17, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", position: "relative" },
   bellIcon: { color: palette.ink, fontSize: 25, fontWeight: "900" },
   badge: { position: "absolute", top: -5, right: -5, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 4, backgroundColor: "#C83D3D", borderWidth: 2, borderColor: palette.canvas, alignItems: "center", justifyContent: "center" },
