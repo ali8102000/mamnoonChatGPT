@@ -431,7 +431,7 @@ function NewRequest() {
 
       if (error) throw error;
       toast.success("تم إرسال الطلب بنجاح!");
-      if (type === "taxi") {
+      if (type === "taxi" && vehicle !== "large") {
         runDispatch({ data: { requestId: data.id } }).catch((e) => console.warn("[dispatch]", e));
         try {
           if (typeof BroadcastChannel !== "undefined") {
