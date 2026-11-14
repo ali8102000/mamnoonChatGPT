@@ -44,22 +44,35 @@ export default function WorkerOnboarding() {
   useEffect(() => {
     let active = true;
     setServicesLoading(true);
-    supabase.rpc("get_worker_service_catalog").then(({ data, error }) => {
-      if (!active) return;
-      if (error) {
-        console.error("get_worker_service_catalog failed:", error);
-        setServicesError(
-          /invalid api key/i.test(error.message || "")
-            ? "مفتاح اتصال Supabase في نسخة التطبيق غير صالح أو قديم. حدّث إعداد EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY في بيئة Production ثم أنشئ نسخة APK جديدة."
-            : `تعذر تحميل المهن (${error.code || "اتصال"}): ${error.message || "تحقق من اتصالك"}`,
-        );
-      } else {
-        const available = (data || []).filter((s: WorkerService) => s.slug !== "taxi");
+    (async () => {
+      try {
+        const catalog = await supabase.rpc("get_worker_service_catalog");
+        let rows = !catalog.error && Array.isArray(catalog.data) ? catalog.data as WorkerService[] : [];
+        if (!rows.length) {
+          // Fallback to the authenticated services table if the RPC is not
+          // present yet in this Supabase deployment.
+          const fallback = await supabase.from("services")
+            .select("id, slug, name_ar")
+            .order("sort_order");
+          if (fallback.error) throw fallback.error;
+          rows = (fallback.data ?? []) as WorkerService[];
+        }
+        if (!active) return;
+        const available = rows.filter((s) => s.slug !== "taxi");
         setServices(available);
-        setServicesError(available.length ? null : "قائمة المهن فارغة حالياً. تواصل مع الإدارة.");
+        setServicesError(available.length ? null : "قائمة المهن فارغة في قاعدة البيانات. يلزم تحديث كتالوج الخدمات.");
+      } catch (error: any) {
+        if (!active) return;
+        console.error("Unable to load worker service catalog:", error);
+        setServicesError(
+          /invalid api key/i.test(error?.message || "")
+            ? "مفتاح اتصال Supabase في نسخة التطبيق غير صالح أو قديم."
+            : `تعذر تحميل المهن (${error?.code || "اتصال"}): ${error?.message || "تحقق من اتصالك"}`,
+        );
+      } finally {
+        if (active) setServicesLoading(false);
       }
-      setServicesLoading(false);
-    });
+    })();
     return () => { active = false; };
   }, []);
 
