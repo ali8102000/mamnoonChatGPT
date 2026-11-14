@@ -92,6 +92,7 @@ function RequestDetail() {
     : null;
   const myRole: "customer" | "provider" =
     req && myUserId === req.customer_id ? "customer" : "provider";
+  const otherBadges = otherRep?.badges ?? [];
   const trackingActive = !!req && (req.status === "accepted" || req.status === "in_progress");
   const { me: myLive, other: otherLive } = useLiveTracking({
     requestId: req?.id ?? null,
@@ -540,9 +541,9 @@ function RequestDetail() {
               <div className="flex-1 min-w-0">
                 <div className="font-black text-sm truncate">{other.full_name || "مستخدم"}</div>
                 <div className="text-xs text-muted-foreground mt-0.5" dir="ltr">{other.phone}</div>
-                {otherRep?.badges?.length > 0 && (
+                {otherBadges.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {otherRep.badges.map((b) => <ReputationBadge key={b.code} badge={b} size="sm" />)}
+                    {otherBadges.map((b) => <ReputationBadge key={b.code} badge={b} size="sm" />)}
                   </div>
                 )}
               </div>
