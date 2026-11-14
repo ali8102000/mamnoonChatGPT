@@ -20,11 +20,11 @@ const images: Record<string, ImageSourcePropType> = {
   stove_repair: require("../../assets/services/stove_repair.png"),
   washer_repair: require("../../assets/services/washer_repair.png"),
   goods_transport: require("../../assets/services/general.png"),
-  furniture_moving: require("../../assets/services/general.png"),
-  cargo_handling: require("../../assets/services/general.png"),
+  furniture_moving: require("../../assets/services/build.png"),
+  cargo_handling: require("../../assets/services/build.png"),
   gardener: require("../../assets/services/general.png"),
   kia_driver: require("../../assets/services/general.png"),
-  internet_install: require("../../assets/services/general.png"),
+  internet_install: require("../../assets/services/electric_setup.png"),
   wood_carpentry: require("../../assets/services/wood_carpentry.png"),
 };
 
