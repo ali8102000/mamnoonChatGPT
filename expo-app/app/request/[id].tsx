@@ -149,7 +149,7 @@ export default function RequestDetail() {
           .eq("status", "pending")
           .not("proposed_price", "is", null)
           .order("sent_at", { ascending: false });
-        const providerIds = [...new Set((bids ?? []).map((bid: any) => bid.provider_id))];
+        const providerIds: string[] = [...new Set<string>((bids ?? []).map((bid: any) => String(bid.provider_id)))];
         const { data: profiles } = providerIds.length
           ? await supabase.from("profiles").select("id, full_name, phone, avatar_url").in("id", providerIds)
           : { data: [] };
