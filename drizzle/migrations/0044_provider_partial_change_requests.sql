@@ -39,10 +39,12 @@ ALTER TABLE public.provider_change_requests
     OR (provider_type = 'driver' AND (
       requested_data->>'vehicle_category' IN ('economy','premium','luxury')
       OR jsonb_typeof(requested_data->'vehicle_update') = 'object'
+      OR jsonb_typeof(requested_data->'documents') = 'object'
     ))
     OR (provider_type = 'large_driver' AND (
       requested_data->>'vehicle_type' IN ('kia_cargo','kia_passenger','bus')
       OR jsonb_typeof(requested_data->'vehicle_update') = 'object'
+      OR jsonb_typeof(requested_data->'documents') = 'object'
     ))
   );
 
@@ -172,7 +174,7 @@ BEGIN
           id_card_photo_path = CASE WHEN v_documents ? 'id_card' THEN v_documents->>'id_card' ELSE id_card_photo_path END,
           id_card_back_photo_path = CASE WHEN v_documents ? 'id_card_back' THEN v_documents->>'id_card_back' ELSE id_card_back_photo_path END,
           vehicle_document_path = CASE WHEN v_documents ? 'vehicle_document' THEN v_documents->>'vehicle_document' ELSE vehicle_document_path END,
-          metadata = metadata || jsonb_strip_nulls(jsonb_build_object(
+          metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_strip_nulls(jsonb_build_object(
             'vehicleMake', v_vehicle->'vehicle_make',
             'vehicleModel', v_vehicle->'vehicle_model',
             'vehicleYear', v_vehicle->'vehicle_year',

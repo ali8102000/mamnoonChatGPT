@@ -41,6 +41,7 @@ export default function DriverOnboarding() {
   const [idBackPhoto, setIdBackPhoto] = useState<PickedImage | null>(null);
   const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<PickedImage | null>(null);
   const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
+  const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: "", model: "", year: "", plate: "", color: "", category: largeDriverMode ? "large" : "economy", vehicleType: "kia_cargo" });
   const [status, setStatus] = useState<string | null>(null);
   const [savedModelName, setSavedModelName] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
@@ -101,6 +102,7 @@ export default function DriverOnboarding() {
         if (typeof savedColor === "string") setColor(savedColor);
         if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury" || savedCategory === "large") setCategory(savedCategory);
         if (saved?.vehicle_type === "kia_cargo" || saved?.vehicle_type === "kia_passenger" || saved?.vehicle_type === "bus") setVehicleType(saved.vehicle_type);
+        setOriginalVehicle({ make: make ?? (largeDriverMode ? "كيا" : ""), model: model ?? (largeDriverMode ? "كيا حمل" : ""), year: savedYear == null ? "" : String(savedYear), plate: savedPlate ?? "", color: savedColor ?? null, category: savedCategory ?? (largeDriverMode ? "large" : "economy"), vehicleType: saved?.vehicle_type ?? "kia_cargo" });
         setCheckingSavedDriver(false);
       }).catch(() => { if (active) setCheckingSavedDriver(false); });
     } else {
@@ -175,13 +177,41 @@ export default function DriverOnboarding() {
     if (vehicleChangeMode) {
       setBusy(true);
       try {
-        const vehicleYear = Number(year.trim());
-        if (!largeDriverMode && (!selectedMake || !(selectedModel?.model ?? savedModelName)?.trim())) {
+        const candidateVehicle = {
+          make: largeDriverMode ? String(originalVehicle.make || "كيا") : selectedMake,
+          model: largeDriverMode ? (vehicleType ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : String(originalVehicle.model || "")) : (selectedModel?.model ?? savedModelName ?? ""),
+          year: year.trim(),
+          plate: plate.trim(),
+          color: color.trim() || null,
+          category,
+          vehicleType: largeDriverMode ? vehicleType : null,
+        };
+        const changedVehicle: Record<string, unknown> = {};
+        if (candidateVehicle.make !== originalVehicle.make) changedVehicle.vehicle_make = candidateVehicle.make;
+        if (candidateVehicle.model !== originalVehicle.model) changedVehicle.vehicle_model = candidateVehicle.model;
+        if (candidateVehicle.year !== originalVehicle.year) {
+          if (candidateVehicle.year.length !== 4 || !Number.isInteger(Number(candidateVehicle.year))) {
+            Alert.alert("بيانات المركبة", "أدخل سنة الصنع بشكل صحيح.");
+            return;
+          }
+          changedVehicle.vehicle_year = Number(candidateVehicle.year);
+        }
+        if (candidateVehicle.plate !== originalVehicle.plate) {
+          if (candidateVehicle.plate.length < 2) {
+            Alert.alert("بيانات المركبة", "أدخل رقم اللوحة بشكل صحيح.");
+            return;
+          }
+          changedVehicle.vehicle_plate = candidateVehicle.plate;
+        }
+        if (candidateVehicle.color !== originalVehicle.color) changedVehicle.vehicle_color = candidateVehicle.color;
+        if (!largeDriverMode && candidateVehicle.category !== originalVehicle.category) changedVehicle.vehicle_category = candidateVehicle.category;
+        if (largeDriverMode && candidateVehicle.vehicleType !== originalVehicle.vehicleType) changedVehicle.vehicle_type = candidateVehicle.vehicleType;
+        if (Object.keys(changedVehicle).length && !largeDriverMode && (!candidateVehicle.make || !candidateVehicle.model)) {
           Alert.alert("بيانات المركبة", "اختر ماركة وموديل المركبة.");
           return;
         }
-        if (!plate.trim() || year.trim().length !== 4 || !Number.isInteger(Number(year.trim()))) {
-          Alert.alert("بيانات المركبة", "أدخل رقم اللوحة وسنة الصنع بشكل صحيح.");
+        if (Object.keys(changedVehicle).length && largeDriverMode && !candidateVehicle.vehicleType) {
+          Alert.alert("بيانات المركبة", "اختر نوع المركبة.");
           return;
         }
         const documents: Record<string, string> = {};
@@ -189,18 +219,14 @@ export default function DriverOnboarding() {
         if (changedDocuments.id_card && idPhoto) documents.id_card = await uploadImage(idPhoto, "id-card");
         if (changedDocuments.id_card_back && idBackPhoto) documents.id_card_back = await uploadImage(idBackPhoto, "id-card-back");
         if (changedDocuments.vehicle_document && vehicleDocumentPhoto) documents.vehicle_document = await uploadImage(vehicleDocumentPhoto, "vehicle-registration");
-        const vehicleUpdate = {
-          vehicle_make: largeDriverMode ? "كيا" : selectedMake,
-          vehicle_model: largeDriverMode ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : (selectedModel?.model ?? savedModelName ?? ""),
-          vehicle_year: vehicleYear,
-          vehicle_plate: plate.trim(),
-          vehicle_color: color.trim() || null,
-          ...(largeDriverMode ? { vehicle_type: vehicleType } : { vehicle_category: category }),
-        };
+        if (!Object.keys(changedVehicle).length && !Object.keys(documents).length) {
+          Alert.alert("ماكو تغييرات", "ماكو بيانات أو مستندات جديدة لإرسالها.");
+          return;
+        }
         const { error } = await (supabase as any).rpc("submit_provider_change_request", {
           _provider_type: providerRole,
           _requested_data: {
-            vehicle_update: vehicleUpdate,
+            ...(Object.keys(changedVehicle).length ? { vehicle_update: changedVehicle } : {}),
             ...(Object.keys(documents).length ? { documents } : {}),
           },
         });
@@ -209,7 +235,7 @@ export default function DriverOnboarding() {
         setChangedDocuments({});
         setVehicleChangeMode(false);
         setStatus("approved");
-        Alert.alert("تم إرسال الطلب", "وصل طلب تغيير فئة المركبة إلى الإدارة. مركبتك الحالية تبقى فعالة لحين الموافقة.");
+        Alert.alert("تم إرسال الطلب", "وصل طلب تحديث بياناتك إلى الإدارة. بياناتك الحالية تبقى فعالة لحين الموافقة.");
       } catch (error: any) {
         Alert.alert("تعذر إرسال الطلب", error?.message || "حاول مرة ثانية.");
       } finally {
@@ -328,8 +354,8 @@ export default function DriverOnboarding() {
         </Text>
         {status === "approved" ? (
           <>
-          {pendingVehicleChange && <Text style={styles.note}>طلب تغيير فئة المركبة بانتظار موافقة الإدارة. مركبتك الحالية تبقى فعالة.</Text>}
-          {!pendingVehicleChange && <Button title="طلب تغيير فئة أو نوع المركبة" onPress={() => { setVehicleChangeMode(true); setStatus(null); }} />}
+          {pendingVehicleChange && <Text style={styles.note}>طلب تحديث بيانات المركبة أو مستنداتها بانتظار موافقة الإدارة. بياناتك الحالية تبقى فعالة.</Text>}
+          {!pendingVehicleChange && <Button title="تحديث بيانات المركبة أو مستنداتها" onPress={() => { setVehicleChangeMode(true); setStatus(null); }} />}
           <Button title="تفعيل دور السائق والمتابعة" onPress={async () => {
             if (!user) return;
             setBusy(true);
@@ -358,8 +384,8 @@ export default function DriverOnboarding() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 48 }}>
-      <Text style={styles.title}>{vehicleChangeMode ? "طلب تغيير فئة المركبة" : largeDriverMode ? "تسجيل سائق السيارات الكبيرة" : "تسجيل كابتن التكسي"}</Text>
-      <Text style={styles.note}>{vehicleChangeMode ? "حدد الفئة أو نوع المركبة الجديد. مركبتك الحالية تبقى فعالة حتى موافقة الإدارة." : largeDriverMode ? "قسم مستقل لكيا الحمل وكيا الركاب والباص. أكمل بيانات المركبة والهوية." : "أكمل بيانات سيارة التكسي والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة."}</Text>
+      <Text style={styles.title}>{vehicleChangeMode ? "تحديث بيانات المركبة أو مستنداتها" : largeDriverMode ? "تسجيل سائق السيارات الكبيرة" : "تسجيل كابتن التكسي"}</Text>
+      <Text style={styles.note}>{vehicleChangeMode ? "غيّر بيانات المركبة أو اختر مستنداً واحداً أو أكثر لاستبداله. المستندات التي لا تغيّرها تبقى كما هي، والتحديث لا يتفعّل إلا بعد موافقة الإدارة." : largeDriverMode ? "قسم مستقل لكيا الحمل وكيا الركاب والباص. أكمل بيانات المركبة والهوية." : "أكمل بيانات سيارة التكسي والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة."}</Text>
       {!!rejectionReason && <Text style={styles.rejection}>سبب الرفض السابق: {rejectionReason}</Text>}
 
       <Text style={styles.label}>اختر نوع تسجيلك كسائق</Text>
@@ -473,7 +499,7 @@ export default function DriverOnboarding() {
       </TouchableOpacity>
 
       <View style={{ height: 24 }} />
-      <Button title="إرسال طلب التسجيل للمراجعة" onPress={submit} loading={busy} />
+      <Button title={vehicleChangeMode ? "إرسال طلب التحديث للإدارة" : "إرسال طلب التسجيل للمراجعة"} onPress={submit} loading={busy} />
     </ScrollView>
   );
 }
