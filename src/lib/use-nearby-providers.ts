@@ -81,7 +81,7 @@ export function useNearbyProviders(opts: {
       .channel("provider-pins")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "live_locations", filter: `status=eq.online` },
+        { event: "*", schema: "public", table: "provider_presence" },
         () => {
           clearTimeout(debounceRef.current);
           debounceRef.current = setTimeout(fetchPins, 2000);
