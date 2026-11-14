@@ -24,6 +24,7 @@ import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as SupportChatRouteImport } from './routes/support-chat'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SelectRoleRouteImport } from './routes/select-role'
 import { Route as SupportRouteImport } from './routes/support'
@@ -113,6 +114,11 @@ const ProfileRoute = ProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SubscriptionsRoute = SubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -193,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
   '/support-chat': typeof SupportChatRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -285,6 +292,7 @@ export interface FileRouteTypes {
     | '/coupons'
     | '/messages'
     | '/support-chat'
+    | '/subscriptions'
     | '/privacy'
     | '/profile'
     | '/reset-password'
@@ -375,6 +383,7 @@ export interface RootRouteChildren {
   CouponsRoute: typeof CouponsRoute
   MessagesRoute: typeof MessagesRoute
   SupportChatRoute: typeof SupportChatRoute
+  SubscriptionsRoute: typeof SubscriptionsRoute
   PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
