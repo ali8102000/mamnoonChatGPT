@@ -327,6 +327,37 @@ $$;
 REVOKE ALL ON FUNCTION public.accept_large_vehicle_offer(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.accept_large_vehicle_offer(uuid) TO authenticated;
 
+
+CREATE OR REPLACE FUNCTION public.reject_large_vehicle_offer(_offer_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+DECLARE
+  o public.request_offers%ROWTYPE;
+  v_customer uuid;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  SELECT * INTO o FROM public.request_offers WHERE id = _offer_id FOR UPDATE;
+  IF NOT FOUND OR o.proposed_price IS NULL OR o.status <> 'pending' THEN
+    RAISE EXCEPTION 'offer_unavailable';
+  END IF;
+  SELECT customer_id INTO v_customer
+  FROM public.service_requests
+  WHERE id = o.request_id AND vehicle_category::text = 'large';
+  IF v_customer IS NULL OR v_customer <> auth.uid() THEN
+    RAISE EXCEPTION 'not_request_customer';
+  END IF;
+  UPDATE public.request_offers
+  SET status = 'rejected', responded_at = now()
+  WHERE id = _offer_id AND status = 'pending';
+  RETURN FOUND;
+END;
+$;
+REVOKE ALL ON FUNCTION public.reject_large_vehicle_offer(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.reject_large_vehicle_offer(uuid) TO authenticated;
+
 -- Allow only the trusted acceptance RPC to assign a selected large-vehicle provider.
 CREATE OR REPLACE FUNCTION public.guard_customer_request_update()
 RETURNS trigger
