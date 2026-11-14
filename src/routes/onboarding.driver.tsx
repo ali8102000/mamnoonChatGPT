@@ -121,7 +121,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [customMake, setCustomMake] = useState<string>("");
   const [modelName, setModelName] = useState<string>("كورولا");
   const [category, setCategory] = useState<VehicleCategory>(largeDriverMode ? "large" : "economy");
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
   const [year, setYear] = useState<string>(String(new Date().getFullYear() - 2));
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("أبيض");
@@ -232,6 +232,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   if (!session) return <Navigate to="/auth" />;
 
   const finalMake = category === "large" ? "كيا" : make === "أخرى" ? customMake.trim() : make;
+  const identityName = (largeDriverMode ? (profile?.full_name || legalName) : legalName).trim();
 
   // Handle Photo Uploads
   async function handleFacePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -305,12 +306,12 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       }
       return;
     }
-    if (!finalMake) {
+    if (!largeDriverMode && !finalMake) {
       toast.error("اختر أو اكتب الشركة المصنعة للسيارة");
       setActiveStep("car");
       return;
     }
-    if (!modelName.trim()) {
+    if (!largeDriverMode && !modelName.trim()) {
       toast.error("أدخل موديل السيارة");
       setActiveStep("car");
       return;
@@ -320,7 +321,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       setActiveStep("car");
       return;
     }
-    if (!legalName.trim() || legalName.trim().length < 5) {
+    if (!identityName || identityName.length < 5) {
       toast.error("يرجى كتابة الاسم الثلاثي الكامل المطابق للهوية الرسمية");
       setActiveStep("identity");
       return;
@@ -340,7 +341,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       setActiveStep("car");
       return;
     }
-    if (!confirmedNameMatch) {
+    if (!largeDriverMode && !confirmedNameMatch) {
       toast.error("يرجى تأكيد تطابق الاسم المكتوب مع الهوية المرفقة");
       return;
     }
@@ -353,7 +354,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
-          full_name: legalName.trim(),
+          full_name: identityName,
           avatar_url: facePhoto,
         })
         .eq("id", uid);
@@ -381,7 +382,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       const verificationDoc: VerificationDocument = {
         userId: uid,
         role: providerRole,
-        legalName: legalName.trim(),
+        legalName: identityName,
         phone: profile?.phone,
         email: profile?.email || session!.user.email,
         facePhotoUrl: facePhoto,
@@ -630,7 +631,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
                 <div className="font-black text-sm">نوع السيارة الكبيرة</div>
                 <div className="grid grid-cols-2 gap-2">
-                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }, { key: "bus", label: "باص", emoji: "🚌" }] as const).map((item) => (
+                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
                     <button key={item.key} type="button" onClick={() => { setVehicleType(item.key); setMake("كيا"); setModelName(item.label); }} className={`rounded-xl border p-3 font-bold ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
                       <div className="text-2xl">{item.emoji}</div>{item.label}
                     </button>
@@ -646,6 +647,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
             </div>
           </div>
 
+          {!largeDriverMode && (
           {/* Quick Make Selection */}
           <div>
             <div className="text-xs font-bold text-muted-foreground mb-2">
@@ -709,6 +711,9 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
             )}
           </div>
 
+          )}
+
+          {!largeDriverMode && (
           {/* Year, Plate & Color */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -744,8 +749,10 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
             />
           </div>
 
+          )}
+
           <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
-            <div className="font-black text-sm">مستند تسجيل السيارة *</div>
+            <div className="font-black text-sm">{largeDriverMode ? "مستندات المركبة (السنوية أو الوكالة) *" : "مستند تسجيل السيارة *"}</div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               أرفق صورة صفحة السنوية أو الوكالة كاملة. خلّي رقم المركبة أو رقم اللوحة وبيانات السيارة ظاهرة وواضحة. لا تقص أطراف المستند.
             </p>
@@ -804,6 +811,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
             </div>
           </div>
 
+          {!largeDriverMode && (
           {/* Legal Full Name */}
           <div>
             <div className="text-xs font-bold text-muted-foreground mb-1.5">
@@ -816,6 +824,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               className="w-full bg-white border border-border rounded-2xl px-4 py-3.5 text-sm font-black outline-none focus:border-primary shadow-sm"
             />
           </div>
+          )}
 
           {/* Real Face Photo Capture */}
           <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
@@ -923,6 +932,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
             </div>
           </div>
 
+          {!largeDriverMode && (
           {/* Name Confirmation Checklist */}
           <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2 text-xs">
             <label className="flex items-start gap-2.5 cursor-pointer">
@@ -939,6 +949,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               </span>
             </label>
           </div>
+          )}
         </div>
       )}
 
