@@ -82,7 +82,7 @@ export function calculateFareBreakdown(
       ? 1
       : isIntercity || economyFare >= 5000
         ? category === "premium" ? 1.05 : 1.10
-        : category === "premium" ? 1.10 : category === "large" ? 1.10 : 1.25;
+        : category === "premium" ? 1.10 : 1.25;
 
   const weather = options?.weather ?? "heat";
   const roadCondition = options?.roadCondition ?? "normal";
