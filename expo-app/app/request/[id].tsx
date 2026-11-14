@@ -102,7 +102,8 @@ export default function RequestDetail() {
   const [largeOfferPrice, setLargeOfferPrice] = useState("");
   const [largeOfferMessage, setLargeOfferMessage] = useState("");
   const [largeOfferBusy, setLargeOfferBusy] = useState(false);
-  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);\n  const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
+  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
+  const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
