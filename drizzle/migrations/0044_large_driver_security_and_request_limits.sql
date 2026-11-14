@@ -128,7 +128,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   IF auth.uid() IS NOT NULL
      AND NOT COALESCE(public.has_admin_access(auth.uid()), false) THEN
@@ -156,7 +156,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 REVOKE EXECUTE ON FUNCTION public.guard_provider_status() FROM PUBLIC, anon, authenticated;
 
 -- Keep nearby discovery aligned with the separated taxi and large-driver roles.
@@ -233,7 +233,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
   SELECT
     md5(pp.user_id::text),
     round(pp.lat::numeric, 3),
@@ -281,7 +281,7 @@ AS $
     ))) <= LEAST(GREATEST(COALESCE(_radius_km, 5), 0.1), 25)
   ORDER BY pp.updated_at DESC
   LIMIT LEAST(GREATEST(COALESCE(_limit, 30), 1), 30)
-$;
+$$;
 REVOKE ALL ON FUNCTION public.find_nearby_provider_pins(numeric,numeric,text,text,uuid,numeric,int)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.find_nearby_provider_pins(numeric,numeric,text,text,uuid,numeric,int)
@@ -484,7 +484,7 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 DECLARE
   o public.request_offers%ROWTYPE;
   r public.service_requests%ROWTYPE;
@@ -554,7 +554,7 @@ BEGIN
   );
   RETURN true;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.accept_large_vehicle_offer(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.accept_large_vehicle_offer(uuid) TO authenticated;
 
