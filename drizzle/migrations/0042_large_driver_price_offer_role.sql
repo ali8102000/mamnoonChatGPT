@@ -1,4 +1,21 @@
 -- Mamnoon: large-vehicle price offers belong to the dedicated large_driver role.
+-- Preserve existing identity documents when legacy large drivers move to their own role.
+INSERT INTO public.provider_verifications (
+  user_id, provider_type, legal_name, phone, email, face_photo_path,
+  id_card_photo_path, id_card_back_photo_path, vehicle_document_path,
+  document_type, id_number, metadata, status, rejection_reason,
+  submitted_at, reviewed_at, updated_at
+)
+SELECT
+  pv.user_id, 'large_driver', pv.legal_name, pv.phone, pv.email, pv.face_photo_path,
+  pv.id_card_photo_path, pv.id_card_back_photo_path, pv.vehicle_document_path,
+  pv.document_type, pv.id_number, pv.metadata, pv.status, pv.rejection_reason,
+  pv.submitted_at, pv.reviewed_at, pv.updated_at
+FROM public.provider_verifications pv
+JOIN public.driver_profiles dp ON dp.user_id = pv.user_id
+WHERE pv.provider_type = 'driver' AND dp.vehicle_category::text = 'large'
+ON CONFLICT (user_id, provider_type) DO NOTHING;
+
 -- Keep the eligibility checks tied to the approved large vehicle profile.
 CREATE OR REPLACE FUNCTION public.submit_large_vehicle_offer(
   _request_id uuid,
