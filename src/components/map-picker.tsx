@@ -63,8 +63,10 @@ export function MapPicker({
   onSelectPlaceRef.current = onSelectPlace;
   const [full, setFull] = useState(false);
   const [picked, setPicked] = useState(false);
+  const lastReportedCoordsRef = useRef<Coords | null>(null);
   const report = (c: Coords, addr?: string) => {
     setPicked(true);
+    lastReportedCoordsRef.current = c;
     onChangeRef.current(c, addr);
   };
   const reverseFallback = (c: Coords) => {
@@ -150,36 +152,13 @@ export function MapPicker({
         // Don't report the default city centre as the user's location.
         if (!initialValueRef.current) suppressIdleRef.current = true;
 
-        const marker = new g.maps.Marker({
-          position: center,
-          map,
-          draggable: true,
-          animation: g.maps.Animation?.DROP,
-        });
-
-        marker.addListener("dragend", () => {
-          const pos = marker.getPosition();
-          if (!pos) return;
-          const c = { lat: pos.lat(), lng: pos.lng() };
-          if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-          idleTimerRef.current = setTimeout(() => {
-            if (suppressIdleRef.current) {
-              suppressIdleRef.current = false;
-              return;
-            }
-            report(c);
-            reverseFallback(c);
-          }, 300);
-        });
-
+        // Use a single fixed centre pin above the map instead of a second draggable
+        // marker. The user pans naturally; the selected point is the centre after
+        // the gesture settles.
         map.addListener("click", (e: any) => {
           if (!e.latLng) return;
-          const c = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-          marker.setPosition(e.latLng);
-          map.panTo(e.latLng);
           suppressIdleRef.current = false;
-          report(c);
-          reverseFallback(c);
+          map.panTo(e.latLng);
         });
 
         map.addListener("idle", () => {
@@ -190,12 +169,15 @@ export function MapPicker({
           const center = map.getCenter();
           if (!center) return;
           const c = { lat: center.lat(), lng: center.lng() };
-          marker.setPosition(center);
           if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
           idleTimerRef.current = setTimeout(() => {
+            const previous = lastReportedCoordsRef.current;
+            if (previous &&
+              Math.abs(previous.lat - c.lat) < 0.00002 &&
+              Math.abs(previous.lng - c.lng) < 0.00002) return;
             report(c);
             reverseFallback(c);
-          }, 500);
+          }, 350);
         });
 
         setLoading(false);
@@ -216,6 +198,10 @@ export function MapPicker({
 
   useEffect(() => {
     if (!readyRef.current || !mapRef.current || !value) return;
+    const center = mapRef.current.getCenter?.();
+    if (center &&
+      Math.abs(center.lat() - value.lat) < 0.00002 &&
+      Math.abs(center.lng() - value.lng) < 0.00002) return;
     suppressIdleRef.current = true;
     mapRef.current.panTo(value);
   }, [value]);

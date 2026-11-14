@@ -647,10 +647,10 @@ function NewRequest() {
                 setDestConfirmed(false);
                 if (mapStep === "pickup") {
                   setPickupCoords(c);
-                  setPickupLabel(addr ?? `موقعي (${c.lat.toFixed(4)}, ${c.lng.toFixed(4)})`);
+                  setPickupLabel(addr?.trim() || "موقع محدد على الخريطة");
                 } else {
                   setDestCoords(c);
-                  setDestLabel(addr ?? `وجهتي (${c.lat.toFixed(4)}, ${c.lng.toFixed(4)})`);
+                  setDestLabel(addr?.trim() || "وجهة محددة على الخريطة");
                 }
               }}
             />
@@ -1117,7 +1117,7 @@ function NewRequest() {
         onConfirm={() => toast.success("تم تثبيت موقع الخدمة ✓")}
         onChange={(c, addr) => {
           setPickupCoords(c);
-          setPickupLabel(addr ?? `موقعي (${c.lat.toFixed(4)}, ${c.lng.toFixed(4)})`);
+          setPickupLabel(addr?.trim() || "موقع محدد على الخريطة");
         }}
       />
 
