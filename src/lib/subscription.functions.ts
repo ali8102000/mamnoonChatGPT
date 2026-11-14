@@ -231,7 +231,8 @@ export const adminGetSubscriptions = createServerFn({ method: "GET" })
       .select(
         `
         id, user_id, status, billing_cycle, current_period_start, current_period_end,
-        request_count, auto_renew, created_at,
+        request_count, auto_renew, created_at, grant_type, granted_by, is_trial, paused_at, cancel_at_period_end,
+        profile:profiles(full_name,email,phone),
         plan:subscription_plans(code, name_ar, tier)
       `,
       )
