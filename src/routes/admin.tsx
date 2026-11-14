@@ -46,6 +46,8 @@ import {
   adminListFriends,
   adminListMessages,
   adminListProviders,
+  adminListProviderChangeRequests,
+  adminReviewProviderChangeRequest,
   adminListReports,
   adminListRequests,
   adminListTransactions,
@@ -480,6 +482,24 @@ function UsersSection() {
   useEffect(() => {
     load();
   }, [load]);
+  const loadChangeRequests = useCallback(async () => {
+    setChangeRequestsLoading(true);
+    try { setChangeRequests(await listChangeRequests()); }
+    catch (e) { setActionMessage(e instanceof Error ? e.message : "تعذر تحميل طلبات تحديث البيانات"); }
+    finally { setChangeRequestsLoading(false); }
+  }, [listChangeRequests]);
+  useEffect(() => { loadChangeRequests(); }, [loadChangeRequests]);
+  async function handleChangeRequestReview(requestId: string, status: "approved" | "rejected", reason?: string) {
+    try {
+      await reviewChangeRequest({ data: { request_id: requestId, status, reason } });
+      setActionMessage(status === "approved" ? "تم اعتماد التحديث مع إبقاء الحساب مفعّلاً" : "تم رفض تحديث البيانات وإرسال السبب للمستخدم");
+      await loadChangeRequests();
+      return true;
+    } catch (e) {
+      setActionMessage(e instanceof Error ? e.message : "تعذر مراجعة طلب التحديث");
+      return false;
+    }
+  }
   async function viewUser(userId: string) {
     try {
       setSelectedUser(await getUserDetail({ data: { user_id: userId } }));
@@ -869,10 +889,16 @@ function ProvidersSection() {
   const [selectedVerification, setSelectedVerification] = useState<any | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [changeRequests, setChangeRequests] = useState<any[]>([]);
+  const [changeRequestsLoading, setChangeRequestsLoading] = useState(true);
+  const [rejectingChangeRequest, setRejectingChangeRequest] = useState<any | null>(null);
+  const [changeRequestReason, setChangeRequestReason] = useState("");
   const listProviderDetail = useServerFn(adminGetUserDetail);
   const updateProviderName = useServerFn(adminUpdateProviderName);
   const listProviders = useServerFn(adminListProviders);
   const setStatus = useServerFn(adminSetProviderStatus);
+  const listChangeRequests = useServerFn(adminListProviderChangeRequests);
+  const reviewChangeRequest = useServerFn(adminReviewProviderChangeRequest);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -928,6 +954,45 @@ function ProvidersSection() {
           {actionMessage}
         </div>
       )}
+      <section className="mb-5 rounded-2xl border border-primary/20 bg-card p-3">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 className="font-black text-sm">طلبات تحديث الاختصاصات والفئات</h3>
+            <p className="text-[10px] text-muted-foreground">الاختصاصات الحالية تبقى فعالة إلى أن توافق الإدارة</p>
+          </div>
+          <button onClick={loadChangeRequests} className="text-xs font-bold text-primary">تحديث</button>
+        </div>
+        {changeRequestsLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : changeRequests.length === 0 ? (
+          <div className="rounded-xl bg-surface-2 p-4 text-center text-xs text-muted-foreground">ماكو طلبات تحديث معلّقة</div>
+        ) : (
+          <div className="space-y-2">
+            {changeRequests.map((request) => (
+              <div key={request.id} className="rounded-xl border border-border p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-bold text-sm">{request.profiles?.full_name ?? "مستخدم ممنون"}</div>
+                    <div className="text-[10px] text-muted-foreground">{request.profiles?.phone ?? "—"} · {request.provider_type === "worker" ? "فني" : request.provider_type === "large_driver" ? "سائق سيارات كبيرة" : "كابتن تكسي"}</div>
+                  </div>
+                  <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-1 text-[10px] font-bold">بانتظار الموافقة</span>
+                </div>
+                <div className="mt-2 text-xs leading-6">
+                  {request.provider_type === "worker" ? (
+                    <span>الاختصاصات المطلوبة: {(request.requested_service_names ?? []).join("، ")}</span>
+                  ) : request.provider_type === "large_driver" ? (
+                    <span>نوع المركبة المطلوب: {request.requested_data?.vehicle_type === "kia_cargo" ? "كيا حمل" : request.requested_data?.vehicle_type === "kia_passenger" ? "كيا ركاب" : "باص"}</span>
+                  ) : (
+                    <span>فئة التكسي المطلوبة: {({ economy: "اقتصادي", premium: "متميز", luxury: "فاخر" } as any)[request.requested_data?.vehicle_category] ?? "غير محدد"}</span>
+                  )}
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={() => void handleChangeRequestReview(request.id, "approved")} className="flex-1 rounded-lg bg-emerald-100 text-emerald-800 py-2 text-xs font-bold">موافقة وتفعيل التحديث</button>
+                  <button onClick={() => { setChangeRequestReason(""); setRejectingChangeRequest(request); }} className="flex-1 rounded-lg bg-red-100 text-red-800 py-2 text-xs font-bold">رفض مع السبب</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
       <div className="flex gap-1 mb-3 glass rounded-2xl p-1">
         {["driver", "large_driver", "worker"].map((t) => (
           <button
@@ -1048,6 +1113,23 @@ function ProvidersSection() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {rejectingChangeRequest && (
+        <div className="fixed inset-0 z-[135] bg-black/70 p-3 flex items-center justify-center" role="dialog" aria-modal="true">
+          <div className="w-full max-w-sm rounded-2xl bg-background border border-border p-4">
+            <h3 className="font-black mb-2">سبب رفض طلب التحديث</h3>
+            <p className="text-xs text-muted-foreground mb-3">الاختصاصات أو الفئة الحالية تبقى فعالة، والسبب يوصل لصاحب الطلب.</p>
+            <textarea value={changeRequestReason} onChange={(e) => setChangeRequestReason(e.target.value)} maxLength={500} rows={4}
+              placeholder="اكتب سبب الرفض..." className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm resize-y mb-3" />
+            <div className="flex gap-2">
+              <button onClick={() => setRejectingChangeRequest(null)} className="flex-1 rounded-xl bg-surface-2 py-2.5 text-sm font-bold">إلغاء</button>
+              <button disabled={!changeRequestReason.trim()} onClick={async () => {
+                const ok = await handleChangeRequestReview(rejectingChangeRequest.id, "rejected", changeRequestReason.trim());
+                if (ok) setRejectingChangeRequest(null);
+              }} className="flex-1 rounded-xl bg-red-600 text-white py-2.5 text-sm font-bold disabled:opacity-50">تأكيد الرفض</button>
+            </div>
+          </div>
         </div>
       )}
       {rejectingProvider && (
