@@ -32,6 +32,77 @@ CREATE POLICY "Providers read own change requests"
   ON public.provider_change_requests FOR SELECT TO authenticated
   USING (auth.uid() = user_id OR public.has_staff_role(auth.uid()));
 
+-- Prevent approved workers from bypassing the separate admin-approval workflow.
+DROP POLICY IF EXISTS "Worker inserts own services" ON public.worker_services;
+DROP POLICY IF EXISTS "Worker deletes own services" ON public.worker_services;
+REVOKE INSERT, UPDATE, DELETE ON public.worker_services FROM authenticated;
+
+-- Initial registration may save specialties once; approved workers must use change requests.
+CREATE OR REPLACE FUNCTION public.save_initial_worker_services(_service_ids uuid[])
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  IF public.has_role(auth.uid(), 'worker'::public.app_role) THEN
+    RAISE EXCEPTION 'use_provider_change_request';
+  END IF;
+  IF _service_ids IS NULL OR cardinality(_service_ids) = 0 THEN
+    RAISE EXCEPTION 'select_at_least_one_specialty';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM unnest(_service_ids) AS requested(service_id)
+    LEFT JOIN public.services s ON s.id = requested.service_id
+    WHERE s.id IS NULL
+  ) THEN RAISE EXCEPTION 'invalid_service_selection'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.worker_profiles WHERE user_id = auth.uid()) THEN
+    RAISE EXCEPTION 'worker_profile_required';
+  END IF;
+  DELETE FROM public.worker_services WHERE worker_id = auth.uid();
+  INSERT INTO public.worker_services(worker_id, service_id)
+  SELECT auth.uid(), requested.service_id
+  FROM (SELECT DISTINCT unnest(_service_ids) AS service_id) requested
+  ON CONFLICT (worker_id, service_id) DO NOTHING;
+  RETURN true;
+END;
+$;
+REVOKE ALL ON FUNCTION public.save_initial_worker_services(uuid[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.save_initial_worker_services(uuid[]) TO authenticated;
+
+-- Large drivers need the same private presence permission as taxi drivers.
+DROP POLICY IF EXISTS "Providers insert own presence" ON public.provider_presence;
+CREATE POLICY "Providers insert own presence"
+  ON public.provider_presence FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id
+    AND (
+      public.has_role(auth.uid(), 'driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'large_driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'worker'::public.app_role)
+    )
+  );
+DROP POLICY IF EXISTS "Providers update own presence" ON public.provider_presence;
+CREATE POLICY "Providers update own presence"
+  ON public.provider_presence FOR UPDATE TO authenticated
+  USING (
+    auth.uid() = user_id
+    AND (
+      public.has_role(auth.uid(), 'driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'large_driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'worker'::public.app_role)
+    )
+  )
+  WITH CHECK (
+    auth.uid() = user_id
+    AND (
+      public.has_role(auth.uid(), 'driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'large_driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'worker'::public.app_role)
+    )
+  );
+
 CREATE OR REPLACE FUNCTION public.submit_provider_change_request(
   _provider_type text,
   _requested_data jsonb
