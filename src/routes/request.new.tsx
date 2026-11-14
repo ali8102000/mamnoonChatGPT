@@ -551,19 +551,23 @@ function NewRequest() {
             className="absolute inset-0 z-50 bg-background/95 backdrop-blur p-5 overflow-y-auto"
             dir="rtl"
           >
-            <h2 className="text-xl font-black mb-1">اختر محافظتك</h2>
+            <h2 className="text-xl font-black mb-1 text-foreground">اختر محافظتك</h2>
             <p className="text-sm text-muted-foreground mb-4">ستكون طلباتك داخل هذه المحافظة.</p>
             <div className="grid grid-cols-2 gap-2">
-              {GOVERNORATES.map((g) => (
-                <button
-                  key={g.key}
-                  type="button"
-                  onClick={() => chooseGov(g.key)}
-                  className={`py-3 rounded-2xl border font-bold text-sm btn-press ${g.key === govKey ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"}`}
-                >
-                  {g.name}
-                </button>
-              ))}
+              {GOVERNORATES.map((g) => {
+                const selected = g.key === govKey;
+                return (
+                  <button
+                    key={g.key}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => chooseGov(g.key)}
+                    className={`min-h-12 py-3 px-2 rounded-2xl border font-extrabold text-sm btn-press transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? "bg-primary text-primary-foreground border-primary shadow-md" : "bg-card text-card-foreground border-border hover:bg-surface-2"}`}
+                  >
+                    {g.name}
+                  </button>
+                );
+              })}
             </div>
             {gov && (
               <button
