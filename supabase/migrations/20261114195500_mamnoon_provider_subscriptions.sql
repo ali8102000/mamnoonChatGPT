@@ -181,8 +181,11 @@ begin
   from public.subscription_settings where id=1;
   if not coalesce(v_enabled,false) then return true; end if;
 
-  if not (public.has_role(p_user_id,'worker') or public.has_role(p_user_id,'driver')
-          or public.has_role(p_user_id,'large_driver')) then
+  if not exists (
+    select 1 from public.user_roles ur
+    where ur.user_id=p_user_id
+      and ur.role::text in ('worker','driver','large_driver')
+  ) then
     return true;
   end if;
 
