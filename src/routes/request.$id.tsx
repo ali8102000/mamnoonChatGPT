@@ -404,12 +404,12 @@ function RequestDetail() {
           </div>
         )}
 
-        {myRole === "customer" && Number((req as any).coupon_discount ?? 0) > 0 && (
+        {Number((req as any).coupon_discount ?? 0) > 0 && (
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50/70 p-3 space-y-1">
             <div className="font-black text-sm text-emerald-700">🎁 خصم كوبون ممنون</div>
             <div className="text-sm">قيمة الخصم: <b>{Number((req as any).coupon_discount).toLocaleString("ar-IQ")} د.ع</b></div>
-            <div className="text-sm">المبلغ بعد الخصم: <b>{Number((req as any).customer_payable ?? 0).toLocaleString("ar-IQ")} د.ع</b></div>
-            <div className="text-[11px] text-muted-foreground">هذا الخصم تتحمله ممنون ولا يؤثر على مستحقات مقدم الخدمة.</div>
+            <div className="text-sm">المبلغ المطلوب من الزبون: <b>{Number((req as any).customer_payable ?? 0).toLocaleString("ar-IQ")} د.ع</b></div>
+            <div className="text-[11px] text-muted-foreground">{myRole === "customer" ? "خصمك مسجل على الطلب." : "استلم من الزبون المبلغ بعد الخصم فقط. فرق الخصم مسجل على المنصة كمبلغ مستحق لمقدم الخدمة."}</div>
           </div>
         )}
 
