@@ -673,10 +673,10 @@ function RequestDetail() {
                   className={`flex ${mine ? "justify-start" : "justify-end"} animate-in fade-in slide-in-from-bottom-2 duration-300 transition-all`}
                 >
                   <div
-                    className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
+                    className={`max-w-[80%] rounded-[22px] px-4 py-3 text-sm leading-7 shadow-md break-words ${
                       mine
-                        ? "bg-primary text-primary-foreground rounded-br-sm"
-                        : "bg-white text-foreground border border-border/70 rounded-bl-sm"
+                        ? "bg-primary text-primary-foreground rounded-br-md shadow-primary/10"
+                        : "bg-card text-foreground border border-border/70 rounded-bl-md"
                     }`}
                   >
                     <div>{m.content}</div>
@@ -721,11 +721,11 @@ function RequestDetail() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="اكتب رسالة..."
-                className="flex-1 bg-input border border-border rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:border-ring"
+                className="flex-1 bg-background/90 border border-border rounded-2xl px-4 py-3 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
               <button
                 type="submit"
-                className="h-11 w-11 rounded-2xl bg-primary grid place-items-center btn-press glow-primary"
+                className="h-12 w-12 rounded-2xl bg-primary grid place-items-center btn-press shadow-lg shadow-primary/20 active:scale-95 transition"
               >
                 <Send className="h-5 w-5 text-primary-foreground" />
               </button>
