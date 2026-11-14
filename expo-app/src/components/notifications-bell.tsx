@@ -47,7 +47,7 @@ export function NotificationsBell() {
   }
 
   function isOfficial(item: NotificationRow) {
-    return /company|admin|provider_approved|provider_suspended|coupon|promotion|announcement/i.test(item.type);
+    return /company|admin|provider_approved|provider_rejected|provider_suspended|support_message|coupon_received|coupon_redeemed|promotion|announcement/i.test(item.type);
   }
 
   function openItem(item: NotificationRow) {
