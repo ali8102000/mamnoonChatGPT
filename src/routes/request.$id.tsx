@@ -140,16 +140,13 @@ function RequestDetail() {
         setLargeOffers([]);
       }
       const otherId = sessionUser?.id === r.customer_id ? r.provider_id : r.customer_id;
-      if (otherId) {
-        const { data: p } = await supabase
-          .from("profiles")
-          .select("id, full_name, phone, avatar_url")
-          .eq("id", otherId)
-          .maybeSingle();
+      if (otherId && ["pending", "searching", "accepted", "in_progress"].includes(r.status)) {
+        const { data: p } = await supabase.from("profiles").select("id, full_name, phone, avatar_url").eq("id", otherId).maybeSingle();
         setOther(p);
-        getRepFn({ data: { userId: otherId } })
-          .then((rep) => setOtherRep(rep))
-          .catch(() => {});
+        getRepFn({ data: { userId: otherId } }).then((rep) => setOtherRep(rep)).catch(() => {});
+      } else {
+        setOther(null);
+        setOtherRep(null);
       }
       if (["pending", "searching", "accepted", "in_progress"].includes(r.status)) {
         const { data: c } = await supabase
