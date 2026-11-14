@@ -9,6 +9,7 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
@@ -16,29 +17,14 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { haversineKm, estimateFare } from "@/lib/pricing";
 import { Button } from "@/components/ui";
+import { getServiceImage } from "@/lib/service-visuals";
 
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury";
 
-const SERVICES = [
-  { slug: "taxi", label: "سيارة", emoji: "🚕", color: "#0f766e" },
-  { slug: "build", label: "بناء", emoji: "🧱", color: "#ea580c" },
-  { slug: "plaster", label: "لبخ", emoji: "🪣", color: "#d97706" },
-  { slug: "carpentry_form", label: "نجارة وقالب", emoji: "📐", color: "#a16207" },
-  { slug: "flooring", label: "أرضيات", emoji: "🟫", color: "#78716c" },
-  { slug: "chef", label: "طباخ", emoji: "👨‍🍳", color: "#e11d48" },
-  { slug: "plumbing", label: "تأسيس ماء", emoji: "🚰", color: "#0891b2" },
-  { slug: "electric_setup", label: "تأسيس كهرباء", emoji: "💡", color: "#ca8a04" },
-  { slug: "electric_street", label: "تصليح كهرباء", emoji: "⚡", color: "#d97706" },
-  { slug: "washer_repair", label: "تصليح غسالة", emoji: "🧺", color: "#0284c7" },
-  { slug: "stove_repair", label: "تصليح طباخ", emoji: "🔥", color: "#dc2626" },
-  { slug: "fridge_repair", label: "تصليح ثلاجة", emoji: "🧊", color: "#0ea5e9" },
-  { slug: "ac_repair", label: "مكيفات", emoji: "❄️", color: "#0284c7" },
-  { slug: "cleaning", label: "تنظيف بيوت", emoji: "🧹", color: "#16a34a" },
-  { slug: "wood_carpentry", label: "نجارة أخشاب", emoji: "🪵", color: "#a16207" },
-  { slug: "blacksmith", label: "حدادة", emoji: "⚒️", color: "#475569" },
-  { slug: "general", label: "خدمات عامة", emoji: "🏠", color: "#7c3aed" },
-];
+const TAXI_SERVICE = { slug: "taxi", label: "سيارة", emoji: "🚕", color: "#0f766e" };
+type CatalogService = { id: string; slug: string; name_ar: string };
+
 
 const VEHICLE_CATS: { key: VehicleCategory; label: string; emoji: string }[] = [
   { key: "economy", label: "اقتصادية", emoji: "🚗" },
@@ -68,6 +54,9 @@ export default function NewRequest() {
   const { type } = useLocalSearchParams<{ type: string }>();
   const { user } = useAuth();
   const [selectedService, setSelectedService] = useState(type || "taxi");
+  const [serviceCatalog, setServiceCatalog] = useState<CatalogService[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState<string | null>(null);
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState("");
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
@@ -86,6 +75,35 @@ export default function NewRequest() {
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState<number | null>(null);
   const isTaxi = selectedService === "taxi";
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const catalog = await supabase.rpc("get_worker_service_catalog");
+        let rows = !catalog.error && Array.isArray(catalog.data) ? catalog.data as CatalogService[] : [];
+        if (!rows.length) {
+          const fallback = await supabase.from("services")
+            .select("id, slug, name_ar")
+            .order("sort_order");
+          if (fallback.error) throw fallback.error;
+          rows = (fallback.data ?? []) as CatalogService[];
+        }
+        if (!active) return;
+        setServiceCatalog(rows.filter((service) => service.slug !== "taxi"));
+        setServicesError(rows.length ? null : "لا توجد خدمات متاحة حالياً.");
+      } catch (error: any) {
+        if (!active) return;
+        setServicesError(/invalid api key/i.test(error?.message || "")
+          ? "مفتاح اتصال قاعدة البيانات غير صالح في هذه النسخة."
+          : "تعذر تحميل الخدمات. تحقق من الاتصال ثم أعد المحاولة.");
+      } finally {
+        if (active) setServicesLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
 
   useEffect(() => {
     let mounted = true;
@@ -278,8 +296,10 @@ export default function NewRequest() {
     >
       <Text style={styles.title}>طلب جديد</Text>
       <Text style={styles.label}>نوع الخدمة</Text>
+      {servicesLoading && <ActivityIndicator style={{ marginVertical: 12 }} color="#0f766e" />}
+      {!!servicesError && <TouchableOpacity onPress={() => router.replace("/request/new" as never)}><Text style={{ color: "#dc2626", marginBottom: 10 }}>{servicesError} اضغط لإعادة المحاولة.</Text></TouchableOpacity>}
       <View style={styles.serviceGrid}>
-        {SERVICES.map((service) => (
+        {[TAXI_SERVICE, ...serviceCatalog.map((service) => ({ ...service, label: service.name_ar, emoji: "", color: "#0f766e" }))].map((service) => (
           <TouchableOpacity
             key={service.slug}
             style={[
@@ -291,7 +311,7 @@ export default function NewRequest() {
             ]}
             onPress={() => setSelectedService(service.slug)}
           >
-            <Text style={styles.serviceEmoji}>{service.emoji}</Text>
+            {service.slug === "taxi" ? <Text style={styles.serviceEmoji}>{service.emoji}</Text> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
             <Text
               style={[
                 styles.serviceLabel,
@@ -535,6 +555,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   serviceEmoji: { fontSize: 32, marginBottom: 4 },
+  serviceImage: { width: 58, height: 58, marginBottom: 4 },
   serviceLabel: { fontSize: 13, fontWeight: "700" },
   mapModeRow: { flexDirection: "row", gap: 8, alignItems: "center" },
   mapModeButton: {
