@@ -13,6 +13,10 @@ export default function AdminCompanySettings() {
     let active = true;
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) {
+        if (active) { setMessage("سجّل الدخول أولاً."); setLoading(false); }
+        return;
+      }
       const { data: allowed, error: permissionError } = await (supabase as any).rpc("is_super_admin", { p_user_id: auth.user.id });
       if (permissionError || allowed !== true) {
         if (active) { setMessage("لا توجد صلاحية المدير الأعلى لهذا الحساب."); setLoading(false); }
@@ -33,6 +37,7 @@ export default function AdminCompanySettings() {
     if (value.length < 2 || value.length > 80) { setMessage("اكتب اسماً من حرفين إلى 80 حرفاً."); return; }
     setSaving(true); setMessage("");
     const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) { setMessage("سجّل الدخول أولاً."); setSaving(false); return; }
     const { data: allowed } = await (supabase as any).rpc("is_super_admin", { p_user_id: auth.user.id });
     if (allowed !== true) { setMessage("لا توجد صلاحية المدير الأعلى."); setSaving(false); return; }
     const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
