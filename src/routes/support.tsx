@@ -191,22 +191,26 @@ function SupportCenter() {
       </div>
 
       {/* Mamnoon branded support identity */}
-      <div className="mb-5 rounded-3xl p-4 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 border border-primary/25 shadow-sm text-right space-y-2">
-        <div className="flex items-center justify-between gap-3">
+      <div className="mb-5 relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-[#241805] via-[#60450d] to-[#b58a22] border border-[#e2bd55] shadow-[0_10px_35px_rgba(180,135,25,0.28)] text-right space-y-3">
+        <div className="absolute -top-10 -left-8 h-32 w-32 rounded-full bg-[#f6d778]/10 blur-2xl pointer-events-none" />
+        <div className="relative flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xl">👑</span>
-            <span className="text-xs font-black text-foreground">إدارة ممنون</span>
+            <span className="grid h-10 w-10 place-items-center rounded-2xl border border-[#f3d477]/50 bg-[#f3d477]/15 text-[#ffe7a0] shadow-inner">
+              <Crown className="h-5 w-5" />
+            </span>
+            <span className="text-sm font-black text-[#fff4d1]">إدارة ممنون</span>
           </div>
-          <span dir="ltr" className="text-[10px] tracking-[0.18em] font-black text-primary">MAMNOON MANAGEMENT</span>
+          <span dir="ltr" className="text-[10px] tracking-[0.18em] font-black text-[#ffe08a]">MAMNOON MANAGEMENT</span>
         </div>
-        <p className="text-xs text-muted-foreground leading-relaxed font-medium">
-          الدعم المباشر وخدمة العملاء تحت إشراف إدارة ممنون. أرسل استفسارك أو افتح تذكرة وسيتابع فريق الإدارة طلبك.
+        <div className="relative h-px bg-gradient-to-r from-transparent via-[#f3d477]/80 to-transparent" />
+        <p className="relative text-xs text-[#fff2cf] leading-7 font-medium">
+          الدعم المباشر وخدمة العملاء تحت إشراف إدارة ممنون. أرسل استفسارك أو افتح تذكرة وسيتابع فريق الإدارة طلبك بكل اهتمام.
         </p>
         {isSuperAdmin && (
-          <div className="pt-1">
+          <div className="relative pt-1">
             <Link
               to="/admin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-black shadow-sm btn-press"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-b from-[#ffedb0] to-[#d6a936] text-[#382607] border border-[#fff0bb] text-[11px] font-black shadow-md btn-press"
             >
               <Crown className="h-3.5 w-3.5" />
               <span>لوحة إدارة ممنون</span>
