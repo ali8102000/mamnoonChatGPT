@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { palette, radius, space } from "@/styles/theme";
 
 type HistoryRequest = {
   id: string;
@@ -127,32 +128,20 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb", paddingHorizontal: 20, paddingTop: 50 },
-  title: { fontSize: 28, fontWeight: "900", color: "#1e293b", marginBottom: 20 },
+  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
+  title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
   tabs: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, backgroundColor: "#e2e8f0" },
-  tabActive: { backgroundColor: "#2563eb" },
-  tabText: { fontSize: 13, fontWeight: "700", color: "#64748b" },
-  tabTextActive: { color: "#fff" },
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  cardType: { fontSize: 16, fontWeight: "700", color: "#1e293b" },
-  cardDate: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
-  cardPrice: { fontSize: 14, fontWeight: "700", color: "#2563eb", marginTop: 4 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  statusText: { fontSize: 12, fontWeight: "700" },
+  tab: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: palette.surfaceSoft, borderWidth: 1, borderColor: palette.line },
+  tabActive: { backgroundColor: palette.brand, borderColor: palette.brand },
+  tabText: { fontSize: 12, fontWeight: "800", color: palette.muted },
+  tabTextActive: { color: palette.white },
+  card: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.lg, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: palette.line },
+  cardType: { fontSize: 15, fontWeight: "900", color: palette.ink },
+  cardDate: { fontSize: 11, color: palette.muted, marginTop: 5 },
+  cardPrice: { fontSize: 14, fontWeight: "900", color: palette.brand, marginTop: 5 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.pill },
+  statusText: { fontSize: 11, fontWeight: "900" },
   emptyBox: { alignItems: "center", paddingTop: 60 },
-  emptyTitle: { fontSize: 18, fontWeight: "700", color: "#94a3b8" },
-  emptySub: { fontSize: 14, color: "#cbd5e1", marginTop: 4 },
+  emptyTitle: { fontSize: 17, fontWeight: "900", color: palette.ink },
+  emptySub: { fontSize: 12, color: palette.muted, marginTop: 5 },
 });
