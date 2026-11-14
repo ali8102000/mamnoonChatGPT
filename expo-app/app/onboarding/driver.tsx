@@ -16,7 +16,7 @@ const CATEGORIES = [
   { key: "economy", label: "اقتصادي" },
   { key: "premium", label: "متميز" },
   { key: "luxury", label: "فاخر" },
-  { key: "large", label: "سائق كيا (حمل / ركاب / باص)" },
+  { key: "large", label: "سيارات كبيرة (كيا حمل / كيا ركاب / باص)" },
 ] as const;
 
 export default function DriverOnboarding() {
@@ -264,7 +264,7 @@ export default function DriverOnboarding() {
         <Text style={styles.title}>{status === "approved" ? "تم اعتماد حسابك" : "طلبك قيد المراجعة"}</Text>
         <Text style={styles.statusText}>
           {status === "approved"
-            ? "تهانينا! تم تفعيل حسابك كسائق تكسي بعد تدقيق مستمسكاتك وسيارتك. نرحب بك ضمن أسرة شركة ممنون الموثّقة ونتمنى لك التوفيق والنجاح."
+            ? (largeDriverMode ? "تم اعتمادك سائقاً للسيارات الكبيرة. تقدر تستقبل طلبات كيا الحمل والركاب والباص حسب نوع مركبتك." : "تهانينا! تم تفعيل حسابك كسائق تكسي بعد تدقيق مستمسكاتك وسيارتك. نرحب بك ضمن أسرة شركة ممنون الموثّقة ونتمنى لك التوفيق والنجاح.")
             : "استلمنا بيانات السيارة والهوية. طلبك الآن بانتظار موافقة " + companyName + "، وستتمكن من استقبال الرحلات بعد الاعتماد."}
         </Text>
         {status === "approved" ? (
