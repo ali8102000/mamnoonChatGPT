@@ -106,9 +106,10 @@ export default function SupportChatScreen() {
     const body = draft.trim();
     setSending(true);
     setDraft("");
-    const { error } = await (supabase as any).from("support_messages").insert({ conversation_id: selected.id, sender_id: user.id, body });
+    const { data: sentMessage, error } = await (supabase as any).from("support_messages").insert({ conversation_id: selected.id, sender_id: user.id, body }).select("*").single();
     setSending(false);
     if (error) { setDraft(body); Alert.alert("تعذر الإرسال", error.message); }
+    else if (sentMessage) setMessages((current) => current.some((m) => m.id === sentMessage.id) ? current : [...current, sentMessage]);
   }
 
   if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
