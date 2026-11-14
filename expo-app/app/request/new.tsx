@@ -66,7 +66,7 @@ export default function NewRequest() {
   const [region, setRegion] = useState(IRAQ_REGION);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
   const [workerLevel, setWorkerLevel] = useState<"fani" | "khabir">("fani");
   const [extraWorkers, setExtraWorkers] = useState(0);
   const [notes, setNotes] = useState("");
@@ -247,7 +247,7 @@ export default function NewRequest() {
             price_estimate: null,
             customer_price: proposedPrice,
             pricing_mode: proposedPrice === null ? "negotiable" : "fixed",
-            notes: `نوع السيارة: ${vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب"}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
+            notes: `نوع السيارة: ${vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص"}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
           } as any)
           .select("id")
           .single();
@@ -333,9 +333,9 @@ export default function NewRequest() {
         <View style={{ marginBottom: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
           <Text style={styles.label}>اختار نوع الكيا أولاً</Text>
           <View style={styles.catRow}>
-            {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }] as const).map((item) => (
+            {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }, { key: "bus", label: "باص" }] as const).map((item) => (
               <TouchableOpacity key={item.key} style={[styles.catChip, { flexDirection: "column", paddingVertical: 8, minHeight: 112 }, vehicleType === item.key && styles.catChipActive]} onPress={() => setVehicleType(item.key)}>
-                <Image source={{ uri: item.image }} style={{ width: 118, height: 68 }} resizeMode="contain" />
+                { "image" in item ? <Image source={{ uri: item.image }} style={{ width: 118, height: 68 }} resizeMode="contain" /> : <Text style={{ fontSize: 42 }}>🚌</Text> }
                 <Text style={[styles.catLabel, vehicleType === item.key && styles.catLabelActive]}>{item.label}</Text>
               </TouchableOpacity>
             ))}
