@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
     const baseUrl=(Deno.env.get("ZAINCASH_BASE_URL") || "https://pg-api-uat.zaincash.iq").replace(/\/$/,"");
     const returnUrl=required("MAMNOON_PAYMENT_RETURN_URL");
     if(!returnUrl.startsWith("https://")) return json({error:"https_urls_required"},503);
-    const callbackBase=supabaseUrl.replace(/\\/$/,"")+"/functions/v1/zaincash-callback";
+    const callbackBase=supabaseUrl.replace(/\/$/,"")+"/functions/v1/zaincash-callback";
     const authHeader=req.headers.get("Authorization") || "";
     const bearer=authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
     if(!bearer) return json({error:"unauthorized"},401);
