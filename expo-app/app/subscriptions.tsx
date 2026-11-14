@@ -34,7 +34,7 @@ export default function SubscriptionsScreen() {
     if (busy) return;
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("qicard-create-payment", { body: { planCode, billingCycle: "monthly" } });
+      const { data, error } = await supabase.functions.invoke("qicard-create-payment", { body: { planCode, billingCycle: "monthly", appChannel: true } });
       if (error || !data?.checkoutUrl) throw new Error(data?.error || error?.message || "تعذر بدء الدفع");
       await Linking.openURL(data.checkoutUrl);
     } catch (error: any) {
