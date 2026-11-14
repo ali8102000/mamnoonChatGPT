@@ -475,7 +475,7 @@ export default function NewRequest() {
             <View style={{ marginTop: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
               <Text style={styles.label}>السعر اللي تقترحه (اختياري)</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
-                {[15000, 20000, 25000, 30000, 35000].map((amount) => (
+                {[15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000].map((amount) => (
                   <TouchableOpacity key={amount} onPress={() => setCustomerPrice(String(amount))} style={{ paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: customerPrice === String(amount) ? "#0f766e" : "#fed7aa", backgroundColor: customerPrice === String(amount) ? "#ccfbf1" : "#fff" }}>
                     <Text style={{ color: customerPrice === String(amount) ? "#115e59" : "#9a3412", fontSize: 12, fontWeight: "800" }}>{(amount / 1000).toLocaleString("en")} ألف</Text>
                   </TouchableOpacity>
