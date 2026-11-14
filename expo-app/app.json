@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ممنون",
-    "slug": "kfw",
+    "slug": "04ez",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/favicon.png",
@@ -53,7 +53,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "a6c763c4-3a5c-4725-b370-81967e3c0aab"
+        "projectId": "236e49b2-665f-4dce-ad67-bc0c90f86503"
       }
     },
     "runtimeVersion": {
