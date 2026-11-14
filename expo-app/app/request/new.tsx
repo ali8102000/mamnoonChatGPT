@@ -633,7 +633,7 @@ export default function NewRequest() {
             </>
           )}
           {isLargeVehicle && (
-            <View style={{ marginTop: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
+            <View style={{ marginTop: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
               <Text style={styles.label}>السعر اللي تقترحه (اختياري)</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
                 {[15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000].map((amount) => (
