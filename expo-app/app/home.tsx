@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth-context";
 import * as Location from "expo-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
+import { NotificationsBell } from "@/components/notifications-bell";
 
 type IncomingRequest = {
   id: string;
@@ -256,11 +257,14 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>هلا {profile?.full_name?.split(" ")[0] || "بيك"}</Text>
           <Text style={styles.roleText}>مساحة العمل الخاصة بك</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push("/profile")} accessibilityRole="button" accessibilityLabel="الملف الشخصي">
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <NotificationsBell />
+          <TouchableOpacity onPress={() => router.push("/profile")} accessibilityRole="button" accessibilityLabel="الملف الشخصي">
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
       {switchableRoles.length > 1 && (
         <View style={styles.roleSwitcherWrap}>
@@ -449,7 +453,8 @@ function TabBtn({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14, zIndex: 30, elevation: 12 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10, zIndex: 40 },
   headerEyebrow: { color: palette.gold, fontSize: 9, fontWeight: "900", letterSpacing: 1.5, marginBottom: 5 },
   greeting: { fontSize: 25, fontWeight: "900", color: palette.ink },
   roleText: { fontSize: 12, color: palette.muted, marginTop: 3, fontWeight: "600" },
