@@ -10,7 +10,6 @@ import {
   adminSaveSettings,
   adminGetStats,
   adminGetSubscriptions,
-  adminGetPayments,
   adminSearchSubscriptionUsers,
   adminGrantSubscription,
   adminSetSubscriptionStatus,
@@ -114,7 +113,6 @@ function SubscriptionsAdmin() {
   const [settings, setSettings] = useState<any>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [subs, setSubs] = useState<SubscriptionRow[]>([]);
-  const [paymentReport, setPaymentReport] = useState<any>(null);
   const [tab, setTab] = useState("overview");
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -128,9 +126,8 @@ function SubscriptionsAdmin() {
       adminGetSettings(),
       adminGetStats(),
       adminGetSubscriptions(),
-      adminGetPayments(),
     ]);
-    const [plansResult, settingsResult, statsResult, subsResult, paymentsResult] = results;
+    const [plansResult, settingsResult, statsResult, subsResult] = results;
     if (plansResult.status === "fulfilled") setPlans(plansResult.value as Plan[]);
     else toast.error("تعذر تحميل الباقات: " + (plansResult.reason?.message || "خطأ غير معروف"));
     if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
@@ -139,8 +136,6 @@ function SubscriptionsAdmin() {
     else toast.error("تعذر تحميل الإحصائيات: " + (statsResult.reason?.message || "خطأ غير معروف"));
     if (subsResult.status === "fulfilled") setSubs(subsResult.value as SubscriptionRow[]);
     else toast.error("تعذر تحميل سجل الاشتراكات: " + (subsResult.reason?.message || "خطأ غير معروف"));
-    if (paymentsResult.status === "fulfilled") setPaymentReport(paymentsResult.value);
-    else toast.error("تعذر تحميل سجل المدفوعات: " + (paymentsResult.reason?.message || "خطأ غير معروف"));
   }, []);
 
   useEffect(() => {
@@ -184,7 +179,7 @@ function SubscriptionsAdmin() {
         </h1>
       </div>
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
-        {["overview", "plans", "subscriptions", "payments", "grant", "broadcast", "settings"].filter(t => canManage || ["overview","subscriptions"].includes(t)).map((t) => (
+        {["overview", "plans", "subscriptions", "grant", "broadcast", "settings"].filter(t => canManage || ["overview","subscriptions"].includes(t)).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -196,9 +191,7 @@ function SubscriptionsAdmin() {
                 ? "الباقات"
                 : t === "subscriptions"
                   ? "المشتركون"
-                  : t === "payments"
-                    ? "المدفوعات"
-                    : t === "grant"
+                  : t === "grant"
                     ? "منح اشتراك"
                     : t === "broadcast"
                       ? "رسالة عامة"
@@ -230,7 +223,6 @@ function SubscriptionsAdmin() {
         />
       )}
       {tab === "subscriptions" && <SubscriptionsTab subs={subs} onRefresh={loadAll} canManage={canManage} />}
-      {tab === "payments" && <PaymentsTab report={paymentReport} onRefresh={loadAll} />}
       {tab === "grant" && <GrantSubscriptionTab plans={plans} onGranted={() => { loadAll(); setGrantRefresh((v) => v + 1); }} refreshKey={grantRefresh} />}
       {tab === "broadcast" && <BroadcastTab />}
       {tab === "settings" && (
@@ -506,41 +498,6 @@ function SubscriptionsTab({ subs, onRefresh, canManage }: { subs: SubscriptionRo
   </div>;
 }
 
-function PaymentsTab({ report, onRefresh }: { report: any; onRefresh: () => void }) {
-  if (!report) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
-  const totals = report.totals ?? {};
-  const rows = report.rows ?? [];
-  const statusLabel = (status: string) => status === "paid" ? "ناجح" : status === "pending" ? "قيد الانتظار" : status === "failed" ? "فاشل" : status === "expired" ? "منتهي" : status === "refunded" ? "مسترد" : status;
-  return <div className="space-y-3">
-    <div className="grid grid-cols-2 gap-2">
-      <StatCard icon={TrendingUp} label="إجمالي المقبوض فعلياً" value={Number(totals.paidAmount || 0).toLocaleString("ar-IQ") + " د.ع"} accent="text-emerald-600" />
-      <StatCard icon={BadgeCheck} label="عمليات ناجحة" value={totals.paidCount ?? 0} accent="text-emerald-600" />
-      <StatCard icon={Calendar} label="قيد الانتظار" value={totals.pendingCount ?? 0} />
-      <StatCard icon={AlertCircle} label="فاشلة / منتهية / مستردة" value={totals.failedCount ?? 0} accent="text-red-500" />
-    </div>
-    <div className="glass rounded-2xl p-3 flex items-center justify-between">
-      <div className="font-black text-sm">سجل مدفوعات زين كاش ({rows.length})</div>
-      <button onClick={onRefresh} className="rounded-lg bg-primary/10 text-primary px-3 py-2 text-xs font-bold">تحديث</button>
-    </div>
-    {rows.length === 0 ? <div className="glass rounded-2xl p-8 text-center text-sm text-muted-foreground">لا توجد عمليات دفع مسجلة حالياً. المنح المجانية لا تُحتسب إيراداً.</div> :
-      rows.map((row: any) => <div key={row.id} className="glass rounded-2xl p-4 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0"><div className="font-black text-sm">{row.profile?.full_name || row.profile?.phone || row.profile?.email || row.user_id}</div><div className="text-[10px] text-muted-foreground">{row.plan?.name_ar || "اشتراك"} · زين كاش</div></div>
-          <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${row.status === "paid" ? "bg-emerald-100 text-emerald-700" : row.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>{statusLabel(row.status)}</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div><span className="text-muted-foreground">المبلغ: </span><b>{Number(row.amount).toLocaleString("ar-IQ")} د.ع</b></div>
-          <div><span className="text-muted-foreground">تاريخ الإنشاء: </span><b>{new Date(row.created_at).toLocaleString("ar-IQ")}</b></div>
-          <div><span className="text-muted-foreground">تاريخ الدفع: </span><b>{row.paid_at ? new Date(row.paid_at).toLocaleString("ar-IQ") : "—"}</b></div>
-          <div><span className="text-muted-foreground">رقم المعاملة: </span><b dir="ltr">{row.gateway_transaction_id || "—"}</b></div>
-        </div>
-        <div className="text-[9px] text-muted-foreground break-all" dir="ltr">ID: {row.id}</div>
-      </div>)
-    }
-    <p className="text-[10px] text-muted-foreground leading-5">الإجمالي أعلاه يجمع فقط العمليات ذات الحالة paid والمؤكدة من الخادم، ولا يشمل المنح الإدارية أو الاشتراكات المجانية. المبلغ هو قيمة المعاملات المسجلة، وقد تختلف التسوية البنكية بسبب رسوم مزود الدفع.</p>
-  </div>;
-}
-
 function GrantSubscriptionTab({ plans, onGranted }: { plans: Plan[]; onGranted: () => void; refreshKey: number }) {
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<any[]>([]);
@@ -654,14 +611,6 @@ function SettingsTab({ settings, onSave }: any) {
               <ToggleLeft className="h-10 w-10 text-muted-foreground" />
             )}
           </button>
-        </div>
-      </div>
-      <div className="glass rounded-2xl p-4">
-        <div className="font-black text-sm mb-2">بوابة الدفع — زين كاش</div>
-        <div className="text-xs text-muted-foreground leading-6">
-          الحالة الحالية: {settings?.payment_gateway_enabled ? "مفعّلة من إعدادات قاعدة البيانات" : "متوقفة بأمان"}.
-          <br />لا تفعّلها قبل إضافة أسرار التاجر في Supabase Edge Function Secrets وتشغيل اختبار UAT ناجح.
-          <br />أسماء الإعدادات السرية ومكانها موضّحان في ملف docs/ZAINCASH_INTEGRATION_AR.md.
         </div>
       </div>
       <div className="glass rounded-2xl p-4">
