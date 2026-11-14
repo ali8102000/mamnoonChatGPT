@@ -995,7 +995,7 @@ function ProvidersSection() {
                           vehicle_category: "الفئة", vehicle_type: "نوع المركبة",
                         } as Record<string, string>)[key] ?? key}: {String(value)}</div>
                       ))}
-                      {Object.entries(request.requested_document_urls ?? {}).map(([kind, url]) => url ? (
+                      {Object.entries(request.requested_document_urls ?? {}).map(([kind, url]) => typeof url === "string" && url ? (
                         <a key={kind} href={url} target="_blank" rel="noreferrer" className="inline-block text-primary underline ml-3">
                           عرض {({ vehicle_document: "سنوية المركبة", face_photo: "صورة الوجه", id_card: "الهوية الأمامية", id_card_back: "الهوية الخلفية" } as Record<string, string>)[kind] ?? "المستند"}
                         </a>
