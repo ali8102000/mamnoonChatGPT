@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/favicon.png",
     "scheme": "mamnoon",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/favicon.png",
