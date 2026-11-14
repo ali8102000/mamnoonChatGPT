@@ -659,6 +659,9 @@ BEGIN
     RAISE EXCEPTION 'request_unavailable';
   END IF;
 
+  -- Share the provider-acceptance lock with standard taxi/service acceptance.
+  PERFORM pg_advisory_xact_lock(91840060);
+
   IF o.provider_id = auth.uid()
      OR NOT public.has_role(o.provider_id, 'large_driver')
      OR EXISTS (
