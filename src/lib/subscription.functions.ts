@@ -72,10 +72,13 @@ export const incrementUserRequestCount = createServerFn({ method: "POST" })
 async function requireAdmin(context: any) {
   const { userId } = context;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await (supabaseAdmin as any).rpc("has_admin_access", {
-    p_user_id: userId,
-  });
-  if (!data) throw new Error("غير مصرّح: للمديرين فقط");
+  const { data, error } = await (supabaseAdmin as any)
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "super_admin"])
+    .limit(1);
+  if (error || !data?.length) throw new Error("غير مصرّح: للمديرين فقط");
 }
 
 export const adminGetPlans = createServerFn({ method: "GET" })
@@ -203,7 +206,7 @@ export const adminGetStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await (supabaseAdmin as any).rpc("get_subscription_stats");
+    const { data, error } = await (context.supabase as any).rpc("get_subscription_stats_v2");
     if (error || !data || data.length === 0) {
       return {
         totalSubscribers: 0,
@@ -212,8 +215,10 @@ export const adminGetStats = createServerFn({ method: "GET" })
         monthlyRevenue: 0,
         yearlyRevenue: 0,
         freeCount: 0,
+        bronzeCount: 0,
         silverCount: 0,
         goldCount: 0,
+        trialCount: 0,
       };
     }
     const r = data[0];
@@ -224,8 +229,10 @@ export const adminGetStats = createServerFn({ method: "GET" })
       monthlyRevenue: r.monthly_revenue ?? 0,
       yearlyRevenue: r.yearly_revenue ?? 0,
       freeCount: r.free_count ?? 0,
+      bronzeCount: r.bronze_count ?? 0,
       silverCount: r.silver_count ?? 0,
       goldCount: r.gold_count ?? 0,
+      trialCount: r.trial_count ?? 0,
     };
   });
 
@@ -252,58 +259,83 @@ export const adminGetSubscriptions = createServerFn({ method: "GET" })
 export const adminAssignSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z
-      .object({
-        user_id: z.string().uuid(),
-        plan_id: z.string().uuid(),
-        billing_cycle: z.enum(["monthly", "yearly"]).default("monthly"),
-        period_days: z.number().int().min(1).max(365).default(30),
-      })
-      .parse(d),
+    z.object({
+      user_id: z.string().uuid(),
+      plan_id: z.string().uuid(),
+      billing_cycle: z.enum(["monthly", "yearly"]).default("monthly"),
+      period_days: z.number().int().refine((v) => [30, 60, 365].includes(v), "المدة غير مدعومة"),
+    }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: plan, error: planError } = await (supabaseAdmin as any)
+      .from("subscription_plans").select("code").eq("id", data.plan_id).maybeSingle();
+    if (planError || !plan) throw new Error("الباقة غير موجودة");
+    const duration = data.period_days === 30 ? "month" : data.period_days === 60 ? "two_months" : "year";
+    const { data: id, error } = await (context.supabase as any).rpc("admin_grant_subscription", {
+      p_user_id: data.user_id, p_plan_code: plan.code, p_duration: duration,
+    });
+    if (error) throw new Error(error.message || "تعذر منح الاشتراك");
+    return { ok: true, subscriptionId: id };
+  });
 
-    const periodEnd = new Date();
-    periodEnd.setDate(periodEnd.getDate() + data.period_days);
+export const adminGrantSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      user_id: z.string().uuid(),
+      plan_code: z.enum(["free", "bronze", "silver", "gold"]),
+      duration: z.enum(["month", "two_months", "year", "permanent"]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: id, error } = await (context.supabase as any).rpc("admin_grant_subscription", {
+      p_user_id: data.user_id,
+      p_plan_code: data.plan_code,
+      p_duration: data.duration,
+    });
+    if (error) throw new Error(error.message || "تعذر منح الاشتراك");
+    return { ok: true, subscriptionId: id };
+  });
 
-    const { error: upErr } = await (supabaseAdmin as any).from("user_subscriptions").upsert(
-      {
-        user_id: data.user_id,
-        plan_id: data.plan_id,
-        status: "active",
-        billing_cycle: data.billing_cycle,
-        current_period_start: new Date().toISOString(),
-        current_period_end: periodEnd.toISOString(),
-        request_count: 0,
-        resets_count_period_start: new Date().toISOString(),
-        auto_renew: false,
-      },
-      { onConflict: "user_id" },
-    );
-
-    if (upErr) throw new Error("Failed to assign subscription: " + upErr.message);
-
-    const { data: plan } = await (supabaseAdmin as any)
-      .from("subscription_plans")
-      .select("monthly_price, yearly_price")
-      .eq("id", data.plan_id)
-      .maybeSingle();
-
-    const amount =
-      data.billing_cycle === "yearly" ? (plan?.yearly_price ?? 0) : (plan?.monthly_price ?? 0);
-    if (amount > 0) {
-      await (supabaseAdmin as any).from("subscription_payments").insert({
-        user_id: data.user_id,
-        plan_id: data.plan_id,
-        amount,
-        billing_cycle: data.billing_cycle,
-        status: "paid",
-        period_start: new Date().toISOString(),
-        period_end: periodEnd.toISOString(),
-      });
-    }
-
+export const adminCancelFreeSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ user_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: cancelled, error } = await (context.supabase as any).rpc("admin_cancel_free_subscription", {
+      p_user_id: data.user_id,
+    });
+    if (error) throw new Error(error.message || "تعذر إلغاء الاشتراك المجاني");
+    if (!cancelled) throw new Error("لا يوجد اشتراك مجاني إداري نشط لهذا المستخدم");
     return { ok: true };
+  });
+
+export const adminFindSubscriptionUser = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ query: z.string().trim().min(3).max(80) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const term = data.query.replace(/[,%()]/g, " ").trim();
+    const { data: users, error } = await (supabaseAdmin as any)
+      .from("profiles")
+      .select("id,full_name,phone,email")
+      .or("phone.ilike.%"+term+"%,email.ilike.%"+term+"%,full_name.ilike.%"+term+"%")
+      .limit(10);
+    if (error) throw new Error("تعذر البحث عن المستخدمين");
+    return users ?? [];
+  });
+
+export const cancelOwnSubscriptionAtPeriodEnd = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+    const { data, error } = await (supabase as any).rpc("cancel_own_subscription_at_period_end");
+    if (error) throw new Error(error.message || "تعذر إيقاف التجديد");
+    return { ok: Boolean(data) };
   });

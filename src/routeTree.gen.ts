@@ -24,6 +24,7 @@ import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as SupportChatRouteImport } from './routes/support-chat'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SelectRoleRouteImport } from './routes/select-role'
 import { Route as SupportRouteImport } from './routes/support'
@@ -113,6 +114,11 @@ const ProfileRoute = ProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SubscriptionsRoute = SubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/support-chat': typeof SupportChatRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-role': typeof SelectRoleRoute
   '/support': typeof SupportRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByTo {
   '/support-chat': typeof SupportChatRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-role': typeof SelectRoleRoute
   '/support': typeof SupportRoute
@@ -255,6 +263,7 @@ export interface FileRoutesById {
   '/messages': typeof MessagesRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/select-role': typeof SelectRoleRoute
   '/support': typeof SupportRoute
@@ -287,6 +296,7 @@ export interface FileRouteTypes {
     | '/support-chat'
     | '/privacy'
     | '/profile'
+    | '/subscriptions'
     | '/reset-password'
     | '/select-role'
     | '/support'
@@ -317,6 +327,7 @@ export interface FileRouteTypes {
     | '/support-chat'
     | '/privacy'
     | '/profile'
+    | '/subscriptions'
     | '/reset-password'
     | '/select-role'
     | '/support'
@@ -377,6 +388,7 @@ export interface RootRouteChildren {
   SupportChatRoute: typeof SupportChatRoute
   PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
+  SubscriptionsRoute: typeof SubscriptionsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SelectRoleRoute: typeof SelectRoleRoute
   SupportRoute: typeof SupportRoute
@@ -494,6 +506,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscriptions': {
+      id: '/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/subscriptions'
+      preLoaderRoute: typeof SubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -620,6 +639,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupportChatRoute: SupportChatRoute,
   PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
+  SubscriptionsRoute: SubscriptionsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SelectRoleRoute: SelectRoleRoute,
   SupportRoute: SupportRoute,

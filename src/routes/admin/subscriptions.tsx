@@ -10,6 +10,9 @@ import {
   adminSaveSettings,
   adminGetStats,
   adminGetSubscriptions,
+  adminGrantSubscription,
+  adminCancelFreeSubscription,
+  adminFindSubscriptionUser,
 } from "@/lib/subscription.functions";
 import {
   Loader2,
@@ -38,10 +41,10 @@ export const Route = createFileRoute("/admin/subscriptions")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "إدارة الاشتراكات | كفو" },
-      { name: "description", content: "إدارة خطط واشتراكات منصة كفو." },
-      { property: "og:title", content: "إدارة الاشتراكات | كفو" },
-      { property: "og:description", content: "إدارة خطط واشتراكات منصة كفو." },
+      { title: "إدارة الاشتراكات | ممنون" },
+      { name: "description", content: "إدارة خطط واشتراكات منصة ممنون." },
+      { property: "og:title", content: "إدارة الاشتراكات | ممنون" },
+      { property: "og:description", content: "إدارة خطط واشتراكات منصة ممنون." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -76,8 +79,10 @@ type Stats = {
   monthlyRevenue: number;
   yearlyRevenue: number;
   freeCount: number;
+  bronzeCount: number;
   silverCount: number;
   goldCount: number;
+  trialCount: number;
 };
 type SubscriptionRow = {
   id: string;
@@ -159,7 +164,7 @@ function SubscriptionsAdmin() {
         </h1>
       </div>
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
-        {["overview", "plans", "subscriptions", "settings"].map((t) => (
+        {["overview", "plans", "subscriptions", "grants", "settings"].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -171,7 +176,9 @@ function SubscriptionsAdmin() {
                 ? "الباقات"
                 : t === "subscriptions"
                   ? "المشتركون"
-                  : "الإعدادات"}
+                  : t === "grants"
+                    ? "منح مجاني"
+                    : "الإعدادات"}
           </button>
         ))}
       </div>
@@ -199,6 +206,7 @@ function SubscriptionsAdmin() {
         />
       )}
       {tab === "subscriptions" && <SubscriptionsTab subs={subs} />}
+      {tab === "grants" && <SubscriptionGrantsTab />}
       {tab === "settings" && (
         <SettingsTab
           settings={settings}
@@ -289,6 +297,8 @@ function OverviewTab({ stats, settings }: { stats: Stats | null; settings: any }
         <div className="font-black text-sm mb-3">توزيع المشتركين</div>
         <div className="space-y-2">
           <PlanCountRow label="مجاني" count={stats.freeCount} color="bg-slate-400" />
+          <PlanCountRow label="تجربة مجانية" count={stats.trialCount} color="bg-blue-400" />
+          <PlanCountRow label="برونزية" count={stats.bronzeCount} color="bg-amber-700" />
           <PlanCountRow label="فضية" count={stats.silverCount} color="bg-slate-300" />
           <PlanCountRow label="ذهبية" count={stats.goldCount} color="bg-amber-400" />
         </div>
@@ -331,10 +341,12 @@ function PlansTab({ plans, onEdit, onToggle, onNew }: any) {
         <div key={p.id} className={`glass rounded-2xl p-4 ${!p.is_active ? "opacity-50" : ""}`}>
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
-              {p.tier === 0 ? (
+              {p.code === "trial" || p.code === "free" ? (
                 <Sparkles className="h-5 w-5 text-slate-400" />
-              ) : p.tier === 1 ? (
-                <Award className="h-5 w-5 text-slate-300" />
+              ) : p.code === "bronze" ? (
+                <Award className="h-5 w-5 text-amber-700" />
+              ) : p.code === "silver" ? (
+                <Award className="h-5 w-5 text-slate-400" />
               ) : (
                 <Crown className="h-5 w-5 text-amber-500" />
               )}
@@ -441,12 +453,10 @@ function SubscriptionsTab({ subs }: { subs: SubscriptionRow[] }) {
 
 function SettingsTab({ settings, onSave }: any) {
   const [enabled, setEnabled] = useState(false);
-  const [minDownloads, setMinDownloads] = useState(100000);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (settings) {
       setEnabled(settings.subscription_enabled ?? false);
-      setMinDownloads(settings.minimum_downloads_before_activation ?? 100000);
     }
   }, [settings]);
   return (
@@ -468,23 +478,10 @@ function SettingsTab({ settings, onSave }: any) {
           </button>
         </div>
       </div>
-      <div className="glass rounded-2xl p-4">
-        <div className="font-black text-sm mb-2">الحد الأدنى للتحميلات قبل التفعيل</div>
-        <div className="text-xs text-muted-foreground mb-3">
-          عدد تحميلات التطبيق المطلوبة قبل بدء نظام الاشتراكات
-        </div>
-        <input
-          type="number"
-          value={minDownloads}
-          onChange={(e) => setMinDownloads(Number(e.target.value))}
-          className="w-full glass rounded-xl px-4 py-3 text-sm font-bold outline-none"
-          min={0}
-        />
-      </div>
       <button
         onClick={async () => {
           setSaving(true);
-          await onSave(enabled, minDownloads);
+          await onSave(enabled, 0);
           setSaving(false);
         }}
         disabled={saving}
@@ -709,6 +706,104 @@ function Field({ label, children }: any) {
     <div>
       <div className="text-[11px] font-bold text-muted-foreground mb-1">{label}</div>
       {children}
+    </div>
+  );
+}
+
+
+function SubscriptionGrantsTab() {
+  const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any>(null);
+  const [planCode, setPlanCode] = useState("bronze");
+  const [duration, setDuration] = useState("month");
+  const [busy, setBusy] = useState(false);
+
+  async function searchUsers() {
+    if (query.trim().length < 3) return;
+    setBusy(true);
+    try {
+      const result = await adminFindSubscriptionUser({ data: { query: query.trim() } });
+      setUsers(result as any[]);
+      setSelected(null);
+    } catch (error: any) {
+      toast.error(error.message || "تعذر البحث");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function grant() {
+    if (!selected || busy) return;
+    setBusy(true);
+    try {
+      await adminGrantSubscription({ data: {
+        user_id: selected.id,
+        plan_code: planCode,
+        duration: duration as "month" | "two_months" | "year" | "permanent",
+      }});
+      toast.success("تم منح الاشتراك المجاني");
+      setSelected(null);
+      setUsers([]);
+      setQuery("");
+    } catch (error: any) {
+      toast.error(error.message || "تعذر منح الاشتراك");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancel() {
+    if (!selected || busy) return;
+    setBusy(true);
+    try {
+      await adminCancelFreeSubscription({ data: { user_id: selected.id } });
+      toast.success("تم إلغاء الاشتراك المجاني");
+    } catch (error: any) {
+      toast.error(error.message || "تعذر الإلغاء");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="glass rounded-2xl p-4 space-y-3">
+        <div className="font-black text-sm">البحث عن حساب</div>
+        <div className="flex gap-2">
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="رقم الهاتف أو البريد أو الاسم"
+            className="min-w-0 flex-1 glass rounded-xl px-3 py-3 text-sm outline-none" />
+          <button onClick={searchUsers} disabled={busy || query.trim().length < 3}
+            className="rounded-xl bg-primary text-primary-foreground px-4 text-xs font-black disabled:opacity-50">بحث</button>
+        </div>
+        {users.map((user) => (
+          <button key={user.id} onClick={() => setSelected(user)}
+            className={selected?.id === user.id ? "w-full rounded-xl p-3 text-right border border-primary bg-primary/10" : "w-full rounded-xl p-3 text-right border border-border"}>
+            <div className="text-sm font-black">{user.full_name || "بدون اسم"}</div>
+            <div className="text-xs text-muted-foreground">{user.phone || user.email || user.id}</div>
+            <div className="text-[10px] text-muted-foreground" dir="ltr">{user.id}</div>
+          </button>
+        ))}
+        {selected && <div className="rounded-xl bg-primary/10 p-3 text-xs">الحساب المحدد: <b>{selected.full_name || selected.phone || selected.id}</b></div>}
+      </div>
+      <div className="glass rounded-2xl p-4 space-y-3">
+        <div className="font-black text-sm">منح اشتراك مجاني</div>
+        <label className="block text-xs font-bold">الباقة</label>
+        <select value={planCode} onChange={(e) => setPlanCode(e.target.value)} className="w-full glass rounded-xl p-3 text-sm">
+          <option value="free">مجاني</option><option value="bronze">برونزي</option><option value="silver">فضي</option><option value="gold">ذهبي</option>
+        </select>
+        <label className="block text-xs font-bold">المدة</label>
+        <select value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full glass rounded-xl p-3 text-sm">
+          <option value="month">شهر</option><option value="two_months">شهرين</option><option value="year">سنة</option><option value="permanent">دائم</option>
+        </select>
+        <button onClick={grant} disabled={!selected || busy} className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black disabled:opacity-50">
+          منح الاشتراك للحساب المحدد
+        </button>
+        <button onClick={cancel} disabled={!selected || busy} className="w-full rounded-xl border border-destructive/40 text-destructive py-3 text-sm font-bold disabled:opacity-50">
+          إلغاء الاشتراك المجاني الإداري
+        </button>
+        <p className="text-[10px] text-muted-foreground leading-5">يُسجّل المنح باسم المدير المسجّل دخوله، ولا يتم تسجيله كعملية دفع مدفوعة.</p>
+      </div>
     </div>
   );
 }
