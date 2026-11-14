@@ -251,6 +251,7 @@ export interface FileRoutesById {
   '/friends': typeof FriendsRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
@@ -311,6 +312,7 @@ export interface FileRouteTypes {
     | '/friends'
     | '/history'
     | '/home'
+    | '/coupons'
     | '/messages'
     | '/support-chat'
     | '/privacy'
@@ -340,6 +342,7 @@ export interface FileRouteTypes {
     | '/friends'
     | '/history'
     | '/home'
+    | '/coupons'
     | '/messages'
     | '/privacy'
     | '/profile'
