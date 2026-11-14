@@ -1392,13 +1392,13 @@ function ChatSection() {
     const { data: conversations } = await (supabase as any).from("support_conversations").select("id,user_id,status,updated_at").order("updated_at", { ascending: false }).limit(10);
     const rows = conversations ?? [];
     const ids = rows.map((row: any) => row.id);
-    const userIds = [...new Set(rows.map((row: any) => row.user_id))];
+    const userIds: string[] = [...new Set<string>(rows.map((row: any) => String(row.user_id)))];
     const [{ data: profiles }, { data: incoming }] = await Promise.all([
       userIds.length ? supabase.from("profiles").select("id,full_name,phone").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
       ids.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,read_at,created_at").in("conversation_id", ids).order("created_at", { ascending: false }) : Promise.resolve({ data: [] as any[] }),
     ]);
-    const profileMap = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
-    const latest = new Map<string, any>();
+    const profileMap = new globalThis.Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+    const latest = new globalThis.Map<string, any>();
     let unread = 0;
     for (const message of incoming ?? []) {
       if (!latest.has(message.conversation_id)) latest.set(message.conversation_id, message);
