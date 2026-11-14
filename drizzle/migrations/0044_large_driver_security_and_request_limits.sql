@@ -168,6 +168,39 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.guard_provider_status() FROM PUBLIC, anon, authenticated;
 
+-- Large-vehicle providers must be allowed to publish their own live location.
+DROP POLICY IF EXISTS "Providers insert own presence" ON public.provider_presence;
+CREATE POLICY "Providers insert own presence"
+  ON public.provider_presence FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id
+    AND (
+      public.has_role(auth.uid(), 'driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'large_driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'worker'::public.app_role)
+    )
+  );
+
+DROP POLICY IF EXISTS "Providers update own presence" ON public.provider_presence;
+CREATE POLICY "Providers update own presence"
+  ON public.provider_presence FOR UPDATE TO authenticated
+  USING (
+    auth.uid() = user_id
+    AND (
+      public.has_role(auth.uid(), 'driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'large_driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'worker'::public.app_role)
+    )
+  )
+  WITH CHECK (
+    auth.uid() = user_id
+    AND (
+      public.has_role(auth.uid(), 'driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'large_driver'::public.app_role)
+      OR public.has_role(auth.uid(), 'worker'::public.app_role)
+    )
+  );
+
 -- Keep nearby discovery aligned with the separated taxi and large-driver roles.
 CREATE OR REPLACE FUNCTION public.find_nearby_drivers(
   _lat numeric,
