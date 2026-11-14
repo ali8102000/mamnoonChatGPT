@@ -36,7 +36,6 @@ function HistoryPage() {
       .select("id, type, status, price_estimate, pickup_text, dest_text, created_at")
       .or(`customer_id.eq.${session.user.id},provider_id.eq.${session.user.id}`)
       .order("created_at", { ascending: false })
-      .limit(50)
       .then(({ data }) => setItems(data ?? []));
   }, [session]);
 
