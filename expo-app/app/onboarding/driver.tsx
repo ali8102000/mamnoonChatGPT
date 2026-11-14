@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Image,
 } from "react-native";
@@ -21,12 +21,15 @@ const CATEGORIES = [
 
 export default function DriverOnboarding() {
   const { user, profile, refresh } = useAuth();
+  const params = useLocalSearchParams<{ providerType?: string }>();
+  const largeDriverMode = params.providerType === "large_driver";
+  const providerRole = largeDriverMode ? "large_driver" : "driver";
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [models, setModels] = useState<VehicleModel[]>([]);
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
-  const [category, setCategory] = useState<"economy" | "premium" | "luxury" | "large">("economy");
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
+  const [category, setCategory] = useState<"economy" | "premium" | "luxury" | "large">(largeDriverMode ? "large" : "economy");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
   const [year, setYear] = useState("");
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("");
@@ -60,7 +63,7 @@ export default function DriverOnboarding() {
       Promise.all([
         supabase.from("provider_verifications")
           .select("status,rejection_reason,metadata")
-          .eq("user_id", user.id).eq("provider_type", "driver").maybeSingle(),
+          .eq("user_id", user.id).eq("provider_type", providerRole).maybeSingle(),
         supabase.from("driver_profiles")
           .select("status,vehicle_make,vehicle_model,vehicle_year,vehicle_plate,vehicle_color,vehicle_category,vehicle_type")
           .eq("user_id", user.id).maybeSingle(),
@@ -84,14 +87,14 @@ export default function DriverOnboarding() {
         if (typeof savedPlate === "string") setPlate(savedPlate);
         if (typeof savedColor === "string") setColor(savedColor);
         if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury" || savedCategory === "large") setCategory(savedCategory);
-        if (saved?.vehicle_type === "kia_cargo" || saved?.vehicle_type === "kia_passenger") setVehicleType(saved.vehicle_type);
+        if (saved?.vehicle_type === "kia_cargo" || saved?.vehicle_type === "kia_passenger" || saved?.vehicle_type === "bus") setVehicleType(saved.vehicle_type);
         setCheckingSavedDriver(false);
       }).catch(() => { if (active) setCheckingSavedDriver(false); });
     } else {
       setCheckingSavedDriver(false);
     }
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, providerRole]);
 
   useEffect(() => {
     if (!selectedModel && selectedMake && savedModelName && models.length) {
@@ -157,7 +160,7 @@ export default function DriverOnboarding() {
       return;
     }
     const vehicleYear = Number(year.trim());
-    const largeModelName = vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب";
+    const largeModelName = vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص";
     const catalogModel = category === "large" ? models.find((m) => m.make === "Kia" && m.model === largeModelName) : selectedModel;
     const resolvedModel: VehicleModel = catalogModel ?? {
       id: "large-kia-local",
@@ -214,7 +217,7 @@ export default function DriverOnboarding() {
       ]);
       const { error: verificationError } = await supabase.from("provider_verifications").upsert({
         user_id: user.id,
-        provider_type: "driver",
+        provider_type: providerRole,
         legal_name: legalName.trim(),
         phone: profile?.phone ?? null,
         email: user.email ?? null,
@@ -269,10 +272,10 @@ export default function DriverOnboarding() {
             if (!user) return;
             setBusy(true);
             try {
-              const { error } = await supabase.rpc("grant_provider_role_safe", { _role: "driver" });
+              const { error } = await supabase.rpc("grant_provider_role_safe", { _role: providerRole });
               if (error) throw error;
               await refresh();
-              await (await import("expo-secure-store")).setItemAsync("mamnoon_active_role", "driver");
+              await (await import("expo-secure-store")).setItemAsync("mamnoon_active_role", providerRole);
               router.replace("/home");
             } catch (error) {
               Alert.alert("تعذر تفعيل دور السائق", error instanceof Error ? error.message : "تأكد من اعتماد طلبك ثم حاول مجدداً.");
@@ -292,13 +295,13 @@ export default function DriverOnboarding() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 48 }}>
-      <Text style={styles.title}>تسجيل السائق في ممنون</Text>
-      <Text style={styles.note}>أكمل بيانات السيارة والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة.</Text>
+      <Text style={styles.title}>{largeDriverMode ? "تسجيل سائق السيارات الكبيرة" : "تسجيل كابتن التكسي"}</Text>
+      <Text style={styles.note}>{largeDriverMode ? "قسم مستقل لكيا الحمل وكيا الركاب والباص. أكمل بيانات المركبة والهوية." : "أكمل بيانات سيارة التكسي والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة."}</Text>
       {!!rejectionReason && <Text style={styles.rejection}>سبب الرفض السابق: {rejectionReason}</Text>}
 
       <Text style={styles.label}>اختر نوع تسجيلك كسائق</Text>
       <View style={styles.row}>
-        {CATEGORIES.map((item) => (
+        {CATEGORIES.filter((item) => largeDriverMode ? item.key === "large" : item.key !== "large").map((item) => (
           <TouchableOpacity key={item.key} style={[styles.category, category === item.key && styles.chipActive]}
             onPress={() => {
               setCategory(item.key);
@@ -340,7 +343,7 @@ export default function DriverOnboarding() {
         <View style={{ marginTop: 12 }}>
           <Text style={styles.label}>نوع السيارة الكبيرة</Text>
           <View style={styles.row}>
-            {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
+            {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }, { key: "bus", label: "باص", emoji: "🚌" }] as const).map((item) => (
               <TouchableOpacity key={item.key} style={[styles.category, vehicleType === item.key && styles.chipActive]} onPress={() => {
                 setVehicleType(item.key);
                 setSelectedMake("Kia");
