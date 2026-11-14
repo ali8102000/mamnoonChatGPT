@@ -6,6 +6,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast";
 
+const IMPORTANT_NOTIFICATION_TYPES = /^(support_message|provider_approved|provider_rejected|provider_suspended|coupon_received|coupon_redeemed|announcement|company_announcement|admin_alert|security_alert|account_verified|verification_approved)$/i;
+
+function isImportantNotificationType(type: string) {
+  return IMPORTANT_NOTIFICATION_TYPES.test(type);
+}
+
 type Notif = {
   id: string;
   type: string;
@@ -26,7 +32,7 @@ export function NotificationsBell() {
     if (!uid) return;
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await (supabase as any).from("notifications").select("*").eq("user_id", uid).gte("created_at", since).order("created_at", { ascending: false }).limit(50);
-    if (error) console.warn("[notifications] fetch error:", error.message); else setItems(data ?? []);
+    if (error) console.warn("[notifications] fetch error:", error.message); else setItems((data ?? []).filter((n: Notif) => isImportantNotificationType(n.type)));
   }, [uid]);
 
   useEffect(() => {
@@ -38,7 +44,7 @@ export function NotificationsBell() {
     document.addEventListener("visibilitychange", refreshOnFocus);
     const ch = supabase.channel("notif-" + uid).on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: "user_id=eq." + uid }, (payload: any) => {
       const n = payload.new as Notif;
-      if (Date.now() - new Date(n.created_at).getTime() > 24 * 60 * 60 * 1000) return;
+      if (Date.now() - new Date(n.created_at).getTime() > 24 * 60 * 60 * 1000 || !isImportantNotificationType(n.type)) return;
       setItems((cur) => [n, ...cur.filter((item) => item.id !== n.id)]);
       toast(n.title, { description: n.body ?? undefined });
       try {
@@ -76,7 +82,7 @@ export function NotificationsBell() {
   }
 
   async function openNotifications() { setOpen(true); if (unread > 0) await markAll(); }
-  function isCompanyNotification(n: Notif) { return /company|admin|provider_approved|provider_rejected|provider_suspended|support_message|coupon_received|coupon_redeemed|promotion|announcement/i.test(n.type); }
+  function isCompanyNotification(n: Notif) { return /company|admin|provider_approved|provider_rejected|provider_suspended|announcement|security_alert|account_verified|verification_approved/i.test(n.type); }
 
   if (!uid) return null;
 
