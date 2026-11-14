@@ -10,6 +10,8 @@ import {
   adminSaveSettings,
   adminGetStats,
   adminGetSubscriptions,
+  adminSearchSubscriptionUsers,
+  adminGrantSubscription,
 } from "@/lib/subscription.functions";
 import {
   Loader2,
@@ -31,6 +33,8 @@ import {
   BarChart3,
   Star,
   ChevronLeft,
+  UserPlus,
+  Search,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 
@@ -102,6 +106,7 @@ function SubscriptionsAdmin() {
   const [tab, setTab] = useState("overview");
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [grantRefresh, setGrantRefresh] = useState(0);
 
   const loadAll = useCallback(async () => {
     try {
@@ -159,7 +164,7 @@ function SubscriptionsAdmin() {
         </h1>
       </div>
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
-        {["overview", "plans", "subscriptions", "settings"].map((t) => (
+        {["overview", "plans", "subscriptions", "grant", "settings"].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -171,7 +176,9 @@ function SubscriptionsAdmin() {
                 ? "الباقات"
                 : t === "subscriptions"
                   ? "المشتركون"
-                  : "الإعدادات"}
+                  : t === "grant"
+                    ? "منح اشتراك"
+                    : "الإعدادات"}
           </button>
         ))}
       </div>
@@ -199,6 +206,7 @@ function SubscriptionsAdmin() {
         />
       )}
       {tab === "subscriptions" && <SubscriptionsTab subs={subs} />}
+      {tab === "grant" && <GrantSubscriptionTab plans={plans} onGranted={() => { loadAll(); setGrantRefresh((v) => v + 1); }} refreshKey={grantRefresh} />}
       {tab === "settings" && (
         <SettingsTab
           settings={settings}
@@ -437,6 +445,63 @@ function SubscriptionsTab({ subs }: { subs: SubscriptionRow[] }) {
       ))}
     </div>
   );
+}
+
+function GrantSubscriptionTab({ plans, onGranted }: { plans: Plan[]; onGranted: () => void; refreshKey: number }) {
+  const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [planCode, setPlanCode] = useState("bronze");
+  const [duration, setDuration] = useState("month");
+  const [searching, setSearching] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const activePlans = plans.filter((p) => p.is_active && ["bronze", "silver", "gold"].includes(p.code));
+  async function searchUsers() {
+    if (query.trim().length < 2) { toast.error("اكتب الاسم أو البريد أو رقم الهاتف"); return; }
+    setSearching(true); setSearched(false); setSelectedUser(null);
+    try {
+      const result = await adminSearchSubscriptionUsers({ data: { query: query.trim() } });
+      setUsers(result as any[]); setSearched(true);
+      if (!(result as any[]).length) toast.error("ما لكينا مقدم خدمة مطابق");
+    } catch (e: any) { toast.error(e.message || "فشل البحث"); }
+    finally { setSearching(false); }
+  }
+  async function grant() {
+    if (!selectedUser) { toast.error("اختَر مقدم الخدمة أولاً"); return; }
+    setSaving(true);
+    try {
+      await adminGrantSubscription({ data: { user_id: selectedUser.id, plan_code: planCode as any, duration: duration as any } });
+      toast.success("تم منح الاشتراك مجاناً بنجاح");
+      setSelectedUser(null); setUsers([]); setQuery(""); setSearched(false);
+      onGranted();
+    } catch (e: any) { toast.error(e.message || "تعذر منح الاشتراك"); }
+    finally { setSaving(false); }
+  }
+  return <div className="space-y-4">
+    <div className="glass rounded-2xl p-4">
+      <div className="flex items-center gap-2 font-black text-sm mb-2"><UserPlus className="h-5 w-5 text-primary" /> منح اشتراك مجاني لمقدم خدمة</div>
+      <p className="text-xs text-muted-foreground leading-6">ابحث بالاسم أو البريد الإلكتروني أو رقم الهاتف، ثم اختر حساب الفني أو السائق والباقة والمدة. لا يتم تحصيل أي مبلغ من المستخدم.</p>
+      <div className="flex gap-2 mt-3">
+        <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") searchUsers(); }} placeholder="الاسم أو البريد أو رقم الهاتف" className="input-base flex-1 min-w-0" />
+        <button onClick={searchUsers} disabled={searching} className="rounded-xl bg-primary text-primary-foreground px-4 font-bold text-xs disabled:opacity-50">{searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</button>
+      </div>
+      {searched && users.length > 0 && <div className="space-y-2 mt-3">
+        {users.map((u) => <button key={u.id} onClick={() => setSelectedUser(u)} className={`w-full text-right rounded-xl border p-3 ${selectedUser?.id === u.id ? "border-primary bg-primary/10" : "border-border"}`}>
+          <div className="text-sm font-bold">{u.full_name || "بدون اسم"}</div>
+          <div className="text-[11px] text-muted-foreground" dir="ltr">{u.email || u.phone || u.id}</div>
+          {u.email && u.phone && <div className="text-[10px] text-muted-foreground" dir="ltr">{u.phone}</div>}
+        </button>)}
+      </div>}
+    </div>
+    {selectedUser && <div className="glass rounded-2xl p-4 space-y-3">
+      <div className="font-black text-sm">الحساب المحدد: {selectedUser.full_name || selectedUser.email || selectedUser.phone}</div>
+      <label className="block"><span className="text-xs font-bold text-muted-foreground">الباقة</span><select value={planCode} onChange={(e) => setPlanCode(e.target.value)} className="input-base mt-1">{activePlans.map((p) => <option key={p.id} value={p.code}>{p.name_ar} — {p.monthly_price.toLocaleString("ar-IQ")} د.ع / شهر</option>)}</select></label>
+      <label className="block"><span className="text-xs font-bold text-muted-foreground">مدة الاشتراك المجاني</span><select value={duration} onChange={(e) => setDuration(e.target.value)} className="input-base mt-1"><option value="month">شهر واحد</option><option value="two_months">شهران</option><option value="year">سنة كاملة</option><option value="permanent">دائم</option></select></label>
+      <button onClick={grant} disabled={saving || activePlans.length === 0} className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black disabled:opacity-50">{saving ? <Loader2 className="inline h-4 w-4 animate-spin ml-2" /> : <UserPlus className="inline h-4 w-4 ml-2" />}منح الاشتراك مجاناً</button>
+      {activePlans.length === 0 && <p className="text-xs text-destructive">لا توجد باقات برونزية أو فضية أو ذهبية مفعّلة حالياً.</p>}
+    </div>}
+  </div>;
 }
 
 function SettingsTab({ settings, onSave }: any) {
