@@ -282,7 +282,7 @@ export function DriverOfferPopup() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("submit_large_vehicle_offer", {
+      const { error } = await (supabase as any).rpc("submit_large_vehicle_offer", {
         _request_id: offer.request_id,
         _price: price,
         _message: largeOfferMessage.trim() || null,
