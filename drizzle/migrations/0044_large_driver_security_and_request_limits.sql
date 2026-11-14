@@ -394,6 +394,10 @@ $$;
 REVOKE ALL ON FUNCTION public.accept_service_request(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.accept_service_request(uuid) TO authenticated;
 
+-- Offers are changed only through the guarded RPCs, never by direct client UPDATE.
+DROP POLICY IF EXISTS "Provider updates own offer" ON public.request_offers;
+REVOKE UPDATE ON public.request_offers FROM authenticated;
+
 -- Enforce the previously requested 50,000 IQD ceiling at the database boundary.
 -- NOT VALID avoids blocking deployment if an old historical row is outside the new limit;
 -- new inserts and updates are still checked.
