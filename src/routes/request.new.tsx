@@ -401,6 +401,7 @@ function NewRequest() {
           level_required: type === "service" ? level : null,
           workers_count: finalWorkers,
           vehicle_category: type === "taxi" ? vehicleCategory : null,
+          vehicle_type: type === "taxi" && vehicleCategory === "large" ? vehicleType : null,
           price_estimate: priceEstimate,
           pickup_text: pickupLabel || "موقع محدد على الخريطة",
           pickup_lat: pickupCoords?.lat ?? null,
