@@ -207,7 +207,11 @@ SET search_path = public
 AS $$
 DECLARE
   v_id uuid;
+  v_previous_defer text;
 BEGIN
+  v_previous_defer := current_setting('mamnoon.defer_taxi_scheduler_lock', true);
+  PERFORM set_config('mamnoon.defer_taxi_scheduler_lock', 'true', true);
+
   FOR v_id IN
     SELECT request_id
     FROM public.taxi_dispatch_queue
@@ -218,15 +222,29 @@ BEGIN
     PERFORM public.advance_taxi_dispatch(v_id);
   END LOOP;
 
-  -- Acquire the scheduler lock only after all request-row work is complete.
+  -- Triggers fired by this worker defer scheduler work until every request row is released.
+  PERFORM set_config(
+    'mamnoon.defer_taxi_scheduler_lock',
+    COALESCE(v_previous_defer, 'false'),
+    true
+  );
+
   PERFORM pg_advisory_xact_lock(91840061);
 
-  IF NOT EXISTS (SELECT 1 FROM public.taxi_dispatch_queue) THEN
-    IF EXISTS (
+  IF EXISTS (SELECT 1 FROM public.taxi_dispatch_queue) THEN
+    IF NOT EXISTS (
       SELECT 1 FROM cron.job WHERE jobname = 'mamnoon-taxi-dispatch'
     ) THEN
-      PERFORM cron.unschedule('mamnoon-taxi-dispatch');
+      PERFORM cron.schedule(
+        'mamnoon-taxi-dispatch',
+        '5 seconds',
+        'SELECT public.process_taxi_dispatch()'
+      );
     END IF;
+  ELSIF EXISTS (
+    SELECT 1 FROM cron.job WHERE jobname = 'mamnoon-taxi-dispatch'
+  ) THEN
+    PERFORM cron.unschedule('mamnoon-taxi-dispatch');
   END IF;
 END;
 $$;
@@ -238,7 +256,10 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $
+DECLARE
+  v_defer_scheduler boolean :=
+    COALESCE(current_setting('mamnoon.defer_taxi_scheduler_lock', true), 'false') = 'true';
 BEGIN
   IF NEW.type <> 'taxi' THEN
     RETURN NEW;
@@ -265,18 +286,20 @@ BEGIN
       PERFORM public.advance_taxi_dispatch(NEW.id);
     END IF;
 
-    -- Request/queue work is complete; serialize only the cron metadata change.
-    PERFORM pg_advisory_xact_lock(91840061);
+    IF NOT v_defer_scheduler THEN
+      -- Request/queue work is complete; serialize only the cron metadata change.
+      PERFORM pg_advisory_xact_lock(91840061);
 
-    IF EXISTS (SELECT 1 FROM public.taxi_dispatch_queue)
-       AND NOT EXISTS (
-         SELECT 1 FROM cron.job WHERE jobname = 'mamnoon-taxi-dispatch'
-       ) THEN
-      PERFORM cron.schedule(
-        'mamnoon-taxi-dispatch',
-        '5 seconds',
-        'SELECT public.process_taxi_dispatch()'
-      );
+      IF EXISTS (SELECT 1 FROM public.taxi_dispatch_queue)
+         AND NOT EXISTS (
+           SELECT 1 FROM cron.job WHERE jobname = 'mamnoon-taxi-dispatch'
+         ) THEN
+        PERFORM cron.schedule(
+          'mamnoon-taxi-dispatch',
+          '5 seconds',
+          'SELECT public.process_taxi_dispatch()'
+        );
+      END IF;
     END IF;
 
   ELSE
@@ -290,14 +313,16 @@ BEGIN
       AND status = 'pending'
       AND provider_id IS DISTINCT FROM NEW.provider_id;
 
-    -- The request and its queue/offers are already locked before scheduler coordination.
-    PERFORM pg_advisory_xact_lock(91840061);
+    IF NOT v_defer_scheduler THEN
+      -- The request and its queue/offers are already locked before scheduler coordination.
+      PERFORM pg_advisory_xact_lock(91840061);
 
-    IF NOT EXISTS (SELECT 1 FROM public.taxi_dispatch_queue)
-       AND EXISTS (
-         SELECT 1 FROM cron.job WHERE jobname = 'mamnoon-taxi-dispatch'
-       ) THEN
-      PERFORM cron.unschedule('mamnoon-taxi-dispatch');
+      IF NOT EXISTS (SELECT 1 FROM public.taxi_dispatch_queue)
+         AND EXISTS (
+           SELECT 1 FROM cron.job WHERE jobname = 'mamnoon-taxi-dispatch'
+         ) THEN
+        PERFORM cron.unschedule('mamnoon-taxi-dispatch');
+      END IF;
     END IF;
   END IF;
 
