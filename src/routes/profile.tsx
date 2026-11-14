@@ -39,6 +39,7 @@ function ProfilePage() {
   const [txs, setTxs] = useState<any[]>([]);
   const [earnings, setEarnings] = useState({ today: 0, week: 0, month: 0 });
   const [showEarningsDetails, setShowEarningsDetails] = useState(false);
+  const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [reputation, setReputation] = useState<ReputationData | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -70,12 +71,13 @@ function ProfilePage() {
       const weekStart = new Date(todayStart);
       weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last24Hours = new Date(now.getTime() - 86400000);
 
       (supabase as any)
         .from("transactions")
         .select("*")
         .eq("user_id", uid)
-        .gte("created_at", monthStart.toISOString())
+        .gte("created_at", last24Hours.toISOString())
         .order("created_at", { ascending: false })
         .then(({ data, error }: any) => {
           if (error) {
@@ -297,32 +299,21 @@ function ProfilePage() {
               <div className="bg-white/15 rounded-2xl p-3"><div className="opacity-80">أرباح هذا الشهر</div><div className="font-black text-lg mt-1 tabular-nums">{earnings.month.toLocaleString("ar-IQ")} د.ع</div></div>
               <div className="bg-white/10 rounded-2xl p-3"><div className="opacity-80">إجمالي الأرباح</div><div className="font-black mt-1">{Number(wallet?.total_earned ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
               <div className="bg-white/10 rounded-2xl p-3"><div className="opacity-80">إجمالي العمولة</div><div className="font-black mt-1">{Number(wallet?.total_commission ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
+              <div className="col-span-2 border-t border-white/15 pt-3">
+                <button type="button" onClick={() => setShowRecentTransactions((v) => !v)} aria-expanded={showRecentTransactions} className="w-full flex items-center justify-between rounded-xl bg-white/15 px-3 py-3 text-xs font-black">
+                  <span className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> آخر الحركات · آخر ٢٤ ساعة</span>
+                  <ChevronLeft className={\`h-4 w-4 transition-transform \${showRecentTransactions ? "-rotate-90" : ""}\`} />
+                </button>
+                {showRecentTransactions && <ul className="mt-3 space-y-2">
+                  {txs.length === 0 ? <li className="rounded-xl bg-white/10 p-3 text-center text-xs opacity-80">ماكو حركات مالية خلال آخر ٢٤ ساعة</li> : txs.map((t) => (
+                    <li key={t.id} className="rounded-xl bg-white/10 p-3 flex items-center justify-between gap-3">
+                      <div><div className="text-xs font-bold">{t.note ?? t.type}</div><div className="text-[10px] opacity-75">{new Date(t.created_at).toLocaleString("ar-IQ")}</div></div>
+                      <div className={\`text-sm font-black whitespace-nowrap \${Number(t.amount) >= 0 ? "text-emerald-200" : "text-red-200"}\`}>{Number(t.amount) >= 0 ? "+" : ""}{Number(t.amount).toLocaleString("ar-IQ")} د.ع</div>
+                    </li>
+                  ))}
+                </ul>}
+              </div>
             </div>}
-          </div>
-        )}
-        {isProvider && txs.length > 0 && (
-          <div className="mt-5">
-            <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" /> آخر الحركات
-            </div>
-            <ul className="space-y-1.5">
-              {txs.map((t) => (
-                <li key={t.id} className="glass rounded-2xl p-3 flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-bold">{t.note ?? t.type}</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {new Date(t.created_at).toLocaleString("ar-IQ")}
-                    </div>
-                  </div>
-                  <div
-                    className={`text-sm font-black ${Number(t.amount) >= 0 ? "text-emerald-600" : "text-destructive"}`}
-                  >
-                    {Number(t.amount) >= 0 ? "+" : ""}
-                    {Number(t.amount).toLocaleString()}
-                  </div>
-                </li>
-              ))}
-            </ul>
           </div>
         )}
         <div className="mt-5 space-y-2">
