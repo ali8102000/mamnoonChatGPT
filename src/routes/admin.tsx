@@ -1689,8 +1689,13 @@ function CouponsSection() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [couponRows, report] = await Promise.all([listCoupons(), getSubsidyReport()]);
+      const couponRows = await listCoupons();
       setCoupons(couponRows);
+    } catch (e) {
+      setCoupons([]);
+    }
+    try {
+      const report = await getSubsidyReport();
       setSubsidyReport(report);
       setSubsidyReportError("");
     } catch (e: any) {
