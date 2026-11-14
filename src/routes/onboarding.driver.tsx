@@ -99,10 +99,10 @@ const CATEGORY_META: Record<
     desc: "أحدث الموديلات والفئات الراقية",
   },
   large: {
-    label: "سيارة كبيرة",
+    label: "سائق كيا (حمل / ركاب)",
     emoji: "🚚",
     gradient: "from-orange-500 to-amber-600",
-    desc: "كيا حمل أو كيا ركاب",
+    desc: "تسجيل مستقل لسائقي كيا الحمل وكيا الركاب والباصات",
   },
 };
 
