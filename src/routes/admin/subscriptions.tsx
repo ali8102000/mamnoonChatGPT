@@ -79,8 +79,10 @@ type Stats = {
   monthlyRevenue: number;
   yearlyRevenue: number;
   freeCount: number;
+  bronzeCount: number;
   silverCount: number;
   goldCount: number;
+  trialCount: number;
 };
 type SubscriptionRow = {
   id: string;
@@ -295,6 +297,8 @@ function OverviewTab({ stats, settings }: { stats: Stats | null; settings: any }
         <div className="font-black text-sm mb-3">توزيع المشتركين</div>
         <div className="space-y-2">
           <PlanCountRow label="مجاني" count={stats.freeCount} color="bg-slate-400" />
+          <PlanCountRow label="تجربة مجانية" count={stats.trialCount} color="bg-blue-400" />
+          <PlanCountRow label="برونزية" count={stats.bronzeCount} color="bg-amber-700" />
           <PlanCountRow label="فضية" count={stats.silverCount} color="bg-slate-300" />
           <PlanCountRow label="ذهبية" count={stats.goldCount} color="bg-amber-400" />
         </div>
@@ -337,10 +341,12 @@ function PlansTab({ plans, onEdit, onToggle, onNew }: any) {
         <div key={p.id} className={`glass rounded-2xl p-4 ${!p.is_active ? "opacity-50" : ""}`}>
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
-              {p.tier === 0 ? (
+              {p.code === "trial" || p.code === "free" ? (
                 <Sparkles className="h-5 w-5 text-slate-400" />
-              ) : p.tier === 1 ? (
-                <Award className="h-5 w-5 text-slate-300" />
+              ) : p.code === "bronze" ? (
+                <Award className="h-5 w-5 text-amber-700" />
+              ) : p.code === "silver" ? (
+                <Award className="h-5 w-5 text-slate-400" />
               ) : (
                 <Crown className="h-5 w-5 text-amber-500" />
               )}
@@ -447,12 +453,10 @@ function SubscriptionsTab({ subs }: { subs: SubscriptionRow[] }) {
 
 function SettingsTab({ settings, onSave }: any) {
   const [enabled, setEnabled] = useState(false);
-  const [minDownloads, setMinDownloads] = useState(100000);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (settings) {
       setEnabled(settings.subscription_enabled ?? false);
-      setMinDownloads(settings.minimum_downloads_before_activation ?? 100000);
     }
   }, [settings]);
   return (
@@ -474,23 +478,10 @@ function SettingsTab({ settings, onSave }: any) {
           </button>
         </div>
       </div>
-      <div className="glass rounded-2xl p-4">
-        <div className="font-black text-sm mb-2">الحد الأدنى للتحميلات قبل التفعيل</div>
-        <div className="text-xs text-muted-foreground mb-3">
-          عدد تحميلات التطبيق المطلوبة قبل بدء نظام الاشتراكات
-        </div>
-        <input
-          type="number"
-          value={minDownloads}
-          onChange={(e) => setMinDownloads(Number(e.target.value))}
-          className="w-full glass rounded-xl px-4 py-3 text-sm font-bold outline-none"
-          min={0}
-        />
-      </div>
       <button
         onClick={async () => {
           setSaving(true);
-          await onSave(enabled, minDownloads);
+          await onSave(enabled, 0);
           setSaving(false);
         }}
         disabled={saving}
