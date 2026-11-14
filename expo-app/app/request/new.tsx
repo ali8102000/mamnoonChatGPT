@@ -496,7 +496,6 @@ export default function NewRequest() {
               <Text style={{ color: "#9a3412", fontSize: 11, marginTop: 6 }}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب</Text>
             </View>
           )}
-          {false && vehicleCat === "large" && <View />}
         </>
       ) : (
         <>
