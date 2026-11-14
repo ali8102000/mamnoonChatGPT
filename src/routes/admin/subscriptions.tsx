@@ -115,20 +115,23 @@ function SubscriptionsAdmin() {
   const [grantRefresh, setGrantRefresh] = useState(0);
 
   const loadAll = useCallback(async () => {
-    try {
-      const [plansData, settingsData, statsData, subsData] = await Promise.all([
-        adminGetPlans(),
-        adminGetSettings(),
-        adminGetStats(),
-        adminGetSubscriptions(),
-      ]);
-      setPlans(plansData as Plan[]);
-      setSettings(settingsData);
-      setStats(statsData as Stats);
-      setSubs(subsData as SubscriptionRow[]);
-    } catch (e: any) {
-      toast.error(e.message);
-    }
+    // Load each panel independently: a statistics/RPC failure must never hide
+    // the actual subscription ledger or prevent the grant tab from refreshing.
+    const results = await Promise.allSettled([
+      adminGetPlans(),
+      adminGetSettings(),
+      adminGetStats(),
+      adminGetSubscriptions(),
+    ]);
+    const [plansResult, settingsResult, statsResult, subsResult] = results;
+    if (plansResult.status === "fulfilled") setPlans(plansResult.value as Plan[]);
+    else toast.error("تعذر تحميل الباقات: " + (plansResult.reason?.message || "خطأ غير معروف"));
+    if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
+    else toast.error("تعذر تحميل الإعدادات: " + (settingsResult.reason?.message || "خطأ غير معروف"));
+    if (statsResult.status === "fulfilled") setStats(statsResult.value as Stats);
+    else toast.error("تعذر تحميل الإحصائيات: " + (statsResult.reason?.message || "خطأ غير معروف"));
+    if (subsResult.status === "fulfilled") setSubs(subsResult.value as SubscriptionRow[]);
+    else toast.error("تعذر تحميل سجل الاشتراكات: " + (subsResult.reason?.message || "خطأ غير معروف"));
   }, []);
 
   useEffect(() => {
