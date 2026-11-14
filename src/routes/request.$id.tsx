@@ -76,6 +76,7 @@ function RequestDetail() {
   const [reportReason, setReportReason] = useState("مشكلة أثناء الطلب");
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState(false);
   const [navModalOpen, setNavModalOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [otherRep, setOtherRep] = useState<ReputationData | null>(null);
@@ -318,6 +319,25 @@ function RequestDetail() {
     }
   }
 
+  async function payRequestWithZainCash() {
+    if (!session || myRole !== "customer" || paymentBusy || req.payment_method === "zaincash") return;
+    setPaymentBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("zaincash-create-payment", {
+        body: { purpose: "service_request", requestId: req.id },
+      });
+      if (error) throw error;
+      if (typeof data?.redirectUrl !== "string" || !data.redirectUrl.startsWith("https://")) {
+        throw new Error("لم يصل رابط الدفع الآمن من الخادم");
+      }
+      window.location.assign(data.redirectUrl);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر بدء الدفع عبر زين كاش");
+    } finally {
+      setPaymentBusy(false);
+    }
+  }
+
   async function markCompleted() {
     try {
       await runCompleteRide({ data: { requestId: id } });
@@ -379,6 +399,16 @@ function RequestDetail() {
       </div>
 
       <div className="px-5 py-4 space-y-3">
+        {myRole === "customer" && ["accepted","in_progress","completed"].includes(req.status) && req.payment_method !== "zaincash" && Number(req.customer_payable ?? req.customer_price ?? req.price_estimate) > 0 && (
+          <div className="glass rounded-2xl p-4 space-y-2">
+            <div className="text-sm font-black">الدفع الإلكتروني</div>
+            <p className="text-xs text-muted-foreground">تقدر تدفع أجرة الطلب عبر زين كاش بعد تثبيت السعر. الدفع يبقى متوقفاً إلى أن تكتمل تهيئة بوابة التاجر.</p>
+            <Button type="button" onClick={() => void payRequestWithZainCash()} disabled={paymentBusy} className="w-full">
+              {paymentBusy ? <Loader2 className="h-4 w-4 ml-2 animate-spin" /> : null}
+              الدفع عبر زين كاش
+            </Button>
+          </div>
+        )}
         {req.type === "taxi" && req.vehicle_category && VEHICLE_CAT_META[req.vehicle_category] && (
           <div
             className={`rounded-2xl p-3 text-white bg-gradient-to-br ${VEHICLE_CAT_META[req.vehicle_category].gradient} shadow-md flex items-center gap-3`}
