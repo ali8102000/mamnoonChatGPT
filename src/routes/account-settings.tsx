@@ -12,13 +12,16 @@ export const Route = createFileRoute("/account-settings")({ ssr: false, componen
 function AccountSettingsPage() {
   const { session, profile, refresh, loading, roles, activeRole, setActiveRole } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState(session?.user.email ?? "");
+  const actualEmail = (() => { const candidate = String(session?.user.email ?? "").trim().toLowerCase(); return candidate && !/^phone\d+@mamnoon\.app$/.test(candidate) ? candidate : ""; })();
+  const [email, setEmail] = useState(actualEmail);
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [otp, setOtp] = useState("");
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const isCompanyAdmin = session?.user.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
+
+  useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
 
   useEffect(() => {
     if (!isCompanyAdmin) return;
@@ -46,8 +49,8 @@ function AccountSettingsPage() {
 
   async function changeEmail() {
     const next = email.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(next)) { toast.error("أدخل بريداً إلكترونياً صحيحاً"); return; }
-    if (next === currentUser.email?.toLowerCase()) { toast.error("هذا هو بريدك الحالي"); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) { toast.error("أدخل بريداً إلكترونياً صحيحاً"); return; }
+    if (next === actualEmail) { toast.error("هذا هو بريدك الحالي"); return; }
     setBusy(true);
     try {
       const { error } = await supabase.auth.updateUser({ email: next }, { emailRedirectTo: `${window.location.origin}/auth/callback` });
@@ -142,9 +145,10 @@ function AccountSettingsPage() {
       <div className="rounded-3xl border border-border/60 bg-card overflow-hidden">
         <div className="p-4">
           <div className="flex items-center gap-2 mb-2"><span className="h-8 w-8 rounded-xl bg-violet-500/10 text-violet-600 grid place-items-center"><Mail className="h-4 w-4" /></span><div className="font-bold text-sm">البريد الإلكتروني</div></div>
-          <p className="text-[11px] text-muted-foreground mb-3" dir="ltr">{session.user.email}</p>
-          <input dir="ltr" type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-base w-full rounded-2xl" placeholder="البريد الجديد" />
-          <Button className="w-full mt-3 rounded-2xl" disabled={busy} onClick={changeEmail}>إرسال رابط التأكيد</Button>
+          <p className="text-[11px] text-muted-foreground mb-3" dir="ltr">{actualEmail || "ماكو بريد إلكتروني حقيقي مسجّل بحسابك"}</p>
+          {!actualEmail && <p className="text-xs text-muted-foreground mb-3">أضف بريدك الحقيقي حتى تستلم رابط التأكيد وتستعيد حسابك بسهولة.</p>}
+          <input dir="ltr" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className="input-base w-full rounded-2xl" placeholder="اكتب بريدك الحقيقي" />
+          <Button className="w-full mt-3 rounded-2xl" disabled={busy} onClick={changeEmail}>{actualEmail ? "تأكيد تغيير البريد" : "إضافة البريد وإرسال رابط التأكيد"}</Button>
         </div>
         <div className="h-px bg-border/70 mx-4" />
         <div className="p-4">
