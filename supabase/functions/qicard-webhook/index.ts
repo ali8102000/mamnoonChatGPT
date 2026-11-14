@@ -6,7 +6,7 @@ function requiredEnv(name: string): string {
 }
 function pemToBytes(pem: string): Uint8Array {
   const body = pem.replace(/-----BEGIN PUBLIC KEY-----/g, "")
-    .replace(/-----END PUBLIC KEY-----/g, "").replace(/\\s/g, "");
+    .replace(/-----END PUBLIC KEY-----/g, "").replace(/\s/g, "");
   const binary = atob(body);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
