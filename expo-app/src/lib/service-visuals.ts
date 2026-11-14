@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- React Native requires static asset require() calls. */
 import type { ImageSourcePropType } from "react-native";
 
 // Keep service artwork keyed by the same stable slug stored in Supabase.
