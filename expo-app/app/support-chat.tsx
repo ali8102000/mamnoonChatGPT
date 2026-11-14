@@ -130,10 +130,11 @@ export default function SupportChatScreen() {
     </ScrollView>}
     {!!loadError && <Text style={styles.loadError}>{loadError} — حدّث الصفحة وحاول مرة ثانية</Text>}
     <ScrollView ref={messagesScrollRef} style={styles.messages} contentContainerStyle={{ paddingVertical: 14, gap: 10 }}>
-      {messages.length === 0 ? <Text style={styles.empty}>أهلاً بك، اكتب رسالتك لفريق دعم ممنون.</Text> : messages.map((m) => <View key={m.id} style={[styles.bubble, m.sender_id === user?.id ? styles.mine : styles.theirs]}>
-        <Text style={m.sender_id === user?.id ? styles.mineText : styles.theirText}>{m.body}</Text>
-        <Text style={styles.time}>{new Date(m.created_at).toLocaleString("ar-IQ")}</Text>
-      </View>)}
+      {messages.length === 0 ? <Text style={styles.empty}>أهلاً بك، اكتب رسالتك لفريق دعم ممنون.</Text> : messages.map((m) => { const isCompanyMessage = staff ? m.sender_id === user?.id : m.sender_id !== user?.id; return <View key={m.id} style={[styles.bubble, isCompanyMessage ? styles.company : styles.customer]}>
+        {isCompanyMessage && <View style={styles.officialRow}><Text style={styles.officialMark}>✓</Text><Text style={styles.officialLabel}>شركة ممنون · موثّقة</Text></View>}
+        <Text style={isCompanyMessage ? styles.companyText : styles.customerText}>{m.body}</Text>
+        <Text style={isCompanyMessage ? styles.companyTime : styles.time}>{new Date(m.created_at).toLocaleString("ar-IQ")}</Text>
+      </View>; })}
     </ScrollView>
     {selected?.status === "open" && <View style={styles.composer}>
       <TextInput value={draft} onChangeText={setDraft} placeholder="اكتب رسالتك..." multiline maxLength={4000} style={styles.input} />
@@ -158,11 +159,15 @@ const styles = StyleSheet.create({
   empty: { color: palette.muted, textAlign: "center", marginTop: 40 },
   loadError: { color: "#B42318", backgroundColor: "#FEE4E2", padding: 10, borderRadius: 10, marginBottom: 8, textAlign: "right", fontSize: 12 },
   bubble: { padding: 12, borderRadius: radius.lg, maxWidth: "86%" },
-  mine: { alignSelf: "flex-start", backgroundColor: palette.brand },
-  theirs: { alignSelf: "flex-end", backgroundColor: palette.surfaceSoft },
-  mineText: { color: palette.white, fontSize: 14, textAlign: "right" },
-  theirText: { color: palette.ink, fontSize: 14, textAlign: "right" },
-  time: { color: palette.muted, fontSize: 9, marginTop: 5, textAlign: "right" },
+  customer: { alignSelf: "flex-start", backgroundColor: palette.brand, borderWidth: 1, borderColor: palette.brand },
+  company: { alignSelf: "flex-end", backgroundColor: "#F3D77B", borderWidth: 1, borderColor: "#C79A32", shadowColor: "#A87919", shadowOpacity: 0.14, shadowRadius: 5, elevation: 2 },
+  customerText: { color: palette.white, fontSize: 14, textAlign: "right" },
+  companyText: { color: "#342608", fontSize: 14, textAlign: "right", fontWeight: "600" },
+  officialRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 5, marginBottom: 7 },
+  officialMark: { color: "#FFF4C2", backgroundColor: "#75551A", overflow: "hidden", borderRadius: 10, width: 16, height: 16, textAlign: "center", fontSize: 11, fontWeight: "900" },
+  officialLabel: { color: "#62470F", fontSize: 10, fontWeight: "900" },
+  time: { color: "rgba(255,255,255,0.72)", fontSize: 9, marginTop: 5, textAlign: "right" },
+  companyTime: { color: "#765919", fontSize: 9, marginTop: 5, textAlign: "right" },
   composer: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10 },
   input: { flex: 1, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.pill, padding: 13, maxHeight: 100, textAlign: "right", color: palette.ink },
   send: { backgroundColor: palette.brand, borderRadius: radius.pill, paddingHorizontal: 17, paddingVertical: 14 },
