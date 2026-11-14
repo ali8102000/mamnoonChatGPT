@@ -89,12 +89,12 @@ export default function DriverOnboarding() {
         const resolvedStatus = verificationData?.status ?? saved?.status ?? null;
         if (resolvedStatus) setStatus(resolvedStatus);
         setRejectionReason(verificationData?.rejection_reason ?? null);
-        const make = typeof m.vehicleMake === "string" ? m.vehicleMake : saved?.vehicle_make;
-        const model = typeof m.vehicleModel === "string" ? m.vehicleModel : saved?.vehicle_model;
-        const savedYear = typeof m.vehicleYear === "number" ? m.vehicleYear : saved?.vehicle_year;
-        const savedPlate = typeof m.vehiclePlate === "string" ? m.vehiclePlate : saved?.vehicle_plate;
-        const savedColor = typeof m.vehicleColor === "string" ? m.vehicleColor : saved?.vehicle_color;
-        const savedCategory = m.vehicleCategory ?? saved?.vehicle_category;
+        const make = typeof saved?.vehicle_make === "string" ? saved.vehicle_make : m.vehicleMake;
+        const model = typeof saved?.vehicle_model === "string" ? saved.vehicle_model : m.vehicleModel;
+        const savedYear = typeof saved?.vehicle_year === "number" ? saved.vehicle_year : m.vehicleYear;
+        const savedPlate = typeof saved?.vehicle_plate === "string" ? saved.vehicle_plate : m.vehiclePlate;
+        const savedColor = typeof saved?.vehicle_color === "string" ? saved.vehicle_color : m.vehicleColor;
+        const savedCategory = saved?.vehicle_category ?? m.vehicleCategory;
         if (typeof make === "string") setSelectedMake(make);
         if (typeof model === "string") setSavedModelName(model);
         if (typeof savedYear === "number") setYear(String(savedYear));
@@ -165,7 +165,7 @@ export default function DriverOnboarding() {
     const { error } = await supabase.storage.from("provider-verification").upload(path, body, {
       contentType: mime, upsert: true, cacheControl: "3600",
     });
-    if (error) throw new Error(`تعذر حفظ ${kind === "face" ? "صورة الوجه" : kind === "id-card" || kind === "id-card-back" ? "صورة الهوية" : "صورة سنوية السيارة أو الوكالة"}: ${error.message}`);
+    if (error) throw new Error("تعذر رفع المستند المحدد. تحقق من اتصال الإنترنت وحاول مرة ثانية.");
     return path;
   }
 
@@ -190,7 +190,7 @@ export default function DriverOnboarding() {
         if (candidateVehicle.make !== originalVehicle.make) changedVehicle.vehicle_make = candidateVehicle.make;
         if (candidateVehicle.model !== originalVehicle.model) changedVehicle.vehicle_model = candidateVehicle.model;
         if (candidateVehicle.year !== originalVehicle.year) {
-          if (candidateVehicle.year.length !== 4 || !Number.isInteger(Number(candidateVehicle.year))) {
+          if (candidateVehicle.year.length !== 4 || !Number.isInteger(Number(candidateVehicle.year)) || Number(candidateVehicle.year) < 1900 || Number(candidateVehicle.year) > new Date().getFullYear() + 1) {
             Alert.alert("بيانات المركبة", "أدخل سنة الصنع بشكل صحيح.");
             return;
           }

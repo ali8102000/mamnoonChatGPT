@@ -110,19 +110,9 @@ export default function AdminScreen() {
         ? await (supabase as any).from("services").select("id,name_ar").in("id", serviceIds)
         : { data: [] };
       const serviceNames = new Map((serviceRows ?? []).map((row: any) => [row.id, row.name_ar]));
-      const enriched = await Promise.all((pendingChanges ?? []).map(async (row: any) => {
-        const docs = row.requested_data?.documents ?? {};
-        const urls: Record<string, string> = {};
-        await Promise.all(Object.entries(docs).map(async ([kind, path]) => {
-          if (typeof path !== "string") return;
-          const { data: signed } = await supabase.storage.from("provider-verification").createSignedUrl(path, 600);
-          if (signed?.signedUrl) urls[kind] = signed.signedUrl;
-        }));
-        return {
-          ...row,
-          requested_service_names: (row.requested_data?.service_ids ?? []).map((id: string) => serviceNames.get(id) ?? "اختصاص غير معروف"),
-          requested_document_urls: urls,
-        };
+      const enriched = (pendingChanges ?? []).map((row: any) => ({
+        ...row,
+        requested_service_names: (row.requested_data?.service_ids ?? []).map((id: string) => serviceNames.get(id) ?? "اختصاص غير معروف"),
       }));
       setChangeRequests(enriched);
     }
@@ -250,13 +240,17 @@ export default function AdminScreen() {
                 } as Record<string, string>)[key] ?? key}: {String(value)}</Text>
               ))}
               {Object.entries(request.requested_data?.documents ?? {}).map(([kind]) => {
-                const url = request.requested_document_urls?.[kind];
+                const path = request.requested_data?.documents?.[kind] as string | undefined;
                 const label = ({ vehicle_document: "سنوية المركبة", face_photo: "صورة الوجه", id_card: "الهوية الأمامية", id_card_back: "الهوية الخلفية" } as Record<string, string>)[kind] ?? "المستند";
-                return typeof url === "string" ? (
-                  <TouchableOpacity key={kind} onPress={() => void Linking.openURL(url)}>
+                return path ? (
+                  <TouchableOpacity key={kind} onPress={async () => {
+                    const { data: signed, error } = await supabase.storage.from("provider-verification").createSignedUrl(path, 600);
+                    if (error || !signed?.signedUrl) { Alert.alert("تعذر فتح المستند", "حدّث القائمة وحاول مرة ثانية."); return; }
+                    await Linking.openURL(signed.signedUrl);
+                  }}>
                     <Text style={{ color: palette.brand, textAlign: "right", fontWeight: "800", marginTop: 6 }}>عرض {label}</Text>
                   </TouchableOpacity>
-                ) : <Text key={kind} style={styles.reportMeta}>{label} مرفق - المعاينة غير متاحة</Text>;
+                ) : <Text key={kind} style={styles.reportMeta}>{label} غير متوفر</Text>;
               })}
             </View>
           ) : (

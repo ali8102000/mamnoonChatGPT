@@ -203,7 +203,7 @@ export async function uploadProviderChangeDocuments(
     const { error } = await supabase.storage.from("provider-verification").upload(path, blob, {
       contentType: mime, upsert: false, cacheControl: "3600",
     });
-    if (error) throw new Error(`تعذر رفع المستند المحدد: ${error.message}`);
+    if (error) throw new Error("تعذر رفع المستند المحدد. تحقق من اتصال الإنترنت وحاول مرة ثانية.");
     return [kind, path] as const;
   }));
   return Object.fromEntries(uploaded);

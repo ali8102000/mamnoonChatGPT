@@ -195,13 +195,13 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     const applyReview = (row: any, savedProfile?: any) => {
       if (!active || !row) return;
       const metadata = row.metadata ?? {};
-      const vehicleMake = metadata.vehicleMake ?? savedProfile?.vehicle_make;
-      const vehicleModel = metadata.vehicleModel ?? savedProfile?.vehicle_model;
-      const vehicleYear = metadata.vehicleYear ?? savedProfile?.vehicle_year;
-      const vehiclePlate = metadata.vehiclePlate ?? savedProfile?.vehicle_plate;
-      const vehicleColor = metadata.vehicleColor ?? savedProfile?.vehicle_color;
-      const vehicleCategory = metadata.vehicleCategory ?? savedProfile?.vehicle_category;
-      const vehicleType = metadata.vehicleType ?? savedProfile?.vehicle_type;
+      const vehicleMake = savedProfile?.vehicle_make ?? metadata.vehicleMake;
+      const vehicleModel = savedProfile?.vehicle_model ?? metadata.vehicleModel;
+      const vehicleYear = savedProfile?.vehicle_year ?? metadata.vehicleYear;
+      const vehiclePlate = savedProfile?.vehicle_plate ?? metadata.vehiclePlate;
+      const vehicleColor = savedProfile?.vehicle_color ?? metadata.vehicleColor;
+      const vehicleCategory = savedProfile?.vehicle_category ?? metadata.vehicleCategory;
+      const vehicleType = savedProfile?.vehicle_type ?? metadata.vehicleType;
       setOriginalVehicle({ make: vehicleMake ?? (largeDriverMode ? "كيا" : "تويوتا"), model: vehicleModel ?? (largeDriverMode ? "" : "كورولا"), year: String(vehicleYear ?? new Date().getFullYear() - 2), plate: vehiclePlate ?? "", color: vehicleColor ?? "أبيض", category: vehicleCategory ?? (largeDriverMode ? "large" : "economy"), vehicleType: vehicleType ?? null });
       if (typeof vehicleMake === "string") setMake(vehicleMake);
       if (typeof vehicleModel === "string") setModelName(vehicleModel);
@@ -331,7 +331,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         if (candidateVehicle.make !== originalVehicle.make) changedVehicle.vehicle_make = candidateVehicle.make;
         if (candidateVehicle.model !== originalVehicle.model) changedVehicle.vehicle_model = candidateVehicle.model;
         if (candidateVehicle.year !== originalVehicle.year) {
-          if (candidateVehicle.year.length !== 4 || !Number.isInteger(Number(candidateVehicle.year))) {
+          if (candidateVehicle.year.length !== 4 || !Number.isInteger(Number(candidateVehicle.year)) || Number(candidateVehicle.year) < 1900 || Number(candidateVehicle.year) > new Date().getFullYear() + 1) {
             toast.error("أدخل سنة الصنع بشكل صحيح");
             setActiveStep("car");
             return;

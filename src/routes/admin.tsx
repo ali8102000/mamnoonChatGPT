@@ -996,11 +996,17 @@ function ProvidersSection() {
                         } as Record<string, string>)[key] ?? key}: {String(value)}</div>
                       ))}
                       {Object.entries(request.requested_data?.documents ?? {}).map(([kind]) => {
-                        const url = request.requested_document_urls?.[kind];
+                        const path = request.requested_data?.documents?.[kind] as string | undefined;
                         const label = ({ vehicle_document: "سنوية المركبة", face_photo: "صورة الوجه", id_card: "الهوية الأمامية", id_card_back: "الهوية الخلفية" } as Record<string, string>)[kind] ?? "المستند";
-                        return typeof url === "string" && url
-                          ? <a key={kind} href={url} target="_blank" rel="noreferrer" className="inline-block text-primary underline ml-3">عرض {label}</a>
-                          : <div key={kind} className="text-muted-foreground">{label} مرفق - المعاينة غير متاحة</div>;
+                        return path ? (
+                          <button key={kind} type="button" onClick={async () => {
+                            const preview = window.open("about:blank", "_blank");
+                            if (!preview) { toast.error("اسمح بفتح نافذة المعاينة للمستند"); return; }
+                            const { data: signed, error: signedError } = await supabase.storage.from("provider-verification").createSignedUrl(path, 600);
+                            if (signedError || !signed?.signedUrl) { preview.close(); toast.error("تعذر فتح المستند. حدّث القائمة وحاول مرة ثانية."); return; }
+                            preview.location.href = signed.signedUrl;
+                          }} className="inline-block text-primary underline ml-3">عرض {label}</button>
+                        ) : <div key={kind} className="text-muted-foreground">{label} غير متوفر</div>;
                       })}
                     </div>
                   ) : request.provider_type === "large_driver" ? (

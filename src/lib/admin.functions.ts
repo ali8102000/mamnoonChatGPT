@@ -361,20 +361,9 @@ export const adminListProviderChangeRequests = createServerFn({ method: "GET" })
       ? await (supabaseAdmin as any).from("services").select("id,name_ar").in("id", serviceIds)
       : { data: [] };
     const serviceNames = new Map((services ?? []).map((service: any) => [service.id, service.name_ar]));
-    return Promise.all((data ?? []).map(async (row: any) => {
-      const requestedDocuments = row.requested_data?.documents ?? {};
-      const documentEntries = Object.entries(requestedDocuments) as [string, string][];
-      const requested_document_urls: Record<string, string | null> = {};
-      await Promise.all(documentEntries.map(async ([kind, path]) => {
-        const { data: signed, error: signedError } = await supabaseAdmin.storage
-          .from("provider-verification").createSignedUrl(path, 600);
-        requested_document_urls[kind] = signedError ? null : signed?.signedUrl ?? null;
-      }));
-      return {
-        ...row,
-        requested_service_names: (row.requested_data?.service_ids ?? []).map((id: string) => serviceNames.get(id) ?? "اختصاص غير معروف"),
-        requested_document_urls,
-      };
+    return (data ?? []).map((row: any) => ({
+      ...row,
+      requested_service_names: (row.requested_data?.service_ids ?? []).map((id: string) => serviceNames.get(id) ?? "اختصاص غير معروف"),
     }));
   });
 
