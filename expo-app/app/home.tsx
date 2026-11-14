@@ -290,6 +290,7 @@ export default function HomeScreen() {
 function CustomerHome() {
   const tiles = [
     { key: "taxi", label: "سيارة", emoji: "🚕", color: "#2563eb" },
+    { key: "large_vehicle", label: "سيارة كبيرة", emoji: "🚚", color: "#ea580c" },
     { key: "build", label: "بناء", emoji: "🧱", color: "#ea580c" },
     { key: "plaster", label: "لبخ", emoji: "🪣", color: "#d97706" },
     { key: "carpentry_form", label: "نجارة وقالب", emoji: "📐", color: "#a16207" },
@@ -315,7 +316,7 @@ function CustomerHome() {
           <TouchableOpacity
             key={t.key}
             style={[styles.tile, { backgroundColor: t.color + "15" }]}
-            onPress={() => router.push({ pathname: "/request/new", params: { type: t.key } })}
+            onPress={() => router.push({ pathname: "/request/new", params: t.key === "large_vehicle" ? { type: "taxi", vehicle: "large" } : { type: t.key } })}
             activeOpacity={0.85}
           >
             <Text style={styles.tileEmoji}>{t.emoji}</Text>
