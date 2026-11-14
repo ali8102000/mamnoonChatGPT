@@ -147,6 +147,8 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
 
   const [existingDoc, setExistingDoc] = useState<any>(null);
   const [editingMode, setEditingMode] = useState(false);
+  const [vehicleChangeMode, setVehicleChangeMode] = useState(false);
+  const [pendingVehicleChange, setPendingVehicleChange] = useState(false);
 
   // Load existing verification if stored
   useEffect(() => {
@@ -169,6 +171,16 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         if (existing.vehicleType) setVehicleType(existing.vehicleType);
       }
     }
+  }, [session?.user?.id, providerRole]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    let active = true;
+    (supabase as any).from("provider_change_requests").select("id")
+      .eq("user_id", userId).eq("provider_type", providerRole).eq("status", "pending").maybeSingle()
+      .then((result: any) => { if (active) setPendingVehicleChange(!!result.data); });
+    return () => { active = false; };
   }, [session?.user?.id, providerRole]);
 
   // Keep the review status and admin rejection reason synchronized from Supabase.
@@ -271,6 +283,28 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   }
 
   async function submit() {
+    if (vehicleChangeMode && existingDoc?.status === "approved") {
+      setBusy(true);
+      try {
+        const requestedData = largeDriverMode
+          ? { vehicle_type: vehicleType }
+          : { vehicle_category: category };
+        const { error } = await (supabase as any).rpc("submit_provider_change_request", {
+          _provider_type: providerRole,
+          _requested_data: requestedData,
+        });
+        if (error) throw error;
+        setPendingVehicleChange(true);
+        setVehicleChangeMode(false);
+        setEditingMode(false);
+        toast.success("وصل طلب تغيير فئة المركبة للإدارة. فئتك الحالية تبقى فعالة لحين الموافقة.");
+      } catch (error: any) {
+        toast.error(error?.message || "تعذر إرسال طلب تغيير المركبة");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!finalMake) {
       toast.error("اختر أو اكتب الشركة المصنعة للسيارة");
       setActiveStep("car");
@@ -466,8 +500,14 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
             </div>
           </div>
 
+          {isApproved && pendingVehicleChange && (
+            <div className="rounded-xl bg-amber-50 text-amber-800 p-2 text-[11px] leading-5">
+              طلب تغيير فئة المركبة بانتظار موافقة الإدارة. مركبتك الحالية تبقى فعالة.
+            </div>
+          )}
           <div className="pt-2 space-y-2">
             {isApproved ? (
+              <>
               <button
                 onClick={async () => {
                   await grantProviderRole({ data: { role: providerRole } });
@@ -479,6 +519,13 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               >
                 الانتقال إلى واجهة الكابتن 🚗
               </button>
+              {!pendingVehicleChange && (
+                <button onClick={() => { setVehicleChangeMode(true); setEditingMode(true); setActiveStep("car"); }}
+                  className="w-full py-3 rounded-2xl bg-primary/10 text-primary font-bold text-xs btn-press">
+                  طلب تغيير فئة أو نوع المركبة 🚚
+                </button>
+              )}
+              </>
             ) : (
               <button
                 onClick={() => setEditingMode(true)}
