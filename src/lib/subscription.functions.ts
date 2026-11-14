@@ -202,6 +202,30 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminGetPayments = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireSubscriptionViewer(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await (supabaseAdmin as any)
+      .from("payment_transactions")
+      .select("id,user_id,purpose,amount,currency,status,gateway_status,gateway_transaction_id,paid_at,created_at,profile:profiles!payment_transactions_user_id_fkey(full_name,email,phone),plan:subscription_plans(name_ar,code)")
+      .eq("purpose", "subscription")
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (error) throw new Error("تعذر تحميل سجل مدفوعات الاشتراكات: " + error.message);
+    const rows = data ?? [];
+    return {
+      rows,
+      totals: {
+        paidCount: rows.filter((row: any) => row.status === "paid").length,
+        paidAmount: rows.filter((row: any) => row.status === "paid").reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0),
+        pendingCount: rows.filter((row: any) => row.status === "pending").length,
+        failedCount: rows.filter((row: any) => ["failed", "expired", "refunded", "partially_refunded"].includes(row.status)).length,
+      },
+    };
+  });
+
 export const adminGetStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
