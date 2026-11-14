@@ -54,9 +54,9 @@ export function CancelReasonModal({ role, onClose, onSubmit }: Props) {
               <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <div>
-              <div className="font-black text-base">سبب الإلغاء</div>
+              <div className="font-black text-base">{role === "customer" ? "إلغاء الرحلة أو الطلب" : "الاعتذار عن الطلب"}</div>
               <div className="text-[11px] text-muted-foreground">
-                اختر السبب لمساعدتنا على تحسين الخدمة
+                {role === "customer" ? "سيتم إيقاف الطلب وإبلاغ الطرف الآخر" : "سيتم فك ارتباطك بالطلب وإعادته للبحث عن مزوّد آخر"}
               </div>
             </div>
           </div>
@@ -113,7 +113,7 @@ export function CancelReasonModal({ role, onClose, onSubmit }: Props) {
             }}
             className="py-3.5 rounded-2xl bg-destructive text-destructive-foreground font-black active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "تأكيد الإلغاء"}
+            {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : role === "customer" ? "تأكيد إلغاء الطلب" : "تأكيد الاعتذار وإعادة البحث"}
           </button>
         </div>
       </div>
