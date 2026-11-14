@@ -19,6 +19,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as CouponsRouteImport } from './routes/coupons'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as SupportChatRouteImport } from './routes/support-chat'
 import { Route as PrivacyRouteImport } from './routes/privacy'
@@ -85,6 +86,11 @@ const HistoryRoute = HistoryRouteImport.update({
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CouponsRoute = CouponsRouteImport.update({
+  id: '/coupons',
+  path: '/coupons',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MessagesRoute = MessagesRouteImport.update({
@@ -184,6 +190,8 @@ export interface FileRoutesByFullPath {
   '/friends': typeof FriendsRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/coupons': typeof CouponsRoute
+  '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
   '/support-chat': typeof SupportChatRoute
   '/privacy': typeof PrivacyRoute
@@ -360,6 +368,7 @@ export interface RootRouteChildren {
   FriendsRoute: typeof FriendsRoute
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
+  CouponsRoute: typeof CouponsRoute
   MessagesRoute: typeof MessagesRoute
   SupportChatRoute: typeof SupportChatRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -595,6 +604,7 @@ const rootRouteChildren: RootRouteChildren = {
   FriendsRoute: FriendsRoute,
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
+  CouponsRoute: CouponsRoute,
   MessagesRoute: MessagesRoute,
   SupportChatRoute: SupportChatRoute,
   PrivacyRoute: PrivacyRoute,
