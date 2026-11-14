@@ -276,9 +276,13 @@ BEGIN
 
   UPDATE public.request_offers
   SET proposed_price = _price,
-      offer_message = NULLIF(left(trim(COALESCE(_message, '')), 500), '')
+      offer_message = NULLIF(left(trim(COALESCE(_message, '')), 500), ''),
+      status = 'pending',
+      sent_at = now(),
+      expires_at = now() + interval '24 hours',
+      responded_at = NULL
   WHERE request_id = _request_id AND provider_id = auth.uid()
-    AND status = 'pending' AND expires_at > now()
+    AND status IN ('pending', 'rejected') AND expires_at > now()
   RETURNING id INTO v_offer;
   IF v_offer IS NULL THEN RAISE EXCEPTION 'request_offer_expired'; END IF;
 
