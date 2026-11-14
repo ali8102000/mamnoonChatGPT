@@ -110,14 +110,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 28,
-    backgroundColor: "#f9fafb",
+    backgroundColor: palette.canvas,
   },
   title: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#1e293b",
+    color: palette.ink,
     textAlign: "center",
     lineHeight: 30,
   },
-  link: { color: "#2563eb", marginTop: 24, fontWeight: "700" },
+  link: { color: palette.brand, marginTop: 24, fontWeight: "700" },
 });
