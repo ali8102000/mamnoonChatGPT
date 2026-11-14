@@ -148,6 +148,7 @@ export default function RequestDetail() {
           .select("id, provider_id, proposed_price, offer_message, sent_at")
           .eq("request_id", id)
           .eq("status", "pending")
+          .gt("expires_at", new Date().toISOString())
           .not("proposed_price", "is", null)
           .order("sent_at", { ascending: false });
         const providerIds: string[] = [...new Set<string>((bids ?? []).map((bid: any) => String(bid.provider_id)))];
