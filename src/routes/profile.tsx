@@ -302,13 +302,13 @@ function ProfilePage() {
               <div className="col-span-2 border-t border-white/15 pt-3">
                 <button type="button" onClick={() => setShowRecentTransactions((v) => !v)} aria-expanded={showRecentTransactions} className="w-full flex items-center justify-between rounded-xl bg-white/15 px-3 py-3 text-xs font-black">
                   <span className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> آخر الحركات · آخر ٢٤ ساعة</span>
-                  <ChevronLeft className={\`h-4 w-4 transition-transform \${showRecentTransactions ? "-rotate-90" : ""}\`} />
+                  <ChevronLeft className={`h-4 w-4 transition-transform ${showRecentTransactions ? "-rotate-90" : ""}`} />
                 </button>
                 {showRecentTransactions && <ul className="mt-3 space-y-2">
                   {txs.length === 0 ? <li className="rounded-xl bg-white/10 p-3 text-center text-xs opacity-80">ماكو حركات مالية خلال آخر ٢٤ ساعة</li> : txs.map((t) => (
                     <li key={t.id} className="rounded-xl bg-white/10 p-3 flex items-center justify-between gap-3">
                       <div><div className="text-xs font-bold">{t.note ?? t.type}</div><div className="text-[10px] opacity-75">{new Date(t.created_at).toLocaleString("ar-IQ")}</div></div>
-                      <div className={\`text-sm font-black whitespace-nowrap \${Number(t.amount) >= 0 ? "text-emerald-200" : "text-red-200"}\`}>{Number(t.amount) >= 0 ? "+" : ""}{Number(t.amount).toLocaleString("ar-IQ")} د.ع</div>
+                      <div className={`text-sm font-black whitespace-nowrap ${Number(t.amount) >= 0 ? "text-emerald-200" : "text-red-200"}`}>{Number(t.amount) >= 0 ? "+" : ""}{Number(t.amount).toLocaleString("ar-IQ")} د.ع</div>
                     </li>
                   ))}
                 </ul>}
