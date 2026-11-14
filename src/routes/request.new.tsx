@@ -708,45 +708,46 @@ function NewRequest() {
                 </Button>
               </div>
             )}
-            <div className="space-y-2">
-              {vehicle === "large" && <div className="font-black text-sm text-foreground">طلب سيارة كبيرة</div>}
-              {(vehicle === "large" ? VEHICLE_CATS.filter((item) => item.key === "large") : VEHICLE_CATS).map((c) => {
-                const active = vehicleCategory === c.key;
-                const fare =
-                  routeKm !== null
-                    ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity })
-                    : null;
-                return (
-                  <button
-                    key={c.key}
-                    type="button"
-                    onClick={() => setVehicleCategory(c.key)}
-                    className={`w-full text-right p-3 rounded-2xl btn-press flex items-center gap-3 border ${
-                      active ? "ring-2 ring-primary border-primary" : "border-border/60"
-                    }`}
-                  >
-                    {c.img ? (
-                      <img
-                        src={c.img}
-                        alt={c.label}
-                        width={56}
-                        height={38}
-                        className="w-14 h-9 object-contain shrink-0"
-                      />
-                    ) : (
-                      <div className="text-3xl shrink-0">{c.emoji}</div>
-                    )}
-                    <div className="flex-1 font-black text-sm text-foreground">{c.label}</div>
-                    <div className="font-black text-base text-primary shrink-0">
-                      {fare !== null ? `${fare.toLocaleString()} د.ع` : "—"}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            {vehicle === "large" ? (
+              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3">
+                <div className="font-black text-sm text-foreground mb-1">طلب سيارة كبيرة</div>
+                <div className="text-xs text-muted-foreground mb-2">اختر نوع السيارة المناسبة</div>
+                <div className="font-black text-primary">{activeFare.toLocaleString()} د.ع تقريباً</div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {VEHICLE_CATS.filter((item) => item.key !== "large").map((c) => {
+                  const active = vehicleCategory === c.key;
+                  const fare =
+                    routeKm !== null
+                      ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity })
+                      : null;
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setVehicleCategory(c.key)}
+                      className={`w-full text-right p-3 rounded-2xl btn-press flex items-center gap-3 border ${
+                        active ? "ring-2 ring-primary border-primary" : "border-border/60"
+                      }`}
+                    >
+                      {c.img ? (
+                        <img src={c.img} alt={c.label} width={56} height={38} className="w-14 h-9 object-contain shrink-0" />
+                      ) : (
+                        <div className="text-3xl shrink-0">{c.emoji}</div>
+                      )}
+                      <div className="flex-1 font-black text-sm text-foreground">{c.label}</div>
+                      <div className="font-black text-base text-primary shrink-0">
+                        {fare !== null ? `${fare.toLocaleString()} د.ع` : "—"}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {vehicleCategory === "large" && (
               <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
-                <div className="font-black text-sm">اختر نوع السيارة الكبيرة</div>
+                <div className="font-black text-sm">اختر كيا حمل أو كيا ركاب</div>
                 <div className="grid grid-cols-2 gap-2">
                   {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
                     <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-xl border p-3 font-black ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
