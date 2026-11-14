@@ -484,6 +484,9 @@ BEGIN
      OR r.status NOT IN ('pending','searching') OR r.provider_id IS NOT NULL THEN
     RAISE EXCEPTION 'request_unavailable';
   END IF;
+  IF r.customer_id = auth.uid() THEN
+    RAISE EXCEPTION 'cannot_offer_on_own_request';
+  END IF;
 
   IF NOT EXISTS (
     SELECT 1 FROM public.driver_profiles dp
@@ -555,7 +558,8 @@ BEGIN
     RAISE EXCEPTION 'request_unavailable';
   END IF;
 
-  IF NOT public.has_role(o.provider_id, 'large_driver')
+  IF o.provider_id = auth.uid()
+     OR NOT public.has_role(o.provider_id, 'large_driver')
      OR EXISTS (
        SELECT 1 FROM public.user_blocks b
        WHERE b.user_id = o.provider_id
