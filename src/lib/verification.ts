@@ -169,6 +169,7 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
       vehiclePlate: doc.vehiclePlate ?? null,
       vehicleColor: doc.vehicleColor ?? null,
       vehicleCategory: doc.vehicleCategory ?? null,
+      vehicleType: doc.vehicleType ?? null,
       workerLevel: doc.workerLevel ?? null,
       workerBio: doc.workerBio ?? null,
       workerServices: doc.workerServices ?? [],
