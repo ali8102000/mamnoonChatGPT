@@ -149,3 +149,82 @@ $function$;
 SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname='mamnoon-expire-subscriptions';
 SELECT cron.schedule('mamnoon-expire-subscriptions','* * * * *',
                      'select public.handle_expired_subscriptions();');
+
+-- Prevent a late QiCard callback from replacing a company-managed grant.
+CREATE OR REPLACE FUNCTION public.finalize_qicard_subscription_payment(
+  p_merchant_request_id uuid,
+  p_gateway_payment_id text,
+  p_confirmed_amount integer,
+  p_currency text,
+  p_gateway_status text,
+  p_gateway_payload jsonb DEFAULT '{}'::jsonb
+)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_payment public.subscription_payments%ROWTYPE;
+  v_plan public.subscription_plans%ROWTYPE;
+  v_start timestamptz;
+  v_end timestamptz;
+BEGIN
+  IF coalesce(auth.role(),'') <> 'service_role' THEN RAISE EXCEPTION 'service_role_required'; END IF;
+  SELECT * INTO v_payment FROM public.subscription_payments
+  WHERE merchant_request_id=p_merchant_request_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'payment_not_found'; END IF;
+  IF v_payment.status='paid' THEN RETURN true; END IF;
+  IF v_payment.status <> 'pending' THEN RETURN false; END IF;
+  IF p_gateway_status NOT IN ('SUCCESS','FAILED','AUTHENTICATION_FAILED','CANCELLED') THEN
+    UPDATE public.subscription_payments
+    SET gateway_status=p_gateway_status,
+        gateway_payment_id=coalesce(gateway_payment_id,p_gateway_payment_id),
+        metadata=coalesce(metadata,'{}'::jsonb)||coalesce(p_gateway_payload,'{}'::jsonb)
+    WHERE id=v_payment.id;
+    RETURN false;
+  END IF;
+  IF p_gateway_status <> 'SUCCESS' THEN
+    UPDATE public.subscription_payments
+    SET status='failed',gateway_status=p_gateway_status,
+        gateway_payment_id=coalesce(gateway_payment_id,p_gateway_payment_id),
+        metadata=coalesce(metadata,'{}'::jsonb)||coalesce(p_gateway_payload,'{}'::jsonb)
+    WHERE id=v_payment.id;
+    RETURN false;
+  END IF;
+  IF v_payment.amount <> p_confirmed_amount OR v_payment.currency <> p_currency OR p_currency <> 'IQD' THEN
+    RAISE EXCEPTION 'payment_amount_or_currency_mismatch';
+  END IF;
+  IF v_payment.plan_id IS NULL THEN RAISE EXCEPTION 'payment_plan_missing'; END IF;
+  SELECT * INTO v_plan FROM public.subscription_plans WHERE id=v_payment.plan_id AND is_active;
+  IF NOT FOUND THEN RAISE EXCEPTION 'subscription_plan_unavailable'; END IF;
+  IF EXISTS(SELECT 1 FROM public.user_subscriptions WHERE user_id=v_payment.user_id AND grant_type='admin') THEN
+    RAISE EXCEPTION 'company_granted_subscription_managed_by_admin';
+  END IF;
+  SELECT CASE WHEN us.status='active' AND NOT us.is_trial AND us.current_period_end>now()
+              THEN us.current_period_end ELSE now() END
+  INTO v_start FROM public.user_subscriptions us WHERE us.user_id=v_payment.user_id;
+  IF v_start IS NULL THEN v_start:=now(); END IF;
+  v_end:=v_start+interval '1 month';
+  INSERT INTO public.user_subscriptions
+    (user_id,plan_id,status,billing_cycle,current_period_start,current_period_end,
+     request_count,resets_count_period_start,auto_renew,is_trial,trial_started_at,trial_ends_at,
+     granted_by,grant_type,cancel_at_period_end,cancelled_at,provider_types)
+  VALUES
+    (v_payment.user_id,v_payment.plan_id,'active','monthly',v_start,v_end,0,now(),false,
+     false,null,null,null,'paid',false,null,public.mamnoon_provider_kinds(v_payment.user_id))
+  ON CONFLICT (user_id) DO UPDATE SET
+    plan_id=excluded.plan_id,status='active',billing_cycle='monthly',
+    current_period_start=excluded.current_period_start,current_period_end=excluded.current_period_end,
+    request_count=0,resets_count_period_start=now(),auto_renew=false,
+    is_trial=false,trial_started_at=null,trial_ends_at=null,granted_by=null,
+    grant_type='paid',cancel_at_period_end=false,cancelled_at=null,
+    provider_types=excluded.provider_types,updated_at=now();
+  UPDATE public.subscription_payments
+  SET status='paid',gateway_status='SUCCESS',gateway_payment_id=p_gateway_payment_id,
+      paid_at=now(),period_start=v_start,period_end=v_end,
+      metadata=coalesce(metadata,'{}'::jsonb)||coalesce(p_gateway_payload,'{}'::jsonb)
+  WHERE id=v_payment.id;
+  INSERT INTO public.notifications(user_id,type,title,body,link)
+  VALUES(v_payment.user_id,'subscription_activated','تم تفعيل اشتراكك',
+         'تم تأكيد الدفع وتفعيل باقة '||v_plan.name_ar||' لمدة شهر','/subscriptions');
+  RETURN true;
+END;
+$function$;
