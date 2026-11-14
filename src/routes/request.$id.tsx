@@ -440,6 +440,7 @@ function RequestDetail() {
                   </button>
                 </div>
               </div>
+            ))}
             <button
               type="button"
               onClick={retryLargeOffers}
@@ -448,7 +449,6 @@ function RequestDetail() {
             >
               {retryingLargeOffers ? "جارٍ إعادة إرسال الطلب..." : "إعادة إرسال الطلب لأصحاب السيارات"}
             </button>
-            ))}
           </div>
         )}
 
