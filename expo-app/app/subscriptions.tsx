@@ -62,6 +62,18 @@ export default function SubscriptionsScreen() {
           <Text style={styles.payText}>{subscription?.status === "active" && subscription?.plan?.code === plan.code ? "باقتك الحالية" : "اشترك وادفع بالبطاقة"}</Text>
         </TouchableOpacity>
       </View>)}
+      {subscription?.status === "active" && subscription?.current_period_end && !subscription?.cancel_at_period_end && (
+        <TouchableOpacity style={styles.cancelButton} onPress={async () => {
+          try {
+            const { error } = await supabase.rpc("cancel_own_subscription_at_period_end");
+            if (error) throw error;
+            setSubscription((current: any) => current ? { ...current, cancel_at_period_end: true } : current);
+            Alert.alert("تم", "تم إيقاف التجديد، وتبقى المزايا حتى نهاية الفترة");
+          } catch (error: any) { Alert.alert("تعذر الإلغاء", error?.message || "حاول مرة ثانية"); }
+        }}>
+          <Text style={styles.cancelText}>إيقاف التجديد عند نهاية الفترة</Text>
+        </TouchableOpacity>
+      )}
       <Text style={styles.noteCenter}>تتم عملية الدفع داخل صفحة QiCard الآمنة. لا يخزن ممنون بيانات البطاقة، ولا يتفعّل الاشتراك إلا بعد تأكيد الدفع من الخادم.</Text>
     </>}
   </ScrollView>;
@@ -80,5 +92,7 @@ const styles = StyleSheet.create({
   note: { color: palette.muted, fontSize: 11 },
   payButton: { backgroundColor: palette.brand, borderRadius: radius.md, padding: 14, marginTop: 14, alignItems: "center" },
   payText: { color: palette.white, fontSize: 13, fontWeight: "900" },
+  cancelButton: { borderColor: "#dc2626", borderWidth: 1, borderRadius: radius.md, padding: 13, marginTop: 10, alignItems: "center" },
+  cancelText: { color: "#dc2626", fontSize: 12, fontWeight: "800" },
   noteCenter: { color: palette.muted, fontSize: 11, lineHeight: 20, textAlign: "center", marginTop: 12 },
 });
