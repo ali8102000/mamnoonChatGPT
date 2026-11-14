@@ -11,13 +11,13 @@
 - تم ربط واجهة الاشتراكات وواجهة تفاصيل الطلب في الويب وAndroid بوظيفة إنشاء الدفع، لكن الأزرار تبقى معطلة ما دام إعداد الدفع غير مفعّل.
 - واجهة اشتراكات الويب وتطبيق Expo يستدعيان `zaincash-create-payment`، ويُعاد توجيه المستخدم إلى رابط زين كاش الآمن عند تفعيل البوابة.
 - أضيف سجل مدفوعات الاشتراكات في لوحة الأدمن، ويحسب المقبوض فقط من `payment_transactions.status = 'paid'` ولا يحتسب المنح المجانية.
-- إعداد `subscription_settings.payment_gateway_enabled` يبقى `false` إلى أن يكتمل الربط والاختبار.
+- لا يحتاج المستخدم إلى تغيير `subscription_settings.payment_gateway_enabled`؛ تشغيل الدفع يعتمد على `ZAINCASH_ENABLED=true` مع اكتمال أسرار التاجر. يبقى `subscription_enabled` شرطاً مستقلاً.
 - طلبات الرحلات والخدمات تُنشأ حالياً دون بدء دفع إلكتروني. القيمة الافتراضية الحالية لطريقة الدفع في قاعدة البيانات هي `cash`.
 - جدول `driver_wallets` هو سجل أرباح السائق وعمولاته، وليس رصيداً نقدياً قابلاً للشحن أو محفظة دفع للزبون.
 - توجد دالة قاعدة بيانات قديمة باسم `finalize_qicard_subscription_payment`، وصلاحية تنفيذها محصورة بـ `service_role` و`postgres`. لا تستخدمها واجهة العميل. يجب استبدالها بمسار موحد خاص بزين كاش بعد مراجعة ترحيل قاعدة البيانات، لا حذفها عشوائياً.
 
 ## متطلبات الربط التي ستُستكمل بعد استلام بيانات التاجر
-- `ZAINCASH_ENABLED=false` يجب أن يبقى مغلقاً إلى حين اختبار UAT.
+- `ZAINCASH_ENABLED=false` يبقى مغلقاً إلى حين نجاح UAT؛ اجعله `true` كآخر خطوة فقط. الويب وAndroid يكتشفان جاهزية الأسرار تلقائياً عبر `zaincash-config-status`.
 - `MAMNOON_PUBLIC_URL=https://existing-project-onrampadminbootstrap.lovable.app` يحدد وجهة العودة إلى التطبيق.
 تُضاف القيم كـ Supabase Edge Function Secrets فقط، ولا تُحفظ في GitHub أو متغيرات الواجهة:
 - `ZAINCASH_CLIENT_ID`

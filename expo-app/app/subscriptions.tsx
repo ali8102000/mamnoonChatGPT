@@ -42,7 +42,8 @@ export default function SubscriptionsScreen() {
       if (subResult.error) throw subResult.error;
       setSubscription(subResult.data);
       setPlans((plansResult.data ?? []).filter((p:any) => !["free","trial"].includes(p.code) && Number(p.monthly_price)>0));
-      setGatewayEnabled(Boolean(settingsResult.data?.payment_gateway_enabled && settingsResult.data?.subscription_enabled));
+      const { data: gatewayStatus } = await supabase.functions.invoke("zaincash-config-status");
+      setGatewayEnabled(Boolean(gatewayStatus?.ready && settingsResult.data?.subscription_enabled));
       setRadiusKm(Number(workerResult.data?.service_radius_km ?? driverResult.data?.service_radius_km ?? 25));
     } catch (e:any) {
       Alert.alert("اشتراكات ممنون",e?.message || "تعذر تحميل الاشتراك");

@@ -53,7 +53,8 @@ function ProviderSubscriptionsPage() {
       setPlans((planRows ?? []) as Plan[]);
       setSubscription(sub);
       setProviderRadius(Number(workerProfile?.service_radius_km ?? driverProfile?.service_radius_km ?? 25));
-      setPaymentGatewayEnabled(Boolean((settings as any)?.payment_gateway_enabled));
+      const { data: gatewayStatus } = await supabase.functions.invoke("zaincash-config-status");
+      setPaymentGatewayEnabled(Boolean(gatewayStatus?.ready));
       setLoadingData(false);
     })();
     return () => { active = false; };
