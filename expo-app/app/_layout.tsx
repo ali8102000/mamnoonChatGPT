@@ -1,6 +1,6 @@
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { I18nManager, LogBox, Platform } from "react-native";
+import { I18nManager, LogBox, Platform, useColorScheme } from "react-native";
 import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
@@ -122,10 +122,11 @@ function PushNotificationSetup() {
 }
 
 export default function RootLayout() {
+  const colorScheme = useColorScheme();
   return (
     <AuthProvider>
       <PushNotificationSetup />
-      <StatusBar style="dark" backgroundColor={palette.canvas} />
+      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} backgroundColor={palette.canvas} />
       <Stack
         screenOptions={{
           headerShown: false,
