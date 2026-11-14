@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, UserRound, CarFront, Wrench, Mail, Phone, ShieldCheck } from "lucide-react";
+import { ArrowRight, UserRound, CarFront, Wrench, Mail, Phone, ShieldCheck, Truck } from "lucide-react";
 
 export const Route = createFileRoute("/account-settings")({ ssr: false, component: AccountSettingsPage });
 
@@ -85,6 +85,7 @@ function AccountSettingsPage() {
   const roleItems = [
     { role: "customer", title: "زبون", subtitle: "طلب الخدمات والتكسي", icon: UserRound, style: "bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-300" },
     { role: "driver", title: "سائق تكسي", subtitle: "استقبال طلبات التوصيل", icon: CarFront, style: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300" },
+    { role: "large_driver", title: "سائق سيارات كبيرة", subtitle: "كيا حمل أو كيا ركاب أو باص", icon: Truck, style: "bg-orange-500/10 border-orange-500/20 text-orange-700 dark:text-orange-300" },
     { role: "worker", title: "فني", subtitle: "تقديم الخدمات للعملاء", icon: Wrench, style: "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300" },
   ];
 
@@ -114,7 +115,8 @@ function AccountSettingsPage() {
               navigate({ to: "/home" });
               toast.success("تم التبديل إلى دور " + item.title);
             } else {
-              navigate({ to: item.role === "driver" ? "/onboarding/driver" : "/onboarding/worker" });
+              if (item.role === "large_driver") window.location.href = "/onboarding/driver?provider=large_driver";
+              else navigate({ to: item.role === "driver" ? "/onboarding/driver" : "/onboarding/worker" });
             }
           }} className={`relative min-h-[112px] rounded-3xl border p-4 text-right transition active:scale-[0.98] ${item.style} ${selected ? "ring-2 ring-primary shadow-md" : "opacity-90"}`}>
             {selected && <span className="absolute left-3 top-3 rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-[9px] font-bold">الحالي</span>}
