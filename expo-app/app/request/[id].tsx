@@ -638,6 +638,7 @@ export default function RequestDetail() {
                   </TouchableOpacity>
                 </View>
               </View>
+            ))}
             <TouchableOpacity
               style={[styles.largeOfferAccept, { backgroundColor: "#c2410c" }]}
               disabled={retryingLargeOffers}
@@ -645,7 +646,6 @@ export default function RequestDetail() {
             >
               <Text style={styles.largeOfferAcceptText}>{retryingLargeOffers ? "جارٍ إعادة الإرسال..." : "إعادة إرسال الطلب لأصحاب السيارات"}</Text>
             </TouchableOpacity>
-            ))}
           </View>
         )}
         {request.vehicle_category === "large" && !isCustomer && roles.includes("driver") && ["pending", "searching"].includes(request.status) && (
