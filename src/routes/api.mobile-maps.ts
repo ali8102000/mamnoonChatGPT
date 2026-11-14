@@ -250,6 +250,12 @@ async function handleRequest(request: Request) {
     ? getGovernorate(data.destinationGovernorateKey)
     : governorateOf(data.to);
   if (!fromGovernorate || !toGovernorate) return json({ error: "تعذّر تحديد المحافظتين." }, 400);
+  if (
+    !isInGovernorate(data.from, fromGovernorate.key) ||
+    !isInGovernorate(data.to, toGovernorate.key)
+  ) {
+    return json({ error: "إحدى نقطتي الرحلة لا تقع داخل المحافظة المختارة. حدّد الموقع من جديد." }, 400);
+  }
 
   const { data: created, error: createError } = await supabaseAdmin
     .from("service_requests")
