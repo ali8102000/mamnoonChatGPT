@@ -1082,7 +1082,8 @@ function NewRequest() {
         nearby={nearby}
         nearbyKind="worker"
         autoLocateOnMount
-        placeholder="ابحث عن عنوان المنزل أو المحل..."
+        governorateKey={gov?.key}
+        placeholder={`ابحث عن عنوان المنزل أو المحل في ${gov?.name ?? "المحافظة المختارة"}...`}
         confirmLabel="تأكيد موقع الخدمة"
         onConfirm={() => toast.success("تم تثبيت موقع الخدمة ✓")}
         onChange={(c, addr) => {
