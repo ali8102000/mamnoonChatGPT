@@ -218,6 +218,7 @@ export default function DriverOnboarding() {
           vehiclePlate: plate.trim(),
           vehicleColor: color.trim() || null,
           vehicleCategory: category,
+          vehicleType: category === "large" ? vehicleType : null,
         },
         status: "pending",
         rejection_reason: null,
