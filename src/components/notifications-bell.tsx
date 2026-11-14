@@ -67,7 +67,7 @@ export function NotificationsBell() {
   }
 
   async function openNotifications() { setOpen(true); if (unread > 0) await markAll(); }
-  function isCompanyNotification(n: Notif) { return /company|admin|provider_approved|provider_suspended|coupon|promotion|announcement/i.test(n.type); }
+  function isCompanyNotification(n: Notif) { return /company|admin|provider_approved|provider_rejected|provider_suspended|support_message|coupon_received|coupon_redeemed|promotion|announcement/i.test(n.type); }
 
   if (!uid) return null;
 
