@@ -102,6 +102,7 @@ export function useLiveTracking(opts: {
     if (!active || !requestId || !otherUserId) return;
     const chName = `live-${requestId}-${Math.random().toString(36).slice(2, 8)}`;
     channelRef.current = chName;
+    let stillCurrent = true;
     const ch = supabase
       .channel(chName)
       .on(
@@ -114,7 +115,7 @@ export function useLiveTracking(opts: {
         },
         (payload: any) => {
           const row = payload.new;
-          if (row && row.user_id === otherUserId) {
+          if (stillCurrent && row && row.user_id === otherUserId) {
             setOther({ lat: row.lat, lng: row.lng, heading: row.heading, updatedAt: row.updated_at });
           }
         },
@@ -130,10 +131,11 @@ export function useLiveTracking(opts: {
       .eq("user_id", otherUserId)
       .maybeSingle()
       .then(({ data }: any) => {
-        if (data) setOther({ lat: data.lat, lng: data.lng, heading: data.heading, updatedAt: data.updated_at });
+        if (stillCurrent && data) setOther({ lat: data.lat, lng: data.lng, heading: data.heading, updatedAt: data.updated_at });
       });
 
     return () => {
+      stillCurrent = false;
       supabase.removeChannel(ch);
     };
   }, [active, requestId, otherUserId]);
