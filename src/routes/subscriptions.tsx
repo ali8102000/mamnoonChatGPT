@@ -80,7 +80,7 @@ function ProviderSubscriptionsPage() {
         {loadingData ? <Loader2 className="h-7 w-7 animate-spin mx-auto mt-16" /> : <>
           {subscription && <div className="glass rounded-2xl p-4 mb-4">
             <div className="flex items-center gap-2 font-black"><ShieldCheck className="h-5 w-5 text-primary" /> اشتراكك الحالي</div>
-            <div className="mt-2 text-sm">{subscription.plan?.name_ar ?? "بدون باقة"} · {subscription.is_trial ? "تجربة مجانية" : subscription.status === "active" ? "نشط" : "منتهي"}</div>
+            <div className="mt-2 text-sm">{subscription.plan?.name_ar ?? "بدون باقة"} · {subscription.is_trial ? "تجربة مجانية" : subscription.status === "active" ? "نشط" : subscription.status === "paused" ? "موقوف مؤقتاً" : "منتهي"}</div>
             {subscription.trial_ends_at && <div className="text-xs text-muted-foreground mt-1">نهاية التجربة: {new Date(subscription.trial_ends_at).toLocaleDateString("ar-IQ")}</div>}
             {subscription.current_period_end && !subscription.is_trial && <div className="text-xs text-muted-foreground mt-1">ينتهي: {new Date(subscription.current_period_end).toLocaleDateString("ar-IQ")}</div>}
             {subscription.cancel_at_period_end && <div className="text-xs text-amber-600 mt-1">تم إيقاف التجديد، وتبقى المزايا حتى نهاية الفترة</div>}
@@ -107,18 +107,59 @@ function ProviderSubscriptionsPage() {
             })}
           </div>
           {selectedPlan && <div className="glass rounded-2xl p-4 mt-4"><p className="text-sm font-black">تم اختيار باقة {plans.find(p => p.code === selectedPlan)?.name_ar}</p><p className="text-xs text-muted-foreground mt-2">الدفع الإلكتروني غير متاح حالياً إلى حين إكمال ربط واختبار QiCard. اختيارك لا يخصم أي مبلغ ولا يغير اشتراكك.</p><button disabled className="w-full mt-3 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black opacity-60"><CreditCard className="inline h-4 w-4 ml-2" /> الدفع قيد الربط</button></div>}
-          {subscription?.status === "active" && subscription?.current_period_end && !subscription?.cancel_at_period_end && (
-            <button type="button" onClick={async () => {
-              try {
-                const { data, error } = await supabase.rpc("cancel_own_subscription_at_period_end");
-                if (error) throw error;
-                if (!data) throw new Error("ماكو اشتراك فعال قابل لإيقاف تجديده");
-                setSubscription((current: any) => current ? { ...current, cancel_at_period_end: true, auto_renew: false } : current);
-                toast.success("تم إيقاف التجديد، وتبقى المزايا حتى نهاية الفترة");
-              } catch (error: any) { toast.error(error.message || "تعذر إيقاف التجديد"); }
-            }} className="w-full mt-3 rounded-xl border border-destructive/40 text-destructive py-3 text-xs font-bold">
-              إيقاف التجديد عند نهاية الفترة
-            </button>
+          {subscription && ["active", "paused"].includes(subscription.status) && (
+            <div className="glass rounded-2xl p-4 mt-3 space-y-3">
+              <div className="text-sm font-black">إدارة اشتراكك</div>
+              {subscription.status === "active" ? (
+                <button type="button" disabled={!!busy} onClick={async () => {
+                  setBusy("pause");
+                  try {
+                    const { data, error } = await supabase.rpc("pause_own_subscription");
+                    if (error) throw error;
+                    if (!data) throw new Error("ما قدرنا نوقف الاشتراك");
+                    setSubscription((current: any) => current ? { ...current, status: "paused" } : current);
+                    toast.success("تم إيقاف اشتراكك مؤقتاً ولن تصلك طلبات جديدة");
+                  } catch (error: any) { toast.error(error.message || "تعذر إيقاف الاشتراك"); }
+                  finally { setBusy(null); }
+                }} className="w-full rounded-xl border border-amber-500/40 text-amber-700 py-3 text-xs font-bold disabled:opacity-50">
+                  {busy === "pause" ? "جارٍ الإيقاف..." : "إيقاف الاشتراك مؤقتاً"}
+                </button>
+              ) : (
+                <button type="button" disabled={!!busy} onClick={async () => {
+                  setBusy("resume");
+                  try {
+                    const { data, error } = await supabase.rpc("resume_own_subscription");
+                    if (error) throw error;
+                    if (!data) throw new Error("ماكو اشتراك قابل للتفعيل");
+                    setSubscription((current: any) => current ? { ...current, status: "active" } : current);
+                    toast.success("تم تفعيل اشتراكك من جديد");
+                  } catch (error: any) {
+                    toast.error(error.message === "subscription_period_expired" ? "انتهت مدة الاشتراك، جدّد حتى تفعّله" : error.message || "تعذر تفعيل الاشتراك");
+                  } finally { setBusy(null); }
+                }} className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-xs font-bold disabled:opacity-50">
+                  {busy === "resume" ? "جارٍ التفعيل..." : "تفعيل الاشتراك من جديد"}
+                </button>
+              )}
+              {subscription.current_period_end && (
+                <>
+                  <button type="button" disabled={!!busy} onClick={async () => {
+                    setBusy("renewal");
+                    try {
+                      const rpc = subscription.cancel_at_period_end ? "restore_own_subscription_continuation" : "cancel_own_subscription_at_period_end";
+                      const { data, error } = await supabase.rpc(rpc);
+                      if (error) throw error;
+                      if (!data) throw new Error("تعذر تحديث إعداد نهاية الاشتراك");
+                      setSubscription((current: any) => current ? { ...current, cancel_at_period_end: !current.cancel_at_period_end, auto_renew: false } : current);
+                      toast.success(subscription.cancel_at_period_end ? "تم التراجع عن طلب إيقاف الاشتراك عند نهاية الفترة" : "تم تحديد إيقاف الاشتراك عند نهاية الفترة");
+                    } catch (error: any) { toast.error(error.message || "تعذر تحديث إعداد التجديد"); }
+                    finally { setBusy(null); }
+                  }} className={`w-full rounded-xl border py-3 text-xs font-bold disabled:opacity-50 ${subscription.cancel_at_period_end ? "border-emerald-500/40 text-emerald-700" : "border-destructive/40 text-destructive"}`}>
+                    {busy === "renewal" ? "جارٍ التحديث..." : subscription.cancel_at_period_end ? "التراجع عن إيقاف الاشتراك عند نهاية الفترة" : "إيقاف الاشتراك عند نهاية الفترة"}
+                  </button>
+                  <p className="text-[10px] leading-5 text-muted-foreground">تقدر تغيّر هذا القرار بأي وقت قبل انتهاء الفترة. التجديد بالدفع التلقائي الفعلي غير مفعّل حالياً إلى حين اكتمال ربط الدفع الدوري.</p>
+                </>
+              )}
+            </div>
           )}
           <p className="text-[11px] text-muted-foreground text-center mt-5 leading-6">عند تفعيل حساب التاجر وربط مفاتيح QiCard سيُتاح الدفع الآمن. لا يخزن ممنون رقم البطاقة أو رمز الأمان، ولا يُفعّل الاشتراك إلا بعد تأكيد البوابة من الخادم.</p>
         </>}
