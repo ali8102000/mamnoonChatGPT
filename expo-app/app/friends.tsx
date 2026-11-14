@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   requestPhone: { fontSize: 11, color: palette.muted, marginTop: 3 },
   acceptBtn: { backgroundColor: palette.success, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 9 },
   acceptBtnText: { color: palette.white, fontWeight: "900", fontSize: 12 },
-  rejectBtn: { backgroundColor: "#F8E9E7", borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 9 },
+  rejectBtn: { backgroundColor: palette.dangerSoft, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 9 },
   rejectBtnText: { color: palette.danger, fontWeight: "900", fontSize: 12 },
   searchResultCard: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.lg, padding: 14, marginBottom: 8, gap: 10, borderWidth: 1, borderColor: palette.line },
   addBtn: { backgroundColor: palette.brandSoft, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 9 },
