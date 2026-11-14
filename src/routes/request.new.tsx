@@ -136,7 +136,7 @@ function NewRequest() {
 
   // Taxi State
   const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
   const [weatherCondition, setWeatherCondition] = useState<WeatherCondition>(() =>
     seasonalWeatherFallback(),
   );
@@ -638,9 +638,9 @@ function NewRequest() {
                 <div className="space-y-2">
                   <div className="font-black text-sm text-foreground">اختر نوع الكيا</div>
                   <div className="grid grid-cols-2 gap-2">
-                    {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }] as const).map((item) => (
+                    {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }, { key: "bus", label: "باص" }] as const).map((item) => (
                       <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-2xl border p-2.5 font-black flex flex-col items-center gap-1 ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
-                        <img src={item.image} alt={item.label} className="w-full h-16 object-contain" />
+                        {"image" in item ? <img src={item.image} alt={item.label} className="w-full h-16 object-contain" /> : <span className="text-4xl">🚌</span>}
                         <span>{item.label}</span>
                       </button>
                     ))}
