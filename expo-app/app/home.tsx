@@ -6,6 +6,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   RefreshControl,
   Alert,
@@ -14,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import * as Location from "expo-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
+import { palette, radius, space } from "@/styles/theme";
 
 type IncomingRequest = {
   id: string;
@@ -26,7 +28,7 @@ type IncomingRequest = {
 
 export default function HomeScreen() {
   const { user, profile, roles } = useAuth();
-  const [activeRole, setActiveRole] = useState<string>(roles[0] || "customer");
+  const [activeRole, setActiveRole] = useState<string>(roles.includes("customer") ? "customer" : roles[0] || "customer");
   const [companyName, setCompanyName] = useState("شركة ممنون");
 
   useEffect(() => {
@@ -49,6 +51,14 @@ export default function HomeScreen() {
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const isWorker = activeRole === "worker" || activeRole === "driver" || activeRole === "large_driver";
+  const switchableRoles = ["customer", "driver", "large_driver", "worker"].filter((role) => roles.includes(role as (typeof roles)[number]));
+  const roleNames: Record<string, string> = { customer: "زبون", driver: "كابتن", large_driver: "سيارات كبيرة", worker: "فني" };
+
+  async function changeActiveRole(role: string) {
+    if (!switchableRoles.includes(role) || role === activeRole) return;
+    setActiveRole(role);
+    await SecureStore.setItemAsync("mamnoon_active_role", role);
+  }
 
   const loadIncoming = useCallback(async () => {
     if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
@@ -241,25 +251,34 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>أهلاً {profile?.full_name || ""}</Text>
-          <Text style={styles.roleText}>
-            دورك: {activeRole === "customer" ? "زبون" : activeRole === "large_driver" ? "سائق سيارات كبيرة" : activeRole === "driver" ? "كابتن تكسي" : "فني"}
-          </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerEyebrow}>MAMNOON · ممنون</Text>
+          <Text style={styles.greeting}>هلا {profile?.full_name?.split(" ")[0] || "بيك"}</Text>
+          <Text style={styles.roleText}>مساحة العمل الخاصة بك</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push("/profile")}>
+        <TouchableOpacity onPress={() => router.push("/profile")} accessibilityRole="button" accessibilityLabel="الملف الشخصي">
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
           </View>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        onPress={() => router.push("/account-settings")}
-        style={styles.roleSwitchButton}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.roleSwitchButtonText}>⇄  تبديل الدور</Text>
-      </TouchableOpacity>
+      {switchableRoles.length > 1 && (
+        <View style={styles.roleSwitcherWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roleSwitcher}>
+            {switchableRoles.map((role) => (
+              <Pressable
+                key={role}
+                accessibilityRole="button"
+                accessibilityState={{ selected: activeRole === role }}
+                onPress={() => changeActiveRole(role)}
+                style={({ pressed }) => [styles.roleChip, activeRole === role && styles.roleChipActive, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={[styles.roleChipText, activeRole === role && styles.roleChipTextActive]}>{roleNames[role]}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
       <ActiveCustomerRequestBanner />
       <ScrollView
         style={{ flex: 1 }}
@@ -280,11 +299,11 @@ export default function HomeScreen() {
         )}
       </ScrollView>
       <View style={styles.bottomTabs}>
-        <TabBtn label="الرئيسية" icon="🏠" active onPress={() => {}} />
-        <TabBtn label="الرسائل" icon="💬" onPress={() => router.push("/messages")} />
-        {isWorker && <TabBtn label="الأصدقاء" icon="👥" onPress={() => router.push("/friends")} />}
-        <TabBtn label="السجل" icon="📋" onPress={() => router.push("/history")} />
-        <TabBtn label="حسابي" icon="👤" onPress={() => router.push("/profile")} />
+        <TabBtn label="الرئيسية" icon="⌂" active onPress={() => {}} />
+        <TabBtn label="الرسائل" icon="◌" onPress={() => router.push("/messages")} />
+        {isWorker && <TabBtn label="الأصدقاء" icon="◎" onPress={() => router.push("/friends")} />}
+        <TabBtn label="السجل" icon="▤" onPress={() => router.push("/history")} />
+        <TabBtn label="حسابي" icon="●" onPress={() => router.push("/profile")} />
       </View>
     </View>
   );
@@ -313,17 +332,18 @@ function CustomerHome() {
   ];
   return (
     <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
-      <Text style={styles.sectionTitle}>ماذا تحتاج؟</Text>
+      <Text style={styles.sectionTitle}>شنو تحتاج اليوم؟</Text>
+      <Text style={styles.sectionSubTitle}>اختَر الخدمة ونرتّب لك الباقي</Text>
       <View style={styles.tilesGrid}>
         {tiles.map((t) => (
           <TouchableOpacity
             key={t.key}
-            style={[styles.tile, { backgroundColor: t.color + "15" }]}
+            style={styles.tile}
             onPress={() => router.push({ pathname: "/request/new", params: t.key === "large_vehicle" ? { type: "taxi", vehicle: "large" } : { type: t.key } })}
             activeOpacity={0.85}
           >
-            <Text style={styles.tileEmoji}>{t.emoji}</Text>
-            <Text style={[styles.tileLabel, { color: t.color }]}>{t.label}</Text>
+            <View style={[styles.tileIconWrap, { backgroundColor: t.color + "16" }]}><Text style={[styles.tileEmoji, { color: t.color }]}>{t.emoji}</Text></View>
+            <Text style={styles.tileLabel}>{t.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -377,6 +397,7 @@ function ProviderHome({
         <View style={[styles.availDot, available && styles.availDotActive]} />
       </TouchableOpacity>
       <Text style={styles.sectionTitle}>الطلبات الواردة</Text>
+      <Text style={styles.sectionSubTitle}>العروض الجديدة تظهر هنا أول ما توصلك</Text>
       {incoming.length === 0 ? (
         <View style={styles.emptyBox}>
           <Text style={styles.emptyText}>لا توجد طلبات حالياً</Text>
@@ -419,7 +440,7 @@ function TabBtn({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity style={styles.tabBtn} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} style={styles.tabBtn} onPress={onPress} activeOpacity={0.7}>
       <Text style={[styles.tabIcon, active && styles.tabIconActive]}>{icon}</Text>
       <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
     </TouchableOpacity>
@@ -427,88 +448,44 @@ function TabBtn({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 12,
-  },
-  greeting: { fontSize: 22, fontWeight: "800", color: "#1e293b" },
-  roleSwitchButton: { alignSelf: "flex-start", marginHorizontal: 20, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, backgroundColor: "#e0f2fe" },
-  roleSwitchButtonText: { color: "#0369a1", fontSize: 12, fontWeight: "900" },
-  roleText: { fontSize: 13, color: "#64748b", marginTop: 2 },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#2563eb",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { fontSize: 18, fontWeight: "800", color: "#fff" },
-  sectionTitle: { fontSize: 18, fontWeight: "800", color: "#1e293b", marginBottom: 16 },
-  tilesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  tile: {
-    width: "47%",
-    aspectRatio: 1,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tileEmoji: { fontSize: 40, marginBottom: 8 },
-  tileLabel: { fontSize: 16, fontWeight: "700" },
-  availCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  availCardActive: { backgroundColor: "#16a34a" },
-  availTitle: { fontSize: 18, fontWeight: "800", color: "#1e293b" },
-  availDesc: { fontSize: 13, color: "#64748b", marginTop: 2 },
-  availDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#cbd5e1" },
-  availDotActive: { backgroundColor: "#fff" },
-  emptyBox: { alignItems: "center", paddingVertical: 40 },
-  emptyText: { fontSize: 16, fontWeight: "700", color: "#94a3b8" },
-  emptySubtext: { fontSize: 13, color: "#cbd5e1", marginTop: 4 },
-  requestCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  requestCustomer: { fontSize: 16, fontWeight: "700", color: "#1e293b" },
-  requestType: { fontSize: 14, color: "#64748b", marginTop: 2 },
-  requestPrice: { fontSize: 14, fontWeight: "700", color: "#2563eb", marginTop: 4 },
-  requestArrow: { fontSize: 20, color: "#94a3b8" },
-  bottomTabs: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    paddingVertical: 8,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(30,41,59,0.06)",
-  },
+  container: { flex: 1, backgroundColor: palette.canvas },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14 },
+  headerEyebrow: { color: palette.gold, fontSize: 9, fontWeight: "900", letterSpacing: 1.5, marginBottom: 5 },
+  greeting: { fontSize: 25, fontWeight: "900", color: palette.ink },
+  roleText: { fontSize: 12, color: palette.muted, marginTop: 3, fontWeight: "600" },
+  avatar: { width: 48, height: 48, borderRadius: 17, backgroundColor: palette.brand, borderWidth: 1, borderColor: palette.gold, alignItems: "center", justifyContent: "center" },
+  avatarText: { fontSize: 19, fontWeight: "900", color: palette.white },
+  roleSwitcherWrap: { paddingBottom: 12 },
+  roleSwitcher: { paddingHorizontal: space.xl, gap: 8, flexDirection: "row" },
+  roleChip: { paddingHorizontal: 17, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  roleChipActive: { backgroundColor: palette.brand, borderColor: palette.brand },
+  roleChipText: { color: palette.muted, fontSize: 12, fontWeight: "800" },
+  roleChipTextActive: { color: palette.white },
+  sectionTitle: { fontSize: 19, fontWeight: "900", color: palette.ink, marginBottom: 4 },
+  sectionSubTitle: { fontSize: 12, color: palette.muted, marginBottom: 16, lineHeight: 19 },
+  tilesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  tile: { width: "48%", minHeight: 126, borderRadius: radius.lg, alignItems: "flex-start", justifyContent: "center", padding: 15, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  tileIconWrap: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  tileEmoji: { fontSize: 24, fontWeight: "700" },
+  tileLabel: { fontSize: 13, fontWeight: "900", color: palette.ink },
+  availCard: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.xl, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: palette.line },
+  availCardActive: { backgroundColor: palette.brand, borderColor: palette.brand },
+  availTitle: { fontSize: 18, fontWeight: "900", color: palette.ink },
+  availDesc: { fontSize: 12, color: palette.muted, marginTop: 5, lineHeight: 19 },
+  availDot: { width: 13, height: 13, borderRadius: 7, backgroundColor: "#C9D1CA" },
+  availDotActive: { backgroundColor: palette.gold },
+  emptyBox: { alignItems: "center", paddingVertical: 36, backgroundColor: palette.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: palette.line },
+  emptyText: { fontSize: 15, fontWeight: "800", color: palette.ink },
+  emptySubtext: { fontSize: 12, color: palette.muted, marginTop: 6 },
+  requestCard: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.lg, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: palette.line },
+  requestCustomer: { fontSize: 15, fontWeight: "900", color: palette.ink },
+  requestType: { fontSize: 12, color: palette.muted, marginTop: 5 },
+  requestPrice: { fontSize: 14, fontWeight: "900", color: palette.brand, marginTop: 7 },
+  requestArrow: { fontSize: 23, color: palette.gold },
+  bottomTabs: { flexDirection: "row", backgroundColor: palette.surface, paddingTop: 10, paddingBottom: 24, borderTopWidth: 1, borderTopColor: palette.line },
   tabBtn: { flex: 1, alignItems: "center", paddingVertical: 4 },
-  tabIcon: { fontSize: 22 },
-  tabIconActive: {},
-  tabLabel: { fontSize: 10, color: "#94a3b8", marginTop: 2, fontWeight: "600" },
-  tabLabelActive: { color: "#2563eb" },
+  tabIcon: { fontSize: 22, color: palette.muted, fontWeight: "700" },
+  tabIconActive: { color: palette.brand },
+  tabLabel: { fontSize: 10, color: palette.muted, marginTop: 4, fontWeight: "700" },
+  tabLabelActive: { color: palette.brand, fontWeight: "900" },
 });
