@@ -38,17 +38,23 @@ if (supabaseHost.split(".")[0] !== expectedSupabaseProjectRef) {
 }
 
 const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.trim();
-const authSettingsResponse = await fetch(`https://${supabaseHost}/auth/v1/settings`, {
-  headers: { apikey: publishableKey },
-});
-if (!authSettingsResponse.ok) {
-  const responseText = await authSettingsResponse.text();
-  console.error(
-    `Supabase rejected the Production publishable key (HTTP ${authSettingsResponse.status}). Update EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY in EAS Production; response: ${responseText.slice(0, 240)}`,
-  );
-  process.exit(1);
+if (process.env.MAMNOON_CI_CONFIG_ONLY === "true") {
+  // CI uses a deliberately fake placeholder: validate the shape/project wiring
+  // without sending that placeholder to the live Supabase Auth endpoint.
+  console.log("CI configuration-only mode: skipped live Supabase key verification.");
+} else {
+  const authSettingsResponse = await fetch(`https://${supabaseHost}/auth/v1/settings`, {
+    headers: { apikey: publishableKey },
+  });
+  if (!authSettingsResponse.ok) {
+    const responseText = await authSettingsResponse.text();
+    console.error(
+      `Supabase rejected the Production publishable key (HTTP ${authSettingsResponse.status}). Update EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY in EAS Production; response: ${responseText.slice(0, 240)}`,
+    );
+    process.exit(1);
+  }
+  console.log("Supabase Production publishable key accepted by the project.");
 }
-console.log("Supabase Production publishable key accepted by the project.");
 
 if (process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
   console.error("لا يجوز وضع Supabase secret key داخل تطبيق الهاتف؛ استخدم Publishable key.");
