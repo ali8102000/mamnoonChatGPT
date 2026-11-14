@@ -8,7 +8,7 @@ const SEND_EVERY_MS = 30_000;
 export function ProviderPresence() {
   const { session, roles } = useAuth();
   const uid = session?.user.id;
-  const isDriver = roles.includes("driver");
+  const isDriver = roles.includes("driver") || roles.includes("large_driver");
   const isWorker = roles.includes("worker");
   const isProvider = isDriver || isWorker;
 
