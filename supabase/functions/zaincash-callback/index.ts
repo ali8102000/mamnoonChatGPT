@@ -21,7 +21,7 @@ async function getToken(base:string,id:string,secret:string){
 }
 Deno.serve(async(req:Request)=>{
  if(req.method!=="GET") return new Response("Method not allowed",{status:405});
- const fallback=Deno.env.get("MAMNOON_PAYMENT_RETURN_URL")||"https://existing-project-onrampadminbootstrap.lovable.app/subscriptions";
+ const fallback=Deno.env.get("MAMNOON_PUBLIC_URL")||"https://existing-project-onrampadminbootstrap.lovable.app";
  try{
   const u=new URL(req.url); const signedToken=u.searchParams.get("token"); let finalStatus="pending";
   if(!signedToken) throw new Error("missing_token");
@@ -33,7 +33,7 @@ Deno.serve(async(req:Request)=>{
   const data=claims.data||{}; const transactionId=data.transactionId; const reference=data.merchantReferenceId;
   if(typeof transactionId!=="string"||typeof reference!=="string") throw new Error("invalid_callback_claims");
   const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
-  const {data:payment,error}=await admin.from("payment_transactions").select("id,amount,currency,external_reference_id,status,gateway_transaction_id").eq("external_reference_id",reference).maybeSingle();
+  const {data:payment,error}=await admin.from("payment_transactions").select("id,amount,currency,external_reference_id,status,gateway_transaction_id,metadata").eq("external_reference_id",reference).maybeSingle();
   if(error||!payment) throw new Error("payment_not_found");
   if(payment.status==="paid") finalStatus="success";
   if(payment.status!=="paid"){
@@ -55,10 +55,14 @@ Deno.serve(async(req:Request)=>{
     await admin.from("payment_transactions").update({gateway_status:inquiry.status,gateway_transaction_id:transactionId,updated_at:new Date().toISOString()}).eq("id",payment.id);
    }
   }
-  const finalUrl=new URL(fallback); finalUrl.searchParams.set("payment",finalStatus); finalUrl.searchParams.set("ref",reference);
+  const requestedReturn=(payment.metadata as any)?.returnUrl;
+  const safeReturn=new URL(fallback);
+  const candidate=requestedReturn ? new URL(requestedReturn) : new URL("/subscriptions",fallback);
+  if(candidate.origin!==safeReturn.origin) throw new Error("invalid_return_origin");
+  const finalUrl=candidate; finalUrl.searchParams.set("payment",finalStatus); finalUrl.searchParams.set("ref",reference);
   return Response.redirect(finalUrl.toString(),303);
  }catch(_error){
-  const finalUrl=new URL(fallback); finalUrl.searchParams.set("payment","pending");
+  const finalUrl=new URL("/subscriptions",fallback); finalUrl.searchParams.set("payment","pending");
   return Response.redirect(finalUrl.toString(),303);
  }
 });
