@@ -21,6 +21,8 @@ const requestSchema = z.discriminatedUnion("action", [
     placeId: z.string().regex(/^[A-Za-z0-9_-]+$/).max(300),
   }),
   z.object({ action: z.literal("reverse"), center: coords }),
+  z.object({ action: z.literal("validateGovernorate"), center: coords, governorateKey: z.string().min(2).max(40) }),
+  z.object({ action: z.literal("detectGovernorate"), center: coords }),
   z.object({ action: z.literal("route"), from: coords, to: coords }),
   z.object({
     action: z.literal("createTaxiRequest"),
@@ -194,6 +196,17 @@ async function handleRequest(request: Request) {
       coords: { lat: result.location.latitude, lng: result.location.longitude },
       address: result.formattedAddress || result.displayName?.text || "",
     });
+  }
+
+  if (data.action === "validateGovernorate") {
+    const governorate = getGovernorate(data.governorateKey);
+    if (!governorate) return json({ error: "المحافظة المختارة غير صحيحة." }, 400);
+    return json({ valid: isInGovernorate(data.center, governorate.key) });
+  }
+
+  if (data.action === "detectGovernorate") {
+    const governorate = governorateOf(data.center);
+    return json({ key: governorate.key, name: governorate.name });
   }
 
   if (data.action === "reverse") {
