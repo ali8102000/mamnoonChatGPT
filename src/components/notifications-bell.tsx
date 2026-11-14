@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast";
 
-const IMPORTANT_NOTIFICATION_TYPES = /^(support_message|provider_approved|provider_rejected|provider_suspended|coupon_received|coupon_redeemed|announcement|company_announcement|admin_alert|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted)$/i;
+const IMPORTANT_NOTIFICATION_TYPES = /^(support_message|provider_approved|provider_rejected|provider_suspended|coupon_received|coupon_redeemed|announcement|company_announcement|admin_alert|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted|subscription_admin_updated|subscription_extended)$/i;
 
 function isImportantNotificationType(type: string) {
   return IMPORTANT_NOTIFICATION_TYPES.test(type);
@@ -82,7 +82,7 @@ export function NotificationsBell() {
   }
 
   async function openNotifications() { setOpen(true); if (unread > 0) await markAll(); }
-  function isCompanyNotification(n: Notif) { return /company|admin|provider_approved|provider_rejected|provider_suspended|announcement|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted/i.test(n.type); }
+  function isCompanyNotification(n: Notif) { return /company|admin|provider_approved|provider_rejected|provider_suspended|announcement|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted|subscription_admin_updated|subscription_extended/i.test(n.type); }
 
   if (!uid) return null;
 
