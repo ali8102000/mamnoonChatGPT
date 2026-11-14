@@ -16,6 +16,7 @@ const CATEGORIES = [
   { key: "economy", label: "اقتصادي" },
   { key: "premium", label: "متميز" },
   { key: "luxury", label: "فاخر" },
+  { key: "large", label: "سيارة كبيرة" },
 ] as const;
 
 export default function DriverOnboarding() {
@@ -24,7 +25,8 @@ export default function DriverOnboarding() {
   const [models, setModels] = useState<VehicleModel[]>([]);
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
-  const [category, setCategory] = useState<"economy" | "premium" | "luxury">("economy");
+  const [category, setCategory] = useState<"economy" | "premium" | "luxury" | "large">("economy");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
   const [year, setYear] = useState("");
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("");
@@ -60,7 +62,7 @@ export default function DriverOnboarding() {
           .select("status,rejection_reason,metadata")
           .eq("user_id", user.id).eq("provider_type", "driver").maybeSingle(),
         supabase.from("driver_profiles")
-          .select("status,vehicle_make,vehicle_model,vehicle_year,vehicle_plate,vehicle_color,vehicle_category")
+          .select("status,vehicle_make,vehicle_model,vehicle_year,vehicle_plate,vehicle_color,vehicle_category,vehicle_type")
           .eq("user_id", user.id).maybeSingle(),
       ]).then(([verification, driverProfile]) => {
         if (!active) return;
@@ -81,7 +83,8 @@ export default function DriverOnboarding() {
         if (typeof savedYear === "number") setYear(String(savedYear));
         if (typeof savedPlate === "string") setPlate(savedPlate);
         if (typeof savedColor === "string") setColor(savedColor);
-        if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury") setCategory(savedCategory);
+        if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury" || savedCategory === "large") setCategory(savedCategory);
+        if (saved?.vehicle_type === "kia_cargo" || saved?.vehicle_type === "kia_passenger") setVehicleType(saved.vehicle_type);
         setCheckingSavedDriver(false);
       }).catch(() => { if (active) setCheckingSavedDriver(false); });
     } else {
@@ -311,6 +314,23 @@ export default function DriverOnboarding() {
         ))}
       </View>
 
+      {category === "large" && (
+        <View style={{ marginTop: 12 }}>
+          <Text style={styles.label}>نوع السيارة الكبيرة</Text>
+          <View style={styles.row}>
+            {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
+              <TouchableOpacity key={item.key} style={[styles.category, vehicleType === item.key && styles.chipActive]} onPress={() => {
+                setVehicleType(item.key);
+                setSelectedMake("Kia");
+                setSelectedModel(models.find((m) => m.make === "Kia" && m.model === item.label) ?? null);
+              }}>
+                <Text style={{ fontSize: 24 }}>{item.emoji}</Text>
+                <Text style={[styles.chipText, vehicleType === item.key && styles.chipTextActive]}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
       <Text style={styles.label}>سنة الصنع</Text>
       <TextInput style={styles.input} value={year} onChangeText={setYear} placeholder="2020" keyboardType="numeric" placeholderTextColor="#94a3b8" />
       <Text style={styles.label}>رقم اللوحة</Text>
