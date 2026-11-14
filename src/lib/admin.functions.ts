@@ -652,12 +652,27 @@ export const adminSaveCoupon = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminCouponAudienceCount = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target: z.enum(["all", "customers", "drivers", "workers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"]),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabase } = context;
+    const { data: count, error } = await (supabase as any).rpc("admin_coupon_audience_count", {
+      p_target: data.target,
+    });
+    if (error) throw new Error(error.message);
+    return { count: Number(count ?? 0) };
+  });
+
 export const adminDistributeCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z.object({
       coupon_id: z.string().uuid(),
-      target: z.enum(["all", "drivers", "workers", "single"]),
+      target: z.enum(["all", "customers", "drivers", "workers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"]),
       single_user_id: z.string().uuid().optional(),
     }).parse(d),
   )
