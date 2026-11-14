@@ -185,7 +185,7 @@ export default function DriverOnboarding() {
         vehicle_make: selectedMake,
         vehicle_model: selectedModel.model,
         vehicle_year: vehicleYear,
-        vehicle_category: category,
+        vehicle_category: category as any,
         vehicle_type: category === "large" ? vehicleType : null,
         vehicle_plate: plate.trim(),
         vehicle_color: color.trim() || null,
