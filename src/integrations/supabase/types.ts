@@ -101,6 +101,201 @@ export type Database = {
           },
         ]
       }
+      company_settings: {
+        Row: {
+          company_name: string
+          id: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_name?: string
+          id: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_name?: string
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupon_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          coupon_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          coupon_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          coupon_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_assignments_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupon_redemptions: {
+        Row: {
+          coupon_id: string
+          discount_amount: number
+          id: string
+          redeemed_at: string
+          request_id: string | null
+          user_id: string
+        }
+        Insert: {
+          coupon_id: string
+          discount_amount?: number
+          id?: string
+          redeemed_at?: string
+          request_id?: string | null
+          user_id: string
+        }
+        Update: {
+          coupon_id?: string
+          discount_amount?: number
+          id?: string
+          redeemed_at?: string
+          request_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_redemptions_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_redemptions_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "service_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_redemptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coupon_subsidy_ledger: {
+        Row: {
+          coupon_id: string
+          created_at: string
+          currency: string
+          customer_id: string
+          discount_amount: number
+          id: string
+          payable_at: string | null
+          provider_id: string | null
+          request_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          coupon_id: string
+          created_at?: string
+          currency?: string
+          customer_id: string
+          discount_amount: number
+          id?: string
+          payable_at?: string | null
+          provider_id?: string | null
+          request_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          coupon_id?: string
+          created_at?: string
+          currency?: string
+          customer_id?: string
+          discount_amount?: number
+          id?: string
+          payable_at?: string | null
+          provider_id?: string | null
+          request_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_subsidy_ledger_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_subsidy_ledger_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_subsidy_ledger_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_subsidy_ledger_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: true
+            referencedRelation: "service_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coupons: {
         Row: {
           active: boolean
@@ -152,16 +347,17 @@ export type Database = {
           rating_avg: number
           ratings_count: number
           status: string
+          suspended_until: string | null
           updated_at: string
           user_id: string
           vehicle_category:
             | Database["public"]["Enums"]["vehicle_category"]
             | null
-          vehicle_type: string | null
           vehicle_color: string | null
           vehicle_make: string | null
           vehicle_model: string | null
           vehicle_plate: string | null
+          vehicle_type: string | null
           vehicle_year: number | null
         }
         Insert: {
@@ -172,16 +368,17 @@ export type Database = {
           rating_avg?: number
           ratings_count?: number
           status?: string
+          suspended_until?: string | null
           updated_at?: string
           user_id: string
           vehicle_category?:
             | Database["public"]["Enums"]["vehicle_category"]
             | null
-          vehicle_type?: string | null
           vehicle_color?: string | null
           vehicle_make?: string | null
           vehicle_model?: string | null
           vehicle_plate?: string | null
+          vehicle_type?: string | null
           vehicle_year?: number | null
         }
         Update: {
@@ -192,16 +389,17 @@ export type Database = {
           rating_avg?: number
           ratings_count?: number
           status?: string
+          suspended_until?: string | null
           updated_at?: string
           user_id?: string
           vehicle_category?:
             | Database["public"]["Enums"]["vehicle_category"]
             | null
-          vehicle_type?: string | null
           vehicle_color?: string | null
           vehicle_make?: string | null
           vehicle_model?: string | null
           vehicle_plate?: string | null
+          vehicle_type?: string | null
           vehicle_year?: number | null
         }
         Relationships: [
@@ -527,6 +725,57 @@ export type Database = {
         }
         Relationships: []
       }
+      provider_change_requests: {
+        Row: {
+          created_at: string
+          id: string
+          provider_type: string
+          rejection_reason: string | null
+          requested_data: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          provider_type: string
+          rejection_reason?: string | null
+          requested_data: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          provider_type?: string
+          rejection_reason?: string | null
+          requested_data?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_change_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_change_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provider_presence: {
         Row: {
           heading: number | null
@@ -555,6 +804,155 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_verifications: {
+        Row: {
+          document_type: string
+          email: string | null
+          face_photo_path: string
+          id_card_back_photo_path: string | null
+          id_card_photo_path: string
+          id_number: string | null
+          legal_name: string
+          metadata: Json
+          phone: string | null
+          provider_type: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          status: string
+          submitted_at: string
+          updated_at: string
+          user_id: string
+          vehicle_document_path: string | null
+        }
+        Insert: {
+          document_type?: string
+          email?: string | null
+          face_photo_path: string
+          id_card_back_photo_path?: string | null
+          id_card_photo_path: string
+          id_number?: string | null
+          legal_name: string
+          metadata?: Json
+          phone?: string | null
+          provider_type: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id: string
+          vehicle_document_path?: string | null
+        }
+        Update: {
+          document_type?: string
+          email?: string | null
+          face_photo_path?: string
+          id_card_back_photo_path?: string | null
+          id_card_photo_path?: string
+          id_number?: string | null
+          legal_name?: string
+          metadata?: Json
+          phone?: string | null
+          provider_type?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id?: string
+          vehicle_document_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_verifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_delivery_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          delivered_at: string | null
+          expo_push_token: string
+          expo_ticket_id: string | null
+          http_request_id: number | null
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          offer_id: string
+          payload: Json
+          provider_id: string
+          receipt_request_id: number | null
+          receipt_requested_at: string | null
+          request_id: string
+          sent_at: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          expo_push_token: string
+          expo_ticket_id?: string | null
+          http_request_id?: number | null
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          offer_id: string
+          payload: Json
+          provider_id: string
+          receipt_request_id?: number | null
+          receipt_requested_at?: string | null
+          request_id: string
+          sent_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          expo_push_token?: string
+          expo_ticket_id?: string | null
+          http_request_id?: number | null
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          offer_id?: string
+          payload?: Json
+          provider_id?: string
+          receipt_request_id?: number | null
+          receipt_requested_at?: string | null
+          request_id?: string
+          sent_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_delivery_outbox_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "request_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_delivery_outbox_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "service_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -625,6 +1023,8 @@ export type Database = {
           distance_km: number | null
           expires_at: string
           id: string
+          offer_message: string | null
+          proposed_price: number | null
           provider_id: string
           request_id: string
           responded_at: string | null
@@ -635,6 +1035,8 @@ export type Database = {
           distance_km?: number | null
           expires_at?: string
           id?: string
+          offer_message?: string | null
+          proposed_price?: number | null
           provider_id: string
           request_id: string
           responded_at?: string | null
@@ -645,6 +1047,8 @@ export type Database = {
           distance_km?: number | null
           expires_at?: string
           id?: string
+          offer_message?: string | null
+          proposed_price?: number | null
           provider_id?: string
           request_id?: string
           responded_at?: string | null
@@ -668,20 +1072,46 @@ export type Database = {
           },
         ]
       }
+      service_dispatch_queue: {
+        Row: {
+          next_at: string
+          request_id: string
+          stage: number
+        }
+        Insert: {
+          next_at?: string
+          request_id: string
+          stage?: number
+        }
+        Update: {
+          next_at?: string
+          request_id?: string
+          stage?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_dispatch_queue_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: true
+            referencedRelation: "service_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_requests: {
         Row: {
-          coupon_code: string | null
-          coupon_id: string | null
-          coupon_discount: number
-          customer_payable: number | null
           accepted_at: string | null
           admin_notes: string | null
           cancellation_reason: string | null
           cancelled_by: string | null
           commission: number | null
           completed_at: string | null
+          coupon_code: string | null
+          coupon_discount: number
+          coupon_id: string | null
           created_at: string
           customer_id: string
+          customer_payable: number | null
           customer_price: number | null
           dest_lat: number | null
           dest_lng: number | null
@@ -690,6 +1120,7 @@ export type Database = {
           duration_min: number | null
           fare_breakdown: Json | null
           id: string
+          is_intercity: boolean
           level_required: Database["public"]["Enums"]["worker_level"] | null
           notes: string | null
           payment_method: string | null
@@ -714,18 +1145,18 @@ export type Database = {
           workers_count: number
         }
         Insert: {
-          coupon_code?: string | null
-          coupon_id?: string | null
-          coupon_discount?: number
-          customer_payable?: number | null
           accepted_at?: string | null
           admin_notes?: string | null
           cancellation_reason?: string | null
           cancelled_by?: string | null
           commission?: number | null
           completed_at?: string | null
+          coupon_code?: string | null
+          coupon_discount?: number
+          coupon_id?: string | null
           created_at?: string
           customer_id: string
+          customer_payable?: number | null
           customer_price?: number | null
           dest_lat?: number | null
           dest_lng?: number | null
@@ -734,6 +1165,7 @@ export type Database = {
           duration_min?: number | null
           fare_breakdown?: Json | null
           id?: string
+          is_intercity?: boolean
           level_required?: Database["public"]["Enums"]["worker_level"] | null
           notes?: string | null
           payment_method?: string | null
@@ -758,18 +1190,18 @@ export type Database = {
           workers_count?: number
         }
         Update: {
-          coupon_code?: string | null
-          coupon_id?: string | null
-          coupon_discount?: number
-          customer_payable?: number | null
           accepted_at?: string | null
           admin_notes?: string | null
           cancellation_reason?: string | null
           cancelled_by?: string | null
           commission?: number | null
           completed_at?: string | null
+          coupon_code?: string | null
+          coupon_discount?: number
+          coupon_id?: string | null
           created_at?: string
           customer_id?: string
+          customer_payable?: number | null
           customer_price?: number | null
           dest_lat?: number | null
           dest_lng?: number | null
@@ -778,6 +1210,7 @@ export type Database = {
           duration_min?: number | null
           fare_breakdown?: Json | null
           id?: string
+          is_intercity?: boolean
           level_required?: Database["public"]["Enums"]["worker_level"] | null
           notes?: string | null
           payment_method?: string | null
@@ -865,10 +1298,17 @@ export type Database = {
           billing_cycle: string
           created_at: string
           currency: string
+          failure_code: string | null
+          gateway_payment_id: string | null
+          gateway_status: string | null
           id: string
+          merchant_request_id: string | null
+          metadata: Json
+          paid_at: string | null
           period_end: string | null
           period_start: string | null
           plan_id: string | null
+          provider: string | null
           status: string
           user_id: string
         }
@@ -877,10 +1317,17 @@ export type Database = {
           billing_cycle?: string
           created_at?: string
           currency?: string
+          failure_code?: string | null
+          gateway_payment_id?: string | null
+          gateway_status?: string | null
           id?: string
+          merchant_request_id?: string | null
+          metadata?: Json
+          paid_at?: string | null
           period_end?: string | null
           period_start?: string | null
           plan_id?: string | null
+          provider?: string | null
           status?: string
           user_id: string
         }
@@ -889,10 +1336,17 @@ export type Database = {
           billing_cycle?: string
           created_at?: string
           currency?: string
+          failure_code?: string | null
+          gateway_payment_id?: string | null
+          gateway_status?: string | null
           id?: string
+          merchant_request_id?: string | null
+          metadata?: Json
+          paid_at?: string | null
           period_end?: string | null
           period_start?: string | null
           plan_id?: string | null
+          provider?: string | null
           status?: string
           user_id?: string
         }
@@ -921,6 +1375,8 @@ export type Database = {
           created_at: string
           currency: string
           description_ar: string | null
+          features: Json
+          governorate_limit: number
           id: string
           is_active: boolean
           max_requests_per_month: number | null
@@ -942,6 +1398,8 @@ export type Database = {
           created_at?: string
           currency?: string
           description_ar?: string | null
+          features?: Json
+          governorate_limit?: number
           id?: string
           is_active?: boolean
           max_requests_per_month?: number | null
@@ -963,6 +1421,8 @@ export type Database = {
           created_at?: string
           currency?: string
           description_ar?: string | null
+          features?: Json
+          governorate_limit?: number
           id?: string
           is_active?: boolean
           max_requests_per_month?: number | null
@@ -983,22 +1443,112 @@ export type Database = {
         Row: {
           id: number
           minimum_downloads_before_activation: number
+          payment_gateway_enabled: boolean
           subscription_enabled: boolean
           updated_at: string
         }
         Insert: {
           id?: number
           minimum_downloads_before_activation?: number
+          payment_gateway_enabled?: boolean
           subscription_enabled?: boolean
           updated_at?: string
         }
         Update: {
           id?: number
           minimum_downloads_before_activation?: number
+          payment_gateway_enabled?: boolean
           subscription_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
+      }
+      support_conversations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          status: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_conversations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          read_at: string | null
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "support_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       support_ticket_messages: {
         Row: {
@@ -1205,6 +1755,38 @@ export type Database = {
           },
         ]
       }
+      user_push_tokens: {
+        Row: {
+          device_platform: string
+          expo_push_token: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          device_platform?: string
+          expo_push_token: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          device_platform?: string
+          expo_push_token?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_push_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_reports: {
         Row: {
           created_at: string
@@ -1299,48 +1881,103 @@ export type Database = {
       }
       user_subscriptions: {
         Row: {
+          allowed_governorates: string[]
           auto_renew: boolean
           billing_cycle: string
+          cancel_at_period_end: boolean
+          cancelled_at: string | null
+          card_brand: string | null
+          card_last4: string | null
           created_at: string
           current_period_end: string | null
           current_period_start: string
+          gateway_customer_ref: string | null
+          grant_type: string
+          granted_by: string | null
           id: string
+          is_trial: boolean
+          payment_token_ciphertext: string | null
+          payment_token_iv: string | null
+          payment_token_tag: string | null
+          payment_token_type: string | null
           plan_id: string
+          provider_types: string[]
           request_count: number
           resets_count_period_start: string
           status: string
+          trial_ends_at: string | null
+          trial_started_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          allowed_governorates?: string[]
           auto_renew?: boolean
           billing_cycle?: string
+          cancel_at_period_end?: boolean
+          cancelled_at?: string | null
+          card_brand?: string | null
+          card_last4?: string | null
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string
+          gateway_customer_ref?: string | null
+          grant_type?: string
+          granted_by?: string | null
           id?: string
+          is_trial?: boolean
+          payment_token_ciphertext?: string | null
+          payment_token_iv?: string | null
+          payment_token_tag?: string | null
+          payment_token_type?: string | null
           plan_id: string
+          provider_types?: string[]
           request_count?: number
           resets_count_period_start?: string
           status?: string
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          allowed_governorates?: string[]
           auto_renew?: boolean
           billing_cycle?: string
+          cancel_at_period_end?: boolean
+          cancelled_at?: string | null
+          card_brand?: string | null
+          card_last4?: string | null
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string
+          gateway_customer_ref?: string | null
+          grant_type?: string
+          granted_by?: string | null
           id?: string
+          is_trial?: boolean
+          payment_token_ciphertext?: string | null
+          payment_token_iv?: string | null
+          payment_token_tag?: string | null
+          payment_token_type?: string | null
           plan_id?: string
+          provider_types?: string[]
           request_count?: number
           resets_count_period_start?: string
           status?: string
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_subscriptions_plan_id_fkey"
             columns: ["plan_id"]
@@ -1401,6 +2038,7 @@ export type Database = {
           rating_avg: number
           ratings_count: number
           status: string
+          suspended_until: string | null
           updated_at: string
           user_id: string
         }
@@ -1414,6 +2052,7 @@ export type Database = {
           rating_avg?: number
           ratings_count?: number
           status?: string
+          suspended_until?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1427,6 +2066,7 @@ export type Database = {
           rating_avg?: number
           ratings_count?: number
           status?: string
+          suspended_until?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1544,6 +2184,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_large_vehicle_offer: {
+        Args: { _offer_id: string }
+        Returns: boolean
+      }
       accept_service_request: {
         Args: { _request_id: string }
         Returns: boolean
@@ -1570,9 +2214,27 @@ export type Database = {
         }
         Returns: number
       }
+      admin_cancel_free_subscription: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       admin_cancel_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
+      }
+      admin_coupon_audience_count: {
+        Args: { p_target: string }
+        Returns: number
+      }
+      admin_coupon_subsidy_report: {
+        Args: never
+        Returns: {
+          payable_count: number
+          payable_total: number
+          pending_count: number
+          pending_total: number
+          void_count: number
+        }[]
       }
       admin_delete_coupon: { Args: { p_coupon_id: string }; Returns: undefined }
       admin_delete_friend_request: {
@@ -1587,9 +2249,21 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: undefined
       }
+      admin_distribute_coupon: {
+        Args: {
+          p_coupon_id: string
+          p_single_user_id?: string
+          p_target?: string
+        }
+        Returns: number
+      }
       admin_grant_role: {
         Args: { p_role: string; p_target_user: string }
         Returns: undefined
+      }
+      admin_grant_subscription: {
+        Args: { p_duration: string; p_plan_code: string; p_user_id: string }
+        Returns: string
       }
       admin_reopen_request: {
         Args: { p_request_id: string }
@@ -1598,6 +2272,10 @@ export type Database = {
       admin_resolve_report: {
         Args: { p_note: string; p_report_id: string; p_status: string }
         Returns: undefined
+      }
+      admin_review_provider_change_request: {
+        Args: { _reason?: string; _request_id: string; _status: string }
+        Returns: boolean
       }
       admin_revoke_role: {
         Args: { p_role: string; p_target_user: string }
@@ -1617,16 +2295,26 @@ export type Database = {
         Returns: string
       }
       admin_set_provider_status: {
-        Args: { p_status: string; p_type: string; p_user_id: string }
+        Args: {
+          p_status: string
+          p_suspended_until?: string
+          p_type: string
+          p_user_id: string
+        }
         Returns: undefined
       }
       admin_unblock_user: { Args: { p_user_id: string }; Returns: undefined }
+      advance_service_dispatch: {
+        Args: { _request_id: string }
+        Returns: number
+      }
       advance_taxi_dispatch: { Args: { _request_id: string }; Returns: number }
       assert_staff: { Args: { p_level: string }; Returns: undefined }
       bootstrap_first_super_admin: {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      cancel_own_subscription_at_period_end: { Args: never; Returns: boolean }
       cancel_service_request: {
         Args: { _reason: string; _request_id: string }
         Returns: string
@@ -1640,6 +2328,22 @@ export type Database = {
           requests_limit: number
           requests_used: number
         }[]
+      }
+      dispatch_service_request: {
+        Args: { _request_id: string }
+        Returns: number
+      }
+      expire_provider_suspensions: { Args: never; Returns: number }
+      finalize_qicard_subscription_payment: {
+        Args: {
+          p_confirmed_amount: number
+          p_currency: string
+          p_gateway_payload?: Json
+          p_gateway_payment_id: string
+          p_gateway_status: string
+          p_merchant_request_id: string
+        }
+        Returns: boolean
       }
       find_nearby_drivers: {
         Args: {
@@ -1673,9 +2377,19 @@ export type Database = {
         }[]
       }
       get_friend_status: { Args: { p_friend_id: string }; Returns: Json }
-      get_worker_service_catalog: {
-        Args: Record<PropertyKey, never>
-        Returns: { id: string; slug: string; name_ar: string }[]
+      get_my_coupons: {
+        Args: never
+        Returns: {
+          active: boolean
+          assigned_at: string
+          code: string
+          expires_at: string
+          id: string
+          min_amount: number
+          type: string
+          used: boolean
+          value: number
+        }[]
       }
       get_provider_reputation: { Args: { p_user_id: string }; Returns: Json }
       get_staff_roles: { Args: { p_user_id: string }; Returns: string[] }
@@ -1691,6 +2405,25 @@ export type Database = {
           total_subscribers: number
           yearly_revenue: number
         }[]
+      }
+      get_subscription_stats_v2: {
+        Args: never
+        Returns: {
+          active_subscriptions: number
+          bronze_count: number
+          expired_subscriptions: number
+          free_count: number
+          gold_count: number
+          monthly_revenue: number
+          silver_count: number
+          total_subscribers: number
+          trial_count: number
+          yearly_revenue: number
+        }[]
+      }
+      get_taxi_demand_multiplier: {
+        Args: { _category?: string; _lat: number; _lng: number }
+        Returns: number
       }
       get_user_subscription: {
         Args: { _user_id: string }
@@ -1710,6 +2443,14 @@ export type Database = {
           status: string
           subscription_enabled: boolean
           tier: number
+        }[]
+      }
+      get_worker_service_catalog: {
+        Args: never
+        Returns: {
+          id: string
+          name_ar: string
+          slug: string
         }[]
       }
       grant_provider_role_safe: {
@@ -1743,6 +2484,23 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { p_user_id: string }; Returns: boolean }
+      list_my_friends: {
+        Args: never
+        Returns: {
+          full_name: string
+          id: string
+          phone: string
+        }[]
+      }
+      list_pending_friend_requests: {
+        Args: never
+        Returns: {
+          id: string
+          sender_full_name: string
+          sender_id: string
+          sender_phone: string
+        }[]
+      }
       log_admin_action: {
         Args: {
           p_action: string
@@ -1753,9 +2511,45 @@ export type Database = {
         Returns: undefined
       }
       lookup_email_by_phone: { Args: { _phone: string }; Returns: string }
+      mamnoon_provider_kinds: { Args: { p_user_id: string }; Returns: string[] }
+      mamnoon_provider_subscription_active: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
+      mamnoon_sql_test: { Args: never; Returns: boolean }
+      mamnoon_test_offer: { Args: never; Returns: string }
+      preview_my_coupon: {
+        Args: { p_amount: number; p_code: string }
+        Returns: {
+          code: string
+          coupon_id: string
+          discount: number
+          payable: number
+          type: string
+          value: number
+        }[]
+      }
+      process_mamnoon_push_outbox: { Args: never; Returns: number }
+      process_service_dispatch: { Args: never; Returns: undefined }
       process_taxi_dispatch: { Args: never; Returns: undefined }
+      reject_large_vehicle_offer: {
+        Args: { _offer_id: string }
+        Returns: boolean
+      }
       reject_request_offer: { Args: { _offer_id: string }; Returns: boolean }
-      round_to_250: { Args: { n: number }; Returns: number }
+      respond_friend_request: {
+        Args: { _accept: boolean; _request_id: string }
+        Returns: boolean
+      }
+      retry_large_vehicle_dispatch: {
+        Args: { _request_id: string }
+        Returns: number
+      }
+      retry_taxi_dispatch: { Args: { _request_id: string }; Returns: number }
+      save_initial_worker_services: {
+        Args: { _service_ids: string[] }
+        Returns: boolean
+      }
       search_profile_by_phone: {
         Args: { _phone: string }
         Returns: {
@@ -1764,6 +2558,22 @@ export type Database = {
           id: string
           phone: string
         }[]
+      }
+      search_profiles_for_friend: {
+        Args: { _phone: string }
+        Returns: {
+          full_name: string
+          id: string
+          phone: string
+        }[]
+      }
+      submit_large_vehicle_offer: {
+        Args: { _message?: string; _price: number; _request_id: string }
+        Returns: string
+      }
+      submit_provider_change_request: {
+        Args: { _provider_type: string; _requested_data: Json }
+        Returns: string
       }
       transition_service_request: {
         Args: {
@@ -1784,6 +2594,7 @@ export type Database = {
         | "support"
         | "finance"
         | "moderator"
+        | "large_driver"
       request_status:
         | "pending"
         | "searching"
@@ -1930,6 +2741,7 @@ export const Constants = {
         "support",
         "finance",
         "moderator",
+        "large_driver",
       ],
       request_status: [
         "pending",
