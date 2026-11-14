@@ -575,13 +575,13 @@ function OnboardingWorker() {
                     key={s.id}
                     type="button"
                     onClick={() => toggleService(s.id)}
-                    className={`p-3.5 rounded-2xl text-xs font-bold btn-press text-right transition-all flex items-center justify-between border ${
+                    className={`min-h-[112px] p-3.5 rounded-2xl text-xs font-bold btn-press text-right transition-all flex items-center justify-between border-2 ${
                       on
                         ? "bg-white ring-2 ring-primary border-primary text-primary shadow-md"
                         : "bg-white/80 border-border/70 hover:bg-white text-foreground"
                     }`}
                   >
-                    <span className="flex items-center gap-2 min-w-0"><img src={serviceIcon(s.slug)} alt="" loading="lazy" className="h-10 w-10 object-contain shrink-0" /><span className="truncate">{s.name_ar}</span></span>
+                    <span className="flex items-center gap-3 min-w-0"><img src={serviceIcon(s.slug)} alt={s.name_ar} loading="eager" className="h-16 w-16 object-contain shrink-0 rounded-xl bg-white" /><span className="truncate">{s.name_ar}</span></span>
                     {on ? (
                       <Check className="h-4 w-4 text-primary shrink-0" />
                     ) : (
