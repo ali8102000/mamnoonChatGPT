@@ -556,7 +556,7 @@ function RequestDetail() {
                 {req.status === "accepted" ? "تم القبول" : req.status === "in_progress" ? "قيد التنفيذ" : "مكتمل"}
               </span>
             </div>
-            {(["accepted", "in_progress"].includes(req.status as string) || myRole === "customer") && (
+            {["accepted", "in_progress"].includes(req.status as string) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {req.status === "accepted" && myRole === "provider" && (
                   <button
