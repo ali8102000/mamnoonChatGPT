@@ -72,6 +72,10 @@ function RequestDetail() {
   const [myRating, setMyRating] = useState<any>(null);
   const [showRating, setShowRating] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportReason, setReportReason] = useState("مشكلة أثناء الطلب");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
   const [navModalOpen, setNavModalOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [otherRep, setOtherRep] = useState<ReputationData | null>(null);
@@ -324,6 +328,19 @@ function RequestDetail() {
     } catch (e: any) {
       toast.error(e.message ?? "تعذّر إنهاء الطلب");
     }
+  }
+
+  async function submitUserReport() {
+    if (!session?.user.id || !otherUserId) { toast.error("ما نكدر نحدد الطرف المراد الإبلاغ عنه"); return; }
+    if (!reportReason.trim()) { toast.error("اكتب سبب البلاغ"); return; }
+    setReportBusy(true);
+    try {
+      const { error } = await (supabase as any).from("user_reports").insert({ reporter_id: session.user.id, reported_id: otherUserId, request_id: id, reason: reportReason.trim(), details: reportDetails.trim() || null, status: "pending" });
+      if (error) throw error;
+      toast.success("وصل البلاغ إلى إدارة ممنون وسيظهر ضمن البلاغات الواردة");
+      setShowReportForm(false); setReportDetails("");
+    } catch (error: any) { toast.error(error?.message ?? "تعذر إرسال البلاغ"); }
+    finally { setReportBusy(false); }
   }
 
   const statusLabel =
@@ -637,6 +654,25 @@ function RequestDetail() {
             </button>
           ))}
       </div>
+
+      {otherUserId && (
+        <div className="mx-5 mb-4 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
+          {!showReportForm ? (
+            <button type="button" onClick={() => setShowReportForm(true)} className="w-full flex items-center justify-between text-sm font-black text-amber-800 dark:text-amber-300">
+              <span>إبلاغ عن {myRole === "customer" ? (req.type === "taxi" ? "السائق" : "الفني") : "الزبون"}</span><span>إرسال بلاغ ←</span>
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="font-black text-sm">تفاصيل البلاغ للإدارة</div>
+              <select value={reportReason} onChange={(e) => setReportReason(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm">
+                <option>مشكلة أثناء الطلب</option><option>نسيت شيئاً في السيارة</option><option>سلوك غير مناسب</option><option>مشكلة في السعر أو الاتفاق</option><option>لم يلتزم بوقت الوصول</option><option>أخرى</option>
+              </select>
+              <textarea value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} rows={3} maxLength={1500} placeholder="اكتب ملاحظتك بالتفصيل، مثلاً: نسيت شيئاً في السيارة أو اشرح المشكلة..." className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-primary" />
+              <div className="flex gap-2"><button type="button" disabled={reportBusy} onClick={() => setShowReportForm(false)} className="flex-1 rounded-xl border border-border py-3 text-xs font-bold">إلغاء</button><button type="button" disabled={reportBusy} onClick={submitUserReport} className="flex-1 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black">{reportBusy ? "جارٍ الإرسال..." : "إرسال البلاغ للإدارة"}</button></div>
+            </div>
+          )}
+        </div>
+      )}
 
       {chat && !["completed", "cancelled"].includes(req.status as string) && (
         <>
