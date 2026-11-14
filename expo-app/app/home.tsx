@@ -19,6 +19,9 @@ type IncomingRequest = {
   id: string;
   type: string;
   price_estimate: number | null;
+  customer_price?: number | null;
+  vehicle_category?: string | null;
+  vehicle_type?: string | null;
 };
 
 export default function HomeScreen() {
@@ -71,7 +74,7 @@ export default function HomeScreen() {
     }
     const { data, error } = await supabase
       .from("service_requests")
-      .select("id, type, price_estimate")
+      .select("id, type, price_estimate, customer_price, vehicle_category, vehicle_type")
       .in("id", requestIds)
       .eq("type", isDriver ? "taxi" : "service")
       .in("status", ["pending", "searching"])
@@ -390,10 +393,10 @@ function ProviderHome({
             <View style={{ flex: 1 }}>
               <Text style={styles.requestCustomer}>طلب جديد</Text>
               <Text style={styles.requestType}>
-                {req.type === "taxi" ? "🚕 طلب سيارة" : `🔧 ${req.type}`}
+                {req.vehicle_category === "large" ? `🚚 سيارة كبيرة — ${req.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}` : req.type === "taxi" ? "🚕 طلب سيارة" : `🔧 ${req.type}`}
               </Text>
               <Text style={styles.requestPrice}>
-                {req.price_estimate?.toLocaleString("en")} د.ع
+                {(req.customer_price ?? req.price_estimate) != null ? `${Number(req.customer_price ?? req.price_estimate).toLocaleString("en")} د.ع` : req.vehicle_category === "large" ? "بانتظار عروض الأسعار" : "السعر قيد التحديد"}
               </Text>
             </View>
             <Text style={styles.requestArrow}>←</Text>
