@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   subtitle: { color: palette.muted, fontSize: 13, lineHeight: 22, textAlign: "center", marginTop: 9, marginBottom: space.xxl, paddingHorizontal: 4 },
   roleList: { gap: 12 },
   roleCard: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.xl, padding: space.lg, minHeight: 112 },
-  rolePressed: { borderColor: palette.gold, backgroundColor: "#FBFAF6", transform: [{ scale: 0.99 }] },
+  rolePressed: { borderColor: palette.gold, backgroundColor: palette.surfaceSoft, transform: [{ scale: 0.99 }] },
   disabled: { opacity: 0.6 },
   roleMark: { width: 54, height: 54, borderRadius: 18, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center" },
   customerMark: { backgroundColor: palette.goldSoft },
