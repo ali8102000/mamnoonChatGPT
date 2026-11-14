@@ -658,6 +658,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           </div>
 
           {!largeDriverMode && (
+          <>
           {/* Quick Make Selection */}
           <div>
             <div className="text-xs font-bold text-muted-foreground mb-2">
@@ -720,10 +721,11 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               </div>
             )}
           </div>
-
+          </>
           )}
 
           {!largeDriverMode && (
+          <>
           {/* Year, Plate & Color */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -746,6 +748,8 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               />
             </div>
           </div>
+          </>
+          )}
 
           <div>
             <div className="text-xs font-bold text-muted-foreground mb-1.5">
@@ -822,6 +826,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           </div>
 
           {!largeDriverMode && (
+          <>
           {/* Legal Full Name */}
           <div>
             <div className="text-xs font-bold text-muted-foreground mb-1.5">
@@ -834,6 +839,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               className="w-full bg-white border border-border rounded-2xl px-4 py-3.5 text-sm font-black outline-none focus:border-primary shadow-sm"
             />
           </div>
+          </>
           )}
 
           {/* Real Face Photo Capture */}
@@ -943,6 +949,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           </div>
 
           {!largeDriverMode && (
+          <>
           {/* Name Confirmation Checklist */}
           <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2 text-xs">
             <label className="flex items-start gap-2.5 cursor-pointer">
@@ -959,6 +966,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               </span>
             </label>
           </div>
+          </>
           )}
         </div>
       )}
