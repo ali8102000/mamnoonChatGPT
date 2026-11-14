@@ -106,9 +106,10 @@ const CATEGORY_META: Record<
   },
 };
 
-function OnboardingDriver() {
+export function OnboardingDriver({ largeDriverMode = false }: { largeDriverMode?: boolean } = {}) {
   const { session, profile, loading, refresh } = useAuth();
   const navigate = useNavigate();
+  const providerRole = largeDriverMode ? "large_driver" : "driver";
   const [companyName, setCompanyName] = useState("شركة ممنون");
   useEffect(() => {
     (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
@@ -119,8 +120,8 @@ function OnboardingDriver() {
   const [make, setMake] = useState<string>("تويوتا");
   const [customMake, setCustomMake] = useState<string>("");
   const [modelName, setModelName] = useState<string>("كورولا");
-  const [category, setCategory] = useState<VehicleCategory>("economy");
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
+  const [category, setCategory] = useState<VehicleCategory>(largeDriverMode ? "large" : "economy");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
   const [year, setYear] = useState<string>(String(new Date().getFullYear() - 2));
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("أبيض");
@@ -150,7 +151,7 @@ function OnboardingDriver() {
   // Load existing verification if stored
   useEffect(() => {
     if (session?.user?.id) {
-      const existing = getProviderVerification(session.user.id, 'driver');
+      const existing = getProviderVerification(session.user.id, providerRole);
       if (existing) {
         setExistingDoc(existing);
         if (existing.legalName) setLegalName(existing.legalName);
@@ -168,7 +169,7 @@ function OnboardingDriver() {
         if (existing.vehicleType) setVehicleType(existing.vehicleType);
       }
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, providerRole]);
 
   // Keep the review status and admin rejection reason synchronized from Supabase.
   useEffect(() => {
@@ -181,7 +182,7 @@ function OnboardingDriver() {
       setExistingDoc((current: any) => ({
         ...(current ?? {
           userId,
-          role: "driver",
+          role: providerRole,
           legalName: row.legal_name ?? profile?.full_name ?? "",
           facePhotoUrl: "",
           idCardPhotoUrl: "",
@@ -196,17 +197,18 @@ function OnboardingDriver() {
         vehiclePlate: metadata.vehiclePlate ?? current?.vehiclePlate,
         vehicleColor: metadata.vehicleColor ?? current?.vehicleColor,
         vehicleCategory: metadata.vehicleCategory ?? current?.vehicleCategory,
+        vehicleType: metadata.vehicleType ?? current?.vehicleType,
       }));
     };
     (supabase as any).from("provider_verifications").select("status,rejection_reason,legal_name,document_type,metadata,updated_at")
-      .eq("user_id", userId).eq("provider_type", "driver").maybeSingle()
+      .eq("user_id", userId).eq("provider_type", providerRole).maybeSingle()
       .then((result: any) => { if (!result.error && result.data) applyReview(result.data); });
     const channel = supabase.channel(`driver-verification-${userId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "provider_verifications", filter: `user_id=eq.${userId}` },
-        (payload: any) => { if (payload.new?.provider_type === "driver") applyReview(payload.new); })
+        (payload: any) => { if (payload.new?.provider_type === providerRole) applyReview(payload.new); })
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
-  }, [session?.user?.id, profile?.full_name]);
+  }, [session?.user?.id, profile?.full_name, providerRole]);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
@@ -322,7 +324,7 @@ function OnboardingDriver() {
       const { error: driverProfileError } = await supabase.from("driver_profiles").upsert({
         user_id: uid,
         vehicle_make: finalMake,
-        vehicle_model: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب") : modelName.trim(),
+        vehicle_model: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : modelName.trim(),
         vehicle_year: Number(year) || null,
         vehicle_category: category as any,
         vehicle_type: category === "large" ? vehicleType : null,
@@ -338,7 +340,7 @@ function OnboardingDriver() {
       // 3. Persist identity documents only after the driver profile exists.
       const verificationDoc: VerificationDocument = {
         userId: uid,
-        role: "driver",
+        role: providerRole,
         legalName: legalName.trim(),
         phone: profile?.phone,
         email: profile?.email || session!.user.email,
@@ -361,7 +363,7 @@ function OnboardingDriver() {
       await saveProviderVerificationRemote(verificationDoc);
       saveProviderVerification(verificationDoc);
 
-      setExistingDoc(getProviderVerification(uid, 'driver'));
+      setExistingDoc(getProviderVerification(uid, providerRole));
       setEditingMode(false);
       await refresh();
 
@@ -462,8 +464,8 @@ function OnboardingDriver() {
             {isApproved ? (
               <button
                 onClick={async () => {
-                  await grantProviderRole({ data: { role: "driver" } });
-                  localStorage.setItem("mumnun-active-role", "driver");
+                  await grantProviderRole({ data: { role: providerRole } });
+                  localStorage.setItem("mumnun-active-role", providerRole);
                   await refresh();
                   navigate({ to: "/home" });
                 }}
@@ -507,8 +509,8 @@ function OnboardingDriver() {
           <Car className="h-6 w-6" />
         </div>
         <div>
-          <h1 className="text-2xl font-black">تسجيل الكابتن والسيارة</h1>
-          <p className="text-xs text-muted-foreground">تحديد نوع السيارة وتأكيد الهوية الرسمية</p>
+          <h1 className="text-2xl font-black">{largeDriverMode ? "تسجيل سائق السيارات الكبيرة" : "تسجيل كابتن التكسي"}</h1>
+          <p className="text-xs text-muted-foreground">{largeDriverMode ? "تسجيل مستقل لكيا الحمل وكيا الركاب والباص" : "تحديد فئة سيارة التكسي وتأكيد الهوية الرسمية"}</p>
         </div>
       </div>
 
@@ -551,7 +553,7 @@ function OnboardingDriver() {
               اختر فئة سيارتك في التطبيق
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(Object.keys(CATEGORY_META) as VehicleCategory[]).map((k) => {
+              {(Object.keys(CATEGORY_META) as VehicleCategory[]).filter((k) => largeDriverMode ? k === "large" : k !== "large").map((k) => {
                 const c = CATEGORY_META[k];
                 const active = category === k;
                 return (
@@ -575,7 +577,7 @@ function OnboardingDriver() {
               <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
                 <div className="font-black text-sm">نوع السيارة الكبيرة</div>
                 <div className="grid grid-cols-2 gap-2">
-                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
+                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }, { key: "bus", label: "باص", emoji: "🚌" }] as const).map((item) => (
                     <button key={item.key} type="button" onClick={() => { setVehicleType(item.key); setMake("كيا"); setModelName(item.label); }} className={`rounded-xl border p-3 font-bold ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
                       <div className="text-2xl">{item.emoji}</div>{item.label}
                     </button>
