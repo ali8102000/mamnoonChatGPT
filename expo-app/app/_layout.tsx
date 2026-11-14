@@ -84,14 +84,19 @@ function PushNotificationSetup() {
       if (handledResponseId.current === responseId) return;
       const data = response.notification.request.content.data as {
         request_id?: unknown;
+        type?: unknown;
       };
-      if (typeof data?.request_id !== "string") return;
-
       handledResponseId.current = responseId;
-      router.push({
-        pathname: "/request/[id]",
-        params: { id: data.request_id },
-      });
+      if (typeof data?.request_id === "string") {
+        router.push({
+          pathname: "/request/[id]",
+          params: { id: data.request_id },
+        });
+      } else if (data?.type === "taxi_high_demand") {
+        router.push("/subscriptions" as any);
+      } else {
+        router.push("/profile");
+      }
     }
 
     const responseSubscription =
