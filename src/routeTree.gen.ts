@@ -38,6 +38,7 @@ import { Route as OnboardingDriverRouteImport } from './routes/onboarding.driver
 import { Route as OnboardingWorkerRouteImport } from './routes/onboarding.worker'
 import { Route as RequestIdRouteImport } from './routes/request.$id'
 import { Route as RequestNewRouteImport } from './routes/request.new'
+import { Route as ApiMobileMapsRouteImport } from './routes/api.mobile-maps'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -184,6 +185,11 @@ const RequestNewRoute = RequestNewRouteImport.update({
   path: '/request/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMobileMapsRoute = ApiMobileMapsRouteImport.update({
+  id: '/api/mobile-maps',
+  path: '/api/mobile-maps',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -215,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/worker': typeof OnboardingWorkerRoute
   '/request/$id': typeof RequestIdRoute
   '/request/new': typeof RequestNewRoute
+  '/api/mobile-maps': typeof ApiMobileMapsRoute
 }
 export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
@@ -310,6 +317,7 @@ export interface FileRouteTypes {
     | '/onboarding/worker'
     | '/request/$id'
     | '/request/new'
+    | '/api/mobile-maps'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -400,6 +408,7 @@ export interface RootRouteChildren {
   OnboardingWorkerRoute: typeof OnboardingWorkerRoute
   RequestIdRoute: typeof RequestIdRoute
   RequestNewRoute: typeof RequestNewRoute
+  ApiMobileMapsRoute: typeof ApiMobileMapsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -607,6 +616,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RequestNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mobile-maps': {
+      id: '/api/mobile-maps'
+      path: '/api/mobile-maps'
+      fullPath: '/api/mobile-maps'
+      preLoaderRoute: typeof ApiMobileMapsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -651,6 +667,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingWorkerRoute: OnboardingWorkerRoute,
   RequestIdRoute: RequestIdRoute,
   RequestNewRoute: RequestNewRoute,
+  ApiMobileMapsRoute: ApiMobileMapsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
