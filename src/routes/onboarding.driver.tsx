@@ -99,14 +99,14 @@ const CATEGORY_META: Record<
     desc: "أحدث الموديلات والفئات الراقية",
   },
   large: {
-    label: "سيارة كبيرة: كيا حمل / كيا ركاب",
+    label: "سيارات كبيرة: كيا حمل / كيا ركاب / باص",
     emoji: "🚚",
     gradient: "from-orange-500 to-amber-600",
     desc: "لأصحاب كيا الحمل وكيا الركاب والباصات — اختر نوع مركبتك بعد تحديد هذه الفئة",
   },
 };
 
-export function OnboardingDriver({ largeDriverMode = false }: { largeDriverMode?: boolean } = {}) {
+export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("provider") === "large_driver") }: { largeDriverMode?: boolean } = {}) {
   const { session, profile, loading, refresh } = useAuth();
   const navigate = useNavigate();
   const providerRole = largeDriverMode ? "large_driver" : "driver";
@@ -353,7 +353,7 @@ export function OnboardingDriver({ largeDriverMode = false }: { largeDriverMode?
         verifiedAt: new Date().toISOString(),
         status: "pending",
         vehicleMake: finalMake,
-        vehicleModel: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب") : modelName.trim(),
+        vehicleModel: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : modelName.trim(),
         vehicleYear: Number(year) || undefined,
         vehiclePlate: plate.trim(),
         vehicleColor: color.trim() || undefined,
@@ -560,7 +560,7 @@ export function OnboardingDriver({ largeDriverMode = false }: { largeDriverMode?
                   <button
                     key={k}
                     type="button"
-                    onClick={() => { setCategory(k); if (k === "large") { setMake("كيا"); setModelName(vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب"); } }}
+                    onClick={() => { setCategory(k); if (k === "large") { setMake("كيا"); setModelName(vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص"); } }}
                     className={`p-3 rounded-2xl text-center btn-press transition-all border ${
                       active
                         ? "bg-white ring-2 ring-primary border-primary shadow-lg scale-105"
