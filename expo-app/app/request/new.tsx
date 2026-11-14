@@ -24,7 +24,7 @@ import { palette, radius } from "@/styles/theme";
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 
-const TAXI_SERVICE = { slug: "taxi", label: "سيارة", emoji: "🚕", color: "#0f766e" };
+const TAXI_SERVICE = { slug: "taxi", label: "سيارة", emoji: "🚕", color: palette.brand };
 type CatalogService = { id: string; slug: string; name_ar: string };
 
 
@@ -455,7 +455,7 @@ export default function NewRequest() {
     >
       <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "طلب جديد"}</Text>
       {isLargeVehicle && (
-        <View style={{ marginBottom: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#fed7aa", backgroundColor: "#fff7ed" }}>
+        <View style={{ marginBottom: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
           <Text style={styles.label}>اختار نوع الكيا أولاً</Text>
           <View style={styles.catRow}>
             {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }, { key: "bus", label: "باص" }] as const).map((item) => (
@@ -470,8 +470,8 @@ export default function NewRequest() {
       {vehicle !== "large" && (
         <>
           <Text style={styles.label}>نوع الخدمة</Text>
-          {servicesLoading && <ActivityIndicator style={{ marginVertical: 12 }} color="#0f766e" />}
-          {!!servicesError && <TouchableOpacity onPress={() => router.replace("/request/new" as never)}><Text style={{ color: "#dc2626", marginBottom: 10 }}>{servicesError} اضغط لإعادة المحاولة.</Text></TouchableOpacity>}
+          {servicesLoading && <ActivityIndicator style={{ marginVertical: 12 }} color={palette.brand} />}
+          {!!servicesError && <TouchableOpacity onPress={() => router.replace("/request/new" as never)}><Text style={{ color: palette.danger, marginBottom: 10 }}>{servicesError} اضغط لإعادة المحاولة.</Text></TouchableOpacity>}
           <View style={styles.serviceGrid}>
             {[TAXI_SERVICE, ...serviceCatalog.map((service) => ({ ...service, label: service.name_ar, emoji: "", color: "#0f766e" }))].map((service) => (
               <TouchableOpacity
@@ -524,7 +524,7 @@ export default function NewRequest() {
         )}
         <TouchableOpacity style={styles.locateButton} onPress={locateMe} disabled={locationLoading}>
           {locationLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={palette.white} size="small" />
           ) : (
             <Text style={styles.locateButtonText}>موقعي</Text>
           )}
@@ -550,7 +550,7 @@ export default function NewRequest() {
         value={placeQuery}
         onChangeText={setPlaceQuery}
         placeholder={activeGovernorate ? `ابحث عن مكان داخل ${activeGovernorate.name}...` : "اختر المحافظة أولاً"}
-        placeholderTextColor="#94a3b8"
+        placeholderTextColor={palette.muted}
         editable={!!activeGovernorateKey}
         returnKeyType="search"
       />
@@ -579,10 +579,10 @@ export default function NewRequest() {
           loadingEnabled
         >
           {pickupCoords && (
-            <Marker coordinate={pickupCoords} title="نقطة الانطلاق" pinColor="#0f766e" />
+            <Marker coordinate={pickupCoords} title="نقطة الانطلاق" pinColor={palette.brand} />
           )}
           {destinationCoords && isTaxi && (
-            <Marker coordinate={destinationCoords} title="الوجهة" pinColor="#16a34a" />
+            <Marker coordinate={destinationCoords} title="الوجهة" pinColor={palette.success} />
           )}
         </MapView>
         <Text style={styles.mapHint}>
@@ -637,8 +637,8 @@ export default function NewRequest() {
               <Text style={styles.label}>السعر اللي تقترحه (اختياري)</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
                 {[15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000].map((amount) => (
-                  <TouchableOpacity key={amount} onPress={() => setCustomerPrice(String(amount))} style={{ paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: customerPrice === String(amount) ? "#0f766e" : "#fed7aa", backgroundColor: customerPrice === String(amount) ? "#ccfbf1" : "#fff" }}>
-                    <Text style={{ color: customerPrice === String(amount) ? "#115e59" : "#9a3412", fontSize: 12, fontWeight: "800" }}>{(amount / 1000).toLocaleString("en")} ألف</Text>
+                  <TouchableOpacity key={amount} onPress={() => setCustomerPrice(String(amount))} style={{ paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: customerPrice === String(amount) ? palette.brand : palette.line, backgroundColor: customerPrice === String(amount) ? palette.brandSoft : palette.surface }}>
+                    <Text style={{ color: customerPrice === String(amount) ? palette.brand : palette.ink, fontSize: 12, fontWeight: "800" }}>{(amount / 1000).toLocaleString("en")} ألف</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -650,7 +650,7 @@ export default function NewRequest() {
                 placeholderTextColor="#94a3b8"
                 keyboardType="numeric"
               />
-              <Text style={{ color: "#9a3412", fontSize: 11, marginTop: 6 }}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, marginTop: 6 }}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب</Text>
             </View>
           )}
         </>
