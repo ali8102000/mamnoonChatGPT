@@ -67,6 +67,12 @@ export const incrementUserRequestCount = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+async function requireSubscriptionViewer(context: any) {
+  const { supabase, userId } = context;
+  const { data, error } = await (supabase as any).rpc("has_subscription_admin_access", { p_user_id: userId });
+  if (error || !data) throw new Error("غير مصرّح: إدارة الاشتراكات للمدير والمالية فقط");
+}
+
 async function requireAdmin(context: any) {
   const { supabase, userId } = context;
   // Use the caller's authenticated JWT: admin checks depend on auth.uid().
@@ -79,7 +85,7 @@ async function requireAdmin(context: any) {
 export const adminGetPlans = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdmin(context);
+    await requireSubscriptionViewer(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await (supabaseAdmin as any)
       .from("subscription_plans")
@@ -161,7 +167,7 @@ export const adminTogglePlan = createServerFn({ method: "POST" })
 export const adminGetSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdmin(context);
+    await requireSubscriptionViewer(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await (supabaseAdmin as any)
       .from("subscription_settings")
@@ -199,7 +205,7 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
 export const adminGetStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdmin(context);
+    await requireSubscriptionViewer(context);
     // This RPC checks auth.uid() through assert_staff, so use the caller JWT.
     const { data, error } = await (context.supabase as any).rpc("get_subscription_stats_v2");
     if (error) throw new Error("تعذر تحميل إحصائيات الاشتراكات: " + error.message);
@@ -222,7 +228,7 @@ export const adminGetStats = createServerFn({ method: "GET" })
 export const adminGetSubscriptions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdmin(context);
+    await requireSubscriptionViewer(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await (supabaseAdmin as any)
       .from("user_subscriptions")
