@@ -47,6 +47,7 @@ export default function DriverOnboarding() {
 
   useEffect(() => {
     let active = true;
+    setCheckingSavedDriver(true);
     supabase.from("vehicle_models").select("id,make,model,category,min_year").order("make")
       .then(({ data, error }) => {
         if (!active) return;
