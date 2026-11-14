@@ -84,6 +84,7 @@ export function LiveTrackMap({
   const [mapError, setMapError] = useState(false);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+  const [routeMode, setRouteMode] = useState<"road" | "direct" | "waiting">("waiting");
 
   const effectivePickup: Coords | null = pickupCoords ?? (myRole === "customer" ? me : other);
   const activeDriverCoord: Coords | null = myRole === "provider" ? me : other;
@@ -239,8 +240,11 @@ export function LiveTrackMap({
     const targetPoint = status === "in_progress" && destCoords ? destCoords : effectivePickup;
     if (activeDriverCoord && targetPoint) {
       const directDistance = haversineKm(activeDriverCoord, targetPoint);
-      setDistanceKm(directDistance);
-      setEtaMinutes(Math.max(1, Math.round((directDistance / 28) * 60)));
+      const hasRoadRouting = typeof g.maps.DirectionsService === "function";
+      if (!hasRoadRouting || routeMode !== "road") {
+        setDistanceKm(directDistance);
+        setEtaMinutes(Math.max(1, Math.round((directDistance / 28) * 60)));
+      }
 
       if (!routeLineRef.current) {
         routeLineRef.current = new g.maps.Polyline({
@@ -261,7 +265,8 @@ export function LiveTrackMap({
         previous.signature !== signature ||
         Date.now() - previous.requestedAt >= 45000;
 
-      if (typeof g.maps.DirectionsService === "function" && moved) {
+      if (hasRoadRouting && moved) {
+        setRouteMode("waiting");
         const sequence = ++directionsSequenceRef.current;
         lastDirectionsRequestRef.current = {
           origin: { lat: activeDriverCoord.lat, lng: activeDriverCoord.lng },
@@ -282,14 +287,19 @@ export function LiveTrackMap({
           const leg = route?.legs?.[0];
           if (routeStatus === "OK" && route?.overview_path?.length && leg) {
             routeLineRef.current?.setPath(route.overview_path);
+            setRouteMode("road");
             if (typeof leg.distance?.value === "number") setDistanceKm(leg.distance.value / 1000);
             const durationSeconds = leg.duration_in_traffic?.value ?? leg.duration?.value;
             if (typeof durationSeconds === "number") setEtaMinutes(Math.max(1, Math.round(durationSeconds / 60)));
           } else {
+            setRouteMode("direct");
+            setDistanceKm(directDistance);
+            setEtaMinutes(Math.max(1, Math.round((directDistance / 28) * 60)));
             console.warn("[live-map] road directions unavailable; direct line fallback:", routeStatus);
           }
         });
-      } else if (typeof g.maps.DirectionsService !== "function") {
+      } else if (!hasRoadRouting) {
+        setRouteMode("direct");
         routeLineRef.current.setPath([activeDriverCoord, targetPoint]);
       }
 
@@ -331,6 +341,7 @@ export function LiveTrackMap({
     destCoords?.lat,
     destCoords?.lng,
     status,
+    routeMode,
   ]);
 
   function recenterBounds() {
@@ -395,6 +406,7 @@ export function LiveTrackMap({
                 {distanceKm < 1
                   ? `${Math.round(distanceKm * 1000)} متر`
                   : `${distanceKm.toFixed(1)} كم`}
+                <span className="mr-2 text-[10px]">{routeMode === "road" ? "· مسار الشوارع" : routeMode === "waiting" ? "· جارٍ حساب الطريق" : "· تقدير مباشر"}</span>
               </div>
             )}
           </div>
