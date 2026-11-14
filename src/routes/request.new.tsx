@@ -95,6 +95,14 @@ const VEHICLE_CATS: {
     desc: "أحدث الموديلات وراحة استثنائية",
     img: luxuryCar,
   },
+  {
+    key: "large",
+    label: "سيارة كبيرة",
+    emoji: "🚚",
+    gradient: "from-orange-500 to-amber-600",
+    eta: "حسب المسار",
+    desc: "كيا حمل أو كيا ركاب",
+  },
 ];
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
@@ -128,6 +136,7 @@ function NewRequest() {
 
   // Taxi State
   const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>("economy");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger">("kia_cargo");
   const [weatherCondition, setWeatherCondition] = useState<WeatherCondition>(() =>
     seasonalWeatherFallback(),
   );
@@ -733,6 +742,18 @@ function NewRequest() {
                 );
               })}
             </div>
+            {vehicleCategory === "large" && (
+              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+                <div className="font-black text-sm">اختر نوع السيارة الكبيرة</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
+                    <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-xl border p-3 font-black ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
+                      <div className="text-2xl">{item.emoji}</div>{item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button
               type="button"
               disabled={busy || !pickupCoords || !destCoords || routeKm === null || !!routeError}
