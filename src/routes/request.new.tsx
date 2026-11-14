@@ -739,7 +739,7 @@ function NewRequest() {
                 <div className="font-black text-sm text-foreground">طلب سيارة كبيرة</div>
                 <div className="text-xs text-muted-foreground">ما نحسب السعر بالمسافة؛ اكتب السعر اللي تقترحه أو اتركه حتى توصلك عروض أصحاب السيارات</div>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                  {[15000, 20000, 25000, 30000, 35000].map((amount) => (
+                  {[15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000].map((amount) => (
                     <button key={amount} type="button" onClick={() => setCustomerPrice(String(amount))} className={`rounded-xl border px-2 py-2 text-xs font-black transition ${customerPrice === String(amount) ? "border-orange-500 bg-orange-100 text-orange-800 ring-1 ring-orange-300" : "border-orange-200 bg-white text-slate-700"}`}>
                       {(amount / 1000).toLocaleString("en")} ألف
                     </button>
