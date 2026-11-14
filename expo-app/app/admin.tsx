@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpa
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { palette, radius } from "@/styles/theme";
 
 type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number };
 type PricingRule = {
@@ -155,47 +156,27 @@ export default function AdminScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb", paddingHorizontal: 20, paddingTop: 50 },
-  companyCard: { backgroundColor: "#fff", borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: "#e2e8f0" },
-  companyHint: { color: "#64748b", fontSize: 12, marginBottom: 10 },
-  companyInput: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: "#0f172a", marginBottom: 10 },
-  companySave: { backgroundColor: "#2563eb", borderRadius: 12, padding: 13, alignItems: "center" },
-  companySaveText: { color: "#fff", fontWeight: "800" },
-  supportButton: { backgroundColor: "#2563eb", borderRadius: 14, padding: 14, marginBottom: 20 },
-  supportButtonText: { color: "#fff", fontWeight: "800", textAlign: "center" },
+  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 18, paddingTop: 52 },
+  companyCard: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 16, marginBottom: 18, borderWidth: 1, borderColor: palette.line },
+  companyHint: { color: palette.muted, fontSize: 11, marginBottom: 10, lineHeight: 18 },
+  companyInput: { minHeight: 52, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: palette.ink, marginBottom: 10, backgroundColor: palette.canvas },
+  companySave: { backgroundColor: palette.brand, borderRadius: radius.md, padding: 14, alignItems: "center" },
+  companySaveText: { color: palette.white, fontWeight: "900" },
+  supportButton: { backgroundColor: palette.brand, borderRadius: radius.md, padding: 14, marginBottom: 18 },
+  supportButtonText: { color: palette.white, fontWeight: "900", textAlign: "center" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 28, fontWeight: "900", color: "#1e293b", marginBottom: 20 },
-  statsGrid: { flexDirection: "row", gap: 10, marginBottom: 24 },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-  },
-  statValue: { fontSize: 28, fontWeight: "900", color: "#2563eb" },
-  statLabel: { fontSize: 12, color: "#64748b", marginTop: 4, textAlign: "center" },
-  sectionTitle: { fontSize: 16, fontWeight: "800", color: "#1e293b", marginBottom: 12 },
-  pricingCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-  },
-  pricingCategory: { fontSize: 14, fontWeight: "700", color: "#1e293b" },
-  pricingValues: { fontSize: 14, color: "#64748b" },
-  reqCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-  },
-  reqType: { fontSize: 18 },
-  reqCustomer: { fontSize: 14, fontWeight: "700", color: "#1e293b", marginTop: 2 },
-  reqDate: { fontSize: 12, color: "#94a3b8", marginTop: 2 },
-  reqStatus: { fontSize: 12, fontWeight: "700", color: "#64748b" },
+  title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 18 },
+  statsGrid: { flexDirection: "row", gap: 10, marginBottom: 22 },
+  statCard: { flex: 1, backgroundColor: palette.surface, borderRadius: radius.lg, padding: 15, alignItems: "center", borderWidth: 1, borderColor: palette.line },
+  statValue: { fontSize: 26, fontWeight: "900", color: palette.brand },
+  statLabel: { fontSize: 11, color: palette.muted, marginTop: 5, textAlign: "center" },
+  sectionTitle: { fontSize: 16, fontWeight: "900", color: palette.ink, marginBottom: 12 },
+  pricingCard: { flexDirection: "row", justifyContent: "space-between", backgroundColor: palette.surface, borderRadius: radius.md, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: palette.line },
+  pricingCategory: { fontSize: 13, fontWeight: "900", color: palette.ink },
+  pricingValues: { fontSize: 12, color: palette.muted },
+  reqCard: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.md, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: palette.line },
+  reqType: { fontSize: 17 },
+  reqCustomer: { fontSize: 13, fontWeight: "900", color: palette.ink, marginTop: 3 },
+  reqDate: { fontSize: 11, color: palette.muted, marginTop: 3 },
+  reqStatus: { fontSize: 11, fontWeight: "900", color: palette.muted },
 });
