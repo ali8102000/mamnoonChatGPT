@@ -168,7 +168,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         if (existing.vehiclePlate) setPlate(existing.vehiclePlate);
         if (existing.vehicleColor) setColor(existing.vehicleColor);
         if (existing.vehicleCategory) setCategory(existing.vehicleCategory as VehicleCategory);
-        if (existing.vehicleType) setVehicleType(existing.vehicleType);
+        if (existing.vehicleType === "kia_cargo" || existing.vehicleType === "kia_passenger") setVehicleType(existing.vehicleType);
       }
     }
   }, [session?.user?.id, providerRole]);
@@ -404,12 +404,12 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         verifiedAt: new Date().toISOString(),
         status: "pending",
         vehicleMake: finalMake,
-        vehicleModel: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : modelName.trim(),
+        vehicleModel: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب") : modelName.trim(),
         vehicleYear: Number(year) || undefined,
         vehiclePlate: plate.trim(),
         vehicleColor: color.trim() || undefined,
         vehicleCategory: category,
-        vehicleType: category === "large" ? vehicleType : undefined,
+        vehicleType: category === "large" ? vehicleType ?? undefined : undefined,
       };
       await saveProviderVerificationRemote(verificationDoc);
       saveProviderVerification(verificationDoc);
@@ -753,12 +753,13 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
 
           <div>
             <div className="text-xs font-bold text-muted-foreground mb-1.5">
-              رقم لوحة السيارة والمحافظة
+              رقم لوحة السيارة المركّبة والمحافظة *
             </div>
             <input
               value={plate}
+              required
               onChange={(e) => setPlate(e.target.value)}
-              placeholder="مثال: 58214 بغداد خصوصي"
+              placeholder="اكتب رقم لوحة الكيّة والمحافظة"
               className="w-full bg-white border border-border rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-primary"
             />
           </div>
