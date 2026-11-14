@@ -244,8 +244,6 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  PERFORM pg_advisory_xact_lock(91840061);
-
   IF NEW.status IN ('pending', 'searching')
      AND NEW.provider_id IS NULL THEN
 
@@ -266,6 +264,9 @@ BEGIN
 
       PERFORM public.advance_taxi_dispatch(NEW.id);
     END IF;
+
+    -- Request/queue work is complete; serialize only the cron metadata change.
+    PERFORM pg_advisory_xact_lock(91840061);
 
     IF EXISTS (SELECT 1 FROM public.taxi_dispatch_queue)
        AND NOT EXISTS (
@@ -288,6 +289,9 @@ BEGIN
     WHERE request_id = NEW.id
       AND status = 'pending'
       AND provider_id IS DISTINCT FROM NEW.provider_id;
+
+    -- The request and its queue/offers are already locked before scheduler coordination.
+    PERFORM pg_advisory_xact_lock(91840061);
 
     IF NOT EXISTS (SELECT 1 FROM public.taxi_dispatch_queue)
        AND EXISTS (
