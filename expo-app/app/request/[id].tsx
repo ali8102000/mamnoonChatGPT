@@ -115,6 +115,8 @@ export default function RequestDetail() {
   const [newMsg, setNewMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
+  const [ratingCriteria, setRatingCriteria] = useState({ first: 5, second: 5, third: 5 });
+  const [ratingComment, setRatingComment] = useState("");
   const [showRating, setShowRating] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
   const [reportReason, setReportReason] = useState("مشكلة أثناء الطلب");
@@ -152,6 +154,12 @@ export default function RequestDetail() {
       return;
     }
     setRequest(data as RequestRecord | null);
+    if (data?.status === "completed" && user?.id && data.provider_id && data.customer_id) {
+      const { data: existingRating } = await supabase.from("ratings").select("id").eq("request_id", id).eq("rater_id", user.id).maybeSingle();
+      setShowRating(!existingRating);
+    } else {
+      setShowRating(false);
+    }
     const {data:paymentSettings}=await supabase.from("subscription_settings").select("payment_gateway_enabled").eq("id",1).maybeSingle();
     setPaymentGatewayEnabled(Boolean(paymentSettings?.payment_gateway_enabled));
     if (data?.vehicle_category === "large") {
@@ -251,7 +259,6 @@ export default function RequestDetail() {
         (payload) => {
           const nextStatus = (payload.new as { status?: string }).status;
           void loadRequest();
-          if (nextStatus === "completed") setShowRating(true);
           if (nextStatus === "accepted") loadChat();
           if (nextStatus === "completed" || nextStatus === "cancelled") { setChatId(null); setMessages([]); setOtherProfile(null); setOtherLocation(null); }
         },
@@ -527,8 +534,7 @@ export default function RequestDetail() {
     });
     if (error) Alert.alert("خطأ", error.message);
     else {
-      loadRequest();
-      setShowRating(true);
+      await loadRequest();
     }
   }
 
@@ -573,6 +579,10 @@ export default function RequestDetail() {
       rater_id: user.id,
       ratee_id: otherId,
       stars: rating,
+      professionalism: ratingCriteria.first,
+      punctuality: ratingCriteria.second,
+      quality: ratingCriteria.third,
+      comment: ratingComment.trim() || null,
     });
     if (error) Alert.alert("تعذر إرسال التقييم", error.message);
     else {
@@ -603,6 +613,11 @@ export default function RequestDetail() {
     cancelled: "ملغي",
   };
   const quickReplies = isCustomer ? QUICK_REPLIES_CUSTOMER : QUICK_REPLIES_PROVIDER;
+  const ratingCriteriaLabels = isProvider
+    ? ["حسن التعامل والاحترام", "الالتزام بالموعد", "التعاون والوضوح"]
+    : request?.type === "taxi"
+      ? ["القيادة الآمنة", "الالتزام بالموعد", "نظافة السيارة"]
+      : ["جودة العمل والإتقان", "الالتزام بالوقت", "حسن التعامل"];
 
   return (
     <KeyboardAvoidingView
@@ -784,7 +799,7 @@ export default function RequestDetail() {
           )}
           {request.status === "accepted" && isProvider && (
             <TouchableOpacity style={styles.actionBtn} onPress={startRide}>
-              <Text style={styles.actionBtnText}>بدء الرحلة</Text>
+              <Text style={styles.actionBtnText}>{request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
             </TouchableOpacity>
           )}
           {isActive && isProvider && (
@@ -828,7 +843,7 @@ export default function RequestDetail() {
         )}
         {!["completed", "cancelled"].includes(request.status) ? (
         <>
-        <View style={styles.chatHeader}><Text style={styles.chatHeaderTitle}>المحادثة المباشرة</Text><Text style={styles.chatHeaderHint}>تصل الرسائل فورياً مع تنبيه صوتي</Text></View>
+        <View style={styles.chatHeader}><Text style={styles.chatHeaderTitle}>المحادثة</Text></View>
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
@@ -879,7 +894,7 @@ export default function RequestDetail() {
         {showRating && (
           <View style={styles.ratingOverlay}>
             <View style={styles.ratingCard}>
-              <Text style={styles.ratingTitle}>قيّم الخدمة</Text>
+              <Text style={styles.ratingTitle}>{isProvider ? "قيّم الزبون" : request.type === "taxi" ? "قيّم السائق" : "قيّم الفني"}</Text>
               <View style={styles.starsRow}>
                 {[1, 2, 3, 4, 5].map((s) => (
                   <TouchableOpacity key={s} onPress={() => setRating(s)}>
@@ -887,6 +902,22 @@ export default function RequestDetail() {
                   </TouchableOpacity>
                 ))}
               </View>
+              {ratingCriteriaLabels.map((label, index) => {
+                const key = index === 0 ? "first" : index === 1 ? "second" : "third";
+                return (
+                  <View key={key} style={{ width: "100%", marginBottom: 12 }}>
+                    <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "800", textAlign: "right", marginBottom: 5 }}>{label}</Text>
+                    <View style={styles.starsRow}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <TouchableOpacity key={s} onPress={() => setRatingCriteria((current) => ({ ...current, [key]: s }))}>
+                          <Text style={[styles.star, s <= ratingCriteria[key] && styles.starActive]}>★</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
+              <TextInput value={ratingComment} onChangeText={setRatingComment} placeholder="ملاحظة اختيارية" placeholderTextColor="#94a3b8" multiline maxLength={500} style={[styles.reportInput, { width: "100%", minHeight: 64, marginBottom: 14 }]} />
               <TouchableOpacity style={styles.ratingSubmit} onPress={submitRating}>
                 <Text style={styles.ratingSubmitText}>إرسال التقييم</Text>
               </TouchableOpacity>
