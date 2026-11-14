@@ -85,6 +85,9 @@ export function LiveTrackMap({
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [routeMode, setRouteMode] = useState<"road" | "direct" | "waiting">("waiting");
+  useEffect(() => {
+    setIsFullscreen(fullscreen);
+  }, [fullscreen]);
 
   const effectivePickup: Coords | null = pickupCoords ?? (myRole === "customer" ? me : other);
   const activeDriverCoord: Coords | null = myRole === "provider" ? me : other;
