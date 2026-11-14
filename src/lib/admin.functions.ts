@@ -349,7 +349,7 @@ export const adminListProviderChangeRequests = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await (supabaseAdmin as any)
       .from("provider_change_requests")
-      .select("*, profiles!inner(full_name, phone)")
+      .select("*, profiles!provider_change_requests_user_id_fkey(full_name, phone)")
       .eq("status", "pending")
       .order("created_at", { ascending: true });
     if (error) throw new Error(`تعذر تحميل طلبات تحديث الاختصاصات: ${error.message}`);
