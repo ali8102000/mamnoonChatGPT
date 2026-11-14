@@ -384,29 +384,32 @@ export function DriverOfferPopup() {
               </div>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-muted/50 rounded-2xl px-3 py-2.5 text-center">
-              <div className="text-[10px] uppercase text-muted-foreground">المسافة منك</div>
-              <div className="font-black text-sm mt-0.5">
-                {offer.distance_km ? `${Number(offer.distance_km).toFixed(1)} كم` : "—"}
+          {isLargeVehicle ? (
+            <div className="bg-orange-500/10 rounded-2xl px-3 py-2.5 text-center border border-orange-500/30">
+              <div className="text-[10px] text-orange-700">ميزانية الزبون</div>
+              <div className="font-black text-orange-700 text-sm mt-0.5">
+                {request.customer_price ? `${Number(request.customer_price).toLocaleString()} د.ع` : "بانتظار عروض الأسعار"}
               </div>
+              <div className="text-[10px] text-muted-foreground mt-1">السعر تحدده أنت والزبون يختار العرض</div>
             </div>
-            {isLargeVehicle ? (
-              <div className="bg-orange-500/10 rounded-2xl px-3 py-2.5 text-center border border-orange-500/30">
-                <div className="text-[10px] text-orange-700">ميزانية الزبون</div>
-                <div className="font-black text-orange-700 text-sm mt-0.5">
-                  {request.customer_price ? `${Number(request.customer_price).toLocaleString()} د.ع` : "بانتظار عروض الأسعار"}
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-muted/50 rounded-2xl px-3 py-2.5 text-center">
+                <div className="text-[10px] uppercase text-muted-foreground">المسافة منك</div>
+                <div className="font-black text-sm mt-0.5">
+                  {offer.distance_km ? `${Number(offer.distance_km).toFixed(1)} كم` : "—"}
                 </div>
               </div>
-            ) : request.price_estimate ? (
-              <div className="bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl px-3 py-2.5 text-center border border-primary/30">
-                <div className="text-[10px] uppercase text-primary/80">السعر</div>
-                <div className="font-black text-primary text-sm mt-0.5">
-                  {Number(request.price_estimate).toLocaleString()} د.ع
+              {request.price_estimate && (
+                <div className="bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl px-3 py-2.5 text-center border border-primary/30">
+                  <div className="text-[10px] uppercase text-primary/80">السعر</div>
+                  <div className="font-black text-primary text-sm mt-0.5">
+                    {Number(request.price_estimate).toLocaleString()} د.ع
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {isLargeVehicle ? (
