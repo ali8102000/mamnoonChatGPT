@@ -82,7 +82,7 @@ export function NotificationsBell() {
   }
 
   async function openNotifications() { setOpen(true); if (unread > 0) await markAll(); }
-  function isCompanyNotification(n: Notif) { return /company|admin|provider_approved|provider_rejected|provider_suspended|announcement|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired/i.test(n.type); }
+  function isCompanyNotification(n: Notif) { return /company|admin|provider_approved|provider_rejected|provider_suspended|announcement|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted/i.test(n.type); }
 
   if (!uid) return null;
 
