@@ -43,7 +43,7 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
   IF public.has_role(auth.uid(), 'worker'::public.app_role) THEN
@@ -67,7 +67,7 @@ BEGIN
   ON CONFLICT (worker_id, service_id) DO NOTHING;
   RETURN true;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.save_initial_worker_services(uuid[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.save_initial_worker_services(uuid[]) TO authenticated;
 
