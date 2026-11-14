@@ -72,10 +72,13 @@ export const incrementUserRequestCount = createServerFn({ method: "POST" })
 async function requireAdmin(context: any) {
   const { userId } = context;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await (supabaseAdmin as any).rpc("has_admin_access", {
-    p_user_id: userId,
-  });
-  if (!data) throw new Error("غير مصرّح: للمديرين فقط");
+  const { data, error } = await (supabaseAdmin as any)
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "super_admin"])
+    .limit(1);
+  if (error || !data?.length) throw new Error("غير مصرّح: للمديرين فقط");
 }
 
 export const adminGetPlans = createServerFn({ method: "GET" })
@@ -203,7 +206,7 @@ export const adminGetStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await (supabaseAdmin as any).rpc("get_subscription_stats");
+    const { data, error } = await (context.supabase as any).rpc("get_subscription_stats");
     if (error || !data || data.length === 0) {
       return {
         totalSubscribers: 0,
@@ -321,7 +324,7 @@ export const adminGrantSubscription = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await (supabaseAdmin as any).rpc("admin_grant_subscription", {
+    const { data: id, error } = await (context.supabase as any).rpc("admin_grant_subscription", {
       p_user_id: data.user_id,
       p_plan_code: data.plan_code,
       p_duration: data.duration,
@@ -336,7 +339,7 @@ export const adminCancelFreeSubscription = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: cancelled, error } = await (supabaseAdmin as any).rpc("admin_cancel_free_subscription", {
+    const { data: cancelled, error } = await (context.supabase as any).rpc("admin_cancel_free_subscription", {
       p_user_id: data.user_id,
     });
     if (error) throw new Error(error.message || "تعذر إلغاء الاشتراك المجاني");
