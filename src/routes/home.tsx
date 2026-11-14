@@ -199,6 +199,16 @@ function CustomerHome() {
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
+        <QuickTile
+          to="/request/new"
+          type="taxi"
+          vehicle="large"
+          title="طلب سيارة كبيرة"
+          subtitle="كيا حمل أو كيا ركاب"
+          icon={<Car className="h-7 w-7" />}
+          gradient="from-orange-500 to-amber-600"
+          delay={0.15}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 animate-pop-in" style={{ animationDelay: "0.15s" }}>
@@ -233,6 +243,7 @@ function CustomerHome() {
 function QuickTile({
   to,
   type,
+  vehicle,
   title,
   subtitle,
   icon,
@@ -242,6 +253,7 @@ function QuickTile({
 }: {
   to: string;
   type: "taxi" | "service";
+  vehicle?: "large";
   title: string;
   subtitle: string;
   icon: React.ReactNode;
@@ -252,7 +264,7 @@ function QuickTile({
   return (
     <Link
       to={to as any}
-      search={{ type } as any}
+      search={{ type, ...(vehicle ? { vehicle } : {}) } as any}
       onClick={() => playClick("pop")}
       className={`glass rounded-3xl p-4 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
         span === 2 ? "col-span-2 min-h-[132px]" : "min-h-[132px]"
