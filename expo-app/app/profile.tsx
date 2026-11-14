@@ -159,6 +159,10 @@ export default function ProfileScreen() {
           )}
         </View>
       )}
+      {isProvider && <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/subscriptions" as any)}>
+        <Text style={styles.menuItemText}>اشتراكات ممنون وامتيازات الباقة</Text>
+        <Text style={styles.menuArrow}>←</Text>
+      </TouchableOpacity>}
       <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/account-settings")}>
         <Text style={styles.menuItemText}>تبديل الدور وإعدادات الحساب</Text>
         <Text style={styles.menuArrow}>←</Text>
