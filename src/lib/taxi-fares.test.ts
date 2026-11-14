@@ -8,6 +8,10 @@ describe("Mamnoon city taxi pricing", () => {
     expect(taxiFare("economy", 8.3)).toBe(3250);
   });
 
+  it("prices large vehicles at the standard base rate", () => {
+    expect(taxiFare("large", 10)).toBe(4000);
+  });
+
   it("adds 10% to premium and 25% to luxury below 5000 IQD", () => {
     expect(taxiFare("premium", 10)).toBe(4500);
     expect(taxiFare("luxury", 10)).toBe(5000);
