@@ -342,6 +342,53 @@ export const adminListProviders = createServerFn({ method: "GET" })
     }));
   });
 
+export const adminListProviderChangeRequests = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await (supabaseAdmin as any)
+      .from("provider_change_requests")
+      .select("*, profiles!inner(full_name, phone)")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(`تعذر تحميل طلبات تحديث الاختصاصات: ${error.message}`);
+    const serviceIds = [...new Set((data ?? []).flatMap((row: any) =>
+      row.provider_type === "worker" && Array.isArray(row.requested_data?.service_ids)
+        ? row.requested_data.service_ids : [],
+    ))];
+    const { data: services } = serviceIds.length
+      ? await (supabaseAdmin as any).from("services").select("id,name_ar").in("id", serviceIds)
+      : { data: [] };
+    const serviceNames = new Map((services ?? []).map((service: any) => [service.id, service.name_ar]));
+    return (data ?? []).map((row: any) => ({
+      ...row,
+      requested_service_names: (row.requested_data?.service_ids ?? []).map((id: string) => serviceNames.get(id) ?? "اختصاص غير معروف"),
+    }));
+  });
+
+export const adminReviewProviderChangeRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    request_id: z.string().uuid(),
+    status: z.enum(["approved", "rejected"]),
+    reason: z.string().max(500).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    if (data.status === "rejected" && !data.reason?.trim()) {
+      throw new Error("اكتب سبب الرفض حتى يصل للمستخدم");
+    }
+    const { supabase } = context;
+    const { error } = await (supabase as any).rpc("admin_review_provider_change_request", {
+      _request_id: data.request_id,
+      _status: data.status,
+      _reason: data.reason?.trim() || null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const adminSetProviderStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
