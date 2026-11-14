@@ -36,13 +36,14 @@ Deno.serve(async (req: Request) => {
     const {data:{user},error:userError}=await userClient.auth.getUser(bearer);
     if(userError || !user) return json({error:"unauthorized"},401);
     const admin=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+    const {data:gatewaySettings}=await admin.from("subscription_settings").select("payment_gateway_enabled,subscription_enabled").eq("id",1).maybeSingle();
+    if(!gatewaySettings?.payment_gateway_enabled) return json({error:"payments_temporarily_disabled"},503);
     const body=await req.json().catch(()=>null);
     if(!body || !["subscription","service_request"].includes(body.purpose)) return json({error:"invalid_request"},400);
     let amount:number, planId:string|null=null, requestId:string|null=null;
     if(body.purpose==="subscription") {
       if(typeof body.planId!=="string") return json({error:"plan_required"},400);
-      const {data:settings}=await admin.from("subscription_settings").select("payment_gateway_enabled,subscription_enabled").eq("id",1).maybeSingle();
-      if(!settings?.payment_gateway_enabled || !settings?.subscription_enabled) return json({error:"payments_temporarily_disabled"},503);
+      if(!gatewaySettings.subscription_enabled) return json({error:"subscriptions_temporarily_disabled"},503);
       const {data:plan,error}=await admin.from("subscription_plans").select("id,code,monthly_price,currency,is_active").eq("id",body.planId).maybeSingle();
       if(error || !plan || !plan.is_active || plan.currency!=="IQD" || plan.monthly_price<=0 || ["free","trial"].includes(plan.code)) return json({error:"plan_not_payable"},400);
       const {data:sub}=await admin.from("user_subscriptions").select("grant_type").eq("user_id",user.id).maybeSingle();
