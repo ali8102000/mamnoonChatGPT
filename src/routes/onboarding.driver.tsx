@@ -393,7 +393,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         userId: uid,
         role: providerRole,
         legalName: identityName,
-        phone: profile?.phone,
+        phone: profile?.phone || session!.user.phone || undefined,
         email: profile?.email || session!.user.email,
         facePhotoUrl: facePhoto,
         idCardPhotoUrl: idCardPhoto,
