@@ -61,7 +61,9 @@ function RequestDetail() {
   const navigate = useNavigate();
   const { session, loading: authLoading } = useAuth();
   const [req, setReq] = useState<any>(null);
-  const [other, setOther] = useState<any>(null);\n  const [largeOffers, setLargeOffers] = useState<any[]>([]);\n  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
+  const [other, setOther] = useState<any>(null);
+  const [largeOffers, setLargeOffers] = useState<any[]>([]);
+  const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
   const [chat, setChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [draft, setDraft] = useState("");
