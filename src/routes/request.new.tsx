@@ -891,18 +891,23 @@ function NewRequest() {
                         { key: "second_trip", label: "رحلة ثانية" },
                         { key: "stop", label: "توقف بالطريق" },
                       ] as const).map((item) => (
-                        <button key={item.key} type="button" onClick={() => setTripType(item.key)} className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${tripType === item.key ? "bg-primary text-primary-foreground border-primary" : "bg-surface-2 border-border/60"}`}>
+                        <button key={item.key} type="button" onClick={() => { setTripType(item.key); if (item.key !== "stop") setExtraMinutes(0); }} className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${tripType === item.key ? "bg-primary text-primary-foreground border-primary" : "bg-surface-2 border-border/60"}`}>
                           {item.label}
                         </button>
                       ))}
                     </div>
-                    <div className="flex items-center justify-between text-xs font-black">
-                      <span>وقت إضافي</span>
-                      <span>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">وقت التوقف يحدده الزبون، كل 5 دقائق بـ500 دينار، والحد الأعلى ساعتان.</p>
-                    <input type="range" min={0} max={120} step={5} value={extraMinutes} onChange={(event) => setExtraMinutes(Number(event.target.value))} className="w-full accent-primary" aria-label="مدة التوقف بالدقائق" />
-                    <div className="flex justify-between text-[11px] text-muted-foreground"><span>بدون توقف</span><span>ساعتان</span></div>
+                    {tripType === "round_trip" && <p className="text-[11px] text-emerald-600 font-bold">تم تطبيق خصم 10٪ على أجرة الذهاب والإياب.</p>}
+                    {tripType === "stop" && (
+                      <>
+                        <div className="flex items-center justify-between text-xs font-black">
+                          <span>مدة التوقف</span>
+                          <span>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">مدة التوقف يحددها الزبون، كل 5 دقائق بـ500 دينار، والحد الأعلى ساعتان.</p>
+                        <input type="range" min={0} max={120} step={5} value={extraMinutes} onChange={(event) => setExtraMinutes(Number(event.target.value))} className="w-full accent-primary" aria-label="مدة التوقف بالدقائق" />
+                        <div className="flex justify-between text-[11px] text-muted-foreground"><span>بدون توقف</span><span>ساعتان</span></div>
+                      </>
+                    )}
                   </>
                 )}
               </div>
