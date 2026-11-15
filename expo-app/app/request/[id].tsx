@@ -594,7 +594,7 @@ export default function RequestDetail() {
     if (rating === 0 || !user) return;
     const otherId = isCustomer ? request?.provider_id : request?.customer_id;
     if (!otherId) return;
-    const { error } = await supabase.from("ratings").insert({
+    const { error } = await (supabase as any).from("ratings").insert({
       request_id: id,
       rater_id: user.id,
       ratee_id: otherId,
