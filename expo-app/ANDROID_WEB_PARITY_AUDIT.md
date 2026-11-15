@@ -1,6 +1,6 @@
 # Mamnoon Android ↔ Web parity audit
 
-Baseline audited: `main` at commit `65b0d6340270447ee7d89cf92f9fc13d57085352`. Native parity continuation is being prepared on branch `feat/android-parity-continuation`; this branch has not yet been merged or device-verified.
+Baseline audited: `main` at commit `2fd6c99e942688541c2e55eaf6bab5c1ddf7504f`. Android continuation branch: `feat/android-parity-rebased` at commit `93973e65ac9db926424036186f0d16a112ae90e3`. This commit passed CI and produced a validated installable debug APK; it has not yet been installed and device-verified.
 
 This is a living migration checklist. A matching route name or a successful TypeScript/build check does **not** establish visual or functional parity. A screen is complete only after comparing the same signed-in role, data state, viewport, and interaction on the running web and Android apps.
 
@@ -52,7 +52,8 @@ This is a living migration checklist. A matching route name or a successful Type
 ## Priority implementation plan
 
 ### P0 — release blockers
-- [ ] Run Android typecheck, Expo Doctor, dependency compatibility check, and Android export on this exact commit.
+- [x] Android TypeScript check and Expo dependency compatibility check passed on `93973e65ac9db926424036186f0d16a112ae90e3`.
+- [ ] Run Expo Doctor and Android export on this exact commit.
 - [ ] Run the app on an Android emulator/device and verify launch, auth restore, customer home, provider home, and role switching.
 - [ ] Verify customer request creation for technician, expert, taxi, Kia cargo, Kia passenger, and bus against the production-safe test environment.
 - [ ] Verify provider offer delivery, acceptance, customer/provider request details, realtime updates, push-notification open actions, and chat.
@@ -75,11 +76,12 @@ This is a living migration checklist. A matching route name or a successful Type
 
 ## Verification evidence
 
-- [ ] Android TypeScript check
-- [ ] `expo install --check`
+- [x] Android TypeScript check
+- [x] Expo dependency compatibility check (`expo install --check`)
 - [ ] `expo-doctor`
 - [ ] Android export
-- [ ] Installable APK build from the audited commit
+- [x] Installable debug APK built, validated, and uploaded from this commit (workflow run `43669755940`; artifact `mamnoon-test-apk`).
+- [ ] Install the APK on a physical Android device and complete device-level screen and flow tests.
 - [ ] Device-level screen and flow tests
 - [ ] Screenshot comparison report
 
