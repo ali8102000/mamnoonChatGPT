@@ -51,6 +51,8 @@ export default function AdminScreen() {
   const [changeRejectReason, setChangeRejectReason] = useState("");
   const [reviewingChangeId, setReviewingChangeId] = useState<string | null>(null);
   const [statsWarning, setStatsWarning] = useState("");
+  const [reportFilter, setReportFilter] = useState("all");
+  const [resolvingReportId, setResolvingReportId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data: superAdminCheck, error: permissionError } = await supabase.rpc("is_super_admin", {
@@ -110,10 +112,12 @@ export default function AdminScreen() {
     const conversationRows = conversations ?? [];
     const conversationIds = conversationRows.map((row: any) => row.id);
     const userIds = [...new Set(conversationRows.map((row: any) => row.user_id))];
+    let reportQuery = (supabase as any).from("user_reports").select("id,reporter_id,reported_id,request_id,reason,details,status,created_at").order("created_at", { ascending: false }).limit(100);
+    if (reportFilter !== "all") reportQuery = reportQuery.eq("status", reportFilter);
     const [{ data: supportProfiles }, { data: supportMessages }, { data: reportRows }] = await Promise.all([
       userIds.length ? supabase.from("profiles").select("id,full_name,phone").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
       conversationIds.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,read_at,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [] as any[] }),
-      (supabase as any).from("user_reports").select("id,reporter_id,reported_id,request_id,reason,details,status,created_at").order("created_at", { ascending: false }).limit(8),
+      reportQuery,
     ]);
     const profileById = new Map((supportProfiles ?? []).map((profile: any) => [profile.id, profile]));
     const latestByConversation = new Map<string, any>();
@@ -151,7 +155,7 @@ export default function AdminScreen() {
       setChangeRequests(enriched);
     }
     setLoading(false);
-  }, [user?.id]);
+  }, [user?.id, reportFilter]);
 
   useEffect(() => {
     load();
@@ -190,6 +194,21 @@ export default function AdminScreen() {
     setRejectingChangeId(null);
     setChangeRejectReason("");
     Alert.alert("تم", status === "approved" ? "تمت الموافقة وتفعيل التحديث." : "تم رفض طلب التحديث.");
+    await load();
+  };
+
+  const resolveReport = async (reportId: string, status: "resolved" | "closed" | "dismissed") => {
+    setResolvingReportId(reportId);
+    const { error } = await (supabase as any).rpc("admin_resolve_report", {
+      p_report_id: reportId,
+      p_status: status,
+      p_note: null,
+    });
+    setResolvingReportId(null);
+    if (error) {
+      Alert.alert("تعذر تحديث البلاغ", error.message);
+      return;
+    }
     await load();
   };
 
@@ -243,16 +262,28 @@ export default function AdminScreen() {
         </TouchableOpacity>
       ))}
       <View style={styles.inboxHeader}>
-        <Text style={styles.sectionTitle}>بلاغات المستخدمين</Text>
+        <Text style={styles.sectionTitle}>إدارة البلاغات</Text>
         <TouchableOpacity onPress={() => onRefresh()}><Text style={styles.inboxOpenText}>تحديث</Text></TouchableOpacity>
       </View>
-      {reports.length === 0 ? <Text style={styles.emptyHint}>ماكو بلاغات واردة حالياً</Text> : reports.map((report) => (
+      <View style={styles.reportFilters}>
+        {(["all", "pending", "resolved", "closed", "dismissed"] as const).map((status) => (
+          <TouchableOpacity key={status} onPress={() => setReportFilter(status)} style={[styles.reportFilter, reportFilter === status && styles.reportFilterActive]}>
+            <Text style={[styles.reportFilterText, reportFilter === status && styles.reportFilterTextActive]}>{status === "all" ? "الكل" : status === "pending" ? "معلقة" : status === "resolved" ? "محلولة" : status === "closed" ? "مغلقة" : "مرفوضة"}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {reports.length === 0 ? <Text style={styles.emptyHint}>لا توجد بلاغات بهذا التصنيف</Text> : reports.map((report) => (
         <View key={report.id} style={styles.reportCard}>
           <Text style={styles.inboxName}>{report.reason || "بلاغ بدون عنوان"}</Text>
           {!!report.details && <Text style={styles.reportDetails}>{report.details}</Text>}
           <Text style={styles.reportMeta}>من: {report.reporter?.full_name || "مستخدم"} · ضد: {report.reported?.full_name || "مستخدم"}</Text>
           <Text style={styles.reportMeta}>الحالة: {report.status} · {new Date(report.created_at).toLocaleString("ar-IQ")}</Text>
           {!!report.request_id && <Text style={styles.reportMeta}>رقم الطلب: {report.request_id}</Text>}
+          {report.status === "pending" && <View style={styles.reportActions}>
+            <TouchableOpacity disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "resolved")} style={[styles.reportAction, { backgroundColor: "#dcfce7" }]}><Text style={{ color: "#166534", fontWeight: "900", fontSize: 11 }}>{resolvingReportId === report.id ? "..." : "حل البلاغ"}</Text></TouchableOpacity>
+            <TouchableOpacity disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "closed")} style={[styles.reportAction, { backgroundColor: "#e2e8f0" }]}><Text style={{ color: "#334155", fontWeight: "900", fontSize: 11 }}>إغلاق</Text></TouchableOpacity>
+            <TouchableOpacity disabled={resolvingReportId === report.id} onPress={() => Alert.alert("رفض البلاغ", "تريد رفض هذا البلاغ؟", [{ text: "رجوع", style: "cancel" }, { text: "رفض", style: "destructive", onPress: () => void resolveReport(report.id, "dismissed") }])} style={[styles.reportAction, { backgroundColor: "#fee2e2" }]}><Text style={{ color: "#991b1b", fontWeight: "900", fontSize: 11 }}>رفض</Text></TouchableOpacity>
+          </View>}
         </View>
       ))}
       <View style={styles.inboxHeader}>
@@ -396,6 +427,13 @@ const styles = StyleSheet.create({
   reportCard: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, marginBottom: 8 },
   reportDetails: { color: palette.ink, fontSize: 12, lineHeight: 20, textAlign: "right", marginTop: 5 },
   reportMeta: { color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 5 },
+  reportFilters: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
+  reportFilter: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  reportFilterActive: { backgroundColor: palette.brand, borderColor: palette.brand },
+  reportFilterText: { color: palette.ink, fontSize: 10, fontWeight: "800" },
+  reportFilterTextActive: { color: palette.white },
+  reportActions: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
+  reportAction: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: radius.md },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 18 },
   statsWarning: { color: "#B45309", backgroundColor: "#FEF3C7", borderRadius: radius.md, padding: 10, textAlign: "right", fontSize: 11, marginBottom: 10 },
