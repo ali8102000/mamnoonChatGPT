@@ -51,6 +51,18 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, data });
     };
 
+    if (body.action === "search_users") {
+      const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
+      if (query.length < 2) return json({ error: "query_too_short" }, 400);
+      const safe = query.replace(/[,%()]/g, " ");
+      const { data, error } = await admin.from("profiles")
+        .select("id,full_name,phone,email")
+        .or(`full_name.ilike.%${safe}%,phone.ilike.%${safe}%,email.ilike.%${safe}%`)
+        .order("created_at", { ascending: false }).limit(30);
+      if (error) return json({ error: "user_search_failed" }, 500);
+      return json({ users: data ?? [] });
+    }
+
     if (body.action === "list") {
       const [transactions, coupons] = await Promise.all([
         admin.from("transactions").select("*, profiles!inner(full_name,phone)")
