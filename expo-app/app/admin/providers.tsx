@@ -60,8 +60,9 @@ export default function AdminProvidersScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const { data: staff, error: permissionError } = await supabase.rpc("has_staff_role", { p_user_id: user.id });
-      if (permissionError || staff !== true) {
+      const { data: roles, error: permissionError } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
+      const roleNames = (roles ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
+      if (permissionError || !roleNames.some((role: string) => ["super_admin", "admin", "support"].includes(role))) {
         setCanView(false); setProviders([]); setTotal(0); return;
       }
       setCanView(true);
@@ -107,7 +108,7 @@ export default function AdminProvidersScreen() {
   };
 
   if (authLoading || loading) return <View style={s.center}><ActivityIndicator size="large" color={palette.brand}/><Text style={s.muted}>جاري تحميل مقدمي الخدمة...</Text></View>;
-  if (canView === false) return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة متاحة لموظفي الإدارة المخوّلين.</Text></View>;
+  if (canView === false) return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة متاحة للمدير أو الدعم المخوّل فقط.</Text></View>;
 
   return (
     <View style={s.page}>
