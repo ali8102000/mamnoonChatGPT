@@ -20,6 +20,7 @@ import { IRAQ_GOVERNORATES, getMobileGovernorate, nearestGovernorateKey } from "
 import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
 import { palette, radius } from "@/styles/theme";
+import { calculateMobileTaxiFare } from "@/lib/taxi-fares";
 
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
@@ -85,6 +86,7 @@ export default function NewRequest() {
   const [routeDurationMin, setRouteDurationMin] = useState<number | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [demandMultiplier, setDemandMultiplier] = useState(1);
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number } }>>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
@@ -99,6 +101,29 @@ export default function NewRequest() {
   }, []);
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
+  const destinationGovKey = destinationGovernorateKey ?? (destinationCoords ? nearestGovernorateKey(destinationCoords) : null);
+  const isIntercity = Boolean(pickupGovernorateKey && destinationGovKey && pickupGovernorateKey !== destinationGovKey);
+  const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle
+    ? calculateMobileTaxiFare(vehicleCat as Exclude<VehicleCategory, "large">, routeKm, demandMultiplier, isIntercity)
+    : null;
+
+  useEffect(() => {
+    if (!isTaxi || isLargeVehicle || !pickupCoords) {
+      setDemandMultiplier(1);
+      return;
+    }
+    let active = true;
+    supabase.rpc("get_taxi_demand_multiplier", {
+      _lat: pickupCoords.latitude,
+      _lng: pickupCoords.longitude,
+      _category: vehicleCat,
+    }).then(({ data, error }) => {
+      if (!active) return;
+      const value = Number(data);
+      setDemandMultiplier(!error && Number.isFinite(value) ? Math.min(1.5, Math.max(0.8, value)) : 1);
+    }).catch(() => { if (active) setDemandMultiplier(1); });
+    return () => { active = false; };
+  }, [isTaxi, isLargeVehicle, pickupCoords, vehicleCat]);
 
   useEffect(() => {
     if (!focusSearchAfterProvince) return;
@@ -824,8 +849,10 @@ export default function NewRequest() {
       {routeKm !== null && isTaxi && !isLargeVehicle && (
         <View style={styles.priceBox}>
           <Text style={styles.priceLabel}>مسافة الطريق الفعلية</Text>
-          <Text style={styles.priceValue}>{routeKm.toFixed(1)} كم</Text>
-          <Text style={styles.priceNote}>الوقت التقريبي: {Math.max(1, Math.round(routeDurationMin ?? 1))} دقيقة. الأجرة النهائية يحسبها الخادم.</Text>
+          <Text style={styles.priceValue}>{routeKm.toFixed(2)} كم</Text>
+          <Text style={[styles.priceLabel, { marginTop: 12 }]}>السعر التقديري حسب الفئة والطلب</Text>
+          <Text style={styles.priceValue}>{estimatedTaxiFare?.toLocaleString("ar-IQ") ?? "—"} د.ع</Text>
+          <Text style={styles.priceNote}>الوقت التقريبي: {Math.max(1, Math.round(routeDurationMin ?? 1))} دقيقة. يُعاد تأكيد المسافة والسعر من الخادم عند إرسال الطلب.</Text>
         </View>
       )}
       <View style={{ height: 24 }} />
