@@ -296,7 +296,7 @@ export default function RequestDetail() {
         (payload) => {
           const incoming = payload.new as ChatMessage;
           if (incoming.sender_id !== user?.id) {
-            void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: "وصلتك رسالة جديدة من الطرف الآخر", sound: soundEnabled ? "default" : null, channelId: soundEnabled ? "default" : "mamnoon-silent", data: { request_id: id } }, trigger: null }).catch((error) => console.warn("[messages] sound notification failed:", error));
+            void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: "وصلتك رسالة جديدة من الطرف الآخر", sound: soundEnabled ? "default" : false, channelId: soundEnabled ? "default" : "mamnoon-silent", data: { request_id: id } }, trigger: null }).catch((error) => console.warn("[messages] sound notification failed:", error));
           }
           void loadMessages();
         },
