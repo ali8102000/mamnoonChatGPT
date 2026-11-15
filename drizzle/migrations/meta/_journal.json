@@ -148,6 +148,13 @@
       "when": 1794787200000,
       "tag": "0049_smooth_taxi_demand_pricing",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794789000000,
+      "tag": "0050_taxi_trip_options_and_extra_time",
+      "breakpoints": true
     }
   ]
 }
