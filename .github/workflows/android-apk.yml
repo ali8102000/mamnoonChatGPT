@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build installable Mamnoon debug APK
+    name: Build standalone Mamnoon release APK
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -94,19 +94,19 @@ jobs:
       - name: Skip secret-dependent APK build for fork pull requests
         if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         run: echo "Skipping EAS-dependent APK build because fork pull requests do not receive repository secrets."
-      - name: Prebuild and compile installable debug APK without EAS build credits
+      - name: Prebuild and compile standalone release APK without EAS build credits
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && node scripts/configure-android-abi-splits.mjs && cd android && chmod +x gradlew && ./gradlew assembleDebug'
+          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && node scripts/configure-android-abi-splits.mjs && cd android && chmod +x gradlew && ./gradlew assembleRelease'
       - name: Validate APK
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           mkdir -p release-artifacts
-          OUTPUT_DIR="android/app/build/outputs/apk/debug"
-          cp "$OUTPUT_DIR/app-arm64-v8a-debug.apk" release-artifacts/mamnoon-test-arm64.apk
-          cp "$OUTPUT_DIR/app-x86_64-debug.apk" release-artifacts/mamnoon-test-x86_64.apk
+          OUTPUT_DIR="android/app/build/outputs/apk/release"
+          cp "$OUTPUT_DIR/app-arm64-v8a-release.apk" release-artifacts/mamnoon-test-arm64.apk
+          cp "$OUTPUT_DIR/app-x86_64-release.apk" release-artifacts/mamnoon-test-x86_64.apk
           for APK in release-artifacts/mamnoon-test-arm64.apk release-artifacts/mamnoon-test-x86_64.apk; do
             test -s "$APK"
             node -e 'const fs=require("fs"); const p=process.argv[1]; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Invalid APK archive: "+p); process.exit(1); }' "$APK"
