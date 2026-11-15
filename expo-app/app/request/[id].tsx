@@ -37,6 +37,7 @@ import service_wood_carpentry from "../../assets/services/wood_carpentry.png";
 import service_blacksmith from "../../assets/services/blacksmith.png";
 import service_general from "../../assets/services/general.png";
 import { palette, radius } from "@/styles/theme";
+import { callMamnoonMapsApi } from "@/lib/maps-api";
 
 const QUICK_REPLIES_CUSTOMER = ["وصلت!", "كم دقيقة؟", "أين أنت؟", "شكراً جزيلاً", "هل أنت قريب؟"];
 const QUICK_REPLIES_PROVIDER = [
@@ -143,6 +144,9 @@ export default function RequestDetail() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
+  const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
+  const lastEtaRequestRef = useRef<{ latitude: number; longitude: number; requestedAt: number } | null>(null);
+  const etaSequenceRef = useRef(0);
   const [newMsg, setNewMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
@@ -460,6 +464,46 @@ export default function RequestDetail() {
     currentUserId,
   ]);
 
+  useEffect(() => {
+    if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
+        !otherLocation || request.pickup_lat == null || request.pickup_lng == null) {
+      setDriverEtaMinutes(null);
+      lastEtaRequestRef.current = null;
+      return;
+    }
+    const previous = lastEtaRequestRef.current;
+    const movedMeters = previous
+      ? (() => {
+          const radians = (value: number) => value * Math.PI / 180;
+          const dLat = radians(otherLocation.latitude - previous.latitude);
+          const dLng = radians(otherLocation.longitude - previous.longitude);
+          const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(radians(previous.latitude)) * Math.cos(radians(otherLocation.latitude)) *
+            Math.sin(dLng / 2) ** 2;
+          return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        })()
+      : Number.POSITIVE_INFINITY;
+    if (previous && movedMeters < 120 && Date.now() - previous.requestedAt < 30000) return;
+
+    lastEtaRequestRef.current = {
+      latitude: otherLocation.latitude,
+      longitude: otherLocation.longitude,
+      requestedAt: Date.now(),
+    };
+    const sequence = ++etaSequenceRef.current;
+    void callMamnoonMapsApi<{ durationMin: number }>({
+      action: "route",
+      from: { lat: otherLocation.latitude, lng: otherLocation.longitude },
+      to: { lat: request.pickup_lat, lng: request.pickup_lng },
+    }).then((route) => {
+      if (sequence === etaSequenceRef.current && Number.isFinite(route.durationMin)) {
+        setDriverEtaMinutes(Math.max(1, Math.round(route.durationMin)));
+      }
+    }).catch(() => {
+      if (sequence === etaSequenceRef.current) setDriverEtaMinutes(null);
+    });
+  }, [isCustomer, request?.type, request?.status, request?.pickup_lat, request?.pickup_lng, otherLocation?.latitude, otherLocation?.longitude]);
+
   async function payRequestWithZainCash() {
     if (!user || !request || !isCustomer || paymentBusy || request.payment_method === "zaincash") return;
     setPaymentBusy(true);
@@ -680,7 +724,7 @@ export default function RequestDetail() {
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backBtn}>→</Text>
           </TouchableOpacity>
-          <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>الكابتن متجه إليك</Text>}</View>
+          <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>{otherLocation && request.pickup_lat != null && request.pickup_lng != null && (() => { const rad = (value: number) => value * Math.PI / 180; const dLat = rad(otherLocation.latitude - request.pickup_lat!); const dLng = rad(otherLocation.longitude - request.pickup_lng!); const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(request.pickup_lat!)) * Math.cos(rad(otherLocation.latitude)) * Math.sin(dLng / 2) ** 2; const meters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return meters <= 50 ? "انا في نقطة الانطلاق" : driverEtaMinutes != null && driverEtaMinutes <= 2 ? "دقيقتين واوصل" : driverEtaMinutes != null ? `باقي ${driverEtaMinutes} دقيقة واوصل` : "الكابتن متجه إليك"; })()}</Text>}</View>
           <View style={{ width: 30 }} />
         </View>
         {otherProfile && !["completed", "cancelled"].includes(request.status) && (
