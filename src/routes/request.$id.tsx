@@ -130,8 +130,8 @@ function RequestDetail() {
       }
       setReq(r);
       if (r.type === "taxi" && r.provider_id) {
-        const { data: verification } = await supabase.from("provider_verifications").select("metadata").eq("user_id", r.provider_id).eq("status", "approved").maybeSingle();
-        setVehicleDetails((verification?.metadata as any) ?? null);
+        const { data: vehicle } = await (supabase as any).from("provider_vehicle_public").select("vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate").eq("provider_id", r.provider_id).maybeSingle();
+        setVehicleDetails(vehicle ?? null);
       } else {
         setVehicleDetails(null);
       }
@@ -431,7 +431,7 @@ function RequestDetail() {
           <div className="glass rounded-xl px-3 py-2 flex items-center gap-2.5">
             <div className="text-xl">{VEHICLE_CAT_META[req.vehicle_category].emoji}</div>
             <div className="flex-1 min-w-0"><div className="text-[10px] text-muted-foreground">فئة السيارة</div><div className="text-xs font-black">{VEHICLE_CAT_META[req.vehicle_category].label}</div>
-              {vehicleDetails && <div className="text-[10px] text-muted-foreground truncate">{[vehicleDetails.vehicleMake, vehicleDetails.vehicleModel, vehicleDetails.vehicleYear].filter(Boolean).join(" ")}{vehicleDetails.vehiclePlate ? ` · رقم ${vehicleDetails.vehiclePlate}` : ""}</div>}
+              {vehicleDetails && <div className="text-[10px] text-muted-foreground truncate">{[vehicleDetails.vehicle_make, vehicleDetails.vehicle_model, vehicleDetails.vehicle_year].filter(Boolean).join(" ")}{vehicleDetails.vehicle_plate ? ` · رقم ${vehicleDetails.vehicle_plate}` : ""}</div>}
             </div>
             {req.price_estimate && <div className="text-left shrink-0"><div className="font-black text-xs">{Number(myRole === "customer" && (req as any).customer_payable != null ? (req as any).customer_payable : req.price_estimate).toLocaleString("ar-IQ")}</div><div className="text-[9px] text-muted-foreground">د.ع</div></div>}
           </div>
