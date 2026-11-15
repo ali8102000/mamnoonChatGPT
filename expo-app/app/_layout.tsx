@@ -1,6 +1,6 @@
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { I18nManager, LogBox, Platform, useColorScheme } from "react-native";
+import { Alert, I18nManager, LogBox, Platform, useColorScheme } from "react-native";
 import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
@@ -40,6 +40,13 @@ function PushNotificationSetup() {
     async function registerPushToken() {
       try {
         if (Platform.OS === "android") {
+          await Notifications.setNotificationCategoryAsync("incoming_request", [
+            {
+              identifier: "accept",
+              buttonTitle: "موافقة",
+              options: { opensAppToForeground: true },
+            },
+          ]);
           await Notifications.setNotificationChannelAsync("default", {
             name: "إشعارات ممنون",
             importance: Notifications.AndroidImportance.MAX,
@@ -83,7 +90,7 @@ function PushNotificationSetup() {
       }
     }
 
-    function openRequestFromResponse(response: Notifications.NotificationResponse | null) {
+    async function openRequestFromResponse(response: Notifications.NotificationResponse | null) {
       if (!response) return;
       const responseId = response.notification.request.identifier;
       if (handledResponseId.current === responseId) return;
@@ -92,7 +99,16 @@ function PushNotificationSetup() {
         type?: unknown;
       };
       handledResponseId.current = responseId;
-      if (typeof data?.request_id === "string") {
+      if (typeof data?.request_id === "string" && response.actionIdentifier === "accept") {
+        const { error } = await supabase.rpc("accept_service_request", {
+          _request_id: data.request_id,
+        });
+        if (error) {
+          Alert.alert("تعذّر قبول الطلب", error.message || "قد يكون العرض انتهى أو قبله مزوّد آخر.");
+        } else {
+          router.push({ pathname: "/request/[id]", params: { id: data.request_id } });
+        }
+      } else if (typeof data?.request_id === "string") {
         router.push({
           pathname: "/request/[id]",
           params: { id: data.request_id },
