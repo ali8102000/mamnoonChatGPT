@@ -118,11 +118,23 @@ export default function NewRequest() {
 
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
-  const destinationGovKey = destinationGovernorateKey ?? (destinationCoords ? nearestGovernorateKey(destinationCoords) : null);
+  const destinationGovKey = destinationGovernorateKey;
   const isIntercity = Boolean(pickupGovernorateKey && destinationGovKey && pickupGovernorateKey !== destinationGovKey);
   const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle
     ? calculateMobileTaxiFare(vehicleCat as Exclude<VehicleCategory, "large">, routeKm, demandMultiplier, isIntercity)
     : null;
+
+  useEffect(() => {
+    if (!destinationCoords || destinationGovernorateKey) return;
+    let active = true;
+    void callMamnoonMapsApi<{ key: string }>({
+      action: "detectGovernorate",
+      center: { lat: destinationCoords.latitude, lng: destinationCoords.longitude },
+    }).then((result) => {
+      if (active) setDestinationGovernorateKey(result.key);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [destinationCoords, destinationGovernorateKey]);
 
   useEffect(() => {
     if (!isTaxi || isLargeVehicle || !pickupCoords) {
