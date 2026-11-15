@@ -17,6 +17,7 @@ export default function MonitoringScreen() {
   const { user, loading: authLoading } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [canManage, setCanManage] = useState(false);
+  const [reportsOnly, setReportsOnly] = useState(false);
   const [tab, setTab] = useState<Tab>("live");
   const [stats, setStats] = useState({ totalUsers: 0, activeRequests: 0, activeDrivers: 0, activeWorkers: 0 });
   const [reports, setReports] = useState<Report[]>([]);
@@ -50,6 +51,7 @@ export default function MonitoringScreen() {
       }
       setAllowed(true);
       setCanManage(admin.data === true);
+      setReportsOnly(!canMonitor);
       if (!canMonitor) {
         setTab("reports");
         const result = await invoke({ action: "reports" });
@@ -128,7 +130,6 @@ export default function MonitoringScreen() {
   if (authLoading || dataLoading || allowed === null) return <View style={s.center}><ActivityIndicator color={palette.brand}/><Text style={s.muted}>جاري تحميل المراقبة المباشرة...</Text></View>;
   if (!allowed) return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة لموظفي ممنون المخوّلين فقط.</Text></View>;
 
-  const reportsOnly = tab === "reports" && stats.totalUsers === 0 && blocks.length === 0 && tickets.length === 0;
   const tabs: { value: Tab; label: string }[] = reportsOnly
     ? [{ value: "reports", label: "البلاغات" }]
     : [
