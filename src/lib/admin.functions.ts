@@ -115,9 +115,10 @@ export const getStaffRoles = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ user_id: z.string().uuid().optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
-    const { supabase } = context;
     const targetId = data?.user_id ?? context.userId;
+    if (targetId === context.userId) await requireStaff(context);
+    else await requireSuperAdmin(context);
+    const { supabase } = context;
     const { data: roles, error } = await (supabase as any).rpc("get_staff_roles", {
       p_user_id: targetId,
     });
