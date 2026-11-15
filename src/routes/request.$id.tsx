@@ -546,10 +546,11 @@ function RequestDetail() {
               status={req.status}
               myRole={myRole}
               serviceType={req.type}
+              driverName={other?.full_name ?? "الفني"}
               driverPhone={other?.phone}
               vehicleCategory={req.vehicle_category}
-              height={390}
-              showStatusOverlay={false}
+              height={req.type === "taxi" ? 390 : 280}
+              showStatusOverlay={req.type !== "taxi"}
               fullscreen={mapOpen}
               onClose={() => setMapOpen(false)}
               onOpenNavigation={myRole === "provider" ? () => setNavModalOpen(true) : undefined}
