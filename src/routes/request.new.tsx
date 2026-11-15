@@ -24,6 +24,8 @@ import {
   Compass,
   ChevronUp,
   ChevronDown,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { MapPicker } from "@/components/map-picker";
 import { dispatchRequest } from "@/lib/dispatch.functions";
@@ -133,6 +135,14 @@ function NewRequest() {
   const [customerPrice, setCustomerPrice] = useState("");
   const [workHours, setWorkHours] = useState("");
   const [workDescription, setWorkDescription] = useState("");
+  const [brickQuantity, setBrickQuantity] = useState("");
+  const [cargoLoadDescription, setCargoLoadDescription] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
+
+  useEffect(() => () => {
+    if (attachmentPreview) URL.revokeObjectURL(attachmentPreview);
+  }, [attachmentPreview]);
   const [couponCode, setCouponCode] = useState("");
   const [couponPreview, setCouponPreview] = useState<{ discount: number; payable: number } | null>(null);
   const [couponError, setCouponError] = useState("");
@@ -225,6 +235,27 @@ function NewRequest() {
     return Number.isFinite(amount) && amount > 0 ? amount : null;
   };
 
+  function handleAttachmentFileChange(event: { currentTarget: HTMLInputElement }) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("اختَر صورة بصيغة JPG أو PNG أو WebP");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("حجم الصورة أكبر من 8 ميغابايت. اختَر صورة أصغر.");
+      return;
+    }
+    setAttachmentFile(file);
+    setAttachmentPreview(URL.createObjectURL(file));
+  }
+
+  function clearAttachment() {
+    setAttachmentFile(null);
+    setAttachmentPreview(null);
+  }
+
   async function previewCoupon() {
     const code = couponCode.trim();
     const amount = getCouponBaseAmount();
@@ -262,6 +293,26 @@ function NewRequest() {
       </div>}
     </div>
   );
+
+  const requestAttachmentPanel = (type === "service" || vehicle === "large") ? (
+    <div className="rounded-2xl border border-dashed border-primary/35 bg-card p-3 space-y-2" dir="rtl">
+      <div className="text-sm font-black">صورة توضيحية للطلب <span className="text-xs font-medium text-muted-foreground">(اختياري)</span></div>
+      <label className="flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-bold cursor-pointer btn-press">
+        <ImagePlus className="h-5 w-5 text-primary" />
+        <span>{attachmentFile ? "تغيير الصورة" : "اختيار صورة من الجهاز"}</span>
+        <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handleAttachmentFileChange} />
+      </label>
+      {attachmentPreview && (
+        <div className="relative w-full max-w-xs">
+          <img src={attachmentPreview} alt="معاينة الصورة المرفقة" className="w-full max-h-48 rounded-xl object-contain bg-background border border-border" />
+          <button type="button" onClick={clearAttachment} aria-label="حذف الصورة" className="absolute top-2 left-2 h-8 w-8 rounded-full bg-black/70 text-white grid place-items-center">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      <p className="text-[11px] text-muted-foreground">JPG أو PNG أو WebP، بحد أقصى 8 ميغابايت. الصورة تظهر ضمن تفاصيل الطلب للأطراف المصرّح لها.</p>
+    </div>
+  ) : null;
 
   const pickupLat = pickupCoords?.lat;
   const pickupLng = pickupCoords?.lng;
@@ -470,7 +521,12 @@ function NewRequest() {
           dest_text: destLabel || null,
           dest_lat: destCoords?.lat ?? null,
           dest_lng: destCoords?.lng ?? null,
-          notes: notes || null,
+          notes: [
+            notes.trim(),
+            vehicle === "large" && vehicleType === "kia_cargo" && cargoLoadDescription.trim()
+              ? `تفاصيل الحمولة: ${cargoLoadDescription.trim()}`
+              : "",
+          ].filter(Boolean).join("\n") || null,
           distance_km: type === "taxi" ? verifiedRouteKm : null,
           is_intercity: type === "taxi" ? interCity : false,
           trip_type: type === "taxi" ? tripType : "one_way",
@@ -480,7 +536,12 @@ function NewRequest() {
                 pricing_mode: pricingMode,
                 customer_price: pricingMode === "negotiable" ? null : priceNum,
                 work_hours: pricingMode === "hourly" && workHours ? Number(workHours) : null,
-                work_description: workDescription.trim() || null,
+                work_description: [
+                  workDescription.trim(),
+                  selectedService?.slug === "build" && brickQuantity.trim()
+                    ? `كمية الطابوق: ${brickQuantity.trim()}`
+                    : "",
+                ].filter(Boolean).join("\n") || null,
               }
             : {}),
         } as any)
@@ -488,6 +549,32 @@ function NewRequest() {
         .single();
 
       if (error) throw error;
+      if (attachmentFile) {
+        const extension = attachmentFile.type === "image/png" ? "png" : attachmentFile.type === "image/webp" ? "webp" : "jpg";
+        const attachmentPath = `${data.id}/${session.user.id}/${Date.now()}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from("request-attachments")
+          .upload(attachmentPath, attachmentFile, {
+            contentType: attachmentFile.type,
+            cacheControl: "3600",
+            upsert: false,
+          });
+        if (uploadError) {
+          console.error("[request attachment] upload failed:", uploadError);
+          toast.error("تم إرسال الطلب، لكن تعذّر رفع الصورة. تگدر تكمل الطلب بدونها.");
+        } else {
+          const { error: pathError } = await (supabase as any)
+            .from("service_requests")
+            .update({ attachment_path: attachmentPath })
+            .eq("id", data.id)
+            .eq("customer_id", session.user.id);
+          if (pathError) {
+            await supabase.storage.from("request-attachments").remove([attachmentPath]);
+            console.error("[request attachment] path save failed:", pathError);
+            toast.error("تم إرسال الطلب، لكن تعذّر إرفاق الصورة به.");
+          }
+        }
+      }
       toast.success(data.coupon_discount > 0
         ? `تم إرسال الطلب وتطبيق خصم ${Number(data.coupon_discount).toLocaleString("ar-IQ")} د.ع`
         : "تم إرسال الطلب بنجاح!");
@@ -914,6 +1001,13 @@ function NewRequest() {
                 )}
               </div>
             )}
+            {vehicle === "large" && vehicleType === "kia_cargo" && (
+              <div className="rounded-2xl border border-orange-200 bg-orange-50/70 p-3 space-y-2" dir="rtl">
+                <div className="text-sm font-black">كمية الحمولة أو وصفها <span className="text-xs font-medium text-muted-foreground">(اختياري — كيا حمل فقط)</span></div>
+                <input value={cargoLoadDescription} onChange={(e) => setCargoLoadDescription(e.target.value.slice(0, 300))} placeholder="مثلاً: 500 طابوقة أو حمولة نصف طن" className="w-full bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
+              </div>
+            )}
+            {requestAttachmentPanel}
             {couponPanel}
             {vehicle === "large" && (
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري) — اكتب الوجهة أو أي تفاصيل تريدها" rows={2} className="w-full resize-none bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
@@ -1179,9 +1273,19 @@ function NewRequest() {
           value={workDescription}
           onChange={(e) => setWorkDescription(e.target.value)}
           rows={2}
-          placeholder="شنو الشغل؟ مثلاً: تصليح سبلت، أو تركيب مضخة ماء"
+          maxLength={1500}
+          placeholder={selectedService?.slug?.includes("repair") || selectedService?.slug?.includes("electric") || selectedService?.slug === "plumbing" ? "اشرح العطل بالتفصيل حتى يعرف الفني شنو يحتاج" : "اشرح الشغل المطلوب بالتفصيل..."}
           className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:border-ring resize-none"
         />
+        {selectedService?.slug === "build" && (
+          <input
+            value={brickQuantity}
+            onChange={(e) => setBrickQuantity(e.target.value.slice(0, 100))}
+            placeholder="كمية الطابوق المطلوبة (اختياري) — مثلاً 2000 طابوقة"
+            className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:border-ring"
+          />
+        )}
+        {requestAttachmentPanel}
         {pricingMode === "hourly" && (
           <input
             inputMode="numeric"
