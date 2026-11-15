@@ -1,5 +1,7 @@
 import { taxiFare } from "../../../src/lib/taxi-fares";
 import { calculateMobileTaxiFare } from "./taxi-fares";
+import { isValidPhone as isWebPhoneValid, normalizePhone as normalizeWebPhone, phoneToEmail as webPhoneToEmail } from "../../../src/lib/phone";
+import { isValidPhone as isAndroidPhoneValid, normalizePhone as normalizeAndroidPhone, phoneToEmail as androidPhoneToEmail } from "./phone";
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -57,5 +59,21 @@ export function runTaxiFareParityTests() {
     assert(webRejected && androidRejected, `Invalid waiting time accepted: ${extraMinutes}`);
   }
 
-  return { comparisons, invalidInputsChecked: 6 };
+  const phoneSamples = [
+    "07701234567",
+    "+9647701234567",
+    "9647701234567",
+    "7701234567",
+    "07 70-123-4567",
+    "12345678",
+    "",
+    "+abc",
+  ];
+  for (const phone of phoneSamples) {
+    assert(normalizeAndroidPhone(phone) === normalizeWebPhone(phone), `Phone normalization mismatch: ${phone}`);
+    assert(isAndroidPhoneValid(phone) === isWebPhoneValid(phone), `Phone validation mismatch: ${phone}`);
+    assert(androidPhoneToEmail(phone) === webPhoneToEmail(phone), `Phone identity mismatch: ${phone}`);
+  }
+
+  return { comparisons, invalidInputsChecked: 6, phoneSamplesChecked: phoneSamples.length };
 }
