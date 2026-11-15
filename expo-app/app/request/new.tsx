@@ -698,10 +698,30 @@ export default function NewRequest() {
           loadingEnabled
         >
           {pickupCoords && (
-            <Marker coordinate={pickupCoords} title="نقطة الانطلاق" pinColor={palette.brand} />
+            <Marker
+              coordinate={pickupCoords}
+              title="نقطة الانطلاق"
+              pinColor={palette.brand}
+              draggable
+              onDragStart={() => {
+                userPannedMapRef.current = false;
+                if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
+              }}
+              onDragEnd={(event) => { void chooseMapPoint(event.nativeEvent.coordinate); }}
+            />
           )}
           {destinationCoords && isTaxi && (
-            <Marker coordinate={destinationCoords} title="الوجهة" pinColor={palette.success} />
+            <Marker
+              coordinate={destinationCoords}
+              title="الوجهة"
+              pinColor={palette.success}
+              draggable
+              onDragStart={() => {
+                userPannedMapRef.current = false;
+                if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
+              }}
+              onDragEnd={(event) => { void chooseMapPoint(event.nativeEvent.coordinate); }}
+            />
           )}
         </MapView>
         <Text style={styles.mapHint}>
