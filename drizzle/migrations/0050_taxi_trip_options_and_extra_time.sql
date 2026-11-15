@@ -116,13 +116,13 @@ BEGIN
 
     IF NEW.vehicle_category::text = 'premium' THEN
       v_vehicle_multiplier := CASE
-        WHEN COALESCE(NEW.is_intercity, false) OR v_economy_fare >= 5000 THEN 1.05
-        ELSE 1.10
+        WHEN COALESCE(NEW.is_intercity, false) THEN 1.05
+        ELSE 1.10 - 0.05 * LEAST(1, GREATEST(0, (v_economy_fare - 4500) / 1000))
       END;
     ELSIF NEW.vehicle_category::text = 'luxury' THEN
       v_vehicle_multiplier := CASE
-        WHEN COALESCE(NEW.is_intercity, false) OR v_economy_fare >= 5000 THEN 1.10
-        ELSE 1.25
+        WHEN COALESCE(NEW.is_intercity, false) THEN 1.10
+        ELSE 1.25 - 0.15 * LEAST(1, GREATEST(0, (v_economy_fare - 4500) / 1000))
       END;
     END IF;
 
