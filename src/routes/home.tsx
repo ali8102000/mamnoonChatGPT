@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
@@ -356,6 +356,8 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   const [largeOfferPrices, setLargeOfferPrices] = useState<Record<string, string>>({});
   const [largeOfferMessages, setLargeOfferMessages] = useState<Record<string, string>>({});
   const [offerBusy, setOfferBusy] = useState<string | null>(null);
+  const [popupRequest, setPopupRequest] = useState<any | null>(null);
+  const popupShownRef = useRef<string | null>(null);
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
 
   useEffect(() => {
@@ -382,7 +384,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
           .eq("provider_id", providerUserId)
           .eq("status", "pending")
           .gt("expires_at", new Date().toISOString());
-        if (offerError || !offerRows?.length) { setRequests([]); return; }
+        if (offerError || !offerRows?.length) { setRequests([]); setPopupRequest(null); return; }
         const requestIds: string[] = [...new Set<string>((offerRows ?? []).map((offer: any) => String(offer.request_id)))];
         const { data } = await supabase
           .from("service_requests")
@@ -393,7 +395,14 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
           .in("status", ["pending", "searching"])
           .order("created_at", { ascending: false });
         const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
-        setRequests((data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) })));
+        const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
+        setRequests(mappedRequests);
+        if (mappedRequests.length && popupShownRef.current !== mappedRequests[0].id) {
+          popupShownRef.current = mappedRequests[0].id;
+          setPopupRequest(mappedRequests[0]);
+        } else if (!mappedRequests.length) {
+          setPopupRequest(null);
+        }
         return;
       }
       let query = supabase
@@ -403,7 +412,14 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         .eq("type", type);
       if (type === "taxi") query = query.neq("vehicle_category", "large");
       const { data } = await query.order("created_at", { ascending: false }).limit(20);
-      setRequests(data ?? []);
+      const mappedRequests = data ?? [];
+      setRequests(mappedRequests);
+      if (mappedRequests.length && popupShownRef.current !== mappedRequests[0].id) {
+        popupShownRef.current = mappedRequests[0].id;
+        setPopupRequest(mappedRequests[0]);
+      } else if (!mappedRequests.length) {
+        setPopupRequest(null);
+      }
     }
     loadRequests();
 
@@ -463,6 +479,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
     playClick("pop");
     try {
       await acceptFn({ data: { requestId: id } });
+      setPopupRequest(null);
       toast.success("تم قبول الطلب");
       navigate({ to: `/request/$id`, params: { id } });
     } catch (e: any) {
@@ -472,6 +489,23 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
 
   return (
     <div className="space-y-4">
+      {popupRequest && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-label="طلب جديد">
+          <div className="w-full max-w-md rounded-3xl border border-primary/40 bg-background p-5 shadow-2xl">
+            <div className="mb-3 text-xs font-black text-primary">🔔 طلب جديد موجّه إلك</div>
+            <div className="text-lg font-black text-foreground">{type === "taxi" ? (largeDriverMode ? "طلب سيارة كبيرة جديد" : "طلب رحلة جديد") : "طلب خدمة جديد"}</div>
+            <div className="mt-2 rounded-2xl bg-muted/60 p-3 text-sm font-bold text-foreground">📍 {popupRequest.pickup_text || "موقع الزبون"}</div>
+            {popupRequest.dest_text && <div className="mt-2 text-xs text-muted-foreground">🎯 {popupRequest.dest_text}</div>}
+            {popupRequest.work_description && <div className="mt-2 text-xs text-muted-foreground">🛠️ {popupRequest.work_description}</div>}
+            <div className="mt-4 flex gap-2">
+              {!largeDriverMode && (
+                <button onClick={() => { const id = popupRequest.id; setPopupRequest(null); void accept(id); }} className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-black text-primary-foreground">موافقة وقبول</button>
+              )}
+              <button onClick={() => setPopupRequest(null)} className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-bold text-foreground">{largeDriverMode ? "عرض الطلب" : "لاحقاً"}</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div
         className={`relative rounded-3xl p-5 overflow-hidden animate-pop-in shadow-card ${
           available ? "bg-gradient-to-br from-emerald-500 to-teal-400 text-white" : "glass"
