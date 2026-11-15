@@ -41,6 +41,7 @@ type Offer = {
     id: string;
     type: "taxi" | "service";
     status: string;
+    vehicle_category: string | null;
     pickup_text: string;
     dest_text: string | null;
     notes: string | null;
@@ -89,7 +90,7 @@ export function IncomingRequestModal() {
     }
     const { data, error } = await (supabase as any)
       .from("request_offers")
-      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, pickup_text, dest_text, notes, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
+      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, pickup_text, dest_text, notes, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
       .eq("provider_id", user.id)
       .eq("status", "pending")
       .gt("expires_at", new Date().toISOString())
@@ -250,13 +251,26 @@ export function IncomingRequestModal() {
             >
               <Text style={styles.rejectText}>رفض</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.action, styles.accept]}
-              onPress={() => void respond("accept")}
-              disabled={Boolean(busy)}
-            >
-              {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>قبول الطلب</Text>}
-            </TouchableOpacity>
+            {request?.type === "taxi" && request.vehicle_category === "large" ? (
+              <TouchableOpacity
+                style={[styles.action, styles.accept]}
+                onPress={() => {
+                  setVisible(false);
+                  router.push("/home");
+                }}
+                disabled={Boolean(busy)}
+              >
+                <Text style={styles.acceptText}>تقديم عرض السعر</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.action, styles.accept]}
+                onPress={() => void respond("accept")}
+                disabled={Boolean(busy)}
+              >
+                {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>قبول الطلب</Text>}
+              </TouchableOpacity>
+            )}
           </View>
           {busy === "reject" ? <ActivityIndicator style={{ marginTop: 10 }} color="#64748b" /> : null}
         </View>
