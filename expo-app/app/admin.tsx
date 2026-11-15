@@ -236,6 +236,7 @@ export default function AdminScreen() {
         <TouchableOpacity onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/providers")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة مقدمي الخدمة</Text></TouchableOpacity>
       </View>
       <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
