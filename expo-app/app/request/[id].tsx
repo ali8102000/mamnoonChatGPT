@@ -13,7 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import MapView, { AnimatedRegion, Marker } from "react-native-maps";
+import MapView, { Marker } from "react-native-maps";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -101,22 +101,18 @@ type ChatMessage = {
 
 
 function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; heading?: number | null }) {
-  const animatedCoordinate = useRef(new AnimatedRegion({
-    latitude: coordinate.latitude,
-    longitude: coordinate.longitude,
-    latitudeDelta: 0,
-    longitudeDelta: 0,
-  })).current;
+  const markerRef = useRef<any>(null);
+  const initialCoordinate = useRef(coordinate).current;
+  const [iosCoordinate, setIosCoordinate] = useState(coordinate);
   const rotation = useSharedValue(Number.isFinite(heading) ? Number(heading) : 0);
 
   useEffect(() => {
-    animatedCoordinate.timing({
-      latitude: coordinate.latitude,
-      longitude: coordinate.longitude,
-      duration: 4500,
-      useNativeDriver: false,
-    }).start();
-  }, [coordinate.latitude, coordinate.longitude, animatedCoordinate]);
+    if (Platform.OS === "android" && markerRef.current?.animateMarkerToCoordinate) {
+      markerRef.current.animateMarkerToCoordinate(coordinate, 4500);
+    } else {
+      setIosCoordinate(coordinate);
+    }
+  }, [coordinate.latitude, coordinate.longitude]);
 
   useEffect(() => {
     if (heading == null || !Number.isFinite(heading)) return;
@@ -133,7 +129,13 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
   }));
 
   return (
-    <Marker.Animated coordinate={animatedCoordinate} flat anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges>
+    <Marker
+      ref={markerRef}
+      coordinate={Platform.OS === "android" ? initialCoordinate : iosCoordinate}
+      flat
+      anchor={{ x: 0.5, y: 0.5 }}
+      tracksViewChanges
+    >
       <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
         <View style={styles.luxuryCarRoof} />
         <View style={styles.luxuryCarWindows} />
@@ -141,7 +143,7 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
         <View style={styles.luxuryCarWheelLeft} />
         <View style={styles.luxuryCarWheelRight} />
       </Animated.View>
-    </Marker.Animated>
+    </Marker>
   );
 }
 
