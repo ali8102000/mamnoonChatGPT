@@ -20,7 +20,10 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "نحتاج موقعك لعرض الخدمات القريبة وتتبع الرحلات",
         "NSCameraUsageDescription": "نحتاج الكاميرا لالتقاط صور الملف الشخصي",
-        "NSPhotoLibraryUsageDescription": "نحتاج معرض الصور لاختيار صورة الملف الشخصي"
+        "NSPhotoLibraryUsageDescription": "نحتاج معرض الصور لاختيار صورة الملف الشخصي",
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -48,7 +51,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "نحتاج موقعك لعرض الخدمات القريبة وتتبع الرحلات"
+          "locationAlwaysAndWhenInUsePermission": "نحتاج موقعك لعرض الخدمات القريبة وتتبع الرحلات",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ]
     ],
