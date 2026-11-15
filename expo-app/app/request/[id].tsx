@@ -161,8 +161,8 @@ export default function RequestDetail() {
     }
     setRequest(data as RequestRecord | null);
     if (data?.type === "taxi" && data.provider_id) {
-      const { data: verification } = await supabase.from("provider_verifications").select("metadata").eq("user_id", data.provider_id).eq("status", "approved").maybeSingle();
-      setVehicleDetails((verification?.metadata as any) ?? null);
+      const { data: vehicle } = await (supabase as any).from("provider_vehicle_public").select("vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate").eq("provider_id", data.provider_id).maybeSingle();
+      setVehicleDetails(vehicle ?? null);
     } else { setVehicleDetails(null); }
     if (data?.status === "completed" && user?.id && data.provider_id && data.customer_id) {
       const { data: existingRating } = await supabase.from("ratings").select("id").eq("request_id", id).eq("rater_id", user.id).maybeSingle();
@@ -668,7 +668,7 @@ export default function RequestDetail() {
             {request.vehicle_category === "large" ? `🚚 طلب سيارة كبيرة — ${request.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}` : request.type === "taxi" ? "🚕 طلب سيارة" : `🛠️ ${request.services?.name_ar || "خدمة منزلية"}`}
           </Text>
           {request.type !== "taxi" || !isActive ? <>{request.pickup_text && <Text style={styles.infoRow}>من: {request.pickup_text}</Text>}{request.dest_text && <Text style={styles.infoRow}>إلى: {request.dest_text}</Text>}</> : null}
-          {request.type === "taxi" && isActive && vehicleDetails && <Text style={styles.vehicleDetailsText}>{[vehicleDetails.vehicleMake, vehicleDetails.vehicleModel, vehicleDetails.vehicleYear].filter(Boolean).join(" ")}{vehicleDetails.vehiclePlate ? ` · رقم السيارة ${vehicleDetails.vehiclePlate}` : ""}</Text>}
+          {request.type === "taxi" && isActive && vehicleDetails && <Text style={styles.vehicleDetailsText}>{[vehicleDetails.vehicle_make, vehicleDetails.vehicle_model, vehicleDetails.vehicle_year].filter(Boolean).join(" ")}{vehicleDetails.vehicle_plate ? ` · رقم السيارة ${vehicleDetails.vehicle_plate}` : ""}</Text>}
           {request.work_description && <Text style={styles.infoRow}>تفاصيل العمل: {request.work_description}</Text>}
           {request.workers_count != null && request.type === "service" && (
             <Text style={styles.infoRow}>عدد العاملين: {request.workers_count}</Text>
