@@ -1,220 +1,66 @@
 # Mamnoon Android ↔ Web parity audit
 
-Baseline audited: `main` at commit `2fd6c99e942688541c2e55eaf6bab5c1ddf7504f`. Android app source was built from `93973e65ac9db926424036186f0d16a112ae90e3`; audit documentation was subsequently updated on `feat/android-parity-rebased` at `9f1d0778d9ea1896cabc13d4c0a0ffa1bd124c93`. The debug APK passed archive validation but has not been installed and device-verified.
+Last code snapshot reviewed: `feat/android-parity-rebased` at `a8a9487005530f442b9ab3d4afcb2a737010e7ea` (2026-11-15).
+Base branch: `main` at `2fd6c99e942688541c2e55eaf6bab5c1ddf7504f`.
+Pull request: [#39](https://github.com/ali8102000/mamnoonChatGPT/pull/39) — open, not merged. All work in this continuation remains on the PR branch; `main` and production data have not been changed.
 
-This is a living migration checklist. A matching route name or a successful TypeScript/build check does **not** establish visual or functional parity. A screen is complete only after comparing the same signed-in role, data state, viewport, and interaction on the running web and Android apps.
+## Architecture and scope
 
-## Findings
+- Web app: React + TanStack Start, with the admin workspace primarily composed inside `src/routes/admin.tsx` and supporting server functions in `src/lib/admin.functions.ts`.
+- Android app: Expo SDK 53 / React Native 0.79.6 with Expo Router. It is a separate native implementation, not a WebView wrapper.
+- The repository contains 30 web route modules (excluding the root route layout) and 38 Expo screen modules (excluding `_layout.tsx`). These counts are not one-to-one: several web admin sections are separate native routes.
+- A successful typecheck or bundle export proves code compiles; it does not prove the screen is visually or functionally identical on a real device.
+- The web design uses Tajawal, blue/amber tokens, glass surfaces, gradients and shadows. Expo now loads Tajawal weights 400/500/700/800/900 and uses native equivalents of the web color tokens. Pixel-perfect comparison is not yet certified.
 
-- Web route inventory: 30 route files under `src/routes/`.
-- Current Expo route inventory: 30 route files under `expo-app/app/` (re-counted on 2026-11-15). This corrects the earlier 21-route figure, which was stale. Matching route counts do not prove matching page content or behavior.
-- Confirmed implementation gap: web `src/routes/admin.tsx` exposes 16 management sections. Expo has added native user administration, a provider directory with verification-document links, report moderation in the dashboard, and a subscription-management workspace. The provider directory is now linked from the admin dashboard and supports provider type/status filters plus local search. These are partial ports; coupons, wallet, live map, notifications, friends, staff roles, company settings, and audit still require parity work. Subscription backend deployment and live runtime verification remain outstanding.
-- The native app is a separate React Native implementation, not a WebView of the web app; its screen layouts and styling are independently maintained.
-- The web design system uses Tajawal (400/500/700/800/900), CSS OKLCH tokens, glass surfaces, gradients, shadows, and a 112.5% root font scale.
-- Expo previously used a green palette (`#174C3C`) that visibly diverged from the web blue/amber palette. The palette has now been moved to sRGB approximations of the web light/dark tokens. This is a first alignment step, not a pixel-perfect certification.
-- Android continuation now adds `@expo-google-fonts/tajawal` and loads weights 400/500/700/800/900 before rendering. Device typography comparison is still required.
-- Android continuation adds a persisted `system`/`light`/`dark` preference in SecureStore and a live native palette; compare against web persistence and theme tokens on device.
+## Admin parity status
 
-## Route inventory
-
-| Web route | Expo route | Status |
+| Web admin capability | Native implementation | Current status / remaining verification |
 |---|---|---|
-| `/` | `index` | Needs live comparison |
-| `/welcome` | `welcome` | Added on continuation branch; compare visually |
-| `/auth` | `auth` | Needs live comparison |
-| `/auth/callback` | `auth/callback` | Needs live comparison |
-| `/account-settings` | `account-settings` | Needs live comparison |
-| `/select-role` | `select-role` | Needs live comparison |
-| `/home` | `home` | Needs live comparison |
-| `/request/new` | `request/new` | Needs live comparison |
-| `/request/$id` | `request/[id]` | Needs live comparison |
-| `/messages` | `messages` | Needs live comparison |
-| `/support-chat` | `support-chat` | Needs live comparison |
-| `/friends` | `friends` | Needs live comparison |
-| `/history` | `history` | Needs live comparison |
-| `/profile` | `profile` | Needs live comparison |
-| `/admin` | `admin` | Needs live comparison |
-| `/admin/monitoring` | `admin/monitoring` | Read-only staff-gated metrics; full moderation actions not ported |
-| `/admin/subscriptions` | `admin/subscriptions` | Native management workspace added; backend Edge Function committed but not deployed or runtime-verified |
-| `/admin/providers` | `admin/providers` | Provider directory with type/status filters, search, and signed verification-document links; status mutations remain unported |
-| `/admin/bootstrap` | `admin/bootstrap` | Intentionally locked on Android; one-time privilege bootstrap stays web-only |
-| `/admin/import` | `admin/import` | Intentionally locked on Android; import mutations not ported |
-| `/onboarding/driver` | `onboarding/driver` | Needs live comparison |
-| `/onboarding/worker` | `onboarding/worker` | Needs live comparison |
-| `/forgot-password` | `forgot-password` | Needs live comparison |
-| `/reset-password` | `reset-password` | Needs live comparison |
-| `/subscriptions` | `subscriptions` | Needs live comparison |
-| `/coupons` | `coupons` | Added using `get_my_coupons` RPC; sharing used instead of clipboard |
-| `/privacy` | `privacy` | Added legal content; confirm approved policy wording |
-| `/terms` | `terms` | Added legal content; Zain Cash only stated |
-| `/support` | `support` | Added ticket creation/list/realtime replies; test RLS on device |
-| `/request/chat/$id` | `request/chat/[id]` | Needs live comparison |
-| `/# Mamnoon Android ↔ Web parity audit
+| Overview and statistics | `admin.tsx` | Core dashboard metrics are present; verify values against production data on device. |
+| Users | `admin/users.tsx` | Search, list, detail, block and unblock. Server and screen role checks added. |
+| Providers | `admin/providers.tsx` | Driver / large-driver / worker filters, verification documents, approve, reject with required reason, and timed/permanent suspension. Requires deployed Edge Function and live notification verification. |
+| Requests | `admin/requests.tsx` | List, cancel and reopen; destructive actions remain admin-gated and confirmation-based. |
+| Monitoring | `admin/monitoring.tsx` | Live metrics, reports, blocked users and support tickets; refreshes every 15 seconds. |
+| Live locations | `admin/live-map.tsx` | Lists provider coordinates and active requests, refreshed every 15 seconds. Like the current web section, this is a location/request list rather than a rendered map-tile view. |
+| Friends | `admin/friends.tsx` | Friendship and friend-request lists with confirmed deletion. |
+| Notifications | `admin/notifications.tsx` | Broadcast to all users, drivers, workers or one UUID; confirmation appears before sending. |
+| Wallet and coupons | `admin/finance.tsx` | Finance workspace added; finance reads are restricted to finance/admin/super-admin, and wallet/user search is admin-gated. |
+| Subscriptions | `admin/subscriptions.tsx` | Native subscription workspace exists. Production use depends on the matching Edge Function being deployed and runtime-tested. |
+| Staff roles and audit | `admin/governance.tsx` | Role changes are super-admin-only; audit log is read-only and admin-gated. |
+| Staff navigation | `admin/staff.tsx` | Role-aware entry point linked from the profile screen. |
+| Company name and dashboard tools | `admin.tsx` | Company-name editing, pricing/dashboard tools, support inbox, reports and provider-change review are present; compare all fields and actions with web. |
+| Bootstrap and bulk import | `admin/bootstrap.tsx`, `admin/import.tsx` | Intentionally locked on Android; one-time privilege bootstrap and bulk import remain web-only until separately reviewed. |
 
-Baseline audited: `main` at commit `2fd6c99e942688541c2e55eaf6bab5c1ddf7504f`. Android app source was built from `93973e65ac9db926424036186f0d16a112ae90e3`; audit documentation was subsequently updated on `feat/android-parity-rebased` at `9f1d0778d9ea1896cabc13d4c0a0ffa1bd124c93`. The debug APK passed archive validation but has not been installed and device-verified.
+## Backend and security
 
-This is a living migration checklist. A matching route name or a successful TypeScript/build check does **not** establish visual or functional parity. A screen is complete only after comparing the same signed-in role, data state, viewport, and interaction on the running web and Android apps.
+- The native admin screens call Supabase Edge Functions; the service-role key is kept server-side and is not bundled into the Android app.
+- `admin-users` now contains role-gated actions for user administration, provider review, requests, monitoring, live locations, friends and notification broadcasts.
+- `admin-finance` restricts financial reads to the finance/admin/super-admin role set and gates wallet-user search behind admin access.
+- `admin-subscriptions` and `admin-governance` remain separate server-side functions.
+- Role checks are enforced by the Edge Functions as well as by the native screens. Live locations, provider documents, financial data and moderation controls have explicit role gates.
+- The Deno Edge Function check passed on the reviewed code snapshot. These source changes have **not** been deployed to production Supabase. Screens that call new or updated functions will not be production-operational until deployment and live verification are approved.
+- No production database data was changed and no production deployment was performed during this continuation.
 
-## Findings
+## Automated validation snapshot
 
-- Web route inventory: 30 route files under `src/routes/`.
-- Current Expo route inventory: 30 route files under `expo-app/app/` (re-counted on 2026-11-15). This corrects the earlier 21-route figure, which was stale. Matching route counts do not prove matching page content or behavior.
-- Confirmed implementation gap: web `src/routes/admin.tsx` is about 2,580 lines and exposes 16 management sections (overview, stats, users, providers, requests, chat, friends, reports, subscriptions, coupons, wallet, live map, notifications, roles, company, audit). Expo `expo-app/app/admin.tsx` is about 362 lines and implements only a subset of the admin workflows. The Expo subscription route explicitly says plan and financial grant/edit actions are not enabled; monitoring/subscription views are not equivalent to the full web management surface.
-- The native app is a separate React Native implementation, not a WebView of the web app; its screen layouts and styling are independently maintained.
-- The web design system uses Tajawal (400/500/700/800/900), CSS OKLCH tokens, glass surfaces, gradients, shadows, and a 112.5% root font scale.
-- Expo previously used a green palette (`#174C3C`) that visibly diverged from the web blue/amber palette. The palette has now been moved to sRGB approximations of the web light/dark tokens. This is a first alignment step, not a pixel-perfect certification.
-- Android continuation now adds `@expo-google-fonts/tajawal` and loads weights 400/500/700/800/900 before rendering. Device typography comparison is still required.
-- Android continuation adds a persisted `system`/`light`/`dark` preference in SecureStore and a live native palette; compare against web persistence and theme tokens on device.
+For code snapshot `a8a9487005530f442b9ab3d4afcb2a737010e7ea`:
 
-## Route inventory
+- Web CI: passed.
+- Mobile CI: passed — TypeScript, production-configuration guards, Expo dependency compatibility, Expo Doctor and Android JS export.
+- Admin Edge Function Deno check: passed.
+- Installable APK: the current run is queued behind an earlier APK build. A previous APK from commit `d1deafd634dbd5d0e08b709b1b130fadc20750ed` succeeded, but it predates the changes listed above and must not be treated as the current build.
+- No APK from the reviewed snapshot has yet been installed on a physical Android device.
 
-| Web route | Expo route | Status |
-|---|---|---|
-| `/` | `index` | Needs live comparison |
-| `/welcome` | `welcome` | Added on continuation branch; compare visually |
-| `/auth` | `auth` | Needs live comparison |
-| `/auth/callback` | `auth/callback` | Needs live comparison |
-| `/account-settings` | `account-settings` | Needs live comparison |
-| `/select-role` | `select-role` | Needs live comparison |
-| `/home` | `home` | Needs live comparison |
-| `/request/new` | `request/new` | Needs live comparison |
-| `/request/$id` | `request/[id]` | Needs live comparison |
-| `/messages` | `messages` | Needs live comparison |
-| `/support-chat` | `support-chat` | Needs live comparison |
-| `/friends` | `friends` | Needs live comparison |
-| `/history` | `history` | Needs live comparison |
-| `/profile` | `profile` | Needs live comparison |
-| `/admin` | `admin` | Needs live comparison |
-| `/admin/monitoring` | `admin/monitoring` | Read-only staff-gated metrics; full moderation actions not ported |
-| `/admin/subscriptions` | `admin/subscriptions` | Read-only authorized view; management actions not ported |
-| `/admin/bootstrap` | `admin/bootstrap` | Intentionally locked on Android; one-time privilege bootstrap stays web-only |
-| `/admin/import` | `admin/import` | Intentionally locked on Android; import mutations not ported |
-| `/onboarding/driver` | `onboarding/driver` | Needs live comparison |
-| `/onboarding/worker` | `onboarding/worker` | Needs live comparison |
-| `/forgot-password` | `forgot-password` | Needs live comparison |
-| `/reset-password` | `reset-password` | Needs live comparison |
-| `/subscriptions` | `subscriptions` | Needs live comparison |
-| `/coupons` | `coupons` | Added using `get_my_coupons` RPC; sharing used instead of clipboard |
-| `/privacy` | `privacy` | Added legal content; confirm approved policy wording |
-| `/terms` | `terms` | Added legal content; Zain Cash only stated |
-| `/support` | `support` | Added ticket creation/list/realtime replies; test RLS on device |
-| `/request/chat/$id` | `request/chat/[id]` | Needs live comparison |
- (not found) | — | Missing equivalent |
+## Remaining release blockers
 
-## Priority implementation plan
+1. Wait for the current installable APK build, validate the APK artifact, then install it on a real Android device.
+2. Compare the same user role, data state and viewport on web and Android for every route. Capture screenshots and test interactions; do not claim 100% pixel parity before this is done.
+3. Test authentication, request creation and lifecycle, chat, RTL, keyboard behavior, GPS/location permission, map rendering, push registration and delivery, provider approval/rejection/suspension, financial screens and staff-role restrictions on a real device.
+4. Production SMS/OTP is still deferred; the current deployment checklist says registration relies on email.
+5. Qi Card payment integration is not active because production credentials/configuration are not available.
+6. Push delivery cannot be certified until a real device registers a push token and receives a test notification.
+7. The production AAB/EAS build was previously blocked by the account's EAS build quota until 2026-12-01. The GitHub Actions debug APK workflow builds without consuming EAS build credits.
 
-### P0 — release blockers
-- [x] Android TypeScript check and Expo dependency compatibility check passed on `93973e65ac9db926424036186f0d16a112ae90e3`.
-- [ ] Run Expo Doctor and Android export on this exact commit. The Android prebuild/Gradle debug APK compile and APK archive validation passed in workflow run `43672764165`; Expo Doctor and a standalone Android export remain unverified.
-- [ ] Run the app on an Android emulator/device and verify launch, auth restore, customer home, provider home, and role switching.
-- [ ] Verify customer request creation for technician, expert, taxi, Kia cargo, Kia passenger, and bus against the production-safe test environment.
-- [ ] Verify provider offer delivery, acceptance, customer/provider request details, realtime updates, push-notification open actions, and chat.
-- [ ] Verify map permission denied/granted flows, automatic GPS pickup, governorate filtering, place search, route calculation, and manual pin selection.
-- [ ] Verify subscription/trial restrictions, coupons, wallet, and Zain Cash handoff without initiating real payments.
+## Completion rule
 
-### P1 — missing route parity
-- [x] Add Android coupons screen using `get_my_coupons`; device/RLS verification remains.
-- [x] Add Android privacy and terms routes; legal wording approval remains.
-- [x] Add Android support tickets, replies, and realtime listener; device/RLS verification remains.
-- [x] Add Android welcome route; confirm entry navigation and visual comparison.
-- [ ] Complete remaining moderation and subscription parity, including live backend deployment only after explicit owner approval. The Android overview metrics, report moderation actions, user administration screen, and subscription workspace have been added in source; their production runtime behavior still requires authorized deployment/device verification. Bootstrap/import remain deliberately locked on Android because they are one-time or high-impact operations.
-
-### P2 — visual and interaction parity
-- [x] Bundle and load Tajawal 400/500/700/800/900 assets in the native bundle; verify weight-to-style mapping and glyph rendering on device.
-- [ ] Match web theme persistence and live light/dark switching.
-- [ ] Compare every route at the same Android viewport, light/dark mode, and account role; record screenshots and fix spacing, typography, radii, borders, gradients, shadows, icons, and safe-area differences.
-- [ ] Verify RTL, keyboard resize, scrolling, back navigation, dialogs, toasts, loading/empty/error states, and accessibility text scaling.
-- [ ] Replace remaining one-off native colors/styles with shared tokens only after comparing against their web equivalents.
-
-## Verification evidence
-
-- [x] Android TypeScript, production-configuration guards, Expo dependency compatibility, Expo Doctor, and Android bundle export passed on commit `b5059a20d1a3c52e7e934be6e795a9017ea7875f` (workflow run `43674996644`).
-- [x] Deno type-check for the new `admin-subscriptions` Edge Function passed (workflow run `43674996608`).
-- [x] Web unit tests, TypeScript, ESLint, and production build passed on commit `b5059a20d1a3c52e7e934be6e795a9017ea7875f` (workflow run `43674996658`).
-- [x] Installable debug APK built, validated, and uploaded from commit `b5059a20d1a3c52e7e934be6e795a9017ea7875f` (workflow run `43674996629`; artifact `mamnoon-test-apk`, artifact ID `14146084960`, SHA-256 `79782924566240a0a8130d9290095319aff6f2e3879fab564bb06826d83e409a`, archive size 59,138,836 bytes; expires 2026-11-29).
-- [ ] Install the APK on a physical Android device and complete device-level screen and flow tests.
-- [ ] Device-level screen and flow tests
-- [ ] Screenshot comparison report
-
-Do not mark this audit complete or claim 100% parity until every required route and flow above has evidence from a running Android build. A successful web CI run alone is not Android verification.
-
-
-## Re-audit note — 2026-11-15
-
-- Route count corrected to 30 web / 30 Expo routes after enumerating the current branch trees.
-- A focused code-size/feature inspection confirms that route count overstates parity: the web admin dashboard contains substantially more management logic than the Expo admin screen; Expo subscription management remains explicitly read-only. These are known functional blockers, not cosmetic differences.
-- Main request creation screens both contain map/GPS and Supabase request logic, but source inspection alone cannot prove matching request types, validation, pricing, routing, realtime delivery, or successful production behavior. Those require controlled runtime tests.
-- Android admin dashboard source was updated in commit `43007859dd611532f87d50adb5c300fcbfcf931f`; only client-side aggregate reads and display were added. No database schema, RLS, production data, payment settings, or secrets were changed. CI/device verification of this latest commit remains pending.
-
-
-## Build verification update — 2026-11-15
-
-- Latest branch head `f0d71478e0c0dcf91176df1d603420cae8f34c59` passed web CI (run `43672764183`), mobile CI (run `43672764189`), and Android test APK workflow (run `43672764165`).
-- Android workflow steps all succeeded: dependency installation, TypeScript check, Expo dependency compatibility, environment access check, native prebuild/Gradle compile, APK validation, and artifact upload.
-- Artifact: `mamnoon-test-apk` (ID `14145463192`), SHA-256 `435242399ffc757daae4c467e983779e48c067fd575c320d0246a1ae10a0d103`. This is a debug/test APK, not a Play Store release. Physical-device installation and interaction tests are still pending.
-- PR #39 remains open and unmerged. No database schema, RLS, production data, payment settings, or secrets were changed.
-
-
-## Subscription administration implementation update — 2026-11-15
-
-- Added the native subscription-management screen and authenticated Edge Function bridge in PR #39.
-- Edge Function source passed Deno type-check. It has not been deployed to the production Supabase project; subscription admin actions requiring this function are not yet live.
-- The new screen and service have passed repository-level type/lint/build checks, but still need live authorization and role testing after deployment approval.
-- Physical Android installation, screenshot parity, end-to-end user/provider workflows, real-time delivery, GPS/maps, notifications, and Zain Cash handoff are still pending.
-
-
-## Admin reports parity update — 2026-11-15
-
-- The Expo admin dashboard now includes report status filters (all/pending/resolved/closed/dismissed), loads up to 100 reports, and provides resolve/close/dismiss actions through the existing caller-authenticated `admin_resolve_report` RPC.
-- The RPC definition was inspected in the linked Supabase project: it invokes `assert_staff('staff')`, writes the resolution fields, and records an admin audit event. The Android dashboard itself currently remains super-admin-only, so these actions are not exposed to unverified users.
-- Code-level implementation is committed in the current PR head; mobile CI and debug APK validation are running. Live role testing and actual device verification remain pending.
-
-
-## Native user administration update — 2026-11-15
-
-- Added `expo-app/app/admin/users.tsx` and a dashboard entry for user administration: paginated user list, Arabic/phone/email search, user detail view, role/profile/transaction/request/rating summaries, block duration/reason, and unblock action.
-- Added authenticated `supabase/functions/admin-users/index.ts`: staff-gated read operations, admin-gated block/unblock mutations through caller-scoped RPCs, and service-role access confined to the Edge Function runtime.
-- Extended the Deno CI check to validate both `admin-subscriptions` and `admin-users` Edge Functions. The Edge Function type-check passed on the source commit before the workflow-only cleanup; the corrected workflow is running again on the current head.
-- Neither new Edge Function has been deployed to production. No production data, database schema, RLS, payment configuration, or secrets were modified.
-- The new Expo user screen still requires fresh mobile CI and physical-device verification. It is not yet certified as pixel-perfect or end-to-end equivalent to the web screen.
-
-
-## Continuation update — 2026-11-15 (latest branch work)
-- Added the native user administration screen at `expo-app/app/admin/users.tsx`: staff-only listing/search/details; admin-only block/unblock actions with duration and reason.
-- Added authenticated `supabase/functions/admin-users/index.ts`; reads are gated by `has_staff_role`, mutations by `has_admin_access`, and mutations call caller-scoped RPCs. Service-role access remains server-side.
-- The admin Edge Function workflow now type-checks both `admin-users` and `admin-subscriptions`; the latest run on the branch reported success.
-- The latest mobile CI and web CI runs reported success before the most recent two UI/backend follow-up commits. A fresh APK workflow was queued; its completion for the exact latest source must be checked before calling the new APK verified.
-- Improved user-detail transparency: the backend now reports when ratings failed to load, and the native detail view shows that warning instead of silently displaying an empty ratings list. Latest code commit: `9bcf35d2a457018b0c666b820eb10898745f16a7`.
-- Still outstanding: full provider/request/wallet/coupon/live-map/notification/roles/company/audit parity; production deployment approval for privileged Edge Functions; physical-device testing; screenshot-by-screenshot visual comparison; end-to-end auth, GPS, realtime, notifications, and Zain Cash handoff verification.
-- No production database, RLS, user records, payment settings, or secrets were changed. PR #39 remains open and unmerged.
-
-- Latest continuation: `admin-users` now supports a staff-authenticated provider listing action with server-generated 10-minute signed verification-document URLs; `expo-app/app/admin/providers.tsx` presents filters and document review; the dashboard links to it. Commits: `1a7c7051`, `4cab7528`, `3bf51a4a`.
-
-- Further continuation: `admin-users` now exposes staff-authorized request listing and admin-authorized cancel/reopen actions via caller-scoped RPCs. Native `/admin/requests` provides status filters, request details, cancellation with reason, and reopen confirmation. Dashboard link added. Commits: `db324d87`, `feb0d0d8`, `06a9098b`.
-
-
-## Continuation update — 2026-11-15 (provider directory navigation)
-- Confirmed `supabase/functions/admin-users/index.ts` already implements the `providers` action: it checks authenticated staff role, reads driver/worker profiles and verification metadata, and generates 10-minute signed URLs for private verification documents server-side.
-- Linked the existing native `expo-app/app/admin/providers.tsx` screen from the main Android admin dashboard.
-- Added local search by provider name, phone, and email to the provider directory. Existing filters cover taxi drivers, large-vehicle drivers, workers, and provider status.
-- Provider status changes remain intentionally disabled in this screen; they must go through the audited admin status workflow with required rejection reasons and notifications.
-- Latest code commits: `05a149ef07d92705eeba62cc6e204b572b67f5e7` (dashboard navigation) and `a16feed74dff4165c5f0ec9047f06578aceabb6c` (provider search).
-- These latest commits have not yet produced a completed CI run in the observed workflow results. The previous Android CI run had all substantive checks (TypeScript, production guard, dependency compatibility, Expo Doctor, Android export) succeed, but the workflow conclusion was cancelled during cleanup; APK workflow run `43679841190` was cancelled before a verified artifact was reported. Do not treat that as a fresh APK.
-
-
-## Native wallet and coupon administration continuation — 2026-11-15
-
-- Added `expo-app/app/admin/finance.tsx` and linked it from the native admin dashboard. It includes staff-gated transaction/coupon listing, admin-gated wallet credit/debit with confirmation, coupon creation, audience distribution, and coupon deletion.
-- Added `supabase/functions/admin-finance/index.ts` as the authenticated server bridge. Staff access is required for reads; admin access is rechecked through the caller JWT for all financial/coupon mutations. Service-role access is server-only for profile/transaction/coupon reads; mutations use existing caller-scoped RPCs.
-- Added user search for wallet operations with bounded input and result count. No wallet changes, coupon distribution, or production actions were executed during implementation.
-- The Edge Function is committed but **not deployed** to Supabase production. The screen is therefore source-complete but not live-verified until owner approval for deployment and role/device testing.
-- CI must validate this new function and the latest Android route before any completion claim. Physical device tests, screenshot parity, and all customer/provider flows remain outstanding.
-
-
-## Native governance and audit continuation — 2026-11-15
-
-- Added `expo-app/app/admin/governance.tsx` and linked it from the native admin dashboard.
-- The screen provides super-admin-only staff role lookup/grant/revoke (limited to the existing web role set: admin, support, finance, moderator) and an admin-only read view of recent audit logs.
-- Added authenticated `supabase/functions/admin-governance/index.ts`: validates the caller JWT, requires staff for entry, rechecks `is_super_admin` for role changes and `has_admin_access` for audit logs, and uses caller-scoped role RPCs. Service-role access is confined to server-side read queries.
-- No staff roles were changed, no audit records were edited, and no production data/schema/RLS changes were made. The function is not deployed to production.
-- Deno and Expo CI, runtime role checks, audit-log relationship/schema validation, and physical-device behavior remain pending. This work is not certified feature parity until those checks pass.
+“100% parity” is a target, not a current claim. A route is complete only after its content, permissions, data behavior, error/loading states and interactions have been compared on running web and Android apps. Compilation and a successful APK archive alone are insufficient.
