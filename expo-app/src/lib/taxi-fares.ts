@@ -13,11 +13,13 @@ export function calculateMobileTaxiFare(
   const perKm = isIntercity ? 187.5 : 400;
   const baseFare = distanceKm * perKm;
   const requestedDemand = Math.min(1.5, Math.max(0.8, demandMultiplier));
-  const initialFare = baseFare * requestedDemand;
-  const adjustedDemand =
-    isIntercity || Math.max(baseFare, initialFare) >= 10000
-      ? Math.min(1.1, Math.max(0.95, requestedDemand))
-      : requestedDemand;
+  // Smoothly taper demand uplift as the base fare grows; keep web and Android identical.
+  const adjustedDemand = isIntercity
+    ? Math.min(1.1, Math.max(0.95, requestedDemand))
+    : Math.min(
+        requestedDemand,
+        1.1 + 0.4 * Math.min(1, Math.max(0, (10000 - baseFare) / 5000)),
+      );
   const economyFare = baseFare * adjustedDemand;
   const tierMultiplier =
     category === "economy"
