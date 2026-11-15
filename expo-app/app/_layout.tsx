@@ -147,6 +147,7 @@ export default function RootLayout() {
         <Stack.Screen name="home" />
         <Stack.Screen name="request/new" />
         <Stack.Screen name="request/[id]" />
+        <Stack.Screen name="request/chat/[id]" options={{ headerShown: false, presentation: "card", animation: "slide_from_right" }} />
         <Stack.Screen name="messages" />
         <Stack.Screen name="support-chat" />
         <Stack.Screen name="friends" />
