@@ -209,3 +209,12 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - Added user search for wallet operations with bounded input and result count. No wallet changes, coupon distribution, or production actions were executed during implementation.
 - The Edge Function is committed but **not deployed** to Supabase production. The screen is therefore source-complete but not live-verified until owner approval for deployment and role/device testing.
 - CI must validate this new function and the latest Android route before any completion claim. Physical device tests, screenshot parity, and all customer/provider flows remain outstanding.
+
+
+## Native governance and audit continuation — 2026-11-15
+
+- Added `expo-app/app/admin/governance.tsx` and linked it from the native admin dashboard.
+- The screen provides super-admin-only staff role lookup/grant/revoke (limited to the existing web role set: admin, support, finance, moderator) and an admin-only read view of recent audit logs.
+- Added authenticated `supabase/functions/admin-governance/index.ts`: validates the caller JWT, requires staff for entry, rechecks `is_super_admin` for role changes and `has_admin_access` for audit logs, and uses caller-scoped role RPCs. Service-role access is confined to server-side read queries.
+- No staff roles were changed, no audit records were edited, and no production data/schema/RLS changes were made. The function is not deployed to production.
+- Deno and Expo CI, runtime role checks, audit-log relationship/schema validation, and physical-device behavior remain pending. This work is not certified feature parity until those checks pass.
