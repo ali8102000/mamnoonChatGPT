@@ -23,6 +23,13 @@ describe("Mamnoon city taxi pricing", () => {
     expect(taxiFare("luxury", 15)).toBe(6500);
   });
 
+  it("smoothly transitions premium and luxury multipliers around the 5000 IQD boundary", () => {
+    const before = taxiFare("luxury", 12.49);
+    const after = taxiFare("luxury", 12.5);
+    expect(after).toBeGreaterThanOrEqual(before);
+    expect(after - before).toBeLessThanOrEqual(250);
+  });
+
   it("limits demand changes when the base city fare reaches 10000 IQD", () => {
     expect(taxiFare("economy", 20, { demandMultiplier: 1.5 })).toBe(10000);
     expect(taxiFare("economy", 25, { demandMultiplier: 1.5 })).toBe(11000);
