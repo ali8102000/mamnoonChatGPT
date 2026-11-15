@@ -88,6 +88,7 @@ function RequestDetail() {
   const [mapOpen, setMapOpen] = useState(false);
   const [otherRep, setOtherRep] = useState<ReputationData | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const weeklyRatingNoticeRef = useRef<string | null>(null);
   const getRepFn = useServerFn(getReputation);
   const cancelFn = useServerFn(cancelRequest);
   const providerCancelFn = useServerFn(providerCancelRequest);
@@ -191,7 +192,19 @@ function RequestDetail() {
           .eq("rater_id", sessionUser.id)
           .maybeSingle();
         setMyRating(rate);
-        if (r.status === "completed" && !rate) setShowRating(true);
+        if (r.status === "completed" && !rate) {
+          const rateeId = r.customer_id === sessionUser.id ? r.provider_id : r.customer_id;
+          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: weeklyRating } = await (supabase as any).from("ratings").select("id").eq("rater_id", sessionUser.id).eq("ratee_id", rateeId).gte("created_at", weekAgo).limit(1).maybeSingle();
+          setShowRating(!weeklyRating);
+          if (weeklyRating && weeklyRatingNoticeRef.current !== rateeId) {
+            weeklyRatingNoticeRef.current = rateeId;
+            toast.error("لقد تم تقييم هذا الشخص من قبلك خلال آخر 7 أيام.");
+          }
+        } else {
+          setShowRating(false);
+          weeklyRatingNoticeRef.current = null;
+        }
       }
     } catch (e) {
       console.error("[request] loadAll error:", e);
@@ -830,13 +843,13 @@ function RequestDetail() {
       {showRating && other && (
         <RatingModal
           target={other}
-          labels={myRole === "provider"
-            ? ["الاحترام وحسن التعامل", "الالتزام بالموعد", "التعاون والوضوح"]
+          reasons={myRole === "provider"
+            ? ["محترم وحسن التعامل", "ملتزم بالموعد", "متعاون وواضح", "قدّم معلومات دقيقة", "احترم وقتي", "التزم بالاتفاق", "تأخر دون إشعار", "صعّب التواصل", "غيّر الاتفاق دون تنسيق", "تعامل غير لائق"]
             : req.type === "taxi"
-              ? ["احترام الخصوصية وهدوء التعامل", "الالتزام بالموعد وتشغيل المكيف", "نظافة السيارة والقيادة الآمنة"]
-              : ["جودة العمل والإتقان", "الالتزام بالوقت والسعر المتفق", "حسن التعامل والمحافظة على المكان"]}
+              ? ["قيادة آمنة", "احترام الخصوصية", "وصل بالموعد", "حسن التعامل", "السيارة نظيفة", "المكيف يعمل", "تواصل واضح", "تأخر دون إشعار", "قيادة غير آمنة", "السيارة غير نظيفة", "تعامل غير لائق", "لم يلتزم بالاتفاق"]
+              : ["جودة العمل عالية", "أتقن العمل", "التزم بالموعد", "التزم بالسعر المتفق", "حسن التعامل", "حافظ على المكان", "تواصل واضح", "تأخر دون إشعار", "جودة العمل ضعيفة", "غيّر السعر دون اتفاق", "لم يحافظ على المكان", "تعامل غير لائق"]}
           onClose={() => setShowRating(false)}
-          onSubmit={async (stars, comment, subscores) => {
+          onSubmit={async (stars, comment, reasons) => {
             const { data, error } = await (supabase as any)
               .from("ratings")
               .insert({
@@ -844,15 +857,13 @@ function RequestDetail() {
                 rater_id: session.user.id,
                 ratee_id: other.id,
                 stars,
+                reasons,
                 comment: comment || null,
-                professionalism: subscores.professionalism,
-                punctuality: subscores.punctuality,
-                quality: subscores.quality,
               })
               .select()
               .single();
             if (error) {
-              toast.error(error.message);
+              toast.error(error.message?.includes("rating_already_given_this_week") ? "لقد تم تقييم هذا الشخص من قبلك خلال آخر 7 أيام." : error.message);
               return;
             }
             setMyRating(data);
@@ -893,26 +904,20 @@ function RequestDetail() {
 
 function RatingModal({
   target,
-  labels,
+  reasons,
   onClose,
   onSubmit,
 }: {
   target: any;
-  labels: [string, string, string];
+  reasons: string[];
   onClose: () => void;
-  onSubmit: (
-    stars: number,
-    comment: string,
-    subscores: { professionalism: number; punctuality: number; quality: number },
-  ) => Promise<void>;
+  onSubmit: (stars: number, comment: string, selectedReasons: string[]) => Promise<void>;
 }) {
-  const [stars, setStars] = useState(5);
+  const [stars, setStars] = useState(0);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState("");
+  const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [prof, setProf] = useState(5);
-  const [punc, setPunc] = useState(5);
-  const [qual, setQual] = useState(5);
 
   return (
     <div
@@ -938,89 +943,50 @@ function RatingModal({
             )}
           </div>
           <div className="font-black text-lg">كيف كانت تجربتك؟</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            قيّم {target.full_name || "المزود"}
-          </div>
+          <div className="text-xs text-muted-foreground mt-1">قيّم {target.full_name || "المستخدم"}</div>
+          <div className="text-xs text-muted-foreground mt-2">اختَر عدد النجوم بنفسك</div>
         </div>
 
         <div className="flex justify-center gap-1.5 my-5" onMouseLeave={() => setHover(0)}>
           {[1, 2, 3, 4, 5].map((s) => {
             const active = s <= (hover || stars);
             return (
-              <button
-                key={s}
-                type="button"
-                onMouseEnter={() => setHover(s)}
-                onClick={() => setStars(s)}
-                className="btn-press p-1 transition-transform"
-                style={{ transform: active ? "scale(1.1)" : "scale(1)" }}
-              >
-                <Star
-                  className={`h-10 w-10 transition ${active ? "text-primary fill-primary drop-shadow-[0_4px_12px_var(--primary)]" : "text-muted-foreground"}`}
-                />
+              <button key={s} type="button" onMouseEnter={() => setHover(s)} onClick={() => setStars(s)} className="btn-press p-1 transition-transform">
+                <Star className={`h-10 w-10 transition ${active ? "text-primary fill-primary drop-shadow-[0_4px_12px_var(--primary)]" : "text-muted-foreground"}`} />
               </button>
             );
           })}
         </div>
         <div className="text-center text-xs text-muted-foreground mb-3">
-          {["", "سيء جداً", "سيء", "مقبول", "جيد", "ممتاز"][hover || stars]}
+          {stars === 0 ? "لم يتم اختيار التقييم" : ["", "سيء جداً", "سيء", "مقبول", "جيد", "ممتاز"][stars]}
         </div>
 
-        {/* Sub-scores */}
-        <div className="space-y-2.5 mb-3">
-          <SubScoreInput label={labels[0]} value={prof} onChange={setProf} />
-          <SubScoreInput label={labels[1]} value={punc} onChange={setPunc} />
-          <SubScoreInput label={labels[2]} value={qual} onChange={setQual} />
+        <div className="mb-3">
+          <div className="text-xs font-black text-muted-foreground mb-2">أسباب التقييم (اختياري – تقدر تختار أكثر من سبب)</div>
+          <div className="flex flex-wrap gap-2">
+            {reasons.map((reason) => {
+              const active = selectedReasons.includes(reason);
+              return (
+                <button key={reason} type="button" onClick={() => setSelectedReasons((current) => active ? current.filter((item) => item !== reason) : [...current, reason])}
+                  className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground"}`}>
+                  {active ? "✓ " : ""}{reason}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value.slice(0, 500))}
-          placeholder="اكتب تعليقك (اختياري)..."
-          rows={3}
-          className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-ring resize-none"
-        />
+        <textarea value={comment} onChange={(e) => setComment(e.target.value.slice(0, 500))}
+          placeholder="ملاحظة إضافية (اختياري)..." rows={2}
+          className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-ring resize-none" />
 
-        <button
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            await onSubmit(stars, comment.trim(), {
-              professionalism: prof,
-              punctuality: punc,
-              quality: qual,
-            });
-            setBusy(false);
-          }}
-          className="mt-4 w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-black btn-press glow-primary disabled:opacity-50"
-        >
+        <button disabled={busy || stars === 0} onClick={async () => {
+          setBusy(true);
+          await onSubmit(stars, comment.trim(), selectedReasons);
+          setBusy(false);
+        }} className="mt-4 w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-black btn-press glow-primary disabled:opacity-50">
           {busy ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "إرسال التقييم"}
         </button>
-      </div>
-    </div>
-  );
-}
-
-function SubScoreInput({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs font-bold text-muted-foreground shrink-0">{label}</span>
-      <div className="flex gap-0.5">
-        {[1, 2, 3, 4, 5].map((s) => (
-          <button key={s} type="button" onClick={() => onChange(s)} className="btn-press p-0.5">
-            <Star
-              className={`h-5 w-5 transition ${s <= value ? "text-amber-400 fill-amber-400" : "text-muted-foreground/30"}`}
-            />
-          </button>
-        ))}
       </div>
     </div>
   );
