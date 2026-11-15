@@ -35,7 +35,7 @@ This is a living migration checklist. A matching route name or a successful Type
 | `/profile` | `profile` | Needs live comparison |
 | `/admin` | `admin` | Needs live comparison |
 | `/admin/monitoring` | `admin/monitoring` | Read-only staff-gated metrics; full moderation actions not ported |
-| `/admin/subscriptions` | `admin/subscriptions` | Read-only authorized view; management actions not ported |
+| `/admin/subscriptions` | `admin/subscriptions` | Native management workspace added; backend Edge Function committed but not deployed or runtime-verified |
 | `/admin/bootstrap` | `admin/bootstrap` | Intentionally locked on Android; one-time privilege bootstrap stays web-only |
 | `/admin/import` | `admin/import` | Intentionally locked on Android; import mutations not ported |
 | `/onboarding/driver` | `onboarding/driver` | Needs live comparison |
@@ -116,7 +116,7 @@ This is a living migration checklist. A matching route name or a successful Type
 - [x] Add Android privacy and terms routes; legal wording approval remains.
 - [x] Add Android support tickets, replies, and realtime listener; device/RLS verification remains.
 - [x] Add Android welcome route; confirm entry navigation and visual comparison.
-- [ ] Complete monitoring moderation actions and subscription administration server functions. The Android overview metrics were expanded on 2026-11-15 (commit `cd8ebba294c584acfb8cd8ecc1f9a1c4e5b67dd2`) to include drivers/workers, availability, request statuses, and commission totals; runtime verification is pending. The latest follow-up also surfaces partial metric-query failures in the dashboard rather than silently presenting zero counts. Bootstrap/import remain deliberately locked on Android because they are one-time or high-impact operations and their server-side web functions are not yet available in Expo.
+- [ ] Complete remaining moderation and subscription parity, including live backend deployment only after explicit owner approval. The Android overview metrics, report moderation actions, user administration screen, and subscription workspace have been added in source; their production runtime behavior still requires authorized deployment/device verification. Bootstrap/import remain deliberately locked on Android because they are one-time or high-impact operations.
 
 ### P2 — visual and interaction parity
 - [x] Bundle and load Tajawal 400/500/700/800/900 assets in the native bundle; verify weight-to-style mapping and glyph rendering on device.
@@ -176,3 +176,13 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - Extended the Deno CI check to validate both `admin-subscriptions` and `admin-users` Edge Functions. The Edge Function type-check passed on the source commit before the workflow-only cleanup; the corrected workflow is running again on the current head.
 - Neither new Edge Function has been deployed to production. No production data, database schema, RLS, payment configuration, or secrets were modified.
 - The new Expo user screen still requires fresh mobile CI and physical-device verification. It is not yet certified as pixel-perfect or end-to-end equivalent to the web screen.
+
+
+## Continuation update — 2026-11-15 (latest branch work)
+- Added the native user administration screen at `expo-app/app/admin/users.tsx`: staff-only listing/search/details; admin-only block/unblock actions with duration and reason.
+- Added authenticated `supabase/functions/admin-users/index.ts`; reads are gated by `has_staff_role`, mutations by `has_admin_access`, and mutations call caller-scoped RPCs. Service-role access remains server-side.
+- The admin Edge Function workflow now type-checks both `admin-users` and `admin-subscriptions`; the latest run on the branch reported success.
+- The latest mobile CI and web CI runs reported success before the most recent two UI/backend follow-up commits. A fresh APK workflow was queued; its completion for the exact latest source must be checked before calling the new APK verified.
+- Improved user-detail transparency: the backend now reports when ratings failed to load, and the native detail view shows that warning instead of silently displaying an empty ratings list. Latest code commit: `9bcf35d2a457018b0c666b820eb10898745f16a7`.
+- Still outstanding: full provider/request/wallet/coupon/live-map/notification/roles/company/audit parity; production deployment approval for privileged Edge Functions; physical-device testing; screenshot-by-screenshot visual comparison; end-to-end auth, GPS, realtime, notifications, and Zain Cash handoff verification.
+- No production database, RLS, user records, payment settings, or secrets were changed. PR #39 remains open and unmerged.
