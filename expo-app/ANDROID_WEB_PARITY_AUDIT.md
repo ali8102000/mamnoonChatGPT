@@ -127,12 +127,10 @@ This is a living migration checklist. A matching route name or a successful Type
 
 ## Verification evidence
 
-- [x] Android TypeScript check (previous app-source commit `93973e65ac9db926424036186f0d16a112ae90e3`; must rerun after commit `43007859dd611532f87d50adb5c300fcbfcf931f`)
-- [x] Expo dependency compatibility check (`expo install --check`, previous app-source commit; rerun after latest source change)
-- [ ] `expo-doctor`
-- [x] TypeScript check and Android debug APK build rerun for latest commit `f0d71478e0c0dcf91176df1d603420cae8f34c59` (workflow run `43672764165`; all steps passed)
-- [ ] Android export (debug APK compile succeeded; separate Expo export step not run)
-- [x] Installable debug APK built, validated, and uploaded from the latest parity commit `f0d71478e0c0dcf91176df1d603420cae8f34c59` (workflow run `43672764165`; artifact `mamnoon-test-apk`, artifact ID `14145463192`, SHA-256 `435242399ffc757daae4c467e983779e48c067fd575c320d0246a1ae10a0d103`, archive size 59,138,836 bytes; expires 2026-11-29).
+- [x] Android TypeScript, production-configuration guards, Expo dependency compatibility, Expo Doctor, and Android bundle export passed on commit `b5059a20d1a3c52e7e934be6e795a9017ea7875f` (workflow run `43674996644`).
+- [x] Deno type-check for the new `admin-subscriptions` Edge Function passed (workflow run `43674996608`).
+- [x] Web unit tests, TypeScript, ESLint, and production build passed on commit `b5059a20d1a3c52e7e934be6e795a9017ea7875f` (workflow run `43674996658`).
+- [x] Installable debug APK built, validated, and uploaded from commit `b5059a20d1a3c52e7e934be6e795a9017ea7875f` (workflow run `43674996629`; artifact `mamnoon-test-apk`, artifact ID `14146084960`, SHA-256 `79782924566240a0a8130d9290095319aff6f2e3879fab564bb06826d83e409a`, archive size 59,138,836 bytes; expires 2026-11-29).
 - [ ] Install the APK on a physical Android device and complete device-level screen and flow tests.
 - [ ] Device-level screen and flow tests
 - [ ] Screenshot comparison report
@@ -154,3 +152,11 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - Android workflow steps all succeeded: dependency installation, TypeScript check, Expo dependency compatibility, environment access check, native prebuild/Gradle compile, APK validation, and artifact upload.
 - Artifact: `mamnoon-test-apk` (ID `14145463192`), SHA-256 `435242399ffc757daae4c467e983779e48c067fd575c320d0246a1ae10a0d103`. This is a debug/test APK, not a Play Store release. Physical-device installation and interaction tests are still pending.
 - PR #39 remains open and unmerged. No database schema, RLS, production data, payment settings, or secrets were changed.
+
+
+## Subscription administration implementation update — 2026-11-15
+
+- Added the native subscription-management screen and authenticated Edge Function bridge in PR #39.
+- Edge Function source passed Deno type-check. It has not been deployed to the production Supabase project; subscription admin actions requiring this function are not yet live.
+- The new screen and service have passed repository-level type/lint/build checks, but still need live authorization and role testing after deployment approval.
+- Physical Android installation, screenshot parity, end-to-end user/provider workflows, real-time delivery, GPS/maps, notifications, and Zain Cash handoff are still pending.
