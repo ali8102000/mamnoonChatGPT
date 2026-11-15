@@ -88,11 +88,9 @@ export default function NewRequest() {
   const [routeDurationMin, setRouteDurationMin] = useState<number | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
-  const [demandMultiplier, setDemandMultiplier] = useState(1);
   const [tripOptionsExpanded, setTripOptionsExpanded] = useState(false);
   const [tripType, setTripType] = useState<"one_way" | "round_trip" | "second_trip" | "stop">("one_way");
   const [extraMinutes, setExtraMinutes] = useState(0);
-  const [isGoldSubscriber, setIsGoldSubscriber] = useState(false);
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number } }>>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
@@ -142,34 +140,8 @@ export default function NewRequest() {
   const destinationGovKey = destinationGovernorateKey;
   const isIntercity = Boolean(pickupGovernorateKey && destinationGovKey && pickupGovernorateKey !== destinationGovKey);
   const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle
-    ? calculateMobileTaxiFare(vehicleCat as Exclude<VehicleCategory, "large">, routeKm, demandMultiplier, isIntercity, tripType, extraMinutes)
+    ? calculateMobileTaxiFare(vehicleCat as Exclude<VehicleCategory, "large">, routeKm, 1, isIntercity, tripType, extraMinutes)
     : null;
-
-  useEffect(() => {
-    if (!user?.id) {
-      setIsGoldSubscriber(false);
-      return;
-    }
-    let active = true;
-    void (async () => {
-      try {
-        const { data, error } = await supabase
-          .from("user_subscriptions")
-          .select("id, subscription_plans!inner(code)")
-          .eq("user_id", user.id)
-          .eq("status", "active")
-          .eq("is_trial", false)
-          .gt("current_period_end", new Date().toISOString())
-          .eq("subscription_plans.code", "gold")
-          .limit(1)
-          .maybeSingle();
-        if (active) setIsGoldSubscriber(!error && Boolean(data));
-      } catch {
-        if (active) setIsGoldSubscriber(false);
-      }
-    })();
-    return () => { active = false; };
-  }, [user?.id]);
 
   function moveMap(nextRegion: typeof region) {
     setRegion(nextRegion);
@@ -187,29 +159,6 @@ export default function NewRequest() {
     }).catch(() => {});
     return () => { active = false; };
   }, [destinationCoords, destinationGovernorateKey]);
-
-  useEffect(() => {
-    if (!isTaxi || isLargeVehicle || !pickupCoords) {
-      setDemandMultiplier(1);
-      return;
-    }
-    let active = true;
-    void (async () => {
-      try {
-        const { data, error } = await supabase.rpc("get_taxi_demand_multiplier", {
-          _lat: pickupCoords.latitude,
-          _lng: pickupCoords.longitude,
-          _category: vehicleCat,
-        });
-        if (!active) return;
-        const value = Number(data);
-        setDemandMultiplier(!error && Number.isFinite(value) ? Math.min(1.5, Math.max(0.8, value)) : 1);
-      } catch {
-        if (active) setDemandMultiplier(1);
-      }
-    })();
-    return () => { active = false; };
-  }, [isTaxi, isLargeVehicle, pickupCoords, vehicleCat]);
 
   useEffect(() => {
     if (!focusSearchAfterProvince) return;
@@ -581,7 +530,7 @@ export default function NewRequest() {
         const taxiRequest = await callMamnoonMapsApi<{ requestId: string }>({
           action: "createTaxiRequest",
           tripType,
-          extraMinutes: isGoldSubscriber ? extraMinutes : 0,
+          extraMinutes,
           from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude },
           to: { lat: destinationCoords!.latitude, lng: destinationCoords!.longitude },
           pickupText: pickup,
@@ -767,50 +716,17 @@ export default function NewRequest() {
           initialRegion={region}
           onPanDrag={() => { if (!isDraggingMarkerRef.current) userPannedMapRef.current = true; }}
           onRegionChangeComplete={handleRegionChangeComplete}
-          onPress={(event) => chooseMapPoint(event.nativeEvent.coordinate)}
           showsUserLocation
           showsMyLocationButton={false}
           loadingEnabled
         >
-          {pickupCoords && (
-            <Marker
-              coordinate={pickupCoords}
-              title="نقطة الانطلاق"
-              pinColor={palette.brand}
-              draggable
-              onDragStart={() => {
-                isDraggingMarkerRef.current = true;
-                userPannedMapRef.current = false;
-                if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
-              }}
-              onDragEnd={(event) => {
-                isDraggingMarkerRef.current = false;
-                void chooseMapPoint(event.nativeEvent.coordinate);
-              }}
-            />
-          )}
-          {destinationCoords && isTaxi && (
-            <Marker
-              coordinate={destinationCoords}
-              title="الوجهة"
-              pinColor={palette.success}
-              draggable
-              onDragStart={() => {
-                isDraggingMarkerRef.current = true;
-                userPannedMapRef.current = false;
-                if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
-              }}
-              onDragEnd={(event) => {
-                isDraggingMarkerRef.current = false;
-                void chooseMapPoint(event.nativeEvent.coordinate);
-              }}
-            />
-          )}
+
         </MapView>
+        <View pointerEvents="none" style={styles.mapCenterPin}><Text style={styles.mapCenterPinText}>📍</Text></View>
         <Text style={styles.mapHint}>
           {mapMode === "pickup"
-            ? "اضغط على الخريطة لتحديد الانطلاق"
-            : "اضغط على الخريطة لتحديد الوجهة"}
+            ? "حرّك الخريطة حتى تصبح النقطة تحت الدبوس"
+            : "حرّك الخريطة حتى تصبح الوجهة تحت الدبوس"}
         </Text>
       </View>
 
@@ -1008,37 +924,31 @@ export default function NewRequest() {
                 <Text style={styles.tripOptionsTitle}>وقت إضافي</Text>
                 <Text style={styles.extraTimeValue}>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</Text>
               </View>
-              {isGoldSubscriber ? (
-                <>
-                  <Text style={styles.tripOptionsHint}>ميزة المشترك الذهبي: كل 5 دقائق بـ500 دينار، من 5 دقائق إلى ساعتين.</Text>
-                  <View
-                    style={styles.extraTimeSliderTouch}
-                    onLayout={(event) => { extraTimeTrackWidthRef.current = event.nativeEvent.layout.width; }}
-                    {...extraTimePanResponder.panHandlers}
-                    accessibilityRole="adjustable"
-                    accessibilityLabel="وقت الانتظار الإضافي"
-                    accessibilityValue={{ min: 0, max: 120, now: extraMinutes }}
-                    accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
-                    onAccessibilityAction={(event) => {
-                      if (event.nativeEvent.actionName === "increment") setExtraMinutes((value) => Math.min(120, value + 5));
-                      if (event.nativeEvent.actionName === "decrement") setExtraMinutes((value) => Math.max(0, value - 5));
-                    }}
-                  >
-                    <View style={styles.extraTimeSliderTrack}>
-                      <View style={[styles.extraTimeSliderFill, { width: `${(extraMinutes / 120) * 100}%` }]} />
-                      <View style={[styles.extraTimeSliderThumb, { right: `${(extraMinutes / 120) * 100}%` }]} />
-                    </View>
-                  </View>
-                  <View style={styles.extraTimeScale}>
-                    <Text style={styles.tripOptionsHint}>0</Text>
-                    <Text style={styles.tripOptionsHint}>5 دقائق</Text>
-                    <Text style={styles.tripOptionsHint}>60</Text>
-                    <Text style={styles.tripOptionsHint}>120 دقيقة</Text>
-                  </View>
-                </>
-              ) : (
-                <Text style={styles.goldLockedText}>زيادة وقت الانتظار متاحة للمشترك الذهبي فقط.</Text>
-              )}
+              <Text style={styles.tripOptionsHint}>مدة التوقف يحددها الزبون بنفسه، كل 5 دقائق بـ500 دينار، والحد الأعلى ساعتان.</Text>
+              <View
+                style={styles.extraTimeSliderTouch}
+                onLayout={(event) => { extraTimeTrackWidthRef.current = event.nativeEvent.layout.width; }}
+                {...extraTimePanResponder.panHandlers}
+                accessibilityRole="adjustable"
+                accessibilityLabel="مدة التوقف"
+                accessibilityValue={{ min: 0, max: 120, now: extraMinutes }}
+                accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+                onAccessibilityAction={(event) => {
+                  if (event.nativeEvent.actionName === "increment") setExtraMinutes((value) => Math.min(120, value + 5));
+                  if (event.nativeEvent.actionName === "decrement") setExtraMinutes((value) => Math.max(0, value - 5));
+                }}
+              >
+                <View style={styles.extraTimeSliderTrack}>
+                  <View style={[styles.extraTimeSliderFill, { width: `${(extraMinutes / 120) * 100}%` }]} />
+                  <View style={[styles.extraTimeSliderThumb, { right: `${(extraMinutes / 120) * 100}%` }]} />
+                </View>
+              </View>
+              <View style={styles.extraTimeScale}>
+                <Text style={styles.tripOptionsHint}>بدون توقف</Text>
+                <Text style={styles.tripOptionsHint}>30 دقيقة</Text>
+                <Text style={styles.tripOptionsHint}>ساعة</Text>
+                <Text style={styles.tripOptionsHint}>ساعتان</Text>
+              </View> )}
             </>
           )}
         </View>
@@ -1087,6 +997,8 @@ const styles = StyleSheet.create({
   locateButtonText: { color: palette.brandDeep, fontWeight: "900", fontSize: 12 },
   mapContainer: { height: 280, borderRadius: radius.xl, overflow: "hidden", marginTop: 8, borderWidth: 1, borderColor: palette.line },
   map: { flex: 1 },
+  mapCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -16, marginTop: -34, zIndex: 5 },
+  mapCenterPinText: { fontSize: 34, textShadowColor: "rgba(0,0,0,0.35)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
   mapHint: { position: "absolute", bottom: 10, alignSelf: "center", backgroundColor: palette.brandDeep, color: palette.white, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, fontSize: 11, overflow: "hidden" },
   input: { minHeight: 54, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, fontWeight: "600", color: palette.ink, backgroundColor: palette.surface, textAlign: "right" },
   catRow: { flexDirection: "row", gap: 10 },
