@@ -8,7 +8,7 @@ This is a living migration checklist. A matching route name or a successful Type
 
 - Web route inventory: 30 route files under `src/routes/`.
 - Current Expo route inventory: 30 route files under `expo-app/app/` (re-counted on 2026-11-15). This corrects the earlier 21-route figure, which was stale. Matching route counts do not prove matching page content or behavior.
-- Confirmed implementation gap: web `src/routes/admin.tsx` is about 2,580 lines and exposes 16 management sections (overview, stats, users, providers, requests, chat, friends, reports, subscriptions, coupons, wallet, live map, notifications, roles, company, audit). Expo `expo-app/app/admin.tsx` is about 362 lines and implements only a subset of the admin workflows. The Expo subscription route explicitly says plan and financial grant/edit actions are not enabled; monitoring/subscription views are not equivalent to the full web management surface.
+- Confirmed implementation gap: web `src/routes/admin.tsx` is about 2,580 lines and exposes 16 management sections (overview, stats, users, providers, requests, chat, friends, reports, subscriptions, coupons, wallet, live map, notifications, roles, company, audit). Expo `expo-app/app/admin.tsx` is a smaller subset of the admin workflows. The Android dashboard now includes total/active driver and worker counts, request-status counts, and commission totals for day/month/year; this improves overview metrics but does not port the other management sections. The Expo subscription route explicitly says plan and financial grant/edit actions are not enabled; monitoring/subscription views are not equivalent to the full web management surface.
 - The native app is a separate React Native implementation, not a WebView of the web app; its screen layouts and styling are independently maintained.
 - The web design system uses Tajawal (400/500/700/800/900), CSS OKLCH tokens, glass surfaces, gradients, shadows, and a 112.5% root font scale.
 - Expo previously used a green palette (`#174C3C`) that visibly diverged from the web blue/amber palette. The palette has now been moved to sRGB approximations of the web light/dark tokens. This is a first alignment step, not a pixel-perfect certification.
@@ -116,7 +116,7 @@ This is a living migration checklist. A matching route name or a successful Type
 - [x] Add Android privacy and terms routes; legal wording approval remains.
 - [x] Add Android support tickets, replies, and realtime listener; device/RLS verification remains.
 - [x] Add Android welcome route; confirm entry navigation and visual comparison.
-- [ ] Complete monitoring moderation actions and subscription administration server functions. Bootstrap/import remain deliberately locked on Android because they are one-time or high-impact operations and their server-side web functions are not yet available in Expo.
+- [ ] Complete monitoring moderation actions and subscription administration server functions. The Android overview metrics were expanded on 2026-11-15 (commit `43007859dd611532f87d50adb5c300fcbfcf931f`) to include drivers/workers, availability, request statuses, and commission totals; runtime verification is pending. Bootstrap/import remain deliberately locked on Android because they are one-time or high-impact operations and their server-side web functions are not yet available in Expo.
 
 ### P2 — visual and interaction parity
 - [x] Bundle and load Tajawal 400/500/700/800/900 assets in the native bundle; verify weight-to-style mapping and glyph rendering on device.
@@ -127,9 +127,10 @@ This is a living migration checklist. A matching route name or a successful Type
 
 ## Verification evidence
 
-- [x] Android TypeScript check
-- [x] Expo dependency compatibility check (`expo install --check`)
+- [x] Android TypeScript check (previous app-source commit `93973e65ac9db926424036186f0d16a112ae90e3`; must rerun after commit `43007859dd611532f87d50adb5c300fcbfcf931f`)
+- [x] Expo dependency compatibility check (`expo install --check`, previous app-source commit; rerun after latest source change)
 - [ ] `expo-doctor`
+- [ ] TypeScript and Android build rerun for latest commit `43007859dd611532f87d50adb5c300fcbfcf931f`
 - [ ] Android export
 - [x] Installable debug APK built, validated, and uploaded from this commit (workflow run `43669755940`; artifact `mamnoon-test-apk`).
 - [ ] Install the APK on a physical Android device and complete device-level screen and flow tests.
@@ -144,4 +145,4 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - Route count corrected to 30 web / 30 Expo routes after enumerating the current branch trees.
 - A focused code-size/feature inspection confirms that route count overstates parity: the web admin dashboard contains substantially more management logic than the Expo admin screen; Expo subscription management remains explicitly read-only. These are known functional blockers, not cosmetic differences.
 - Main request creation screens both contain map/GPS and Supabase request logic, but source inspection alone cannot prove matching request types, validation, pricing, routing, realtime delivery, or successful production behavior. Those require controlled runtime tests.
-- No application code or production data was changed by this audit update.
+- Android admin dashboard source was updated in commit `43007859dd611532f87d50adb5c300fcbfcf931f`; only client-side aggregate reads and display were added. No database schema, RLS, production data, payment settings, or secrets were changed. CI/device verification of this latest commit remains pending.
