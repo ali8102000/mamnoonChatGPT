@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, StyleSheet,
-  Text, TouchableOpacity, View,
+  Text, TextInput, TouchableOpacity, View,
 } from "react-native";
 import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -54,6 +54,7 @@ export default function AdminProvidersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -92,6 +93,13 @@ export default function AdminProvidersScreen() {
     setRefreshing(false);
   };
 
+  const filteredProviders = providers.filter((provider) => {
+    const q = search.trim().toLocaleLowerCase();
+    if (!q) return true;
+    return [provider.profiles?.full_name, provider.profiles?.phone, provider.profiles?.email]
+      .some((value) => String(value ?? "").toLocaleLowerCase().includes(q));
+  });
+
   const openDocument = async (label: string, url?: string | null) => {
     if (!url) { Alert.alert("المستند غير متوفر", "ماكو رابط صالح لهذا المستند حالياً."); return; }
     try { await Linking.openURL(url); }
@@ -107,6 +115,7 @@ export default function AdminProvidersScreen() {
       <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
         <Text style={s.title}>إدارة مقدمي الخدمة</Text>
         <Text style={s.muted}>عدد النتائج: {total.toLocaleString("ar-IQ")} · يتم عرض أحدث 200 حساب كحد أقصى</Text>
+        <TextInput value={search} onChangeText={setSearch} placeholder="بحث بالاسم أو الهاتف أو البريد" placeholderTextColor={palette.muted} style={s.search} textAlign="right" />
         <View style={s.filters}>
           {TYPES.map(item => <TouchableOpacity key={item.value} onPress={() => setType(item.value)} style={[s.chip, type === item.value && s.chipActive]}><Text style={[s.chipText, type === item.value && s.chipTextActive]}>{item.label}</Text></TouchableOpacity>)}
         </View>
@@ -114,7 +123,7 @@ export default function AdminProvidersScreen() {
           {STATUSES.map(item => <TouchableOpacity key={item.value} onPress={() => setStatus(item.value)} style={[s.chip, status === item.value && s.chipActive]}><Text style={[s.chipText, status === item.value && s.chipTextActive]}>{item.label}</Text></TouchableOpacity>)}
         </View>
         {!!error && <View style={s.error}><Text style={s.errorText}>{error}</Text></View>}
-        {providers.length === 0 ? <Text style={s.empty}>ماكو حسابات بهذا التصنيف</Text> : providers.map(provider => (
+        {filteredProviders.length === 0 ? <Text style={s.empty}>ماكو حسابات مطابقة</Text> : filteredProviders.map(provider => (
           <View key={provider.user_id} style={s.card}>
             <Text style={s.name}>{provider.profiles?.full_name || "بدون اسم"}</Text>
             <Text style={s.muted}>{provider.profiles?.phone || provider.profiles?.email || "لا توجد معلومات اتصال"}</Text>
@@ -163,6 +172,7 @@ const s = StyleSheet.create({
   chipActive: { backgroundColor: palette.brand, borderColor: palette.brand },
   chipText: { color: palette.ink, fontSize: 10, fontWeight: "800" },
   chipTextActive: { color: palette.white },
+  search: { backgroundColor: palette.surface, color: palette.ink, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 12 },
   card: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 14, gap: 7 },
   name: { color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" },
   metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
