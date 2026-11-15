@@ -5,13 +5,13 @@ on:
     paths:
       - "supabase/functions/admin-subscriptions/**"
       - "supabase/functions/admin-users/**"
-      - "supabase/functions/admin-users/**"
       - ".github/workflows/admin-subscriptions-edge.yml"
   push:
     branches:
       - main
     paths:
       - "supabase/functions/admin-subscriptions/**"
+      - "supabase/functions/admin-users/**"
 
 permissions:
   contents: read
@@ -24,7 +24,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Type-check authenticated admin subscription function
+      - name: Type-check authenticated admin Edge Functions
         run: |
           deno check supabase/functions/admin-subscriptions/index.ts
           deno check supabase/functions/admin-users/index.ts
