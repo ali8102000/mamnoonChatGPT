@@ -146,6 +146,10 @@ function NewRequest() {
   );
   const [roadCondition, setRoadCondition] = useState<RoadCondition>("normal");
   const [demandMultiplier, setDemandMultiplier] = useState(1);
+  const [tripOptionsExpanded, setTripOptionsExpanded] = useState(false);
+  const [tripType, setTripType] = useState<"one_way" | "round_trip" | "second_trip" | "stop">("one_way");
+  const [extraMinutes, setExtraMinutes] = useState(0);
+  const [isGoldSubscriber, setIsGoldSubscriber] = useState(false);
   const [drawerExpanded, setDrawerExpanded] = useState(true);
   const [showFareDetails, setShowFareDetails] = useState(false);
 
@@ -173,6 +177,29 @@ function NewRequest() {
     window.addEventListener("storage", restoreGovernorate);
     return () => window.removeEventListener("storage", restoreGovernorate);
   }, []);
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setIsGoldSubscriber(false);
+      return;
+    }
+    let active = true;
+    void supabase
+      .from("user_subscriptions")
+      .select("id, subscription_plans!inner(code)")
+      .eq("user_id", session.user.id)
+      .eq("status", "active")
+      .eq("is_trial", false)
+      .gt("current_period_end", new Date().toISOString())
+      .eq("subscription_plans.code", "gold")
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (active) setIsGoldSubscriber(!error && Boolean(data));
+      })
+      .catch(() => { if (active) setIsGoldSubscriber(false); });
+    return () => { active = false; };
+  }, [session?.user?.id]);
+
   const gov = getGovernorate(govKey);
   function chooseGov(key: string) {
     localStorage.setItem(GOV_STORAGE_KEY, key);
@@ -463,7 +490,7 @@ function NewRequest() {
           return;
         }
         verifiedRouteKm = freshDistanceKm;
-        priceEstimate = taxiFare(vehicleCategory, freshDistanceKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity });
+        priceEstimate = taxiFare(vehicleCategory, freshDistanceKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity, tripType, extraMinutes });
       }
       if (couponCode.trim()) {
         const amount = type === "taxi" && vehicle !== "large" ? priceEstimate : getCouponBaseAmount();
@@ -498,6 +525,8 @@ function NewRequest() {
           notes: notes || null,
           distance_km: type === "taxi" ? verifiedRouteKm : null,
           is_intercity: type === "taxi" ? interCity : false,
+          trip_type: type === "taxi" ? tripType : "one_way",
+          extra_minutes: type === "taxi" && isGoldSubscriber ? extraMinutes : 0,
           ...(type === "service"
             ? {
                 pricing_mode: pricingMode,
@@ -535,7 +564,7 @@ function NewRequest() {
   // Active calculated taxi fare
   const activeFare =
     routeKm !== null
-      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity })
+      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity, tripType, extraMinutes })
       : FARE_TABLE[vehicleCategory].minimum;
 
   const estimatedEtaMinutes =
@@ -873,7 +902,7 @@ function NewRequest() {
                   const active = vehicleCategory === c.key;
                   const fare =
                     routeKm !== null
-                      ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity })
+                      ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity, tripType, extraMinutes })
                       : null;
                   return (
                     <button
@@ -896,6 +925,44 @@ function NewRequest() {
                     </button>
                   );
                 })}
+              </div>
+            )}
+            {vehicle !== "large" && (
+              <div className="rounded-2xl border border-amber-300/50 bg-card p-3 space-y-3">
+                <button type="button" onClick={() => setTripOptionsExpanded((value) => !value)} className="w-full flex items-center justify-between text-sm font-black">
+                  <span>خيارات الرحلة الاختيارية</span>
+                  <span className="text-primary text-xs">{tripOptionsExpanded ? "إخفاء ▲" : "إظهار ▼"}</span>
+                </button>
+                {tripOptionsExpanded && (
+                  <>
+                    <p className="text-xs text-muted-foreground">الاختيار الافتراضي ذهاب فقط. فعّل خياراً إضافياً عند الحاجة.</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { key: "one_way", label: "ذهاب فقط" },
+                        { key: "round_trip", label: "ذهاب وإياب" },
+                        { key: "second_trip", label: "رحلة ثانية" },
+                        { key: "stop", label: "توقف بالطريق" },
+                      ] as const).map((item) => (
+                        <button key={item.key} type="button" onClick={() => setTripType(item.key)} className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${tripType === item.key ? "bg-primary text-primary-foreground border-primary" : "bg-surface-2 border-border/60"}`}>
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-black">
+                      <span>وقت إضافي</span>
+                      <span>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</span>
+                    </div>
+                    {isGoldSubscriber ? (
+                      <>
+                        <p className="text-[11px] text-muted-foreground">ميزة الذهبي: كل 5 دقائق بـ500 دينار، من 5 دقائق إلى ساعتين.</p>
+                        <input type="range" min={0} max={120} step={5} value={extraMinutes} onChange={(event) => setExtraMinutes(Number(event.target.value))} className="w-full accent-primary" aria-label="الوقت الإضافي بالدقائق" />
+                        <div className="flex justify-between text-[11px] text-muted-foreground"><span>بدون وقت إضافي</span><span>ساعتان</span></div>
+                      </>
+                    ) : (
+                      <p className="text-xs font-bold text-amber-600">زيادة وقت الانتظار متاحة للمشترك الذهبي فقط.</p>
+                    )}
+                  </>
+                )}
               </div>
             )}
             {couponPanel}
