@@ -107,6 +107,9 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk release-artifacts/mamnoon-test.apk
           test -s release-artifacts/mamnoon-test.apk
           node -e 'const fs=require("fs"); const p="release-artifacts/mamnoon-test.apk"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid APK archive"); process.exit(1); }'
+          # Verify every APK entry before publishing the artifact, not only its ZIP signature.
+          unzip -t release-artifacts/mamnoon-test.apk
+          sha256sum release-artifacts/mamnoon-test.apk > release-artifacts/mamnoon-test.apk.sha256
       - name: Upload installable APK
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/upload-artifact@v4
@@ -115,3 +118,5 @@ jobs:
           path: expo-app/release-artifacts/mamnoon-test.apk
           if-no-files-found: error
           retention-days: 14
+          # APKs are already compressed ZIP containers; avoid recompressing them.
+          compression-level: 0
