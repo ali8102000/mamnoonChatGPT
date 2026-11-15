@@ -88,6 +88,10 @@ export default function NewRequest() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [demandMultiplier, setDemandMultiplier] = useState(1);
+  const [tripOptionsExpanded, setTripOptionsExpanded] = useState(false);
+  const [tripType, setTripType] = useState<"one_way" | "round_trip" | "second_trip" | "stop">("one_way");
+  const [extraMinutes, setExtraMinutes] = useState(0);
+  const [isGoldSubscriber, setIsGoldSubscriber] = useState(false);
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number } }>>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
@@ -96,6 +100,8 @@ export default function NewRequest() {
   const placeSearchInputRef = useRef<TextInput>(null);
   const regionChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userPannedMapRef = useRef(false);
+  const mapRef = useRef<MapView>(null);
+  const dragSelectionVersionRef = useRef(0);
 
   useEffect(() => () => {
     if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
@@ -121,8 +127,36 @@ export default function NewRequest() {
   const destinationGovKey = destinationGovernorateKey;
   const isIntercity = Boolean(pickupGovernorateKey && destinationGovKey && pickupGovernorateKey !== destinationGovKey);
   const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle
-    ? calculateMobileTaxiFare(vehicleCat as Exclude<VehicleCategory, "large">, routeKm, demandMultiplier, isIntercity)
+    ? calculateMobileTaxiFare(vehicleCat as Exclude<VehicleCategory, "large">, routeKm, demandMultiplier, isIntercity, tripType, extraMinutes)
     : null;
+
+  useEffect(() => {
+    if (!user?.id) {
+      setIsGoldSubscriber(false);
+      return;
+    }
+    let active = true;
+    void supabase
+      .from("user_subscriptions")
+      .select("id, subscription_plans!inner(code)")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .eq("is_trial", false)
+      .gt("current_period_end", new Date().toISOString())
+      .eq("subscription_plans.code", "gold")
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (active) setIsGoldSubscriber(!error && Boolean(data));
+      })
+      .catch(() => { if (active) setIsGoldSubscriber(false); });
+    return () => { active = false; };
+  }, [user?.id]);
+
+  function moveMap(nextRegion: typeof region) {
+    setRegion(nextRegion);
+    mapRef.current?.animateToRegion(nextRegion, 350);
+  }
 
   useEffect(() => {
     if (!destinationCoords || destinationGovernorateKey) return;
@@ -225,7 +259,7 @@ export default function NewRequest() {
         void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
           .then((result) => { if (mounted) setPickupGovernorateKey(result.key); })
           .catch(() => {});
-        setRegion({ ...coords, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+        moveMap({ ...coords, latitudeDelta: 0.02, longitudeDelta: 0.02 });
         const address = formatAddress(await Location.reverseGeocodeAsync(coords));
         if (address) setPickup(address);
       } catch {
@@ -341,7 +375,7 @@ export default function NewRequest() {
       void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
         .then((result) => setPickupGovernorateKey(result.key))
         .catch(() => {});
-      setRegion({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
+      moveMap({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
       const address = formatAddress(await Location.reverseGeocodeAsync(coords));
       setPickup(address || "موقع محدد على الخريطة");
       setMapMode("pickup");
@@ -355,7 +389,6 @@ export default function NewRequest() {
   }
 
   function handleRegionChangeComplete(nextRegion: typeof region, details?: { isGesture?: boolean }) {
-    setRegion(nextRegion);
     // Pinch zoom is a map gesture too, but it is not a new location selection.
     if (!details?.isGesture || !userPannedMapRef.current) return;
     userPannedMapRef.current = false;
@@ -386,31 +419,44 @@ export default function NewRequest() {
   }
 
   async function chooseMapPoint(coords: Coordinates) {
-    if (activeGovernorateKey) {
+    const targetMode = mapMode;
+    const selectedGovernorateKey = targetMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
+    const previousCoords = targetMode === "pickup" ? pickupCoords : destinationCoords;
+    const selectionVersion = ++dragSelectionVersionRef.current;
+
+    // Optimistic marker update prevents the dragged pin snapping back while validation/geocoding runs.
+    if (targetMode === "pickup") setPickupCoords(coords);
+    else setDestinationCoords(coords);
+
+    if (selectedGovernorateKey) {
       try {
         const validation = await callMamnoonMapsApi<{ valid: boolean }>({
           action: "validateGovernorate",
           center: { lat: coords.latitude, lng: coords.longitude },
-          governorateKey: activeGovernorateKey,
+          governorateKey: selectedGovernorateKey,
         });
         if (!validation.valid) {
-          Alert.alert("الموقع خارج المحافظة", `اختر نقطة داخل محافظة ${activeGovernorate?.name ?? "المحافظة المحددة"} أو غيّر المحافظة.`);
+          if (selectionVersion === dragSelectionVersionRef.current) {
+            if (targetMode === "pickup") setPickupCoords(previousCoords);
+            else setDestinationCoords(previousCoords);
+          }
+          Alert.alert("الموقع خارج المحافظة", `اختر نقطة داخل محافظة ${getMobileGovernorate(selectedGovernorateKey)?.name ?? "المحافظة المحددة"} أو غيّر المحافظة.`);
           return;
         }
       } catch (error) {
+        if (selectionVersion === dragSelectionVersionRef.current) {
+          if (targetMode === "pickup") setPickupCoords(previousCoords);
+          else setDestinationCoords(previousCoords);
+        }
         Alert.alert("تعذّر التحقق من الموقع", error instanceof Error ? error.message : "حاول مرة ثانية.");
         return;
       }
     }
-    if (mapMode === "pickup") {
-      setPickupCoords(coords);
-      const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
-      setPickup(address || "موقع محدد على الخريطة");
-    } else {
-      setDestinationCoords(coords);
-      const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
-      setDestination(address || "وجهة محددة على الخريطة");
-    }
+
+    const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
+    if (selectionVersion !== dragSelectionVersionRef.current) return;
+    if (targetMode === "pickup") setPickup(address || "موقع محدد على الخريطة");
+    else setDestination(address || "وجهة محددة على الخريطة");
   }
 
   function chooseGovernorate(key: string) {
@@ -422,7 +468,7 @@ export default function NewRequest() {
     setPlaceSuggestions([]);
     setPlaceSearchError(null);
     setFocusSearchAfterProvince(true);
-    setRegion({ latitude: governorate.latitude, longitude: governorate.longitude, latitudeDelta: 0.12, longitudeDelta: 0.12 });
+    moveMap({ latitude: governorate.latitude, longitude: governorate.longitude, latitudeDelta: 0.12, longitudeDelta: 0.12 });
     if (mapMode === "pickup") {
       setPickupCoords(null);
       setPickup("");
@@ -446,7 +492,7 @@ export default function NewRequest() {
       setDestinationCoords(coords);
       setDestination(label);
     }
-    setRegion({ ...coords, latitudeDelta: 0.018, longitudeDelta: 0.018 });
+    moveMap({ ...coords, latitudeDelta: 0.018, longitudeDelta: 0.018 });
     setPlaceQuery("");
     setPlaceSuggestions([]);
   }
@@ -516,6 +562,8 @@ export default function NewRequest() {
       } else if (isTaxi) {
         const taxiRequest = await callMamnoonMapsApi<{ requestId: string }>({
           action: "createTaxiRequest",
+          tripType,
+          extraMinutes: isGoldSubscriber ? extraMinutes : 0,
           from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude },
           to: { lat: destinationCoords!.latitude, lng: destinationCoords!.longitude },
           pickupText: pickup,
@@ -695,9 +743,10 @@ export default function NewRequest() {
 
       <View style={styles.mapContainer}>
         <MapView
+          ref={mapRef}
           style={styles.map}
           provider={PROVIDER_GOOGLE}
-          region={region}
+          initialRegion={region}
           onPanDrag={() => { userPannedMapRef.current = true; }}
           onRegionChangeComplete={handleRegionChangeComplete}
           onPress={(event) => chooseMapPoint(event.nativeEvent.coordinate)}
@@ -908,6 +957,47 @@ export default function NewRequest() {
 
       {routeLoading && <Text style={styles.mapHintText}>جاري حساب مسافة الطريق الفعلية...</Text>}
       {!!routeError && <Text style={styles.mapErrorText}>{routeError}</Text>}
+      {isTaxi && !isLargeVehicle && (
+        <View style={styles.tripOptionsBox}>
+          <TouchableOpacity style={styles.tripOptionsHeader} onPress={() => setTripOptionsExpanded((value) => !value)}>
+            <Text style={styles.tripOptionsTitle}>خيارات الرحلة الاختيارية</Text>
+            <Text style={styles.tripOptionsToggle}>{tripOptionsExpanded ? "إخفاء ▲" : "إظهار ▼"}</Text>
+          </TouchableOpacity>
+          {tripOptionsExpanded && (
+            <>
+              <Text style={styles.tripOptionsHint}>اختار نوع الرحلة فقط إذا تحتاجه؛ الافتراضي رحلة ذهاب.</Text>
+              <View style={styles.catRow}>
+                {([
+                  { key: "one_way", label: "ذهاب فقط" },
+                  { key: "round_trip", label: "ذهاب وإياب" },
+                  { key: "second_trip", label: "رحلة ثانية" },
+                  { key: "stop", label: "توقف بالطريق" },
+                ] as const).map((item) => (
+                  <TouchableOpacity key={item.key} style={[styles.catChip, tripType === item.key && styles.catChipActive]} onPress={() => setTripType(item.key)}>
+                    <Text style={[styles.catLabel, tripType === item.key && styles.catLabelActive]}>{item.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.extraTimeHeader}>
+                <Text style={styles.tripOptionsTitle}>وقت إضافي</Text>
+                <Text style={styles.extraTimeValue}>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</Text>
+              </View>
+              {isGoldSubscriber ? (
+                <>
+                  <Text style={styles.tripOptionsHint}>ميزة المشترك الذهبي: كل 5 دقائق بـ500 دينار، من 5 دقائق إلى ساعتين.</Text>
+                  <View style={styles.extraTimeControls}>
+                    <TouchableOpacity style={styles.extraTimeButton} disabled={extraMinutes >= 120} onPress={() => setExtraMinutes((value) => Math.min(120, value + 5))}><Text style={styles.extraTimeButtonText}>＋ 5</Text></TouchableOpacity>
+                    <Text style={styles.extraTimeValue}>{extraMinutes === 0 ? "بدون وقت إضافي" : `${extraMinutes} دقيقة`}</Text>
+                    <TouchableOpacity style={styles.extraTimeButton} disabled={extraMinutes <= 0} onPress={() => setExtraMinutes((value) => Math.max(0, value - 5))}><Text style={styles.extraTimeButtonText}>− 5</Text></TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.goldLockedText}>زيادة وقت الانتظار متاحة للمشترك الذهبي فقط.</Text>
+              )}
+            </>
+          )}
+        </View>
+      )}
       {routeKm !== null && isTaxi && !isLargeVehicle && (
         <View style={styles.priceBox}>
           <Text style={styles.priceLabel}>مسافة الطريق الفعلية</Text>
@@ -964,6 +1054,17 @@ const styles = StyleSheet.create({
   stepperBtn: { width: 46, height: 46, borderRadius: radius.md, backgroundColor: palette.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: palette.line },
   stepperText: { fontSize: 24, fontWeight: "900", color: palette.brand },
   stepperValue: { fontSize: 20, fontWeight: "900", color: palette.ink },
+  tripOptionsBox: { marginTop: 14, padding: 14, borderRadius: radius.md, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.surface },
+  tripOptionsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  tripOptionsTitle: { color: palette.ink, fontSize: 13, fontWeight: "900" },
+  tripOptionsToggle: { color: palette.brand, fontSize: 12, fontWeight: "900" },
+  tripOptionsHint: { color: palette.muted, fontSize: 11, marginTop: 8, lineHeight: 18 },
+  extraTimeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 14 },
+  extraTimeControls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
+  extraTimeButton: { minWidth: 62, paddingVertical: 10, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: palette.brand, alignItems: "center" },
+  extraTimeButtonText: { color: palette.white, fontWeight: "900" },
+  extraTimeValue: { color: palette.ink, fontSize: 12, fontWeight: "900" },
+  goldLockedText: { color: palette.gold, fontSize: 12, fontWeight: "800", marginTop: 10 },
   priceBox: { backgroundColor: palette.brandSoft, borderRadius: radius.lg, padding: 18, alignItems: "center", marginTop: 20, borderWidth: 1, borderColor: palette.line },
   priceLabel: { fontSize: 13, color: palette.muted, fontWeight: "700" },
   priceValue: { fontSize: 25, fontWeight: "900", color: palette.brand, marginTop: 4 },
