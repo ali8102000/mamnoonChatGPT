@@ -16,6 +16,7 @@ import {
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
+import { loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import service_build from "../../assets/services/build.png";
@@ -101,6 +102,9 @@ export default function RequestDetail() {
   const { user, roles } = useAuth();
   const [request, setRequest] = useState<RequestRecord | null>(null);
   const [otherProfile, setOtherProfile] = useState<{ full_name: string | null; avatar_url: string | null; phone: string | null } | null>(null);
+  const [vehicleDetails, setVehicleDetails] = useState<any>(null);
+  const [showChat, setShowChat] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [largeOffers, setLargeOffers] = useState<any[]>([]);
   const [myLargeOffer, setMyLargeOffer] = useState<any>(null);
@@ -140,6 +144,8 @@ export default function RequestDetail() {
   const currentProviderId = request?.provider_id;
   const currentCustomerId = request?.customer_id;
 
+  useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);
+
   const loadRequest = useCallback(async () => {
     const { data, error } = await supabase
       .from("service_requests")
@@ -154,6 +160,10 @@ export default function RequestDetail() {
       return;
     }
     setRequest(data as RequestRecord | null);
+    if (data?.type === "taxi" && data.provider_id) {
+      const { data: verification } = await supabase.from("provider_verifications").select("metadata").eq("user_id", data.provider_id).eq("status", "approved").maybeSingle();
+      setVehicleDetails((verification?.metadata as any) ?? null);
+    } else { setVehicleDetails(null); }
     if (data?.status === "completed" && user?.id && data.provider_id && data.customer_id) {
       const { data: existingRating } = await supabase.from("ratings").select("id").eq("request_id", id).eq("rater_id", user.id).maybeSingle();
       setShowRating(!existingRating);
@@ -248,6 +258,8 @@ export default function RequestDetail() {
     if (!error) setMessages((data ?? []) as ChatMessage[]);
   }, [chatId]);
 
+  useEffect(() => { setShowChat(false); }, [id]);
+
   useEffect(() => {
     loadRequest();
     loadChat();
@@ -284,7 +296,7 @@ export default function RequestDetail() {
         (payload) => {
           const incoming = payload.new as ChatMessage;
           if (incoming.sender_id !== user?.id) {
-            void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: "وصلتك رسالة جديدة من الطرف الآخر", sound: "default", data: { request_id: id } }, trigger: null }).catch((error) => console.warn("[messages] sound notification failed:", error));
+            void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: "وصلتك رسالة جديدة من الطرف الآخر", sound: soundEnabled ? "default" : null, channelId: soundEnabled ? "default" : "mamnoon-silent", data: { request_id: id } }, trigger: null }).catch((error) => console.warn("[messages] sound notification failed:", error));
           }
           void loadMessages();
         },
@@ -294,7 +306,7 @@ export default function RequestDetail() {
     return () => {
       supabase.removeChannel(sub);
     };
-  }, [chatId, loadMessages, user?.id, id]);
+  }, [chatId, loadMessages, user?.id, id, soundEnabled]);
 
   useEffect(() => {
     if (!isActive || !currentUserId) return;
@@ -629,11 +641,11 @@ export default function RequestDetail() {
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backBtn}>→</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>
+          <View style={{ alignItems: "center", flex: 1 }}><Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>الكابتن متجه إليك</Text>}</View>
           <View style={{ width: 30 }} />
         </View>
         {otherProfile && !["completed", "cancelled"].includes(request.status) && (
-          <View style={styles.personCard}>
+          <View style={[styles.personCard, request.type === "taxi" && isActive && styles.personCardCompact]}>
             <View style={styles.personAvatar}>
               {otherProfile.avatar_url ? (
                 <Image source={{ uri: otherProfile.avatar_url }} style={styles.personAvatarImage} />
@@ -648,15 +660,15 @@ export default function RequestDetail() {
             </View>
           </View>
         )}
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, request.type === "taxi" && isActive && styles.taxiInfoCard]}>
           {request.type === "service" && request.services?.slug && SERVICE_IMAGES[request.services.slug] ? (
             <Image source={SERVICE_IMAGES[request.services.slug]} style={styles.serviceIllustration} resizeMode="cover" />
           ) : null}
           <Text style={styles.infoType}>
             {request.vehicle_category === "large" ? `🚚 طلب سيارة كبيرة — ${request.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}` : request.type === "taxi" ? "🚕 طلب سيارة" : `🛠️ ${request.services?.name_ar || "خدمة منزلية"}`}
           </Text>
-          {request.pickup_text && <Text style={styles.infoRow}>من: {request.pickup_text}</Text>}
-          {request.dest_text && <Text style={styles.infoRow}>إلى: {request.dest_text}</Text>}
+          {request.type !== "taxi" || !isActive ? <>{request.pickup_text && <Text style={styles.infoRow}>من: {request.pickup_text}</Text>}{request.dest_text && <Text style={styles.infoRow}>إلى: {request.dest_text}</Text>}</> : null}
+          {request.type === "taxi" && isActive && vehicleDetails && <Text style={styles.vehicleDetailsText}>{[vehicleDetails.vehicleMake, vehicleDetails.vehicleModel, vehicleDetails.vehicleYear].filter(Boolean).join(" ")}{vehicleDetails.vehiclePlate ? ` · رقم السيارة ${vehicleDetails.vehiclePlate}` : ""}</Text>}
           {request.work_description && <Text style={styles.infoRow}>تفاصيل العمل: {request.work_description}</Text>}
           {request.workers_count != null && request.type === "service" && (
             <Text style={styles.infoRow}>عدد العاملين: {request.workers_count}</Text>
@@ -675,13 +687,7 @@ export default function RequestDetail() {
           )}
         </View>
         {isCustomer && ["accepted","in_progress","completed"].includes(request.status) && request.payment_method !== "zaincash" && Number(request.customer_payable ?? request.customer_price ?? request.price_estimate) > 0 && (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoType}>الدفع الإلكتروني عبر زين كاش</Text>
-            <Text style={styles.infoRow}>تقدر تدفع الأجرة بعد تثبيت السعر. {paymentGatewayEnabled ? "بوابة الدفع مفعّلة." : "بوابة الدفع متوقفة حالياً لحين إكمال إعدادات التاجر والاختبار."}</Text>
-            <TouchableOpacity onPress={payRequestWithZainCash} disabled={paymentBusy || !paymentGatewayEnabled} style={[styles.actionBtn,(paymentBusy || !paymentGatewayEnabled)&&{opacity:0.5}]}>
-              <Text style={styles.actionBtnText}>{paymentBusy ? "جاري تجهيز الدفع..." : "الدفع عبر زين كاش"}</Text>
-            </TouchableOpacity>
-          </View>
+          <View style={styles.paymentCompact}><View style={{ flex: 1 }}><Text style={styles.paymentCompactTitle}>الدفع الإلكتروني · زين كاش</Text><Text style={styles.paymentCompactHint}>{paymentGatewayEnabled ? "الدفع متاح" : "غير متاح حالياً"}</Text></View><TouchableOpacity onPress={payRequestWithZainCash} disabled={paymentBusy || !paymentGatewayEnabled} style={[styles.paymentCompactButton, (!paymentGatewayEnabled || paymentBusy) && { opacity: 0.5 }]}><Text style={styles.paymentCompactButtonText}>{paymentBusy ? "..." : "ادفع"}</Text></TouchableOpacity></View>
         )}
         {request.vehicle_category === "large" && isCustomer && ["pending", "searching"].includes(request.status) && (
           <View style={styles.largeOffersCard}>
@@ -750,37 +756,18 @@ export default function RequestDetail() {
           request.pickup_lat != null &&
           request.pickup_lng != null && (
             <View style={styles.trackingCard}>
-              <Text style={styles.trackingTitle}>موقع الطلب المباشر</Text>
               <MapView
                 style={styles.trackingMap}
                 initialRegion={{
                   latitude: request.pickup_lat,
                   longitude: request.pickup_lng,
-                  latitudeDelta: 0.025,
-                  longitudeDelta: 0.025,
+                  latitudeDelta: 0.018,
+                  longitudeDelta: 0.018,
                 }}
-                showsUserLocation
+                showsUserLocation={false}
               >
-                <Marker
-                  coordinate={{ latitude: request.pickup_lat, longitude: request.pickup_lng }}
-                  title="نقطة الانطلاق"
-                  pinColor="#0f766e"
-                />
-                {request.dest_lat != null && request.dest_lng != null && (
-                  <Marker
-                    coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }}
-                    title="الوجهة"
-                    pinColor="#16a34a"
-                  />
-                )}
-                {myLocation && <Marker coordinate={myLocation} title="موقعي" pinColor="#7c3aed" />}
-                {otherLocation && (
-                  <Marker coordinate={otherLocation} title="الطرف الآخر" pinColor="#f97316" />
-                )}
+                {(isProvider ? myLocation : otherLocation) && <Marker coordinate={(isProvider ? myLocation : otherLocation)!} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}><View style={styles.luxuryCarMarker}><Text style={styles.luxuryCarEmoji}>🚘</Text></View></Marker>}
               </MapView>
-              <Text style={styles.trackingHint}>
-                {otherLocation ? "يتم استقبال موقع الطرف الآخر" : "بانتظار مشاركة موقع الطرف الآخر"}
-              </Text>
             </View>
           )}
         <View style={styles.actionsRow}>
@@ -821,6 +808,7 @@ export default function RequestDetail() {
               </TouchableOpacity>
             )}
         </View>
+        {chatId && !["completed", "cancelled"].includes(request.status) && <View style={styles.chatToolbar}><TouchableOpacity style={styles.chatToggleButton} onPress={() => setShowChat((value) => !value)}><Text style={styles.chatToggleText}>{showChat ? "إخفاء المحادثة" : `فتح المحادثة${messages.length ? ` · ${messages.length}` : ""}`}</Text></TouchableOpacity><TouchableOpacity style={styles.soundToggleButton} onPress={() => { const next = !soundEnabled; setSoundEnabled(next); void setNotificationSoundPreference(next); }}><Text style={styles.soundToggleText}>{soundEnabled ? "🔊" : "🔇"}</Text></TouchableOpacity></View>}
         {(isCustomer ? !!request.provider_id : !!request.customer_id) && (
           <View style={styles.reportCard}>
             {!showReportForm ? (
@@ -842,7 +830,7 @@ export default function RequestDetail() {
           </View>
         )}
         {!["completed", "cancelled"].includes(request.status) ? (
-        <>
+        showChat ? <>
         <View style={styles.chatHeader}><Text style={styles.chatHeaderTitle}>المحادثة</Text></View>
         <ScrollView
           ref={scrollRef}
@@ -887,7 +875,7 @@ export default function RequestDetail() {
             <Text style={styles.sendBtnText}>إرسال</Text>
           </TouchableOpacity>
         </View>
-        </>
+        </> : null
         ) : (
           <View style={styles.chatClosed}><Text style={styles.chatClosedTitle}>{request.status === "completed" ? "اكتمل الطلب" : "تم إلغاء الطلب"}</Text><Text style={styles.chatClosedText}>انتهت المحادثة وتم إخفاء بيانات الطرف الآخر.</Text></View>
         )}
@@ -935,7 +923,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 52, paddingBottom: 14, backgroundColor: palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line },
   backBtn: { fontSize: 24, color: palette.brand, fontWeight: "900" },
   headerTitle: { fontSize: 17, fontWeight: "900", color: palette.ink },
+  acceptedHint: { fontSize: 9, fontWeight: "800", color: palette.success, marginTop: 2 },
   personCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: palette.surface, borderRadius: radius.lg, padding: 15, marginHorizontal: 16, marginTop: 12, borderWidth: 1, borderColor: palette.line },
+  personCardCompact: { padding: 8, gap: 8, marginTop: 7 },
   personAvatar: { width: 56, height: 56, borderRadius: 18, overflow: "hidden", backgroundColor: palette.brand, alignItems: "center", justifyContent: "center" },
   personAvatarImage: { width: "100%", height: "100%" },
   personAvatarText: { color: palette.white, fontSize: 23, fontWeight: "900" },
@@ -943,9 +933,23 @@ const styles = StyleSheet.create({
   personPhone: { color: palette.muted, fontSize: 12, marginTop: 3 },
   personRole: { color: palette.brand, fontSize: 11, fontWeight: "900", marginTop: 3 },
   infoCard: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 17, margin: 16, borderWidth: 1, borderColor: palette.line },
+  taxiInfoCard: { padding: 9, marginTop: 8, marginBottom: 8 },
+  vehicleDetailsText: { fontSize: 11, color: palette.muted, marginTop: 3, textAlign: "right" },
+  paymentCompact: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginHorizontal: 16, marginTop: 7, marginBottom: 7, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+  paymentCompactTitle: { fontSize: 11, fontWeight: "900", color: palette.ink, textAlign: "right" },
+  paymentCompactHint: { fontSize: 9, color: palette.muted, marginTop: 2, textAlign: "right" },
+  paymentCompactButton: { backgroundColor: palette.brand, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 8 },
+  paymentCompactButtonText: { color: palette.white, fontWeight: "900", fontSize: 11 },
   trackingCard: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 13, marginHorizontal: 16, marginBottom: 12, borderWidth: 1, borderColor: palette.line },
   trackingTitle: { fontSize: 15, fontWeight: "900", color: palette.ink, marginBottom: 10 },
-  trackingMap: { height: 220, borderRadius: radius.md },
+  trackingMap: { height: 340, borderRadius: radius.md },
+  luxuryCarMarker: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#fff", borderWidth: 2, borderColor: "#D4AF37", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.22, shadowRadius: 5, elevation: 6 },
+  luxuryCarEmoji: { fontSize: 27 },
+  chatToolbar: { flexDirection: "row", gap: 8, marginHorizontal: 16, marginTop: 8, marginBottom: 8 },
+  chatToggleButton: { flex: 1, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, backgroundColor: palette.surface, paddingVertical: 12, alignItems: "center" },
+  chatToggleText: { color: palette.ink, fontWeight: "900", fontSize: 12 },
+  soundToggleButton: { width: 48, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, backgroundColor: palette.surface, alignItems: "center", justifyContent: "center" },
+  soundToggleText: { fontSize: 18 },
   largeOffersCard: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 15, marginHorizontal: 16, marginTop: 12, borderWidth: 1, borderColor: palette.gold },
   largeOffersTitle: { fontSize: 16, fontWeight: "900", color: palette.brand, marginBottom: 10, textAlign: "right" },
   largeOffersEmpty: { fontSize: 12, color: palette.muted, textAlign: "right", marginBottom: 8 },
