@@ -930,12 +930,12 @@ export default function NewRequest() {
 
       {!isTaxi && (
         <>
-          <Text style={styles.label}>{["washer_repair", "stove_repair", "fridge_repair", "ac_repair", "electric_street", "plumbing"].includes(selectedService) ? "وصف العطل" : "وصف العمل المطلوب"}</Text>
+          <Text style={styles.label}>{["washer_repair", "stove_repair", "fridge_repair", "ac_repair", "electric_street", "plumbing", "phone_repair", "electronics_repair", "computer_repair"].includes(selectedService) ? "وصف العطل" : "وصف العمل المطلوب"}</Text>
           <TextInput
             style={[styles.input, { height: 90 }]}
             value={workDescription}
             onChangeText={setWorkDescription}
-            placeholder={["washer_repair", "stove_repair", "fridge_repair", "ac_repair", "electric_street", "plumbing"].includes(selectedService) ? "اشرح العطل بالتفصيل حتى يعرف الفني شنو يحتاج..." : "مثلاً: بناء جدار بطول 5 أمتار وارتفاع 3 أمتار..." }
+            placeholder={["washer_repair", "stove_repair", "fridge_repair", "ac_repair", "electric_street", "plumbing", "phone_repair", "electronics_repair", "computer_repair"].includes(selectedService) ? "اشرح العطل بالتفصيل حتى يعرف الفني شنو يحتاج..." : "مثلاً: بناء جدار بطول 5 أمتار وارتفاع 3 أمتار..." }
             placeholderTextColor="#94a3b8"
             multiline
             maxLength={1500}
