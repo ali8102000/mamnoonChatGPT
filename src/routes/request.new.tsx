@@ -244,6 +244,8 @@ function NewRequest() {
         roadCondition,
         demandMultiplier,
         isIntercity: interCity,
+        tripType,
+        extraMinutes,
       });
     }
     if (pricingMode === "negotiable") return null;
