@@ -8,6 +8,8 @@ export interface FareOptions {
   roadCondition?: RoadCondition;
   demandMultiplier?: number;
   isIntercity?: boolean;
+  tripType?: "one_way" | "round_trip" | "second_trip" | "stop";
+  extraMinutes?: number;
 }
 
 export interface FareBreakdown {
@@ -89,7 +91,13 @@ export function calculateFareBreakdown(
   const roadCondition = options?.roadCondition ?? "normal";
   const weatherData = WEATHER_RATES[weather];
   const roadData = ROAD_RATES[roadCondition];
-  const finalTotal = Math.max(MIN_TAXI_FARE, roundTo250(economyFare * tierMultiplier));
+  const tripMultiplier = options?.tripType === "round_trip" || options?.tripType === "second_trip" ? 2 : 1;
+  const extraMinutes = options?.extraMinutes ?? 0;
+  if (!Number.isInteger(extraMinutes) || extraMinutes < 0 || extraMinutes > 120 || extraMinutes % 5 !== 0) {
+    throw new Error("مدة الانتظار يجب أن تكون من 5 إلى 120 دقيقة وبفواصل 5 دقائق");
+  }
+  const extraTimeFare = Math.ceil(extraMinutes / 5) * 500;
+  const finalTotal = Math.max(MIN_TAXI_FARE, roundTo250(economyFare * tierMultiplier * tripMultiplier + extraTimeFare));
 
   return {
     category,
