@@ -302,6 +302,13 @@
       "when": 1794813600000,
       "tag": "0071_protect_approved_provider_qualifications_from_direct_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794814200000,
+      "tag": "0072_fix_shared_provider_status_guard_row_shape",
+      "breakpoints": true
     }
   ]
 }
