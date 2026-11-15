@@ -13,6 +13,9 @@ import {
   X,
   Navigation,
   MapPin,
+  MessageCircle,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { LiveTrackMap } from "@/components/live-track-map";
@@ -28,7 +31,7 @@ import {
 } from "@/lib/dispatch.functions";
 import { getReputation, type ReputationData } from "@/lib/reputation.functions";
 import { ReputationBadge } from "@/components/reputation";
-import { playMessageSound } from "@/lib/click-sound";
+import { isSoundEnabled, playMessageSound, setSoundEnabled } from "@/lib/click-sound";
 import { NavigationAppModal } from "@/components/navigation-app-modal";
 import { Button } from "@/components/ui/button";
 
@@ -67,6 +70,9 @@ function RequestDetail() {
   const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
   const [chat, setChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
+  const [showChat, setShowChat] = useState(false);
+  const [soundEnabled, setSoundEnabledState] = useState(() => isSoundEnabled());
+  const [vehicleDetails, setVehicleDetails] = useState<any>(null);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [myRating, setMyRating] = useState<any>(null);
@@ -123,6 +129,12 @@ function RequestDetail() {
         return;
       }
       setReq(r);
+      if (r.type === "taxi" && r.provider_id) {
+        const { data: verification } = await supabase.from("provider_verifications").select("metadata").eq("user_id", r.provider_id).eq("status", "approved").maybeSingle();
+        setVehicleDetails((verification?.metadata as any) ?? null);
+      } else {
+        setVehicleDetails(null);
+      }
       const { data: paymentSettings } = await supabase.from("subscription_settings").select("payment_gateway_enabled").eq("id",1).maybeSingle();
       setPaymentGatewayEnabled(Boolean(paymentSettings?.payment_gateway_enabled));
       if (r.vehicle_category === "large" && sessionUser?.id === r.customer_id && ["pending", "searching"].includes(r.status)) {
@@ -191,6 +203,8 @@ function RequestDetail() {
   useEffect(() => {
     if (session) void loadAll();
   }, [session, loadAll]);
+
+  useEffect(() => { setShowChat(false); }, [id]);
 
   useEffect(() => {
     if (!chat) return;
@@ -388,6 +402,9 @@ function RequestDetail() {
                 <CheckCircle2 className="h-3.5 w-3.5 text-success" />
               )}
               {statusLabel}
+              {req.type === "taxi" && myRole === "customer" && req.status === "accepted" && (
+                <span className="mr-2 inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black text-emerald-700 dark:text-emerald-300">الكابتن متجه إليك</span>
+              )}
             </div>
           </div>
           {other && (
@@ -403,34 +420,20 @@ function RequestDetail() {
 
       <div className="px-5 py-4 space-y-3">
         {myRole === "customer" && ["accepted","in_progress","completed"].includes(req.status) && req.payment_method !== "zaincash" && Number(req.customer_payable ?? req.customer_price ?? req.price_estimate) > 0 && (
-          <div className="glass rounded-2xl p-4 space-y-2">
-            <div className="text-sm font-black">الدفع الإلكتروني</div>
-            <p className="text-xs text-muted-foreground">تقدر تدفع أجرة الطلب عبر زين كاش بعد تثبيت السعر. {paymentGatewayEnabled ? "بوابة الدفع مفعّلة." : "الدفع متوقف حالياً لحين إكمال تهيئة التاجر والاختبار."}</p>
-            <Button type="button" onClick={() => void payRequestWithZainCash()} disabled={paymentBusy || !paymentGatewayEnabled} className="w-full">
-              {paymentBusy ? <Loader2 className="h-4 w-4 ml-2 animate-spin" /> : null}
-              الدفع عبر زين كاش
+          <div className="glass rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+            <div className="min-w-0"><div className="text-xs font-black">الدفع الإلكتروني · زين كاش</div><div className="text-[10px] text-muted-foreground">{paymentGatewayEnabled ? "الدفع متاح" : "غير متاح حالياً"}</div></div>
+            <Button type="button" size="sm" onClick={() => void payRequestWithZainCash()} disabled={paymentBusy || !paymentGatewayEnabled} className="h-9 shrink-0">
+              {paymentBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "ادفع الآن"}
             </Button>
           </div>
         )}
         {req.type === "taxi" && req.vehicle_category && VEHICLE_CAT_META[req.vehicle_category] && (
-          <div
-            className={`rounded-2xl p-3 text-white bg-gradient-to-br ${VEHICLE_CAT_META[req.vehicle_category].gradient} shadow-md flex items-center gap-3`}
-          >
-            <div className="text-2xl">{VEHICLE_CAT_META[req.vehicle_category].emoji}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] opacity-90">فئة السيارة</div>
-              <div className="font-black text-sm">
-                {VEHICLE_CAT_META[req.vehicle_category].label}
-              </div>
+          <div className="glass rounded-xl px-3 py-2 flex items-center gap-2.5">
+            <div className="text-xl">{VEHICLE_CAT_META[req.vehicle_category].emoji}</div>
+            <div className="flex-1 min-w-0"><div className="text-[10px] text-muted-foreground">فئة السيارة</div><div className="text-xs font-black">{VEHICLE_CAT_META[req.vehicle_category].label}</div>
+              {vehicleDetails && <div className="text-[10px] text-muted-foreground truncate">{[vehicleDetails.vehicleMake, vehicleDetails.vehicleModel, vehicleDetails.vehicleYear].filter(Boolean).join(" ")}{vehicleDetails.vehiclePlate ? ` · رقم ${vehicleDetails.vehiclePlate}` : ""}</div>}
             </div>
-            {req.price_estimate && (
-              <div className="text-left">
-                <div className="font-black text-sm">
-                  {Number(myRole === "customer" && (req as any).customer_payable != null ? (req as any).customer_payable : req.price_estimate).toLocaleString("ar-IQ")}
-                </div>
-                <div className="text-[10px] opacity-80">{myRole === "customer" && Number((req as any).coupon_discount ?? 0) > 0 ? "د.ع بعد الخصم" : "د.ع تقريبي"}</div>
-              </div>
-            )}
+            {req.price_estimate && <div className="text-left shrink-0"><div className="font-black text-xs">{Number(myRole === "customer" && (req as any).customer_payable != null ? (req as any).customer_payable : req.price_estimate).toLocaleString("ar-IQ")}</div><div className="text-[9px] text-muted-foreground">د.ع</div></div>}
           </div>
         )}
 
@@ -518,7 +521,7 @@ function RequestDetail() {
 
         {trackingActive && (
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
+            {req.type !== "taxi" && <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Navigation className="h-3.5 w-3.5 text-primary animate-pulse" />
                 <span>{myRole === "customer" ? (req.type === "taxi" ? "موقع السائق" : "موقع الفني") : "موقع العميل"}</span>
@@ -526,7 +529,7 @@ function RequestDetail() {
               <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${driverLocationFresh ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
                 {driverLocationFresh ? "GPS مباشر" : driverLiveLocation ? "آخر موقع معروف" : "بانتظار GPS"}
               </span>
-            </div>
+            </div>}
             <LiveTrackMap
               me={myLive}
               other={otherLive}
@@ -546,7 +549,8 @@ function RequestDetail() {
               driverName={other?.full_name ?? (req.type === "taxi" ? "الكابتن" : "الفني")}
               driverPhone={other?.phone}
               vehicleCategory={req.vehicle_category}
-              height={280}
+              height={390}
+              showStatusOverlay={false}
               fullscreen={mapOpen}
               onClose={() => setMapOpen(false)}
               onOpenNavigation={myRole === "provider" ? () => setNavModalOpen(true) : undefined}
@@ -559,29 +563,16 @@ function RequestDetail() {
             <MapPin className="h-4 w-4" /> تكبير الخريطة ومتابعة {req.type === "taxi" ? "السائق" : "الفني"}
           </Button>
         )}
-        <div className="glass rounded-2xl p-4 text-sm space-y-2">
-          <div>
-            <span className="text-muted-foreground text-xs">📍 الموقع: </span>
-            <span className="font-bold">{req.pickup_text}</span>
-          </div>
-          {req.dest_text && (
-            <div>
-              <span className="text-muted-foreground text-xs">🎯 الوجهة: </span>
-              <span className="font-bold">{req.dest_text}</span>
-            </div>
-          )}
-          {req.notes && (
-            <div>
-              <span className="text-muted-foreground text-xs">📝 ملاحظة: </span>
-              <span>{req.notes}</span>
-            </div>
-          )}
-        </div>
+        {req.type !== "taxi" && <div className="glass rounded-2xl p-4 text-sm space-y-2">
+          <div><span className="text-muted-foreground text-xs">📍 الموقع: </span><span className="font-bold">{req.pickup_text}</span></div>
+          {req.dest_text && <div><span className="text-muted-foreground text-xs">🎯 الوجهة: </span><span className="font-bold">{req.dest_text}</span></div>}
+          {req.notes && <div><span className="text-muted-foreground text-xs">📝 ملاحظة: </span><span>{req.notes}</span></div>}
+        </div>}
 
         {other && req.status !== "pending" && !["completed", "cancelled"].includes(req.status as string) && (
-          <div className="glass rounded-2xl p-4 space-y-4">
+          <div className={`glass rounded-2xl ${req.type === "taxi" ? "p-2.5 space-y-2" : "p-4 space-y-4"}`}>
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-12 w-12 rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black shrink-0">
+              <div className={`${req.type === "taxi" ? "h-9 w-9 rounded-xl" : "h-12 w-12 rounded-2xl"} overflow-hidden bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black shrink-0`}>
                 {other.avatar_url ? (
                   <img src={other.avatar_url} alt={other.full_name || "صورة المستخدم"} className="h-full w-full object-cover" />
                 ) : (
@@ -591,15 +582,11 @@ function RequestDetail() {
               <div className="flex-1 min-w-0">
                 <div className="font-black text-sm truncate">{other.full_name || "مستخدم"}</div>
                 <div className="text-xs text-muted-foreground mt-0.5" dir="ltr">{other.phone}</div>
-                {otherBadges.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {otherBadges.map((b) => <ReputationBadge key={b.code} badge={b} size="sm" />)}
-                  </div>
+                {otherBadges.length > 0 && req.type !== "taxi" && (
+                  <div className="flex flex-wrap gap-1 mt-1">{otherBadges.map((b) => <ReputationBadge key={b.code} badge={b} size="sm" />)}</div>
                 )}
               </div>
-              <span className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 font-bold shrink-0">
-                {req.status === "accepted" ? "تم القبول" : req.status === "in_progress" ? "قيد التنفيذ" : "مكتمل"}
-              </span>
+              {req.type !== "taxi" && <span className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 font-bold shrink-0">{req.status === "accepted" ? "تم القبول" : req.status === "in_progress" ? "قيد التنفيذ" : "مكتمل"}</span>}
             </div>
             {["accepted", "in_progress"].includes(req.status as string) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -705,14 +692,13 @@ function RequestDetail() {
       )}
 
       {chat && !["completed", "cancelled"].includes(req.status as string) && (
-        <>
-          <div className="px-5 pt-3 pb-1 flex items-center justify-between text-xs text-muted-foreground border-b border-border/40">
-            <span className="font-bold flex items-center gap-1.5">
-              <span>المحادثة المباشرة</span>
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            </span>
-
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setShowChat((v) => !v)} className="flex-1 h-11 rounded-xl border border-border bg-card flex items-center justify-center gap-2 text-sm font-black"><MessageCircle className="h-4 w-4" />{showChat ? "إخفاء المحادثة" : `فتح المحادثة${messages.length ? ` · ${messages.length}` : ""}`}</button>
+            <button type="button" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); setSoundEnabledState(next); toast.success(next ? "تم تفعيل صوت الإشعارات" : "تم إيقاف صوت الإشعارات"); }} className="h-11 w-11 rounded-xl border border-border bg-card grid place-items-center" title={soundEnabled ? "إيقاف صوت الإشعارات" : "تفعيل صوت الإشعارات"}>{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
           </div>
+          {showChat && <>
+          <div className="px-3 pt-2 pb-1 flex items-center justify-between text-xs text-muted-foreground border-b border-border/40"><span className="font-bold">المحادثة المباشرة</span></div>
 
           <div
             ref={scrollRef}
@@ -795,7 +781,8 @@ function RequestDetail() {
               </button>
             </form>
           </div>
-        </>
+          </>}
+        </div>
       )}
 
       {["pending", "searching"].includes(req.status as string) && (
