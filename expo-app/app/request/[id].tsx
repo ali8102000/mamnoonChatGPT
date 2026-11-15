@@ -167,6 +167,7 @@ export default function RequestDetail() {
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
+  const [freshnessClock, setFreshnessClock] = useState(Date.now());
   const lastEtaRequestRef = useRef<{ latitude: number; longitude: number; requestedAt: number } | null>(null);
   const etaSequenceRef = useRef(0);
   const [newMsg, setNewMsg] = useState("");
@@ -193,13 +194,17 @@ export default function RequestDetail() {
       (request.type === "service" && roles.includes("worker"))),
   );
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
-  const driverLocationFresh = Boolean(otherLocation?.updatedAt && Number.isFinite(Date.parse(otherLocation.updatedAt)) && Date.now() - Date.parse(otherLocation.updatedAt) < 25000);
+  const driverLocationFresh = Boolean(otherLocation?.updatedAt && Number.isFinite(Date.parse(otherLocation.updatedAt)) && freshnessClock - Date.parse(otherLocation.updatedAt) < 25000);
   const currentUserId = user?.id;
   const currentRequestType = request?.type;
   const currentProviderId = request?.provider_id;
   const currentCustomerId = request?.customer_id;
 
   useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);
+  useEffect(() => {
+    const timer = setInterval(() => setFreshnessClock(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   const loadRequest = useCallback(async () => {
     const { data, error } = await supabase
