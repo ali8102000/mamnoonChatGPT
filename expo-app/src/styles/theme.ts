@@ -2,47 +2,50 @@ import { Appearance } from "react-native";
 
 const dark = Appearance.getColorScheme() === "dark";
 
+// Derived from the live web design tokens in src/styles.css.
+// React Native does not consistently support the web app's OKLCH/color-mix
+// syntax across the supported Android range, so these are sRGB equivalents.
 const lightPalette = {
-  ink: "#17251F",
-  muted: "#718078",
-  canvas: "#F5F6F2",
-  surface: "#FFFFFF",
-  surfaceSoft: "#EEF1EB",
-  line: "#E2E7DF",
-  brand: "#174C3C",
-  brandDeep: "#10382D",
-  brandSoft: "#E4EEE8",
-  gold: "#C7A45A",
-  goldSoft: "#F5EEDC",
-  success: "#21845A",
-  danger: "#B94B45",
-  dangerSoft: "#F9E9E7",
+  ink: "#08101A",
+  muted: "#47515E",
+  canvas: "#F3F7FC",
+  surface: "#FCFEFF",
+  surfaceSoft: "#E5ECF3",
+  line: "#D9E1EA",
+  brand: "#0065D2",
+  brandDeep: "#004EA6",
+  brandSoft: "#E7F0FC",
+  gold: "#E9AB2B",
+  goldSoft: "#FBF2DF",
+  success: "#168653",
+  danger: "#D83B2F",
+  dangerSoft: "#FCEAE8",
   white: "#FFFFFF",
-  shadow: "rgba(20, 42, 32, 0.08)",
+  shadow: "rgba(8, 16, 26, 0.08)",
 } as const;
 
 const darkPalette = {
-  ink: "#F1F5F2",
-  muted: "#A2B2A8",
-  canvas: "#0B1410",
-  surface: "#14221B",
-  surfaceSoft: "#1B2D24",
-  line: "#2B4034",
-  brand: "#3B9B76",
-  brandDeep: "#1E5B45",
-  brandSoft: "#1D382B",
-  gold: "#D6B45E",
-  goldSoft: "#3A321F",
-  success: "#4CC58A",
-  danger: "#F07870",
+  ink: "#F2F5F9",
+  muted: "#B8BEC5",
+  canvas: "#040A14",
+  surface: "#0E1824",
+  surfaceSoft: "#1D2734",
+  line: "#2D3948",
+  brand: "#5FA7FF",
+  brandDeep: "#337FD6",
+  brandSoft: "#142B45",
+  gold: "#E9AB2B",
+  goldSoft: "#3B2D17",
+  success: "#54C78C",
+  danger: "#FF786D",
   dangerSoft: "#3A211F",
   white: "#FFFFFF",
   shadow: "rgba(0, 0, 0, 0.38)",
 } as const;
 
-// Resolve the palette before screen StyleSheets are created. The app follows
-// the device appearance on launch; native system bars use the live color scheme.
-export const palette = (dark ? darkPalette : lightPalette);
+// Keep the existing screen API stable while aligning the native palette with
+// the web app's blue/amber identity. Appearance is resolved at app startup.
+export const palette = dark ? darkPalette : lightPalette;
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28, huge: 36 } as const;
 export const radius = { sm: 10, md: 14, lg: 20, xl: 26, pill: 999 } as const;
 export const type = {
