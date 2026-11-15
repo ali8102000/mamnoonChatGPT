@@ -47,12 +47,6 @@ function PushNotificationSetup() {
             lightColor: "#D4AF37",
             sound: "default",
           });
-          await Notifications.setNotificationChannelAsync("mamnoon-silent", {
-            name: "إشعارات ممنون الصامتة",
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: "#D4AF37",
-          });
         }
 
         const current = await Notifications.getPermissionsAsync();
