@@ -74,6 +74,7 @@ function RequestDetail() {
   const [showChat, setShowChat] = useState(false);
   const [soundEnabled, setSoundEnabledState] = useState(() => isSoundEnabled());
   const [vehicleDetails, setVehicleDetails] = useState<any>(null);
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [myRating, setMyRating] = useState<any>(null);
@@ -132,6 +133,19 @@ function RequestDetail() {
         return;
       }
       setReq(r);
+      if (r.attachment_path) {
+        const { data: signedAttachment, error: attachmentError } = await supabase.storage
+          .from("request-attachments")
+          .createSignedUrl(r.attachment_path, 60 * 60);
+        if (attachmentError) {
+          console.warn("[request attachment] signed URL unavailable:", attachmentError.message);
+          setAttachmentUrl(null);
+        } else {
+          setAttachmentUrl(signedAttachment?.signedUrl ?? null);
+        }
+      } else {
+        setAttachmentUrl(null);
+      }
       if (r.type === "taxi" && r.provider_id) {
         const { data: vehicle } = await (supabase as any).from("provider_vehicle_public").select("vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate").eq("provider_id", r.provider_id).maybeSingle();
         setVehicleDetails(vehicle ?? null);
@@ -477,6 +491,15 @@ function RequestDetail() {
           </div>
         )}
 
+        {attachmentUrl && (
+          <div className="glass rounded-2xl p-3 space-y-2" dir="rtl">
+            <div className="text-sm font-black">الصورة المرفقة بالطلب</div>
+            <a href={attachmentUrl} target="_blank" rel="noreferrer" className="block">
+              <img src={attachmentUrl} alt="صورة توضيحية للطلب" className="w-full max-h-80 rounded-xl object-contain bg-background border border-border" loading="lazy" />
+            </a>
+          </div>
+        )}
+
         {Number((req as any).coupon_discount ?? 0) > 0 && (
           <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50/70 p-3 space-y-1">
             <div className="font-black text-sm text-emerald-700">🎁 خصم كوبون ممنون</div>
@@ -579,7 +602,7 @@ function RequestDetail() {
             <MapPin className="h-4 w-4" /> تكبير الخريطة ومتابعة {req.type === "taxi" ? "السائق" : "الفني"}
           </Button>
         )}
-        {req.type !== "taxi" && <div className="glass rounded-2xl p-4 text-sm space-y-2">
+        {(req.type !== "taxi" || req.vehicle_category === "large") && <div className="glass rounded-2xl p-4 text-sm space-y-2">
           <div><span className="text-muted-foreground text-xs">📍 الموقع: </span><span className="font-bold">{req.pickup_text}</span></div>
           {req.dest_text && <div><span className="text-muted-foreground text-xs">🎯 الوجهة: </span><span className="font-bold">{req.dest_text}</span></div>}
           {req.notes && <div><span className="text-muted-foreground text-xs">📝 ملاحظة: </span><span>{req.notes}</span></div>}
