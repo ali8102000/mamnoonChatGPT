@@ -78,6 +78,7 @@ jobs:
       - name: Expo dependency compatibility
         run: bunx expo install --check
       - name: Check EAS environment access
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
@@ -90,7 +91,11 @@ jobs:
             echo "::error::EAS project ID does not match expo-app/app.json."
             exit 1
           fi
+      - name: Skip secret-dependent APK build for fork pull requests
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: echo "Skipping EAS-dependent APK build because fork pull requests do not receive repository secrets."
       - name: Prebuild and compile installable debug APK without EAS build credits
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
