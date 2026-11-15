@@ -159,7 +159,7 @@ function RequestDetail() {
         setLargeOffers([]);
       }
       const otherId = sessionUser?.id === r.customer_id ? r.provider_id : r.customer_id;
-      if (otherId && ["pending", "searching", "accepted", "in_progress", "completed"].includes(r.status)) {
+      if (otherId && ["accepted", "in_progress", "completed"].includes(r.status)) {
         const { data: p } = await supabase.from("profiles").select("id, full_name, phone, avatar_url").eq("id", otherId).maybeSingle();
         setOther(p);
         getRepFn({ data: { userId: otherId } }).then((rep) => setOtherRep(rep)).catch(() => {});
