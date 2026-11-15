@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui";
 import { palette, radius } from "@/styles/theme";
+import { LargeVehicleIllustration } from "@/components/large-vehicle-illustration";
 
 type VehicleModel = { id: string; make: string; model: string; category: string; min_year: number };
 type DocumentType = "national_id" | "driver_license";
@@ -438,14 +439,15 @@ export default function DriverOnboarding() {
         <View style={{ marginTop: 12 }}>
           <Text style={styles.label}>نوع السيارة الكبيرة</Text>
           <View style={styles.row}>
-            {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }, { key: "bus", label: "باص", emoji: "🚌" }] as const).map((item) => (
+            {([{ key: "kia_cargo", label: "كيا حمل" }, { key: "kia_passenger", label: "كيا ركاب" }, { key: "bus", label: "باص" }] as const).map((item) => (
               <TouchableOpacity key={item.key} style={[styles.category, vehicleType === item.key && styles.chipActive]} onPress={() => {
                 setVehicleType(item.key);
                 setSelectedMake("Kia");
                 setSelectedModel(models.find((m) => m.make === "Kia" && m.model === item.label) ?? null);
               }}>
-                <Text style={{ fontSize: 24 }}>{item.emoji}</Text>
+                <LargeVehicleIllustration kind={item.key} />
                 <Text style={[styles.chipText, vehicleType === item.key && styles.chipTextActive]}>{item.label}</Text>
+                {vehicleType === item.key && <Text style={{ color: palette.brand, fontSize: 10, fontWeight: "900", marginTop: 4 }}>تم الاختيار ✓</Text>}
               </TouchableOpacity>
             ))}
           </View>
