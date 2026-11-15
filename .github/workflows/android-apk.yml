@@ -99,7 +99,7 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && node -e "const fs=require(\'fs\'); const p=\'android/app/build.gradle\'; let s=fs.readFileSync(p,\'utf8\'); if(!s.includes(\'mamnoonAbiSplits\')) s=s.replace(\'android {\', \'android {\\n    // mamnoonAbiSplits: phone ARM64 plus emulator x86_64\\n    splits {\\n        abi {\\n            enable true\\n            reset()\\n            include \\\'arm64-v8a\\\', \\\'x86_64\\\'\\n            universalApk false\\n        }\\n    }\\n\'); fs.writeFileSync(p,s);" && cd android && chmod +x gradlew && ./gradlew assembleDebug'
+          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && node -e "const fs=require(\"fs\"); const p=\"android/app/build.gradle\"; let s=fs.readFileSync(p,\"utf8\"); if(!s.includes(\"mamnoonAbiSplits\")) s=s.replace(\"android {\", \"android {\\n    // mamnoonAbiSplits: phone ARM64 plus emulator x86_64\\n    splits {\\n        abi {\\n            enable true\\n            reset()\\n            include \\\"arm64-v8a\\\", \\\"x86_64\\\"\\n            universalApk false\\n        }\\n    }\\n\"); fs.writeFileSync(p,s);" && cd android && chmod +x gradlew && ./gradlew assembleDebug'
       - name: Validate APK
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
