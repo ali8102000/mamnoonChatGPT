@@ -119,7 +119,7 @@ export default function RequestDetail() {
   const [newMsg, setNewMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
-  const [ratingCriteria, setRatingCriteria] = useState({ first: 5, second: 5, third: 5 });
+  const [ratingReasons, setRatingReasons] = useState<string[]>([]);
   const [ratingComment, setRatingComment] = useState("");
   const [showRating, setShowRating] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
@@ -166,7 +166,15 @@ export default function RequestDetail() {
     } else { setVehicleDetails(null); }
     if (data?.status === "completed" && user?.id && data.provider_id && data.customer_id) {
       const { data: existingRating } = await supabase.from("ratings").select("id").eq("request_id", id).eq("rater_id", user.id).maybeSingle();
-      setShowRating(!existingRating);
+      if (existingRating) {
+        setShowRating(false);
+      } else {
+        const rateeId = data.provider_id === user.id ? data.customer_id : data.provider_id;
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: weeklyRating } = await (supabase as any).from("ratings").select("id").eq("rater_id", user.id).eq("ratee_id", rateeId).gte("created_at", weekAgo).limit(1).maybeSingle();
+        setShowRating(!weeklyRating);
+        if (weeklyRating) Alert.alert("التقييم", "لقد تم تقييم هذا الشخص من قبلك خلال آخر 7 أيام.");
+      }
     } else {
       setShowRating(false);
     }
@@ -591,12 +599,10 @@ export default function RequestDetail() {
       rater_id: user.id,
       ratee_id: otherId,
       stars: rating,
-      professionalism: ratingCriteria.first,
-      punctuality: ratingCriteria.second,
-      quality: ratingCriteria.third,
+      reasons: ratingReasons,
       comment: ratingComment.trim() || null,
     });
-    if (error) Alert.alert("تعذر إرسال التقييم", error.message);
+    if (error) Alert.alert("تعذر إرسال التقييم", error.message?.includes("rating_already_given_this_week") ? "لقد تم تقييم هذا الشخص من قبلك خلال آخر 7 أيام." : error.message);
     else {
       setShowRating(false);
       router.back();
@@ -625,11 +631,11 @@ export default function RequestDetail() {
     cancelled: "ملغي",
   };
   const quickReplies = isCustomer ? QUICK_REPLIES_CUSTOMER : QUICK_REPLIES_PROVIDER;
-  const ratingCriteriaLabels = isProvider
-    ? ["الاحترام وحسن التعامل", "الالتزام بالموعد", "التعاون والوضوح"]
+  const ratingReasonOptions = isProvider
+    ? ["محترم وحسن التعامل", "ملتزم بالموعد", "متعاون وواضح", "قدّم معلومات دقيقة", "احترم وقتي", "التزم بالاتفاق", "تأخر دون إشعار", "صعّب التواصل", "غيّر الاتفاق دون تنسيق", "تعامل غير لائق"]
     : request?.type === "taxi"
-      ? ["احترام الخصوصية وهدوء التعامل", "الالتزام بالموعد وتشغيل المكيف", "نظافة السيارة والقيادة الآمنة"]
-      : ["جودة العمل والإتقان", "الالتزام بالوقت والسعر المتفق", "حسن التعامل والمحافظة على المكان"];
+      ? ["قيادة آمنة", "احترام الخصوصية", "وصل بالموعد", "حسن التعامل", "السيارة نظيفة", "المكيف يعمل", "تواصل واضح", "تأخر دون إشعار", "قيادة غير آمنة", "السيارة غير نظيفة", "تعامل غير لائق", "لم يلتزم بالاتفاق"]
+      : ["جودة العمل عالية", "أتقن العمل", "التزم بالموعد", "التزم بالسعر المتفق", "حسن التعامل", "حافظ على المكان", "تواصل واضح", "تأخر دون إشعار", "جودة العمل ضعيفة", "غيّر السعر دون اتفاق", "لم يحافظ على المكان", "تعامل غير لائق"];
 
   return (
     <KeyboardAvoidingView
@@ -894,6 +900,7 @@ export default function RequestDetail() {
           <View style={styles.ratingOverlay}>
             <View style={styles.ratingCard}>
               <Text style={styles.ratingTitle}>{isProvider ? "قيّم الزبون" : request.type === "taxi" ? "قيّم السائق" : "قيّم الفني"}</Text>
+              <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 10 }}>اختَر عدد النجوم بنفسك</Text>
               <View style={styles.starsRow}>
                 {[1, 2, 3, 4, 5].map((s) => (
                   <TouchableOpacity key={s} onPress={() => setRating(s)}>
@@ -901,23 +908,19 @@ export default function RequestDetail() {
                   </TouchableOpacity>
                 ))}
               </View>
-              {ratingCriteriaLabels.map((label, index) => {
-                const key = index === 0 ? "first" : index === 1 ? "second" : "third";
-                return (
-                  <View key={key} style={{ width: "100%", marginBottom: 12 }}>
-                    <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "800", textAlign: "right", marginBottom: 5 }}>{label}</Text>
-                    <View style={styles.starsRow}>
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <TouchableOpacity key={s} onPress={() => setRatingCriteria((current) => ({ ...current, [key]: s }))}>
-                          <Text style={[styles.star, s <= ratingCriteria[key] && styles.starActive]}>★</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                );
-              })}
+              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right", alignSelf: "stretch", marginBottom: 8 }}>أسباب التقييم (اختياري – تقدر تختار أكثر من سبب)</Text>
+              <View style={{ width: "100%", flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
+                {ratingReasonOptions.map((reason) => {
+                  const selected = ratingReasons.includes(reason);
+                  return (
+                    <TouchableOpacity key={reason} onPress={() => setRatingReasons((current) => selected ? current.filter((item) => item !== reason) : [...current, reason])} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: selected ? palette.brand : palette.line, backgroundColor: selected ? palette.brandSoft : palette.surface }}>
+                      <Text style={{ color: selected ? palette.brand : palette.ink, fontSize: 11, fontWeight: "800" }}>{selected ? "✓ " : ""}{reason}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
               <TextInput value={ratingComment} onChangeText={setRatingComment} placeholder="ملاحظة اختيارية" placeholderTextColor="#94a3b8" multiline maxLength={500} style={[styles.reportInput, { width: "100%", minHeight: 64, marginBottom: 14 }]} />
-              <TouchableOpacity style={styles.ratingSubmit} onPress={submitRating}>
+              <TouchableOpacity style={[styles.ratingSubmit, rating === 0 && { opacity: 0.45 }]} disabled={rating === 0} onPress={submitRating}>
                 <Text style={styles.ratingSubmitText}>إرسال التقييم</Text>
               </TouchableOpacity>
             </View>
