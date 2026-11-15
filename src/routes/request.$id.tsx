@@ -65,6 +65,7 @@ function RequestDetail() {
   const { session, loading: authLoading } = useAuth();
   const [req, setReq] = useState<any>(null);
   const [other, setOther] = useState<any>(null);
+  const [otherAvatarFailed, setOtherAvatarFailed] = useState(false);
   const [largeOffers, setLargeOffers] = useState<any[]>([]);
   const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
   const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
@@ -105,6 +106,7 @@ function RequestDetail() {
     : null;
   const myRole: "customer" | "provider" =
     req && myUserId === req.customer_id ? "customer" : "provider";
+  useEffect(() => { setOtherAvatarFailed(false); }, [other?.avatar_url]);
   const otherBadges = otherRep?.badges ?? [];
   const trackingActive = !!req && (req.status === "accepted" || req.status === "in_progress");
   const { me: myLive, other: otherLive } = useLiveTracking({
@@ -379,6 +381,7 @@ function RequestDetail() {
 
   async function submitUserReport() {
     if (!session?.user.id || !otherUserId) { toast.error("ما نكدر نحدد الطرف المراد الإبلاغ عنه"); return; }
+    if (req?.status !== "in_progress") { toast.error("البلاغات متاحة بعد بدء الرحلة أو الخدمة فعلياً فقط"); return; }
     if (!reportReason.trim()) { toast.error("اكتب سبب البلاغ"); return; }
     setReportBusy(true);
     try {
@@ -586,8 +589,8 @@ function RequestDetail() {
           <div className={`glass rounded-2xl ${req.type === "taxi" ? "p-2.5 space-y-2" : "p-4 space-y-4"}`}>
             <div className="flex items-center gap-3 min-w-0">
               <div className={`${req.type === "taxi" ? "h-9 w-9 rounded-xl" : "h-12 w-12 rounded-2xl"} overflow-hidden bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black shrink-0`}>
-                {other.avatar_url ? (
-                  <img src={other.avatar_url} alt={other.full_name || "صورة المستخدم"} className="h-full w-full object-cover" />
+                {other.avatar_url && !otherAvatarFailed ? (
+                  <img src={other.avatar_url} alt={other.full_name || "صورة المستخدم"} onError={() => setOtherAvatarFailed(true)} className="h-full w-full object-cover" />
                 ) : (
                   (other.full_name || "?").charAt(0)
                 )}
@@ -595,6 +598,10 @@ function RequestDetail() {
               <div className="flex-1 min-w-0">
                 <div className="font-black text-sm truncate">{other.full_name || "مستخدم"}</div>
                 <div className="text-xs text-muted-foreground mt-0.5" dir="ltr">{other.phone}</div>
+                <div className="flex items-center gap-2 mt-2">
+                  {!!other.phone && <a href={`tel:${other.phone}`} className="rounded-xl bg-primary/10 text-primary px-3 py-1.5 text-[11px] font-black">اتصال</a>}
+                  {chat && !["completed", "cancelled"].includes(req.status as string) && <button type="button" onClick={() => setShowChat(true)} className="rounded-xl bg-primary/10 text-primary px-3 py-1.5 text-[11px] font-black">المحادثة{messages.length ? ` · ${messages.length}` : ""}</button>}
+                </div>
                 {otherBadges.length > 0 && req.type !== "taxi" && (
                   <div className="flex flex-wrap gap-1 mt-1">{otherBadges.map((b) => <ReputationBadge key={b.code} badge={b} size="sm" />)}</div>
                 )}
@@ -685,7 +692,7 @@ function RequestDetail() {
           ))}
       </div>
 
-      {otherUserId && (
+      {req.status === "in_progress" && otherUserId && (
         <div className="mx-5 mb-4 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
           {!showReportForm ? (
             <button type="button" onClick={() => setShowReportForm(true)} className="w-full flex items-center justify-between text-sm font-black text-amber-800 dark:text-amber-300">
@@ -704,97 +711,46 @@ function RequestDetail() {
         </div>
       )}
 
-      {chat && !["completed", "cancelled"].includes(req.status as string) && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setShowChat((v) => !v)} className="flex-1 h-11 rounded-xl border border-border bg-card flex items-center justify-center gap-2 text-sm font-black"><MessageCircle className="h-4 w-4" />{showChat ? "إخفاء المحادثة" : `فتح المحادثة${messages.length ? ` · ${messages.length}` : ""}`}</button>
-            <button type="button" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); setSoundEnabledState(next); toast.success(next ? "تم تفعيل صوت الإشعارات" : "تم إيقاف صوت الإشعارات"); }} className="h-11 w-11 rounded-xl border border-border bg-card grid place-items-center" title={soundEnabled ? "إيقاف صوت الإشعارات" : "تفعيل صوت الإشعارات"}>{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
+      {showChat && chat && !["completed", "cancelled"].includes(req.status as string) && (
+        <div className="fixed inset-0 z-[100] h-[100dvh] w-full bg-background flex flex-col">
+          <div className="shrink-0 flex items-center gap-3 border-b border-border bg-card px-4 pt-[max(env(safe-area-inset-top),12px)] pb-3">
+            <button type="button" onClick={() => setShowChat(false)} className="h-10 rounded-xl border border-border px-3 text-xs font-black">رجوع</button>
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-primary/10 grid place-items-center text-primary font-black">
+              {other?.avatar_url && !otherAvatarFailed ? <img src={other.avatar_url} alt={other.full_name || "صورة المستخدم"} onError={() => setOtherAvatarFailed(true)} className="h-full w-full object-cover" /> : (other?.full_name || "?").charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-black text-sm truncate">{other?.full_name || "المستخدم"}</div>
+              <div className="text-[10px] text-muted-foreground">المحادثة المباشرة</div>
+            </div>
+            {other?.phone && <a href={`tel:${other.phone}`} className="h-10 rounded-xl bg-primary px-3 grid place-items-center text-xs font-black text-primary-foreground">اتصال</a>}
+            <button type="button" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); setSoundEnabledState(next); toast.success(next ? "تم تفعيل صوت الإشعارات" : "تم إيقاف صوت الإشعارات"); }} className="h-10 w-10 rounded-xl border border-border grid place-items-center" title={soundEnabled ? "إيقاف صوت الإشعارات" : "تفعيل صوت الإشعارات"}>{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
           </div>
-          {showChat && <>
-          <div className="px-3 pt-2 pb-1 flex items-center justify-between text-xs text-muted-foreground border-b border-border/40"><span className="font-bold">المحادثة المباشرة</span></div>
-
-          <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto px-5 py-3 space-y-2.5 max-h-[420px]"
-          >
-            {messages.length === 0 && (
-              <div className="text-center text-xs text-muted-foreground py-8">
-                ابدأ المحادثة 👋 (يتم التنبيه بصوت عند وصول أي رسالة)
-              </div>
-            )}
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-2.5">
+            {messages.length === 0 && <div className="text-center text-xs text-muted-foreground py-10">ابدأ المحادثة 👋</div>}
             {messages.map((m) => {
               const mine = m.sender_id === session.user.id;
-              const timeStr = m.created_at
-                ? new Date(m.created_at).toLocaleTimeString("ar-IQ", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "";
+              const timeStr = m.created_at ? new Date(m.created_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" }) : "";
               return (
-                <div
-                  key={m.id}
-                  className={`flex ${mine ? "justify-start" : "justify-end"} animate-in fade-in slide-in-from-bottom-2 duration-300 transition-all`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-[22px] px-4 py-3 text-sm leading-7 shadow-md break-words ${
-                      mine
-                        ? "bg-primary text-primary-foreground rounded-br-md shadow-primary/10"
-                        : "bg-card text-foreground border border-border/70 rounded-bl-md"
-                    }`}
-                  >
+                <div key={m.id} className={`flex ${mine ? "justify-start" : "justify-end"}`}>
+                  <div className={`max-w-[84%] rounded-[22px] px-4 py-3 text-sm leading-7 shadow-sm break-words ${mine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card text-foreground border border-border rounded-bl-md"}`}>
                     <div>{m.content}</div>
-                    {timeStr && (
-                      <div
-                        className={`text-[9px] mt-1 text-left ${
-                          mine ? "text-primary-foreground/75" : "text-muted-foreground"
-                        }`}
-                      >
-                        {timeStr}
-                      </div>
-                    )}
+                    {timeStr && <div className={`text-[9px] mt-1 text-left ${mine ? "text-primary-foreground/75" : "text-muted-foreground"}`}>{timeStr}</div>}
                   </div>
                 </div>
               );
             })}
           </div>
-
-          <div className="glass-strong p-3 border-t border-border sticky bottom-0 space-y-2">
-            <QuickReplies
-              role={myRole}
-              type={req.type as "taxi" | "service"}
-              onPick={async (text) => {
-                if (!chat || !session) return;
-                playMessageSound(false);
-                const { error } = await supabase.from("messages").insert({
-                  chat_id: chat.id,
-                  sender_id: session.user.id,
-                  content: text,
-                });
-                if (error) toast.error(error.message);
-              }}
-            />
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                send();
-              }}
-              className="flex items-center gap-2"
-            >
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="اكتب رسالة..."
-                className="flex-1 bg-background/90 border border-border rounded-2xl px-4 py-3 text-sm font-medium outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              />
-              <button
-                type="submit"
-                className="h-12 w-12 rounded-2xl bg-primary grid place-items-center btn-press shadow-lg shadow-primary/20 active:scale-95 transition"
-              >
-                <Send className="h-5 w-5 text-primary-foreground" />
-              </button>
+          <div className="shrink-0 bg-card p-3 border-t border-border pb-[max(env(safe-area-inset-bottom),12px)] space-y-2">
+            <QuickReplies role={myRole} type={req.type as "taxi" | "service"} onPick={async (text) => {
+              if (!chat || !session) return;
+              const { error } = await supabase.from("messages").insert({ chat_id: chat.id, sender_id: session.user.id, content: text });
+              if (error) toast.error(error.message);
+            }} />
+            <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-2">
+              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="اكتب رسالة..." className="flex-1 min-w-0 bg-background border border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-primary" />
+              <button type="submit" className="h-12 w-12 shrink-0 rounded-2xl bg-primary grid place-items-center text-primary-foreground"><Send className="h-5 w-5" /></button>
             </form>
           </div>
-          </>}
         </div>
       )}
 
