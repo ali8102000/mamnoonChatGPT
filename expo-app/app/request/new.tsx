@@ -102,6 +102,7 @@ export default function NewRequest() {
   const userPannedMapRef = useRef(false);
   const mapRef = useRef<MapView>(null);
   const dragSelectionVersionRef = useRef(0);
+  const isDraggingMarkerRef = useRef(false);
 
   useEffect(() => () => {
     if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
@@ -747,7 +748,7 @@ export default function NewRequest() {
           style={styles.map}
           provider={PROVIDER_GOOGLE}
           initialRegion={region}
-          onPanDrag={() => { userPannedMapRef.current = true; }}
+          onPanDrag={() => { if (!isDraggingMarkerRef.current) userPannedMapRef.current = true; }}
           onRegionChangeComplete={handleRegionChangeComplete}
           onPress={(event) => chooseMapPoint(event.nativeEvent.coordinate)}
           showsUserLocation
@@ -761,10 +762,14 @@ export default function NewRequest() {
               pinColor={palette.brand}
               draggable
               onDragStart={() => {
+                isDraggingMarkerRef.current = true;
                 userPannedMapRef.current = false;
                 if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
               }}
-              onDragEnd={(event) => { void chooseMapPoint(event.nativeEvent.coordinate); }}
+              onDragEnd={(event) => {
+                isDraggingMarkerRef.current = false;
+                void chooseMapPoint(event.nativeEvent.coordinate);
+              }}
             />
           )}
           {destinationCoords && isTaxi && (
@@ -774,10 +779,14 @@ export default function NewRequest() {
               pinColor={palette.success}
               draggable
               onDragStart={() => {
+                isDraggingMarkerRef.current = true;
                 userPannedMapRef.current = false;
                 if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
               }}
-              onDragEnd={(event) => { void chooseMapPoint(event.nativeEvent.coordinate); }}
+              onDragEnd={(event) => {
+                isDraggingMarkerRef.current = false;
+                void chooseMapPoint(event.nativeEvent.coordinate);
+              }}
             />
           )}
         </MapView>
