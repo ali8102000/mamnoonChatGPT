@@ -434,15 +434,8 @@ function NewRequest() {
           : 1 + workersCount
         : workersCount;
 
+    let verifiedRouteKm = routeKm;
     let priceEstimate: number | null = null;
-    if (type === "taxi" && routeKm !== null) {
-      priceEstimate = taxiFare(vehicleCategory, routeKm, {
-        weather: "mild" as const,
-        roadCondition,
-        demandMultiplier,
-        isIntercity: interCity,
-      });
-    }
 
     const priceNum = parseInt(customerPrice.replace(/[^0-9]/g, ""), 10);
     if (vehicle === "large" && customerPrice.trim() && (!Number.isSafeInteger(priceNum) || priceNum < 250 || priceNum % 250 !== 0)) {
@@ -460,8 +453,19 @@ function NewRequest() {
 
     setBusy(true);
     try {
+      if (type === "taxi" && vehicle !== "large") {
+        const freshRoute = await runLookup({ data: { action: "route", from: { lat: pickupCoords.lat, lng: pickupCoords.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng } } });
+        if (!Number.isFinite(freshRoute.distanceKm) || freshRoute.distanceKm <= 0) throw new Error("لم يتم تأكيد مسافة طريق صالحة. أعد تحديد الوجهة.");
+        if (routeKm !== null && Math.abs(freshRoute.distanceKm - routeKm) > 0.05) {
+          setRouteKm(freshRoute.distanceKm);
+          toast.error("تحدّثت مسافة الطريق بعد المراجعة. راجع السعر الجديد واضغط إرسال الطلب مرة ثانية.");
+          return;
+        }
+        verifiedRouteKm = freshRoute.distanceKm;
+        priceEstimate = taxiFare(vehicleCategory, verifiedRouteKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity });
+      }
       if (couponCode.trim()) {
-        const amount = getCouponBaseAmount();
+        const amount = type === "taxi" && vehicle !== "large" ? priceEstimate : getCouponBaseAmount();
         if (!amount || amount <= 0) throw new Error("حدد سعر الطلب أولاً حتى نطبق الكوبون");
         const { data: couponData, error: couponCheckError } = await (supabase as any).rpc("preview_my_coupon", {
           p_code: couponCode.trim(),
@@ -491,7 +495,7 @@ function NewRequest() {
           dest_lat: destCoords?.lat ?? null,
           dest_lng: destCoords?.lng ?? null,
           notes: notes || null,
-          distance_km: type === "taxi" ? routeKm : null,
+          distance_km: type === "taxi" ? verifiedRouteKm : null,
           is_intercity: type === "taxi" ? interCity : false,
           ...(type === "service"
             ? {
@@ -662,7 +666,17 @@ function NewRequest() {
           <div className="flex items-center gap-2 pointer-events-auto">
             <button
               type="button"
-              onClick={goBack}
+              onClick={() => {
+                if (mapStep === "dest") {
+                  setMapStep("pickup");
+                  setDestConfirmed(false);
+                  setDestCoords(null);
+                  setDestLabel("");
+                  setRouteKm(null);
+                  setRouteError(null);
+                  setShowFareDetails(false);
+                } else goBack();
+              }}
               className="h-11 w-11 rounded-2xl bg-white/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md shadow-lg border border-border/40 grid place-items-center btn-press text-foreground shrink-0"
               aria-label="رجوع"
             >
