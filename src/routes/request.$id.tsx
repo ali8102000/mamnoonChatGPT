@@ -431,7 +431,7 @@ function RequestDetail() {
           <div className="glass rounded-xl px-3 py-2 flex items-center gap-2.5">
             <div className="text-xl">{VEHICLE_CAT_META[req.vehicle_category].emoji}</div>
             <div className="flex-1 min-w-0"><div className="text-[10px] text-muted-foreground">فئة السيارة</div><div className="text-xs font-black">{VEHICLE_CAT_META[req.vehicle_category].label}</div>
-              {vehicleDetails && <div className="text-[10px] text-muted-foreground truncate">{[vehicleDetails.vehicle_make, vehicleDetails.vehicle_model, vehicleDetails.vehicle_year].filter(Boolean).join(" ")}{vehicleDetails.vehicle_plate ? ` · رقم ${vehicleDetails.vehicle_plate}` : ""}</div>}
+              {vehicleDetails && <div className="text-[10px] text-muted-foreground truncate">السيارة: {[vehicleDetails.vehicle_make, vehicleDetails.vehicle_model, vehicleDetails.vehicle_year].filter(Boolean).join(" ")}{vehicleDetails.vehicle_color ? ` · ${vehicleDetails.vehicle_color}` : ""}{vehicleDetails.vehicle_plate ? ` · رقم اللوحة ${vehicleDetails.vehicle_plate}` : ""}</div>}
             </div>
             {req.price_estimate && <div className="text-left shrink-0"><div className="font-black text-xs">{Number(myRole === "customer" && (req as any).customer_payable != null ? (req as any).customer_payable : req.price_estimate).toLocaleString("ar-IQ")}</div><div className="text-[9px] text-muted-foreground">د.ع</div></div>}
           </div>
