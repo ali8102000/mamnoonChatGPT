@@ -130,6 +130,45 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    if (body.action === "providers") {
+      const type = ["driver", "large_driver", "worker"].includes(body.type) ? body.type : "driver";
+      const status = ["all", "approved", "pending", "suspended", "rejected"].includes(body.status) ? body.status : "all";
+      const category = typeof body.category === "string" ? body.category.slice(0, 80) : "all";
+      const table = type === "worker" ? "worker_profiles" : "driver_profiles";
+      let providerQuery = admin.from(table)
+        .select("*, profiles!inner(full_name,phone,email,avatar_url)", { count: "exact" });
+      if (status !== "all") providerQuery = providerQuery.eq("status", status);
+      if (category !== "all") providerQuery = providerQuery.eq(type === "worker" ? "level" : "vehicle_category", category);
+      const { data: providers, count, error } = await providerQuery
+        .order("created_at", { ascending: false }).limit(200);
+      if (error) return json({ error: "providers_load_failed" }, 500);
+      const userIds = (providers ?? []).map((provider: any) => provider.user_id).filter(isUuid);
+      if (!userIds.length) return json({ providers: [], total: count ?? 0 });
+      const { data: verifications, error: verificationError } = await admin.from("provider_verifications")
+        .select("*").eq("provider_type", type).in("user_id", userIds);
+      if (verificationError) return json({ error: "provider_verifications_load_failed" }, 500);
+      const verificationByUser = new Map((verifications ?? []).map((row: any) => [row.user_id, row]));
+      const enriched = await Promise.all((providers ?? []).map(async (provider: any) => {
+        const verification: any = verificationByUser.get(provider.user_id);
+        if (!verification) return { ...provider, verification: null };
+        const sign = async (path: string | null | undefined) => {
+          if (!path) return null;
+          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 600);
+          return error ? null : data?.signedUrl ?? null;
+        };
+        const [face, front, back, vehicle] = await Promise.all([
+          sign(verification.face_photo_path), sign(verification.id_card_photo_path),
+          sign(verification.id_card_back_photo_path), sign(verification.vehicle_document_path),
+        ]);
+        return { ...provider, verification: {
+          status: verification.status, rejection_reason: verification.rejection_reason,
+          face_photo_url: face, id_card_photo_url: front,
+          id_card_back_photo_url: back, vehicle_document_url: vehicle,
+        } };
+      }));
+      return json({ providers: enriched, total: count ?? enriched.length });
+    }
+
     if (body.action === "block") {
       await requireAdmin();
       if (!isUuid(body.user_id) || typeof body.reason !== "string" || body.reason.length > 500 ||
