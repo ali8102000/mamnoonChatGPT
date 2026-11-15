@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Image,
   Modal,
   StyleSheet,
@@ -125,9 +126,13 @@ export function IncomingRequestModal() {
         () => void loadOffer(),
       )
       .subscribe();
-    const timer = setInterval(() => void loadOffer(), 8000);
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void loadOffer();
+    });
+    const timer = setInterval(() => void loadOffer(), 3000);
     return () => {
       clearInterval(timer);
+      appStateSubscription.remove();
       supabase.removeChannel(channel);
     };
   }, [user, canReceive, loadOffer]);
