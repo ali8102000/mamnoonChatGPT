@@ -50,6 +50,7 @@ export default function AdminScreen() {
   const [rejectingChangeId, setRejectingChangeId] = useState<string | null>(null);
   const [changeRejectReason, setChangeRejectReason] = useState("");
   const [reviewingChangeId, setReviewingChangeId] = useState<string | null>(null);
+  const [statsWarning, setStatsWarning] = useState("");
 
   const load = useCallback(async () => {
     const { data: superAdminCheck, error: permissionError } = await supabase.rpc("is_super_admin", {
@@ -83,6 +84,9 @@ export default function AdminScreen() {
       supabase.from("pricing_rules").select("*").order("vehicle_category"),
       supabase.from("service_requests").select("*, customer:profiles!service_requests_customer_id_fkey(full_name)").order("created_at", { ascending: false }).limit(20),
     ]);
+    const metricResults = [reqs, users, drivers, workers, activeDrivers, activeWorkers, activeRequests, completedRequests, cancelledRequests, todayTx, monthTx, yearTx, pricingRules, recentReqs];
+    const failedMetricCount = metricResults.filter((result: any) => !!result?.error).length;
+    setStatsWarning(failedMetricCount ? `تعذر تحميل ${failedMetricCount} من مصادر الإحصائيات؛ الأرقام المتأثرة قد لا تكون مكتملة. اسحب للتحديث.` : "");
     const commissionTotal = (rows: any[] | null | undefined) => (rows ?? [])
       .filter((row: any) => row.type === "commission")
       .reduce((sum: number, row: any) => sum + Math.abs(Number(row.amount) || 0), 0);
@@ -314,6 +318,7 @@ export default function AdminScreen() {
           )}
         </View>
       ))}
+      {!!statsWarning && <Text accessibilityRole="alert" style={styles.statsWarning}>{statsWarning}</Text>}
       <Text style={styles.sectionTitle}>إحصائيات المنصة</Text>
       <View style={styles.statsGrid}>
         {([
@@ -393,6 +398,7 @@ const styles = StyleSheet.create({
   reportMeta: { color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 5 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 18 },
+  statsWarning: { color: "#B45309", backgroundColor: "#FEF3C7", borderRadius: radius.md, padding: 10, textAlign: "right", fontSize: 11, marginBottom: 10 },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 22 },
   statCard: { flexBasis: "30%", flexGrow: 1, backgroundColor: palette.surface, borderRadius: radius.lg, padding: 15, alignItems: "center", borderWidth: 1, borderColor: palette.line },
   statValue: { fontSize: 26, fontWeight: "900", color: palette.brand },
