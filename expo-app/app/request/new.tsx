@@ -879,6 +879,7 @@ export default function NewRequest() {
               </View>
               {tripType === "round_trip" && <Text style={styles.tripOptionsHint}>تم تطبيق خصم 10٪ على أجرة الذهاب والإياب.</Text>}
               {tripType === "stop" && (
+                <>
                 <View style={styles.extraTimeHeader}>
                   <Text style={styles.tripOptionsTitle}>مدة التوقف</Text>
                   <Text style={styles.extraTimeValue}>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</Text>
@@ -908,6 +909,7 @@ export default function NewRequest() {
                   <Text style={styles.tripOptionsHint}>ساعة</Text>
                   <Text style={styles.tripOptionsHint}>ساعتان</Text>
                 </View>
+                </>
               )}
             </>
           )}
