@@ -94,6 +94,8 @@ async function drivingRoute(from: z.infer<typeof coords>, to: z.infer<typeof coo
       origin: { location: { latLng: { latitude: from.lat, longitude: from.lng } } },
       destination: { location: { latLng: { latitude: to.lat, longitude: to.lng } } },
       travelMode: "DRIVE",
+      routingPreference: "TRAFFIC_UNAWARE",
+      computeAlternativeRoutes: true,
     },
     "routes.distanceMeters,routes.duration",
   );
