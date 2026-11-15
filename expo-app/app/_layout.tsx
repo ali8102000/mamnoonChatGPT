@@ -183,6 +183,7 @@ export default function RootLayout() {
         <Stack.Screen name="history" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="admin" />
+        <Stack.Screen name="admin/staff" />
         <Stack.Screen name="admin/friends" />
         <Stack.Screen name="admin/notifications" />
         <Stack.Screen name="onboarding/driver" />
