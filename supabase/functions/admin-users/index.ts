@@ -338,6 +338,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "live_map") {
+      requireRoles(["super_admin", "admin", "support"]);
       const [locations, requests] = await Promise.all([
         admin.from("live_locations")
           .select("*, profile:profiles!live_locations_user_id_fkey(full_name,phone)")
@@ -352,6 +353,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "monitoring") {
+      requireRoles(["super_admin", "admin", "support"]);
       const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
         admin.from("profiles").select("id", { count: "exact", head: true }),
         admin.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
