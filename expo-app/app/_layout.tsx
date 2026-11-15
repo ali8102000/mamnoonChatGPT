@@ -1,5 +1,6 @@
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useFonts, Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black } from "@expo-google-fonts/tajawal";
 import { Alert, I18nManager, LogBox, Platform, useColorScheme } from "react-native";
 import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
@@ -145,6 +146,8 @@ function PushNotificationSetup() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [fontsLoaded] = useFonts({ Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black });
+  if (!fontsLoaded) return null;
   return (
     <ThemePreferenceProvider>
     <AuthProvider>
