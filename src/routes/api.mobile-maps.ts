@@ -293,7 +293,7 @@ async function handleRequest(request: Request) {
       trip_type: data.tripType,
       extra_minutes: data.extraMinutes,
       notes: data.notes.trim() || null,
-    })
+    } as any)
     .select("id,price_estimate,distance_km,duration_min")
     .single();
 
