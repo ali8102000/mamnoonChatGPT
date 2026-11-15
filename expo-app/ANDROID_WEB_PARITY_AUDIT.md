@@ -1,13 +1,14 @@
 # Mamnoon Android ↔ Web parity audit
 
-Baseline audited: `main` at commit `2fd6c99e942688541c2e55eaf6bab5c1ddf7504f`. Android continuation branch: `feat/android-parity-rebased` at commit `93973e65ac9db926424036186f0d16a112ae90e3`. This commit passed CI and produced a validated installable debug APK; it has not yet been installed and device-verified.
+Baseline audited: `main` at commit `2fd6c99e942688541c2e55eaf6bab5c1ddf7504f`. Android app source was built from `93973e65ac9db926424036186f0d16a112ae90e3`; audit documentation was subsequently updated on `feat/android-parity-rebased` at `9f1d0778d9ea1896cabc13d4c0a0ffa1bd124c93`. The debug APK passed archive validation but has not been installed and device-verified.
 
 This is a living migration checklist. A matching route name or a successful TypeScript/build check does **not** establish visual or functional parity. A screen is complete only after comparing the same signed-in role, data state, viewport, and interaction on the running web and Android apps.
 
 ## Findings
 
 - Web route inventory: 30 route files under `src/routes/`.
-- Expo route inventory: 21 route files under `expo-app/app/`.
+- Current Expo route inventory: 30 route files under `expo-app/app/` (re-counted on 2026-11-15). This corrects the earlier 21-route figure, which was stale. Matching route counts do not prove matching page content or behavior.
+- Confirmed implementation gap: web `src/routes/admin.tsx` is about 2,580 lines and exposes 16 management sections (overview, stats, users, providers, requests, chat, friends, reports, subscriptions, coupons, wallet, live map, notifications, roles, company, audit). Expo `expo-app/app/admin.tsx` is about 362 lines and implements only a subset of the admin workflows. The Expo subscription route explicitly says plan and financial grant/edit actions are not enabled; monitoring/subscription views are not equivalent to the full web management surface.
 - The native app is a separate React Native implementation, not a WebView of the web app; its screen layouts and styling are independently maintained.
 - The web design system uses Tajawal (400/500/700/800/900), CSS OKLCH tokens, glass surfaces, gradients, shadows, and a 112.5% root font scale.
 - Expo previously used a green palette (`#174C3C`) that visibly diverged from the web blue/amber palette. The palette has now been moved to sRGB approximations of the web light/dark tokens. This is a first alignment step, not a pixel-perfect certification.
@@ -47,7 +48,57 @@ This is a living migration checklist. A matching route name or a successful Type
 | `/terms` | `terms` | Added legal content; Zain Cash only stated |
 | `/support` | `support` | Added ticket creation/list/realtime replies; test RLS on device |
 | `/request/chat/$id` | `request/chat/[id]` | Needs live comparison |
-| `/$` (not found) | — | Missing equivalent |
+| `/# Mamnoon Android ↔ Web parity audit
+
+Baseline audited: `main` at commit `2fd6c99e942688541c2e55eaf6bab5c1ddf7504f`. Android app source was built from `93973e65ac9db926424036186f0d16a112ae90e3`; audit documentation was subsequently updated on `feat/android-parity-rebased` at `9f1d0778d9ea1896cabc13d4c0a0ffa1bd124c93`. The debug APK passed archive validation but has not been installed and device-verified.
+
+This is a living migration checklist. A matching route name or a successful TypeScript/build check does **not** establish visual or functional parity. A screen is complete only after comparing the same signed-in role, data state, viewport, and interaction on the running web and Android apps.
+
+## Findings
+
+- Web route inventory: 30 route files under `src/routes/`.
+- Current Expo route inventory: 30 route files under `expo-app/app/` (re-counted on 2026-11-15). This corrects the earlier 21-route figure, which was stale. Matching route counts do not prove matching page content or behavior.
+- Confirmed implementation gap: web `src/routes/admin.tsx` is about 2,580 lines and exposes 16 management sections (overview, stats, users, providers, requests, chat, friends, reports, subscriptions, coupons, wallet, live map, notifications, roles, company, audit). Expo `expo-app/app/admin.tsx` is about 362 lines and implements only a subset of the admin workflows. The Expo subscription route explicitly says plan and financial grant/edit actions are not enabled; monitoring/subscription views are not equivalent to the full web management surface.
+- The native app is a separate React Native implementation, not a WebView of the web app; its screen layouts and styling are independently maintained.
+- The web design system uses Tajawal (400/500/700/800/900), CSS OKLCH tokens, glass surfaces, gradients, shadows, and a 112.5% root font scale.
+- Expo previously used a green palette (`#174C3C`) that visibly diverged from the web blue/amber palette. The palette has now been moved to sRGB approximations of the web light/dark tokens. This is a first alignment step, not a pixel-perfect certification.
+- Android continuation now adds `@expo-google-fonts/tajawal` and loads weights 400/500/700/800/900 before rendering. Device typography comparison is still required.
+- Android continuation adds a persisted `system`/`light`/`dark` preference in SecureStore and a live native palette; compare against web persistence and theme tokens on device.
+
+## Route inventory
+
+| Web route | Expo route | Status |
+|---|---|---|
+| `/` | `index` | Needs live comparison |
+| `/welcome` | `welcome` | Added on continuation branch; compare visually |
+| `/auth` | `auth` | Needs live comparison |
+| `/auth/callback` | `auth/callback` | Needs live comparison |
+| `/account-settings` | `account-settings` | Needs live comparison |
+| `/select-role` | `select-role` | Needs live comparison |
+| `/home` | `home` | Needs live comparison |
+| `/request/new` | `request/new` | Needs live comparison |
+| `/request/$id` | `request/[id]` | Needs live comparison |
+| `/messages` | `messages` | Needs live comparison |
+| `/support-chat` | `support-chat` | Needs live comparison |
+| `/friends` | `friends` | Needs live comparison |
+| `/history` | `history` | Needs live comparison |
+| `/profile` | `profile` | Needs live comparison |
+| `/admin` | `admin` | Needs live comparison |
+| `/admin/monitoring` | `admin/monitoring` | Read-only staff-gated metrics; full moderation actions not ported |
+| `/admin/subscriptions` | `admin/subscriptions` | Read-only authorized view; management actions not ported |
+| `/admin/bootstrap` | `admin/bootstrap` | Intentionally locked on Android; one-time privilege bootstrap stays web-only |
+| `/admin/import` | `admin/import` | Intentionally locked on Android; import mutations not ported |
+| `/onboarding/driver` | `onboarding/driver` | Needs live comparison |
+| `/onboarding/worker` | `onboarding/worker` | Needs live comparison |
+| `/forgot-password` | `forgot-password` | Needs live comparison |
+| `/reset-password` | `reset-password` | Needs live comparison |
+| `/subscriptions` | `subscriptions` | Needs live comparison |
+| `/coupons` | `coupons` | Added using `get_my_coupons` RPC; sharing used instead of clipboard |
+| `/privacy` | `privacy` | Added legal content; confirm approved policy wording |
+| `/terms` | `terms` | Added legal content; Zain Cash only stated |
+| `/support` | `support` | Added ticket creation/list/realtime replies; test RLS on device |
+| `/request/chat/$id` | `request/chat/[id]` | Needs live comparison |
+ (not found) | — | Missing equivalent |
 
 ## Priority implementation plan
 
@@ -86,3 +137,11 @@ This is a living migration checklist. A matching route name or a successful Type
 - [ ] Screenshot comparison report
 
 Do not mark this audit complete or claim 100% parity until every required route and flow above has evidence from a running Android build. A successful web CI run alone is not Android verification.
+
+
+## Re-audit note — 2026-11-15
+
+- Route count corrected to 30 web / 30 Expo routes after enumerating the current branch trees.
+- A focused code-size/feature inspection confirms that route count overstates parity: the web admin dashboard contains substantially more management logic than the Expo admin screen; Expo subscription management remains explicitly read-only. These are known functional blockers, not cosmetic differences.
+- Main request creation screens both contain map/GPS and Supabase request logic, but source inspection alone cannot prove matching request types, validation, pricing, routing, realtime delivery, or successful production behavior. Those require controlled runtime tests.
+- No application code or production data was changed by this audit update.
