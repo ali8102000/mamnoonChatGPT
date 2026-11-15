@@ -14,7 +14,6 @@ export function calculateMobileTaxiFare(
 
   const perKm = isIntercity ? 187.5 : 400;
   const baseFare = distanceKm * perKm;
-  const requestedDemand = Math.min(1.5, Math.max(0.8, demandMultiplier));
   // Smoothly taper demand uplift as the base fare grows; keep web and Android identical.
   const adjustedDemand = 1; // Geographic demand multipliers caused abrupt fare changes when moving the pickup pin.
   if (!Number.isInteger(extraMinutes) || extraMinutes < 0 || extraMinutes > 120 || extraMinutes % 5 !== 0) {
