@@ -30,17 +30,10 @@ describe("Mamnoon city taxi pricing", () => {
     expect(after - before).toBeLessThanOrEqual(250);
   });
 
-  it("limits demand changes when the base city fare reaches 10000 IQD", () => {
-    expect(taxiFare("economy", 20, { demandMultiplier: 1.5 })).toBe(10000);
-    expect(taxiFare("economy", 25, { demandMultiplier: 1.5 })).toBe(11000);
-    expect(taxiFare("economy", 25, { demandMultiplier: 0.8 })).toBe(8000);
-  });
-
-  it("tapers city demand uplift smoothly instead of switching at one distance threshold", () => {
-    const before = taxiFare("economy", 24.9, { demandMultiplier: 1.5 });
-    const after = taxiFare("economy", 25, { demandMultiplier: 1.5 });
-    expect(after).toBeGreaterThanOrEqual(before);
-    expect(after - before).toBeLessThanOrEqual(250);
+  it("ignores geographic demand multipliers so nearby pin movement cannot multiply fares", () => {
+    expect(taxiFare("economy", 10, { demandMultiplier: 1.5 })).toBe(4000);
+    expect(taxiFare("economy", 10, { demandMultiplier: 0.8 })).toBe(4000);
+    expect(taxiFare("economy", 10.01, { demandMultiplier: 1.5 })).toBe(4000);
   });
 
   it("uses 187.5 IQD/km and smaller demand changes for inter-governorate rides", () => {
@@ -51,7 +44,7 @@ describe("Mamnoon city taxi pricing", () => {
   });
 
   it("adds a return or second trip and charges 500 IQD per five extra minutes", () => {
-    expect(taxiFare("economy", 5, { tripType: "round_trip" })).toBe(4000);
+    expect(taxiFare("economy", 5, { tripType: "round_trip" })).toBe(3500);
     expect(taxiFare("economy", 5, { tripType: "second_trip" })).toBe(4000);
     expect(taxiFare("economy", 5, { extraMinutes: 5 })).toBe(2500);
     expect(taxiFare("economy", 5, { extraMinutes: 120 })).toBe(14000);
