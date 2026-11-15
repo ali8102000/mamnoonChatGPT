@@ -43,11 +43,21 @@ export default function MonitoringScreen() {
         supabase.rpc("has_admin_access", { p_user_id: user.id }),
       ]);
       const roleNames = (rolesResult.data ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
-      if (rolesResult.error || !roleNames.some((role: string) => ["super_admin", "admin", "support"].includes(role))) {
+      const canMonitor = roleNames.some((role: string) => ["super_admin", "admin", "support"].includes(role));
+      const canReviewReports = roleNames.some((role: string) => ["super_admin", "admin", "support", "moderator"].includes(role));
+      if (rolesResult.error || (!canMonitor && !canReviewReports)) {
         setAllowed(false); return;
       }
       setAllowed(true);
       setCanManage(admin.data === true);
+      if (!canMonitor) {
+        setTab("reports");
+        const result = await invoke({ action: "reports" });
+        setReports(result.reports ?? []);
+        setBlocks([]);
+        setTickets([]);
+        return;
+      }
       const result = await invoke({ action: "monitoring" });
       setStats(result.stats ?? { totalUsers: 0, activeRequests: 0, activeDrivers: 0, activeWorkers: 0 });
       setReports(result.reports ?? []);
@@ -118,10 +128,13 @@ export default function MonitoringScreen() {
   if (authLoading || dataLoading || allowed === null) return <View style={s.center}><ActivityIndicator color={palette.brand}/><Text style={s.muted}>جاري تحميل المراقبة المباشرة...</Text></View>;
   if (!allowed) return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة لموظفي ممنون المخوّلين فقط.</Text></View>;
 
-  const tabs: { value: Tab; label: string }[] = [
-    { value: "live", label: "مباشر" }, { value: "reports", label: "البلاغات" },
-    { value: "blocks", label: "الحظر" }, { value: "support", label: "الدعم" },
-  ];
+  const reportsOnly = tab === "reports" && stats.totalUsers === 0 && blocks.length === 0 && tickets.length === 0;
+  const tabs: { value: Tab; label: string }[] = reportsOnly
+    ? [{ value: "reports", label: "البلاغات" }]
+    : [
+        { value: "live", label: "مباشر" }, { value: "reports", label: "البلاغات" },
+        { value: "blocks", label: "الحظر" }, { value: "support", label: "الدعم" },
+      ];
 
   return (
     <View style={s.page}>
