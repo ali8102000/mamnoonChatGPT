@@ -35,8 +35,11 @@ Deno.serve(async (req: Request) => {
     });
     const { data: auth, error: authError } = await caller.auth.getUser(token);
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
-    const { data: staff, error: staffError } = await caller.rpc("has_staff_role", { p_user_id: auth.user.id });
-    if (staffError || staff !== true) return json({ error: "forbidden" }, 403);
+    const { data: financeAccess, error: financeAccessError } = await caller.rpc(
+      "has_subscription_admin_access",
+      { p_user_id: auth.user.id },
+    );
+    if (financeAccessError || financeAccess !== true) return json({ error: "forbidden" }, 403);
 
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
@@ -52,6 +55,7 @@ Deno.serve(async (req: Request) => {
     };
 
     if (body.action === "search_users") {
+      await requireAdmin();
       const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
       if (query.length < 2) return json({ error: "query_too_short" }, 400);
       const safe = query.replace(/[,%()]/g, " ");
