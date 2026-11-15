@@ -238,6 +238,67 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    if (body.action === "friends" || body.action === "friend_requests") {
+      requireRoles(["super_admin", "admin", "moderator"]);
+      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
+      if (body.action === "friends") {
+        const { data, error } = await admin.from("friends")
+          .select("*, user:profiles!friends_user_id_fkey(full_name,phone), friend:profiles!friends_friend_id_fkey(full_name,phone)")
+          .order("created_at", { ascending: false }).limit(limit);
+        if (error) return json({ error: "friends_load_failed" }, 500);
+        return json({ friends: data ?? [] });
+      }
+      const { data, error } = await admin.from("friend_requests")
+        .select("*, sender:profiles!friend_requests_sender_id_fkey(full_name,phone), receiver:profiles!friend_requests_receiver_id_fkey(full_name,phone)")
+        .order("created_at", { ascending: false }).limit(limit);
+      if (error) return json({ error: "friend_requests_load_failed" }, 500);
+      return json({ requests: data ?? [] });
+    }
+
+    if (body.action === "delete_friendship") {
+      requireRoles(["super_admin", "admin", "moderator"]);
+      if (!isUuid(body.user1_id) || !isUuid(body.user2_id) || body.user1_id === body.user2_id) {
+        return json({ error: "invalid_friendship" }, 400);
+      }
+      const { error } = await caller.rpc("admin_delete_friendship", {
+        p_user1_id: body.user1_id,
+        p_user2_id: body.user2_id,
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true });
+    }
+
+    if (body.action === "delete_friend_request") {
+      requireRoles(["super_admin", "admin", "moderator"]);
+      if (!isUuid(body.request_id)) return json({ error: "invalid_request_id" }, 400);
+      const { error } = await caller.rpc("admin_delete_friend_request", {
+        p_request_id: body.request_id,
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true });
+    }
+
+    if (body.action === "broadcast_notification") {
+      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
+      const targets = ["all", "drivers", "workers", "single"];
+      if (!targets.includes(body.target) || typeof body.title !== "string" ||
+          body.title.trim().length < 1 || body.title.length > 200 ||
+          typeof body.body !== "string" || body.body.trim().length < 1 ||
+          body.body.length > 2000 ||
+          (body.target === "single" ? !isUuid(body.user_id) :
+            (body.user_id !== undefined && !isUuid(body.user_id)))) {
+        return json({ error: "invalid_notification" }, 400);
+      }
+      const { data, error } = await caller.rpc("admin_broadcast_notification", {
+        p_target: body.target,
+        p_title: body.title.trim(),
+        p_body: body.body.trim(),
+        p_single_user_id: body.user_id ?? null,
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ sent: Number(data ?? 0) });
+    }
+
     return json({ error: "unknown_action" }, 400);
   } catch (error) {
     const message = String(error);
