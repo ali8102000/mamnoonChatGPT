@@ -67,7 +67,7 @@ This is a living migration checklist. A matching route name or a successful Type
 - [ ] Complete monitoring moderation actions and subscription administration server functions. Bootstrap/import remain deliberately locked on Android because they are one-time or high-impact operations and their server-side web functions are not yet available in Expo.
 
 ### P2 — visual and interaction parity
-- [ ] Bundle and load Tajawal weights used by web.
+- [x] Bundle and load Tajawal 400/500/700/800/900 assets in the native bundle; verify weight-to-style mapping and glyph rendering on device.
 - [ ] Match web theme persistence and live light/dark switching.
 - [ ] Compare every route at the same Android viewport, light/dark mode, and account role; record screenshots and fix spacing, typography, radii, borders, gradients, shadows, icons, and safe-area differences.
 - [ ] Verify RTL, keyboard resize, scrolling, back navigation, dialogs, toasts, loading/empty/error states, and accessibility text scaling.
