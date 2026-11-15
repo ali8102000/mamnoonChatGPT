@@ -60,6 +60,16 @@ Deno.serve(async (req: Request) => {
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
     const { data: staff, error: staffError } = await caller.rpc("has_staff_role", { p_user_id: auth.user.id });
     if (staffError || staff !== true) return json({ error: "forbidden" }, 403);
+    const { data: staffRolesData, error: staffRolesError } = await caller.rpc("get_staff_roles", {
+      p_user_id: auth.user.id,
+    });
+    if (staffRolesError || !Array.isArray(staffRolesData)) return json({ error: "forbidden" }, 403);
+    const staffRoles = new Set(staffRolesData.map((entry: unknown) =>
+      typeof entry === "string" ? entry : String((entry as { role?: unknown } | null)?.role ?? ""),
+    ));
+    const requireRoles = (allowed: string[]) => {
+      if (!allowed.some((role) => staffRoles.has(role))) throw new Error("role_required");
+    };
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
@@ -69,6 +79,7 @@ Deno.serve(async (req: Request) => {
     };
 
     if (body.action === "list" || body.action === "search") {
+      requireRoles(["super_admin", "admin", "support", "moderator"]);
       const isSearch = body.action === "search";
       if (isSearch && (typeof body.query !== "string" || body.query.trim().length < 2)) {
         return json({ error: "query_too_short" }, 400);
@@ -105,6 +116,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "detail") {
+      requireRoles(["super_admin", "admin", "support", "moderator"]);
       if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
       const id = body.user_id;
       const [profile, roles, block, driver, worker, transactions, requests, ratings] = await Promise.all([
@@ -131,6 +143,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "providers") {
+      requireRoles(["super_admin", "admin", "support"]);
       const type = ["driver", "large_driver", "worker"].includes(body.type) ? body.type : "driver";
       const status = ["all", "approved", "pending", "suspended", "rejected"].includes(body.status) ? body.status : "all";
       const category = typeof body.category === "string" ? body.category.slice(0, 80) : "all";
@@ -170,6 +183,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "requests") {
+      requireRoles(["super_admin", "admin", "support"]);
       const status = typeof body.status === "string" ? body.status.slice(0, 40) : "all";
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let requestQuery = admin.from("service_requests")
@@ -229,6 +243,7 @@ Deno.serve(async (req: Request) => {
     const message = String(error);
     if (message.includes("missing_")) return json({ error: "server_configuration_incomplete" }, 503);
     if (message.includes("admin_required")) return json({ error: "admin_required" }, 403);
+    if (message.includes("role_required")) return json({ error: "forbidden" }, 403);
     return json({ error: "internal_error" }, 500);
   }
 });
