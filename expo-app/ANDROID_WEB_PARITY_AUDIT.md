@@ -200,3 +200,12 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - Provider status changes remain intentionally disabled in this screen; they must go through the audited admin status workflow with required rejection reasons and notifications.
 - Latest code commits: `05a149ef07d92705eeba62cc6e204b572b67f5e7` (dashboard navigation) and `a16feed74dff4165c5f0ec9047f06578aceabb6c` (provider search).
 - These latest commits have not yet produced a completed CI run in the observed workflow results. The previous Android CI run had all substantive checks (TypeScript, production guard, dependency compatibility, Expo Doctor, Android export) succeed, but the workflow conclusion was cancelled during cleanup; APK workflow run `43679841190` was cancelled before a verified artifact was reported. Do not treat that as a fresh APK.
+
+
+## Native wallet and coupon administration continuation — 2026-11-15
+
+- Added `expo-app/app/admin/finance.tsx` and linked it from the native admin dashboard. It includes staff-gated transaction/coupon listing, admin-gated wallet credit/debit with confirmation, coupon creation, audience distribution, and coupon deletion.
+- Added `supabase/functions/admin-finance/index.ts` as the authenticated server bridge. Staff access is required for reads; admin access is rechecked through the caller JWT for all financial/coupon mutations. Service-role access is server-only for profile/transaction/coupon reads; mutations use existing caller-scoped RPCs.
+- Added user search for wallet operations with bounded input and result count. No wallet changes, coupon distribution, or production actions were executed during implementation.
+- The Edge Function is committed but **not deployed** to Supabase production. The screen is therefore source-complete but not live-verified until owner approval for deployment and role/device testing.
+- CI must validate this new function and the latest Android route before any completion claim. Physical device tests, screenshot parity, and all customer/provider flows remain outstanding.
