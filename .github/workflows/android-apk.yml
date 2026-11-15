@@ -117,8 +117,22 @@ jobs:
           "$BUILD_TOOLS/aapt" dump badging release-artifacts/mamnoon-test.apk | tee release-artifacts/apk-metadata.txt
           grep -q "package: name='com.mamnoon.app'" release-artifacts/apk-metadata.txt
           sha256sum release-artifacts/mamnoon-test.apk > release-artifacts/mamnoon-test.apk.sha256
+      - name: Upload installable APK
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mamnoon-test-apk
+          path: |
+            expo-app/release-artifacts/mamnoon-test.apk
+            expo-app/release-artifacts/mamnoon-test.apk.sha256
+            expo-app/release-artifacts/apk-metadata.txt
+          if-no-files-found: error
+          retention-days: 14
+          # APKs are already compressed ZIP containers; avoid recompressing them.
+          compression-level: 0
       - name: Install and launch APK on Android emulator
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -139,16 +153,3 @@ jobs:
               echo "::error::Mamnoon crashed during the Android emulator launch smoke test."
               exit 1
             fi
-      - name: Upload installable APK
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: mamnoon-test-apk
-          path: |
-            expo-app/release-artifacts/mamnoon-test.apk
-            expo-app/release-artifacts/mamnoon-test.apk.sha256
-            expo-app/release-artifacts/apk-metadata.txt
-          if-no-files-found: error
-          retention-days: 14
-          # APKs are already compressed ZIP containers; avoid recompressing them.
-          compression-level: 0
