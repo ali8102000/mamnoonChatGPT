@@ -300,7 +300,7 @@ export default function RequestDetail() {
         if (active) setOtherProfile(error ? null : data);
       });
     return () => { active = false; };
-  }, [request?.customer_id, request?.provider_id, user?.id]);
+  }, [request?.customer_id, request?.provider_id, request?.status, user?.id]);
 
   const loadChat = useCallback(async () => {
     if (!request || ["completed", "cancelled"].includes(request.status)) { setChatId(null); setMessages([]); return; }
