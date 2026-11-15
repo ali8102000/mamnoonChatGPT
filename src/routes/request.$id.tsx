@@ -546,7 +546,6 @@ function RequestDetail() {
               status={req.status}
               myRole={myRole}
               serviceType={req.type}
-              driverName={other?.full_name ?? (req.type === "taxi" ? "الكابتن" : "الفني")}
               driverPhone={other?.phone}
               vehicleCategory={req.vehicle_category}
               height={390}
