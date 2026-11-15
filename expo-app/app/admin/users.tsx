@@ -51,10 +51,11 @@ export default function AdminUsersScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const { data: staff, error: staffError } = await supabase.rpc("has_staff_role", { p_user_id: user.id });
-      if (staffError || staff !== true) { setCanView(false); setRows([]); return; }
-      const { data: roles } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
+      const { data: roles, error: staffError } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
       const roleNames = (roles ?? []).map((r: any) => typeof r === "string" ? r : r.role);
+      if (staffError || !roleNames.some((role: string) => ["super_admin", "admin", "support", "moderator"].includes(role))) {
+        setCanView(false); setRows([]); return;
+      }
       setCanManage(roleNames.includes("super_admin") || roleNames.includes("admin"));
       setCanView(true);
       const result = await invoke(query.trim().length >= 2
@@ -113,7 +114,7 @@ export default function AdminUsersScreen() {
   };
 
   if (authLoading || loading) return <View style={s.center}><ActivityIndicator size="large" color={palette.brand}/><Text style={s.muted}>جاري تحميل المستخدمين...</Text></View>;
-  if (canView === false) return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة متاحة للمشرفين فقط.</Text></View>;
+  if (canView === false) return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة متاحة للمشرفين والدعم والمراقبين المخوّلين.</Text></View>;
 
   return (
     <View style={s.page}>
