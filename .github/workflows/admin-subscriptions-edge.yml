@@ -5,6 +5,7 @@ on:
     paths:
       - "supabase/functions/admin-subscriptions/**"
       - "supabase/functions/admin-users/**"
+      - "supabase/functions/admin-finance/**"
       - ".github/workflows/admin-subscriptions-edge.yml"
   push:
     branches:
@@ -12,6 +13,7 @@ on:
     paths:
       - "supabase/functions/admin-subscriptions/**"
       - "supabase/functions/admin-users/**"
+      - "supabase/functions/admin-finance/**"
 
 permissions:
   contents: read
@@ -28,3 +30,4 @@ jobs:
         run: |
           deno check supabase/functions/admin-subscriptions/index.ts
           deno check supabase/functions/admin-users/index.ts
+          deno check supabase/functions/admin-finance/index.ts
