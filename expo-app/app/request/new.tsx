@@ -13,7 +13,7 @@ import {
   BackHandler,
   PanResponder,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
@@ -100,8 +100,6 @@ export default function NewRequest() {
   const regionChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userPannedMapRef = useRef(false);
   const mapRef = useRef<MapView>(null);
-  const dragSelectionVersionRef = useRef(0);
-  const isDraggingMarkerRef = useRef(false);
   const extraTimeTrackWidthRef = useRef(1);
   const extraTimePanResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -383,47 +381,6 @@ export default function NewRequest() {
         setDestination(address || "وجهة محددة على الخريطة");
       }
     }, 450);
-  }
-
-  async function chooseMapPoint(coords: Coordinates) {
-    const targetMode = mapMode;
-    const selectedGovernorateKey = targetMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
-    const previousCoords = targetMode === "pickup" ? pickupCoords : destinationCoords;
-    const selectionVersion = ++dragSelectionVersionRef.current;
-
-    // Optimistic marker update prevents the dragged pin snapping back while validation/geocoding runs.
-    if (targetMode === "pickup") setPickupCoords(coords);
-    else setDestinationCoords(coords);
-
-    if (selectedGovernorateKey) {
-      try {
-        const validation = await callMamnoonMapsApi<{ valid: boolean }>({
-          action: "validateGovernorate",
-          center: { lat: coords.latitude, lng: coords.longitude },
-          governorateKey: selectedGovernorateKey,
-        });
-        if (!validation.valid) {
-          if (selectionVersion === dragSelectionVersionRef.current) {
-            if (targetMode === "pickup") setPickupCoords(previousCoords);
-            else setDestinationCoords(previousCoords);
-          }
-          Alert.alert("الموقع خارج المحافظة", `اختر نقطة داخل محافظة ${getMobileGovernorate(selectedGovernorateKey)?.name ?? "المحافظة المحددة"} أو غيّر المحافظة.`);
-          return;
-        }
-      } catch (error) {
-        if (selectionVersion === dragSelectionVersionRef.current) {
-          if (targetMode === "pickup") setPickupCoords(previousCoords);
-          else setDestinationCoords(previousCoords);
-        }
-        Alert.alert("تعذّر التحقق من الموقع", error instanceof Error ? error.message : "حاول مرة ثانية.");
-        return;
-      }
-    }
-
-    const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
-    if (selectionVersion !== dragSelectionVersionRef.current) return;
-    if (targetMode === "pickup") setPickup(address || "موقع محدد على الخريطة");
-    else setDestination(address || "وجهة محددة على الخريطة");
   }
 
   function chooseGovernorate(key: string) {
@@ -714,7 +671,7 @@ export default function NewRequest() {
           style={styles.map}
           provider={PROVIDER_GOOGLE}
           initialRegion={region}
-          onPanDrag={() => { if (!isDraggingMarkerRef.current) userPannedMapRef.current = true; }}
+          onPanDrag={() => { userPannedMapRef.current = true; }}
           onRegionChangeComplete={handleRegionChangeComplete}
           showsUserLocation
           showsMyLocationButton={false}
@@ -948,7 +905,7 @@ export default function NewRequest() {
                 <Text style={styles.tripOptionsHint}>30 دقيقة</Text>
                 <Text style={styles.tripOptionsHint}>ساعة</Text>
                 <Text style={styles.tripOptionsHint}>ساعتان</Text>
-              </View> )}
+              </View>
             </>
           )}
         </View>
