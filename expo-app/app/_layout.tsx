@@ -1,5 +1,6 @@
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Text, TextInput } from "react-native";
 import { useFonts, Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black } from "@expo-google-fonts/tajawal";
 import { Alert, I18nManager, LogBox, Platform, useColorScheme } from "react-native";
 import { useEffect, useRef } from "react";
@@ -148,6 +149,8 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [fontsLoaded] = useFonts({ Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black });
   if (!fontsLoaded) return null;
+  (Text as any).defaultProps = { ...(Text as any).defaultProps, style: [{ fontFamily: "Tajawal_400Regular" }, (Text as any).defaultProps?.style] };
+  (TextInput as any).defaultProps = { ...(TextInput as any).defaultProps, style: [{ fontFamily: "Tajawal_400Regular" }, (TextInput as any).defaultProps?.style] };
   return (
     <ThemePreferenceProvider>
     <AuthProvider>
