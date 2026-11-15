@@ -104,7 +104,7 @@ This is a living migration checklist. A matching route name or a successful Type
 
 ### P0 — release blockers
 - [x] Android TypeScript check and Expo dependency compatibility check passed on `93973e65ac9db926424036186f0d16a112ae90e3`.
-- [ ] Run Expo Doctor and Android export on this exact commit.
+- [ ] Run Expo Doctor and Android export on this exact commit. The Android prebuild/Gradle debug APK compile and APK archive validation passed in workflow run `43672764165`; Expo Doctor and a standalone Android export remain unverified.
 - [ ] Run the app on an Android emulator/device and verify launch, auth restore, customer home, provider home, and role switching.
 - [ ] Verify customer request creation for technician, expert, taxi, Kia cargo, Kia passenger, and bus against the production-safe test environment.
 - [ ] Verify provider offer delivery, acceptance, customer/provider request details, realtime updates, push-notification open actions, and chat.
@@ -130,9 +130,9 @@ This is a living migration checklist. A matching route name or a successful Type
 - [x] Android TypeScript check (previous app-source commit `93973e65ac9db926424036186f0d16a112ae90e3`; must rerun after commit `43007859dd611532f87d50adb5c300fcbfcf931f`)
 - [x] Expo dependency compatibility check (`expo install --check`, previous app-source commit; rerun after latest source change)
 - [ ] `expo-doctor`
-- [ ] TypeScript and Android build rerun for latest commit `43007859dd611532f87d50adb5c300fcbfcf931f`
-- [ ] Android export
-- [x] Installable debug APK built, validated, and uploaded from this commit (workflow run `43669755940`; artifact `mamnoon-test-apk`).
+- [x] TypeScript check and Android debug APK build rerun for latest commit `f0d71478e0c0dcf91176df1d603420cae8f34c59` (workflow run `43672764165`; all steps passed)
+- [ ] Android export (debug APK compile succeeded; separate Expo export step not run)
+- [x] Installable debug APK built, validated, and uploaded from the latest parity commit `f0d71478e0c0dcf91176df1d603420cae8f34c59` (workflow run `43672764165`; artifact `mamnoon-test-apk`, artifact ID `14145463192`, SHA-256 `435242399ffc757daae4c467e983779e48c067fd575c320d0246a1ae10a0d103`, archive size 59,138,836 bytes; expires 2026-11-29).
 - [ ] Install the APK on a physical Android device and complete device-level screen and flow tests.
 - [ ] Device-level screen and flow tests
 - [ ] Screenshot comparison report
@@ -146,3 +146,11 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - A focused code-size/feature inspection confirms that route count overstates parity: the web admin dashboard contains substantially more management logic than the Expo admin screen; Expo subscription management remains explicitly read-only. These are known functional blockers, not cosmetic differences.
 - Main request creation screens both contain map/GPS and Supabase request logic, but source inspection alone cannot prove matching request types, validation, pricing, routing, realtime delivery, or successful production behavior. Those require controlled runtime tests.
 - Android admin dashboard source was updated in commit `43007859dd611532f87d50adb5c300fcbfcf931f`; only client-side aggregate reads and display were added. No database schema, RLS, production data, payment settings, or secrets were changed. CI/device verification of this latest commit remains pending.
+
+
+## Build verification update — 2026-11-15
+
+- Latest branch head `f0d71478e0c0dcf91176df1d603420cae8f34c59` passed web CI (run `43672764183`), mobile CI (run `43672764189`), and Android test APK workflow (run `43672764165`).
+- Android workflow steps all succeeded: dependency installation, TypeScript check, Expo dependency compatibility, environment access check, native prebuild/Gradle compile, APK validation, and artifact upload.
+- Artifact: `mamnoon-test-apk` (ID `14145463192`), SHA-256 `435242399ffc757daae4c467e983779e48c067fd575c320d0246a1ae10a0d103`. This is a debug/test APK, not a Play Store release. Physical-device installation and interaction tests are still pending.
+- PR #39 remains open and unmerged. No database schema, RLS, production data, payment settings, or secrets were changed.
