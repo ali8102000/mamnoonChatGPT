@@ -33,6 +33,8 @@ const requestSchema = z.discriminatedUnion("action", [
     pickupGovernorateKey: z.string().optional(),
     destinationGovernorateKey: z.string().optional(),
     vehicleCategory: z.enum(["economy", "premium", "luxury"]),
+    tripType: z.enum(["one_way", "round_trip", "second_trip", "stop"]).optional().default("one_way"),
+    extraMinutes: z.number().int().min(0).max(120).refine((value) => value % 5 === 0, "مدة الانتظار يجب أن تكون من مضاعفات 5").optional().default(0),
     notes: z.string().max(1000).optional().default(""),
   }),
 ]);
@@ -242,6 +244,21 @@ async function handleRequest(request: Request) {
   if (blockError) return json({ error: "تعذّر التحقق من حالة الحساب." }, 500);
   if (blocked) return json({ error: "الحساب موقوف حالياً ولا يمكنه إنشاء طلب." }, 403);
 
+  if (data.extraMinutes > 0) {
+    const { data: goldSubscription, error: subscriptionError } = await supabaseAdmin
+      .from("user_subscriptions")
+      .select("id, subscription_plans!inner(code)")
+      .eq("user_id", authData.user.id)
+      .eq("status", "active")
+      .eq("is_trial", false)
+      .gt("current_period_end", now)
+      .eq("subscription_plans.code", "gold")
+      .limit(1)
+      .maybeSingle();
+    if (subscriptionError) return json({ error: "تعذّر التحقق من اشتراكك الذهبي." }, 500);
+    if (!goldSubscription) return json({ error: "إضافة وقت الانتظار متاحة للمشترك الذهبي فقط." }, 403);
+  }
+
   const route = await drivingRoute(data.from, data.to);
   const fromGovernorate = data.pickupGovernorateKey
     ? getGovernorate(data.pickupGovernorateKey)
@@ -273,6 +290,8 @@ async function handleRequest(request: Request) {
       distance_km: route.distanceKm,
       duration_min: route.durationMin,
       is_intercity: fromGovernorate.key !== toGovernorate.key,
+      trip_type: data.tripType,
+      extra_minutes: data.extraMinutes,
       notes: data.notes.trim() || null,
     })
     .select("id,price_estimate,distance_km,duration_min")
