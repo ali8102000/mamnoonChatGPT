@@ -186,3 +186,5 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - Improved user-detail transparency: the backend now reports when ratings failed to load, and the native detail view shows that warning instead of silently displaying an empty ratings list. Latest code commit: `9bcf35d2a457018b0c666b820eb10898745f16a7`.
 - Still outstanding: full provider/request/wallet/coupon/live-map/notification/roles/company/audit parity; production deployment approval for privileged Edge Functions; physical-device testing; screenshot-by-screenshot visual comparison; end-to-end auth, GPS, realtime, notifications, and Zain Cash handoff verification.
 - No production database, RLS, user records, payment settings, or secrets were changed. PR #39 remains open and unmerged.
+
+- Latest continuation: `admin-users` now supports a staff-authenticated provider listing action with server-generated 10-minute signed verification-document URLs; `expo-app/app/admin/providers.tsx` presents filters and document review; the dashboard links to it. Commits: `1a7c7051`, `4cab7528`, `3bf51a4a`.
