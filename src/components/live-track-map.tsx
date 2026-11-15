@@ -37,6 +37,7 @@ export interface LiveTrackMapProps {
   status?: string;
   myRole?: "customer" | "provider";
   serviceType?: "taxi" | "service";
+  driverName?: string;
   driverPhone?: string;
   vehicleCategory?: string;
   meColor?: string;
@@ -57,6 +58,7 @@ export function LiveTrackMap({
   status = "accepted",
   myRole = "customer",
   serviceType = "taxi",
+  driverName = "الفني",
   meColor = "#0284c7",
   otherColor = "#16a34a",
   height = 280,
@@ -69,6 +71,8 @@ export function LiveTrackMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const meMarkerRef = useRef<any>(null);
+  const pickupMarkerRef = useRef<any>(null);
+  const destMarkerRef = useRef<any>(null);
   const driverMarkerRef = useRef<any>(null);
   const routeLineRef = useRef<any>(null);
   const readyRef = useRef(false);
@@ -143,9 +147,13 @@ export function LiveTrackMap({
       readyRef.current = false;
       didInitialFitRef.current = false;
       directionsSequenceRef.current += 1;
+      if (pickupMarkerRef.current) pickupMarkerRef.current.setMap(null);
+      if (destMarkerRef.current) destMarkerRef.current.setMap(null);
       if (markerRefForCleanup.current) markerRefForCleanup.current.setMap(null);
       if (driverMarkerRef.current) driverMarkerRef.current.setMap(null);
       if (routeLineRef.current) routeLineRef.current.setMap(null);
+      pickupMarkerRef.current = null;
+      destMarkerRef.current = null;
       meMarkerRef.current = null;
       driverMarkerRef.current = null;
       routeLineRef.current = null;
@@ -160,22 +168,37 @@ export function LiveTrackMap({
     const map = mapRef.current;
     if (!g || !map || !readyRef.current) return;
 
-    // Pickup and destination pins are intentionally hidden for a cleaner live-ride map.
+    // Taxi screens use a clean map; service requests retain their pickup and destination pins.
+    if (serviceType !== "taxi") {
+      if (effectivePickup) {
+        if (pickupMarkerRef.current) pickupMarkerRef.current.setPosition(effectivePickup);
+        else pickupMarkerRef.current = new g.maps.Marker({ position: effectivePickup, map, title: "نقطة الانطلاق", zIndex: 10 });
+      }
+      if (destCoords) {
+        if (destMarkerRef.current) destMarkerRef.current.setPosition(destCoords);
+        else destMarkerRef.current = new g.maps.Marker({ position: destCoords, map, title: "وجهة الوصول", zIndex: 9 });
+      }
+    } else {
+      if (pickupMarkerRef.current) pickupMarkerRef.current.setMap(null);
+      if (destMarkerRef.current) destMarkerRef.current.setMap(null);
+      pickupMarkerRef.current = null;
+      destMarkerRef.current = null;
+    }
 
-    // 1. Luxury sedan marker follows the live driver location.
+    // 1. Driver marker: a luxury sedan for taxi rides and the original arrow for services.
     if (activeDriverCoord) {
       const heading =
         activeDriverCoord.heading ??
         (effectivePickup ? bearingDeg(activeDriverCoord, effectivePickup) : 0);
-      const carIcon = {
-        path: "M32 3 C25 3 21 6 18 13 L13 25 L10 29 L10 49 L15 49 L17 57 L23 57 L25 49 L39 49 L41 57 L47 57 L49 49 L54 49 L54 29 L51 25 L46 13 C43 6 39 3 32 3 Z M19 22 L23 12 Q32 8 41 12 L45 22 Z M16 28 L48 28 L48 43 L16 43 Z",
-        scale: 0.9,
-        fillColor: "#D4AF37",
-        fillOpacity: 1,
-        strokeColor: "#172033",
-        strokeWeight: 2.2,
-        rotation: heading,
-      };
+      const carIcon = serviceType === "taxi"
+        ? {
+            path: "M32 3 C25 3 21 6 18 13 L13 25 L10 29 L10 49 L15 49 L17 57 L23 57 L25 49 L39 49 L41 57 L47 57 L49 49 L54 49 L54 29 L51 25 L46 13 C43 6 39 3 32 3 Z M19 22 L23 12 Q32 8 41 12 L45 22 Z M16 28 L48 28 L48 43 L16 43 Z",
+            scale: 0.9, fillColor: "#D4AF37", fillOpacity: 1, strokeColor: "#172033", strokeWeight: 2.2, rotation: heading,
+          }
+        : {
+            path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, fillColor: "#16a34a", fillOpacity: 1,
+            strokeColor: "#ffffff", strokeWeight: 2.5, rotation: heading,
+          };
 
       if (driverMarkerRef.current) {
         if (animate) {
@@ -190,7 +213,7 @@ export function LiveTrackMap({
           position: activeDriverCoord,
           map,
           icon: carIcon,
-          title: "سيارة السائق",
+          title: serviceType === "taxi" ? "سيارة السائق" : driverName,
           zIndex: 20,
         });
       }
@@ -422,6 +445,11 @@ export function LiveTrackMap({
       </div>
 
       <div className="absolute bottom-3 inset-x-3 z-10 flex items-center justify-between pointer-events-none">
+        {serviceType !== "taxi" && <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-lg border border-border/40 pointer-events-auto flex items-center gap-3 text-[11px] font-bold">
+          <span className="flex items-center gap-1.5 text-sky-700"><span className="h-2.5 w-2.5 rounded-full bg-sky-500 ring-2 ring-sky-200" />نقطة الانطلاق</span>
+          <span className="flex items-center gap-1.5 text-emerald-700"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 animate-pulse" />الفني {driverName}</span>
+          {destCoords && <span className="flex items-center gap-1.5 text-rose-700"><span className="h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-rose-200" />الوجهة</span>}
+        </div>}
         {routeProvider === "osrm" && <span className="text-[9px] text-muted-foreground bg-white/90 px-2 py-1 rounded-lg pointer-events-auto">© OpenStreetMap · OSRM</span>}
         {isFullscreen && (
           <Button type="button" onClick={() => { setIsFullscreen(false); onClose?.(); setTimeout(() => window.dispatchEvent(new Event("resize")), 100); }} className="pointer-events-auto px-4 py-2 rounded-2xl bg-primary text-primary-foreground text-xs font-bold shadow-lg btn-press">
