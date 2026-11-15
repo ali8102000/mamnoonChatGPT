@@ -352,6 +352,17 @@ Deno.serve(async (req: Request) => {
       return json({ locations: locations.data ?? [], requests: requests.data ?? [] });
     }
 
+    if (body.action === "reports") {
+      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      const { data: reports, error } = await admin.from("user_reports")
+        .select("*, reporter:profiles!user_reports_reporter_id_fkey(full_name,phone), reported:profiles!user_reports_reported_id_fkey(full_name,phone)")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) return json({ error: "reports_load_failed" }, 500);
+      return json({ reports: reports ?? [] });
+    }
+
     if (body.action === "monitoring") {
       requireRoles(["super_admin", "admin", "support"]);
       const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
