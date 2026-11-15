@@ -1,6 +1,6 @@
 import React from "react";
 import { View } from "react-native";
-import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 type Props = { slug: string };
 const ink = "#18324B", blue = "#4D91C6", pale = "#EAF3F8", gold = "#E6A94E", green = "#67A886";
