@@ -86,6 +86,7 @@ export function LiveTrackMap({
   const [mapError, setMapError] = useState(false);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+  const [atPickup, setAtPickup] = useState(false);
   const [routeMode, setRouteMode] = useState<"road" | "direct" | "waiting">("waiting");
   const [routeProvider, setRouteProvider] = useState<"google" | "osrm" | "none">("none");
   useEffect(() => {
@@ -224,6 +225,7 @@ export function LiveTrackMap({
     const targetPoint = status === "in_progress" && destCoords ? destCoords : effectivePickup;
     if (activeDriverCoord && targetPoint) {
       const directDistance = haversineKm(activeDriverCoord, targetPoint);
+      setAtPickup(status !== "in_progress" && directDistance <= 0.05);
       const hasRoadRouting = typeof g.maps.DirectionsService === "function";
       if (!hasRoadRouting || routeMode !== "road") {
         setDistanceKm(directDistance);
@@ -390,9 +392,13 @@ export function LiveTrackMap({
                       ? "موقع العميل"
                       : "الكابتن متجه إليك"}
               </span>
-              {etaMinutes != null && (
+              {serviceType === "taxi" && myRole === "customer" && status !== "in_progress" ? (
+                <span className="text-primary font-black">
+                  · {atPickup ? "انا في نقطة الانطلاق" : etaMinutes != null && etaMinutes <= 2 ? "دقيقتين واوصل" : etaMinutes != null ? `باقي ${etaMinutes} دقيقة واوصل` : "السائق متجه إليك"}
+                </span>
+              ) : etaMinutes != null ? (
                 <span className="text-primary font-black">· ~{etaMinutes} دقيقة</span>
-              )}
+              ) : null}
             </div>
             {distanceKm != null && (
               <div className="text-[11px] text-muted-foreground font-semibold">
