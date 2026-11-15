@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { ThemePreferenceProvider } from "@/lib/theme-preference";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
 import { palette } from "@/styles/theme";
@@ -145,6 +146,7 @@ function PushNotificationSetup() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
+    <ThemePreferenceProvider>
     <AuthProvider>
       <PushNotificationSetup />
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} backgroundColor={palette.canvas} />
@@ -177,5 +179,6 @@ export default function RootLayout() {
       </Stack>
       <IncomingRequestModal />
     </AuthProvider>
+    </ThemePreferenceProvider>
   );
 }
