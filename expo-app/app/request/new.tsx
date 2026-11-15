@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
@@ -81,6 +82,9 @@ export default function NewRequest() {
   const [extraWorkers, setExtraWorkers] = useState(0);
   const [notes, setNotes] = useState("");
   const [workDescription, setWorkDescription] = useState("");
+  const [brickQuantity, setBrickQuantity] = useState("");
+  const [cargoLoadDescription, setCargoLoadDescription] = useState("");
+  const [requestPhoto, setRequestPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [customerPrice, setCustomerPrice] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [couponPreview, setCouponPreview] = useState<{ discount: number; payable: number } | null>(null);
@@ -142,6 +146,7 @@ export default function NewRequest() {
   const isLargeVehicle = vehicle === "large";
   const destinationGovKey = destinationGovernorateKey;
   const isIntercity = Boolean(pickupGovernorateKey && destinationGovKey && pickupGovernorateKey !== destinationGovKey);
+  const showRequestPhoto = !isTaxi || isLargeVehicle;
   const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle
     ? calculateMobileTaxiFare(vehicleCat as Exclude<VehicleCategory, "large">, routeKm, 1, isIntercity, tripType, extraMinutes)
     : null;
@@ -451,6 +456,55 @@ export default function NewRequest() {
     }
   }
 
+  async function chooseRequestPhoto() {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.75,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      if (asset.fileSize && asset.fileSize > 8 * 1024 * 1024) {
+        Alert.alert("الصورة كبيرة", "الحد الأعلى لحجم الصورة 8 ميغابايت. اختَر صورة أصغر.");
+        return;
+      }
+      const mimeType = asset.mimeType ?? (asset.uri.toLowerCase().endsWith(".png") ? "image/png" : asset.uri.toLowerCase().endsWith(".webp") ? "image/webp" : "image/jpeg");
+      if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
+        Alert.alert("صيغة الصورة غير مدعومة", "اختَر صورة JPG أو PNG أو WebP.");
+        return;
+      }
+      setRequestPhoto({ ...asset, mimeType });
+    } catch (error) {
+      Alert.alert("تعذر اختيار الصورة", error instanceof Error ? error.message : "حاول مرة ثانية.");
+    }
+  }
+
+  async function uploadRequestPhoto(requestId: string) {
+    if (!requestPhoto || !user) return;
+    const mimeType = requestPhoto.mimeType ?? "image/jpeg";
+    const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+    const response = await fetch(requestPhoto.uri);
+    if (!response.ok) throw new Error("تعذر قراءة الصورة من الجهاز.");
+    const fileBuffer = await response.arrayBuffer();
+    if (fileBuffer.byteLength > 8 * 1024 * 1024) throw new Error("حجم الصورة أكبر من 8 ميغابايت.");
+    const attachmentPath = requestId + "/" + user.id + "/" + Date.now() + "." + extension;
+    const { error: uploadError } = await supabase.storage
+      .from("request-attachments")
+      .upload(attachmentPath, fileBuffer, { contentType: mimeType, cacheControl: "3600", upsert: false });
+    if (uploadError) throw uploadError;
+    const { error: pathError } = await (supabase as any)
+      .from("service_requests")
+      .update({ attachment_path: attachmentPath })
+      .eq("id", requestId)
+      .eq("customer_id", user.id);
+    if (pathError) {
+      await supabase.storage.from("request-attachments").remove([attachmentPath]);
+      throw pathError;
+    }
+  }
+
   function choosePlaceSuggestion(item: { text: string; address?: string; coords?: { lat: number; lng: number } }) {
     if (!item.coords) {
       Alert.alert("الموقع غير متوفر", "اختر اقتراحاً آخر يحتوي على إحداثيات دقيقة.");
@@ -538,7 +592,11 @@ export default function NewRequest() {
             price_estimate: null,
             customer_price: proposedPrice,
             pricing_mode: proposedPrice === null ? "negotiable" : "fixed",
-            notes: `نوع السيارة: ${vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص"}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
+            notes: [
+              "نوع السيارة: " + (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص"),
+              vehicleType === "kia_cargo" && cargoLoadDescription.trim() ? "تفاصيل الحمولة: " + cargoLoadDescription.trim() : "",
+              notes.trim(),
+            ].filter(Boolean).join(" | "),
           } as any)
           .select("id")
           .single();
@@ -590,7 +648,7 @@ export default function NewRequest() {
             pricing_mode: pricingMode,
             customer_price: pricingMode === "negotiable" ? null : proposedPrice,
             work_hours: pricingMode === "hourly" ? hours : null,
-            work_description: workDescription.trim() || null,
+            work_description: [workDescription.trim(), selectedService === "build" && brickQuantity.trim() ? "كمية الطابوق: " + brickQuantity.trim() : ""].filter(Boolean).join("\n") || null,
             notes: notes || null,
           })
           .select("id")
@@ -599,6 +657,17 @@ export default function NewRequest() {
         requestId = request.id;
       }
 
+      if (requestPhoto) {
+        try {
+          await uploadRequestPhoto(requestId);
+        } catch (photoError) {
+          console.warn("[request attachment] upload failed:", photoError);
+          Alert.alert("تم إرسال الطلب بدون الصورة", photoError instanceof Error ? photoError.message : "تعذر إرفاق الصورة. تقدر تكمل الطلب بدونها.", [
+            { text: "فتح الطلب", onPress: () => router.replace({ pathname: "/request/[id]", params: { id: requestId } }) },
+          ]);
+          return;
+        }
+      }
       router.replace({ pathname: "/request/[id]", params: { id: requestId } });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
@@ -810,6 +879,12 @@ export default function NewRequest() {
                 keyboardType="numeric"
               />
               <Text style={{ color: palette.muted, fontSize: 11, marginTop: 6 }}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب</Text>
+              {vehicleType === "kia_cargo" && (
+                <>
+                  <Text style={styles.label}>كمية الحمولة أو وصفها (اختياري — كيا حمل فقط)</Text>
+                  <TextInput style={styles.input} value={cargoLoadDescription} onChangeText={(value) => setCargoLoadDescription(value.slice(0, 300))} placeholder="مثلاً: 500 طابوقة أو حمولة نصف طن" placeholderTextColor="#94a3b8" />
+                </>
+              )}
             </View>
           )}
         </>
@@ -855,15 +930,22 @@ export default function NewRequest() {
 
       {!isTaxi && (
         <>
-          <Text style={styles.label}>وصف العمل المطلوب</Text>
+          <Text style={styles.label}>{["washer_repair", "stove_repair", "fridge_repair", "ac_repair", "electric_street", "plumbing"].includes(selectedService) ? "وصف العطل" : "وصف العمل المطلوب"}</Text>
           <TextInput
             style={[styles.input, { height: 90 }]}
             value={workDescription}
             onChangeText={setWorkDescription}
-            placeholder="مثلاً: بناء جدار بطول 5 أمتار وارتفاع 3 أمتار..."
+            placeholder={["washer_repair", "stove_repair", "fridge_repair", "ac_repair", "electric_street", "plumbing"].includes(selectedService) ? "اشرح العطل بالتفصيل حتى يعرف الفني شنو يحتاج..." : "مثلاً: بناء جدار بطول 5 أمتار وارتفاع 3 أمتار..." }
             placeholderTextColor="#94a3b8"
             multiline
+            maxLength={1500}
           />
+          {selectedService === "build" && (
+            <>
+              <Text style={styles.label}>كمية الطابوق المطلوبة (اختياري)</Text>
+              <TextInput style={styles.input} value={brickQuantity} onChangeText={(value) => setBrickQuantity(value.slice(0, 100))} placeholder="مثلاً: 2000 طابوقة" placeholderTextColor="#94a3b8" />
+            </>
+          )}
           <Text style={styles.label}>طريقة احتساب الأجر</Text>
           <View style={styles.catRow}>
             {([
@@ -938,6 +1020,21 @@ export default function NewRequest() {
         )}
       </View>
 
+      {showRequestPhoto && (
+        <View style={{ marginTop: 18, padding: 14, borderRadius: 16, borderWidth: 1, borderStyle: "dashed", borderColor: palette.gold, backgroundColor: palette.surface }}>
+          <Text style={styles.label}>صورة توضيحية للطلب (اختياري)</Text>
+          <TouchableOpacity style={styles.photoUploadButton} onPress={chooseRequestPhoto}>
+            <Text style={styles.photoUploadText}>{requestPhoto ? "تغيير الصورة" : "اختيار صورة من الجهاز"}</Text>
+          </TouchableOpacity>
+          {requestPhoto && (
+            <View style={{ marginTop: 10, alignItems: "center", gap: 8 }}>
+              <Image source={{ uri: requestPhoto.uri }} style={styles.requestPhotoPreview} />
+              <TouchableOpacity onPress={() => setRequestPhoto(null)}><Text style={{ color: palette.danger, fontWeight: "900" }}>حذف الصورة</Text></TouchableOpacity>
+            </View>
+          )}
+          <Text style={{ color: palette.muted, fontSize: 11, marginTop: 8 }}>JPG أو PNG أو WebP، بحد أقصى 8 ميغابايت. تظهر الصورة ضمن تفاصيل الطلب للأطراف المصرّح لها.</Text>
+        </View>
+      )}
       <Text style={styles.label}>ملاحظات إضافية (اختياري)</Text>
       <TextInput
         style={[styles.input, { height: 80 }]}
@@ -1057,6 +1154,9 @@ const styles = StyleSheet.create({
   mapCenterPinText: { fontSize: 34, textShadowColor: "rgba(0,0,0,0.35)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
   mapHint: { position: "absolute", bottom: 10, alignSelf: "center", backgroundColor: palette.brandDeep, color: palette.white, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, fontSize: 11, overflow: "hidden" },
   input: { minHeight: 54, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, fontWeight: "600", color: palette.ink, backgroundColor: palette.surface, textAlign: "right" },
+  photoUploadButton: { minHeight: 48, borderRadius: radius.md, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: palette.line },
+  photoUploadText: { color: palette.brand, fontWeight: "900", fontSize: 13 },
+  requestPhotoPreview: { width: 180, height: 135, borderRadius: radius.md, resizeMode: "cover" },
   catRow: { flexDirection: "row", gap: 10 },
   catChip: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
   catChipActive: { borderColor: palette.gold, backgroundColor: palette.brandSoft },
