@@ -288,6 +288,13 @@
       "when": 1794812400000,
       "tag": "0069_protect_verified_profile_contacts_from_direct_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794813000000,
+      "tag": "0070_restrict_provider_verification_direct_updates_to_owner",
+      "breakpoints": true
     }
   ]
 }
