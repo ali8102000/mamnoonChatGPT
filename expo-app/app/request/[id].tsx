@@ -13,7 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { AnimatedRegion, Marker } from "react-native-maps";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -100,8 +100,24 @@ type ChatMessage = {
 };
 
 
-function TaxiCarMarker({ heading }: { heading?: number | null }) {
+function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; heading?: number | null }) {
+  const animatedCoordinate = useRef(new AnimatedRegion({
+    latitude: coordinate.latitude,
+    longitude: coordinate.longitude,
+    latitudeDelta: 0,
+    longitudeDelta: 0,
+  })).current;
   const rotation = useSharedValue(Number.isFinite(heading) ? Number(heading) : 0);
+
+  useEffect(() => {
+    animatedCoordinate.timing({
+      latitude: coordinate.latitude,
+      longitude: coordinate.longitude,
+      duration: 4500,
+      useNativeDriver: false,
+    }).start();
+  }, [coordinate.latitude, coordinate.longitude, animatedCoordinate]);
+
   useEffect(() => {
     if (heading == null || !Number.isFinite(heading)) return;
     const current = rotation.value;
@@ -111,17 +127,21 @@ function TaxiCarMarker({ heading }: { heading?: number | null }) {
       easing: Easing.out(Easing.cubic),
     });
   }, [heading, rotation]);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
+
   return (
-    <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
-      <View style={styles.luxuryCarRoof} />
-      <View style={styles.luxuryCarWindows} />
-      <View style={styles.luxuryCarFront} />
-      <View style={styles.luxuryCarWheelLeft} />
-      <View style={styles.luxuryCarWheelRight} />
-    </Animated.View>
+    <Marker.Animated coordinate={animatedCoordinate} flat anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges>
+      <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
+        <View style={styles.luxuryCarRoof} />
+        <View style={styles.luxuryCarWindows} />
+        <View style={styles.luxuryCarFront} />
+        <View style={styles.luxuryCarWheelLeft} />
+        <View style={styles.luxuryCarWheelRight} />
+      </Animated.View>
+    </Marker.Animated>
   );
 }
 
@@ -855,7 +875,7 @@ export default function RequestDetail() {
                 showsUserLocation={request.type !== "taxi"}
               >
                 {request.type === "taxi" ? (
-                  (isProvider ? myLocation : otherLocation) && <Marker coordinate={(isProvider ? myLocation : otherLocation)!} flat anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges><TaxiCarMarker heading={(isProvider ? myLocation : otherLocation)?.heading} /></Marker>
+                  (isProvider ? myLocation : otherLocation) && <TaxiCarMarker coordinate={(isProvider ? myLocation : otherLocation)!} heading={(isProvider ? myLocation : otherLocation)?.heading} />
                 ) : (
                   <>
                     <Marker coordinate={{ latitude: request.pickup_lat!, longitude: request.pickup_lng! }} title="نقطة الانطلاق" pinColor="#0f766e" />
