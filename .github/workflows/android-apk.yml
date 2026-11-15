@@ -11,7 +11,6 @@ on:
     paths:
       - "expo-app/**"
       - ".github/workflows/android-apk.yml"
-      - ".github/workflows/android-apk.yml"
   workflow_dispatch:
 
 permissions:
