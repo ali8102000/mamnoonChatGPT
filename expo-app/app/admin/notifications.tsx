@@ -36,10 +36,15 @@ export default function AdminNotificationsScreen() {
   useEffect(() => {
     if (authLoading) return;
     if (!user?.id) { setAllowed(false); return; }
-    void supabase.rpc("get_staff_roles", { p_user_id: user.id }).then(({ data, error: roleError }) => {
-      const roles = (data ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
-      setAllowed(!roleError && roles.some((role: string) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)));
-    }).catch(() => setAllowed(false));
+    void (async () => {
+      try {
+        const { data, error: roleError } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
+        const roles = (data ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
+        setAllowed(!roleError && roles.some((role: string) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)));
+      } catch {
+        setAllowed(false);
+      }
+    })();
   }, [authLoading, user?.id]);
 
   const send = () => {
