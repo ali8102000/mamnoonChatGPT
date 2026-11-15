@@ -12,6 +12,7 @@ const ITEMS = [
   { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance"] },
   { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance"] },
   { label: "المراقبة المباشرة", route: "/admin/monitoring", roles: ["super_admin", "admin", "support"] },
+  { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support"] },
   { label: "إدارة الأصدقاء", route: "/admin/friends", roles: ["super_admin", "admin", "moderator"] },
   { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator"] },
   { label: "الصلاحيات وسجل العمليات", route: "/admin/governance", roles: ["super_admin", "admin"] },
