@@ -281,6 +281,13 @@
       "when": 1794811800000,
       "tag": "0068_restrict_direct_updates_to_guarded_request_and_profile_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794812400000,
+      "tag": "0069_protect_verified_profile_contacts_from_direct_updates",
+      "breakpoints": true
     }
   ]
 }
