@@ -11,6 +11,17 @@ describe("confirmed real road distance", () => {
       taxiFare("economy", route.distanceKm, { weather: "mild", roadCondition: "normal" }),
     ).toBe(3500);
   });
+  it("selects the shortest valid road alternative to avoid sudden route-price spikes", () => {
+    const route = parseDrivingRoute({
+      routes: [
+        { distanceMeters: 24000, duration: "1800s" },
+        { distanceMeters: 1800, duration: "240s" },
+        { distanceMeters: 3200, duration: "300s" },
+      ],
+    });
+    expect(route.distanceKm).toBe(1.8);
+    expect(route.durationMin).toBe(4);
+  });
   it("does not invent a fare when there is no route", () => {
     expect(() => parseDrivingRoute({ routes: [] })).toThrow();
   });
