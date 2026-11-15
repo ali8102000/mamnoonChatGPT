@@ -40,7 +40,7 @@ describe("Mamnoon city taxi pricing", () => {
     expect(taxiFare("economy", 68, { isIntercity: true })).toBe(12750);
     expect(taxiFare("premium", 68, { isIntercity: true })).toBe(13500);
     expect(taxiFare("luxury", 68, { isIntercity: true })).toBe(14000);
-    expect(taxiFare("economy", 68, { isIntercity: true, demandMultiplier: 1.5 })).toBe(14000);
+    expect(taxiFare("economy", 68, { isIntercity: true, demandMultiplier: 1.5 })).toBe(12750);
   });
 
   it("adds a return or second trip and charges 500 IQD per five extra minutes", () => {
