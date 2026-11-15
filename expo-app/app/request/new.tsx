@@ -113,7 +113,7 @@ export default function NewRequest() {
   })).current;
 
   function updateExtraMinutesFromPosition(x: number) {
-    const ratio = Math.max(0, Math.min(1, x / Math.max(1, extraTimeTrackWidthRef.current)));
+    const ratio = 1 - Math.max(0, Math.min(1, x / Math.max(1, extraTimeTrackWidthRef.current)));
     const steps = Math.round(ratio * 24);
     setExtraMinutes(steps * 5);
   }
