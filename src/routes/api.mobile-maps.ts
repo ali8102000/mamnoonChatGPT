@@ -244,21 +244,6 @@ async function handleRequest(request: Request) {
   if (blockError) return json({ error: "تعذّر التحقق من حالة الحساب." }, 500);
   if (blocked) return json({ error: "الحساب موقوف حالياً ولا يمكنه إنشاء طلب." }, 403);
 
-  if (data.extraMinutes > 0) {
-    const { data: goldSubscription, error: subscriptionError } = await supabaseAdmin
-      .from("user_subscriptions")
-      .select("id, subscription_plans!inner(code)")
-      .eq("user_id", authData.user.id)
-      .eq("status", "active")
-      .eq("is_trial", false)
-      .gt("current_period_end", now)
-      .eq("subscription_plans.code", "gold")
-      .limit(1)
-      .maybeSingle();
-    if (subscriptionError) return json({ error: "تعذّر التحقق من اشتراكك الذهبي." }, 500);
-    if (!goldSubscription) return json({ error: "إضافة وقت الانتظار متاحة للمشترك الذهبي فقط." }, 403);
-  }
-
   const route = await drivingRoute(data.from, data.to);
   const fromGovernorate = data.pickupGovernorateKey
     ? getGovernorate(data.pickupGovernorateKey)
