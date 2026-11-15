@@ -646,7 +646,7 @@ export default function RequestDetail() {
         </View>
         {otherProfile && !["completed", "cancelled"].includes(request.status) && (
           <View style={[styles.personCard, request.type === "taxi" && isActive && styles.personCardCompact]}>
-            <View style={styles.personAvatar}>
+            <View style={[styles.personAvatar, request.type === "taxi" && isActive && { width: 38, height: 38, borderRadius: 13 }]}>
               {otherProfile.avatar_url ? (
                 <Image source={{ uri: otherProfile.avatar_url }} style={styles.personAvatarImage} />
               ) : (
@@ -664,7 +664,7 @@ export default function RequestDetail() {
           {request.type === "service" && request.services?.slug && SERVICE_IMAGES[request.services.slug] ? (
             <Image source={SERVICE_IMAGES[request.services.slug]} style={styles.serviceIllustration} resizeMode="cover" />
           ) : null}
-          <Text style={styles.infoType}>
+          <Text style={[styles.infoType, request.type === "taxi" && isActive && styles.taxiInfoType]}>
             {request.vehicle_category === "large" ? `🚚 طلب سيارة كبيرة — ${request.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}` : request.type === "taxi" ? "🚕 طلب سيارة" : `🛠️ ${request.services?.name_ar || "خدمة منزلية"}`}
           </Text>
           {request.type !== "taxi" || !isActive ? <>{request.pickup_text && <Text style={styles.infoRow}>من: {request.pickup_text}</Text>}{request.dest_text && <Text style={styles.infoRow}>إلى: {request.dest_text}</Text>}</> : null}
@@ -963,6 +963,7 @@ const styles = StyleSheet.create({
   trackingHint: { fontSize: 12, color: palette.muted, textAlign: "center", marginTop: 8 },
   serviceIllustration: { width: 96, height: 96, borderRadius: radius.lg, marginBottom: 12, backgroundColor: palette.surfaceSoft },
   infoType: { fontSize: 18, fontWeight: "900", color: palette.ink, marginBottom: 8 },
+  taxiInfoType: { fontSize: 13, marginBottom: 3 },
   infoRow: { fontSize: 13, color: palette.muted, marginTop: 5 },
   infoPrice: { fontSize: 18, fontWeight: "900", color: palette.brand, marginTop: 8 },
   actionsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
