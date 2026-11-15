@@ -188,3 +188,5 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - No production database, RLS, user records, payment settings, or secrets were changed. PR #39 remains open and unmerged.
 
 - Latest continuation: `admin-users` now supports a staff-authenticated provider listing action with server-generated 10-minute signed verification-document URLs; `expo-app/app/admin/providers.tsx` presents filters and document review; the dashboard links to it. Commits: `1a7c7051`, `4cab7528`, `3bf51a4a`.
+
+- Further continuation: `admin-users` now exposes staff-authorized request listing and admin-authorized cancel/reopen actions via caller-scoped RPCs. Native `/admin/requests` provides status filters, request details, cancellation with reason, and reopen confirmation. Dashboard link added. Commits: `db324d87`, `feb0d0d8`, `06a9098b`.
