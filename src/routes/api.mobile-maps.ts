@@ -114,6 +114,16 @@ async function handleRequest(request: Request) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return json({ error: "انتهت جلسة الدخول. سجّل الدخول مرة ثانية." }, 401);
 
+  const supabaseUrl = process.env["MAMNOON_SUPABASE_URL"] || process.env["SUPABASE_URL"];
+  const supabasePublishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_ANON_KEY"];
+  if (!supabaseUrl || !supabasePublishableKey) {
+    return json({ error: "خدمة إنشاء الطلب غير مهيأة على الخادم." }, 503);
+  }
+  const supabaseUser = createClient(supabaseUrl, supabasePublishableKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
   const raw = await request.json().catch(() => null);
   const parsed = requestSchema.safeParse(raw);
   if (!parsed.success) return json({ error: "بيانات البحث أو الموقع غير صحيحة." }, 400);
@@ -262,7 +272,7 @@ async function handleRequest(request: Request) {
     return json({ error: "إحدى نقطتي الرحلة لا تقع داخل المحافظة المختارة. حدّد الموقع من جديد." }, 400);
   }
 
-  const { data: created, error: createError } = await supabaseAdmin
+  const { data: created, error: createError } = await supabaseUser
     .from("service_requests")
     .insert({
       customer_id: authData.user.id,
