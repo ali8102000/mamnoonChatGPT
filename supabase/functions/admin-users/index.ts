@@ -169,6 +169,38 @@ Deno.serve(async (req: Request) => {
       return json({ providers: enriched, total: count ?? enriched.length });
     }
 
+    if (body.action === "requests") {
+      const status = typeof body.status === "string" ? body.status.slice(0, 40) : "all";
+      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
+      let requestQuery = admin.from("service_requests")
+        .select("id,type,status,price_estimate,created_at,pickup_text,dest_text,customer_id,provider_id")
+        .order("created_at", { ascending: false }).limit(limit);
+      if (status !== "all") requestQuery = requestQuery.eq("status", status);
+      const { data: requests, error } = await requestQuery;
+      if (error) return json({ error: "requests_load_failed" }, 500);
+      return json({ requests: requests ?? [] });
+    }
+
+    if (body.action === "cancel_request") {
+      await requireAdmin();
+      if (!isUuid(body.request_id) || typeof body.reason !== "string" || body.reason.length > 500) {
+        return json({ error: "invalid_request" }, 400);
+      }
+      const { error } = await caller.rpc("admin_cancel_request", {
+        p_request_id: body.request_id, p_reason: body.reason.trim() || null,
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true });
+    }
+
+    if (body.action === "reopen_request") {
+      await requireAdmin();
+      if (!isUuid(body.request_id)) return json({ error: "invalid_request_id" }, 400);
+      const { error } = await caller.rpc("admin_reopen_request", { p_request_id: body.request_id });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true });
+    }
+
     if (body.action === "block") {
       await requireAdmin();
       if (!isUuid(body.user_id) || typeof body.reason !== "string" || body.reason.length > 500 ||
