@@ -69,15 +69,8 @@ export function calculateFareBreakdown(
   const perKm = isIntercity ? 187.5 : t.perKm;
   const distanceFare = perKm * distanceKm;
   const subtotal = distanceFare;
-  const requestedDemand = Math.min(1.5, Math.max(0.8, options?.demandMultiplier ?? 1));
-  // Taper demand uplift smoothly from 1.5x below 5,000 IQD to 1.1x at 10,000 IQD.
-  // This avoids a sudden fare discontinuity at a single distance threshold.
-  const demandMultiplier = isIntercity
-    ? Math.min(1.1, Math.max(0.95, requestedDemand))
-    : Math.min(
-        requestedDemand,
-        1.1 + 0.4 * Math.min(1, Math.max(0, (10000 - subtotal) / 5000)),
-      );
+  // Keep fares independent of pickup-zone demand so moving a pin cannot cause price spikes.
+  const demandMultiplier = 1;
 
   const economyFare = subtotal * demandMultiplier;
   const categoryTransition = Math.min(1, Math.max(0, (economyFare - 4500) / 1000));
