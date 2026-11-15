@@ -36,6 +36,8 @@ jobs:
           bun-version: latest
       - name: Install locked dependencies
         run: bun install
+      - name: Remove transient Bun lockfile
+        run: rm -f bun.lock
       - name: TypeScript
         run: bunx tsc --noEmit
       - name: Validate production configuration guards
@@ -54,6 +56,6 @@ jobs:
       - name: Expo dependency compatibility
         run: bunx expo install --check
       - name: Expo Doctor
-        run: bunx expo-doctor
+        run: npx --yes expo-doctor
       - name: Export Android bundle
         run: bunx expo export --platform android
