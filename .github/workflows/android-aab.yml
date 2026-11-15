@@ -35,6 +35,8 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
+      - name: Remove transient Bun lockfile
+        run: rm -f bun.lock
       - name: TypeScript check
         run: bunx tsc --noEmit
       - name: Expo dependency compatibility
