@@ -99,32 +99,48 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && cd android && chmod +x gradlew && ./gradlew assembleDebug'
+          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && cd android && chmod +x gradlew && python3 - <<\'PY\'
+from pathlib import Path
+p = Path("app/build.gradle")
+s = p.read_text()
+marker = "android {"
+if marker not in s:
+    raise SystemExit("Could not find android block in generated app/build.gradle")
+if "mamnoonAbiSplits" not in s:
+    s = s.replace(marker, marker + "\\n    // mamnoonAbiSplits: build only phone ARM64 and emulator x86_64 APKs\\n    splits {\\n        abi {\\n            enable true\\n            reset()\\n            include \\\"arm64-v8a\\\", \\\"x86_64\\\"\\n            universalApk false\\n        }\\n    }\\n", 1)
+    p.write_text(s)
+PY
+./gradlew assembleDebug'
       - name: Validate APK
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           mkdir -p release-artifacts
-          cp android/app/build/outputs/apk/debug/app-debug.apk release-artifacts/mamnoon-test.apk
-          test -s release-artifacts/mamnoon-test.apk
-          node -e 'const fs=require("fs"); const p="release-artifacts/mamnoon-test.apk"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid APK archive"); process.exit(1); }'
-          # Verify every APK entry before publishing the artifact, not only its ZIP signature.
-          unzip -t release-artifacts/mamnoon-test.apk
+          OUTPUT_DIR="android/app/build/outputs/apk/debug"
+          cp "$OUTPUT_DIR/app-arm64-v8a-debug.apk" release-artifacts/mamnoon-test-arm64.apk
+          cp "$OUTPUT_DIR/app-x86_64-debug.apk" release-artifacts/mamnoon-test-x86_64.apk
+          for APK in release-artifacts/mamnoon-test-arm64.apk release-artifacts/mamnoon-test-x86_64.apk; do
+            test -s "$APK"
+            node -e 'const fs=require("fs"); const p=process.argv[1]; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Invalid APK archive: "+p); process.exit(1); }' "$APK"
+            unzip -t "$APK"
+          done
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           BUILD_TOOLS="$SDK_ROOT/build-tools/35.0.0"
-          # Android's own tools validate APK signing, alignment, package metadata and SDK requirements.
-          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs release-artifacts/mamnoon-test.apk
-          "$BUILD_TOOLS/zipalign" -c -v 4 release-artifacts/mamnoon-test.apk
-          "$BUILD_TOOLS/aapt" dump badging release-artifacts/mamnoon-test.apk | tee release-artifacts/apk-metadata.txt
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs release-artifacts/mamnoon-test-arm64.apk
+          "$BUILD_TOOLS/zipalign" -c -v 4 release-artifacts/mamnoon-test-arm64.apk
+          "$BUILD_TOOLS/aapt" dump badging release-artifacts/mamnoon-test-arm64.apk | tee release-artifacts/apk-metadata.txt
           grep -q "package: name='com.mamnoon.app'" release-artifacts/apk-metadata.txt
-          sha256sum release-artifacts/mamnoon-test.apk > release-artifacts/mamnoon-test.apk.sha256
+          "$BUILD_TOOLS/aapt" dump badging release-artifacts/mamnoon-test-x86_64.apk | grep -q "package: name='com.mamnoon.app'"
+          sha256sum release-artifacts/mamnoon-test-arm64.apk > release-artifacts/mamnoon-test-arm64.apk.sha256
+          sha256sum release-artifacts/mamnoon-test-x86_64.apk > release-artifacts/mamnoon-test-x86_64.apk.sha256
+          du -h release-artifacts/*.apk
       - name: Upload installable APK
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/upload-artifact@v4
         with:
           name: mamnoon-test-apk
           path: |
-            expo-app/release-artifacts/mamnoon-test.apk
-            expo-app/release-artifacts/mamnoon-test.apk.sha256
+            expo-app/release-artifacts/mamnoon-test-arm64.apk
+            expo-app/release-artifacts/mamnoon-test-arm64.apk.sha256
             expo-app/release-artifacts/apk-metadata.txt
           if-no-files-found: error
           retention-days: 14
@@ -143,7 +159,7 @@ jobs:
           script: |
             set -euo pipefail
             cd expo-app
-            adb install -r release-artifacts/mamnoon-test.apk
+            adb install -r release-artifacts/mamnoon-test-x86_64.apk
             adb logcat -c
             adb shell monkey -p com.mamnoon.app 1
             sleep 20
