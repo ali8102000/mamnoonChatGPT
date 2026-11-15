@@ -107,11 +107,11 @@ WITH CHECK ((user_id=auth.uid() AND created_by=auth.uid()) OR (has_chat_moderati
 DROP POLICY IF EXISTS "Support participants mark messages read" ON public.support_messages;
 CREATE POLICY "Support participants mark messages read" ON public.support_messages FOR UPDATE TO authenticated
 USING (sender_id<>auth.uid() AND EXISTS (SELECT 1 FROM public.support_conversations c WHERE c.id=support_messages.conversation_id AND (c.user_id=auth.uid() OR has_chat_moderation_access(auth.uid()))))
-WITH CHECK (EXISTS (SELECT 1 FROM public.support_conversations c WHERE c.id=support_messages.conversation_id AND (c.user_id=auth.uid() OR has_chat_moderation_access(auth.uid())));
+WITH CHECK (EXISTS (SELECT 1 FROM public.support_conversations c WHERE c.id=support_messages.conversation_id AND (c.user_id=auth.uid() OR has_chat_moderation_access(auth.uid()))));
 --> statement-breakpoint
 DROP POLICY IF EXISTS "Support participants read messages" ON public.support_messages;
 CREATE POLICY "Support participants read messages" ON public.support_messages FOR SELECT TO authenticated
-USING (EXISTS (SELECT 1 FROM public.support_conversations c WHERE c.id=support_messages.conversation_id AND (c.user_id=auth.uid() OR has_chat_moderation_access(auth.uid())));
+USING (EXISTS (SELECT 1 FROM public.support_conversations c WHERE c.id=support_messages.conversation_id AND (c.user_id=auth.uid() OR has_chat_moderation_access(auth.uid()))));
 --> statement-breakpoint
 DROP POLICY IF EXISTS "Support participants send messages" ON public.support_messages;
 CREATE POLICY "Support participants send messages" ON public.support_messages FOR INSERT TO authenticated
@@ -123,7 +123,7 @@ USING (EXISTS (SELECT 1 FROM public.support_tickets t WHERE t.id=support_ticket_
 --> statement-breakpoint
 DROP POLICY IF EXISTS "Ticket parties send messages" ON public.support_ticket_messages;
 CREATE POLICY "Ticket parties send messages" ON public.support_ticket_messages FOR INSERT TO authenticated
-WITH CHECK (sender_id=auth.uid() AND ((is_staff=false AND EXISTS (SELECT 1 FROM public.support_tickets t WHERE t.id=support_ticket_messages.ticket_id AND t.user_id=auth.uid())) OR (is_staff=true AND has_chat_moderation_access(auth.uid())));
+WITH CHECK (sender_id=auth.uid() AND ((is_staff=false AND EXISTS (SELECT 1 FROM public.support_tickets t WHERE t.id=support_ticket_messages.ticket_id AND t.user_id=auth.uid())) OR (is_staff=true AND has_chat_moderation_access(auth.uid()))));
 --> statement-breakpoint
 DROP POLICY IF EXISTS "Owner or staff see tickets" ON public.support_tickets;
 CREATE POLICY "Owner or staff see tickets" ON public.support_tickets FOR SELECT TO authenticated
