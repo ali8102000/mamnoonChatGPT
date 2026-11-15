@@ -8,7 +8,7 @@ This is a living migration checklist. A matching route name or a successful Type
 
 - Web route inventory: 30 route files under `src/routes/`.
 - Current Expo route inventory: 30 route files under `expo-app/app/` (re-counted on 2026-11-15). This corrects the earlier 21-route figure, which was stale. Matching route counts do not prove matching page content or behavior.
-- Confirmed implementation gap: web `src/routes/admin.tsx` is about 2,580 lines and exposes 16 management sections (overview, stats, users, providers, requests, chat, friends, reports, subscriptions, coupons, wallet, live map, notifications, roles, company, audit). Expo `expo-app/app/admin.tsx` is a smaller subset of the admin workflows. The Android dashboard now includes total/active driver and worker counts, request-status counts, and commission totals for day/month/year; it also displays a warning when one or more metric queries fail rather than silently implying zero values. This improves overview metrics but does not port the other management sections. The Expo subscription route explicitly says plan and financial grant/edit actions are not enabled; monitoring/subscription views are not equivalent to the full web management surface.
+- Confirmed implementation gap: web `src/routes/admin.tsx` exposes 16 management sections. Expo has added native user administration, a provider directory with verification-document links, report moderation in the dashboard, and a subscription-management workspace. The provider directory is now linked from the admin dashboard and supports provider type/status filters plus local search. These are partial ports; coupons, wallet, live map, notifications, friends, staff roles, company settings, and audit still require parity work. Subscription backend deployment and live runtime verification remain outstanding.
 - The native app is a separate React Native implementation, not a WebView of the web app; its screen layouts and styling are independently maintained.
 - The web design system uses Tajawal (400/500/700/800/900), CSS OKLCH tokens, glass surfaces, gradients, shadows, and a 112.5% root font scale.
 - Expo previously used a green palette (`#174C3C`) that visibly diverged from the web blue/amber palette. The palette has now been moved to sRGB approximations of the web light/dark tokens. This is a first alignment step, not a pixel-perfect certification.
@@ -36,6 +36,7 @@ This is a living migration checklist. A matching route name or a successful Type
 | `/admin` | `admin` | Needs live comparison |
 | `/admin/monitoring` | `admin/monitoring` | Read-only staff-gated metrics; full moderation actions not ported |
 | `/admin/subscriptions` | `admin/subscriptions` | Native management workspace added; backend Edge Function committed but not deployed or runtime-verified |
+| `/admin/providers` | `admin/providers` | Provider directory with type/status filters, search, and signed verification-document links; status mutations remain unported |
 | `/admin/bootstrap` | `admin/bootstrap` | Intentionally locked on Android; one-time privilege bootstrap stays web-only |
 | `/admin/import` | `admin/import` | Intentionally locked on Android; import mutations not ported |
 | `/onboarding/driver` | `onboarding/driver` | Needs live comparison |
@@ -190,3 +191,12 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - Latest continuation: `admin-users` now supports a staff-authenticated provider listing action with server-generated 10-minute signed verification-document URLs; `expo-app/app/admin/providers.tsx` presents filters and document review; the dashboard links to it. Commits: `1a7c7051`, `4cab7528`, `3bf51a4a`.
 
 - Further continuation: `admin-users` now exposes staff-authorized request listing and admin-authorized cancel/reopen actions via caller-scoped RPCs. Native `/admin/requests` provides status filters, request details, cancellation with reason, and reopen confirmation. Dashboard link added. Commits: `db324d87`, `feb0d0d8`, `06a9098b`.
+
+
+## Continuation update — 2026-11-15 (provider directory navigation)
+- Confirmed `supabase/functions/admin-users/index.ts` already implements the `providers` action: it checks authenticated staff role, reads driver/worker profiles and verification metadata, and generates 10-minute signed URLs for private verification documents server-side.
+- Linked the existing native `expo-app/app/admin/providers.tsx` screen from the main Android admin dashboard.
+- Added local search by provider name, phone, and email to the provider directory. Existing filters cover taxi drivers, large-vehicle drivers, workers, and provider status.
+- Provider status changes remain intentionally disabled in this screen; they must go through the audited admin status workflow with required rejection reasons and notifications.
+- Latest code commits: `05a149ef07d92705eeba62cc6e204b572b67f5e7` (dashboard navigation) and `a16feed74dff4165c5f0ec9047f06578aceabb6c` (provider search).
+- These latest commits have not yet produced a completed CI run in the observed workflow results. The previous Android CI run had all substantive checks (TypeScript, production guard, dependency compatibility, Expo Doctor, Android export) succeed, but the workflow conclusion was cancelled during cleanup; APK workflow run `43679841190` was cancelled before a verified artifact was reported. Do not treat that as a fresh APK.
