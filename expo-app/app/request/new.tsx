@@ -130,15 +130,20 @@ export default function NewRequest() {
       return;
     }
     let active = true;
-    supabase.rpc("get_taxi_demand_multiplier", {
-      _lat: pickupCoords.latitude,
-      _lng: pickupCoords.longitude,
-      _category: vehicleCat,
-    }).then(({ data, error }) => {
-      if (!active) return;
-      const value = Number(data);
-      setDemandMultiplier(!error && Number.isFinite(value) ? Math.min(1.5, Math.max(0.8, value)) : 1);
-    }).catch(() => { if (active) setDemandMultiplier(1); });
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc("get_taxi_demand_multiplier", {
+          _lat: pickupCoords.latitude,
+          _lng: pickupCoords.longitude,
+          _category: vehicleCat,
+        });
+        if (!active) return;
+        const value = Number(data);
+        setDemandMultiplier(!error && Number.isFinite(value) ? Math.min(1.5, Math.max(0.8, value)) : 1);
+      } catch {
+        if (active) setDemandMultiplier(1);
+      }
+    })();
     return () => { active = false; };
   }, [isTaxi, isLargeVehicle, pickupCoords, vehicleCat]);
 
