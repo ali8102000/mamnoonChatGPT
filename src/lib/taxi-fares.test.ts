@@ -43,6 +43,16 @@ describe("Mamnoon city taxi pricing", () => {
     expect(taxiFare("economy", 68, { isIntercity: true, demandMultiplier: 1.5 })).toBe(14000);
   });
 
+  it("adds a return or second trip and charges 500 IQD per five extra minutes", () => {
+    expect(taxiFare("economy", 5, { tripType: "round_trip" })).toBe(4000);
+    expect(taxiFare("economy", 5, { tripType: "second_trip" })).toBe(4000);
+    expect(taxiFare("economy", 5, { extraMinutes: 5 })).toBe(2500);
+    expect(taxiFare("economy", 5, { extraMinutes: 120 })).toBe(14000);
+    expect(taxiFare("economy", 5, { tripType: "stop", extraMinutes: 10 })).toBe(3000);
+    expect(() => taxiFare("economy", 5, { extraMinutes: 7 })).toThrow();
+    expect(() => taxiFare("economy", 5, { extraMinutes: 125 })).toThrow();
+  });
+
   it("does not add weather or traffic charges", () => {
     const fare = calculateFareBreakdown("luxury", 5, {
       weather: "heat",
