@@ -295,6 +295,13 @@
       "when": 1794813000000,
       "tag": "0070_restrict_provider_verification_direct_updates_to_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794813600000,
+      "tag": "0071_protect_approved_provider_qualifications_from_direct_changes",
+      "breakpoints": true
     }
   ]
 }
