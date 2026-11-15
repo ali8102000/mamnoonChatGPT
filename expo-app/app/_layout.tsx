@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
 import { palette } from "@/styles/theme";
+import { isNotificationSoundEnabled, loadNotificationSoundPreference } from "@/lib/notification-sound";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
@@ -18,7 +19,7 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
-    shouldPlaySound: true,
+    shouldPlaySound: isNotificationSoundEnabled(),
     shouldSetBadge: true,
   }),
 });
@@ -26,6 +27,10 @@ Notifications.setNotificationHandler({
 function PushNotificationSetup() {
   const { user } = useAuth();
   const handledResponseId = useRef<string | null>(null);
+
+  useEffect(() => {
+    void loadNotificationSoundPreference();
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -41,6 +46,12 @@ function PushNotificationSetup() {
             vibrationPattern: [0, 250, 250, 250],
             lightColor: "#D4AF37",
             sound: "default",
+          });
+          await Notifications.setNotificationChannelAsync("mamnoon-silent", {
+            name: "إشعارات ممنون الصامتة",
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: "#D4AF37",
           });
         }
 
