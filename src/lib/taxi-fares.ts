@@ -92,7 +92,7 @@ export function calculateFareBreakdown(
   const roadCondition = options?.roadCondition ?? "normal";
   const weatherData = WEATHER_RATES[weather];
   const roadData = ROAD_RATES[roadCondition];
-  const tripMultiplier = options?.tripType === "round_trip" || options?.tripType === "second_trip" ? 2 : 1;
+  const tripMultiplier = options?.tripType === "round_trip" ? 1.8 : options?.tripType === "second_trip" ? 2 : 1;
   const extraMinutes = options?.extraMinutes ?? 0;
   if (!Number.isInteger(extraMinutes) || extraMinutes < 0 || extraMinutes > 120 || extraMinutes % 5 !== 0) {
     throw new Error("مدة الانتظار يجب أن تكون من 5 إلى 120 دقيقة وبفواصل 5 دقائق");
