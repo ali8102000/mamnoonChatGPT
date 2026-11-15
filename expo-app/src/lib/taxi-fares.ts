@@ -30,5 +30,8 @@ export function calculateMobileTaxiFare(
 
   const tripMultiplier = tripType === "round_trip" ? 1.8 : tripType === "second_trip" ? 2 : 1;
   const extraTimeFare = Math.ceil(extraMinutes / 5) * 500;
-  return Math.max(0, Math.round((economyFare * tierMultiplier * tripMultiplier + extraTimeFare) / 250) * 250);
+  const total = tripType === "round_trip"
+    ? Math.round(economyFare * tierMultiplier * 2 * 0.9 + extraTimeFare)
+    : Math.round((economyFare * tierMultiplier * tripMultiplier + extraTimeFare) / 250) * 250;
+  return Math.max(0, total);
 }
