@@ -37,7 +37,6 @@ export interface LiveTrackMapProps {
   status?: string;
   myRole?: "customer" | "provider";
   serviceType?: "taxi" | "service";
-  driverName?: string;
   driverPhone?: string;
   vehicleCategory?: string;
   meColor?: string;
@@ -58,7 +57,6 @@ export function LiveTrackMap({
   status = "accepted",
   myRole = "customer",
   serviceType = "taxi",
-  driverName = "الكابتن",
   meColor = "#0284c7",
   otherColor = "#16a34a",
   height = 280,
@@ -70,8 +68,6 @@ export function LiveTrackMap({
 }: LiveTrackMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const pickupMarkerRef = useRef<any>(null);
-  const destMarkerRef = useRef<any>(null);
   const meMarkerRef = useRef<any>(null);
   const driverMarkerRef = useRef<any>(null);
   const routeLineRef = useRef<any>(null);
@@ -147,13 +143,9 @@ export function LiveTrackMap({
       readyRef.current = false;
       didInitialFitRef.current = false;
       directionsSequenceRef.current += 1;
-      if (pickupMarkerRef.current) pickupMarkerRef.current.setMap(null);
-      if (destMarkerRef.current) destMarkerRef.current.setMap(null);
       if (markerRefForCleanup.current) markerRefForCleanup.current.setMap(null);
       if (driverMarkerRef.current) driverMarkerRef.current.setMap(null);
       if (routeLineRef.current) routeLineRef.current.setMap(null);
-      pickupMarkerRef.current = null;
-      destMarkerRef.current = null;
       meMarkerRef.current = null;
       driverMarkerRef.current = null;
       routeLineRef.current = null;
@@ -169,54 +161,6 @@ export function LiveTrackMap({
     if (!g || !map || !readyRef.current) return;
 
     // Pickup and destination pins are intentionally hidden for a cleaner live-ride map.
-    /* if (effectivePickup) {
-      const pickupIcon = {
-        path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-        scale: 1.6,
-        fillColor: "#0284c7",
-        fillOpacity: 1,
-        strokeColor: "#ffffff",
-        strokeWeight: 2,
-        anchor: new g.maps.Point(12, 22),
-      };
-      if (pickupMarkerRef.current) {
-        pickupMarkerRef.current.setPosition(effectivePickup);
-      } else {
-        pickupMarkerRef.current = new g.maps.Marker({
-          position: effectivePickup,
-          map,
-          icon: pickupIcon,
-          title: "نقطة الانطلاق (الركوب)",
-          zIndex: 10,
-        });
-      }
-    }
-
-    // 2. Destination Marker (Rose pin badge)
-    if (destCoords) {
-      const destIcon = {
-        path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-        scale: 1.6,
-        fillColor: "#e11d48",
-        fillOpacity: 1,
-        strokeColor: "#ffffff",
-        strokeWeight: 2,
-        anchor: new g.maps.Point(12, 22),
-      };
-      if (destMarkerRef.current) {
-        destMarkerRef.current.setPosition(destCoords);
-      } else {
-        destMarkerRef.current = new g.maps.Marker({
-          position: destCoords,
-          map,
-          icon: destIcon,
-          title: "وجهة الوصول",
-          zIndex: 9,
-        });
-      }
-    }
-
-    */
 
     // 1. Luxury sedan marker follows the live driver location.
     if (activeDriverCoord) {
