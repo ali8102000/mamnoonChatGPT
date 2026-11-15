@@ -145,11 +145,9 @@ function NewRequest() {
     seasonalWeatherFallback(),
   );
   const [roadCondition, setRoadCondition] = useState<RoadCondition>("normal");
-  const [demandMultiplier, setDemandMultiplier] = useState(1);
   const [tripOptionsExpanded, setTripOptionsExpanded] = useState(false);
   const [tripType, setTripType] = useState<"one_way" | "round_trip" | "second_trip" | "stop">("one_way");
   const [extraMinutes, setExtraMinutes] = useState(0);
-  const [isGoldSubscriber, setIsGoldSubscriber] = useState(false);
   const [drawerExpanded, setDrawerExpanded] = useState(true);
   const [showFareDetails, setShowFareDetails] = useState(false);
 
@@ -177,32 +175,6 @@ function NewRequest() {
     window.addEventListener("storage", restoreGovernorate);
     return () => window.removeEventListener("storage", restoreGovernorate);
   }, []);
-  useEffect(() => {
-    if (!session?.user?.id) {
-      setIsGoldSubscriber(false);
-      return;
-    }
-    let active = true;
-    void (async () => {
-      try {
-        const { data, error } = await supabase
-          .from("user_subscriptions")
-          .select("id, subscription_plans!inner(code)")
-          .eq("user_id", session.user.id)
-          .eq("status", "active")
-          .eq("is_trial", false)
-          .gt("current_period_end", new Date().toISOString())
-          .eq("subscription_plans.code", "gold")
-          .limit(1)
-          .maybeSingle();
-        if (active) setIsGoldSubscriber(!error && Boolean(data));
-      } catch {
-        if (active) setIsGoldSubscriber(false);
-      }
-    })();
-    return () => { active = false; };
-  }, [session?.user?.id]);
-
   const gov = getGovernorate(govKey);
   function chooseGov(key: string) {
     localStorage.setItem(GOV_STORAGE_KEY, key);
@@ -242,7 +214,7 @@ function NewRequest() {
       return taxiFare(vehicleCategory, routeKm, {
         weather: "mild" as const,
         roadCondition,
-        demandMultiplier,
+        demandMultiplier: 1,
         isIntercity: interCity,
         tripType,
         extraMinutes,
@@ -337,35 +309,6 @@ function NewRequest() {
       .catch(() => {});
     return () => controller.abort();
   }, [pickupLat, pickupLng]);
-
-  useEffect(() => {
-    if (type !== "taxi" || pickupLat == null || pickupLng == null) {
-      setDemandMultiplier(1);
-      return;
-    }
-    let cancelled = false;
-    const refreshDemand = async () => {
-      try {
-        const { data, error } = await (supabase as any).rpc("get_taxi_demand_multiplier", {
-          _lat: pickupLat,
-          _lng: pickupLng,
-          _category: vehicleCategory,
-        });
-        if (error) throw error;
-        const value = Number(data);
-        if (!cancelled && Number.isFinite(value))
-          setDemandMultiplier(Math.min(1.5, Math.max(0.8, value)));
-      } catch {
-        if (!cancelled) setDemandMultiplier(1);
-      }
-    };
-    refreshDemand();
-    const timer = window.setInterval(refreshDemand, 15000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [type, pickupLat, pickupLng, vehicleCategory]);
 
   const nearby = useNearbyProviders({
     center: pickupCoords,
@@ -495,7 +438,7 @@ function NewRequest() {
           return;
         }
         verifiedRouteKm = freshDistanceKm;
-        priceEstimate = taxiFare(vehicleCategory, freshDistanceKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity, tripType, extraMinutes });
+        priceEstimate = taxiFare(vehicleCategory, freshDistanceKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes });
       }
       if (couponCode.trim()) {
         const amount = type === "taxi" && vehicle !== "large" ? priceEstimate : getCouponBaseAmount();
@@ -531,7 +474,7 @@ function NewRequest() {
           distance_km: type === "taxi" ? verifiedRouteKm : null,
           is_intercity: type === "taxi" ? interCity : false,
           trip_type: type === "taxi" ? tripType : "one_way",
-          extra_minutes: type === "taxi" && isGoldSubscriber ? extraMinutes : 0,
+          extra_minutes: type === "taxi" ? extraMinutes : 0,
           ...(type === "service"
             ? {
                 pricing_mode: pricingMode,
@@ -957,15 +900,9 @@ function NewRequest() {
                       <span>وقت إضافي</span>
                       <span>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</span>
                     </div>
-                    {isGoldSubscriber ? (
-                      <>
-                        <p className="text-[11px] text-muted-foreground">ميزة الذهبي: كل 5 دقائق بـ500 دينار، من 5 دقائق إلى ساعتين.</p>
-                        <input type="range" min={0} max={120} step={5} value={extraMinutes} onChange={(event) => setExtraMinutes(Number(event.target.value))} className="w-full accent-primary" aria-label="الوقت الإضافي بالدقائق" />
-                        <div className="flex justify-between text-[11px] text-muted-foreground"><span>بدون وقت إضافي</span><span>ساعتان</span></div>
-                      </>
-                    ) : (
-                      <p className="text-xs font-bold text-amber-600">زيادة وقت الانتظار متاحة للمشترك الذهبي فقط.</p>
-                    )}
+                    <p className="text-[11px] text-muted-foreground">وقت التوقف يحدده الزبون، كل 5 دقائق بـ500 دينار، والحد الأعلى ساعتان.</p>
+                    <input type="range" min={0} max={120} step={5} value={extraMinutes} onChange={(event) => setExtraMinutes(Number(event.target.value))} className="w-full accent-primary" aria-label="مدة التوقف بالدقائق" />
+                    <div className="flex justify-between text-[11px] text-muted-foreground"><span>بدون توقف</span><span>ساعتان</span></div>
                   </>
                 )}
               </div>
