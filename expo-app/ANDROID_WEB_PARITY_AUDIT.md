@@ -64,3 +64,13 @@ For code snapshot `a8a9487005530f442b9ab3d4afcb2a737010e7ea`:
 ## Completion rule
 
 “100% parity” is a target, not a current claim. A route is complete only after its content, permissions, data behavior, error/loading states and interactions have been compared on running web and Android apps. Compilation and a successful APK archive alone are insufficient.
+
+
+## File consolidation review (2026-11-15, branch head `0b07e3e532d42c5ec7ee5edd5069118527be9ca1`)
+
+- The Android route inventory was checked against the web route inventory. The extra native routes are separate admin workspaces and request chat; they are not duplicate route files.
+- Privacy and terms screens already share `src/components/legal-page.tsx`; the web-only bootstrap and bulk-import placeholders share `src/components/protected-admin-tool.tsx`. Keep these shared components rather than duplicating their screen markup.
+- `src/lib/phone.ts` and `expo-app/src/lib/phone.ts` have identical contents but belong to separate web and Expo app bundles with separate TypeScript/import roots. They were retained to avoid introducing cross-app build coupling.
+- Service image files are mirrored between `src/assets` and `expo-app/assets/services` because each app bundle consumes its own local asset set. Migration copies under `docs/manual-setup` are retained as documented manual-setup instructions.
+- The default-template `expo-app/assets/icon.png` and `expo-app/assets/splash-icon.png` were byte-identical and neither is referenced by the active Expo config; the configured icon, adaptive icon, splash image and web favicon all use `assets/favicon.png`. The two unused duplicate files are removed.
+- No route or feature source file was deleted. The native screens and reusable components are retained.
