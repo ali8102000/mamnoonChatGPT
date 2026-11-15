@@ -33,6 +33,7 @@ const requestSchema = z.discriminatedUnion("action", [
     pickupGovernorateKey: z.string().optional(),
     destinationGovernorateKey: z.string().optional(),
     vehicleCategory: z.enum(["economy", "premium", "luxury"]),
+    couponCode: z.string().trim().min(2).max(50).optional(),
     tripType: z.enum(["one_way", "round_trip", "second_trip", "stop"]).optional().default("one_way"),
     extraMinutes: z.number().int().min(0).max(120).refine((value) => value % 5 === 0, "مدة الانتظار يجب أن تكون من مضاعفات 5").optional().default(0),
     notes: z.string().max(1000).optional().default(""),
@@ -265,6 +266,7 @@ async function handleRequest(request: Request) {
     .from("service_requests")
     .insert({
       customer_id: authData.user.id,
+      coupon_code: data.couponCode?.trim().toUpperCase() || null,
       type: "taxi",
       status: "pending",
       vehicle_category: data.vehicleCategory,
