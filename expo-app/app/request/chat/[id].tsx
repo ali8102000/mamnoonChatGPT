@@ -16,6 +16,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
 
 type ChatMessage = {
   id: string;
@@ -31,6 +33,8 @@ const QUICK_REPLIES_PROVIDER = ["قادم إليك", "وصلت للموقع", "�
 export default function RequestChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [chatId, setChatId] = useState<string | null>(null);
   const [request, setRequest] = useState<any>(null);
   const [otherProfile, setOtherProfile] = useState<any>(null);
@@ -41,6 +45,8 @@ export default function RequestChatScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const isCustomer = request?.customer_id === user?.id;
   const quickReplies = isCustomer ? QUICK_REPLIES_CUSTOMER : QUICK_REPLIES_PROVIDER;
+
+  useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);
 
   const loadMessages = useCallback(async (currentChatId: string) => {
     const { data, error } = await supabase
@@ -139,7 +145,7 @@ export default function RequestChatScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerAction}>
           <Text style={styles.headerActionText}>رجوع</Text>
         </TouchableOpacity>
@@ -159,6 +165,16 @@ export default function RequestChatScreen() {
             <Text style={styles.callText}>اتصال</Text>
           </TouchableOpacity>
         ) : null}
+        <TouchableOpacity
+          style={styles.soundButton}
+          onPress={() => {
+            const next = !soundEnabled;
+            setSoundEnabled(next);
+            void setNotificationSoundPreference(next);
+          }}
+        >
+          <Text style={styles.soundText}>{soundEnabled ? "🔊" : "🔇"}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -189,7 +205,7 @@ export default function RequestChatScreen() {
         ))}
       </ScrollView>
 
-      <View style={styles.composer}>
+      <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TextInput
           value={draft}
           onChangeText={setDraft}
@@ -228,6 +244,8 @@ const styles = StyleSheet.create({
   subtitle: { color: palette.muted, fontSize: 10, marginTop: 3, textAlign: "right" },
   callButton: { backgroundColor: palette.brand, paddingHorizontal: 13, paddingVertical: 10, borderRadius: radius.md },
   callText: { color: palette.white, fontWeight: "900", fontSize: 12 },
+  soundButton: { width: 40, height: 40, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", backgroundColor: palette.surface },
+  soundText: { fontSize: 17 },
   messages: { flex: 1 },
   messagesContent: { padding: 16, gap: 10, flexGrow: 1, justifyContent: "flex-end" },
   emptyMessages: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 40 },
