@@ -102,7 +102,7 @@ export default function NewRequest() {
   }, []);
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (isTaxi && !isLargeVehicle && mapMode === "destination") {
+      if (selectedService === "taxi" && vehicle !== "large" && mapMode === "destination") {
         setMapMode("pickup");
         setDestinationCoords(null);
         setDestination("");
@@ -114,7 +114,7 @@ export default function NewRequest() {
       return false;
     });
     return () => subscription.remove();
-  }, [isTaxi, isLargeVehicle, mapMode]);
+  }, [selectedService, vehicle, mapMode]);
 
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
