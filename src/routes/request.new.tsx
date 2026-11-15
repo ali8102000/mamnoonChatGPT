@@ -454,15 +454,16 @@ function NewRequest() {
     setBusy(true);
     try {
       if (type === "taxi" && vehicle !== "large") {
-        const freshRoute = await runLookup({ data: { action: "route", from: { lat: pickupCoords.lat, lng: pickupCoords.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng } } });
-        if (!Number.isFinite(freshRoute.distanceKm) || freshRoute.distanceKm <= 0) throw new Error("لم يتم تأكيد مسافة طريق صالحة. أعد تحديد الوجهة.");
-        if (routeKm !== null && Math.abs(freshRoute.distanceKm - routeKm) > 0.05) {
-          setRouteKm(freshRoute.distanceKm);
+        const freshRoute = await runLookup({ data: { action: "route", from: { lat: pickupCoords.lat, lng: pickupCoords.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng } } }) as { distanceKm: number; durationMin: number };
+        const freshDistanceKm = Number(freshRoute.distanceKm);
+        if (!Number.isFinite(freshDistanceKm) || freshDistanceKm <= 0) throw new Error("لم يتم تأكيد مسافة طريق صالحة. أعد تحديد الوجهة.");
+        if (routeKm !== null && Math.abs(freshDistanceKm - routeKm) > 0.05) {
+          setRouteKm(freshDistanceKm);
           toast.error("تحدّثت مسافة الطريق بعد المراجعة. راجع السعر الجديد واضغط إرسال الطلب مرة ثانية.");
           return;
         }
-        verifiedRouteKm = freshRoute.distanceKm;
-        priceEstimate = taxiFare(vehicleCategory, verifiedRouteKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity });
+        verifiedRouteKm = freshDistanceKm;
+        priceEstimate = taxiFare(vehicleCategory, freshDistanceKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity });
       }
       if (couponCode.trim()) {
         const amount = type === "taxi" && vehicle !== "large" ? priceEstimate : getCouponBaseAmount();
