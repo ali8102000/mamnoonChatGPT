@@ -259,6 +259,14 @@ export default function NewRequest() {
           to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude },
         });
         if (!active) return;
+        if (
+          !Number.isFinite(route.distanceKm) ||
+          route.distanceKm <= 0 ||
+          !Number.isFinite(route.durationMin) ||
+          route.durationMin < 0
+        ) {
+          throw new Error("تعذّر التحقق من مسافة الطريق. حرّك نقطة الوجهة أو أعد المحاولة.");
+        }
         setRouteKm(route.distanceKm);
         setRouteDurationMin(route.durationMin);
       } catch (error) {
