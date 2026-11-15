@@ -527,6 +527,8 @@ function NewRequest() {
       roadCondition,
       demandMultiplier: 1,
       isIntercity: interCity,
+      tripType,
+      extraMinutes,
     });
 
     return (
