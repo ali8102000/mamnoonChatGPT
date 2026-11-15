@@ -1,5 +1,6 @@
 -- Add the security-camera installation service to the shared worker catalog.
--- This file is tracked for the next reviewed database migration; it is not applied automatically.
+-- Applied to the linked production project on 2026-11-15 (Supabase migration version 20261115181713).
+-- Keep this filename/version aligned with the remote migration history.
 BEGIN;
 
 INSERT INTO public.services (slug, name_ar, name_en, icon, sort_order)
