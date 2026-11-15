@@ -337,6 +337,20 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    if (body.action === "live_map") {
+      const [locations, requests] = await Promise.all([
+        admin.from("live_locations")
+          .select("*, profile:profiles!live_locations_user_id_fkey(full_name,phone)")
+          .order("updated_at", { ascending: false }).limit(500),
+        admin.from("service_requests")
+          .select("id,type,status,pickup_lat,pickup_lng,dest_lat,dest_lng,pickup_text,dest_text,created_at")
+          .in("status", ["pending", "searching", "accepted", "in_progress"])
+          .order("created_at", { ascending: false }).limit(200),
+      ]);
+      if (locations.error || requests.error) return json({ error: "live_map_load_failed" }, 500);
+      return json({ locations: locations.data ?? [], requests: requests.data ?? [] });
+    }
+
     if (body.action === "monitoring") {
       const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
         admin.from("profiles").select("id", { count: "exact", head: true }),
