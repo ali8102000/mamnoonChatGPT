@@ -109,13 +109,23 @@ jobs:
           node -e 'const fs=require("fs"); const p="release-artifacts/mamnoon-test.apk"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid APK archive"); process.exit(1); }'
           # Verify every APK entry before publishing the artifact, not only its ZIP signature.
           unzip -t release-artifacts/mamnoon-test.apk
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BUILD_TOOLS="$SDK_ROOT/build-tools/35.0.0"
+          # Android's own tools validate APK signing, alignment, package metadata and SDK requirements.
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs release-artifacts/mamnoon-test.apk
+          "$BUILD_TOOLS/zipalign" -c -v 4 release-artifacts/mamnoon-test.apk
+          "$BUILD_TOOLS/aapt" dump badging release-artifacts/mamnoon-test.apk | tee release-artifacts/apk-metadata.txt
+          grep -q "package: name='com.mamnoon.app'" release-artifacts/apk-metadata.txt
           sha256sum release-artifacts/mamnoon-test.apk > release-artifacts/mamnoon-test.apk.sha256
       - name: Upload installable APK
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/upload-artifact@v4
         with:
           name: mamnoon-test-apk
-          path: expo-app/release-artifacts/mamnoon-test.apk
+          path: |
+            expo-app/release-artifacts/mamnoon-test.apk
+            expo-app/release-artifacts/mamnoon-test.apk.sha256
+            expo-app/release-artifacts/apk-metadata.txt
           if-no-files-found: error
           retention-days: 14
           # APKs are already compressed ZIP containers; avoid recompressing them.
