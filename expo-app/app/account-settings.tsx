@@ -9,9 +9,11 @@ import { normalizePhone, isValidPhone } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
 import { palette, radius, space } from "@/styles/theme";
+import { useThemePreference, type ThemeMode } from "@/lib/theme-preference";
 
 export default function AccountSettingsScreen() {
   const { user, profile, roles, refresh } = useAuth();
+  const { mode, setMode } = useThemePreference();
   const actualEmail = (() => { const candidate = String(user?.email ?? "").trim().toLowerCase(); return candidate && !/^phone\d+@mamnoon\.app$/.test(candidate) ? candidate : ""; })();
   const [email, setEmail] = useState(actualEmail);
   const [phone, setPhone] = useState(profile?.phone ?? "");
@@ -142,6 +144,9 @@ export default function AccountSettingsScreen() {
       <View style={{ height: 12 }} />
       <Button title="حفظ اسم الشركة" onPress={saveCompanyName} loading={busy} />
     </View>}
+    <Text style={styles.sectionTitle}>مظهر التطبيق</Text>
+    <Text style={styles.note}>اختار الوضع اللي يناسبك، وينحفظ على جهازك.</Text>
+    <View style={styles.roleGrid}>{([{key:"system",label:"حسب الجهاز"},{key:"light",label:"نهاري"},{key:"dark",label:"ليلي"}] as const).map((item)=><TouchableOpacity key={item.key} onPress={()=>{void setMode(item.key as ThemeMode);}} style={[styles.roleCard,{minHeight:58,backgroundColor:mode===item.key?palette.brandSoft:palette.surface,borderColor:mode===item.key?palette.brand:palette.line}]}><Text style={[styles.roleTitle,{color:palette.ink}]}>{item.label}{mode===item.key?" ✓":""}</Text></TouchableOpacity>)}</View>
     <Text style={styles.sectionTitle}>مساحاتك في ممنون</Text>
     <Text style={styles.note}>بدّل بين حساب الزبون ومجالات العمل من نفس الحساب. الأدوار الجديدة تحتاج إكمال التوثيق.</Text>
     <View style={styles.roleGrid}>
