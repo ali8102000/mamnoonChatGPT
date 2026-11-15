@@ -45,11 +45,11 @@ export default function AdminFinanceScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const [staff, admin] = await Promise.all([
-        supabase.rpc("has_staff_role", { p_user_id: user.id }),
+      const [financeAccess, admin] = await Promise.all([
+        supabase.rpc("has_subscription_admin_access", { p_user_id: user.id }),
         supabase.rpc("has_admin_access", { p_user_id: user.id }),
       ]);
-      if (staff.error || staff.data !== true) { setAllowed(false); return; }
+      if (financeAccess.error || financeAccess.data !== true) { setAllowed(false); return; }
       setAllowed(true);
       setCanManage(admin.data === true);
       const data = await invoke({ action: "list" });
@@ -108,7 +108,7 @@ export default function AdminFinanceScreen() {
   ]);
 
   if (authLoading || loading) return <View style={s.center}><ActivityIndicator color={palette.brand} /><Text style={s.muted}>جاري تحميل الإدارة المالية...</Text></View>;
-  if (allowed === false) return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة للموظفين المخوّلين فقط.</Text></View>;
+  if (allowed === false) return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة للمدير والمالية فقط.</Text></View>;
 
   return <View style={s.page}>
     <Stack.Screen options={{ title: "المحفظة والكوبونات" }} />
