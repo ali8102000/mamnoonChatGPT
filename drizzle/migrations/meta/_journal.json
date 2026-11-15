@@ -35,6 +35,7 @@
     {"idx":30,"version":"7","when":1794805200000,"tag":"0059_round_return_fare_to_250","breakpoints":true},
     {"idx":31,"version":"7","when":1794807000000,"tag":"0060_guard_provider_request_mutations","breakpoints":true},
     {"idx":32,"version":"7","when":1794807600000,"tag":"0061_guard_message_content_immutability","breakpoints":true},
-    {"idx":33,"version":"7","when":1794808200000,"tag":"0062_guard_live_location_ownership_and_visibility","breakpoints":true}
+    {"idx":33,"version":"7","when":1794808200000,"tag":"0062_guard_live_location_ownership_and_visibility","breakpoints":true},
+    {"idx":34,"version":"7","when":1794808800000,"tag":"0063_restrict_trigger_only_function_execution","breakpoints":true}
   ]
 }
