@@ -38,11 +38,14 @@ export default function MonitoringScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const [staff, admin] = await Promise.all([
-        supabase.rpc("has_staff_role", { p_user_id: user.id }),
+      const [rolesResult, admin] = await Promise.all([
+        supabase.rpc("get_staff_roles", { p_user_id: user.id }),
         supabase.rpc("has_admin_access", { p_user_id: user.id }),
       ]);
-      if (staff.error || staff.data !== true) { setAllowed(false); return; }
+      const roleNames = (rolesResult.data ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
+      if (rolesResult.error || !roleNames.some((role: string) => ["super_admin", "admin", "support"].includes(role))) {
+        setAllowed(false); return;
+      }
       setAllowed(true);
       setCanManage(admin.data === true);
       const result = await invoke({ action: "monitoring" });
