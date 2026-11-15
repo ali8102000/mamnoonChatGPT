@@ -134,6 +134,13 @@
       "when": 1794780000000,
       "tag": "0047_align_taxi_fare_calculation",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794783600000,
+      "tag": "0048_gate_user_reports_until_trip_starts",
+      "breakpoints": true
     }
   ]
 }
