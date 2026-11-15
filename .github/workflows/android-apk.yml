@@ -128,6 +128,7 @@ jobs:
           disable-animations: true
           script: |
             set -euo pipefail
+            cd expo-app
             adb install -r release-artifacts/mamnoon-test.apk
             adb logcat -c
             adb shell monkey -p com.mamnoon.app 1
