@@ -10,6 +10,7 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
+  BackHandler,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
@@ -99,6 +100,22 @@ export default function NewRequest() {
   useEffect(() => () => {
     if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
   }, []);
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (isTaxi && !isLargeVehicle && mapMode === "destination") {
+        setMapMode("pickup");
+        setDestinationCoords(null);
+        setDestination("");
+        setRouteKm(null);
+        setRouteDurationMin(null);
+        setRouteError(null);
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [isTaxi, isLargeVehicle, mapMode]);
+
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
   const destinationGovKey = destinationGovernorateKey ?? (destinationCoords ? nearestGovernorateKey(destinationCoords) : null);
