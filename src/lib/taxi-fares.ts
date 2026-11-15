@@ -68,13 +68,14 @@ export function calculateFareBreakdown(
   const distanceFare = perKm * distanceKm;
   const subtotal = distanceFare;
   const requestedDemand = Math.min(1.5, Math.max(0.8, options?.demandMultiplier ?? 1));
-  const initialEconomyFare = subtotal * requestedDemand;
-  // Long-distance and inter-governorate fares must not surge as sharply as short city rides.
-  // Apply the reduced 0.95–1.10 band when either the base or demand-adjusted city fare reaches 10,000 IQD.
-  const demandMultiplier =
-    isIntercity || Math.max(subtotal, initialEconomyFare) >= 10000
-      ? Math.min(1.1, Math.max(0.95, requestedDemand))
-      : requestedDemand;
+  // Taper demand uplift smoothly from 1.5x below 5,000 IQD to 1.1x at 10,000 IQD.
+  // This avoids a sudden fare discontinuity at a single distance threshold.
+  const demandMultiplier = isIntercity
+    ? Math.min(1.1, Math.max(0.95, requestedDemand))
+    : Math.min(
+        requestedDemand,
+        1.1 + 0.4 * Math.min(1, Math.max(0, (10000 - subtotal) / 5000)),
+      );
 
   const economyFare = subtotal * demandMultiplier;
   const tierMultiplier =
