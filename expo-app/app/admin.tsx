@@ -232,9 +232,10 @@ export default function AdminScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>لوحة التحكم</Text>
-      <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
-        <TouchableOpacity onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1 }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1 }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></TouchableOpacity>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <TouchableOpacity onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></TouchableOpacity>
       </View>
       <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
