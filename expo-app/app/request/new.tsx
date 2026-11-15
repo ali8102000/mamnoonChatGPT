@@ -21,6 +21,7 @@ import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { IRAQ_GOVERNORATES, getMobileGovernorate, nearestGovernorateKey } from "@/lib/governorates";
 import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
+import { ServiceArtwork, hasServiceArtwork } from "@/components/service-artwork";
 import { palette, radius } from "@/styles/theme";
 import { calculateMobileTaxiFare } from "@/lib/taxi-fares";
 
@@ -645,7 +646,7 @@ export default function NewRequest() {
                 ]}
                 onPress={() => setSelectedService(service.slug)}
               >
-                {service.slug === "taxi" ? <Text style={styles.serviceEmoji}>{service.emoji}</Text> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
+                {service.slug === "taxi" ? <Text style={styles.serviceEmoji}>{service.emoji}</Text> : hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
                 <Text
                   style={[
                     styles.serviceLabel,
