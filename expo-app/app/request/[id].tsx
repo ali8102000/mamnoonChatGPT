@@ -66,7 +66,7 @@ const SERVICE_IMAGES: Record<string, number> = {
   general: service_general,
 }
 
-type Coordinates = { latitude: number; longitude: number; heading?: number | null };
+type Coordinates = { latitude: number; longitude: number; heading?: number | null; updatedAt?: string };
 type RequestRecord = {
   provider_id: string | null;
   customer_id: string;
@@ -193,6 +193,7 @@ export default function RequestDetail() {
       (request.type === "service" && roles.includes("worker"))),
   );
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
+  const driverLocationFresh = Boolean(otherLocation?.updatedAt && Number.isFinite(Date.parse(otherLocation.updatedAt)) && Date.now() - Date.parse(otherLocation.updatedAt) < 25000);
   const currentUserId = user?.id;
   const currentRequestType = request?.type;
   const currentProviderId = request?.provider_id;
@@ -385,6 +386,7 @@ export default function RequestDetail() {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         heading: location.coords.heading,
+        updatedAt: new Date().toISOString(),
       };
       setMyLocation(coords);
       const { error } = await supabase.from("live_locations").upsert(
@@ -447,7 +449,7 @@ export default function RequestDetail() {
       .eq("user_id", otherId)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setOtherLocation({ latitude: data.lat, longitude: data.lng, heading: data.heading });
+        if (data) setOtherLocation({ latitude: data.lat, longitude: data.lng, heading: data.heading, updatedAt: data.updated_at });
       });
 
     const channel = supabase
@@ -461,13 +463,13 @@ export default function RequestDetail() {
           filter: `request_id=eq.${id}`,
         },
         (payload) => {
-          const row = payload.new as { user_id?: string; lat?: number; lng?: number; heading?: number | null };
+          const row = payload.new as { user_id?: string; lat?: number; lng?: number; heading?: number | null; updated_at?: string };
           if (
             row.user_id === otherId &&
             typeof row.lat === "number" &&
             typeof row.lng === "number"
           ) {
-            setOtherLocation({ latitude: row.lat, longitude: row.lng, heading: row.heading });
+            setOtherLocation({ latitude: row.lat, longitude: row.lng, heading: row.heading, updatedAt: row.updated_at });
           }
         },
       )
@@ -488,7 +490,7 @@ export default function RequestDetail() {
 
   useEffect(() => {
     if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
-        !otherLocation || request.pickup_lat == null || request.pickup_lng == null) {
+        !driverLocationFresh || !otherLocation || request.pickup_lat == null || request.pickup_lng == null) {
       setDriverEtaMinutes(null);
       lastEtaRequestRef.current = null;
       return;
@@ -524,7 +526,7 @@ export default function RequestDetail() {
     }).catch(() => {
       if (sequence === etaSequenceRef.current) setDriverEtaMinutes(null);
     });
-  }, [isCustomer, request?.type, request?.status, request?.pickup_lat, request?.pickup_lng, otherLocation?.latitude, otherLocation?.longitude]);
+  }, [isCustomer, request?.type, request?.status, request?.pickup_lat, request?.pickup_lng, driverLocationFresh, otherLocation?.latitude, otherLocation?.longitude, otherLocation?.updatedAt]);
 
   async function payRequestWithZainCash() {
     if (!user || !request || !isCustomer || paymentBusy || request.payment_method === "zaincash") return;
@@ -746,7 +748,7 @@ export default function RequestDetail() {
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backBtn}>→</Text>
           </TouchableOpacity>
-          <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>{otherLocation && request.pickup_lat != null && request.pickup_lng != null && (() => { const rad = (value: number) => value * Math.PI / 180; const dLat = rad(otherLocation.latitude - request.pickup_lat!); const dLng = rad(otherLocation.longitude - request.pickup_lng!); const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(request.pickup_lat!)) * Math.cos(rad(otherLocation.latitude)) * Math.sin(dLng / 2) ** 2; const meters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return meters <= 50 ? "انا في نقطة الانطلاق" : driverEtaMinutes != null && driverEtaMinutes <= 2 ? "دقيقتين واوصل" : driverEtaMinutes != null ? `باقي ${driverEtaMinutes} دقيقة واوصل` : "الكابتن متجه إليك"; })()}</Text>}</View>
+          <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>{otherLocation && request.pickup_lat != null && request.pickup_lng != null && (() => { const rad = (value: number) => value * Math.PI / 180; const dLat = rad(otherLocation.latitude - request.pickup_lat!); const dLng = rad(otherLocation.longitude - request.pickup_lng!); const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(request.pickup_lat!)) * Math.cos(rad(otherLocation.latitude)) * Math.sin(dLng / 2) ** 2; const meters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return !driverLocationFresh ? "بانتظار تحديث موقع السائق" : meters <= 50 ? "انا في نقطة الانطلاق" : driverEtaMinutes != null && driverEtaMinutes <= 2 ? "دقيقتين واوصل" : driverEtaMinutes != null ? `باقي ${driverEtaMinutes} دقيقة واوصل` : "الكابتن متجه إليك"; })()}</Text>}</View>
           <View style={{ width: 30 }} />
         </View>
         {otherProfile && !["completed", "cancelled"].includes(request.status) && (
