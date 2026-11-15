@@ -129,5 +129,5 @@ const styles = StyleSheet.create({
     borderColor: palette.line,
     padding: space.xl,
   },
-  eyebrow: { color: palette.muted, fontSize: 11, fontFamily: Tajawal_800ExtraBold, fontWeight: "800", letterSpacing: 0.8 },
+  eyebrow: { color: palette.muted, fontSize: 11, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800", letterSpacing: 0.8 },
 });
