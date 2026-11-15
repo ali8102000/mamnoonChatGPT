@@ -756,18 +756,29 @@ export default function RequestDetail() {
           request.pickup_lat != null &&
           request.pickup_lng != null && (
             <View style={styles.trackingCard}>
+              {request.type !== "taxi" && <Text style={styles.trackingTitle}>موقع الطلب المباشر</Text>}
               <MapView
-                style={styles.trackingMap}
+                style={[styles.trackingMap, request.type === "taxi" && styles.trackingMapTaxi]}
                 initialRegion={{
                   latitude: request.pickup_lat,
                   longitude: request.pickup_lng,
                   latitudeDelta: 0.018,
                   longitudeDelta: 0.018,
                 }}
-                showsUserLocation={false}
+                showsUserLocation={request.type !== "taxi"}
               >
-                {(isProvider ? myLocation : otherLocation) && <Marker coordinate={(isProvider ? myLocation : otherLocation)!} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}><View style={styles.luxuryCarMarker}><Text style={styles.luxuryCarEmoji}>🚘</Text></View></Marker>}
+                {request.type === "taxi" ? (
+                  (isProvider ? myLocation : otherLocation) && <Marker coordinate={(isProvider ? myLocation : otherLocation)!} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}><View style={styles.luxuryCarMarker}><Text style={styles.luxuryCarEmoji}>🚘</Text></View></Marker>
+                ) : (
+                  <>
+                    <Marker coordinate={{ latitude: request.pickup_lat!, longitude: request.pickup_lng! }} title="نقطة الانطلاق" pinColor="#0f766e" />
+                    {request.dest_lat != null && request.dest_lng != null && <Marker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} title="الوجهة" pinColor="#16a34a" />}
+                    {myLocation && <Marker coordinate={myLocation} title="موقعي" pinColor="#7c3aed" />}
+                    {otherLocation && <Marker coordinate={otherLocation} title="الطرف الآخر" pinColor="#f97316" />}
+                  </>
+                )}
               </MapView>
+              {request.type !== "taxi" && <Text style={styles.trackingHint}>{otherLocation ? "يتم استقبال موقع الطرف الآخر" : "بانتظار مشاركة موقع الطرف الآخر"}</Text>}
             </View>
           )}
         <View style={styles.actionsRow}>
@@ -942,7 +953,8 @@ const styles = StyleSheet.create({
   paymentCompactButtonText: { color: palette.white, fontWeight: "900", fontSize: 11 },
   trackingCard: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 13, marginHorizontal: 16, marginBottom: 12, borderWidth: 1, borderColor: palette.line },
   trackingTitle: { fontSize: 15, fontWeight: "900", color: palette.ink, marginBottom: 10 },
-  trackingMap: { height: 340, borderRadius: radius.md },
+  trackingMap: { height: 220, borderRadius: radius.md },
+  trackingMapTaxi: { height: 340 },
   luxuryCarMarker: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#fff", borderWidth: 2, borderColor: "#D4AF37", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.22, shadowRadius: 5, elevation: 6 },
   luxuryCarEmoji: { fontSize: 27 },
   chatToolbar: { flexDirection: "row", gap: 8, marginHorizontal: 16, marginTop: 8, marginBottom: 8 },
