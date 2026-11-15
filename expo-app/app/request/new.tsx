@@ -872,40 +872,43 @@ export default function NewRequest() {
                   { key: "second_trip", label: "رحلة ثانية" },
                   { key: "stop", label: "توقف بالطريق" },
                 ] as const).map((item) => (
-                  <TouchableOpacity key={item.key} style={[styles.catChip, tripType === item.key && styles.catChipActive]} onPress={() => setTripType(item.key)}>
+                  <TouchableOpacity key={item.key} style={[styles.catChip, tripType === item.key && styles.catChipActive]} onPress={() => { setTripType(item.key); if (item.key !== "stop") setExtraMinutes(0); }}>
                     <Text style={[styles.catLabel, tripType === item.key && styles.catLabelActive]}>{item.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <View style={styles.extraTimeHeader}>
-                <Text style={styles.tripOptionsTitle}>وقت إضافي</Text>
-                <Text style={styles.extraTimeValue}>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</Text>
-              </View>
-              <Text style={styles.tripOptionsHint}>مدة التوقف يحددها الزبون بنفسه، كل 5 دقائق بـ500 دينار، والحد الأعلى ساعتان.</Text>
-              <View
-                style={styles.extraTimeSliderTouch}
-                onLayout={(event) => { extraTimeTrackWidthRef.current = event.nativeEvent.layout.width; }}
-                {...extraTimePanResponder.panHandlers}
-                accessibilityRole="adjustable"
-                accessibilityLabel="مدة التوقف"
-                accessibilityValue={{ min: 0, max: 120, now: extraMinutes }}
-                accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
-                onAccessibilityAction={(event) => {
-                  if (event.nativeEvent.actionName === "increment") setExtraMinutes((value) => Math.min(120, value + 5));
-                  if (event.nativeEvent.actionName === "decrement") setExtraMinutes((value) => Math.max(0, value - 5));
-                }}
-              >
-                <View style={styles.extraTimeSliderTrack}>
-                  <View style={[styles.extraTimeSliderFill, { width: `${(extraMinutes / 120) * 100}%` }]} />
-                  <View style={[styles.extraTimeSliderThumb, { right: `${(extraMinutes / 120) * 100}%` }]} />
+              {tripType === "round_trip" && <Text style={styles.tripOptionsHint}>تم تطبيق خصم 10٪ على أجرة الذهاب والإياب.</Text>}
+              {tripType === "stop" && (
+                <View style={styles.extraTimeHeader}>
+                  <Text style={styles.tripOptionsTitle}>مدة التوقف</Text>
+                  <Text style={styles.extraTimeValue}>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</Text>
                 </View>
-              </View>
-              <View style={styles.extraTimeScale}>
-                <Text style={styles.tripOptionsHint}>بدون توقف</Text>
-                <Text style={styles.tripOptionsHint}>30 دقيقة</Text>
-                <Text style={styles.tripOptionsHint}>ساعة</Text>
-                <Text style={styles.tripOptionsHint}>ساعتان</Text>
-              </View>
+                <Text style={styles.tripOptionsHint}>مدة التوقف يحددها الزبون بنفسه، كل 5 دقائق بـ500 دينار، والحد الأعلى ساعتان.</Text>
+                <View
+                  style={styles.extraTimeSliderTouch}
+                  onLayout={(event) => { extraTimeTrackWidthRef.current = event.nativeEvent.layout.width; }}
+                  {...extraTimePanResponder.panHandlers}
+                  accessibilityRole="adjustable"
+                  accessibilityLabel="مدة التوقف"
+                  accessibilityValue={{ min: 0, max: 120, now: extraMinutes }}
+                  accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+                  onAccessibilityAction={(event) => {
+                    if (event.nativeEvent.actionName === "increment") setExtraMinutes((value) => Math.min(120, value + 5));
+                    if (event.nativeEvent.actionName === "decrement") setExtraMinutes((value) => Math.max(0, value - 5));
+                  }}
+                >
+                  <View style={styles.extraTimeSliderTrack}>
+                    <View style={[styles.extraTimeSliderFill, { width: `${(extraMinutes / 120) * 100}%` }]} />
+                    <View style={[styles.extraTimeSliderThumb, { right: `${(extraMinutes / 120) * 100}%` }]} />
+                  </View>
+                </View>
+                <View style={styles.extraTimeScale}>
+                  <Text style={styles.tripOptionsHint}>بدون توقف</Text>
+                  <Text style={styles.tripOptionsHint}>30 دقيقة</Text>
+                  <Text style={styles.tripOptionsHint}>ساعة</Text>
+                  <Text style={styles.tripOptionsHint}>ساعتان</Text>
+                </View>
+              )}
             </>
           )}
         </View>
