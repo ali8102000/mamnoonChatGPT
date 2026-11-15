@@ -501,7 +501,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
               {!largeDriverMode && (
                 <button onClick={() => { const id = popupRequest.id; setPopupRequest(null); void accept(id); }} className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-black text-primary-foreground">موافقة وقبول</button>
               )}
-              <button onClick={() => setPopupRequest(null)} className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-bold text-foreground">{largeDriverMode ? "عرض الطلب" : "لاحقاً"}</button>
+              <button onClick={() => setPopupRequest(null)} className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-bold text-foreground">{largeDriverMode ? "تقديم عرض السعر" : "لاحقاً"}</button>
             </div>
           </div>
         </div>
