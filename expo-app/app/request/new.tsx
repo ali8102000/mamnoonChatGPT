@@ -137,20 +137,23 @@ export default function NewRequest() {
       return;
     }
     let active = true;
-    void supabase
-      .from("user_subscriptions")
-      .select("id, subscription_plans!inner(code)")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .eq("is_trial", false)
-      .gt("current_period_end", new Date().toISOString())
-      .eq("subscription_plans.code", "gold")
-      .limit(1)
-      .maybeSingle()
-      .then(({ data, error }) => {
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("user_subscriptions")
+          .select("id, subscription_plans!inner(code)")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .eq("is_trial", false)
+          .gt("current_period_end", new Date().toISOString())
+          .eq("subscription_plans.code", "gold")
+          .limit(1)
+          .maybeSingle();
         if (active) setIsGoldSubscriber(!error && Boolean(data));
-      })
-      .catch(() => { if (active) setIsGoldSubscriber(false); });
+      } catch {
+        if (active) setIsGoldSubscriber(false);
+      }
+    })();
     return () => { active = false; };
   }, [user?.id]);
 
