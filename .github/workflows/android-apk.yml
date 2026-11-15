@@ -2,7 +2,7 @@ name: Mamnoon Android test APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/android-parity-rebased]
     paths:
       - "expo-app/**"
       - ".github/workflows/android-apk.yml"
