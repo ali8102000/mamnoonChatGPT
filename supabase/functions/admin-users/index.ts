@@ -337,6 +337,53 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    if (body.action === "monitoring") {
+      const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
+        admin.from("profiles").select("id", { count: "exact", head: true }),
+        admin.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
+        admin.from("worker_profiles").select("id", { count: "exact", head: true }).eq("available", true),
+        admin.from("service_requests").select("id", { count: "exact", head: true })
+          .in("status", ["pending", "searching", "accepted", "in_progress"]),
+        admin.from("user_reports").select("*").eq("status", "pending")
+          .order("created_at", { ascending: false }).limit(20),
+        admin.from("user_blocks").select("*, profiles!user_blocks_user_id_fkey(full_name)")
+          .order("blocked_at", { ascending: false }).limit(20),
+        admin.from("support_tickets").select("*").eq("status", "open")
+          .order("created_at", { ascending: false }).limit(20),
+      ]);
+      if (users.error || drivers.error || workers.error || activeRequests.error ||
+          reports.error || blocks.error || tickets.error) {
+        return json({ error: "monitoring_load_failed" }, 500);
+      }
+      return json({
+        stats: {
+          totalUsers: users.count ?? 0,
+          activeDrivers: drivers.count ?? 0,
+          activeWorkers: workers.count ?? 0,
+          activeRequests: activeRequests.count ?? 0,
+        },
+        reports: reports.data ?? [],
+        blocks: blocks.data ?? [],
+        tickets: tickets.data ?? [],
+      });
+    }
+
+    if (body.action === "resolve_report") {
+      if (!isUuid(body.report_id) || !["resolved", "closed", "dismissed"].includes(body.status)) {
+        return json({ error: "invalid_report_resolution" }, 400);
+      }
+      if (body.note !== undefined && (typeof body.note !== "string" || body.note.length > 500)) {
+        return json({ error: "invalid_report_note" }, 400);
+      }
+      const { error } = await caller.rpc("admin_resolve_report", {
+        p_report_id: body.report_id,
+        p_status: body.status,
+        p_note: typeof body.note === "string" ? body.note.trim() || null : null,
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true });
+    }
+
     if (body.action === "friends" || body.action === "friend_requests") {
       requireRoles(["super_admin", "admin", "moderator"]);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
