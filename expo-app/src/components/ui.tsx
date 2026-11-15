@@ -10,8 +10,6 @@ import {
   TextInputProps,
 } from "react-native";
 import { palette, radius, space } from "@/styles/theme";
-import { Tajawal_500Medium } from "@expo-google-fonts/tajawal/500Medium";
-import { Tajawal_800ExtraBold } from "@expo-google-fonts/tajawal/800ExtraBold";
 
 export function Button({
   title,
@@ -109,7 +107,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  buttonText: { fontSize: 15, fontFamily: Tajawal_800ExtraBold, fontWeight: "800", letterSpacing: 0.1 },
+  buttonText: { fontSize: 15, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800", letterSpacing: 0.1 },
   realInput: {
     minHeight: 56,
     borderWidth: 1,
@@ -118,7 +116,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     fontSize: 15,
-    fontFamily: Tajawal_500Medium,
+    fontFamily: "Tajawal_500Medium",
     fontWeight: "600",
     color: palette.ink,
     backgroundColor: palette.surfaceSoft,
