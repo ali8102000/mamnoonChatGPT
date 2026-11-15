@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Image,
   BackHandler,
+  PanResponder,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
@@ -103,6 +104,19 @@ export default function NewRequest() {
   const mapRef = useRef<MapView>(null);
   const dragSelectionVersionRef = useRef(0);
   const isDraggingMarkerRef = useRef(false);
+  const extraTimeTrackWidthRef = useRef(1);
+  const extraTimePanResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (event) => updateExtraMinutesFromPosition(event.nativeEvent.locationX),
+    onPanResponderMove: (event) => updateExtraMinutesFromPosition(event.nativeEvent.locationX),
+  })).current;
+
+  function updateExtraMinutesFromPosition(x: number) {
+    const ratio = Math.max(0, Math.min(1, x / Math.max(1, extraTimeTrackWidthRef.current)));
+    const steps = Math.round(ratio * 24);
+    setExtraMinutes(steps * 5);
+  }
 
   useEffect(() => () => {
     if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
@@ -997,10 +1011,29 @@ export default function NewRequest() {
               {isGoldSubscriber ? (
                 <>
                   <Text style={styles.tripOptionsHint}>ميزة المشترك الذهبي: كل 5 دقائق بـ500 دينار، من 5 دقائق إلى ساعتين.</Text>
-                  <View style={styles.extraTimeControls}>
-                    <TouchableOpacity style={styles.extraTimeButton} disabled={extraMinutes >= 120} onPress={() => setExtraMinutes((value) => Math.min(120, value + 5))}><Text style={styles.extraTimeButtonText}>＋ 5</Text></TouchableOpacity>
-                    <Text style={styles.extraTimeValue}>{extraMinutes === 0 ? "بدون وقت إضافي" : `${extraMinutes} دقيقة`}</Text>
-                    <TouchableOpacity style={styles.extraTimeButton} disabled={extraMinutes <= 0} onPress={() => setExtraMinutes((value) => Math.max(0, value - 5))}><Text style={styles.extraTimeButtonText}>− 5</Text></TouchableOpacity>
+                  <View
+                    style={styles.extraTimeSliderTouch}
+                    onLayout={(event) => { extraTimeTrackWidthRef.current = event.nativeEvent.layout.width; }}
+                    {...extraTimePanResponder.panHandlers}
+                    accessibilityRole="adjustable"
+                    accessibilityLabel="وقت الانتظار الإضافي"
+                    accessibilityValue={{ min: 0, max: 120, now: extraMinutes }}
+                    accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+                    onAccessibilityAction={(event) => {
+                      if (event.nativeEvent.actionName === "increment") setExtraMinutes((value) => Math.min(120, value + 5));
+                      if (event.nativeEvent.actionName === "decrement") setExtraMinutes((value) => Math.max(0, value - 5));
+                    }}
+                  >
+                    <View style={styles.extraTimeSliderTrack}>
+                      <View style={[styles.extraTimeSliderFill, { width: `${(extraMinutes / 120) * 100}%` }]} />
+                      <View style={[styles.extraTimeSliderThumb, { right: `${(extraMinutes / 120) * 100}%` }]} />
+                    </View>
+                  </View>
+                  <View style={styles.extraTimeScale}>
+                    <Text style={styles.tripOptionsHint}>0</Text>
+                    <Text style={styles.tripOptionsHint}>5 دقائق</Text>
+                    <Text style={styles.tripOptionsHint}>60</Text>
+                    <Text style={styles.tripOptionsHint}>120 دقيقة</Text>
                   </View>
                 </>
               ) : (
@@ -1072,9 +1105,11 @@ const styles = StyleSheet.create({
   tripOptionsToggle: { color: palette.brand, fontSize: 12, fontWeight: "900" },
   tripOptionsHint: { color: palette.muted, fontSize: 11, marginTop: 8, lineHeight: 18 },
   extraTimeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 14 },
-  extraTimeControls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
-  extraTimeButton: { minWidth: 62, paddingVertical: 10, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: palette.brand, alignItems: "center" },
-  extraTimeButtonText: { color: palette.white, fontWeight: "900" },
+  extraTimeSliderTouch: { paddingVertical: 12, paddingHorizontal: 4 },
+  extraTimeSliderTrack: { height: 8, borderRadius: radius.pill, backgroundColor: palette.line, justifyContent: "center" },
+  extraTimeSliderFill: { position: "absolute", right: 0, height: 8, borderRadius: radius.pill, backgroundColor: palette.gold },
+  extraTimeSliderThumb: { position: "absolute", width: 22, height: 22, borderRadius: radius.pill, backgroundColor: palette.brand, borderWidth: 3, borderColor: palette.white, top: -7, marginRight: -11 },
+  extraTimeScale: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   extraTimeValue: { color: palette.ink, fontSize: 12, fontWeight: "900" },
   goldLockedText: { color: palette.gold, fontSize: 12, fontWeight: "800", marginTop: 10 },
   priceBox: { backgroundColor: palette.brandSoft, borderRadius: radius.lg, padding: 18, alignItems: "center", marginTop: 20, borderWidth: 1, borderColor: palette.line },
