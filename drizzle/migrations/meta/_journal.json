@@ -2,41 +2,271 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    {"idx":0,"version":"7","when":1794243921295,"tag":"0000_mamnoon_tables","breakpoints":true},
-    {"idx":1,"version":"7","when":1794244046964,"tag":"0001_mamnoon_functions","breakpoints":true},
-    {"idx":2,"version":"7","when":1794244114998,"tag":"0002_timed_taxi_dispatch","breakpoints":true},
-    {"idx":3,"version":"7","when":1794257700000,"tag":"0003_secure_super_admin_bootstrap","breakpoints":true},
-    {"idx":4,"version":"7","when":1794260000000,"tag":"0004_bound_provider_map_discovery","breakpoints":true},
-    {"idx":5,"version":"7","when":1794270000000,"tag":"0005_provider_presence_for_mobile","breakpoints":true},
-    {"idx":6,"version":"7","when":1794273600000,"tag":"0006_secure_taxi_dispatch_retry","breakpoints":true},
-    {"idx":7,"version":"7","when":1794358200000,"tag":"0007_sync_verified_auth_contacts","breakpoints":true},
-    {"idx":8,"version":"7","when":1794361800000,"tag":"0008_secure_friend_workflows","breakpoints":true},
-    {"idx":9,"version":"7","when":1794365400000,"tag":"0009_secure_phone_search_and_verified_email_sync","breakpoints":true},
-    {"idx":10,"version":"7","when":1794369000000,"tag":"0010_exact_taxi_km_pricing","breakpoints":true},
-    {"idx":11,"version":"7","when":1794372600000,"tag":"0011_normalize_phone_login","breakpoints":true},
-    {"idx":12,"version":"7","when":1794376200000,"tag":"0012_targeted_service_dispatch_and_offers","breakpoints":true},
-    {"idx":13,"version":"7","when":1794530000000,"tag":"0013_restrict_anonymous_catalog_access","breakpoints":true},
-    {"idx":14,"version":"7","when":1794541616592,"tag":"0014_dynamic_taxi_demand_pricing","breakpoints":true},
-    {"idx":15,"version":"7","when":1794550000000,"tag":"0015_mamnoon_vehicle_tier_and_intercity_pricing","breakpoints":true},
-    {"idx":16,"version":"7","when":1794772800000,"tag":"0045_provider_partial_change_requests","breakpoints":true},
-    {"idx":17,"version":"7","when":1794776400000,"tag":"0046_weekly_ratings_and_reason_tags","breakpoints":true},
-    {"idx":18,"version":"7","when":1794780000000,"tag":"0047_align_taxi_fare_calculation","breakpoints":true},
-    {"idx":19,"version":"7","when":1794783600000,"tag":"0048_gate_user_reports_until_trip_starts","breakpoints":true},
-    {"idx":20,"version":"7","when":1794787200000,"tag":"0049_smooth_taxi_demand_pricing","breakpoints":true},
-    {"idx":21,"version":"7","when":1794789000000,"tag":"0050_taxi_trip_options_and_extra_time","breakpoints":true},
-    {"idx":22,"version":"7","when":1794790800000,"tag":"0051_smooth_taxi_category_pricing","breakpoints":true},
-    {"idx":23,"version":"7","when":1794792600000,"tag":"0052_provider_offer_recovery_window_and_actionable_push","breakpoints":true},
-    {"idx":24,"version":"7","when":1794794400000,"tag":"0053_add_expert_device_repair_specialties","breakpoints":true},
-    {"idx":25,"version":"7","when":1794796200000,"tag":"0054_enforce_exact_worker_specialty_matching","breakpoints":true},
-    {"idx":26,"version":"7","when":1794798000000,"tag":"0055_restore_provider_offer_policy_compatibility","breakpoints":true},
-    {"idx":27,"version":"7","when":1794799800000,"tag":"0056_deduplicate_offer_notifications_and_add_accept_action","breakpoints":true},
-    {"idx":28,"version":"7","when":1794801600000,"tag":"0057_stable_taxi_fares_customer_stop_time","breakpoints":true},
-    {"idx":29,"version":"7","when":1794803400000,"tag":"0058_exact_round_trip_discount","breakpoints":true},
-    {"idx":30,"version":"7","when":1794805200000,"tag":"0059_round_return_fare_to_250","breakpoints":true},
-    {"idx":31,"version":"7","when":1794807000000,"tag":"0060_guard_provider_request_mutations","breakpoints":true},
-    {"idx":32,"version":"7","when":1794807600000,"tag":"0061_guard_message_content_immutability","breakpoints":true},
-    {"idx":33,"version":"7","when":1794808200000,"tag":"0062_guard_live_location_ownership_and_visibility","breakpoints":true},
-    {"idx":34,"version":"7","when":1794808800000,"tag":"0063_restrict_trigger_only_function_execution","breakpoints":true},
-    {"idx":35,"version":"7","when":1794809400000,"tag":"0064_restrict_message_and_friend_request_updates","breakpoints":true}
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794243921295,
+      "tag": "0000_mamnoon_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794244046964,
+      "tag": "0001_mamnoon_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794244114998,
+      "tag": "0002_timed_taxi_dispatch",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794257700000,
+      "tag": "0003_secure_super_admin_bootstrap",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794260000000,
+      "tag": "0004_bound_provider_map_discovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794270000000,
+      "tag": "0005_provider_presence_for_mobile",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794273600000,
+      "tag": "0006_secure_taxi_dispatch_retry",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794358200000,
+      "tag": "0007_sync_verified_auth_contacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794361800000,
+      "tag": "0008_secure_friend_workflows",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794365400000,
+      "tag": "0009_secure_phone_search_and_verified_email_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794369000000,
+      "tag": "0010_exact_taxi_km_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794372600000,
+      "tag": "0011_normalize_phone_login",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794376200000,
+      "tag": "0012_targeted_service_dispatch_and_offers",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794530000000,
+      "tag": "0013_restrict_anonymous_catalog_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794541616592,
+      "tag": "0014_dynamic_taxi_demand_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794550000000,
+      "tag": "0015_mamnoon_vehicle_tier_and_intercity_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794772800000,
+      "tag": "0045_provider_partial_change_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794776400000,
+      "tag": "0046_weekly_ratings_and_reason_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794780000000,
+      "tag": "0047_align_taxi_fare_calculation",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794783600000,
+      "tag": "0048_gate_user_reports_until_trip_starts",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794787200000,
+      "tag": "0049_smooth_taxi_demand_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794789000000,
+      "tag": "0050_taxi_trip_options_and_extra_time",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794790800000,
+      "tag": "0051_smooth_taxi_category_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794792600000,
+      "tag": "0052_provider_offer_recovery_window_and_actionable_push",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794794400000,
+      "tag": "0053_add_expert_device_repair_specialties",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794796200000,
+      "tag": "0054_enforce_exact_worker_specialty_matching",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794798000000,
+      "tag": "0055_restore_provider_offer_policy_compatibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794799800000,
+      "tag": "0056_deduplicate_offer_notifications_and_add_accept_action",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1794801600000,
+      "tag": "0057_stable_taxi_fares_customer_stop_time",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794803400000,
+      "tag": "0058_exact_round_trip_discount",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794805200000,
+      "tag": "0059_round_return_fare_to_250",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794807000000,
+      "tag": "0060_guard_provider_request_mutations",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794807600000,
+      "tag": "0061_guard_message_content_immutability",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794808200000,
+      "tag": "0062_guard_live_location_ownership_and_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794808800000,
+      "tag": "0063_restrict_trigger_only_function_execution",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1794809400000,
+      "tag": "0064_restrict_message_and_friend_request_updates",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794810000000,
+      "tag": "0065_split_staff_access_by_admin_section",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794810600000,
+      "tag": "0066_tighten_staff_role_lookup_and_friend_admin",
+      "breakpoints": true
+    }
   ]
 }
