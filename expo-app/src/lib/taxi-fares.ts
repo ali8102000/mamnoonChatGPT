@@ -3,7 +3,7 @@ export type MobileVehicleCategory = "economy" | "premium" | "luxury";
 export function calculateMobileTaxiFare(
   category: MobileVehicleCategory,
   distanceKm: number,
-  demandMultiplier = 1,
+  _demandMultiplier = 1,
   isIntercity = false,
   tripType: "one_way" | "round_trip" | "second_trip" | "stop" = "one_way",
   extraMinutes = 0,
@@ -16,12 +16,7 @@ export function calculateMobileTaxiFare(
   const baseFare = distanceKm * perKm;
   const requestedDemand = Math.min(1.5, Math.max(0.8, demandMultiplier));
   // Smoothly taper demand uplift as the base fare grows; keep web and Android identical.
-  const adjustedDemand = isIntercity
-    ? Math.min(1.1, Math.max(0.95, requestedDemand))
-    : Math.min(
-        requestedDemand,
-        1.1 + 0.4 * Math.min(1, Math.max(0, (10000 - baseFare) / 5000)),
-      );
+  const adjustedDemand = 1; // Geographic demand multipliers caused abrupt fare changes when moving the pickup pin.
   if (!Number.isInteger(extraMinutes) || extraMinutes < 0 || extraMinutes > 120 || extraMinutes % 5 !== 0) {
     throw new Error("مدة الانتظار يجب أن تكون من 5 إلى 120 دقيقة وبفواصل 5 دقائق");
   }
@@ -34,7 +29,7 @@ export function calculateMobileTaxiFare(
         ? (isIntercity ? 1.05 : 1.10 - 0.05 * categoryTransition)
         : (isIntercity ? 1.10 : 1.25 - 0.15 * categoryTransition);
 
-  const tripMultiplier = tripType === "round_trip" || tripType === "second_trip" ? 2 : 1;
+  const tripMultiplier = tripType === "round_trip" ? 1.8 : tripType === "second_trip" ? 2 : 1;
   const extraTimeFare = Math.ceil(extraMinutes / 5) * 500;
   return Math.max(0, Math.round((economyFare * tierMultiplier * tripMultiplier + extraTimeFare) / 250) * 250);
 }
