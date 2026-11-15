@@ -92,6 +92,7 @@ export default function NewRequest() {
   const [focusSearchAfterProvince, setFocusSearchAfterProvince] = useState(false);
   const placeSearchInputRef = useRef<TextInput>(null);
   const regionChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userPannedMapRef = useRef(false);
 
   useEffect(() => () => {
     if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
@@ -288,7 +289,9 @@ export default function NewRequest() {
 
   function handleRegionChangeComplete(nextRegion: typeof region, details?: { isGesture?: boolean }) {
     setRegion(nextRegion);
-    if (!details?.isGesture) return;
+    // Pinch zoom is a map gesture too, but it is not a new location selection.
+    if (!details?.isGesture || !userPannedMapRef.current) return;
+    userPannedMapRef.current = false;
     if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
     regionChangeTimerRef.current = setTimeout(async () => {
       const coords = { latitude: nextRegion.latitude, longitude: nextRegion.longitude };
@@ -628,6 +631,7 @@ export default function NewRequest() {
           style={styles.map}
           provider={PROVIDER_GOOGLE}
           region={region}
+          onPanDrag={() => { userPannedMapRef.current = true; }}
           onRegionChangeComplete={handleRegionChangeComplete}
           onPress={(event) => chooseMapPoint(event.nativeEvent.coordinate)}
           showsUserLocation
