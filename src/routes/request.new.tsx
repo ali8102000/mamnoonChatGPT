@@ -512,7 +512,7 @@ function NewRequest() {
   // Active calculated taxi fare
   const activeFare =
     routeKm !== null
-      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity, tripType, extraMinutes })
+      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes })
       : FARE_TABLE[vehicleCategory].minimum;
 
   const estimatedEtaMinutes =
@@ -525,7 +525,7 @@ function NewRequest() {
     const currentBreakdown = calculateFareBreakdown(vehicleCategory, routeKm ?? 0, {
       weather: "mild" as const,
       roadCondition,
-      demandMultiplier,
+      demandMultiplier: 1,
       isIntercity: interCity,
     });
 
@@ -850,7 +850,7 @@ function NewRequest() {
                   const active = vehicleCategory === c.key;
                   const fare =
                     routeKm !== null
-                      ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier, isIntercity: interCity, tripType, extraMinutes })
+                      ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes })
                       : null;
                   return (
                     <button
