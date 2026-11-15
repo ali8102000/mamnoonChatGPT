@@ -126,6 +126,7 @@ Deno.serve(async (req: Request) => {
         driverProfile: driver.data, workerProfile: worker.data,
         transactions: transactions.data ?? [], requests: requests.data ?? [],
         ratings: ratings.error ? [] : ratings.data ?? [],
+        ratings_error: !!ratings.error,
       });
     }
 
