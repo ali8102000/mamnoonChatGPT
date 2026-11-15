@@ -267,6 +267,13 @@
       "when": 1794810600000,
       "tag": "0066_tighten_staff_role_lookup_and_friend_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794811200000,
+      "tag": "0067_protect_support_message_content_and_conversation_updates",
+      "breakpoints": true
     }
   ]
 }
