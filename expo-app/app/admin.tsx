@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
 
-type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number };
+type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number; totalWorkers: number; activeDrivers: number; activeWorkers: number; activeRequests: number; completedRequests: number; cancelledRequests: number; dailyRevenue: number; monthlyRevenue: number; yearlyRevenue: number };
 type PricingRule = {
   id: string;
   vehicle_category: string;
@@ -27,6 +27,15 @@ export default function AdminScreen() {
     totalRequests: 0,
     totalUsers: 0,
     totalDrivers: 0,
+    totalWorkers: 0,
+    activeDrivers: 0,
+    activeWorkers: 0,
+    activeRequests: 0,
+    completedRequests: 0,
+    cancelledRequests: 0,
+    dailyRevenue: 0,
+    monthlyRevenue: 0,
+    yearlyRevenue: 0,
   });
   const [pricing, setPricing] = useState<PricingRule[]>([]);
   const [recent, setRecent] = useState<RecentRequest[]>([]);
@@ -54,21 +63,42 @@ export default function AdminScreen() {
     }
     const { data: company } = await (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle();
     if (company?.company_name) setCompanyName(company.company_name);
-    const [reqs, users, drivers, pricingRules, recentReqs] = await Promise.all([
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
+    const [reqs, users, drivers, workers, activeDrivers, activeWorkers, activeRequests, completedRequests, cancelledRequests, todayTx, monthTx, yearTx, pricingRules, recentReqs] = await Promise.all([
       supabase.from("service_requests").select("id", { count: "exact", head: true }),
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("driver_profiles").select("id", { count: "exact", head: true }),
+      supabase.from("worker_profiles").select("id", { count: "exact", head: true }),
+      supabase.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
+      supabase.from("worker_profiles").select("id", { count: "exact", head: true }).eq("available", true),
+      supabase.from("service_requests").select("id", { count: "exact", head: true }).in("status", ["pending", "searching", "accepted", "in_progress"]),
+      supabase.from("service_requests").select("id", { count: "exact", head: true }).eq("status", "completed"),
+      supabase.from("service_requests").select("id", { count: "exact", head: true }).eq("status", "cancelled"),
+      (supabase as any).from("transactions").select("amount,type").gte("created_at", dayStart),
+      (supabase as any).from("transactions").select("amount,type").gte("created_at", monthStart),
+      (supabase as any).from("transactions").select("amount,type").gte("created_at", yearStart),
       supabase.from("pricing_rules").select("*").order("vehicle_category"),
-      supabase
-        .from("service_requests")
-        .select("*, customer:profiles!service_requests_customer_id_fkey(full_name)")
-        .order("created_at", { ascending: false })
-        .limit(20),
+      supabase.from("service_requests").select("*, customer:profiles!service_requests_customer_id_fkey(full_name)").order("created_at", { ascending: false }).limit(20),
     ]);
+    const commissionTotal = (rows: any[] | null | undefined) => (rows ?? [])
+      .filter((row: any) => row.type === "commission")
+      .reduce((sum: number, row: any) => sum + Math.abs(Number(row.amount) || 0), 0);
     setStats({
       totalRequests: reqs.count || 0,
       totalUsers: users.count || 0,
       totalDrivers: drivers.count || 0,
+      totalWorkers: workers.count || 0,
+      activeDrivers: activeDrivers.count || 0,
+      activeWorkers: activeWorkers.count || 0,
+      activeRequests: activeRequests.count || 0,
+      completedRequests: completedRequests.count || 0,
+      cancelledRequests: cancelledRequests.count || 0,
+      dailyRevenue: commissionTotal(todayTx.data),
+      monthlyRevenue: commissionTotal(monthTx.data),
+      yearlyRevenue: commissionTotal(yearTx.data),
     });
     setPricing(pricingRules.data || []);
     setRecent(recentReqs.data || []);
@@ -284,19 +314,37 @@ export default function AdminScreen() {
           )}
         </View>
       ))}
+      <Text style={styles.sectionTitle}>إحصائيات المنصة</Text>
       <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalRequests}</Text>
-          <Text style={styles.statLabel}>إجمالي الطلبات</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalUsers}</Text>
-          <Text style={styles.statLabel}>المستخدمين</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalDrivers}</Text>
-          <Text style={styles.statLabel}>السائقين</Text>
-        </View>
+        {([
+          ["المستخدمون", stats.totalUsers],
+          ["السائقون", stats.totalDrivers],
+          ["الفنيون", stats.totalWorkers],
+          ["السائقون المتاحون", stats.activeDrivers],
+          ["الفنيون المتاحون", stats.activeWorkers],
+          ["الطلبات النشطة", stats.activeRequests],
+          ["الطلبات المكتملة", stats.completedRequests],
+          ["الطلبات الملغاة", stats.cancelledRequests],
+          ["إجمالي الطلبات", stats.totalRequests],
+        ] as [string, number][]).map(([label, value]) => (
+          <View key={label} style={styles.statCard}>
+            <Text style={styles.statValue}>{value.toLocaleString("ar-IQ")}</Text>
+            <Text style={styles.statLabel}>{label}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.sectionTitle}>عمولات المنصة</Text>
+      <View style={styles.statsGrid}>
+        {([
+          ["اليوم", stats.dailyRevenue],
+          ["هذا الشهر", stats.monthlyRevenue],
+          ["هذه السنة", stats.yearlyRevenue],
+        ] as [string, number][]).map(([label, value]) => (
+          <View key={label} style={styles.statCard}>
+            <Text style={styles.statValue}>{value.toLocaleString("ar-IQ")}</Text>
+            <Text style={styles.statLabel}>{label} · د.ع</Text>
+          </View>
+        ))}
       </View>
       <Text style={styles.sectionTitle}>قواعد التسعير</Text>
       {pricing.map((p) => (
@@ -345,8 +393,8 @@ const styles = StyleSheet.create({
   reportMeta: { color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 5 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 18 },
-  statsGrid: { flexDirection: "row", gap: 10, marginBottom: 22 },
-  statCard: { flex: 1, backgroundColor: palette.surface, borderRadius: radius.lg, padding: 15, alignItems: "center", borderWidth: 1, borderColor: palette.line },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 22 },
+  statCard: { flexBasis: "30%", flexGrow: 1, backgroundColor: palette.surface, borderRadius: radius.lg, padding: 15, alignItems: "center", borderWidth: 1, borderColor: palette.line },
   statValue: { fontSize: 26, fontWeight: "900", color: palette.brand },
   statLabel: { fontSize: 11, color: palette.muted, marginTop: 5, textAlign: "center" },
   sectionTitle: { fontSize: 16, fontWeight: "900", color: palette.ink, marginBottom: 12 },
