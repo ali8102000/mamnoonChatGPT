@@ -94,7 +94,7 @@ export function calculateFareBreakdown(
   const finalTotal = Math.max(
     MIN_TAXI_FARE,
     options?.tripType === "round_trip"
-      ? Math.round(economyFare * tierMultiplier * 2 * 0.9 + extraTimeFare)
+      ? roundTo250(economyFare * tierMultiplier * 2 * 0.9 + extraTimeFare)
       : roundTo250(economyFare * tierMultiplier * tripMultiplier + extraTimeFare),
   );
 
