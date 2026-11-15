@@ -249,7 +249,7 @@ export default function RequestDetail() {
   }, [id, user?.id, roles]);
 
   useEffect(() => {
-    const otherId = request && !["completed", "cancelled"].includes(request.status)
+    const otherId = request && ["accepted", "in_progress", "completed"].includes(request.status)
       ? request.customer_id === user?.id
         ? request.provider_id
         : request.customer_id
