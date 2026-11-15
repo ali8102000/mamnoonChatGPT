@@ -1,7 +1,12 @@
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text, TextInput } from "react-native";
-import { useFonts, Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black } from "@expo-google-fonts/tajawal";
+import { useFonts } from "@expo-google-fonts/tajawal/useFonts";
+import { Tajawal_400Regular } from "@expo-google-fonts/tajawal/400Regular";
+import { Tajawal_500Medium } from "@expo-google-fonts/tajawal/500Medium";
+import { Tajawal_700Bold } from "@expo-google-fonts/tajawal/700Bold";
+import { Tajawal_800ExtraBold } from "@expo-google-fonts/tajawal/800ExtraBold";
+import { Tajawal_900Black } from "@expo-google-fonts/tajawal/900Black";
 import { Alert, I18nManager, LogBox, Platform, useColorScheme } from "react-native";
 import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
