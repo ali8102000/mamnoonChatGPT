@@ -64,7 +64,7 @@ const SERVICE_IMAGES: Record<string, number> = {
   general: service_general,
 }
 
-type Coordinates = { latitude: number; longitude: number };
+type Coordinates = { latitude: number; longitude: number; heading?: number | null };
 type RequestRecord = {
   provider_id: string | null;
   customer_id: string;
@@ -103,7 +103,7 @@ export default function RequestDetail() {
   const [request, setRequest] = useState<RequestRecord | null>(null);
   const [otherProfile, setOtherProfile] = useState<{ full_name: string | null; avatar_url: string | null; phone: string | null } | null>(null);
   const [vehicleDetails, setVehicleDetails] = useState<any>(null);
-  const [showChat, setShowChat] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [largeOffers, setLargeOffers] = useState<any[]>([]);
@@ -270,7 +270,7 @@ export default function RequestDetail() {
     if (!error) setMessages((data ?? []) as ChatMessage[]);
   }, [chatId]);
 
-  useEffect(() => { setShowChat(false); }, [id]);
+  useEffect(() => { setAvatarLoadFailed(false); }, [otherProfile?.avatar_url]);
 
   useEffect(() => {
     loadRequest();
@@ -331,6 +331,7 @@ export default function RequestDetail() {
       const coords = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
+        heading: location.coords.heading,
       };
       setMyLocation(coords);
       const { error } = await supabase.from("live_locations").upsert(
@@ -388,12 +389,12 @@ export default function RequestDetail() {
 
     supabase
       .from("live_locations")
-      .select("user_id, lat, lng, updated_at")
+.select("user_id, lat, lng, heading, updated_at")
       .eq("request_id", id)
       .eq("user_id", otherId)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setOtherLocation({ latitude: data.lat, longitude: data.lng });
+        if (data) setOtherLocation({ latitude: data.lat, longitude: data.lng, heading: data.heading });
       });
 
     const channel = supabase
@@ -407,13 +408,13 @@ export default function RequestDetail() {
           filter: `request_id=eq.${id}`,
         },
         (payload) => {
-          const row = payload.new as { user_id?: string; lat?: number; lng?: number };
+          const row = payload.new as { user_id?: string; lat?: number; lng?: number; heading?: number | null };
           if (
             row.user_id === otherId &&
             typeof row.lat === "number" &&
             typeof row.lng === "number"
           ) {
-            setOtherLocation({ latitude: row.lat, longitude: row.lng });
+            setOtherLocation({ latitude: row.lat, longitude: row.lng, heading: row.heading });
           }
         },
       )
@@ -583,6 +584,7 @@ export default function RequestDetail() {
 
   async function submitUserReport() {
     if (!user?.id || !request) return;
+    if (request.status !== "in_progress") { Alert.alert("البلاغات غير متاحة", "تگدر ترسل بلاغ بعد بدء الرحلة أو الخدمة فعلياً."); return; }
     const reportedId = isCustomer ? request.provider_id : request.customer_id;
     if (!reportedId) { Alert.alert("تعذر إرسال البلاغ", "لا يوجد طرف آخر مرتبط بهذا الطلب حتى الآن."); return; }
     if (!reportReason.trim()) { Alert.alert("تنبيه", "اكتب سبب البلاغ."); return; }
@@ -657,8 +659,8 @@ export default function RequestDetail() {
         {otherProfile && !["completed", "cancelled"].includes(request.status) && (
           <View style={[styles.personCard, request.type === "taxi" && isActive && styles.personCardCompact]}>
             <View style={[styles.personAvatar, request.type === "taxi" && isActive && { width: 38, height: 38, borderRadius: 13 }]}>
-              {otherProfile.avatar_url ? (
-                <Image source={{ uri: otherProfile.avatar_url }} style={styles.personAvatarImage} />
+              {otherProfile.avatar_url && !avatarLoadFailed ? (
+                <Image source={{ uri: otherProfile.avatar_url }} style={styles.personAvatarImage} onError={() => setAvatarLoadFailed(true)} />
               ) : (
                 <Text style={styles.personAvatarText}>{(otherProfile.full_name || "؟")[0]}</Text>
               )}
@@ -666,6 +668,10 @@ export default function RequestDetail() {
             <View style={{ flex: 1 }}>
               <Text style={styles.personName}>{otherProfile.full_name || "مستخدم"}</Text>
               {!!otherProfile.phone && <Text style={styles.personPhone}>{otherProfile.phone}</Text>}
+              <View style={styles.personQuickActions}>
+                {!!otherProfile.phone && <TouchableOpacity style={styles.personQuickButton} onPress={() => void Linking.openURL(`tel:${otherProfile.phone}`)}><Text style={styles.personQuickButtonText}>اتصال</Text></TouchableOpacity>}
+                {!!chatId && !["completed", "cancelled"].includes(request.status) && <TouchableOpacity style={styles.personQuickButton} onPress={() => router.push({ pathname: "/request/chat/[id]", params: { id } })}><Text style={styles.personQuickButtonText}>المحادثة{messages.length ? ` · ${messages.length}` : ""}</Text></TouchableOpacity>}
+              </View>
               <Text style={styles.personRole}>{isCustomer ? "مقدم الخدمة" : "الزبون"}</Text>
             </View>
           </View>
@@ -778,7 +784,7 @@ export default function RequestDetail() {
                 showsUserLocation={request.type !== "taxi"}
               >
                 {request.type === "taxi" ? (
-                  (isProvider ? myLocation : otherLocation) && <Marker coordinate={(isProvider ? myLocation : otherLocation)!} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}><View style={styles.luxuryCarMarker}><Text style={styles.luxuryCarEmoji}>🚘</Text></View></Marker>
+                  (isProvider ? myLocation : otherLocation) && <Marker coordinate={(isProvider ? myLocation : otherLocation)!} rotation={((isProvider ? myLocation : otherLocation)?.heading ?? 0)} flat anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}><View style={styles.luxuryCarMarker}><View style={styles.luxuryCarRoof} /><View style={styles.luxuryCarWindows} /><View style={styles.luxuryCarFront} /><View style={styles.luxuryCarWheelLeft} /><View style={styles.luxuryCarWheelRight} /></View></Marker>
                 ) : (
                   <>
                     <Marker coordinate={{ latitude: request.pickup_lat!, longitude: request.pickup_lng! }} title="نقطة الانطلاق" pinColor="#0f766e" />
@@ -829,8 +835,8 @@ export default function RequestDetail() {
               </TouchableOpacity>
             )}
         </View>
-        {chatId && !["completed", "cancelled"].includes(request.status) && <View style={styles.chatToolbar}><TouchableOpacity style={styles.chatToggleButton} onPress={() => setShowChat((value) => !value)}><Text style={styles.chatToggleText}>{showChat ? "إخفاء المحادثة" : `فتح المحادثة${messages.length ? ` · ${messages.length}` : ""}`}</Text></TouchableOpacity><TouchableOpacity style={styles.soundToggleButton} onPress={() => { const next = !soundEnabled; setSoundEnabled(next); void setNotificationSoundPreference(next); }}><Text style={styles.soundToggleText}>{soundEnabled ? "🔊" : "🔇"}</Text></TouchableOpacity></View>}
-        {(isCustomer ? !!request.provider_id : !!request.customer_id) && (
+
+        {request.status === "in_progress" && (isCustomer ? !!request.provider_id : !!request.customer_id) && (
           <View style={styles.reportCard}>
             {!showReportForm ? (
               <TouchableOpacity onPress={() => setShowReportForm(true)} style={styles.reportButton}>
@@ -850,54 +856,7 @@ export default function RequestDetail() {
             )}
           </View>
         )}
-        {!["completed", "cancelled"].includes(request.status) ? (
-        showChat ? <>
-        <View style={styles.chatHeader}><Text style={styles.chatHeaderTitle}>المحادثة</Text></View>
-        <ScrollView
-          ref={scrollRef}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-        >
-          {messages.map((msg) => (
-            <View
-              key={msg.id}
-              style={[
-                styles.msgBubble,
-                msg.sender_id === user?.id ? styles.msgMine : styles.msgOther,
-              ]}
-            >
-              <Text style={[styles.msgText, msg.sender_id === user?.id && styles.msgTextMine]}>{msg.content}</Text>
-              <Text style={[styles.msgTime, msg.sender_id === user?.id && styles.msgTimeMine]}>{new Date(msg.created_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })}</Text>
-            </View>
-          ))}
-        </ScrollView>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}
-        >
-          {quickReplies.map((qr) => (
-            <TouchableOpacity key={qr} style={styles.quickReply} onPress={() => sendMessage(qr)}>
-              <Text style={styles.quickReplyText}>{qr}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.msgInput}
-            value={newMsg}
-            onChangeText={setNewMsg}
-            placeholder="اكتب رسالة..."
-            placeholderTextColor="#94a3b8"
-            onSubmitEditing={() => sendMessage()}
-          />
-          <TouchableOpacity style={styles.sendBtn} onPress={() => sendMessage()}>
-            <Text style={styles.sendBtnText}>إرسال</Text>
-          </TouchableOpacity>
-        </View>
-        </> : null
-        ) : (
+        {!["completed", "cancelled"].includes(request.status) ? null : (
           <View style={styles.chatClosed}><Text style={styles.chatClosedTitle}>{request.status === "completed" ? "اكتمل الطلب" : "تم إلغاء الطلب"}</Text><Text style={styles.chatClosedText}>انتهت المحادثة وتم إخفاء بيانات الطرف الآخر.</Text></View>
         )}
         {showRating && (
@@ -950,6 +909,9 @@ const styles = StyleSheet.create({
   personName: { color: palette.ink, fontSize: 15, fontWeight: "900" },
   personPhone: { color: palette.muted, fontSize: 12, marginTop: 3 },
   personRole: { color: palette.brand, fontSize: 11, fontWeight: "900", marginTop: 3 },
+  personQuickActions: { flexDirection: "row", gap: 7, marginTop: 7 },
+  personQuickButton: { borderRadius: radius.md, backgroundColor: palette.brandSoft, paddingHorizontal: 12, paddingVertical: 7 },
+  personQuickButtonText: { color: palette.brand, fontWeight: "900", fontSize: 11 },
   infoCard: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 17, margin: 16, borderWidth: 1, borderColor: palette.line },
   taxiInfoCard: { padding: 9, marginTop: 8, marginBottom: 8 },
   vehicleDetailsText: { fontSize: 11, color: palette.muted, marginTop: 3, textAlign: "right" },
@@ -962,7 +924,12 @@ const styles = StyleSheet.create({
   trackingTitle: { fontSize: 15, fontWeight: "900", color: palette.ink, marginBottom: 10 },
   trackingMap: { height: 220, borderRadius: radius.md },
   trackingMapTaxi: { height: 340 },
-  luxuryCarMarker: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#fff", borderWidth: 2, borderColor: "#D4AF37", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.22, shadowRadius: 5, elevation: 6 },
+  luxuryCarMarker: { width: 48, height: 30, borderRadius: 13, backgroundColor: "#B88A24", borderWidth: 2, borderColor: "#172033", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 7 },
+  luxuryCarRoof: { position: "absolute", top: 3, width: 25, height: 12, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: "#24364A" },
+  luxuryCarWindows: { position: "absolute", top: 5, width: 21, height: 7, borderRadius: 4, backgroundColor: "#9CC6D8" },
+  luxuryCarFront: { position: "absolute", right: 2, width: 4, height: 8, borderRadius: 3, backgroundColor: "#F8E7A0" },
+  luxuryCarWheelLeft: { position: "absolute", left: 8, bottom: -3, width: 7, height: 5, borderRadius: 3, backgroundColor: "#111827" },
+  luxuryCarWheelRight: { position: "absolute", right: 8, bottom: -3, width: 7, height: 5, borderRadius: 3, backgroundColor: "#111827" },
   luxuryCarEmoji: { fontSize: 27 },
   chatToolbar: { flexDirection: "row", gap: 8, marginHorizontal: 16, marginTop: 8, marginBottom: 8 },
   chatToggleButton: { flex: 1, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, backgroundColor: palette.surface, paddingVertical: 12, alignItems: "center" },
