@@ -563,14 +563,16 @@ function NewRequest() {
           console.error("[request attachment] upload failed:", uploadError);
           toast.error("تم إرسال الطلب، لكن تعذّر رفع الصورة. تگدر تكمل الطلب بدونها.");
         } else {
-          const { error: pathError } = await (supabase as any)
+          const { data: linkedRequest, error: pathError } = await (supabase as any)
             .from("service_requests")
             .update({ attachment_path: attachmentPath })
             .eq("id", data.id)
-            .eq("customer_id", session.user.id);
-          if (pathError) {
+            .eq("customer_id", session.user.id)
+            .select("id")
+            .maybeSingle();
+          if (pathError || !linkedRequest) {
             await supabase.storage.from("request-attachments").remove([attachmentPath]);
-            console.error("[request attachment] path save failed:", pathError);
+            console.error("[request attachment] path save failed:", pathError ?? "request row was not updated");
             toast.error("تم إرسال الطلب، لكن تعذّر إرفاق الصورة به.");
           }
         }
