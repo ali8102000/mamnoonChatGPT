@@ -80,12 +80,13 @@ export function calculateFareBreakdown(
       );
 
   const economyFare = subtotal * demandMultiplier;
+  const categoryTransition = Math.min(1, Math.max(0, (economyFare - 4500) / 1000));
   const tierMultiplier =
     category === "economy" || category === "large"
       ? 1
-      : isIntercity || economyFare >= 5000
-        ? category === "premium" ? 1.05 : 1.10
-        : category === "premium" ? 1.10 : 1.25;
+      : category === "premium"
+        ? (isIntercity ? 1.05 : 1.10 - 0.05 * categoryTransition)
+        : (isIntercity ? 1.10 : 1.25 - 0.15 * categoryTransition);
 
   const weather = options?.weather ?? "heat";
   const roadCondition = options?.roadCondition ?? "normal";
