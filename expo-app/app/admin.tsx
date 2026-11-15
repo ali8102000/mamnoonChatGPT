@@ -240,6 +240,8 @@ export default function AdminScreen() {
         <TouchableOpacity onPress={() => router.push("/admin/requests")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الطلبات</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/admin/finance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المحفظة والكوبونات</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/admin/governance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الصلاحيات وسجل العمليات</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></TouchableOpacity>
       </View>
       <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
