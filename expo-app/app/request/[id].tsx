@@ -668,7 +668,7 @@ export default function RequestDetail() {
             {request.vehicle_category === "large" ? `🚚 طلب سيارة كبيرة — ${request.vehicle_type === "kia_passenger" ? "كيا ركاب" : "كيا حمل"}` : request.type === "taxi" ? "🚕 طلب سيارة" : `🛠️ ${request.services?.name_ar || "خدمة منزلية"}`}
           </Text>
           {request.type !== "taxi" || !isActive ? <>{request.pickup_text && <Text style={styles.infoRow}>من: {request.pickup_text}</Text>}{request.dest_text && <Text style={styles.infoRow}>إلى: {request.dest_text}</Text>}</> : null}
-          {request.type === "taxi" && isActive && vehicleDetails && <Text style={styles.vehicleDetailsText}>{[vehicleDetails.vehicle_make, vehicleDetails.vehicle_model, vehicleDetails.vehicle_year].filter(Boolean).join(" ")}{vehicleDetails.vehicle_plate ? ` · رقم السيارة ${vehicleDetails.vehicle_plate}` : ""}</Text>}
+          {request.type === "taxi" && isActive && vehicleDetails && <Text style={styles.vehicleDetailsText}>السيارة: {[vehicleDetails.vehicle_make, vehicleDetails.vehicle_model, vehicleDetails.vehicle_year].filter(Boolean).join(" ")}{vehicleDetails.vehicle_color ? ` · ${vehicleDetails.vehicle_color}` : ""}{vehicleDetails.vehicle_plate ? ` · رقم اللوحة ${vehicleDetails.vehicle_plate}` : ""}</Text>}
           {request.work_description && <Text style={styles.infoRow}>تفاصيل العمل: {request.work_description}</Text>}
           {request.workers_count != null && request.type === "service" && (
             <Text style={styles.infoRow}>عدد العاملين: {request.workers_count}</Text>
