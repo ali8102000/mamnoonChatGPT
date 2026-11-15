@@ -129,6 +129,7 @@ export default function RequestDetail() {
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const weeklyRatingNoticeRef = useRef<string | null>(null);
   const isProvider = request?.provider_id === user?.id;
   const isCustomer = request?.customer_id === user?.id;
   const canAccept = Boolean(
@@ -173,7 +174,10 @@ export default function RequestDetail() {
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         const { data: weeklyRating } = await (supabase as any).from("ratings").select("id").eq("rater_id", user.id).eq("ratee_id", rateeId).gte("created_at", weekAgo).limit(1).maybeSingle();
         setShowRating(!weeklyRating);
-        if (weeklyRating) Alert.alert("التقييم", "لقد تم تقييم هذا الشخص من قبلك خلال آخر 7 أيام.");
+        if (weeklyRating && weeklyRatingNoticeRef.current !== rateeId) {
+          weeklyRatingNoticeRef.current = rateeId;
+          Alert.alert("التقييم", "لقد تم تقييم هذا الشخص من قبلك خلال آخر 7 أيام.");
+        }
       }
     } else {
       setShowRating(false);
