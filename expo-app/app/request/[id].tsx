@@ -641,7 +641,7 @@ export default function RequestDetail() {
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backBtn}>→</Text>
           </TouchableOpacity>
-          <View style={{ alignItems: "center", flex: 1 }}><Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>الكابتن متجه إليك</Text>}</View>
+          <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>الكابتن متجه إليك</Text>}</View>
           <View style={{ width: 30 }} />
         </View>
         {otherProfile && !["completed", "cancelled"].includes(request.status) && (
