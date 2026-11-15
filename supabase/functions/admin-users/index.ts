@@ -195,6 +195,105 @@ Deno.serve(async (req: Request) => {
       return json({ requests: requests ?? [] });
     }
 
+    if (body.action === "set_provider_status") {
+      await requireAdmin();
+      const types = ["driver", "large_driver", "worker"];
+      const statuses = ["approved", "suspended", "rejected", "pending"];
+      const durations = ["30m", "1h", "1w", "1mo", "1y", "permanent"];
+      if (!isUuid(body.user_id) || !types.includes(body.type) || !statuses.includes(body.status) ||
+          (body.reason !== undefined && (typeof body.reason !== "string" || body.reason.length > 500)) ||
+          (body.status === "suspended" && !durations.includes(body.suspension_duration))) {
+        return json({ error: "invalid_provider_status_request" }, 400);
+      }
+      const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+      if (body.status === "rejected" && !reason) {
+        return json({ error: "rejection_reason_required" }, 400);
+      }
+      const durationMinutes: Record<string, number> = {
+        "30m": 30, "1h": 60, "1w": 10080, "1mo": 43200, "1y": 525600,
+      };
+      const suspendedUntil = body.status === "suspended" && body.suspension_duration !== "permanent"
+        ? new Date(Date.now() + durationMinutes[body.suspension_duration] * 60000).toISOString()
+        : null;
+      const { error: statusError } = await caller.rpc("admin_set_provider_status", {
+        p_user_id: body.user_id,
+        p_type: body.type,
+        p_status: body.status,
+        p_suspended_until: suspendedUntil,
+      });
+      if (statusError) return json({ error: statusError.message }, 400);
+
+      if (body.status === "approved" || body.status === "rejected") {
+        const { error } = await admin.from("provider_verifications").update({
+          status: body.status,
+          rejection_reason: body.status === "rejected" ? reason : null,
+          reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq("user_id", body.user_id).eq("provider_type", body.type);
+        if (error) return json({ error: "provider_verification_update_failed" }, 500);
+      }
+
+      const role = body.type === "driver" ? "driver" : body.type === "large_driver" ? "large_driver" : "worker";
+      if (body.status === "approved") {
+        const { data: granted, error } = await admin.from("user_roles")
+          .select("role").eq("user_id", body.user_id).eq("role", role).maybeSingle();
+        if (error || !granted) return json({ error: "provider_role_activation_not_confirmed" }, 409);
+      }
+
+      let notificationSent = false;
+      let pushSent = 0;
+      if (["approved", "rejected", "suspended"].includes(body.status)) {
+        const { data: profile } = await admin.from("profiles").select("full_name").eq("id", body.user_id).maybeSingle();
+        const personName = String(profile?.full_name ?? "").trim();
+        const providerLabel = body.type === "driver" ? "سائق تكسي" : body.type === "large_driver" ? "سائق سيارات كبيرة" : "فني";
+        const { data: settings } = await admin.from("company_settings").select("company_name").eq("id", 1).maybeSingle();
+        const companyName = String(settings?.company_name ?? "شركة ممنون");
+        const durationLabels: Record<string, string> = {
+          "30m": "نصف ساعة", "1h": "ساعة", "1w": "أسبوع", "1mo": "شهر", "1y": "سنة", permanent: "بشكل دائم",
+        };
+        const title = body.status === "approved"
+          ? "تهانينا! تم تفعيل حسابك في ممنون 🎉"
+          : body.status === "rejected" ? "بخصوص طلب انضمامك إلى ممنون" : "تنبيه: تم تعليق حسابك في ممنون";
+        const messageBody = body.status === "approved"
+          ? `أهلاً ${personName || "بك"}، نبارك لك! تم تفعيل حسابك كـ${providerLabel} بعد مراجعة الإدارة. نتمنى لك التوفيق والنجاح، ونرحب بك ضمن أسرة ${companyName} الموثّقة. 💛`
+          : body.status === "rejected"
+            ? `أهلاً ${personName || "بك"}، نعتذر عن عدم قبول طلبك حالياً. سبب الرفض: ${reason}. يرجى معالجة الملاحظة وإعادة المحاولة، ونتمنى لك التوفيق. ${companyName} الموثّقة.`
+            : `أهلاً ${personName || "بك"}، نود إعلامك بأنه تم تعليق حسابك كـ${providerLabel} ${body.suspension_duration === "permanent" ? "بشكل دائم" : `لمدة ${durationLabels[body.suspension_duration] ?? "محددة"}`}${suspendedUntil ? `, وينتهي التعليق بتاريخ ${new Date(suspendedUntil).toLocaleString("ar-IQ")}` : ""}.${reason ? ` السبب: ${reason}.` : ""} للاستفسار يرجى مراسلة إدارة ${companyName}.`;
+        const notificationType = body.status === "approved" ? "provider_approved" : body.status === "rejected" ? "provider_rejected" : "provider_suspended";
+        const { error: notificationError } = await admin.from("notifications").insert({
+          user_id: body.user_id, type: notificationType, title, body: messageBody, link: "/home",
+          data: { provider_type: body.type, status: body.status, suspended_until: suspendedUntil, company: companyName },
+        });
+        if (notificationError) return json({ error: "provider_notification_save_failed" }, 500);
+        notificationSent = true;
+
+        const { data: pushRows } = await admin.from("user_push_tokens").select("expo_push_token").eq("user_id", body.user_id);
+        const tokens = (pushRows ?? []).map((row: any) => row.expo_push_token)
+          .filter((token: string) => typeof token === "string" && token.startsWith("ExponentPushToken["));
+        for (let i = 0; i < tokens.length; i += 100) {
+          const messages = tokens.slice(i, i + 100).map((to: string) => ({
+            to, sound: "default", title, body: messageBody,
+            data: { type: "provider_verification", provider_type: body.type, status: body.status },
+            channelId: "default",
+          }));
+          try {
+            const response = await fetch("https://exp.host/--/api/v2/push/send", {
+              method: "POST",
+              headers: { Accept: "application/json", "Content-Type": "application/json" },
+              body: JSON.stringify(messages),
+            });
+            if (response.ok) {
+              const payload = await response.json() as { data?: Array<{ status?: string }> };
+              pushSent += (payload.data ?? []).filter((ticket) => ticket.status === "ok").length;
+            }
+          } catch (pushError) {
+            console.warn("[admin-users] provider push delivery failed", pushError);
+          }
+        }
+      }
+      return json({ ok: true, role: body.status === "approved" ? role : null, notification_sent: notificationSent, push_sent: pushSent });
+    }
+
     if (body.action === "cancel_request") {
       await requireAdmin();
       if (!isUuid(body.request_id) || typeof body.reason !== "string" || body.reason.length > 500) {
