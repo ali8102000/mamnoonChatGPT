@@ -26,12 +26,13 @@ export function calculateMobileTaxiFare(
     throw new Error("مدة الانتظار يجب أن تكون من 5 إلى 120 دقيقة وبفواصل 5 دقائق");
   }
   const economyFare = baseFare * adjustedDemand;
+  const categoryTransition = Math.min(1, Math.max(0, (economyFare - 4500) / 1000));
   const tierMultiplier =
     category === "economy"
       ? 1
-      : isIntercity || economyFare >= 5000
-        ? category === "premium" ? 1.05 : 1.1
-        : category === "premium" ? 1.1 : 1.25;
+      : category === "premium"
+        ? (isIntercity ? 1.05 : 1.10 - 0.05 * categoryTransition)
+        : (isIntercity ? 1.10 : 1.25 - 0.15 * categoryTransition);
 
   const tripMultiplier = tripType === "round_trip" || tripType === "second_trip" ? 2 : 1;
   const extraTimeFare = Math.ceil(extraMinutes / 5) * 500;
