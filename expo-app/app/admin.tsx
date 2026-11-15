@@ -247,6 +247,7 @@ export default function AdminScreen() {
         </TouchableOpacity>
       </View>
       <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push("/admin/providers")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة السائقين والفنيين ومراجعة المستمسكات</Text></TouchableOpacity>
       <View style={styles.inboxHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>رسائل المستخدمين إلى الإدارة</Text>
