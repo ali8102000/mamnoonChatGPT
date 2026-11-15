@@ -16,6 +16,7 @@ type UserRow = {
 type Detail = {
   profile: any; roles: { role: string; created_at: string }[]; block: any;
   driverProfile: any; workerProfile: any; transactions: any[]; requests: any[]; ratings: any[];
+  ratings_error?: boolean;
 };
 const DURATIONS = [
   ["1_hour", "ساعة واحدة"], ["1_day", "يوم واحد"], ["1_week", "أسبوع"],
@@ -178,6 +179,7 @@ export default function AdminUsersScreen() {
             <Text style={s.section}>الطلبات ({detail?.requests?.length ?? 0})</Text>
             {(detail?.requests ?? []).map(req=><Info key={req.id} label={req.type || "طلب"} value={`${req.status} · ${new Date(req.created_at).toLocaleDateString("ar-IQ")}`}/>)}
             <Text style={s.section}>التقييمات ({detail?.ratings?.length ?? 0})</Text>
+            {detail?.ratings_error ? <Text style={s.errorText}>تعذر تحميل التقييمات؛ بقية تفاصيل المستخدم متاحة.</Text> : null}
             {(detail?.ratings ?? []).slice(0,20).map(r=><Info key={r.id} label={`${r.stars ?? "—"} نجوم`} value={r.comment || "بدون تعليق"}/>)}
           </ScrollView>
         </View></View>
