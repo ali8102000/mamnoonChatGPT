@@ -494,14 +494,16 @@ export default function NewRequest() {
       .from("request-attachments")
       .upload(attachmentPath, fileBuffer, { contentType: mimeType, cacheControl: "3600", upsert: false });
     if (uploadError) throw uploadError;
-    const { error: pathError } = await (supabase as any)
+    const { data: linkedRequest, error: pathError } = await (supabase as any)
       .from("service_requests")
       .update({ attachment_path: attachmentPath })
       .eq("id", requestId)
-      .eq("customer_id", user.id);
-    if (pathError) {
+      .eq("customer_id", user.id)
+      .select("id")
+      .maybeSingle();
+    if (pathError || !linkedRequest) {
       await supabase.storage.from("request-attachments").remove([attachmentPath]);
-      throw pathError;
+      throw pathError ?? new Error("لم يتم ربط الصورة بالطلب.");
     }
   }
 
