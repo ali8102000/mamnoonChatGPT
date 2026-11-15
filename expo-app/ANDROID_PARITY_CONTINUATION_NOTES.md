@@ -1,1 +1,0 @@
-This branch adds Android route coverage and native theme/font foundations. The Android APK workflow is also enabled for pull requests so the native build can be validated without consuming EAS Android build credits. Do not certify parity until the APK is installed and all role-specific flows are exercised on a physical Android device.
