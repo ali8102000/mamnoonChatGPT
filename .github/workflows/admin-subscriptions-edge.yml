@@ -6,6 +6,7 @@ on:
       - "supabase/functions/admin-subscriptions/**"
       - "supabase/functions/admin-users/**"
       - "supabase/functions/admin-finance/**"
+      - "supabase/functions/admin-governance/**"
       - ".github/workflows/admin-subscriptions-edge.yml"
   push:
     branches:
@@ -31,3 +32,4 @@ jobs:
           deno check supabase/functions/admin-subscriptions/index.ts
           deno check supabase/functions/admin-users/index.ts
           deno check supabase/functions/admin-finance/index.ts
+          deno check supabase/functions/admin-governance/index.ts
