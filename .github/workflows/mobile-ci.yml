@@ -40,6 +40,8 @@ jobs:
         run: rm -f bun.lock
       - name: TypeScript
         run: bunx tsc --noEmit
+      - name: Web and Android taxi fare parity tests
+        run: bun test src/lib/taxi-fares-parity.test.ts
       - name: Validate production configuration guards
         env:
           APP_ENV: production
