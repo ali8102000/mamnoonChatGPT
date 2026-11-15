@@ -114,8 +114,8 @@ async function handleRequest(request: Request) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return json({ error: "انتهت جلسة الدخول. سجّل الدخول مرة ثانية." }, 401);
 
-  const supabaseUrl = process.env["MAMNOON_SUPABASE_URL"] || process.env["SUPABASE_URL"];
-  const supabasePublishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_ANON_KEY"];
+  const supabaseUrl = process.env["MAMNOON_SUPABASE_URL"] || process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+  const supabasePublishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_ANON_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
   if (!supabaseUrl || !supabasePublishableKey) {
     return json({ error: "خدمة إنشاء الطلب غير مهيأة على الخادم." }, 503);
   }
