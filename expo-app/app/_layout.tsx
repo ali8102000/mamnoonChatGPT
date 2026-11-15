@@ -1,10 +1,18 @@
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Text, TextInput } from "react-native";
+import { useFonts } from "@expo-google-fonts/tajawal/useFonts";
+import { Tajawal_400Regular } from "@expo-google-fonts/tajawal/400Regular";
+import { Tajawal_500Medium } from "@expo-google-fonts/tajawal/500Medium";
+import { Tajawal_700Bold } from "@expo-google-fonts/tajawal/700Bold";
+import { Tajawal_800ExtraBold } from "@expo-google-fonts/tajawal/800ExtraBold";
+import { Tajawal_900Black } from "@expo-google-fonts/tajawal/900Black";
 import { Alert, I18nManager, LogBox, Platform, useColorScheme } from "react-native";
 import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { ThemePreferenceProvider } from "@/lib/theme-preference";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
 import { palette } from "@/styles/theme";
@@ -144,7 +152,12 @@ function PushNotificationSetup() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [fontsLoaded] = useFonts({ Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black });
+  if (!fontsLoaded) return null;
+  (Text as any).defaultProps = { ...(Text as any).defaultProps, style: [{ fontFamily: "Tajawal_400Regular" }, (Text as any).defaultProps?.style] };
+  (TextInput as any).defaultProps = { ...(TextInput as any).defaultProps, style: [{ fontFamily: "Tajawal_400Regular" }, (TextInput as any).defaultProps?.style] };
   return (
+    <ThemePreferenceProvider>
     <AuthProvider>
       <PushNotificationSetup />
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} backgroundColor={palette.canvas} />
@@ -177,5 +190,6 @@ export default function RootLayout() {
       </Stack>
       <IncomingRequestModal />
     </AuthProvider>
+    </ThemePreferenceProvider>
   );
 }
