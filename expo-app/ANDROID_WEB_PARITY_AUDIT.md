@@ -1,6 +1,6 @@
 # Mamnoon Android ↔ Web parity audit
 
-Baseline audited: `main` at commit `26ffe2f560c423d1c8e471ec2945ac234e00b2bd`.
+Baseline audited: `main` at commit `65b0d6340270447ee7d89cf92f9fc13d57085352`. Native parity continuation is being prepared on branch `feat/android-parity-continuation`; this branch has not yet been merged or device-verified.
 
 This is a living migration checklist. A matching route name or a successful TypeScript/build check does **not** establish visual or functional parity. A screen is complete only after comparing the same signed-in role, data state, viewport, and interaction on the running web and Android apps.
 
@@ -11,15 +11,15 @@ This is a living migration checklist. A matching route name or a successful Type
 - The native app is a separate React Native implementation, not a WebView of the web app; its screen layouts and styling are independently maintained.
 - The web design system uses Tajawal (400/500/700/800/900), CSS OKLCH tokens, glass surfaces, gradients, shadows, and a 112.5% root font scale.
 - Expo previously used a green palette (`#174C3C`) that visibly diverged from the web blue/amber palette. The palette has now been moved to sRGB approximations of the web light/dark tokens. This is a first alignment step, not a pixel-perfect certification.
-- Expo does not currently bundle the web Tajawal font files. Font parity remains open.
-- The web theme persists an explicit light/dark choice in local storage; Expo currently resolves the system appearance at module startup. Theme preference parity remains open.
+- Android continuation now adds `@expo-google-fonts/tajawal` and loads weights 400/500/700/800/900 before rendering. Device typography comparison is still required.
+- Android continuation adds a persisted `system`/`light`/`dark` preference in SecureStore and a live native palette; compare against web persistence and theme tokens on device.
 
 ## Route inventory
 
 | Web route | Expo route | Status |
 |---|---|---|
 | `/` | `index` | Needs live comparison |
-| `/welcome` | — | Missing |
+| `/welcome` | `welcome` | Added on continuation branch; compare visually |
 | `/auth` | `auth` | Needs live comparison |
 | `/auth/callback` | `auth/callback` | Needs live comparison |
 | `/account-settings` | `account-settings` | Needs live comparison |
@@ -33,19 +33,19 @@ This is a living migration checklist. A matching route name or a successful Type
 | `/history` | `history` | Needs live comparison |
 | `/profile` | `profile` | Needs live comparison |
 | `/admin` | `admin` | Needs live comparison |
-| `/admin/monitoring` | — | Missing |
-| `/admin/subscriptions` | — | Missing |
-| `/admin/bootstrap` | — | Missing |
-| `/admin/import` | — | Missing |
+| `/admin/monitoring` | `admin/monitoring` | Read-only staff-gated metrics; full moderation actions not ported |
+| `/admin/subscriptions` | `admin/subscriptions` | Read-only authorized view; management actions not ported |
+| `/admin/bootstrap` | `admin/bootstrap` | Intentionally locked on Android; one-time privilege bootstrap stays web-only |
+| `/admin/import` | `admin/import` | Intentionally locked on Android; import mutations not ported |
 | `/onboarding/driver` | `onboarding/driver` | Needs live comparison |
 | `/onboarding/worker` | `onboarding/worker` | Needs live comparison |
 | `/forgot-password` | `forgot-password` | Needs live comparison |
 | `/reset-password` | `reset-password` | Needs live comparison |
 | `/subscriptions` | `subscriptions` | Needs live comparison |
-| `/coupons` | — | Missing |
-| `/privacy` | — | Missing |
-| `/terms` | — | Missing |
-| `/support` | — | Missing |
+| `/coupons` | `coupons` | Added using `get_my_coupons` RPC; sharing used instead of clipboard |
+| `/privacy` | `privacy` | Added legal content; confirm approved policy wording |
+| `/terms` | `terms` | Added legal content; Zain Cash only stated |
+| `/support` | `support` | Added ticket creation/list/realtime replies; test RLS on device |
 | `/request/chat/$id` | `request/chat/[id]` | Needs live comparison |
 | `/$` (not found) | — | Missing equivalent |
 
@@ -60,11 +60,11 @@ This is a living migration checklist. A matching route name or a successful Type
 - [ ] Verify subscription/trial restrictions, coupons, wallet, and Zain Cash handoff without initiating real payments.
 
 ### P1 — missing route parity
-- [ ] Port coupons screen and `get_my_coupons` behavior.
-- [ ] Port privacy and terms pages.
-- [ ] Port support ticket screen and its messaging/actions.
-- [ ] Port welcome/onboarding entry flow.
-- [ ] Port admin monitoring, subscriptions, and bootstrap/import flows with the same server-side authorization as web.
+- [x] Add Android coupons screen using `get_my_coupons`; device/RLS verification remains.
+- [x] Add Android privacy and terms routes; legal wording approval remains.
+- [x] Add Android support tickets, replies, and realtime listener; device/RLS verification remains.
+- [x] Add Android welcome route; confirm entry navigation and visual comparison.
+- [ ] Complete monitoring moderation actions and subscription administration server functions. Bootstrap/import remain deliberately locked on Android because they are one-time or high-impact operations and their server-side web functions are not yet available in Expo.
 
 ### P2 — visual and interaction parity
 - [ ] Bundle and load Tajawal weights used by web.
