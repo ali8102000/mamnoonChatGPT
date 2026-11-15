@@ -114,16 +114,6 @@ async function handleRequest(request: Request) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return json({ error: "انتهت جلسة الدخول. سجّل الدخول مرة ثانية." }, 401);
 
-  const supabaseUrl = process.env["MAMNOON_SUPABASE_URL"] || process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
-  const supabasePublishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_ANON_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
-  if (!supabaseUrl || !supabasePublishableKey) {
-    return json({ error: "خدمة إنشاء الطلب غير مهيأة على الخادم." }, 503);
-  }
-  const supabaseUser = createClient(supabaseUrl, supabasePublishableKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
   const raw = await request.json().catch(() => null);
   const parsed = requestSchema.safeParse(raw);
   if (!parsed.success) return json({ error: "بيانات البحث أو الموقع غير صحيحة." }, 400);
@@ -237,6 +227,16 @@ async function handleRequest(request: Request) {
   if (data.action === "route") {
     return json(await drivingRoute(data.from, data.to));
   }
+
+  const supabaseUrl = process.env["MAMNOON_SUPABASE_URL"] || process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+  const supabasePublishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_ANON_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+  if (!supabaseUrl || !supabasePublishableKey) {
+    return json({ error: "خدمة إنشاء الطلب غير مهيأة على الخادم." }, 503);
+  }
+  const supabaseUser = createClient(supabaseUrl, supabasePublishableKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   const rolesResult = await supabaseAdmin
     .from("user_roles")
