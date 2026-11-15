@@ -64,6 +64,7 @@ export function MapPicker({
   const [full, setFull] = useState(false);
   const [picked, setPicked] = useState(false);
   const lastReportedCoordsRef = useRef<Coords | null>(null);
+  const userPanPendingRef = useRef(false);
   const report = (c: Coords, addr?: string) => {
     setPicked(true);
     lastReportedCoordsRef.current = c;
@@ -149,14 +150,19 @@ export function MapPicker({
           gestureHandling: "greedy",
         });
         mapRef.current = map;
+        lastReportedCoordsRef.current = initialValueRef.current;
         // Don't report the default city centre as the user's location.
         if (!initialValueRef.current) suppressIdleRef.current = true;
 
         // Use a single fixed centre pin above the map instead of a second draggable
         // marker. The user pans naturally; the selected point is the centre after
         // the gesture settles.
+        map.addListener("dragstart", () => {
+          userPanPendingRef.current = true;
+        });
         map.addListener("click", (e: any) => {
           if (!e.latLng) return;
+          userPanPendingRef.current = true;
           suppressIdleRef.current = false;
           map.panTo(e.latLng);
         });
@@ -166,6 +172,9 @@ export function MapPicker({
             suppressIdleRef.current = false;
             return;
           }
+          // Zooming changes only the map scale; it must never replace the selected pickup/destination.
+          if (!userPanPendingRef.current) return;
+          userPanPendingRef.current = false;
           const center = map.getCenter();
           if (!center) return;
           const c = { lat: center.lat(), lng: center.lng() };
