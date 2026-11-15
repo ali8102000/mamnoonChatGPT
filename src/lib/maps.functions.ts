@@ -100,6 +100,8 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
         origin: { location: { latLng: { latitude: data.from.lat, longitude: data.from.lng } } },
         destination: { location: { latLng: { latitude: data.to.lat, longitude: data.to.lng } } },
         travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_UNAWARE",
+        computeAlternativeRoutes: true,
       });
     } else {
       path = `/maps/api/geocode/json?latlng=${data.center.lat},${data.center.lng}&language=ar`;
