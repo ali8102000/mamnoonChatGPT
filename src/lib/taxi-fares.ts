@@ -91,7 +91,12 @@ export function calculateFareBreakdown(
     throw new Error("مدة الانتظار يجب أن تكون من 5 إلى 120 دقيقة وبفواصل 5 دقائق");
   }
   const extraTimeFare = Math.ceil(extraMinutes / 5) * 500;
-  const finalTotal = Math.max(MIN_TAXI_FARE, roundTo250(economyFare * tierMultiplier * tripMultiplier + extraTimeFare));
+  const finalTotal = Math.max(
+    MIN_TAXI_FARE,
+    options?.tripType === "round_trip"
+      ? Math.round(economyFare * tierMultiplier * 2 * 0.9 + extraTimeFare)
+      : roundTo250(economyFare * tierMultiplier * tripMultiplier + extraTimeFare),
+  );
 
   return {
     category,
