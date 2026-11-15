@@ -167,3 +167,12 @@ Do not mark this audit complete or claim 100% parity until every required route 
 - The Expo admin dashboard now includes report status filters (all/pending/resolved/closed/dismissed), loads up to 100 reports, and provides resolve/close/dismiss actions through the existing caller-authenticated `admin_resolve_report` RPC.
 - The RPC definition was inspected in the linked Supabase project: it invokes `assert_staff('staff')`, writes the resolution fields, and records an admin audit event. The Android dashboard itself currently remains super-admin-only, so these actions are not exposed to unverified users.
 - Code-level implementation is committed in the current PR head; mobile CI and debug APK validation are running. Live role testing and actual device verification remain pending.
+
+
+## Native user administration update — 2026-11-15
+
+- Added `expo-app/app/admin/users.tsx` and a dashboard entry for user administration: paginated user list, Arabic/phone/email search, user detail view, role/profile/transaction/request/rating summaries, block duration/reason, and unblock action.
+- Added authenticated `supabase/functions/admin-users/index.ts`: staff-gated read operations, admin-gated block/unblock mutations through caller-scoped RPCs, and service-role access confined to the Edge Function runtime.
+- Extended the Deno CI check to validate both `admin-subscriptions` and `admin-users` Edge Functions. The Edge Function type-check passed on the source commit before the workflow-only cleanup; the corrected workflow is running again on the current head.
+- Neither new Edge Function has been deployed to production. No production data, database schema, RLS, payment configuration, or secrets were modified.
+- The new Expo user screen still requires fresh mobile CI and physical-device verification. It is not yet certified as pixel-perfect or end-to-end equivalent to the web screen.
