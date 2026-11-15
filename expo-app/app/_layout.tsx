@@ -1,3 +1,4 @@
+import "@/lib/background-location";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text, TextInput } from "react-native";
