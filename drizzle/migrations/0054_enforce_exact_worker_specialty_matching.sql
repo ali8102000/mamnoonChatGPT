@@ -115,6 +115,29 @@ ON public.request_offers
 FOR SELECT
 TO authenticated
 USING (
-  (provider_id = (SELECT auth.uid()))
-  OR public.has_staff_role((SELECT auth.uid()))
+  provider_id = (SELECT auth.uid())
+  AND (
+    NOT EXISTS (
+      SELECT 1
+      FROM public.service_requests sr
+      WHERE sr.id = request_offers.request_id
+        AND sr.type = 'service'::public.request_type
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.service_requests sr
+      JOIN public.worker_profiles wp ON wp.user_id = (SELECT auth.uid())
+      JOIN public.worker_services ws
+        ON ws.worker_id = wp.user_id
+       AND ws.service_id = sr.service_id
+      WHERE sr.id = request_offers.request_id
+        AND sr.type = 'service'::public.request_type
+        AND sr.service_id IS NOT NULL
+        AND public.has_role((SELECT auth.uid()), 'worker'::public.app_role)
+        AND wp.status = 'approved'
+        AND wp.available = true
+        AND (wp.suspended_until IS NULL OR wp.suspended_until <= now())
+        AND (sr.level_required IS NULL OR wp.level = sr.level_required)
+    )
+  )
 );
