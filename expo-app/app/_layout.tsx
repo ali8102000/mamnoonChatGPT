@@ -17,7 +17,7 @@ import { ThemePreferenceProvider } from "@/lib/theme-preference";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
 import { palette } from "@/styles/theme";
-import { isNotificationSoundEnabled, loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
+import { isNotificationSoundEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
@@ -33,12 +33,39 @@ Notifications.setNotificationHandler({
   }),
 });
 
+async function configureAndroidNotificationChannels() {
+  if (Platform.OS !== "android") return;
+  const common = {
+    importance: Notifications.AndroidImportance.MAX,
+    lightColor: "#D4AF37",
+    enableLights: true,
+  };
+  await Promise.all([
+    Notifications.setNotificationChannelAsync("mamnoon_sound_vibrate", {
+      ...common, name: "ممنون - صوت واهتزاز", sound: "default",
+      enableVibrate: true, vibrationPattern: [0, 250, 180, 250, 180, 350],
+    }),
+    Notifications.setNotificationChannelAsync("mamnoon_sound_only", {
+      ...common, name: "ممنون - صوت فقط", sound: "default",
+      enableVibrate: false, vibrationPattern: [],
+    }),
+    Notifications.setNotificationChannelAsync("mamnoon_vibrate_only", {
+      ...common, name: "ممنون - اهتزاز فقط", sound: null,
+      enableVibrate: true, vibrationPattern: [0, 250, 180, 250, 180, 350],
+    }),
+    Notifications.setNotificationChannelAsync("mamnoon_silent", {
+      ...common, name: "ممنون - صامت", sound: null,
+      enableVibrate: false, vibrationPattern: [],
+    }),
+  ]);
+}
+
 function PushNotificationSetup() {
   const { user } = useAuth();
   const handledResponseId = useRef<string | null>(null);
 
   useEffect(() => {
-    void loadNotificationSoundPreference();
+    void loadNotificationPreferences().then(() => configureAndroidNotificationChannels()).catch((error) => console.warn("[notifications] Could not configure Android channels:", error));
   }, []);
 
   useEffect(() => {
@@ -90,10 +117,10 @@ function PushNotificationSetup() {
         const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!active) return;
 
-        const localSoundEnabled = await loadNotificationSoundPreference();
+        const localPreferences = await loadNotificationPreferences();
         const { data: savedPreference, error: preferenceError } = await supabase
           .from("user_push_tokens")
-          .select("sound_enabled")
+          .select("sound_enabled,vibration_enabled")
           .eq("user_id", userId)
           .limit(1)
           .maybeSingle();
@@ -102,10 +129,11 @@ function PushNotificationSetup() {
         }
         const soundEnabled = typeof savedPreference?.sound_enabled === "boolean"
           ? savedPreference.sound_enabled
-          : localSoundEnabled;
-        if (typeof savedPreference?.sound_enabled === "boolean") {
-          await setNotificationSoundPreference(soundEnabled);
-        }
+          : localPreferences.soundEnabled;
+        const vibrationEnabled = typeof savedPreference?.vibration_enabled === "boolean"
+          ? savedPreference.vibration_enabled
+          : localPreferences.vibrationEnabled;
+        await setNotificationPreferences({ soundEnabled, vibrationEnabled });
 
         const { error } = await supabase.from("user_push_tokens").upsert(
           {
@@ -113,6 +141,7 @@ function PushNotificationSetup() {
             expo_push_token: tokenResult.data,
             device_platform: Platform.OS,
             sound_enabled: soundEnabled,
+            vibration_enabled: vibrationEnabled,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "user_id,expo_push_token" },
