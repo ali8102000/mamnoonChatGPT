@@ -107,7 +107,7 @@ const s = StyleSheet.create({
   targetText:{fontSize:11,fontWeight:"800",color:palette.ink},
   targetTextActive:{color:palette.white},
   input:{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radius.md,padding:13,color:palette.ink},
-  send:{backgroundColor:palette.brand,borderRadius:radius.md,padding:15,alignItems:"center",marginTop:8},
+  send:{minHeight:40,backgroundColor:palette.brand,borderRadius:16,paddingHorizontal:16,paddingVertical:8,alignItems:"center",justifyContent:"center",marginTop:8},
   sendText:{color:palette.white,fontSize:13,fontWeight:"900"},
   success:{color:"#15803d",fontSize:12,fontWeight:"800",textAlign:"right"},
   error:{backgroundColor:palette.dangerSoft,borderRadius:radius.md,padding:12},

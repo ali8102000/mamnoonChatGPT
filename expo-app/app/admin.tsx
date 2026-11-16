@@ -5,6 +5,7 @@ import { Linking } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
+import { ActionButton } from "@/components/ui";
 
 type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number; totalWorkers: number; activeDrivers: number; activeWorkers: number; activeRequests: number; completedRequests: number; cancelledRequests: number; dailyRevenue: number; monthlyRevenue: number; yearlyRevenue: number };
 type PricingRule = {
@@ -246,38 +247,38 @@ export default function AdminScreen() {
     >
       <Text style={styles.title}>لوحة التحكم</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-        <TouchableOpacity onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/live-map" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الخريطة المباشرة</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/providers")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة مقدمي الخدمة</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/requests")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الطلبات</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/finance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المحفظة والكوبونات</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/governance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الصلاحيات وسجل العمليات</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/staff")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الموظفين</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/staff-hierarchy")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الهيكل الوظيفي والترقيات</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/regions" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>التحكم بالمحافظات والخدمات</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/admin/import")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>مساعد استيراد البيانات</Text></TouchableOpacity>
+        <ActionButton size="default" onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/live-map" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الخريطة المباشرة</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة مقدمي الخدمة</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/requests")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الطلبات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/finance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المحفظة والكوبونات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/governance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الصلاحيات وسجل العمليات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/staff")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الموظفين</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/staff-hierarchy")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الهيكل الوظيفي والترقيات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/regions" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>التحكم بالمحافظات والخدمات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/import")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>مساعد استيراد البيانات</Text></ActionButton>
       </View>
       <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
         <Text style={styles.companyHint}>تغيير الاسم الظاهر للمنصة</Text>
         <TextInput value={companyName} onChangeText={setCompanyName} maxLength={80} placeholder="اسم الشركة" style={styles.companyInput} textAlign="right" />
-        <TouchableOpacity onPress={saveCompanyName} disabled={savingCompanyName} style={styles.companySave}>
+        <ActionButton onPress={saveCompanyName} disabled={savingCompanyName} size="default" style={styles.companySave}>
           <Text style={styles.companySaveText}>{savingCompanyName ? "جاري الحفظ..." : "حفظ اسم الشركة"}</Text>
-        </TouchableOpacity>
+        </ActionButton>
       </View>
-      <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push("/admin/chats")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة الدردشة الخاصة والرسائل</Text></TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push("/admin/providers")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة السائقين والفنيين ومراجعة المستمسكات</Text></TouchableOpacity>
+      <ActionButton size="default" onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></ActionButton>
+      <ActionButton size="default" onPress={() => router.push("/admin/chats")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة الدردشة الخاصة والرسائل</Text></ActionButton>
+      <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة السائقين والفنيين ومراجعة المستمسكات</Text></ActionButton>
       <View style={styles.inboxHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>رسائل المستخدمين إلى الإدارة</Text>
           <Text style={styles.inboxHint}>{unreadSupport} رسالة غير مقروءة</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.inboxOpen}><Text style={styles.inboxOpenText}>فتح الصندوق</Text></TouchableOpacity>
+        <ActionButton size="sm" onPress={() => router.push("/support-chat")} style={styles.inboxOpen}><Text style={styles.inboxOpenText}>فتح الصندوق</Text></ActionButton>
       </View>
       {supportInbox.length === 0 ? <Text style={styles.emptyHint}>ماكو رسائل دعم واردة حالياً</Text> : supportInbox.slice(0, 5).map((conversation) => (
         <TouchableOpacity key={conversation.id} onPress={() => router.push("/support-chat")} style={styles.inboxCard}>
@@ -290,7 +291,7 @@ export default function AdminScreen() {
       ))}
       <View style={styles.inboxHeader}>
         <Text style={styles.sectionTitle}>إدارة البلاغات</Text>
-        <TouchableOpacity onPress={() => onRefresh()}><Text style={styles.inboxOpenText}>تحديث</Text></TouchableOpacity>
+        <ActionButton size="sm" onPress={() => onRefresh()}><Text style={styles.inboxOpenText}>تحديث</Text></ActionButton>
       </View>
       <View style={styles.reportFilters}>
         {(["all", "pending", "resolved", "closed", "dismissed"] as const).map((status) => (
@@ -307,9 +308,9 @@ export default function AdminScreen() {
           <Text style={styles.reportMeta}>الحالة: {report.status} · {new Date(report.created_at).toLocaleString("ar-IQ")}</Text>
           {!!report.request_id && <Text style={styles.reportMeta}>رقم الطلب: {report.request_id}</Text>}
           {report.status === "pending" && <View style={styles.reportActions}>
-            <TouchableOpacity disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "resolved")} style={[styles.reportAction, { backgroundColor: "#dcfce7" }]}><Text style={{ color: "#166534", fontWeight: "900", fontSize: 11 }}>{resolvingReportId === report.id ? "..." : "حل البلاغ"}</Text></TouchableOpacity>
-            <TouchableOpacity disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "closed")} style={[styles.reportAction, { backgroundColor: "#e2e8f0" }]}><Text style={{ color: "#334155", fontWeight: "900", fontSize: 11 }}>إغلاق</Text></TouchableOpacity>
-            <TouchableOpacity disabled={resolvingReportId === report.id} onPress={() => Alert.alert("رفض البلاغ", "تريد رفض هذا البلاغ؟", [{ text: "رجوع", style: "cancel" }, { text: "رفض", style: "destructive", onPress: () => void resolveReport(report.id, "dismissed") }])} style={[styles.reportAction, { backgroundColor: "#fee2e2" }]}><Text style={{ color: "#991b1b", fontWeight: "900", fontSize: 11 }}>رفض</Text></TouchableOpacity>
+            <ActionButton size="sm" disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "resolved")} style={[styles.reportAction, { backgroundColor: "#dcfce7" }]}><Text style={{ color: "#166534", fontWeight: "900", fontSize: 11 }}>{resolvingReportId === report.id ? "..." : "حل البلاغ"}</Text></ActionButton>
+            <ActionButton size="sm" disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "closed")} style={[styles.reportAction, { backgroundColor: "#e2e8f0" }]}><Text style={{ color: "#334155", fontWeight: "900", fontSize: 11 }}>إغلاق</Text></ActionButton>
+            <ActionButton size="sm" disabled={resolvingReportId === report.id} onPress={() => Alert.alert("رفض البلاغ", "تريد رفض هذا البلاغ؟", [{ text: "رجوع", style: "cancel" }, { text: "رفض", style: "destructive", onPress: () => void resolveReport(report.id, "dismissed") }])} style={[styles.reportAction, { backgroundColor: "#fee2e2" }]}><Text style={{ color: "#991b1b", fontWeight: "900", fontSize: 11 }}>رفض</Text></ActionButton>
           </View>}
         </View>
       ))}
@@ -318,7 +319,7 @@ export default function AdminScreen() {
           <Text style={styles.sectionTitle}>طلبات تحديث بيانات السائقين والفنيين</Text>
           <Text style={styles.inboxHint}>التغييرات تبقى معلّقة حتى موافقة الإدارة</Text>
         </View>
-        <TouchableOpacity onPress={onRefresh}><Text style={styles.inboxOpenText}>تحديث</Text></TouchableOpacity>
+        <ActionButton size="sm" onPress={onRefresh}><Text style={styles.inboxOpenText}>تحديث</Text></ActionButton>
       </View>
       {changeRequests.length === 0 ? <Text style={styles.emptyHint}>ماكو طلبات تحديث معلّقة</Text> : changeRequests.map((request) => (
         <View key={request.id} style={styles.reportCard}>
@@ -440,11 +441,11 @@ const styles = StyleSheet.create({
   companyInput: { minHeight: 52, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: palette.ink, marginBottom: 10, backgroundColor: palette.canvas },
   companySave: { backgroundColor: palette.brand, borderRadius: radius.md, padding: 14, alignItems: "center" },
   companySaveText: { color: palette.white, fontWeight: "900" },
-  supportButton: { backgroundColor: palette.brand, borderRadius: radius.md, padding: 14, marginBottom: 18 },
+  supportButton: { minHeight: 40, backgroundColor: palette.brand, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 18, alignItems: "center", justifyContent: "center" },
   supportButtonText: { color: palette.white, fontWeight: "900", textAlign: "center" },
   inboxHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, marginBottom: 8 },
   inboxHint: { color: palette.muted, fontSize: 11, marginTop: -5, marginBottom: 8 },
-  inboxOpen: { backgroundColor: palette.brandSoft, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 9 },
+  inboxOpen: { minHeight: 36, backgroundColor: palette.brandSoft, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, alignItems: "center", justifyContent: "center" },
   inboxOpenText: { color: palette.brand, fontSize: 11, fontWeight: "900" },
   inboxCard: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, marginBottom: 7 },
   inboxName: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
@@ -460,7 +461,7 @@ const styles = StyleSheet.create({
   reportFilterText: { color: palette.ink, fontSize: 10, fontWeight: "800" },
   reportFilterTextActive: { color: palette.white },
   reportActions: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
-  reportAction: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: radius.md },
+  reportAction: { minHeight: 36, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 18 },
   statsWarning: { color: "#B45309", backgroundColor: "#FEF3C7", borderRadius: radius.md, padding: 10, textAlign: "right", fontSize: 11, marginBottom: 10 },

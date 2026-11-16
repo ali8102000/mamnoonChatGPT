@@ -177,7 +177,7 @@ const s = StyleSheet.create({
   action:{color:palette.brand,fontSize:10,fontWeight:"900",textAlign:"right"},
   messageHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:8},
   message:{color:palette.ink,fontSize:12,textAlign:"right",lineHeight:20},
-  delete:{backgroundColor:palette.dangerSoft,borderRadius:radius.md,paddingHorizontal:12,paddingVertical:8},
+  delete:{minHeight:36,backgroundColor:palette.dangerSoft,borderRadius:16,paddingHorizontal:12,paddingVertical:6,alignItems:"center",justifyContent:"center"},
   deleteText:{color:palette.danger,fontSize:10,fontWeight:"900"},
   empty:{color:palette.muted,textAlign:"center",padding:24},
   error:{marginHorizontal:space.lg,marginTop:8,backgroundColor:palette.dangerSoft,borderRadius:radius.md,padding:10},

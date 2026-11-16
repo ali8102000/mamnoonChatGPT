@@ -57,6 +57,7 @@ const css = readWeb("src/styles.css");
 const nativeTheme = read("src/styles/theme.ts");
 const nativeLayout = read("app/_layout.tsx");
 const nativeButton = read("src/components/ui.tsx");
+const nativeRequestDetail = read("app/request/[id].tsx");
 function cssBlock(selector) {
   const pattern = selector === ":root" ? /:root\s*\{([\s\S]*?)\n\}/m : /\.dark\s*\{([\s\S]*?)\n\}/m;
   const match = css.match(pattern);
@@ -129,6 +130,11 @@ for (const [label, token] of [["default 40dp", "minHeight: 40"], ["small 36dp", 
 check("Android button web-matched typography", nativeButton.includes("fontSize: 15.75") && nativeButton.includes("lineHeight: 20"));
 check("Android button web-matched radius", nativeButton.includes("borderRadius: 16"));
 check("Android button pressed and disabled states", nativeButton.includes("pressed ? 0.86 : 1") && nativeButton.includes("disabled || loading ? 0.5"));
+
+
+check("Android shared action button uses web size scale", nativeButton.includes("export function ActionButton") && nativeButton.includes("actionDefault: { minHeight: 40") && nativeButton.includes("actionSmall: { minHeight: 36") && nativeButton.includes("actionLarge: { minHeight: 45"));
+check("Android admin primary actions use shared minimum height", nativeAdmin.includes("supportButton: { minHeight: 40") && nativeAdmin.includes("reportAction: { minHeight: 36") && nativeAdmin.includes("inboxOpen: { minHeight: 36"));
+check("Android request actions use consistent heights", nativeRequestDetail.includes("actionBtn: { flex: 1, minHeight: 40") && nativeRequestDetail.includes("navigationButton: { minHeight: 45") && nativeRequestDetail.includes("personQuickButton: { minHeight: 36"));
 
 check("Web Tajawal font token", css.includes('--font-sans: "Tajawal"'));
 check("Web 112.5% root type scale", /html\s*\{[^}]*font-size:\s*112\.5%/s.test(css));

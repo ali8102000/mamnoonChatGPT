@@ -101,7 +101,7 @@ const s = StyleSheet.create({
   roles: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginVertical: 4 },
   role: { backgroundColor: palette.brandSoft, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
   roleText: { color: palette.brand, fontSize: 10, fontWeight: "900" },
-  superButton: { backgroundColor: palette.brand, borderRadius: radius.lg, padding: 14, alignItems: "center", marginBottom: 4 },
+  superButton: { minHeight: 40, backgroundColor: palette.brand, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   superText: { color: palette.white, fontSize: 12, fontWeight: "900" },
   item: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   itemText: { color: palette.ink, fontSize: 13, fontWeight: "900" },

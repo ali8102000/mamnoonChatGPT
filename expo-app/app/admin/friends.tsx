@@ -136,7 +136,7 @@ const s = StyleSheet.create({
   title: { color: palette.ink, fontSize: 21, fontWeight: "900", textAlign: "right" },
   name: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
   card: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 14, gap: 8 },
-  delete: { alignSelf: "flex-start", backgroundColor: palette.dangerSoft, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 9 },
+  delete: { alignSelf: "flex-start", minHeight: 36, backgroundColor: palette.dangerSoft, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, alignItems: "center", justifyContent: "center" },
   deleteText: { color: palette.danger, fontSize: 11, fontWeight: "900" },
   empty: { color: palette.muted, textAlign: "center", padding: 24 },
   error: { backgroundColor: palette.dangerSoft, borderRadius: radius.md, padding: 12 },

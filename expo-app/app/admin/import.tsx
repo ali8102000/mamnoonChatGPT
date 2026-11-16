@@ -157,7 +157,7 @@ const s = StyleSheet.create({
   input:{minHeight:180,maxHeight:300,borderWidth:1,borderColor:palette.line,borderRadius:radius.lg,padding:12,color:palette.ink,backgroundColor:palette.surface,fontSize:12,textAlign:"left"},
   hint:{fontSize:10,color:palette.muted,textAlign:"right",lineHeight:17},
   actions:{flexDirection:"row",gap:10},
-  primary:{flex:1,backgroundColor:palette.brand,padding:13,borderRadius:radius.md,alignItems:"center"},
+  primary:{flex:1,minHeight:40,backgroundColor:palette.brand,paddingHorizontal:16,paddingVertical:8,borderRadius:16,alignItems:"center",justifyContent:"center"},
   primaryText:{color:"#FFFFFF",fontWeight:"900",fontSize:12},
   secondary:{padding:13,borderRadius:radius.md,borderWidth:1,borderColor:palette.line,alignItems:"center",minWidth:76},
   secondaryText:{color:palette.ink,fontWeight:"800",fontSize:12},
