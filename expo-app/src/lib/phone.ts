@@ -18,3 +18,42 @@ export function isValidPhone(raw: string): boolean {
   const n = normalizePhone(raw);
   return /^\+\d{8,15}$/.test(n);
 }
+
+
+import { Alert, Linking } from "react-native";
+
+/**
+ * Shows the available ways to contact an Iraqi phone number.
+ * WhatsApp opens a direct one-to-one chat; the user still chooses whether to send a message.
+ */
+export function showContactOptions(rawPhone: string): void {
+  const normalized = normalizePhone(rawPhone);
+  if (!isValidPhone(normalized)) {
+    Alert.alert("تعذر الاتصال", "رقم الهاتف غير صالح أو غير متوفر.");
+    return;
+  }
+
+  const digits = normalized.replace(/\\D/g, "");
+  const whatsappUrl = `https://wa.me/${digits}`;
+  const phoneUrl = `tel:${normalized}`;
+
+  Alert.alert("طريقة التواصل", "اختَر طريقة الاتصال", [
+    {
+      text: "اتصال هاتفي",
+      onPress: () => {
+        void Linking.openURL(phoneUrl).catch(() => {
+          Alert.alert("تعذر الاتصال", "لم نتمكن من فتح تطبيق الهاتف على هذا الجهاز.");
+        });
+      },
+    },
+    {
+      text: "محادثة واتساب",
+      onPress: () => {
+        void Linking.openURL(whatsappUrl).catch(() => {
+          Alert.alert("تعذر فتح واتساب", "تأكد من تثبيت واتساب أو جرّب فتح الرابط من المتصفح.");
+        });
+      },
+    },
+    { text: "إلغاء", style: "cancel" },
+  ]);
+}
