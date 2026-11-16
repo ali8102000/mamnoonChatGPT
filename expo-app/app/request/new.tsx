@@ -127,6 +127,7 @@ export default function NewRequest() {
   const [routeIsIntercity, setRouteIsIntercity] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeRetry, setRouteRetry] = useState(0);
   const [tripOptionsExpanded, setTripOptionsExpanded] = useState(false);
   const [tripType, setTripType] = useState<"one_way" | "round_trip" | "second_trip" | "stop">("one_way");
   const [extraMinutes, setExtraMinutes] = useState(0);
@@ -1114,8 +1115,8 @@ export default function NewRequest() {
                             <Text style={styles.taxiHintText}>كل 5 دقائق بـ500 دينار، والحد الأعلى ساعتان.</Text>
                             <View style={styles.extraTimeSliderTouch} onLayout={(event) => { extraTimeTrackWidthRef.current = event.nativeEvent.layout.width; }} {...extraTimePanResponder.panHandlers}>
                               <View style={styles.extraTimeSliderTrack}>
-                                <View style={[styles.extraTimeSliderFill, { width: String((extraMinutes / 120) * 100) + "%" }]} />
-                                <View style={[styles.extraTimeSliderThumb, { right: String((extraMinutes / 120) * 100) + "%" }]} />
+                                <View style={[styles.extraTimeSliderFill, { width: (String((extraMinutes / 120) * 100) + "%") as any }]} />
+                                <View style={[styles.extraTimeSliderThumb, { right: (String((extraMinutes / 120) * 100) + "%") as any }]} />
                               </View>
                             </View>
                             <View style={styles.extraTimeScale}>
