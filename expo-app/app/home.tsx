@@ -18,6 +18,7 @@ import * as Location from "expo-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
 import { NotificationsBell } from "@/components/notifications-bell";
+import Svg, { Circle, Path } from "react-native-svg";
 
 type IncomingRequest = {
   id: string;
@@ -351,6 +352,47 @@ export default function HomeScreen() {
   );
 }
 
+type HomeGlyphName = "car" | "wrench" | "clock" | "shield" | "zap" | "arrow";
+
+function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: string; size?: number }) {
+  const common = { stroke: color, strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" as const };
+  if (name === "car") return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path {...common} d="M5 17h14l1.3-5.3a2 2 0 0 0-1.9-2.5H5.6a2 2 0 0 0-1.9 2.5L5 17Z" />
+      <Path {...common} d="M5 12h14M7 17v2m10-2v2M7 9l1-3h8l1 3" />
+      <Circle {...common} cx="7.5" cy="16.5" r="1.2" />
+      <Circle {...common} cx="16.5" cy="16.5" r="1.2" />
+    </Svg>
+  );
+  if (name === "wrench") return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path {...common} d="M14.7 6.3a5 5 0 0 0-6.6 6.6l-5.2 5.2a2 2 0 0 0 2.8 2.8l5.2-5.2a5 5 0 0 0 6.6-6.6l-3 3-3-3 3.2-2.8Z" />
+    </Svg>
+  );
+  if (name === "clock") return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle {...common} cx="12" cy="12" r="9" />
+      <Path {...common} d="M12 7v5l3.5 2" />
+    </Svg>
+  );
+  if (name === "shield") return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path {...common} d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" />
+      <Path {...common} d="m9 12 2 2 4-4" />
+    </Svg>
+  );
+  if (name === "zap") return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path {...common} d="m13 2-3 8h7l-6 12 2-9H6l7-11Z" />
+    </Svg>
+  );
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path {...common} d="M7 17 17 7M7 7h10v10" />
+    </Svg>
+  );
+}
+
 function CustomerHome() {
   const tiles = [
     {
@@ -398,6 +440,17 @@ function CustomerHome() {
           elevation: 5,
         }}
       >
+        <LinearGradient
+          pointerEvents="none"
+          colors={["rgba(255,255,255,0.24)", "rgba(255,255,255,0.02)", "rgba(255,255,255,0.10)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <View
+          pointerEvents="none"
+          style={{ position: "absolute", width: 150, height: 150, borderRadius: 75, backgroundColor: "rgba(255,255,255,0.12)", top: -55, left: -35 }}
+        />
         <View
           style={{
             alignSelf: "flex-start",
@@ -416,18 +469,6 @@ function CustomerHome() {
         <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 19, marginTop: 5, textAlign: "right" }}>
           ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك
         </Text>
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            width: 150,
-            height: 150,
-            borderRadius: 75,
-            backgroundColor: "rgba(255,255,255,0.12)",
-            top: -55,
-            left: -35,
-          }}
-        />
       </LinearGradient>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
@@ -467,11 +508,14 @@ function CustomerHome() {
                 justifyContent: "center",
               }}
             >
-              <Text style={{ fontSize: 25 }}>{tile.emoji}</Text>
+              <HomeGlyph name={tile.key === "service" ? "wrench" : "car"} color="#FFFFFF" size={26} />
             </LinearGradient>
             <View>
-              <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>{tile.title}</Text>
-              <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", marginTop: 3, textAlign: "right" }}>{tile.subtitle}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>{tile.title}</Text>
+                <HomeGlyph name="arrow" color={palette.muted} size={14} />
+              </View>
+              <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", marginTop: 3, textAlign: "right" }}>{tile.subtitle}</Text>
             </View>
           </TouchableOpacity>
         ))}
@@ -479,11 +523,13 @@ function CustomerHome() {
 
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ flex: 1, minHeight: 72, borderRadius: 18, padding: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center" }}>
-          <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", textAlign: "right" }}>أقل من</Text>
+          <HomeGlyph name="clock" color={palette.brand} size={18} />
+          <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", textAlign: "right", marginTop: 3 }}>أقل من</Text>
           <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right", marginTop: 2 }}>٣ د</Text>
         </View>
         <View style={{ flex: 1, minHeight: 72, borderRadius: 18, padding: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center" }}>
-          <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", textAlign: "right" }}>مزودون</Text>
+          <HomeGlyph name="shield" color={palette.brand} size={18} />
+          <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", textAlign: "right", marginTop: 3 }}>مزودون</Text>
           <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right", marginTop: 2 }}>موثق</Text>
         </View>
       </View>
@@ -495,8 +541,8 @@ function CustomerHome() {
         </View>
         <View style={{ gap: 9 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
-            <LinearGradient colors={["#E9AB2B", "#F97316"]} style={{ width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: 20 }}>⚡</Text>
+            <LinearGradient colors={["#E9AB2B", "#F97316"]} style={{ width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" }}>
+              <HomeGlyph name="zap" color="#FFFFFF" size={22} />
             </LinearGradient>
             <View style={{ flex: 1 }}>
               <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>سرعة في الاستجابة</Text>
@@ -504,8 +550,8 @@ function CustomerHome() {
             </View>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
-            <LinearGradient colors={["#10B981", "#14B8A6"]} style={{ width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: 20 }}>🛡️</Text>
+            <LinearGradient colors={["#10B981", "#14B8A6"]} style={{ width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" }}>
+              <HomeGlyph name="shield" color="#FFFFFF" size={22} />
             </LinearGradient>
             <View style={{ flex: 1 }}>
               <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>أمان مضمون</Text>
