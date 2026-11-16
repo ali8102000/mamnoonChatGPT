@@ -686,10 +686,4 @@ const styles = StyleSheet.create({
   requestType: { fontSize: 12, color: palette.muted, marginTop: 5 },
   requestPrice: { fontSize: 14, fontWeight: "900", color: palette.brand, marginTop: 7 },
   requestArrow: { fontSize: 23, color: palette.gold },
-  bottomTabs: { flexDirection: "row", backgroundColor: palette.surface, paddingTop: 10, paddingBottom: 24, borderTopWidth: 1, borderTopColor: palette.line },
-  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 4 },
-  tabIcon: { fontSize: 22, color: palette.muted, fontWeight: "700" },
-  tabIconActive: { color: palette.brand },
-  tabLabel: { fontSize: 10, color: palette.muted, marginTop: 4, fontWeight: "700" },
-  tabLabelActive: { color: palette.brand, fontWeight: "900" },
 });
