@@ -341,7 +341,7 @@ function NewRequest() {
       } catch (e) { if (!stale) setRouteError(arabicWarning(e)); }
     }, 350);
     return () => { stale = true; clearTimeout(t); };
-  }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity]);
+  }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity, routeRetry]);
 
   useEffect(() => {
     if (pickupLat == null || pickupLng == null) return;
