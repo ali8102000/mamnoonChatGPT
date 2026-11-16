@@ -248,7 +248,7 @@ export default function NewRequest() {
         <View style={styles.serviceGrid}>
           {serviceCatalog.filter((service) => service.slug !== "taxi").map((service) => (
             <TouchableOpacity key={service.slug} style={styles.serviceTile} onPress={() => { setSelectedService(service.slug); if (!EXPERT_ONLY_SERVICE_SLUGS.has(service.slug)) setWorkerLevel("fani"); setServiceDetailsStep(true); }}>
-              {hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
+              {hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="cover" />}
               <Text style={styles.serviceLabel}>{service.name_ar}</Text>
             </TouchableOpacity>
           ))}
@@ -1801,10 +1801,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
   label: { fontSize: 13, fontWeight: "900", color: palette.ink, marginBottom: 8, marginTop: 16 },
   serviceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  serviceTile: { width: "31%", aspectRatio: 1, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
+  serviceTile: { width: "31%", height: 148, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "flex-start", overflow: "hidden" },
   serviceEmoji: { fontSize: 30, marginBottom: 4 },
-  serviceImage: { width: 58, height: 58, marginBottom: 4 },
-  serviceLabel: { fontSize: 12, fontWeight: "800", color: palette.ink },
+  serviceImage: { width: "100%", height: 112, marginBottom: 5 },
+  serviceLabel: { fontSize: 12, fontWeight: "800", color: palette.ink, textAlign: "center", paddingHorizontal: 3 },
   mapModeRow: { flexDirection: "row", gap: 8, alignItems: "center" },
   governorateRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
   governorateChip: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
