@@ -24,6 +24,7 @@ type Row = {
 export default function AdminFriendsScreen() {
   const { user, loading: authLoading } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [canManage, setCanManage] = useState(false);
   const [tab, setTab] = useState<Tab>("friends");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +47,7 @@ export default function AdminFriendsScreen() {
       if (!names.some((role: string) => ["super_admin", "admin", "moderator", "department_monitoring"].includes(role))) {
         setAllowed(false); setRows([]); return;
       }
+      setCanManage(names.some((role: string) => ["super_admin", "admin", "moderator"].includes(role)));
       setAllowed(true);
       const result = await invoke({ action: tab === "friends" ? "friends" : "friend_requests", limit: 200 });
       setRows(tab === "friends" ? result.friends ?? [] : result.requests ?? []);
@@ -110,9 +112,9 @@ export default function AdminFriendsScreen() {
             <View key={row.id} style={s.card}>
               <Text style={s.name}>{left?.full_name || left?.phone || "—"} {tab === "friends" ? "↔" : "←"} {right?.full_name || right?.phone || "—"}</Text>
               <Text style={s.muted}>{new Date(row.created_at).toLocaleString("ar-IQ")}</Text>
-              <TouchableOpacity disabled={busyId === row.id} onPress={() => remove(row)} style={s.delete}>
+              {canManage && <TouchableOpacity disabled={busyId === row.id} onPress={() => remove(row)} style={s.delete}>
                 <Text style={s.deleteText}>{busyId === row.id ? "جاري الحذف..." : "حذف"}</Text>
-              </TouchableOpacity>
+              </TouchableOpacity>}
             </View>
           );
         })}
