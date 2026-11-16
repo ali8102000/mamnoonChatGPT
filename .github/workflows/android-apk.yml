@@ -157,7 +157,7 @@ jobs:
               echo "::error::Mamnoon crashed during the Android emulator launch smoke test."
               exit 1
             fi
-  production-aab:
+  production_aab:
     name: Build signed Google Play AAB locally
     if: ${{ github.event_name != 'pull_request' }}
     needs: build
