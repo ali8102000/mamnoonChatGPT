@@ -154,10 +154,6 @@ export default function NewRequest() {
   function getCouponBaseAmount() {
     if (!isTaxi || isLargeVehicle) return null;
     return estimatedTaxiFare;
-    /* service and large-vehicle requests are not coupon-eligible */
-    if (pricingMode === "negotiable") return null;
-    const amount = Number(customerPrice.replace(/[^0-9]/g, ""));
-    return Number.isFinite(amount) && amount > 0 ? amount : null;
   }
 
   async function previewCoupon() {
@@ -634,7 +630,7 @@ export default function NewRequest() {
           .from("service_requests")
           .insert({
             customer_id: user.id,
-            coupon_code: couponCode.trim().toUpperCase() || null,
+            coupon_code: null,
             type: "service",
             status: "pending",
             service_id: serviceRow.id,
