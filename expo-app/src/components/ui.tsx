@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   ViewStyle,
+  StyleProp,
   TextInput,
   TextInputProps,
 } from "react-native";
@@ -69,6 +70,42 @@ export function Button({
   );
 }
 
+
+export function ActionButton({
+  children,
+  onPress,
+  disabled,
+  style,
+  size = "default",
+  accessibilityLabel,
+}: {
+  children: ReactNode;
+  onPress: () => void;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+  size?: ButtonSize;
+  accessibilityLabel?: string;
+}) {
+  const dimensions = size === "sm" ? styles.actionSmall : size === "lg" ? styles.actionLarge : size === "icon" ? styles.actionIcon : styles.actionDefault;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: !!disabled }}
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        style,
+        styles.actionBase,
+        dimensions,
+        { opacity: disabled ? 0.5 : pressed ? 0.86 : 1, transform: [{ scale: pressed && !disabled ? 0.985 : 1 }] },
+      ]}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 export function RealInput({
   value,
   onChangeText,
@@ -128,6 +165,11 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
   },
   defaultSize: { minHeight: 40, paddingVertical: 8, paddingHorizontal: 16 },
+  actionBase: { minWidth: 0, borderRadius: 16, alignItems: "center", justifyContent: "center", flexDirection: "row" },
+  actionDefault: { minHeight: 40, paddingVertical: 8, paddingHorizontal: 16 },
+  actionSmall: { minHeight: 36, paddingVertical: 6, paddingHorizontal: 12 },
+  actionLarge: { minHeight: 45, paddingVertical: 10, paddingHorizontal: 32 },
+  actionIcon: { width: 40, height: 40, minHeight: 40, padding: 0 },
   small: { minHeight: 36, paddingVertical: 6, paddingHorizontal: 12 },
   large: { minHeight: 45, paddingVertical: 10, paddingHorizontal: 32 },
   icon: { width: 40, height: 40, minHeight: 40, paddingHorizontal: 0, paddingVertical: 0, alignSelf: "center" },
