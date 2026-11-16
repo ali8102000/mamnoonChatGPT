@@ -171,7 +171,7 @@ function WelcomePage() {
           className="mx-auto mt-5 w-full max-w-[340px] aspect-square object-contain rounded-lg"
         />
 
-        <div className="mx-auto mt-3 grid w-full max-w-[340px] grid-cols-3 gap-2" aria-label="صور الخدمات">
+        <div className="mx-auto mt-3 grid w-full max-w-[340px] grid-cols-4 gap-2" aria-label="صور الخدمات">
           {(["build", "chef", "electric_setup"] as const).map((slug) => (
             <img key={slug} src={serviceIcon(slug)} alt="" className="h-20 w-full rounded-xl bg-card object-contain p-1 shadow-sm" loading="lazy" />
           ))}
