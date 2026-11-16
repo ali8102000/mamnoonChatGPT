@@ -10,12 +10,17 @@ as $$
 declare
   v_detected_governorate text;
 begin
-  if new.pickup_lat is not null and new.pickup_lng is not null then
-    v_detected_governorate := public.infer_governorate_key(new.pickup_lat, new.pickup_lng);
-    if v_detected_governorate is not null then
-      new.governorate_key := v_detected_governorate;
-    end if;
+  if new.pickup_lat is null or new.pickup_lng is null then
+    raise exception 'governorate_required'
+      using message = 'موقع الانطلاق مطلوب حتى نتحقق من توفر الخدمة في محافظتك.';
   end if;
+
+  v_detected_governorate := public.infer_governorate_key(new.pickup_lat, new.pickup_lng);
+  if v_detected_governorate is null then
+    raise exception 'governorate_required'
+      using message = 'تعذّر تحديد المحافظة من موقع الانطلاق. حدّد الموقع من جديد ثم أرسل الطلب.';
+  end if;
+  new.governorate_key := v_detected_governorate;
 
   if new.governorate_key is null or length(trim(new.governorate_key)) = 0 then
     raise exception 'governorate_required'
