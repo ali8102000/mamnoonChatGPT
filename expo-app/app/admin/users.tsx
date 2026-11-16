@@ -105,10 +105,11 @@ export default function AdminUsersScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1],
       quality: 0.82, base64: true,
     });
-    if (result.canceled || !result.assets?.[0]?.base64) return;
-    const asset = result.assets[0];
+    const asset = result.assets?.[0];
+    const base64 = asset?.base64;
+    if (result.canceled || !asset || !base64) return;
     if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) { Alert.alert("حجم الصورة", "اختر صورة أقل من 5 ميغابايت."); return; }
-    setAvatarBase64(asset.base64);
+    setAvatarBase64(base64);
     const mime = asset.mimeType || "image/jpeg";
     setAvatarMime(mime === "image/png" || mime === "image/webp" ? mime : "image/jpeg");
     setAvatarPreview(asset.uri);
