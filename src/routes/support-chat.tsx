@@ -57,14 +57,10 @@ function SupportChatPage() {
       const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone,avatar_url").in("id", ids) : { data: [] };
       const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
       const conversationIds = (data ?? []).map((c: any) => c.id);
-      const [{ data: latestMessages }, { data: staffRows }] = await Promise.all([
-        conversationIds.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
-        (supabase as any).from("staff_assignments").select("user_id").eq("active", true),
-      ]);
-      const staffIds = new Set((staffRows ?? []).map((r: any) => r.user_id));
+      const { data: latestMessages } = conversationIds.length ? await (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : { data: [] };
       const latestByConversation = new Map<string, any>();
       for (const message of latestMessages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
-      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: byId.get(c.user_id), lastMessage, unanswered: !!lastMessage && !staffIds.has(lastMessage.sender_id) }; });
+      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: byId.get(c.user_id), lastMessage, unanswered: !!lastMessage && lastMessage.sender_id === c.user_id }; });
       setConversations(rows);
       if (selected) setSelected(rows.find((c: any) => c.id === selected.id) ?? null);
     } else {
@@ -115,7 +111,7 @@ function SupportChatPage() {
         loadConversations().catch(() => {});
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [selected?.id, uid, loadMessages, loadConversations]);
+  }, [selected?.id, uid, loadMessages, loadConversations, muted]);
 
   useEffect(() => {
     if (!uid) return;
@@ -147,7 +143,7 @@ function SupportChatPage() {
   function notifyIncoming(message: any) {
     if (muted) return;
     try {
-      if ("Notification" in window && Notification.permission === "granted") new Notification("رسالة جديدة في ممنون", { body: String(message.body ?? "وصلتك رسالة جديدة").slice(0, 120) });
+      if ("Notification" in window && Notification.permission === "granted") new Notification("رسالة جديدة في ممنون", { body: String(message.body ?? "وصلتك رسالة جديدة").slice(0, 120), silent: muted });
       const AudioContextClass = window.AudioContext;
       if (AudioContextClass) { const ctx = new AudioContextClass(); const oscillator = ctx.createOscillator(); const gain = ctx.createGain(); oscillator.type = "sine"; oscillator.frequency.value = 880; gain.gain.value = 0.045; oscillator.connect(gain); gain.connect(ctx.destination); oscillator.start(); oscillator.stop(ctx.currentTime + 0.16); oscillator.onended = () => void ctx.close(); }
     } catch { /* Browser notification/audio may be unavailable until permission or a user gesture. */ }
