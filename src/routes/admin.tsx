@@ -2565,7 +2565,7 @@ function NotificationsSection() {
           <div className="text-[11px] font-bold text-muted-foreground mb-1">الهدف</div>
           <select
             value={target}
-            onChange={(e) => setTarget(e.target.value)}
+            onChange={(e) => setTarget(e.target.value as typeof target)}
             className="w-full glass rounded-xl px-4 py-2.5 text-sm"
           >
             <option value="all">جميع المستخدمين</option>
