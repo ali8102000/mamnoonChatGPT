@@ -887,7 +887,7 @@ export default function RequestDetail() {
             <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", lineHeight: 20 }}>
               {request.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار عند وصولها." : "نبحث عن أقرب سائق أو فني متاح ومؤهل. أول شخص يقبل الطلب يحصل عليه."}
             </Text>
-            {request.vehicle_category !== "large" && (() => {
+            {(() => {
               const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
               const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
               return <View style={{ width: 104, height: 104, borderRadius: 52, borderWidth: 7, borderColor: palette.gold, alignItems: "center", justifyContent: "center", marginTop: 8, backgroundColor: palette.surface }}>
@@ -895,7 +895,7 @@ export default function RequestDetail() {
                 <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "800" }}>وقت البحث</Text>
               </View>;
             })()}
-            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث.</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
           </View>
         )}
         {isCustomer && request.status === "cancelled" && request.cancellation_reason === "dispatch_no_provider" && (
