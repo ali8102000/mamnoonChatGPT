@@ -474,6 +474,7 @@ export function DriverOfferPopup() {
 
         {isLargeVehicle ? (
           <div className="space-y-3">
+            <div className="text-[11px] text-muted-foreground">السعر يتقرب تلقائياً لأقرب 250 دينار</div>
             <input
               inputMode="numeric"
               value={largeOfferPrice}
