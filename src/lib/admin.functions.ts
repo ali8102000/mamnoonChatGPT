@@ -4,8 +4,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 async function requireStaff(context: any) {
   const { supabase, userId } = context;
-  const { data } = await (supabase as any).rpc("has_staff_role", { p_user_id: userId });
-  if (!data) throw new Error("غير مصرّح: للمشرفين فقط");
+  const [{ data }, { data: customerService }] = await Promise.all([
+    (supabase as any).rpc("has_staff_role", { p_user_id: userId }),
+    (supabase as any).rpc("is_customer_service_staff", { p_user_id: userId }),
+  ]);
+  if (!data || customerService) throw new Error("غير مصرّح: هذه الصلاحية ليست ضمن مهام خدمة العملاء");
 }
 
 
