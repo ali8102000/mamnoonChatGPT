@@ -38,7 +38,7 @@ import service_blacksmith from "../../assets/services/blacksmith.png";
 import service_general from "../../assets/services/general.png";
 import { palette, radius } from "@/styles/theme";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
-import { showContactOptions } from "@/lib/phone";
+import { showContactOptions } from "@/lib/contact-actions";
 
 const QUICK_REPLIES_CUSTOMER = ["وصلت!", "كم دقيقة؟", "أين أنت؟", "شكراً جزيلاً", "هل أنت قريب؟"];
 const QUICK_REPLIES_PROVIDER = [
