@@ -218,6 +218,8 @@ function NewRequest() {
 
   const [notes, setNotes] = useState("");
   const [routeKm, setRouteKm] = useState<number | null>(null);
+  const [routeDurationMin, setRouteDurationMin] = useState<number | null>(null);
+  const [serverTaxiFare, setServerTaxiFare] = useState<number | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeRetry, setRouteRetry] = useState(0);
   const runLookup = useServerFn(lookupMapPlace);
