@@ -197,12 +197,19 @@ export default function AdminProvidersScreen() {
         {!!error && <View style={s.error}><Text style={s.errorText}>{error}</Text></View>}
         {filteredProviders.length === 0 ? <Text style={s.empty}>ماكو حسابات مطابقة</Text> : filteredProviders.map(provider => (
           <View key={provider.user_id} style={s.card}>
-            <Text style={s.name}>{provider.profiles?.full_name || "بدون اسم"}</Text>
-            <Text style={s.muted}>{provider.profiles?.phone || provider.profiles?.email || "لا توجد معلومات اتصال"}</Text>
-            {!!provider.profiles?.phone && <TouchableOpacity style={s.contactButton} onPress={() => showContactOptions(provider.profiles!.phone!)}><Text style={s.contactButtonText}>اتصال / واتساب</Text></TouchableOpacity>}
-            <TouchableOpacity style={s.expandButton} onPress={() => setExpandedProviderId(current => current === provider.user_id ? null : provider.user_id)}>
-              <Text style={s.expandButtonText}>{expandedProviderId === provider.user_id ? "إخفاء التفاصيل" : "عرض التفاصيل والمستمسكات"}</Text>
-            </TouchableOpacity>
+            <View style={s.cardHeader}>
+              <View style={s.cardIdentity}>
+                <Text style={s.name} numberOfLines={1}>{provider.profiles?.full_name || "بدون اسم"}</Text>
+                <Text style={s.phone} numberOfLines={1}>{provider.profiles?.phone || provider.profiles?.email || "لا توجد معلومات اتصال"}</Text>
+              </View>
+              <Text style={[s.statusPill, provider.status === "approved" ? s.statusApproved : provider.status === "suspended" ? s.statusSuspended : s.statusPending]}>{provider.status === "approved" ? "مفعّل" : provider.status === "pending" ? "بانتظار" : provider.status === "suspended" ? "معلّق" : provider.status === "rejected" ? "مرفوض" : provider.status || "غير محدد"}</Text>
+            </View>
+            <View style={s.cardActions}>
+              {!!provider.profiles?.phone && <TouchableOpacity style={s.contactButton} onPress={() => showContactOptions(provider.profiles!.phone!)}><Text style={s.contactButtonText}>اتصال / واتساب</Text></TouchableOpacity>}
+              <TouchableOpacity style={s.expandButton} onPress={() => setExpandedProviderId(current => current === provider.user_id ? null : provider.user_id)}>
+                <Text style={s.expandButtonText}>{expandedProviderId === provider.user_id ? "إخفاء التفاصيل" : "التفاصيل والمستمسكات"}</Text>
+              </TouchableOpacity>
+            </View>
             {expandedProviderId === provider.user_id && <>
             <View style={s.metaRow}>
               <Text style={s.status}>{provider.status || "غير محدد"}</Text>
@@ -280,10 +287,18 @@ const s = StyleSheet.create({
   chipTextActive: { color: palette.white },
   search: { backgroundColor: palette.surface, color: palette.ink, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 12 },
   card: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 14, gap: 7 },
-  name: { color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" },
-  contactButton: { alignSelf: "flex-start", minHeight: 36, backgroundColor: palette.brandSoft, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cardIdentity: { flex: 1, minWidth: 0, gap: 2 },
+  name: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
+  phone: { color: palette.muted, fontSize: 10, textAlign: "right" },
+  statusPill: { overflow: "hidden", borderRadius: 20, paddingHorizontal: 9, paddingVertical: 5, fontSize: 9, fontWeight: "900" },
+  statusApproved: { backgroundColor: "#dcfce7", color: "#15803d" },
+  statusSuspended: { backgroundColor: "#fef3c7", color: "#b45309" },
+  statusPending: { backgroundColor: "#fee2e2", color: "#b91c1c" },
+  cardActions: { flexDirection: "row", alignItems: "center", gap: 7 },
+  contactButton: { flex: 1, minHeight: 32, backgroundColor: palette.brandSoft, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 5, alignItems: "center", justifyContent: "center" },
   contactButtonText: { color: palette.brand, fontWeight: "800", fontSize: 12 },
-  expandButton: { minHeight: 34, borderRadius: 12, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  expandButton: { flex: 1, minHeight: 32, borderRadius: 12, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
   expandButtonText: { color: palette.brand, fontWeight: "900", fontSize: 11 },
   metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   status: { color: palette.brand, fontSize: 11, fontWeight: "900" },
