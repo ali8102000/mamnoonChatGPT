@@ -436,7 +436,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friendship") {
-      requireRoles(["super_admin", "admin", "moderator", "department_monitoring"]);
+      requireRoles(["super_admin", "admin", "moderator"]);
       if (!isUuid(body.user1_id) || !isUuid(body.user2_id) || body.user1_id === body.user2_id) {
         return json({ error: "invalid_friendship" }, 400);
       }
@@ -449,7 +449,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friend_request") {
-      requireRoles(["super_admin", "admin", "moderator", "department_monitoring"]);
+      requireRoles(["super_admin", "admin", "moderator"]);
       if (!isUuid(body.request_id)) return json({ error: "invalid_request_id" }, 400);
       const { error } = await caller.rpc("admin_delete_friend_request", {
         p_request_id: body.request_id,
