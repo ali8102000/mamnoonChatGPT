@@ -1311,8 +1311,6 @@ export default function NewRequest() {
         </>
       )}
 
-      )}
-
       <Text style={styles.label}>حدد النقطة على الخريطة</Text>
       <View style={styles.mapModeRow}>
         <TouchableOpacity
