@@ -57,7 +57,6 @@ const css = readWeb("src/styles.css");
 const nativeTheme = read("src/styles/theme.ts");
 const nativeLayout = read("app/_layout.tsx");
 const nativeButton = read("src/components/ui.tsx");
-const nativeAdmin = read("app/admin.tsx");
 const nativeRequestDetail = read("app/request/[id].tsx");
 function cssBlock(selector) {
   const pattern = selector === ":root" ? /:root\s*\{([\s\S]*?)\n\}/m : /\.dark\s*\{([\s\S]*?)\n\}/m;
