@@ -27,10 +27,10 @@ export default function AdminRegionalControlsScreen() {
     else {
       setRows((data ?? []) as Row[]);
       const global = (data ?? []).find((row: Row) => row.governorate_key === "all");
-      if (global) setSettings({ services_enabled: global.services_enabled, message_enabled: global.message_enabled, message_title: global.message_title, message_text: global.message_text, message_animate: global.message_animate });
+      if (global && mode === "all") setSettings({ services_enabled: global.services_enabled, message_enabled: global.message_enabled, message_title: global.message_title, message_text: global.message_text, message_animate: global.message_animate });
     }
     setLoading(false);
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     let active = true;
