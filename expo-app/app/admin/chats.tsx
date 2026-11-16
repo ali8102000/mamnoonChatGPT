@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
+import { showContactOptions } from "@/lib/phone";
 
 type ChatRow = {
   id: string;
@@ -141,6 +142,7 @@ export default function AdminChatsScreen() {
             <View key={message.id} style={s.card}>
               <View style={s.messageHeader}>
                 <Text style={s.name}>{message.sender?.full_name || message.sender?.phone || "مستخدم"}</Text>
+                {!!message.sender?.phone && <TouchableOpacity onPress={() => showContactOptions(message.sender!.phone!)} style={s.filter}><Text style={s.filterText}>اتصال / واتساب</Text></TouchableOpacity>}
                 <TouchableOpacity disabled={busyId === message.id} onPress={() => deleteMessage(message)} style={s.delete}>
                   <Text style={s.deleteText}>{busyId === message.id ? "جارٍ الحذف..." : "حذف"}</Text>
                 </TouchableOpacity>
