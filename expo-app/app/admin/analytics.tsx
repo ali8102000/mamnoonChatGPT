@@ -41,7 +41,7 @@ export default function AdminAnalyticsScreen() {
     <Stack.Screen options={{title:"إحصائيات المستخدمين حسب المحافظة"}}/>
     <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>{setRefreshing(true);void load();}}/>}>
       <Text style={s.title}>إحصائيات المستخدمين حسب المحافظة</Text>
-      <Text style={s.muted}>أعداد حقيقية مباشرة من قاعدة بيانات ممنون</Text>
+      <Text style={s.muted}>أعداد حقيقية من قاعدة البيانات حسب المحافظة المعتمدة أو آخر نشاط مسجل</Text>
       {loading ? <ActivityIndicator size="large" color={palette.brand}/> : error ? <View style={s.error}><Text style={s.errorText}>{error}</Text><TouchableOpacity onPress={()=>void load()}><Text style={s.link}>إعادة المحاولة</Text></TouchableOpacity></View> : <>
         <View style={s.totalCard}>
           <Text style={s.muted}>إجمالي الحسابات المسجلة</Text>
@@ -56,7 +56,7 @@ export default function AdminAnalyticsScreen() {
             {([["فنيون",row.workers],["سيارات كبيرة",row.large_drivers],["تكسي",row.taxi_drivers],["زبائن",row.customers]] as [string,number][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
           </View>
         </View>)}
-        <Text style={s.note}>المحافظة غير المحددة تظهر منفصلة. الحساب الواحد قد يظهر ضمن أكثر من فئة إذا كان يحمل أكثر من دور؛ الإجمالي يحسب كل حساب مرة واحدة.</Text>
+        <Text style={s.note}>المحافظة المعتمدة في ملف المستخدم أو آخر محافظة مسجلة في طلباته تظهر حسب المحافظة، ومن لا يملك محافظة مسجلة يظهر ضمن غير محددة. الحساب الواحد قد يظهر ضمن أكثر من فئة إذا كان يحمل أكثر من دور؛ الإجمالي يحسب كل حساب مرة واحدة.</Text>
       </>}
     </ScrollView>
   </View>;
