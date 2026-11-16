@@ -10,6 +10,7 @@ export default function SupportChatScreen() {
   const { user } = useAuth();
   const [staff, setStaff] = useState(false);
   const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
+  const [complaintsReadOnly, setComplaintsReadOnly] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
   const [providerTargets, setProviderTargets] = useState<any[]>([]);
   const [providerSearch, setProviderSearch] = useState("");
@@ -45,11 +46,15 @@ export default function SupportChatScreen() {
     if (!user?.id) return;
     const { data: staffCheck } = await (supabase as any).rpc("has_staff_role", { p_user_id: user.id });
     const { data: staffRoles } = await (supabase as any).rpc("get_staff_roles", { p_user_id: user.id });
-    const restrictedSupport = (staffRoles ?? []).includes("customer_service") && !(staffRoles ?? []).some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
+    const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank").eq("user_id", user.id).eq("active", true).maybeSingle();
+    const privilegedChatRoles = ["super_admin","admin","support","finance","moderator"];
+    const readOnlyComplaints = assignment?.rank === "general_manager" && !(staffRoles ?? []).some((r: string) => privilegedChatRoles.includes(r));
+    const restrictedSupport = (staffRoles ?? []).includes("customer_service") && !(staffRoles ?? []).some((r: string) => privilegedChatRoles.includes(r));
     setStaff(staffCheck === true);
     setCustomerServiceOnly(restrictedSupport);
+    setComplaintsReadOnly(readOnlyComplaints);
     if (staffCheck) {
-      const [drivers, workers] = restrictedSupport ? [{ data: [] }, { data: [] }] : await Promise.all([
+      const [drivers, workers] = restrictedSupport || readOnlyComplaints ? [{ data: [] }, { data: [] }] : await Promise.all([
         (supabase as any).from("driver_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
         (supabase as any).from("worker_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
       ]);
@@ -93,8 +98,8 @@ export default function SupportChatScreen() {
     const { data, error } = await (supabase as any).from("support_messages").select("*").eq("conversation_id", id).order("created_at", { ascending: true });
     if (error) throw error;
     setMessages(data ?? []);
-    await (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("conversation_id", id).neq("sender_id", user?.id).is("read_at", null);
-  }, [user?.id]);
+    if (!complaintsReadOnly) await (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("conversation_id", id).neq("sender_id", user?.id).is("read_at", null);
+  }, [user?.id, complaintsReadOnly]);
 
   useEffect(() => {
     let alive = true;
@@ -114,7 +119,7 @@ export default function SupportChatScreen() {
         const incoming = payload.new.sender_id !== user.id;
         if (payload.new.conversation_id === selected?.id) {
           setMessages((old) => old.some((m) => m.id === payload.new.id) ? old : [...old, payload.new]);
-          if (incoming) {
+          if (incoming && !complaintsReadOnly) {
             void (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id);
           }
         }
@@ -131,7 +136,7 @@ export default function SupportChatScreen() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id, selected?.id, staff, muted, loadConversations]);
+  }, [user?.id, selected?.id, staff, muted, loadConversations, complaintsReadOnly]);
 
   async function enableNotifications() {
     try {
@@ -146,7 +151,7 @@ export default function SupportChatScreen() {
   }
 
   async function startConversation(targetId: string) {
-    if (!user?.id || !staff || customerServiceOnly) return;
+    if (!user?.id || !staff || customerServiceOnly || complaintsReadOnly) return;
     const existing = await (supabase as any).from("support_conversations").select("*").eq("user_id", targetId).eq("status", "open").maybeSingle();
     let conversation = existing.data;
     if (!conversation) {
@@ -161,7 +166,7 @@ export default function SupportChatScreen() {
   }
 
   async function send() {
-    if (!draft.trim() || !selected?.id || !user?.id || sending) return;
+    if (!draft.trim() || !selected?.id || !user?.id || sending || complaintsReadOnly) return;
     const body = draft.trim();
     setSending(true);
     setDraft("");
@@ -173,8 +178,8 @@ export default function SupportChatScreen() {
 
   if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
   return <View style={styles.container}>
-    <Text style={styles.title}>{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</Text>
-    {staff && !customerServiceOnly && <View style={styles.startBox}>
+    <Text style={styles.title}>{complaintsReadOnly ? "متابعة شكاوى ومراسلات ممنون" : customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</Text>
+    {staff && !customerServiceOnly && !complaintsReadOnly && <View style={styles.startBox}>
       <Text style={styles.startTitle}>ابدأ محادثة مع فني أو سائق</Text>
       <TextInput value={providerSearch} onChangeText={setProviderSearch} placeholder="ابحث بالاسم أو الهاتف" style={styles.searchInput} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -190,7 +195,7 @@ export default function SupportChatScreen() {
         <Text style={isCompanyMessage ? styles.companyTime : styles.time}>{new Date(m.created_at).toLocaleString("ar-IQ")}</Text>
       </View>; })}
     </ScrollView>
-    {selected?.status === "open" && <View style={styles.composer}>
+    {selected?.status === "open" && !complaintsReadOnly && <View style={styles.composer}>
       <TextInput value={draft} onChangeText={setDraft} placeholder="اكتب رسالتك..." multiline maxLength={4000} style={styles.input} />
       <TouchableOpacity onPress={send} disabled={!draft.trim() || sending} style={styles.send}><Text style={styles.sendText}>{sending ? "..." : "إرسال"}</Text></TouchableOpacity>
     </View>}
