@@ -16,7 +16,6 @@ function SupportChatPage() {
   const uid = session?.user.id;
   const [isStaff, setIsStaff] = useState(false);
   const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
-  const [complaintsReadOnly, setComplaintsReadOnly] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
   const [providerTargets, setProviderTargets] = useState<any[]>([]);
   const [providerSearch, setProviderSearch] = useState("");
@@ -40,13 +39,13 @@ function SupportChatPage() {
     const { data: staffRoles } = await (supabase as any).rpc("get_staff_roles", { p_user_id: uid });
     const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank").eq("user_id", uid).eq("active", true).maybeSingle();
     const privilegedChatRoles = ["super_admin","admin","support","finance","moderator"];
-    const readOnlyComplaints = assignment?.rank === "general_manager" && !(staffRoles ?? []).some((r: string) => privilegedChatRoles.includes(r));
-    const restrictedSupport = (staffRoles ?? []).includes("customer_service") && !(staffRoles ?? []).some((r: string) => privilegedChatRoles.includes(r));
-    setIsStaff(staff === true);
+    const isGeneralManager = assignment?.rank === "general_manager";
+    const privilegedChatAccess = isGeneralManager || (staffRoles ?? []).some((r: string) => privilegedChatRoles.includes(r));
+    const restrictedSupport = (staffRoles ?? []).includes("customer_service") && !privilegedChatAccess;
+    setIsStaff(staff === true || isGeneralManager);
     setCustomerServiceOnly(restrictedSupport);
-    setComplaintsReadOnly(readOnlyComplaints);
-    if (staff) {
-      const [drivers, workers] = restrictedSupport || readOnlyComplaints ? [{ data: [] }, { data: [] }] : await Promise.all([
+    if (staff || isGeneralManager) {
+      const [drivers, workers] = restrictedSupport ? [{ data: [] }, { data: [] }] : await Promise.all([
         (supabase as any).from("driver_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
         (supabase as any).from("worker_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
       ]);
@@ -89,8 +88,8 @@ function SupportChatPage() {
     const { data, error } = await (supabase as any).from("support_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
     if (error) throw error;
     setMessages(data ?? []);
-    if (!complaintsReadOnly) await (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("conversation_id", conversationId).neq("sender_id", uid).is("read_at", null);
-  }, [uid, complaintsReadOnly]);
+    await (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("conversation_id", conversationId).neq("sender_id", uid).is("read_at", null);
+  }, [uid]);
 
   useEffect(() => {
     if (!uid) return;
@@ -111,12 +110,12 @@ function SupportChatPage() {
         setMessages((current) => current.some((m) => m.id === payload.new.id) ? current : [...current, payload.new]);
         if (payload.new.sender_id !== uid) {
           notifyIncoming(payload.new);
-          if (!complaintsReadOnly) (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
+          (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
         }
         loadConversations().catch(() => {});
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [selected?.id, uid, loadMessages, loadConversations, muted, complaintsReadOnly]);
+  }, [selected?.id, uid, loadMessages, loadConversations, muted]);
 
   useEffect(() => {
     if (!uid) return;
@@ -131,7 +130,7 @@ function SupportChatPage() {
   if (booting) return <div className="min-h-screen grid place-items-center"><Loader2 className="animate-spin" /></div>;
 
   async function startConversation(targetId: string) {
-    if (!uid || !isStaff || customerServiceOnly || complaintsReadOnly) return;
+    if (!uid || !isStaff || customerServiceOnly) return;
     const existing = await (supabase as any).from("support_conversations").select("*").eq("user_id", targetId).eq("status", "open").maybeSingle();
     let conversation = existing.data;
     if (!conversation) {
@@ -155,7 +154,7 @@ function SupportChatPage() {
   }
 
   async function send() {
-    if (!draft.trim() || !selected || !uid || busy || complaintsReadOnly) return;
+    if (!draft.trim() || !selected || !uid || busy) return;
     const body = draft.trim();
     setBusy(true);
     setDraft("");
@@ -169,9 +168,9 @@ function SupportChatPage() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-5">
         <a href={isStaff ? "/admin" : "/messages"} className="h-10 w-10 rounded-xl bg-card border border-border grid place-items-center"><ArrowRight className="h-5 w-5" /></a>
-        <div><h1 className="text-2xl font-black">{complaintsReadOnly ? "متابعة شكاوى ومراسلات ممنون" : customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</h1><p className="text-xs text-muted-foreground">{complaintsReadOnly ? "عرض ومتابعة فقط — لا يمكن إرسال الرسائل أو حذفها أو تعديلها" : customerServiceOnly ? "الرد على استفسارات ورسائل الزبائن فقط" : isStaff ? "استقبال رسائل الفنيين والسائقين والرد عليهم" : "تواصل مباشرة مع فريق شركة ممنون"}</p></div>
+        <div><h1 className="text-2xl font-black">{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</h1><p className="text-xs text-muted-foreground">{customerServiceOnly ? "الرد على استفسارات ورسائل الزبائن فقط" : isStaff ? "استقبال رسائل الفنيين والسائقين والرد عليهم" : "تواصل مباشرة مع فريق شركة ممنون"}</p></div>
       </div>
-      {isStaff && !customerServiceOnly && !complaintsReadOnly && <div className="glass rounded-2xl p-3 mb-3">
+      {isStaff && !customerServiceOnly && <div className="glass rounded-2xl p-3 mb-3">
         <div className="font-bold text-sm mb-2">ابدأ محادثة مع فني أو سائق</div>
         <input value={providerSearch} onChange={(e) => setProviderSearch(e.target.value)} placeholder="ابحث بالاسم أو رقم الهاتف" className="w-full rounded-xl bg-card border border-border px-3 py-2 text-sm outline-none mb-2" />
         <div className="flex flex-wrap gap-2">{providerTargets.filter((p) => !providerSearch.trim() || String(p.full_name ?? "").includes(providerSearch.trim()) || String(p.phone ?? "").includes(providerSearch.trim())).slice(0, 8).map((p) => <button key={p.id} onClick={() => void startConversation(p.id)} className="rounded-xl bg-primary/10 text-primary px-3 py-2 text-xs font-bold">{p.full_name || "مقدم خدمة"} · {p.phone || ""}</button>)}</div>
@@ -196,7 +195,7 @@ function SupportChatPage() {
             </div>; })}
             <div ref={messagesEndRef} />
           </div>
-          {selected?.status === "open" && !complaintsReadOnly && <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="p-3 border-t border-border flex gap-2">
+          {selected?.status === "open" && <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="p-3 border-t border-border flex gap-2">
             <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} placeholder="اكتب رسالتك..." className="flex-1 min-w-0 rounded-xl bg-card border border-border px-3 py-3 text-sm outline-none" />
             <button disabled={!draft.trim() || busy} className="rounded-xl bg-primary text-primary-foreground px-4 disabled:opacity-50"><Send className="h-4 w-4" /></button>
           </form>}
