@@ -158,6 +158,7 @@ const notificationLayout = await readSource("app/_layout.tsx");
 const notificationBell = await readSource("src/components/notifications-bell.tsx");
 const notificationPreferences = await readSource("src/lib/notification-sound.ts");
 const incomingRequestModal = await readSource("src/components/incoming-request-modal.tsx");
+const supportChatSource = await readSource("app/support-chat.tsx");
 const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
 const pushVibrationMigration = await readSource("../supabase/migrations/20261116183000_admin_permissions_and_notification_vibration.sql");
 const supabaseTypes = await readSource("../src/integrations/supabase/types.ts");
@@ -196,6 +197,12 @@ if (!notificationBell.includes("getNotificationChannelId()") ||
 if (!incomingRequestModal.includes("getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled)") ||
     !incomingRequestModal.includes("sound: preferences.soundEnabled ? \"default\" : false")) {
   missing.push("Incoming request alerts must honor independent sound and vibration preferences.");
+}
+if (!supportChatSource.includes("getNotificationChannelId()") ||
+    !supportChatSource.includes('sound: isNotificationSoundEnabled() ? "default" : false') ||
+    !supportChatSource.includes("vibrate: isNotificationVibrationEnabled()") ||
+    supportChatSource.includes('setNotificationChannelAsync("support-messages"')) {
+  missing.push("Support chat local notifications must use the global independent sound and vibration preferences.");
 }
 if (!pushSoundMigration.includes("ADD COLUMN IF NOT EXISTS sound_enabled") ||
     !pushSoundMigration.includes("ELSE 'silent' END")) {
