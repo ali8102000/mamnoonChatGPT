@@ -98,7 +98,7 @@ function paletteObject(name) {
     .map((entry) => [entry[1], entry[2].toUpperCase()]));
 }
 const colorMap = {
-  ink: "foreground", muted: "muted-foreground", canvas: "background",
+  ink: "foreground", muted: "muted-foreground", canvasSolid: "background",
   surface: "surface", surfaceSoft: "surface-2", brand: "primary",
   brandGlow: "primary-glow", gold: "accent", success: "success", danger: "destructive"
 };
@@ -112,6 +112,8 @@ for (const [selector, paletteName] of [[":root", "lightPalette"], [".dark", "dar
       "Android=" + palette[nativeKey] + " Web=" + expected);
   }
 }
+check("Android page canvas is transparent over shared gradient", nativeTheme.includes('canvas:"transparent"') && nativeLayout.includes("ApplicationBackdrop") && nativeLayout.includes("contentStyle: { backgroundColor: \"transparent\" }"));
+check("Web radial background gradient", css.includes("radial-gradient") && css.includes("--primary-glow"));
 check("Web Tajawal font token", css.includes('--font-sans: "Tajawal"'));
 check("Web 112.5% root type scale", /html\s*\{[^}]*font-size:\s*112\.5%/s.test(css));
 for (const weight of ["Tajawal_400Regular","Tajawal_500Medium","Tajawal_700Bold","Tajawal_800ExtraBold","Tajawal_900Black"]) {
