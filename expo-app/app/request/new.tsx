@@ -25,7 +25,6 @@ import { getServiceImage } from "@/lib/service-visuals";
 import { ServiceArtwork, hasServiceArtwork } from "@/components/service-artwork";
 import { palette, radius } from "@/styles/theme";
 import { calculateMobileTaxiFare } from "@/lib/taxi-fares";
-import { GOVERNORATES as WEB_GOVERNORATES, isInGovernorate as isInWebGovernorate } from "../../../src/lib/governorates";
 
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
@@ -57,6 +56,42 @@ function formatAddress(parts: Location.LocationGeocodedAddress[] | null | undefi
     .filter((part): part is string => Boolean(part?.trim()))
     .filter((part, index, all) => all.indexOf(part) === index)
     .join("، ");
+}
+
+async function resolveRouteGovernorates(from: Coordinates, to: Coordinates) {
+  const [fromGovernorate, toGovernorate] = await Promise.all([
+    callMamnoonMapsApi<{ key: string }>({
+      action: "detectGovernorate",
+      center: { lat: from.latitude, lng: from.longitude },
+    }),
+    callMamnoonMapsApi<{ key: string }>({
+      action: "detectGovernorate",
+      center: { lat: to.latitude, lng: to.longitude },
+    }),
+  ]);
+  if (!fromGovernorate.key || !toGovernorate.key) {
+    throw new Error("تعذّر تحديد محافظتي الرحلة.");
+  }
+  const [fromValidation, toValidation] = await Promise.all([
+    callMamnoonMapsApi<{ valid: boolean }>({
+      action: "validateGovernorate",
+      center: { lat: from.latitude, lng: from.longitude },
+      governorateKey: fromGovernorate.key,
+    }),
+    callMamnoonMapsApi<{ valid: boolean }>({
+      action: "validateGovernorate",
+      center: { lat: to.latitude, lng: to.longitude },
+      governorateKey: toGovernorate.key,
+    }),
+  ]);
+  if (!fromValidation.valid || !toValidation.valid) {
+    throw new Error("يجب أن تكون نقطتا الانطلاق والوجهة داخل حدود العراق.");
+  }
+  return {
+    fromGovernorateKey: fromGovernorate.key,
+    toGovernorateKey: toGovernorate.key,
+    isIntercity: fromGovernorate.key !== toGovernorate.key,
+  };
 }
 
 export default function NewRequest() {
@@ -322,19 +357,10 @@ export default function NewRequest() {
         ) {
           throw new Error("تعذّر التحقق من مسافة الطريق. حرّك نقطة الوجهة أو أعد المحاولة.");
         }
-        // Use the same polygon boundaries as the web app, not nearest-city guesses.
-        const fromGovernorate = WEB_GOVERNORATES.find((item) =>
-          isInWebGovernorate({ lat: pickupCoords.latitude, lng: pickupCoords.longitude }, item.key),
-        );
-        const toGovernorate = WEB_GOVERNORATES.find((item) =>
-          isInWebGovernorate({ lat: destinationCoords.latitude, lng: destinationCoords.longitude }, item.key),
-        );
-        if (!fromGovernorate || !toGovernorate) {
-          throw new Error("يجب أن تكون نقطتا الانطلاق والوجهة داخل حدود العراق. اختر موقعاً داخل إحدى المحافظات.");
-        }
-        setPickupGovernorateKey(fromGovernorate.key);
-        setDestinationGovernorateKey(toGovernorate.key);
-        setRouteIsIntercity(fromGovernorate.key !== toGovernorate.key);
+        const governorates = await resolveRouteGovernorates(pickupCoords, destinationCoords);
+        setPickupGovernorateKey(governorates.fromGovernorateKey);
+        setDestinationGovernorateKey(governorates.toGovernorateKey);
+        setRouteIsIntercity(governorates.isIntercity);
         setRouteKm(route.distanceKm);
         setRouteDurationMin(route.durationMin);
       } catch (error) {
@@ -594,16 +620,8 @@ export default function NewRequest() {
         ) {
           throw new Error("لم يتم تأكيد مسافة طريق صالحة. أعد تحديد الوجهة.");
         }
-        const fromGovernorate = WEB_GOVERNORATES.find((item) =>
-          isInWebGovernorate({ lat: pickupCoords.latitude, lng: pickupCoords.longitude }, item.key),
-        );
-        const toGovernorate = WEB_GOVERNORATES.find((item) =>
-          isInWebGovernorate({ lat: destinationCoords!.latitude, lng: destinationCoords!.longitude }, item.key),
-        );
-        if (!fromGovernorate || !toGovernorate) {
-          throw new Error("يجب أن تكون نقطتا الرحلة داخل حدود العراق.");
-        }
-        const freshIsIntercity = fromGovernorate.key !== toGovernorate.key;
+        const governorates = await resolveRouteGovernorates(pickupCoords, destinationCoords!);
+        const freshIsIntercity = governorates.isIntercity;
         const freshFare = calculateMobileTaxiFare(
           vehicleCat as Exclude<VehicleCategory, "large">,
           freshRoute.distanceKm,
@@ -617,8 +635,8 @@ export default function NewRequest() {
           freshFare !== estimatedTaxiFare ||
           freshIsIntercity !== isIntercity
         ) {
-          setPickupGovernorateKey(fromGovernorate.key);
-          setDestinationGovernorateKey(toGovernorate.key);
+          setPickupGovernorateKey(governorates.fromGovernorateKey);
+          setDestinationGovernorateKey(governorates.toGovernorateKey);
           setRouteIsIntercity(freshIsIntercity);
           setRouteKm(freshRoute.distanceKm);
           setRouteDurationMin(freshRoute.durationMin);
