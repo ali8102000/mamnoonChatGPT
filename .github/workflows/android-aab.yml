@@ -101,7 +101,7 @@ jobs:
             echo "::error::EAS local build did not produce an Android App Bundle."
             exit 1
           fi
-          cp "$AAB" ../release-artifacts/mamnoon-production.aab
+          if [ "$AAB" != "../release-artifacts/mamnoon-production.aab" ]; then cp "$AAB" ../release-artifacts/mamnoon-production.aab; fi
           unzip -t ../release-artifacts/mamnoon-production.aab
           jarsigner -verify -verbose -certs ../release-artifacts/mamnoon-production.aab > ../release-artifacts/aab-signature-verification.txt
           grep -qi "jar verified" ../release-artifacts/aab-signature-verification.txt
