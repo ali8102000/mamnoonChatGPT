@@ -480,12 +480,16 @@ function CustomerHome() {
             accessibilityRole="button"
             accessibilityLabel={tile.title}
             activeOpacity={0.86}
-            onPress={() =>
+            onPress={() => {
+              if (tile.key === "taxi") {
+                router.push("/request/taxi");
+                return;
+              }
               router.push({
                 pathname: "/request/new",
                 params: tile.vehicle ? { type: tile.type, vehicle: tile.vehicle } : { type: tile.type },
-              })
-            }
+              });
+            }}
             style={{
               width: tile.width,
               minHeight: 132,
