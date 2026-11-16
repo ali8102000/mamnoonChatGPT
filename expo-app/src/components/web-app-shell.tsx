@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
-  DeviceEventEmitter,
   Linking,
   Platform,
   StyleSheet,
@@ -14,6 +13,7 @@ import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { startMamnoonBackgroundLocation } from "@/lib/background-location";
+import { subscribeToWebNavigation } from "@/lib/web-navigation";
 
 const APP_ORIGIN = "https://mamnoon-theta.vercel.app";
 const APP_URL = APP_ORIGIN + "/";
@@ -109,11 +109,10 @@ export default function WebAppShell() {
   );
 
   useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener("mamnoon:web:navigate", (path: string) => {
+    return subscribeToWebNavigation((path) => {
       setPageError(false);
       setTargetUrl(safeAppUrl(path));
     });
-    return () => subscription.remove();
   }, []);
 
   useEffect(() => {
