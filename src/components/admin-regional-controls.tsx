@@ -99,6 +99,7 @@ export default function RegionalControlsSection() {
   }
 
   async function toggleAndSave(field: "services_enabled" | "message_enabled") {
+    if (field === "message_enabled" && !settings.message_enabled && settings.message_text.trim().length < 2) { toast.error("اكتب نص التنويه أولاً قبل تفعيل الرسائل."); return; }
     if (!targetKeys.length) { toast.error("اختَر محافظة واحدة على الأقل."); return; }
     const next = { ...settings, [field]: !settings[field] };
     setSettings(next);
