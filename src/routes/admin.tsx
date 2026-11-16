@@ -2521,7 +2521,7 @@ function MapSection() {
 }
 
 function NotificationsSection() {
-  const [target, setTarget] = useState("all");
+  const [target, setTarget] = useState<"all" | "drivers" | "large_drivers" | "workers" | "customers" | "governorate" | "single">("all");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [userId, setUserId] = useState("");
@@ -2578,9 +2578,12 @@ function NotificationsSection() {
           </select>
         </div>
         {target === "governorate" && (
+          <>
+          <p className="text-[11px] text-muted-foreground">يرسل فقط للحسابات التي حُددت محافظتها في الملف الشخصي.</p>
           <select value={governorateKey} onChange={(e) => setGovernorateKey(e.target.value)} className="w-full glass rounded-xl px-4 py-2.5 text-sm">
             {Object.entries(GOVERNORATE_LABELS).filter(([key]) => key !== "unknown").map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </select>
+          </>
         )}
         {target === "single" && (
           <input
