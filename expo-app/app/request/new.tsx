@@ -35,7 +35,7 @@ type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 type CatalogService = { id: string; slug: string; name_ar: string };
 
 const EXPERT_ONLY_SERVICE_SLUGS = new Set([
-  "plaster", "carpentry_form", "flooring", "chef", "plumbing", "electric_setup", "electric_street",
+  "build", "plaster", "carpentry_form", "flooring", "chef", "plumbing", "electric_setup", "electric_street",
 ]);
 
 
