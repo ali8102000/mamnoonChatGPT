@@ -48,6 +48,8 @@ export const Route = createFileRoute("/onboarding/worker")({
   component: OnboardingWorker,
 });
 
+const EXPERT_ONLY_SERVICE_SLUGS = new Set(["build", "plaster", "carpentry_form", "flooring", "chef", "plumbing", "electric_setup", "electric_street"]);
+
 interface Service {
   id: string;
   name_ar: string;
@@ -90,6 +92,11 @@ function OnboardingWorker() {
   const [editingMode, setEditingMode] = useState(false);
   const [specialtyOnlyMode, setSpecialtyOnlyMode] = useState(false);
   const [pendingSpecialtyChange, setPendingSpecialtyChange] = useState(false);
+  const canOfferExpertLevel = services.some((service) => selected.has(service.id) && EXPERT_ONLY_SERVICE_SLUGS.has(service.slug));
+
+  useEffect(() => {
+    if (!canOfferExpertLevel && level === "khabir") setLevel("fani");
+  }, [canOfferExpertLevel, level]);
 
   useEffect(() => {
     let active = true;
@@ -573,13 +580,13 @@ function OnboardingWorker() {
                 title="فني مهني"
                 desc="خبرة عملية وإتقان في مجالك"
               />
-              <LevelCard
+              {canOfferExpertLevel && <LevelCard
                 active={level === "khabir"}
                 onClick={() => setLevel("khabir")}
                 icon={<Award className="h-6 w-6" />}
                 title="خبير معتمد"
-                desc="خبرة واسعة وأولوية في الطلبات"
-              />
+                desc="متاح للاختصاصات الثمانية المعتمدة فقط"
+              />}
             </div>
           </div>
 

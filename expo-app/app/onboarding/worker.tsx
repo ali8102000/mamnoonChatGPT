@@ -18,6 +18,7 @@ import { getServiceImage } from "@/lib/service-visuals";
 import { palette, radius } from "@/styles/theme";
 
 type WorkerService = { id: string; slug: string; name_ar: string };
+const EXPERT_ONLY_SERVICE_SLUGS = new Set(["build", "plaster", "carpentry_form", "flooring", "chef", "plumbing", "electric_setup", "electric_street"]);
 type PickedImage = { uri: string; mimeType?: string | null; fileName?: string | null };
 type PhotoKind = "face" | "id-front" | "id-back";
 
@@ -40,6 +41,11 @@ export default function WorkerOnboarding() {
   const [approvedWorkerRole, setApprovedWorkerRole] = useState(false);
   const [specialtyOnlyMode, setSpecialtyOnlyMode] = useState(false);
   const [pendingSpecialtyChange, setPendingSpecialtyChange] = useState(false);
+  const canOfferExpertLevel = services.some((service) => selected.includes(service.id) && EXPERT_ONLY_SERVICE_SLUGS.has(service.slug));
+
+  useEffect(() => {
+    if (!canOfferExpertLevel && level === "khabir") setLevel("fani");
+  }, [canOfferExpertLevel, level]);
 
   useEffect(() => {
     (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
@@ -376,9 +382,9 @@ export default function WorkerOnboarding() {
         <TouchableOpacity style={[styles.levelChip, level === "fani" && styles.levelChipActive]} onPress={() => setLevel("fani")}>
           <Text style={[styles.levelText, level === "fani" && styles.levelTextActive]}>فني</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.levelChip, level === "khabir" && styles.levelChipActive]} onPress={() => setLevel("khabir")}>
+        {canOfferExpertLevel && <TouchableOpacity style={[styles.levelChip, level === "khabir" && styles.levelChipActive]} onPress={() => setLevel("khabir")}>
           <Text style={[styles.levelText, level === "khabir" && styles.levelTextActive]}>خبير</Text>
-        </TouchableOpacity>
+        </TouchableOpacity>}
       </View>
 
       <Text style={styles.label}>نبذة عن خبرتك (اختياري)</Text>

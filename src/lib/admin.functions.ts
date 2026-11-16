@@ -304,7 +304,7 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireUserModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [profileRes, rolesRes, blocksRes, driverRes, workerRes, txRes, reqRes, ratingsRes] =
+    const [profileRes, rolesRes, blocksRes, driverRes, workerRes, txRes, reqRes, ratingsRes, verificationsRes] =
       await Promise.all([
         (supabaseAdmin as any).from("profiles").select("*").eq("id", data.user_id).maybeSingle(),
         (supabaseAdmin as any)
@@ -344,7 +344,30 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
           .eq("ratee_id", data.user_id)
           .order("created_at", { ascending: false })
           .limit(100),
+        (supabaseAdmin as any)
+          .from("provider_verifications")
+          .select("provider_type,legal_name,phone,email,document_type,id_number,status,rejection_reason,metadata,face_photo_path,id_card_photo_path,id_card_back_photo_path,vehicle_document_path,submitted_at,reviewed_at,updated_at")
+          .eq("user_id", data.user_id),
       ]);
+    const signedVerifications = await Promise.all((verificationsRes.data ?? []).map(async (row: any) => {
+      const sign = async (path: string | null) => {
+        if (!path) return null;
+        const { data: signed, error } = await (supabaseAdmin as any).storage.from("provider-verification").createSignedUrl(path, 600);
+        return error ? null : signed?.signedUrl ?? null;
+      };
+      const [face, front, back, vehicle] = await Promise.all([
+        sign(row.face_photo_path), sign(row.id_card_photo_path),
+        sign(row.id_card_back_photo_path), sign(row.vehicle_document_path),
+      ]);
+      return {
+        provider_type: row.provider_type, legal_name: row.legal_name, phone: row.phone, email: row.email,
+        document_type: row.document_type, id_number: row.id_number, status: row.status,
+        rejection_reason: row.rejection_reason, metadata: row.metadata,
+        face_photo_url: face, id_card_photo_url: front, id_card_back_photo_url: back,
+        vehicle_document_url: vehicle, submitted_at: row.submitted_at,
+        reviewed_at: row.reviewed_at, updated_at: row.updated_at,
+      };
+    }));
     return {
       profile: profileRes.data,
       roles: rolesRes.data ?? [],
@@ -354,6 +377,7 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
       transactions: txRes.data ?? [],
       requests: reqRes.data ?? [],
       ratings: ratingsRes.error ? [] : ratingsRes.data ?? [],
+      verifications: verificationsRes.error ? [] : signedVerifications,
     };
   });
 

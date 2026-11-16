@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, Image, Linking, Modal, RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from "react-native";
 import { Stack } from "expo-router";
@@ -18,7 +18,7 @@ type UserRow = {
 };
 type Detail = {
   profile: any; roles: { role: string; created_at: string }[]; block: any;
-  driverProfile: any; workerProfile: any; transactions: any[]; requests: any[]; ratings: any[];
+  driverProfile: any; workerProfile: any; transactions: any[]; requests: any[]; ratings: any[]; verifications?: any[];
   ratings_error?: boolean;
 };
 const DURATIONS = [
@@ -232,6 +232,27 @@ export default function AdminUsersScreen() {
             {!!detail?.block && <Info label="الحظر" value={detail.block.reason || "بدون سبب"}/>}
             {!!detail?.driverProfile && <><Text style={s.section}>ملف السائق</Text><Info label="المركبة" value={`${detail.driverProfile.vehicle_make || "—"} ${detail.driverProfile.vehicle_model || ""}`}/><Info label="متاح" value={detail.driverProfile.available ? "نعم" : "لا"}/></>}
             {!!detail?.workerProfile && <><Text style={s.section}>ملف الفني</Text><Info label="متاح" value={detail.workerProfile.available ? "نعم" : "لا"}/></>}
+            <Text style={s.section}>المستمسكات والهوية ({detail?.verifications?.length ?? 0})</Text>
+            {(detail?.verifications ?? []).map((verification: any, index: number) => (
+              <View key={verification.provider_type || index} style={s.verificationCard}>
+                <Info label="نوع الحساب" value={verification.provider_type === "worker" ? "فني" : verification.provider_type === "large_driver" ? "سائق سيارة كبيرة" : "كابتن تكسي"}/>
+                <Info label="الاسم بالهوية" value={verification.legal_name}/>
+                <Info label="الهاتف" value={verification.phone}/>
+                <Info label="البريد" value={verification.email}/>
+                <Info label="نوع المستند" value={verification.document_type}/>
+                <Info label="رقم الهوية" value={verification.id_number}/>
+                <Info label="حالة التدقيق" value={verification.status}/>
+                {!!verification.rejection_reason && <Info label="سبب الرفض" value={verification.rejection_reason}/>}
+                <View style={s.actions}>
+                  {[
+                    ["صورة الوجه", verification.face_photo_url],
+                    ["الهوية الأمامية", verification.id_card_photo_url],
+                    ["الهوية الخلفية", verification.id_card_back_photo_url],
+                    ["مستند المركبة", verification.vehicle_document_url],
+                  ].map(([label, url]: any) => <TouchableOpacity key={label} disabled={!url} style={[s.secondary, !url && s.disabled]} onPress={() => url && void Linking.openURL(url)}><Text style={s.secondaryText}>{url ? `عرض ${label}` : `${label} غير متوفر`}</Text></TouchableOpacity>)}
+                </View>
+              </View>
+            ))}
             <Text style={s.section}>المعاملات ({detail?.transactions?.length ?? 0})</Text>
             {(detail?.transactions ?? []).map(tx=><Info key={tx.id} label={tx.type || "معاملة"} value={`${Number(tx.amount||0).toLocaleString("ar-IQ")} د.ع · ${new Date(tx.created_at).toLocaleDateString("ar-IQ")}`}/>)}
             <Text style={s.section}>الطلبات ({detail?.requests?.length ?? 0})</Text>
@@ -260,6 +281,7 @@ const s = StyleSheet.create({
   input:{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radius.md,padding:12,color:palette.ink,textAlign:"right"},
   card:{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radius.lg,padding:14,gap:6},
   avatarPreview:{width:76,height:76,borderRadius:38,alignSelf:"flex-end",backgroundColor:palette.pageCanvas},
+  verificationCard:{borderWidth:1,borderColor:palette.line,borderRadius:radius.md,padding:10,marginVertical:6,gap:5},
   name:{fontSize:14,fontWeight:"900",color:palette.ink,textAlign:"right"},
   actions:{flexDirection:"row",gap:8,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap",marginTop:8},
   primary:{minHeight:40,backgroundColor:palette.brand,borderRadius:16,paddingHorizontal:16,paddingVertical:8,alignItems:"center",justifyContent:"center"},
