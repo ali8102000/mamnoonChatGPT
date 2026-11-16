@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   AppState,
   Image,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -84,11 +85,15 @@ export function IncomingRequestModal() {
   const [visible, setVisible] = useState(false);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [attachmentPath, setAttachmentPath] = useState<string | null>(null);
+  const loadSequence = useRef(0);
 
   const loadOffer = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     if (!user || !canReceive) {
       setOffer(null);
       setVisible(false);
+      setAttachmentPath(null);
+      setAttachmentUrl(null);
       return;
     }
     const { data, error } = await (supabase as any)
@@ -101,38 +106,44 @@ export function IncomingRequestModal() {
       .limit(1)
       .maybeSingle();
 
+    if (sequence !== loadSequence.current) return;
     if (error) {
       console.warn("[incoming-offer] Could not load targeted offer:", error.message);
       return;
     }
-    const nextAttachmentPath = data?.service_requests?.attachment_path ?? null;
-    if (nextAttachmentPath !== attachmentPath) {
-      setAttachmentPath(nextAttachmentPath);
-      if (nextAttachmentPath) {
-        const { data: signed, error: signedError } = await supabase.storage
-          .from("request-attachments")
-          .createSignedUrl(nextAttachmentPath, 60 * 60);
-        if (signedError) {
-          console.warn("[incoming-offer] Could not sign request photo:", signedError.message);
-          setAttachmentUrl(null);
-        } else {
-          setAttachmentUrl(signed?.signedUrl ?? null);
-        }
-      } else {
-        setAttachmentUrl(null);
-      }
-    }
 
-    if (data?.service_requests?.status === "pending" || data?.service_requests?.status === "searching") {
-      setOffer(data as Offer);
-      setVisible(true);
-    } else {
+    const isActive = data?.service_requests?.status === "pending" || data?.service_requests?.status === "searching";
+    if (!data || !isActive) {
       setOffer(null);
       setVisible(false);
       setAttachmentPath(null);
       setAttachmentUrl(null);
+      return;
     }
-  }, [user, canReceive, attachmentPath]);
+
+    const nextAttachmentPath = data.service_requests?.attachment_path ?? null;
+    if (!nextAttachmentPath) {
+      setAttachmentPath(null);
+      setAttachmentUrl(null);
+    } else if (nextAttachmentPath !== attachmentPath || !attachmentUrl) {
+      // Retry signing on later polls if a transient storage error occurred.
+      const { data: signed, error: signedError } = await supabase.storage
+        .from("request-attachments")
+        .createSignedUrl(nextAttachmentPath, 60 * 60);
+      if (sequence !== loadSequence.current) return;
+      setAttachmentPath(nextAttachmentPath);
+      if (signedError) {
+        console.warn("[incoming-offer] Could not sign request photo:", signedError.message);
+        setAttachmentUrl(null);
+      } else {
+        setAttachmentUrl(signed?.signedUrl ?? null);
+      }
+    }
+
+    if (sequence !== loadSequence.current) return;
+    setOffer(data as Offer);
+    setVisible(true);
+  }, [user, canReceive, attachmentPath, attachmentUrl]);
 
   useEffect(() => {
     void loadOffer();
@@ -209,6 +220,7 @@ export function IncomingRequestModal() {
     >
       <View style={styles.backdrop}>
         <View style={styles.card}>
+          <ScrollView style={styles.cardScroll} contentContainerStyle={styles.cardContent} showsVerticalScrollIndicator={false}>
           <View style={styles.topLine}>
             <View style={styles.pulse} />
             <Text style={styles.topText}>طلب جديد موجّه إلك</Text>
@@ -307,6 +319,7 @@ export function IncomingRequestModal() {
             )}
           </View>
           {busy === "reject" ? <ActivityIndicator style={{ marginTop: 10 }} color="#64748b" /> : null}
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -315,7 +328,9 @@ export function IncomingRequestModal() {
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(12, 29, 23, 0.72)", justifyContent: "center", padding: 18 },
-  card: { backgroundColor: palette.surface, borderRadius: 28, padding: 20, borderWidth: 1, borderColor: palette.gold },
+  card: { backgroundColor: palette.surface, borderRadius: 28, borderWidth: 1, borderColor: palette.gold, maxHeight: "92%", overflow: "hidden" },
+  cardScroll: { flexGrow: 0 },
+  cardContent: { padding: 20 },
   topLine: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
   pulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: palette.success },
   topText: { flex: 1, color: palette.brand, fontSize: 14, fontWeight: "900" },
