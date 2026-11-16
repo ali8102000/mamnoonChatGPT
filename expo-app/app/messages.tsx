@@ -9,6 +9,7 @@ import { palette, radius } from "@/styles/theme";
 type ChatListItem = {
   id: string;
   request_id: string;
+  created_at: string;
   other: { full_name: string | null; phone: string | null } | null;
   request: { type: string; status: string } | null;
 };
@@ -45,10 +46,10 @@ export default function MessagesScreen() {
       }
       const { data, error } = await supabase
         .from("chats")
-        .select("id, request_id, customer_id, provider_id, request:service_requests(type, status)")
+        .select("id, request_id, customer_id, provider_id, created_at, request:service_requests(type, status)")
         .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
         .in("request_id", activeIds)
-        .order("updated_at", { ascending: false });
+        .order("created_at", { ascending: false });
       if (error || !data) throw error ?? new Error("تعذر تحميل المحادثات");
       const otherIds = [...new Set(data.map((chat) =>
         chat.customer_id === user.id ? chat.provider_id : chat.customer_id
@@ -150,6 +151,7 @@ export default function MessagesScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.chatName}>{chat.other?.full_name || "مستخدم"}</Text>
+                {!!chat.other?.phone && <Text style={styles.chatPhone}>{chat.other.phone}</Text>}
                 <Text style={styles.chatType}>
                   {chat.request?.type === "taxi" ? "🚕 سيارة" : `🔧 ${chat.request?.type || ""}`}
                 </Text>
@@ -178,6 +180,7 @@ const styles = StyleSheet.create({
   chatAvatar: { width: 48, height: 48, borderRadius: 17, backgroundColor: palette.brand, alignItems: "center", justifyContent: "center" },
   chatAvatarText: { fontSize: 20, fontWeight: "900", color: palette.white },
   chatName: { fontSize: 15, fontWeight: "900", color: palette.ink },
+  chatPhone: { fontSize: 11, color: palette.muted, marginTop: 2, writingDirection: "ltr", textAlign: "left" },
   chatType: { fontSize: 12, color: palette.muted, marginTop: 3 },
   chatArrow: { fontSize: 20, color: palette.gold },
 });
