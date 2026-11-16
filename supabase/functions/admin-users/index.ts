@@ -92,6 +92,18 @@ Deno.serve(async (req: Request) => {
       if (error || data !== true) throw new Error("admin_required");
     };
 
+    if (body.action === "customer_activity_stats") {
+      requireRoles(["super_admin", "admin"]);
+      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(500, body.limit)) : 200;
+      const offset = Number.isInteger(body.offset) ? Math.max(0, body.offset) : 0;
+      const { data, error } = await admin.rpc("admin_customer_activity_stats", {
+        p_limit: limit,
+        p_offset: offset,
+      });
+      if (error) return json({ error: "customer_activity_stats_failed" }, 500);
+      return json({ report: data ?? {} });
+    }
+
     if (body.action === "governorate_stats") {
       requireRoles(["super_admin", "admin"]);
       const { data, error } = await admin.rpc("admin_governorate_user_stats");
