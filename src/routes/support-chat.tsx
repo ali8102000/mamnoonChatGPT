@@ -2,7 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Send, Loader2, ArrowRight, ShieldCheck, Bell, BellOff, Volume2, VolumeX, Search, Clock3, CheckCheck } from "lucide-react";
+import { MessageCircle, Send, Loader2, ArrowRight, ShieldCheck, Bell, Volume2, VolumeX } from "lucide-react";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/support-chat")({
@@ -51,7 +51,7 @@ function SupportChatPage() {
         if (profile) targetMap.set(row.user_id, { id: row.user_id, ...profile });
       }
       setProviderTargets(Array.from(targetMap.values()));
-      const { data, error } = await (supabase as any).from("support_conversations").select("*").order("priority_tier", { ascending: false }).order("updated_at", { ascending: true });
+      const { data, error } = await (supabase as any).from("support_conversations").select("*").order("updated_at", { ascending: false });
       if (error) throw error;
       const ids: string[] = Array.from(new Set<string>((data ?? []).map((c: any) => String(c.user_id))));
       const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone,avatar_url").in("id", ids) : { data: [] };
