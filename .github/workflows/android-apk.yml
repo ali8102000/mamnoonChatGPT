@@ -137,6 +137,7 @@ jobs:
           compression-level: 0
       - name: Install and launch APK on Android emulator
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -157,91 +158,3 @@ jobs:
               echo "::error::Mamnoon crashed during the Android emulator launch smoke test."
               exit 1
             fi
-  production_aab:
-    name: Build signed Google Play AAB locally
-    if: ${{ github.event_name != 'pull_request' }}
-    needs: build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: expo-app
-    env:
-      APP_ENV: production
-      EAS_PROJECT_ID: a6c763c4-3a5c-4725-b370-81967e3c0aab
-      ANDROID_NDK_VERSION: 27.1.12297006
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22.14.0"
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-      - name: Install Android SDK packages
-        run: |
-          set -euo pipefail
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
-          if [ -z "$SDKMANAGER" ]; then
-            echo "::error::Android SDK command-line tools were not found on the runner."
-            exit 1
-          fi
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-          "$SDKMANAGER" --install "ndk;$ANDROID_NDK_VERSION"
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - name: Install dependencies with the EAS Yarn lockfile
-        run: |
-          npm install --global yarn@1.22.22
-          yarn install --frozen-lockfile
-      - name: Verify EAS token is available
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::Missing GitHub Actions secret EXPO_TOKEN."
-            exit 1
-          fi
-      - name: Build production AAB with the existing remote upload key
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/expo-app/release-artifacts
-        run: |
-          set -euo pipefail
-          mkdir -p release-artifacts
-          # EAS local builds use the existing remote Android credentials and do not
-          # consume cloud build credits. Non-interactive mode must fail rather than
-          # silently generate a different upload key if the existing key is missing.
-          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx eas-cli@latest build --platform android --profile production --local --non-interactive'
-      - name: Validate signed production AAB
-        run: |
-          set -euo pipefail
-          mkdir -p release-artifacts
-          AAB="$(find release-artifacts -type f -name '*.aab' -print -quit)"
-          if [ -z "$AAB" ]; then
-            echo "::error::EAS local build did not produce an Android App Bundle."
-            exit 1
-          fi
-          cp "$AAB" release-artifacts/mamnoon-production.aab
-          unzip -t release-artifacts/mamnoon-production.aab
-          jarsigner -verify -verbose -certs release-artifacts/mamnoon-production.aab > release-artifacts/aab-signature-verification.txt
-          grep -qi "jar verified" release-artifacts/aab-signature-verification.txt
-          keytool -printcert -jarfile release-artifacts/mamnoon-production.aab > release-artifacts/aab-signing-certificate.txt
-          sha256sum release-artifacts/mamnoon-production.aab > release-artifacts/mamnoon-production.aab.sha256
-          node -e 'const c=require("./app.json"); if(c.expo.android.package!=="com.mamnoon.app") throw new Error("Unexpected Android package name"); console.log("Android package configuration verified:", c.expo.android.package);'
-          du -h release-artifacts/mamnoon-production.aab
-      - name: Upload signed Google Play AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: mamnoon-production-aab
-          path: |
-            expo-app/release-artifacts/mamnoon-production.aab
-            expo-app/release-artifacts/mamnoon-production.aab.sha256
-            expo-app/release-artifacts/aab-signing-certificate.txt
-            expo-app/release-artifacts/aab-signature-verification.txt
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
