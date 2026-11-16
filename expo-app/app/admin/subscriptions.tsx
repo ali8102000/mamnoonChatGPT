@@ -229,7 +229,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 const s = StyleSheet.create({
-  page:{flex:1,backgroundColor:palette.canvas},
+  page:{flex:1,backgroundColor: palette.pageCanvas},
   scroll:{flex:1},
   content:{padding:space.lg,paddingBottom:48,gap:12},
   tabs:{paddingHorizontal:space.md,paddingVertical:space.sm,gap:8},
@@ -237,7 +237,7 @@ const s = StyleSheet.create({
   tabActive:{backgroundColor:palette.brand,borderColor:palette.brand},
   tabText:{fontSize:12,fontWeight:"800",color:palette.ink},
   tabTextActive:{color:"#FFFFFF"},
-  center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor:palette.canvas,padding:24,gap:12},
+  center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor: palette.pageCanvas,padding:24,gap:12},
   title:{fontSize:22,fontWeight:"900",color:palette.ink,textAlign:"right"},
   section:{fontSize:16,fontWeight:"900",color:palette.ink,textAlign:"right",marginTop:8},
   muted:{fontSize:12,color:palette.muted,textAlign:"right",lineHeight:20},
