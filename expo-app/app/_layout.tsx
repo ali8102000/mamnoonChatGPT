@@ -1,5 +1,5 @@
 import "@/lib/background-location";
-import { Stack, router } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text, TextInput } from "react-native";
 import { useFonts } from "@expo-google-fonts/tajawal/useFonts";
@@ -15,7 +15,7 @@ import * as Notifications from "expo-notifications";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemePreferenceProvider } from "@/lib/theme-preference";
 import { supabase } from "@/lib/supabase";
-import { IncomingRequestModal } from "@/components/incoming-request-modal";
+import { navigateToWebPath } from "@/lib/web-navigation";
 import { palette } from "@/styles/theme";
 import { isNotificationSoundEnabled, loadNotificationSoundPreference } from "@/lib/notification-sound";
 
@@ -115,19 +115,16 @@ function PushNotificationSetup() {
         if (error) {
           Alert.alert("تعذّر قبول الطلب", error.message || "قد يكون العرض انتهى أو قبله مزوّد آخر.");
         } else {
-          router.push({ pathname: "/request/[id]", params: { id: data.request_id } });
+          navigateToWebPath(`/request/${encodeURIComponent(data.request_id)}`);
         }
       } else if (typeof data?.request_id === "string") {
-        router.push({
-          pathname: "/request/[id]",
-          params: { id: data.request_id },
-        });
+        navigateToWebPath(`/request/${encodeURIComponent(data.request_id)}`);
       } else if (data?.type === "taxi_high_demand") {
-        router.push("/subscriptions" as any);
+        navigateToWebPath("/subscriptions");
       } else if (data?.type === "subscription_granted" || data?.type === "company_announcement") {
-        router.push("/home");
+        navigateToWebPath("/home");
       } else {
-        router.push("/profile");
+        navigateToWebPath("/profile");
       }
     }
 
@@ -159,42 +156,43 @@ export default function RootLayout() {
   (TextInput as any).defaultProps = { ...(TextInput as any).defaultProps, style: [{ fontFamily: "Tajawal_400Regular" }, (TextInput as any).defaultProps?.style] };
   return (
     <ThemePreferenceProvider>
-    <AuthProvider>
-      <PushNotificationSetup />
-      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} backgroundColor={palette.canvas} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: palette.canvas },
-          animation: "slide_from_right",
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="auth" />
-        <Stack.Screen name="auth/callback" />
-        <Stack.Screen name="account-settings" />
-        <Stack.Screen name="select-role" />
-        <Stack.Screen name="home" />
-        <Stack.Screen name="request/new" />
-        <Stack.Screen name="request/[id]" />
-        <Stack.Screen name="request/chat/[id]" options={{ headerShown: false, presentation: "card", animation: "slide_from_right" }} />
-        <Stack.Screen name="messages" />
-        <Stack.Screen name="support-chat" />
-        <Stack.Screen name="friends" />
-        <Stack.Screen name="history" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="admin" />
-        <Stack.Screen name="admin/staff" />
-        <Stack.Screen name="admin/live-map" />
-        <Stack.Screen name="admin/friends" />
-        <Stack.Screen name="admin/notifications" />
-        <Stack.Screen name="onboarding/driver" />
-        <Stack.Screen name="onboarding/worker" />
-        <Stack.Screen name="forgot-password" />
-        <Stack.Screen name="reset-password" />
-      </Stack>
-      <IncomingRequestModal />
-    </AuthProvider>
+      <AuthProvider>
+        <PushNotificationSetup />
+        <StatusBar style={colorScheme === "dark" ? "light" : "dark"} backgroundColor={palette.canvas} />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: palette.canvas },
+            animation: "slide_from_right",
+          }}
+        >
+          <Stack.Screen name="index" />
+          {/* Legacy native screens stay in the bundle as a rollback path; the
+              default Android experience now renders the exact web routes. */}
+          <Stack.Screen name="auth" />
+          <Stack.Screen name="auth/callback" />
+          <Stack.Screen name="account-settings" />
+          <Stack.Screen name="select-role" />
+          <Stack.Screen name="home" />
+          <Stack.Screen name="request/new" />
+          <Stack.Screen name="request/[id]" />
+          <Stack.Screen name="request/chat/[id]" options={{ headerShown: false, presentation: "card", animation: "slide_from_right" }} />
+          <Stack.Screen name="messages" />
+          <Stack.Screen name="support-chat" />
+          <Stack.Screen name="friends" />
+          <Stack.Screen name="history" />
+          <Stack.Screen name="profile" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="admin/staff" />
+          <Stack.Screen name="admin/live-map" />
+          <Stack.Screen name="admin/friends" />
+          <Stack.Screen name="admin/notifications" />
+          <Stack.Screen name="onboarding/driver" />
+          <Stack.Screen name="onboarding/worker" />
+          <Stack.Screen name="forgot-password" />
+          <Stack.Screen name="reset-password" />
+        </Stack>
+      </AuthProvider>
     </ThemePreferenceProvider>
   );
 }
