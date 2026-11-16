@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemePreferenceProvider } from "@/lib/theme-preference";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
+import { NativeBottomNavigation } from "@/components/native-bottom-navigation";
 import { palette } from "@/styles/theme";
 import { isNotificationSoundEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 
@@ -167,6 +168,7 @@ export default function RootLayout() {
             <Stack.Screen name="forgot-password" />
             <Stack.Screen name="reset-password" />
           </Stack>
+          <NativeBottomNavigation />
           <IncomingRequestModal />
         </View>
       </AuthProvider>
