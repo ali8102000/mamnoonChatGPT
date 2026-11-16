@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Image } from "react-native";
+import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
@@ -17,6 +18,8 @@ export default function SupportChatScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [unansweredOnly, setUnansweredOnly] = useState(false);
+  const [muted, setMuted] = useState(false);
   const messagesScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -41,12 +44,20 @@ export default function SupportChatScreen() {
         if (profile) targetMap.set(row.user_id, { id: row.user_id, ...profile });
       }
       setProviderTargets(Array.from(targetMap.values()));
-      const { data, error } = await (supabase as any).from("support_conversations").select("*").order("priority_tier", { ascending: false }).order("updated_at", { ascending: true });
+      const { data, error } = await (supabase as any).from("support_conversations").select("*").order("updated_at", { ascending: false });
       if (error) throw error;
       const ids: string[] = Array.from(new Set<string>((data ?? []).map((c: any) => String(c.user_id))));
-      const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone").in("id", ids) : { data: [] };
+      const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone,avatar_url").in("id", ids) : { data: [] };
       const map = new Map((profiles ?? []).map((p: any) => [p.id, p]));
-      const rows = (data ?? []).map((c: any) => ({ ...c, profile: map.get(c.user_id) }));
+      const conversationIds = (data ?? []).map((c: any) => c.id);
+      const [{ data: latestMessages }, { data: staffRows }] = await Promise.all([
+        conversationIds.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+        (supabase as any).from("staff_assignments").select("user_id").eq("active", true),
+      ]);
+      const staffIds = new Set((staffRows ?? []).map((r: any) => r.user_id));
+      const latestByConversation = new Map<string, any>();
+      for (const message of latestMessages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
+      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: map.get(c.user_id), lastMessage, unanswered: !!lastMessage && !staffIds.has(lastMessage.sender_id) }; });
       setConversations(rows);
       if (selected) setSelected(rows.find((c: any) => c.id === selected.id) ?? null);
     } else {
@@ -85,10 +96,19 @@ export default function SupportChatScreen() {
     const ch = supabase.channel("support-mobile-" + selected.id)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: "conversation_id=eq." + selected.id }, (payload: any) => {
         setMessages((old) => old.some((m) => m.id === payload.new.id) ? old : [...old, payload.new]);
-        if (payload.new.sender_id !== user?.id) (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
+        if (payload.new.sender_id !== user?.id) {
+          if (!muted) void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: String(payload.new.body ?? "وصلتك رسالة جديدة").slice(0, 120), sound: "default" }, trigger: null });
+          (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
+        }
       }).subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [selected?.id, user?.id, loadMessages]);
+
+  async function enableNotifications() {
+    const permission = await Notifications.requestPermissionsAsync();
+    if (!permission.granted) Alert.alert("الإشعارات", "فعّل إذن الإشعارات من إعدادات الجهاز حتى توصلك تنبيهات الرسائل.");
+    else Alert.alert("ممنون", "تم تفعيل إذن إشعارات الرسائل.");
+  }
 
   async function startConversation(targetId: string) {
     if (!user?.id || !staff || customerServiceOnly) return;
@@ -126,12 +146,7 @@ export default function SupportChatScreen() {
         {providerTargets.filter((p) => !providerSearch.trim() || String(p.full_name ?? "").includes(providerSearch.trim()) || String(p.phone ?? "").includes(providerSearch.trim())).slice(0, 8).map((p) => <TouchableOpacity key={p.id} onPress={() => void startConversation(p.id)} style={styles.person}><Text style={styles.personName}>{p.full_name || "مقدم خدمة"}</Text><Text style={styles.personPhone}>{p.phone || ""}</Text></TouchableOpacity>)}
       </ScrollView>
     </View>}
-    {staff && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.list}>
-      {conversations.map((c) => <TouchableOpacity key={c.id} onPress={() => setSelected(c)} style={[styles.person, selected?.id === c.id && styles.personActive]}>
-        <Text style={styles.personName}>{c.profile?.full_name || "مستخدم"}</Text>
-        <Text style={styles.personPhone}>{c.profile?.phone || ""}</Text><Text style={styles.personPhone}>{c.priority_tier === 3 ? "أولوية ذهبية" : c.priority_tier === 2 ? "أولوية فضية" : c.priority_tier === 1 ? "أولوية برونزية" : "اعتيادي"}</Text>
-      </TouchableOpacity>)}
-    </ScrollView>}
+    {staff && <View style={styles.inbox}><View style={styles.inboxTop}><Text style={styles.inboxTitle}>صندوق الوارد</Text><View style={styles.actions}><TouchableOpacity onPress={() => setMuted((v) => !v)} style={styles.action}><Text style={styles.actionText}>{muted ? "🔕 مكتوم" : "🔔 الصوت"}</Text></TouchableOpacity><TouchableOpacity onPress={() => void enableNotifications()} style={styles.action}><Text style={styles.actionText}>تفعيل التنبيهات</Text></TouchableOpacity></View></View><View style={styles.filters}><TouchableOpacity onPress={() => setUnansweredOnly(false)} style={[styles.filter, !unansweredOnly && styles.filterActive]}><Text style={[styles.filterText, !unansweredOnly && styles.filterTextActive]}>الكل</Text></TouchableOpacity><TouchableOpacity onPress={() => setUnansweredOnly(true)} style={[styles.filter, unansweredOnly && styles.filterActive]}><Text style={[styles.filterText, unansweredOnly && styles.filterTextActive]}>بانتظار الرد</Text></TouchableOpacity></View><ScrollView style={styles.list} nestedScrollEnabled>{conversations.filter((c) => !unansweredOnly || c.unanswered).map((c) => <TouchableOpacity key={c.id} onPress={() => setSelected(c)} style={[styles.personRow, selected?.id === c.id && styles.personActive]}>{c.profile?.avatar_url ? <Image source={{ uri: c.profile.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarLetter}>{String(c.profile?.full_name || "م").slice(0,1)}</Text></View>}<View style={styles.personInfo}><View style={styles.personLine}><Text style={styles.personName}>{c.profile?.full_name || "مستخدم ممنون"}</Text>{c.unanswered && <View style={styles.unansweredDot} />}</View><Text style={styles.personPhone}>{c.profile?.phone || "—"}</Text><Text numberOfLines={1} style={styles.preview}>{c.lastMessage?.body || "لا توجد رسائل بعد"}</Text></View><Text style={styles.personTime}>{c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"}) : ""}</Text></TouchableOpacity>)}{conversations.filter((c) => !unansweredOnly || c.unanswered).length === 0 && <Text style={styles.empty}>{unansweredOnly ? "ماكو رسائل تنتظر الرد" : "لا توجد محادثات بعد"}</Text>}</ScrollView></View>}
     {!!loadError && <Text style={styles.loadError}>{loadError} — حدّث الصفحة وحاول مرة ثانية</Text>}
     <ScrollView ref={messagesScrollRef} style={styles.messages} contentContainerStyle={{ paddingVertical: 14, gap: 10 }}>
       {messages.length === 0 ? <Text style={styles.empty}>أهلاً بك، اكتب رسالتك لفريق دعم ممنون.</Text> : messages.map((m) => { const isCompanyMessage = staff ? m.sender_id === user?.id : m.sender_id !== user?.id; return <View key={m.id} style={[styles.bubble, isCompanyMessage ? styles.company : styles.customer]}>
@@ -151,6 +166,26 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas, paddingTop: 52, paddingHorizontal: 16 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 23, fontWeight: "900", color: palette.ink, marginBottom: 14, textAlign: "right" },
+  inbox: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: palette.line, maxHeight: 310 },
+  inboxTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  inboxTitle: { color: palette.ink, fontWeight: "900", fontSize: 15 },
+  actions: { flexDirection: "row", gap: 5 },
+  action: { borderWidth: 1, borderColor: palette.line, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 6 },
+  actionText: { color: palette.ink, fontSize: 10, fontWeight: "800" },
+  filters: { flexDirection: "row", gap: 6, marginBottom: 8 },
+  filter: { flex: 1, borderRadius: 9, padding: 8, backgroundColor: palette.canvas, alignItems: "center" },
+  filterActive: { backgroundColor: palette.brand },
+  filterText: { color: palette.muted, fontSize: 11, fontWeight: "800" },
+  filterTextActive: { color: palette.white },
+  personRow: { flexDirection: "row", alignItems: "center", gap: 9, padding: 9, borderRadius: 12, borderWidth: 1, borderColor: palette.line, marginBottom: 6, backgroundColor: palette.canvas },
+  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: palette.goldSoft },
+  avatarFallback: { width: 42, height: 42, borderRadius: 21, backgroundColor: palette.goldSoft, alignItems: "center", justifyContent: "center" },
+  avatarLetter: { color: palette.brandDeep, fontWeight: "900", fontSize: 17 },
+  personInfo: { flex: 1, minWidth: 0 },
+  personLine: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  unansweredDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#16A34A" },
+  preview: { color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 2 },
+  personTime: { color: palette.muted, fontSize: 9 },
   startBox: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: palette.line },
   startTitle: { fontSize: 13, fontWeight: "900", color: palette.ink, textAlign: "right", marginBottom: 8 },
   searchInput: { backgroundColor: palette.canvas, borderRadius: radius.md, padding: 12, textAlign: "right", marginBottom: 8, color: palette.ink },
