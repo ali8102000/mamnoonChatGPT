@@ -27,10 +27,10 @@ export default function AdminRegionalControlsScreen() {
     else {
       setRows((data ?? []) as Row[]);
       const global = (data ?? []).find((row: Row) => row.governorate_key === "all");
-      if (global) setSettings({ services_enabled: global.services_enabled, message_enabled: global.message_enabled, message_title: global.message_title, message_text: global.message_text, message_animate: global.message_animate });
+      if (global && mode === "all") setSettings({ services_enabled: global.services_enabled, message_enabled: global.message_enabled, message_title: global.message_title, message_text: global.message_text, message_animate: global.message_animate });
     }
     setLoading(false);
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +51,10 @@ export default function AdminRegionalControlsScreen() {
   const choose = (key: string) => {
     setSelected((current) => current.includes(key) ? current.filter((value) => value !== key) : [...current, key]);
     const row = rows.find((item) => item.governorate_key === key);
-    if (row) setSettings({ services_enabled: row.services_enabled, message_enabled: row.message_enabled, message_title: row.message_title, message_text: row.message_text, message_animate: row.message_animate });
+    setSettings(row
+      ? { services_enabled: row.services_enabled, message_enabled: row.message_enabled, message_title: row.message_title, message_text: row.message_text, message_animate: row.message_animate }
+      : { ...EMPTY });
+
   };
 
   async function save() {
@@ -87,7 +90,7 @@ export default function AdminRegionalControlsScreen() {
         <Text style={styles.muted}>إيقاف كل العراق يوقف جميع المحافظات. وعند تشغيله تگدر توقف محافظات منفردة.</Text>
         <View style={styles.row}>
           <TouchableOpacity onPress={() => setMode("all")} style={[styles.mode, mode === "all" && styles.modeActive]}><Text style={[styles.modeText, mode === "all" && styles.modeTextActive]}>كل العراق</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setMode("selected")} style={[styles.mode, mode === "selected" && styles.modeActive]}><Text style={[styles.modeText, mode === "selected" && styles.modeTextActive]}>محافظات محددة</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => { setMode("selected"); setSelected([]); setSettings({ ...EMPTY }); }} style={[styles.mode, mode === "selected" && styles.modeActive]}><Text style={[styles.modeText, mode === "selected" && styles.modeTextActive]}>محافظات محددة</Text></TouchableOpacity>
         </View>
         {mode === "selected" && <View style={styles.govGrid}>{IRAQ_GOVERNORATES.map((gov) => <TouchableOpacity key={gov.key} onPress={() => choose(gov.key)} style={[styles.govChip, selected.includes(gov.key) && styles.govChipActive]}><Text style={[styles.govText, selected.includes(gov.key) && styles.govTextActive]}>{selected.includes(gov.key) ? "✓ " : ""}{gov.name}</Text></TouchableOpacity>)}</View>}
         <View style={styles.card}>

@@ -43,7 +43,7 @@ export default function RegionalControlsSection() {
     } else {
       setRows((data ?? []) as ControlRow[]);
       const global = (data ?? []).find((row: ControlRow) => row.governorate_key === "all");
-      if (global) setSettings({
+      if (global && targetMode === "all") setSettings({
         services_enabled: global.services_enabled,
         message_enabled: global.message_enabled,
         message_title: global.message_title,
@@ -52,7 +52,7 @@ export default function RegionalControlsSection() {
       });
     }
     setLoading(false);
-  }, []);
+  }, [targetMode]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -64,13 +64,14 @@ export default function RegionalControlsSection() {
   function selectProvince(key: string) {
     setSelected((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
     const row = rows.find((item) => item.governorate_key === key);
-    if (row) setSettings({
+    setSettings(row ? {
       services_enabled: row.services_enabled,
       message_enabled: row.message_enabled,
       message_title: row.message_title,
       message_text: row.message_text,
       message_animate: row.message_animate,
-    });
+    } : { ...EMPTY });
+    setSaved(false);
   }
 
   async function save() {
@@ -146,7 +147,7 @@ export default function RegionalControlsSection() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setTargetMode("all")} className={`rounded-xl px-4 py-2 text-xs font-black border ${targetMode === "all" ? "bg-amber-500 text-black border-amber-500" : "border-border"}`}><Globe2 className="inline h-4 w-4 ml-1" /> كل العراق</button>
-          <button onClick={() => setTargetMode("selected")} className={`rounded-xl px-4 py-2 text-xs font-black border ${targetMode === "selected" ? "bg-amber-500 text-black border-amber-500" : "border-border"}`}><MapPin className="inline h-4 w-4 ml-1" /> محافظات محددة</button>
+          <button onClick={() => { setTargetMode("selected"); setSelected([]); setSettings({ ...EMPTY }); setSaved(false); }} className={`rounded-xl px-4 py-2 text-xs font-black border ${targetMode === "selected" ? "bg-amber-500 text-black border-amber-500" : "border-border"}`}><MapPin className="inline h-4 w-4 ml-1" /> محافظات محددة</button>
         </div>
         {targetMode === "selected" && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
