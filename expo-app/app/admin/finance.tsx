@@ -170,8 +170,8 @@ function Action({label,onPress,disabled}:{label:string;onPress:()=>void;disabled
   return <TouchableOpacity disabled={disabled} onPress={onPress} style={[s.action,disabled&&{opacity:0.45}]}><Text style={s.actionText}>{label}</Text></TouchableOpacity>;
 }
 const s=StyleSheet.create({
-  page:{flex:1,backgroundColor:palette.canvas},content:{padding:space.lg,paddingBottom:48,gap:10},
-  center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor:palette.canvas,padding:24,gap:10},
+  page:{flex:1,backgroundColor: palette.pageCanvas},content:{padding:space.lg,paddingBottom:48,gap:10},
+  center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor: palette.pageCanvas,padding:24,gap:10},
   title:{color:palette.ink,fontSize:21,fontWeight:"900",textAlign:"right"},cardTitle:{color:palette.ink,fontSize:14,fontWeight:"900",textAlign:"right"},
   muted:{color:palette.muted,fontSize:11,textAlign:"right",lineHeight:19},tabs:{flexDirection:"row",padding:10,gap:7,backgroundColor:palette.surface,borderBottomWidth:1,borderBottomColor:palette.line},
   tab:{flex:1,alignItems:"center",padding:10,borderRadius:radius.md},active:{backgroundColor:palette.brand,borderColor:palette.brand},tabText:{color:palette.ink,fontSize:11,fontWeight:"800"},activeText:{color:palette.white},
