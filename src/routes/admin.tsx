@@ -819,6 +819,31 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
               <InfoRow label="متاح" value={user.workerProfile.available ? "نعم" : "لا"} />
             </div>
           )}
+          <div className="glass rounded-xl p-3">
+            <div className="text-xs font-bold mb-2">المستمسكات ومعلومات التوثيق ({user.verifications?.length ?? 0})</div>
+            {(user.verifications ?? []).length === 0 ? <div className="text-[10px] text-muted-foreground">لا توجد مستمسكات توثيق مرفوعة لهذا المستخدم.</div> : (user.verifications ?? []).map((v: any, index: number) => (
+              <div key={v.provider_type ?? index} className="border-t border-border/60 pt-2 mt-2 space-y-1">
+                <InfoRow label="نوع الحساب" value={v.provider_type === "worker" ? "فني" : v.provider_type === "large_driver" ? "سائق سيارات كبيرة" : "كابتن تكسي"} />
+                <InfoRow label="الاسم بالهوية" value={v.legal_name} />
+                <InfoRow label="الهاتف" value={v.phone} />
+                <InfoRow label="البريد" value={v.email} />
+                <InfoRow label="نوع المستند" value={v.document_type} />
+                <InfoRow label="رقم الهوية" value={v.id_number} />
+                <InfoRow label="حالة التوثيق" value={v.status} />
+                {v.rejection_reason && <InfoRow label="سبب الرفض" value={v.rejection_reason} />}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[
+                    ["صورة الوجه", v.face_photo_url],
+                    ["الهوية الأمامية", v.id_card_photo_url],
+                    ["الهوية الخلفية", v.id_card_back_photo_url],
+                    ["مستند المركبة", v.vehicle_document_url],
+                  ].map(([label, url]: any) => url
+                    ? <a key={label} href={url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary underline">عرض {label}</a>
+                    : <span key={label} className="text-[10px] text-muted-foreground">{label}: غير متوفر</span>)}
+                </div>
+              </div>
+            ))}
+          </div>
           <div>
             <div className="text-[11px] font-bold text-muted-foreground mb-1">
               المعاملات ({user.transactions?.length ?? 0})
