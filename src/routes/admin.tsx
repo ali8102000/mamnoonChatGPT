@@ -191,7 +191,7 @@ function AdminPage() {
         });
         const parsedRoles = (roles ?? []).map((r: any) => r);
         setStaffRoles(parsedRoles);
-        const { data: assignment } = await supabase.from("staff_assignments").select("display_title,department").eq("user_id", session.user.id).eq("active", true).maybeSingle();
+        const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,department").eq("user_id", session.user.id).eq("active", true).maybeSingle();
         setStaffDisplayTitle(assignment?.display_title ?? null);
         if (parsedRoles.includes("customer_service") && !parsedRoles.some((r: string) => ["super_admin", "admin", "support", "finance", "moderator"].includes(r))) setSection("chat");
         setAuthorized(true);
