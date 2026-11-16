@@ -183,7 +183,7 @@ Deno.serve(async (req: Request) => {
       requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"]);
       if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
       const id = body.user_id;
-      const [profile, roles, block, driver, worker, transactions, requests, ratings] = await Promise.all([
+      const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications] = await Promise.all([
         admin.from("profiles").select("*").eq("id", id).maybeSingle(),
         admin.from("user_roles").select("role,created_at").eq("user_id", id),
         admin.from("user_blocks").select("*").eq("user_id", id).maybeSingle(),
