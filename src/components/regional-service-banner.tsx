@@ -9,7 +9,6 @@ export function RegionalServiceBanner() {
   const [row, setRow] = useState<Row | null>(null);
   useEffect(() => {
     let active = true;
-    let timer: ReturnType<typeof setInterval> | undefined;
     const load = async () => {
       let key = "";
       try { key = localStorage.getItem(GOV_STORAGE_KEY) || ""; } catch {}
@@ -39,8 +38,8 @@ export function RegionalServiceBanner() {
       setRow((exact || global || null) as Row | null);
     };
     void load();
-    timer = setInterval(() => void load(), 60000);
-    return () => { active = false; if (timer) clearInterval(timer); };
+    const timer = setInterval(() => void load(), 60000);
+    return () => { active = false; clearInterval(timer); };
   }, []);
   if (!row || (row.services_enabled && !row.message_enabled)) return null;
   const text = row.message_text || (row.services_enabled ? "" : "الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون.");
