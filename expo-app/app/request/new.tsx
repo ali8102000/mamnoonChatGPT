@@ -1313,7 +1313,7 @@ export default function NewRequest() {
 
       <TouchableOpacity style={styles.governoratePickerButton} onPress={() => setGovernoratePickerVisible(true)}>
         <Text style={styles.governoratePickerLabel}>اختر محافظة</Text>
-        <Text style={styles.governoratePickerValue}>{activeGovernorate?.name ?? "اضغط لاختيار المحافظة"}　⌄</Text>
+        <Text style={styles.governoratePickerValue}>{activeGovernorate?.name ?? "اضغط لاختيار المحافظة"} ⌄</Text>
       </TouchableOpacity>
       <TextInput
         ref={placeSearchInputRef}
