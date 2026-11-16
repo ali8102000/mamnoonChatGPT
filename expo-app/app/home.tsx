@@ -18,6 +18,7 @@ import * as Location from "expo-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { useThemePreference } from "@/lib/theme-preference";
 import Svg, { Circle, Path } from "react-native-svg";
 
 type IncomingRequest = {
@@ -31,6 +32,7 @@ type IncomingRequest = {
 
 export default function HomeScreen() {
   const { user, profile, roles } = useAuth();
+  const { resolved: resolvedTheme, setMode } = useThemePreference();
   const [activeRole, setActiveRole] = useState<string>(roles.includes("customer") ? "customer" : roles[0] || "customer");
   const [companyName, setCompanyName] = useState("شركة ممنون");
 
@@ -53,7 +55,7 @@ export default function HomeScreen() {
   const [verificationStatus, setVerificationStatus] = useState("pending");
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const isWorker = activeRole === "worker" || activeRole === "driver" || activeRole === "large_driver";
+
   const switchableRoles = ["customer", "driver", "large_driver", "worker"].filter((role) => roles.includes(role as (typeof roles)[number]));
   const roleNames: Record<string, string> = { customer: "زبون", driver: "كابتن", large_driver: "سيارات كبيرة", worker: "فني" };
   const greeting = (() => {
@@ -276,6 +278,9 @@ export default function HomeScreen() {
           <Text style={styles.roleText}>{roleTitle}</Text>
         </View>
         <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
+            <Text style={styles.themeToggleText}>{resolvedTheme === "dark" ? "☀" : "☾"}</Text>
+          </TouchableOpacity>
           <NotificationsBell />
           <TouchableOpacity onPress={() => router.push("/profile")} accessibilityRole="button" accessibilityLabel="الملف الشخصي">
             <View style={styles.avatar}>
@@ -284,6 +289,9 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      <TouchableOpacity onPress={() => router.push("/account-settings")} accessibilityRole="button" accessibilityLabel="تبديل الدور" style={styles.roleSettingsLink}>
+        <Text style={styles.roleSettingsText}>⇄  تبديل الدور</Text>
+      </TouchableOpacity>
       {switchableRoles.length > 1 && (
         <View style={styles.roleSwitcherWrap}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roleSwitcher}>
@@ -356,9 +364,8 @@ export default function HomeScreen() {
       </ScrollView>
       <View style={styles.bottomTabs}>
         <TabBtn label="الرئيسية" icon="⌂" active onPress={() => {}} />
+        <TabBtn label="الطلبات" icon="▤" onPress={() => router.push("/history")} />
         <TabBtn label="الرسائل" icon="◌" onPress={() => router.push("/messages")} />
-        {isWorker && <TabBtn label="الأصدقاء" icon="◎" onPress={() => router.push("/friends")} />}
-        <TabBtn label="السجل" icon="▤" onPress={() => router.push("/history")} />
         <TabBtn label="حسابي" icon="●" onPress={() => router.push("/profile")} />
       </View>
     </View>
@@ -676,7 +683,11 @@ function TabBtn({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14, zIndex: 30, elevation: 12 },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 10, zIndex: 40 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8, zIndex: 40 },
+  themeToggle: { width: 40, height: 40, borderRadius: 16, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
+  themeToggleText: { color: palette.ink, fontSize: 22, fontWeight: "700" },
+  roleSettingsLink: { alignSelf: "flex-start", marginHorizontal: space.xl, marginBottom: 12, borderRadius: 12, borderWidth: 1, borderColor: palette.brand + "33", backgroundColor: palette.brand + "0D", paddingHorizontal: 12, paddingVertical: 8 },
+  roleSettingsText: { color: palette.brand, fontSize: 12, fontWeight: "800" },
   headerEyebrow: { color: palette.gold, fontSize: 9, fontWeight: "900", letterSpacing: 1.5, marginBottom: 5 },
   greeting: { fontSize: 25, fontWeight: "900", color: palette.ink },
   roleText: { fontSize: 12, color: palette.muted, marginTop: 3, fontWeight: "600" },
