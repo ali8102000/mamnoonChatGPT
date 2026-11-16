@@ -225,7 +225,17 @@ async function handleRequest(request: Request) {
   }
 
   if (data.action === "route") {
-    return json(await drivingRoute(data.from, data.to));
+    const [route, fromGovernorate, toGovernorate] = await Promise.all([
+      drivingRoute(data.from, data.to),
+      Promise.resolve(governorateOf(data.from)),
+      Promise.resolve(governorateOf(data.to)),
+    ]);
+    return json({
+      ...route,
+      fromGovernorateKey: fromGovernorate.key,
+      toGovernorateKey: toGovernorate.key,
+      isIntercity: fromGovernorate.key !== toGovernorate.key,
+    });
   }
 
   const supabaseUrl = process.env["MAMNOON_SUPABASE_URL"] || process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
