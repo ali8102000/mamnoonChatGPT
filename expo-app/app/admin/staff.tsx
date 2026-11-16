@@ -6,10 +6,10 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 const ITEMS = [
-  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "support", "moderator"] },
-  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "support"] },
+  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring"] },
+  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "support", "department_operations"] },
   { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "support"] },
-  { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance"] },
+  { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance"] },
   { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance"] },
   { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator"] },
   { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support"] },
@@ -22,7 +22,7 @@ const ITEMS = [
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "المدير الأعلى", admin: "مدير", support: "الدعم",
-  finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء",
+  finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء", department_finance: "قسم المالية", department_operations: "قسم التشغيل", department_monitoring: "قسم المراقبة", department_executive: "الإدارة التنفيذية",
   "rank:owner": "الرئيس المؤسس الأعلى", "rank:general_manager": "مدير عام", "rank:department_manager": "مدير قسم", "rank:supervisor": "مشرف", "rank:employee": "موظف",
 };
 
@@ -43,9 +43,9 @@ export default function AdminStaffScreen() {
         setRoles(names);
         const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,rank,department").eq("user_id", user.id).eq("active", true).maybeSingle();
         setDisplayTitle(assignment?.display_title ?? null);
-        if (assignment?.rank) names.push(`rank:${assignment.rank}`);
+        if (assignment?.rank) names.push(`rank:${assignment.rank}`);\n        if (assignment?.department) names.push(`department_${assignment.department}`);
         setRoles(names);
-        setAllowed(!error && names.some((role: string) => Object.prototype.hasOwnProperty.call(ROLE_LABELS, role)));
+        setAllowed(!error && names.some((role: string) => Object.prototype.hasOwnProperty.call(ROLE_LABELS, role)));\n        if (assignment?.department === "finance") setDisplayTitle(assignment.display_title ?? "قسم المالية");\n        if (assignment?.department === "operations") setDisplayTitle(assignment.display_title ?? "قسم التشغيل");\n        if (assignment?.department === "monitoring") setDisplayTitle(assignment.display_title ?? "قسم المراقبة");
       } catch {
         setAllowed(false);
       } finally {
