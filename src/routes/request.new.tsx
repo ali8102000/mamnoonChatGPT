@@ -598,13 +598,9 @@ function NewRequest() {
   }
 
   // Active calculated taxi fare
-  const activeFare =
-    routeKm !== null
-      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes })
-      : FARE_TABLE[vehicleCategory].minimum;
+  const activeFare = serverTaxiFare ?? FARE_TABLE[vehicleCategory].minimum;
 
-  const estimatedEtaMinutes =
-    routeKm !== null ? Math.max(3, Math.round((routeKm / 32) * 60) + 3) : 5;
+  const estimatedEtaMinutes = routeDurationMin !== null ? Math.max(1, Math.round(routeDurationMin)) : 5;
 
   if (type === "service" && !serviceDetailsStep) {
     return (
