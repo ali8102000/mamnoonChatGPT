@@ -4,7 +4,7 @@ import { Stack } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { palette, radius, space } from "@/styles/theme";
+import { palette } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
 import { IRAQ_GOVERNORATES } from "@/lib/governorates";
 
@@ -119,26 +119,26 @@ export default function AdminRegionalControlsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.background },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: palette.background, padding: 24 },
+  container: { flex: 1, backgroundColor: palette.canvas },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: palette.canvas, padding: 24 },
   title: { color: palette.ink, fontSize: 20, fontWeight: "900", textAlign: "right", marginBottom: 8 },
   muted: { color: palette.muted, fontSize: 12, textAlign: "right", lineHeight: 20, marginBottom: 12 },
   row: { flexDirection: "row", gap: 8, marginVertical: 12 },
-  mode: { flex: 1, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: palette.border, alignItems: "center" },
+  mode: { flex: 1, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: palette.line, alignItems: "center" },
   modeActive: { borderColor: palette.gold, backgroundColor: "#D6A63B22" },
   modeText: { color: palette.ink, fontWeight: "800", fontSize: 12 },
   modeTextActive: { color: palette.gold },
   govGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
-  govChip: { borderWidth: 1, borderColor: palette.border, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 },
+  govChip: { borderWidth: 1, borderColor: palette.line, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 },
   govChipActive: { borderColor: palette.gold, backgroundColor: "#D6A63B22" },
   govText: { color: palette.ink, fontWeight: "700", fontSize: 12 },
   govTextActive: { color: palette.gold },
-  card: { backgroundColor: palette.surface, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: palette.border, marginTop: 10 },
+  card: { backgroundColor: palette.surface, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: palette.line, marginTop: 10 },
   section: { color: palette.ink, fontWeight: "900", fontSize: 14, textAlign: "right", marginBottom: 8 },
   action: { borderRadius: 12, padding: 12, alignItems: "center", marginTop: 8 },
   actionText: { color: "#fff", fontWeight: "900", fontSize: 12 },
   label: { color: palette.ink, fontSize: 12, fontWeight: "800", textAlign: "right", marginTop: 12, marginBottom: 6 },
-  input: { backgroundColor: palette.background, color: palette.ink, borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 12, fontSize: 13 },
+  input: { backgroundColor: palette.canvas, color: palette.ink, borderWidth: 1, borderColor: palette.line, borderRadius: 12, padding: 12, fontSize: 13 },
   switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   gold: { color: palette.gold, fontWeight: "900", fontSize: 12 },
   preview: { backgroundColor: "#080808", borderRadius: 18, borderWidth: 1, borderColor: "#C99A35", padding: 15, marginTop: 14 },
@@ -150,8 +150,8 @@ const styles = StyleSheet.create({
   save: { marginTop: 14, borderRadius: 14, overflow: "hidden" },
   saveGradient: { padding: 15, alignItems: "center" },
   saveText: { color: "#2B1D08", fontWeight: "900", fontSize: 14 },
-  reset: { borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 12, marginTop: 8, alignItems: "center" },
+  reset: { borderWidth: 1, borderColor: palette.line, borderRadius: 12, padding: 12, marginTop: 8, alignItems: "center" },
   resetText: { color: palette.ink, fontSize: 12, fontWeight: "800" },
-  savedRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border, gap: 8 },
+  savedRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.line, gap: 8 },
   savedName: { color: palette.ink, fontSize: 12, fontWeight: "900", flex: 1, textAlign: "right" },
 });
