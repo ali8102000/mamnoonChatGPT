@@ -79,6 +79,10 @@ const SERVICE_IMAGES: Record<string, number> = {
   general: service_general,
 }
 
+function roundPriceToNearest250(value: number) {
+  return Math.round(value / 250) * 250;
+}
+
 export function IncomingRequestModal() {
   const { user, roles } = useAuth();
   const canReceive = roles.some((role: AppRole) => role === "driver" || role === "large_driver" || role === "worker");
@@ -192,9 +196,10 @@ export function IncomingRequestModal() {
 
   async function sendLargeVehicleOffer() {
     if (!offer || !isLargeVehicle || busy) return;
-    const price = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
-    if (!Number.isSafeInteger(price) || price < 250 || price > 50000 || price % 250 !== 0) {
-      Alert.alert("السعر غير صحيح", "اكتب سعراً من 250 إلى 50000 دينار ومن مضاعفات 250.");
+    const enteredPrice = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
+    const price = roundPriceToNearest250(enteredPrice);
+    if (!Number.isSafeInteger(enteredPrice) || enteredPrice <= 0 || price < 250 || price > 50000) {
+      Alert.alert("السعر غير صحيح", "اكتب سعراً أكبر من صفر، وسيُقرّب تلقائياً لأقرب 250 دينار ضمن حد 50000.");
       return;
     }
     setBusy("accept");
@@ -326,9 +331,14 @@ export function IncomingRequestModal() {
               <Text style={styles.detailValue}>{request?.vehicle_type === "kia_passenger" ? "كيا ركاب" : request?.vehicle_type === "bus" ? "باص" : "كيا حمل"}</Text>
               <Text style={styles.detailLabel}>ميزانية الزبون</Text>
               <Text style={styles.detailValue}>{amount != null ? `${Number(amount).toLocaleString("en")} د.ع` : "بانتظار عروض الأسعار"}</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, marginTop: 8 }}>السعر يتقرب تلقائياً لأقرب 250 دينار</Text>
               <TextInput
                 value={largeOfferPrice}
                 onChangeText={(value) => setLargeOfferPrice(value.replace(/[^0-9]/g, ""))}
+                onEndEditing={() => {
+                  const entered = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
+                  if (Number.isSafeInteger(entered) && entered > 0) setLargeOfferPrice(String(roundPriceToNearest250(entered)));
+                }}
                 placeholder="أدخل أجرتك بالدينار (250–50000)"
                 keyboardType="numeric"
                 maxLength={5}
