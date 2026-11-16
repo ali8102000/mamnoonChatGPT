@@ -2,6 +2,11 @@ name: Mamnoon Android test APK
 
 on:
   push:
+    branches: [main, feat/android-parity-rebased]
+    paths:
+      - "expo-app/**"
+      - ".github/workflows/android-apk.yml"
+  pull_request:
     branches: [main]
     paths:
       - "expo-app/**"
@@ -13,11 +18,11 @@ permissions:
 
 concurrency:
   group: mamnoon-android-test-apk
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
-    name: Build installable Mamnoon debug APK
+    name: Build standalone Mamnoon release APK
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -64,13 +69,16 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Install dependencies
-        run: bun install
+      - name: Install dependencies with the EAS Yarn lockfile
+        run: |
+          npm install --global yarn@1.22.22
+          yarn install --frozen-lockfile
       - name: TypeScript check
         run: bunx tsc --noEmit
       - name: Expo dependency compatibility
         run: bunx expo install --check
       - name: Check EAS environment access
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
@@ -83,21 +91,70 @@ jobs:
             echo "::error::EAS project ID does not match expo-app/app.json."
             exit 1
           fi
-      - name: Prebuild and compile installable debug APK without EAS build credits
+      - name: Skip secret-dependent APK build for fork pull requests
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: echo "Skipping EAS-dependent APK build because fork pull requests do not receive repository secrets."
+      - name: Prebuild and compile standalone release APK without EAS build credits
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && cd android && chmod +x gradlew && ./gradlew assembleDebug'
+          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && node scripts/configure-android-abi-splits.mjs && cd android && chmod +x gradlew && ./gradlew assembleRelease'
       - name: Validate APK
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           mkdir -p release-artifacts
-          cp android/app/build/outputs/apk/debug/app-debug.apk release-artifacts/mamnoon-test.apk
-          test -s release-artifacts/mamnoon-test.apk
-          node -e 'const fs=require("fs"); const p="release-artifacts/mamnoon-test.apk"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid APK archive"); process.exit(1); }'
+          OUTPUT_DIR="android/app/build/outputs/apk/release"
+          cp "$OUTPUT_DIR/app-arm64-v8a-release.apk" release-artifacts/mamnoon-test-arm64.apk
+          cp "$OUTPUT_DIR/app-x86_64-release.apk" release-artifacts/mamnoon-test-x86_64.apk
+          for APK in release-artifacts/mamnoon-test-arm64.apk release-artifacts/mamnoon-test-x86_64.apk; do
+            test -s "$APK"
+            node -e 'const fs=require("fs"); const p=process.argv[1]; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Invalid APK archive: "+p); process.exit(1); }' "$APK"
+            unzip -t "$APK"
+          done
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          BUILD_TOOLS="$SDK_ROOT/build-tools/35.0.0"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs release-artifacts/mamnoon-test-arm64.apk
+          "$BUILD_TOOLS/zipalign" -c -v 4 release-artifacts/mamnoon-test-arm64.apk
+          "$BUILD_TOOLS/aapt" dump badging release-artifacts/mamnoon-test-arm64.apk | tee release-artifacts/apk-metadata.txt
+          grep -q "package: name='com.mamnoon.app'" release-artifacts/apk-metadata.txt
+          "$BUILD_TOOLS/aapt" dump badging release-artifacts/mamnoon-test-x86_64.apk | grep -q "package: name='com.mamnoon.app'"
+          sha256sum release-artifacts/mamnoon-test-arm64.apk > release-artifacts/mamnoon-test-arm64.apk.sha256
+          sha256sum release-artifacts/mamnoon-test-x86_64.apk > release-artifacts/mamnoon-test-x86_64.apk.sha256
+          du -h release-artifacts/*.apk
       - name: Upload installable APK
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/upload-artifact@v4
         with:
           name: mamnoon-test-apk
-          path: expo-app/release-artifacts/mamnoon-test.apk
+          path: |
+            expo-app/release-artifacts/mamnoon-test-arm64.apk
+            expo-app/release-artifacts/mamnoon-test-arm64.apk.sha256
+            expo-app/release-artifacts/apk-metadata.txt
           if-no-files-found: error
           retention-days: 14
+          # APKs are already compressed ZIP containers; avoid recompressing them.
+          compression-level: 0
+      - name: Install and launch APK on Android emulator
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            cd expo-app
+            adb install -r release-artifacts/mamnoon-test-x86_64.apk
+            adb logcat -c
+            adb shell monkey -p com.mamnoon.app 1
+            sleep 20
+            adb shell pidof com.mamnoon.app >/dev/null
+            adb logcat -d -t 4000 > release-artifacts/emulator-logcat.txt
+            if grep -q "FATAL EXCEPTION" release-artifacts/emulator-logcat.txt; then
+              echo "::error::Mamnoon crashed during the Android emulator launch smoke test."
+              exit 1
+            fi

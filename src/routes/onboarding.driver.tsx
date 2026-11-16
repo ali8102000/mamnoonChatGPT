@@ -18,6 +18,8 @@ import {
   CheckCircle2,
   FileText,
   AlertCircle,
+  Truck,
+  CarFront,
 } from "lucide-react";
 import { grantProviderRole } from "@/lib/roles.functions";
 import {
@@ -720,11 +722,18 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
                 <div className="font-black text-sm">نوع السيارة الكبيرة</div>
                 <div className="grid grid-cols-2 gap-2">
-                  {([{ key: "kia_cargo", label: "كيا حمل", emoji: "🛻" }, { key: "kia_passenger", label: "كيا ركاب", emoji: "🚐" }] as const).map((item) => (
-                    <button key={item.key} type="button" onClick={() => { setVehicleType(item.key); setMake("كيا"); setModelName(item.label); }} className={`rounded-xl border p-3 font-bold ${vehicleType === item.key ? "border-orange-500 bg-white ring-2 ring-orange-300" : "border-orange-200 bg-white/70"}`}>
-                      <div className="text-2xl">{item.emoji}</div>{item.label}
-                    </button>
-                  ))}
+                  {([{ key: "kia_cargo", label: "كيا حمل", Icon: Truck, tone: "amber" }, { key: "kia_passenger", label: "كيا ركاب", Icon: CarFront, tone: "sky" }] as const).map((item) => {
+                    const active = vehicleType === item.key;
+                    return (
+                      <button key={item.key} type="button" onClick={() => { setVehicleType(item.key); setMake("كيا"); setModelName(item.label); }} className={`rounded-2xl border p-3 font-bold transition-all flex flex-col items-center gap-2 ${active ? "border-orange-500 bg-white ring-2 ring-orange-300 shadow-md" : "border-orange-200 bg-white/80 hover:bg-white"}`}>
+                        <span className={`w-16 h-16 rounded-2xl flex items-center justify-center ${item.tone === "amber" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"}`}>
+                          <item.Icon size={42} strokeWidth={1.8} />
+                        </span>
+                        <span className="text-sm">{item.label}</span>
+                        {active && <span className="text-[10px] text-orange-700">تم الاختيار ✓</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

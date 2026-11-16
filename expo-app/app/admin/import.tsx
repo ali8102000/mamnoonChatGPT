@@ -1,0 +1,1 @@
+import ProtectedAdminTool from "@/components/protected-admin-tool";export default function ImportScreen(){return <ProtectedAdminTool title="استيراد البيانات" description="استيراد البيانات قد يغيّر سجلات المستخدمين والطلبات. هذه العملية غير مفعّلة على Android لتجنب تنفيذ استيراد غير قابل للتراجع."/>;}

@@ -8,6 +8,31 @@ async function requireStaff(context: any) {
   if (!data) throw new Error("غير مصرّح: للمشرفين فقط");
 }
 
+
+async function requireScopedAccess(context: any, rpcName: string, message: string) {
+  const { supabase, userId } = context;
+  const { data, error } = await (supabase as any).rpc(rpcName, { p_user_id: userId });
+  if (error || !data) throw new Error(message);
+}
+async function requireChatModeration(context: any) {
+  return requireScopedAccess(context, "has_chat_moderation_access", "غير مصرّح: إدارة المحادثات للمخولين فقط");
+}
+async function requireLiveOps(context: any) {
+  return requireScopedAccess(context, "has_live_ops_access", "غير مصرّح: متابعة المواقع للدعم والإدارة فقط");
+}
+async function requireProviderOps(context: any) {
+  return requireScopedAccess(context, "has_provider_ops_access", "غير مصرّح: إدارة الطلبات والمزودين للدعم والإدارة فقط");
+}
+async function requireUserModeration(context: any) {
+  return requireScopedAccess(context, "has_user_moderation_access", "غير مصرّح: إدارة المستخدمين والبلاغات للمخولين فقط");
+}
+async function requireFinance(context: any) {
+  return requireScopedAccess(context, "has_finance_access", "غير مصرّح: العمليات المالية للمالية والإدارة فقط");
+}
+async function requireFriendAdmin(context: any) {
+  return requireScopedAccess(context, "has_friend_admin_access", "غير مصرّح: إدارة الأصدقاء للإدارة والإشراف فقط");
+}
+
 async function requireAdmin(context: any) {
   const { supabase, userId } = context;
   const { data } = await (supabase as any).rpc("has_admin_access", { p_user_id: userId });
@@ -90,9 +115,10 @@ export const getStaffRoles = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ user_id: z.string().uuid().optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
-    const { supabase } = context;
     const targetId = data?.user_id ?? context.userId;
+    if (targetId === context.userId) await requireStaff(context);
+    else await requireSuperAdmin(context);
+    const { supabase } = context;
     const { data: roles, error } = await (supabase as any).rpc("get_staff_roles", {
       p_user_id: targetId,
     });
@@ -111,7 +137,7 @@ export const adminSearchUsers = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireUserModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: users, error } = await (supabaseAdmin as any)
       .from("profiles")
@@ -134,7 +160,7 @@ export const adminListUsers = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireUserModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const offset = (data.page - 1) * data.limit;
     const [usersRes, blocksRes] = await Promise.all([
@@ -209,7 +235,7 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ user_id: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireUserModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [profileRes, rolesRes, blocksRes, driverRes, workerRes, txRes, reqRes, ratingsRes] =
       await Promise.all([
@@ -292,7 +318,7 @@ export const adminListProviders = createServerFn({ method: "GET" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireProviderOps(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const table = data.type === "worker" ? "worker_profiles" : "driver_profiles";
     let providerQuery = (supabaseAdmin as any)
@@ -520,7 +546,7 @@ export const adminListRequests = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireProviderOps(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let query = (supabaseAdmin as any)
       .from("service_requests")
@@ -595,7 +621,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireFinance(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: txs, error } = await (supabaseAdmin as any)
       .from("transactions")
@@ -609,7 +635,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
 export const adminListCoupons = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireStaff(context);
+    await requireFinance(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: coupons, error } = await (supabaseAdmin as any)
       .from("coupons")
@@ -722,7 +748,7 @@ export const adminListReports = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireUserModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let query = (supabaseAdmin as any)
       .from("user_reports")
@@ -749,7 +775,7 @@ export const adminResolveReport = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireUserModeration(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_resolve_report", {
       p_report_id: data.report_id,
@@ -766,7 +792,7 @@ export const adminListFriends = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireFriendAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: friends, error } = await (supabaseAdmin as any)
       .from("friends")
@@ -785,7 +811,7 @@ export const adminListFriendRequests = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireFriendAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: reqs, error } = await (supabaseAdmin as any)
       .from("friend_requests")
@@ -804,7 +830,7 @@ export const adminDeleteFriendship = createServerFn({ method: "POST" })
     z.object({ user1_id: z.string().uuid(), user2_id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireFriendAdmin(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_delete_friendship", {
       p_user1_id: data.user1_id,
@@ -818,7 +844,7 @@ export const adminDeleteFriendRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ request_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireFriendAdmin(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_delete_friend_request", {
       p_request_id: data.request_id,
@@ -838,7 +864,7 @@ export const adminListMessages = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireChatModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let query = (supabaseAdmin as any)
       .from("messages")
@@ -855,7 +881,7 @@ export const adminDeleteMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ message_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireChatModeration(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_delete_message", {
       p_message_id: data.message_id,
@@ -870,7 +896,7 @@ export const adminListChats = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireChatModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: chats, error } = await (supabaseAdmin as any)
       .from("chats")
@@ -914,7 +940,7 @@ export const adminListAuditLogs = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
+    await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: logs, error } = await (supabaseAdmin as any)
       .from("audit_logs")
@@ -1008,7 +1034,7 @@ export const adminGetDashboardStats = createServerFn({ method: "GET" })
 export const adminGetLiveLocations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireStaff(context);
+    await requireLiveOps(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: locations, error } = await (supabaseAdmin as any)
       .from("live_locations")
@@ -1022,7 +1048,7 @@ export const adminGetLiveLocations = createServerFn({ method: "GET" })
 export const adminGetLiveRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireStaff(context);
+    await requireLiveOps(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: requests, error } = await (supabaseAdmin as any)
       .from("service_requests")

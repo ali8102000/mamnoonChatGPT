@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  buttonText: { fontSize: 15, fontWeight: "800", letterSpacing: 0.1 },
+  buttonText: { fontSize: 15, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800", letterSpacing: 0.1 },
   realInput: {
     minHeight: 56,
     borderWidth: 1,
@@ -116,6 +116,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     fontSize: 15,
+    fontFamily: "Tajawal_500Medium",
     fontWeight: "600",
     color: palette.ink,
     backgroundColor: palette.surfaceSoft,
@@ -128,5 +129,5 @@ const styles = StyleSheet.create({
     borderColor: palette.line,
     padding: space.xl,
   },
-  eyebrow: { color: palette.muted, fontSize: 11, fontWeight: "800", letterSpacing: 0.8 },
+  eyebrow: { color: palette.muted, fontSize: 11, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800", letterSpacing: 0.8 },
 });

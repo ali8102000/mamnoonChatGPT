@@ -1,0 +1,1 @@
+import ProtectedAdminTool from "@/components/protected-admin-tool";export default function BootstrapScreen(){return <ProtectedAdminTool title="الإعداد الأولي" description="تهيئة المدير الأعلى إجراء أحادي عالي الحساسية، لذلك لا يُنفّذ من تطبيق الهاتف. استخدم لوحة الإدارة الآمنة على الويب بعد التحقق من حالة المدير الأعلى."/>;}

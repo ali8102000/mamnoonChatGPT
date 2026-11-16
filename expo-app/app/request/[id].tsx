@@ -90,6 +90,7 @@ type RequestRecord = {
   vehicle_category?: string | null;
   vehicle_type?: string | null;
   notes?: string | null;
+  attachment_path?: string | null;
 };
 type ChatMessage = {
   id: string;
@@ -151,6 +152,7 @@ export default function RequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, roles } = useAuth();
   const [request, setRequest] = useState<RequestRecord | null>(null);
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [otherProfile, setOtherProfile] = useState<{ full_name: string | null; avatar_url: string | null; phone: string | null } | null>(null);
   const [vehicleDetails, setVehicleDetails] = useState<any>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
@@ -210,7 +212,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes",
+        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path",
       )
       .eq("id", id)
       .maybeSingle();
@@ -220,6 +222,19 @@ export default function RequestDetail() {
       return;
     }
     setRequest(data as RequestRecord | null);
+    if (data?.attachment_path) {
+      const { data: signedAttachment, error: attachmentError } = await supabase.storage
+        .from("request-attachments")
+        .createSignedUrl(data.attachment_path, 60 * 60);
+      if (attachmentError) {
+        console.warn("[request attachment] signed URL unavailable:", attachmentError.message);
+        setAttachmentUrl(null);
+      } else {
+        setAttachmentUrl(signedAttachment?.signedUrl ?? null);
+      }
+    } else {
+      setAttachmentUrl(null);
+    }
     if (data?.type === "taxi" && data.provider_id) {
       const { data: vehicle } = await (supabase as any).from("provider_vehicle_public").select("vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate").eq("provider_id", data.provider_id).maybeSingle();
       setVehicleDetails(vehicle ?? null);
@@ -382,62 +397,49 @@ export default function RequestDetail() {
   useEffect(() => {
     if (!isActive || !currentUserId) return;
     let mounted = true;
-    let subscription: Location.LocationSubscription | null = null;
     const role = isCustomer ? "customer" : "provider";
-
-    async function publishLocation(location: Location.LocationObject) {
-      if (!mounted || !currentUserId) return;
-      const coords = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        heading: location.coords.heading,
-        updatedAt: new Date().toISOString(),
-      };
-      setMyLocation(coords);
-      const { error } = await supabase.from("live_locations").upsert(
-        {
+    void (async () => {
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== "granted") throw new Error("foreground_location_denied");
+        const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!mounted) return;
+        const coords = {
+          latitude: first.coords.latitude,
+          longitude: first.coords.longitude,
+          heading: first.coords.heading,
+          updatedAt: new Date().toISOString(),
+        };
+        setMyLocation(coords);
+        const { error } = await supabase.from("live_locations").upsert({
           request_id: id,
           user_id: currentUserId,
           role,
           lat: coords.latitude,
           lng: coords.longitude,
-          heading: location.coords.heading,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "request_id,user_id" },
-      );
-      if (error) console.warn("[Mamnoon] location update failed:", error.message);
-    }
-
-    async function startTracking() {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== "granted") {
-        if (mounted)
-          Alert.alert("إذن الموقع مطلوب", "اسمح بمشاركة موقعك أثناء الرحلة حتى يظهر للطرف الآخر.");
-        return;
+          heading: first.coords.heading,
+          updated_at: coords.updatedAt,
+        }, { onConflict: "request_id,user_id" });
+        if (error) throw error;
+        const { startMamnoonBackgroundLocation } = await import("@/lib/background-location");
+        await startMamnoonBackgroundLocation({ requestId: id, userId: currentUserId, role });
+      } catch (error: any) {
+        if (!mounted) return;
+        const message = error?.message === "background_location_denied"
+          ? "اسمح بإذن الموقع طوال الوقت حتى يبقى موقعك ظاهراً أثناء الرحلة عند تصغير التطبيق."
+          : "تعذر تشغيل مشاركة الموقع. تحقق من أذونات الموقع وGPS وحاول مرة أخرى.";
+        Alert.alert("مشاركة الموقع", message);
       }
-      const first = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      await publishLocation(first);
-      if (!mounted) return;
-      subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
-        (location) => {
-          void publishLocation(location);
-        },
-      );
-    }
-
-    void startTracking().catch(() => {
-      if (mounted) Alert.alert("تعذر تشغيل التتبع", "تحقق من GPS وحاول مرة أخرى.");
-    });
-
-    return () => {
-      mounted = false;
-      subscription?.remove();
-    };
+    })();
+    return () => { mounted = false; };
   }, [id, isActive, isCustomer, currentRequestType, currentUserId]);
+
+  useEffect(() => {
+    if (isActive) return;
+    void import("@/lib/background-location")
+      .then(({ stopMamnoonBackgroundLocation }) => stopMamnoonBackgroundLocation())
+      .catch((error) => console.warn("[Mamnoon] could not stop background location:", error));
+  }, [isActive, id]);
 
   useEffect(() => {
     if (!isActive || !currentUserId) {
@@ -786,6 +788,13 @@ export default function RequestDetail() {
           {request.type !== "taxi" || !isActive ? <>{request.pickup_text && <Text style={styles.infoRow}>من: {request.pickup_text}</Text>}{request.dest_text && <Text style={styles.infoRow}>إلى: {request.dest_text}</Text>}</> : null}
           {request.type === "taxi" && isActive && vehicleDetails && <Text style={styles.vehicleDetailsText}>السيارة: {[vehicleDetails.vehicle_make, vehicleDetails.vehicle_model, vehicleDetails.vehicle_year].filter(Boolean).join(" ")}{vehicleDetails.vehicle_color ? ` · ${vehicleDetails.vehicle_color}` : ""}{vehicleDetails.vehicle_plate ? ` · رقم اللوحة ${vehicleDetails.vehicle_plate}` : ""}</Text>}
           {request.work_description && <Text style={styles.infoRow}>تفاصيل العمل: {request.work_description}</Text>}
+          {request.notes && (request.type !== "taxi" || request.vehicle_category === "large") && <Text style={styles.infoRow}>ملاحظات الطلب: {request.notes}</Text>}
+          {attachmentUrl && (
+            <View style={{ marginTop: 12, gap: 8 }}>
+              <Text style={styles.infoRow}>الصورة المرفقة بالطلب</Text>
+              <Image source={{ uri: attachmentUrl }} style={styles.requestAttachmentImage} resizeMode="contain" />
+            </View>
+          )}
           {request.workers_count != null && request.type === "service" && (
             <Text style={styles.infoRow}>عدد العاملين: {request.workers_count}</Text>
           )}
@@ -1051,6 +1060,7 @@ const styles = StyleSheet.create({
   infoType: { fontSize: 18, fontWeight: "900", color: palette.ink, marginBottom: 8 },
   taxiInfoType: { fontSize: 13, marginBottom: 3 },
   infoRow: { fontSize: 13, color: palette.muted, marginTop: 5 },
+  requestAttachmentImage: { width: "100%", height: 210, borderRadius: radius.md, backgroundColor: palette.surfaceSoft, borderWidth: 1, borderColor: palette.line },
   infoPrice: { fontSize: 18, fontWeight: "900", color: palette.brand, marginTop: 8 },
   actionsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   actionBtn: { flex: 1, backgroundColor: palette.brand, borderRadius: radius.md, paddingVertical: 13, alignItems: "center" },

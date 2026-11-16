@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
 
-type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number };
+type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number; totalWorkers: number; activeDrivers: number; activeWorkers: number; activeRequests: number; completedRequests: number; cancelledRequests: number; dailyRevenue: number; monthlyRevenue: number; yearlyRevenue: number };
 type PricingRule = {
   id: string;
   vehicle_category: string;
@@ -27,6 +27,15 @@ export default function AdminScreen() {
     totalRequests: 0,
     totalUsers: 0,
     totalDrivers: 0,
+    totalWorkers: 0,
+    activeDrivers: 0,
+    activeWorkers: 0,
+    activeRequests: 0,
+    completedRequests: 0,
+    cancelledRequests: 0,
+    dailyRevenue: 0,
+    monthlyRevenue: 0,
+    yearlyRevenue: 0,
   });
   const [pricing, setPricing] = useState<PricingRule[]>([]);
   const [recent, setRecent] = useState<RecentRequest[]>([]);
@@ -41,6 +50,9 @@ export default function AdminScreen() {
   const [rejectingChangeId, setRejectingChangeId] = useState<string | null>(null);
   const [changeRejectReason, setChangeRejectReason] = useState("");
   const [reviewingChangeId, setReviewingChangeId] = useState<string | null>(null);
+  const [statsWarning, setStatsWarning] = useState("");
+  const [reportFilter, setReportFilter] = useState("all");
+  const [resolvingReportId, setResolvingReportId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data: superAdminCheck, error: permissionError } = await supabase.rpc("is_super_admin", {
@@ -54,21 +66,45 @@ export default function AdminScreen() {
     }
     const { data: company } = await (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle();
     if (company?.company_name) setCompanyName(company.company_name);
-    const [reqs, users, drivers, pricingRules, recentReqs] = await Promise.all([
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
+    const [reqs, users, drivers, workers, activeDrivers, activeWorkers, activeRequests, completedRequests, cancelledRequests, todayTx, monthTx, yearTx, pricingRules, recentReqs] = await Promise.all([
       supabase.from("service_requests").select("id", { count: "exact", head: true }),
       supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("driver_profiles").select("id", { count: "exact", head: true }),
+      supabase.from("worker_profiles").select("id", { count: "exact", head: true }),
+      supabase.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
+      supabase.from("worker_profiles").select("id", { count: "exact", head: true }).eq("available", true),
+      supabase.from("service_requests").select("id", { count: "exact", head: true }).in("status", ["pending", "searching", "accepted", "in_progress"]),
+      supabase.from("service_requests").select("id", { count: "exact", head: true }).eq("status", "completed"),
+      supabase.from("service_requests").select("id", { count: "exact", head: true }).eq("status", "cancelled"),
+      (supabase as any).from("transactions").select("amount,type").gte("created_at", dayStart),
+      (supabase as any).from("transactions").select("amount,type").gte("created_at", monthStart),
+      (supabase as any).from("transactions").select("amount,type").gte("created_at", yearStart),
       supabase.from("pricing_rules").select("*").order("vehicle_category"),
-      supabase
-        .from("service_requests")
-        .select("*, customer:profiles!service_requests_customer_id_fkey(full_name)")
-        .order("created_at", { ascending: false })
-        .limit(20),
+      supabase.from("service_requests").select("*, customer:profiles!service_requests_customer_id_fkey(full_name)").order("created_at", { ascending: false }).limit(20),
     ]);
+    const metricResults = [reqs, users, drivers, workers, activeDrivers, activeWorkers, activeRequests, completedRequests, cancelledRequests, todayTx, monthTx, yearTx, pricingRules, recentReqs];
+    const failedMetricCount = metricResults.filter((result: any) => !!result?.error).length;
+    setStatsWarning(failedMetricCount ? `تعذر تحميل ${failedMetricCount} من مصادر الإحصائيات؛ الأرقام المتأثرة قد لا تكون مكتملة. اسحب للتحديث.` : "");
+    const commissionTotal = (rows: any[] | null | undefined) => (rows ?? [])
+      .filter((row: any) => row.type === "commission")
+      .reduce((sum: number, row: any) => sum + Math.abs(Number(row.amount) || 0), 0);
     setStats({
       totalRequests: reqs.count || 0,
       totalUsers: users.count || 0,
       totalDrivers: drivers.count || 0,
+      totalWorkers: workers.count || 0,
+      activeDrivers: activeDrivers.count || 0,
+      activeWorkers: activeWorkers.count || 0,
+      activeRequests: activeRequests.count || 0,
+      completedRequests: completedRequests.count || 0,
+      cancelledRequests: cancelledRequests.count || 0,
+      dailyRevenue: commissionTotal(todayTx.data),
+      monthlyRevenue: commissionTotal(monthTx.data),
+      yearlyRevenue: commissionTotal(yearTx.data),
     });
     setPricing(pricingRules.data || []);
     setRecent(recentReqs.data || []);
@@ -76,10 +112,12 @@ export default function AdminScreen() {
     const conversationRows = conversations ?? [];
     const conversationIds = conversationRows.map((row: any) => row.id);
     const userIds = [...new Set(conversationRows.map((row: any) => row.user_id))];
+    let reportQuery = (supabase as any).from("user_reports").select("id,reporter_id,reported_id,request_id,reason,details,status,created_at").order("created_at", { ascending: false }).limit(100);
+    if (reportFilter !== "all") reportQuery = reportQuery.eq("status", reportFilter);
     const [{ data: supportProfiles }, { data: supportMessages }, { data: reportRows }] = await Promise.all([
       userIds.length ? supabase.from("profiles").select("id,full_name,phone").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
       conversationIds.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,read_at,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [] as any[] }),
-      (supabase as any).from("user_reports").select("id,reporter_id,reported_id,request_id,reason,details,status,created_at").order("created_at", { ascending: false }).limit(8),
+      reportQuery,
     ]);
     const profileById = new Map((supportProfiles ?? []).map((profile: any) => [profile.id, profile]));
     const latestByConversation = new Map<string, any>();
@@ -117,7 +155,7 @@ export default function AdminScreen() {
       setChangeRequests(enriched);
     }
     setLoading(false);
-  }, [user?.id]);
+  }, [user?.id, reportFilter]);
 
   useEffect(() => {
     load();
@@ -159,6 +197,21 @@ export default function AdminScreen() {
     await load();
   };
 
+  const resolveReport = async (reportId: string, status: "resolved" | "closed" | "dismissed") => {
+    setResolvingReportId(reportId);
+    const { error } = await (supabase as any).rpc("admin_resolve_report", {
+      p_report_id: reportId,
+      p_status: status,
+      p_note: null,
+    });
+    setResolvingReportId(null);
+    if (error) {
+      Alert.alert("تعذر تحديث البلاغ", error.message);
+      return;
+    }
+    await load();
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await load();
@@ -179,6 +232,18 @@ export default function AdminScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>لوحة التحكم</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <TouchableOpacity onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/live-map" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الخريطة المباشرة</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/providers")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة مقدمي الخدمة</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/requests")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الطلبات</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/finance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المحفظة والكوبونات</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/governance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الصلاحيات وسجل العمليات</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></TouchableOpacity>
+      </View>
       <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
         <Text style={styles.companyHint}>تغيير الاسم الظاهر للمنصة</Text>
@@ -188,6 +253,7 @@ export default function AdminScreen() {
         </TouchableOpacity>
       </View>
       <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push("/admin/providers")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة السائقين والفنيين ومراجعة المستمسكات</Text></TouchableOpacity>
       <View style={styles.inboxHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>رسائل المستخدمين إلى الإدارة</Text>
@@ -205,16 +271,28 @@ export default function AdminScreen() {
         </TouchableOpacity>
       ))}
       <View style={styles.inboxHeader}>
-        <Text style={styles.sectionTitle}>بلاغات المستخدمين</Text>
+        <Text style={styles.sectionTitle}>إدارة البلاغات</Text>
         <TouchableOpacity onPress={() => onRefresh()}><Text style={styles.inboxOpenText}>تحديث</Text></TouchableOpacity>
       </View>
-      {reports.length === 0 ? <Text style={styles.emptyHint}>ماكو بلاغات واردة حالياً</Text> : reports.map((report) => (
+      <View style={styles.reportFilters}>
+        {(["all", "pending", "resolved", "closed", "dismissed"] as const).map((status) => (
+          <TouchableOpacity key={status} onPress={() => setReportFilter(status)} style={[styles.reportFilter, reportFilter === status && styles.reportFilterActive]}>
+            <Text style={[styles.reportFilterText, reportFilter === status && styles.reportFilterTextActive]}>{status === "all" ? "الكل" : status === "pending" ? "معلقة" : status === "resolved" ? "محلولة" : status === "closed" ? "مغلقة" : "مرفوضة"}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {reports.length === 0 ? <Text style={styles.emptyHint}>لا توجد بلاغات بهذا التصنيف</Text> : reports.map((report) => (
         <View key={report.id} style={styles.reportCard}>
           <Text style={styles.inboxName}>{report.reason || "بلاغ بدون عنوان"}</Text>
           {!!report.details && <Text style={styles.reportDetails}>{report.details}</Text>}
           <Text style={styles.reportMeta}>من: {report.reporter?.full_name || "مستخدم"} · ضد: {report.reported?.full_name || "مستخدم"}</Text>
           <Text style={styles.reportMeta}>الحالة: {report.status} · {new Date(report.created_at).toLocaleString("ar-IQ")}</Text>
           {!!report.request_id && <Text style={styles.reportMeta}>رقم الطلب: {report.request_id}</Text>}
+          {report.status === "pending" && <View style={styles.reportActions}>
+            <TouchableOpacity disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "resolved")} style={[styles.reportAction, { backgroundColor: "#dcfce7" }]}><Text style={{ color: "#166534", fontWeight: "900", fontSize: 11 }}>{resolvingReportId === report.id ? "..." : "حل البلاغ"}</Text></TouchableOpacity>
+            <TouchableOpacity disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "closed")} style={[styles.reportAction, { backgroundColor: "#e2e8f0" }]}><Text style={{ color: "#334155", fontWeight: "900", fontSize: 11 }}>إغلاق</Text></TouchableOpacity>
+            <TouchableOpacity disabled={resolvingReportId === report.id} onPress={() => Alert.alert("رفض البلاغ", "تريد رفض هذا البلاغ؟", [{ text: "رجوع", style: "cancel" }, { text: "رفض", style: "destructive", onPress: () => void resolveReport(report.id, "dismissed") }])} style={[styles.reportAction, { backgroundColor: "#fee2e2" }]}><Text style={{ color: "#991b1b", fontWeight: "900", fontSize: 11 }}>رفض</Text></TouchableOpacity>
+          </View>}
         </View>
       ))}
       <View style={styles.inboxHeader}>
@@ -280,19 +358,38 @@ export default function AdminScreen() {
           )}
         </View>
       ))}
+      {!!statsWarning && <Text accessibilityRole="alert" style={styles.statsWarning}>{statsWarning}</Text>}
+      <Text style={styles.sectionTitle}>إحصائيات المنصة</Text>
       <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalRequests}</Text>
-          <Text style={styles.statLabel}>إجمالي الطلبات</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalUsers}</Text>
-          <Text style={styles.statLabel}>المستخدمين</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalDrivers}</Text>
-          <Text style={styles.statLabel}>السائقين</Text>
-        </View>
+        {([
+          ["المستخدمون", stats.totalUsers],
+          ["السائقون", stats.totalDrivers],
+          ["الفنيون", stats.totalWorkers],
+          ["السائقون المتاحون", stats.activeDrivers],
+          ["الفنيون المتاحون", stats.activeWorkers],
+          ["الطلبات النشطة", stats.activeRequests],
+          ["الطلبات المكتملة", stats.completedRequests],
+          ["الطلبات الملغاة", stats.cancelledRequests],
+          ["إجمالي الطلبات", stats.totalRequests],
+        ] as [string, number][]).map(([label, value]) => (
+          <View key={label} style={styles.statCard}>
+            <Text style={styles.statValue}>{value.toLocaleString("ar-IQ")}</Text>
+            <Text style={styles.statLabel}>{label}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.sectionTitle}>عمولات المنصة</Text>
+      <View style={styles.statsGrid}>
+        {([
+          ["اليوم", stats.dailyRevenue],
+          ["هذا الشهر", stats.monthlyRevenue],
+          ["هذه السنة", stats.yearlyRevenue],
+        ] as [string, number][]).map(([label, value]) => (
+          <View key={label} style={styles.statCard}>
+            <Text style={styles.statValue}>{value.toLocaleString("ar-IQ")}</Text>
+            <Text style={styles.statLabel}>{label} · د.ع</Text>
+          </View>
+        ))}
       </View>
       <Text style={styles.sectionTitle}>قواعد التسعير</Text>
       {pricing.map((p) => (
@@ -339,10 +436,18 @@ const styles = StyleSheet.create({
   reportCard: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, marginBottom: 8 },
   reportDetails: { color: palette.ink, fontSize: 12, lineHeight: 20, textAlign: "right", marginTop: 5 },
   reportMeta: { color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 5 },
+  reportFilters: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
+  reportFilter: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  reportFilterActive: { backgroundColor: palette.brand, borderColor: palette.brand },
+  reportFilterText: { color: palette.ink, fontSize: 10, fontWeight: "800" },
+  reportFilterTextActive: { color: palette.white },
+  reportActions: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
+  reportAction: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: radius.md },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 18 },
-  statsGrid: { flexDirection: "row", gap: 10, marginBottom: 22 },
-  statCard: { flex: 1, backgroundColor: palette.surface, borderRadius: radius.lg, padding: 15, alignItems: "center", borderWidth: 1, borderColor: palette.line },
+  statsWarning: { color: "#B45309", backgroundColor: "#FEF3C7", borderRadius: radius.md, padding: 10, textAlign: "right", fontSize: 11, marginBottom: 10 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 22 },
+  statCard: { flexBasis: "30%", flexGrow: 1, backgroundColor: palette.surface, borderRadius: radius.lg, padding: 15, alignItems: "center", borderWidth: 1, borderColor: palette.line },
   statValue: { fontSize: 26, fontWeight: "900", color: palette.brand },
   statLabel: { fontSize: 11, color: palette.muted, marginTop: 5, textAlign: "center" },
   sectionTitle: { fontSize: 16, fontWeight: "900", color: palette.ink, marginBottom: 12 },

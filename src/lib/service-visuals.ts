@@ -20,6 +20,7 @@ import cargo from "@/assets/service-cargo_handling.png";
 import gardener from "@/assets/service-gardener.png";
 import kiaDriver from "@/assets/service-kia-driver.png";
 import internet from "@/assets/service-internet.png";
+import securityCameras from "@/assets/service-security_cameras.svg";
 import fallback from "@/assets/service-fallback.png";
 
 const serviceIcons: Record<string, string> = {
@@ -45,6 +46,7 @@ const serviceIcons: Record<string, string> = {
   gardener,
   kia_driver: kiaDriver,
   internet_install: internet,
+  security_cameras: securityCameras,
 };
 
 export function serviceIcon(slug: string): string {

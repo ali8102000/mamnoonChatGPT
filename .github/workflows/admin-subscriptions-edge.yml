@@ -1,0 +1,35 @@
+name: Mamnoon admin Edge Function checks
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/admin-subscriptions/**"
+      - "supabase/functions/admin-users/**"
+      - "supabase/functions/admin-finance/**"
+      - "supabase/functions/admin-governance/**"
+      - ".github/workflows/admin-subscriptions-edge.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "supabase/functions/admin-subscriptions/**"
+      - "supabase/functions/admin-users/**"
+      - "supabase/functions/admin-finance/**"
+
+permissions:
+  contents: read
+
+jobs:
+  deno-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check authenticated admin Edge Functions
+        run: |
+          deno check supabase/functions/admin-subscriptions/index.ts
+          deno check supabase/functions/admin-users/index.ts
+          deno check supabase/functions/admin-finance/index.ts
+          deno check supabase/functions/admin-governance/index.ts

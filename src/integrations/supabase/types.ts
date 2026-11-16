@@ -1102,6 +1102,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           admin_notes: string | null
+          attachment_path: string | null
           cancellation_reason: string | null
           cancelled_by: string | null
           commission: number | null
@@ -1147,6 +1148,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           admin_notes?: string | null
+          attachment_path?: string | null
           cancellation_reason?: string | null
           cancelled_by?: string | null
           commission?: number | null

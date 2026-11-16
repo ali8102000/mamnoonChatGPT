@@ -33,6 +33,7 @@ const requestSchema = z.discriminatedUnion("action", [
     pickupGovernorateKey: z.string().optional(),
     destinationGovernorateKey: z.string().optional(),
     vehicleCategory: z.enum(["economy", "premium", "luxury"]),
+    couponCode: z.string().trim().min(2).max(50).optional(),
     tripType: z.enum(["one_way", "round_trip", "second_trip", "stop"]).optional().default("one_way"),
     extraMinutes: z.number().int().min(0).max(120).refine((value) => value % 5 === 0, "مدة الانتظار يجب أن تكون من مضاعفات 5").optional().default(0),
     notes: z.string().max(1000).optional().default(""),
@@ -227,6 +228,16 @@ async function handleRequest(request: Request) {
     return json(await drivingRoute(data.from, data.to));
   }
 
+  const supabaseUrl = process.env["MAMNOON_SUPABASE_URL"] || process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+  const supabasePublishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_ANON_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+  if (!supabaseUrl || !supabasePublishableKey) {
+    return json({ error: "خدمة إنشاء الطلب غير مهيأة على الخادم." }, 503);
+  }
+  const supabaseUser = createClient(supabaseUrl, supabasePublishableKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
   const rolesResult = await supabaseAdmin
     .from("user_roles")
     .select("role")
@@ -261,10 +272,11 @@ async function handleRequest(request: Request) {
     return json({ error: "إحدى نقطتي الرحلة لا تقع داخل المحافظة المختارة. حدّد الموقع من جديد." }, 400);
   }
 
-  const { data: created, error: createError } = await supabaseAdmin
+  const { data: created, error: createError } = await supabaseUser
     .from("service_requests")
     .insert({
       customer_id: authData.user.id,
+      coupon_code: data.couponCode?.trim().toUpperCase() || null,
       type: "taxi",
       status: "pending",
       vehicle_category: data.vehicleCategory,
