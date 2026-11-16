@@ -17,6 +17,7 @@ type Row = { governorate_key:string; workers:number; large_drivers:number; taxi_
 export default function AdminAnalyticsScreen() {
   const { user } = useAuth();
   const [rows,setRows] = useState<Row[]>([]);
+  const [activity,setActivity] = useState<any>(null);
   const [loading,setLoading] = useState(true);
   const [refreshing,setRefreshing] = useState(false);
   const [error,setError] = useState("");
@@ -30,6 +31,10 @@ export default function AdminAnalyticsScreen() {
       if (invokeError) throw new Error(invokeError.message);
       if (data?.error) throw new Error(data.error);
       setRows(Array.isArray(data?.rows) ? data.rows : []);
+      const { data: detail, error: detailError } = await supabase.functions.invoke("admin-users",{body:{action:"customer_activity_stats",limit:200,offset:0}});
+      if (detailError) throw new Error(detailError.message);
+      if (detail?.error) throw new Error(detail.error);
+      setActivity(detail?.report ?? null);
     } catch (e:any) { setError(e?.message || "تعذر تحميل الإحصائيات"); }
     finally { setLoading(false); setRefreshing(false); }
   },[user?.id]);
@@ -56,6 +61,45 @@ export default function AdminAnalyticsScreen() {
             {([["فنيون",row.workers],["سيارات كبيرة",row.large_drivers],["تكسي",row.taxi_drivers],["زبائن",row.customers]] as [string,number][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
           </View>
         </View>)}
+        <View style={s.totalCard}>
+          <Text style={s.sectionTitle}>إحصائية الحسابات والأدوار والطلبات</Text>
+          <Text style={s.note}>كل دور يُحتسب بصورة مستقلة؛ الحساب الذي يحمل أكثر من دور يظهر في كل دور، ولا نمنع التكرار بين الأدوار.</Text>
+          <View style={s.metrics}>
+            {([
+              ["إجمالي الحسابات",activity?.summary?.total_users],
+              ["مجموع تعيينات الأدوار",activity?.summary?.total_role_assignments],
+              ["الزبائن",activity?.summary?.total_customers],
+              ["طلبات الزبائن",activity?.summary?.customer_requests],
+              ["طلبات نشطة",activity?.summary?.customer_active_requests],
+              ["مكتملة",activity?.summary?.customer_completed_requests],
+              ["ملغاة",activity?.summary?.customer_cancelled_requests],
+              ["كل طلبات المنصة",activity?.summary?.all_requests],
+            ] as [string,number|undefined][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
+          </View>
+          <Text style={s.sectionTitle}>الحسابات حسب الدور (مع تعدد الأدوار)</Text>
+          <View style={s.metrics}>
+            {(activity?.role_counts ?? []).map((item:any)=><View key={item.role} style={s.metric}><Text style={s.metricLabel}>{item.role}</Text><Text style={s.metricValue}>{fmt(item.accounts)}</Text></View>)}
+          </View>
+          <Text style={s.sectionTitle}>حالات جميع الطلبات</Text>
+          <View style={s.metrics}>
+            {(activity?.request_status_counts ?? []).map((item:any)=><View key={item.status} style={s.metric}><Text style={s.metricLabel}>{item.status}</Text><Text style={s.metricValue}>{fmt(item.requests)}</Text></View>)}
+          </View>
+          <Text style={s.sectionTitle}>تفاصيل كل زبون وطلباته</Text>
+          {(activity?.customers ?? []).map((customer:any)=><View key={customer.id} style={s.customerCard}>
+            <Text style={s.customerName}>{customer.full_name}</Text>
+            <Text style={s.note}>{customer.phone || "بدون هاتف"} · {LABELS[customer.governorate_key] || customer.governorate_key}</Text>
+            <Text style={s.note}>الأدوار ({customer.roles_count}): {(customer.roles ?? []).join("، ") || "لا توجد أدوار"}</Text>
+            <View style={s.metrics}>
+              {([
+                ["كل الطلبات",customer.total_requests],["نشطة",customer.active_requests],
+                ["مكتملة",customer.completed_requests],["ملغاة",customer.cancelled_requests],
+                ["تكسي",customer.taxi_requests],["خدمات",customer.service_requests],
+              ] as [string,number][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
+            </View>
+            <Text style={s.note}>الحالات: {Object.entries(customer.statuses ?? {}).map(([status,count])=>status+": "+fmt(count)).join(" · ") || "لا توجد طلبات"}</Text>
+          </View>)}
+          <Text style={s.note}>يعرض أول 200 زبون حسب تاريخ التسجيل.</Text>
+        </View>
         <Text style={s.note}>المحافظة المعتمدة في ملف المستخدم أو آخر محافظة مسجلة في طلباته تظهر حسب المحافظة، ومن لا يملك محافظة مسجلة يظهر ضمن غير محددة. الحساب الواحد قد يظهر ضمن أكثر من فئة إذا كان يحمل أكثر من دور؛ الإجمالي يحسب كل حساب مرة واحدة.</Text>
       </>}
     </ScrollView>
@@ -63,7 +107,7 @@ export default function AdminAnalyticsScreen() {
 }
 const s=StyleSheet.create({
  page:{flex:1,backgroundColor:palette.pageCanvas},content:{padding:space.lg,paddingBottom:48,gap:12},
- title:{fontSize:20,fontWeight:"900",color:palette.ink,textAlign:"right"},muted:{fontSize:11,color:palette.muted,textAlign:"right"},
+ title:{fontSize:20,fontWeight:"900",color:palette.ink,textAlign:"right"},sectionTitle:{fontSize:14,fontWeight:"900",color:palette.ink,textAlign:"right"},customerCard:{backgroundColor:palette.pageCanvas,borderRadius:radius.md,padding:12,gap:8},customerName:{fontSize:14,fontWeight:"900",color:palette.ink,textAlign:"right"},muted:{fontSize:11,color:palette.muted,textAlign:"right"},
  totalCard:{backgroundColor:palette.surface,borderRadius:radius.lg,borderWidth:1,borderColor:palette.line,padding:16,gap:10},
  total:{fontSize:34,fontWeight:"900",color:palette.brand,textAlign:"right"},
  metrics:{flexDirection:"row",flexWrap:"wrap",gap:8},metric:{minWidth:"46%",flexGrow:1,backgroundColor:palette.pageCanvas,borderRadius:radius.md,padding:10},
