@@ -13,7 +13,7 @@ import {
   BackHandler,
   PanResponder,
 } from "react-native";
-import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
@@ -103,6 +103,7 @@ export default function NewRequest() {
   const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
   const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
   const [region, setRegion] = useState(IRAQ_REGION);
+  const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
@@ -316,6 +317,36 @@ export default function NewRequest() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!pickupCoords || !isTaxi) {
+      setNearbyDrivers([]);
+      return;
+    }
+    let active = true;
+    const loadNearbyDrivers = async () => {
+      const { data, error } = await (supabase as any).rpc("find_nearby_provider_pins", {
+        _lat: pickupCoords.latitude,
+        _lng: pickupCoords.longitude,
+        _type: "taxi",
+        _category: isLargeVehicle ? "large" : vehicleCat,
+        _service_id: null,
+        _radius_km: isLargeVehicle ? 25 : 5,
+        _limit: 30,
+      });
+      if (!active || error) return;
+      setNearbyDrivers((data ?? []).filter((item: any) =>
+        typeof item?.lat === "number" && typeof item?.lng === "number" &&
+        Number.isFinite(item.lat) && Number.isFinite(item.lng)
+      ));
+    };
+    void loadNearbyDrivers();
+    const timer = setInterval(() => void loadNearbyDrivers(), 15000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [pickupCoords?.latitude, pickupCoords?.longitude, isTaxi, isLargeVehicle, vehicleCat]);
 
   useEffect(() => {
     if (!pickupCoords || !destinationCoords || !isTaxi || isLargeVehicle) {
@@ -819,7 +850,20 @@ export default function NewRequest() {
           showsUserLocation
           showsMyLocationButton={false}
           loadingEnabled
-        />
+        >
+          {mapMode === "pickup" && nearbyDrivers.map((driver) => (
+            <Marker
+              key={driver.pin_id}
+              coordinate={{ latitude: driver.lat, longitude: driver.lng }}
+              title="سيارة قريبة"
+              anchor={{ x: 0.5, y: 0.5 }}
+              flat
+              rotation={Number.isFinite(driver.heading) ? Number(driver.heading) : 0}
+            >
+              <View style={styles.taxiNearbyMarker}><Text style={styles.taxiNearbyMarkerText}>🚕</Text></View>
+            </Marker>
+          ))}
+        </MapView>
         <View pointerEvents="none" style={styles.taxiCenterPin}>
           <Text style={styles.taxiCenterPinText}>{mapMode === "pickup" ? "📍" : "📌"}</Text>
         </View>
@@ -840,7 +884,7 @@ export default function NewRequest() {
           >
             <Text style={styles.taxiBackText}>‹</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.taxiGovernorateBadge} onPress={() => setMapMode("pickup")}>
+          <TouchableOpacity style={styles.taxiGovernorateBadge} onPress={() => { setMapMode("pickup"); setDestinationConfirmed(false); }}>
             <Text style={styles.taxiGovernorateText}>📍 {activeGovernorate?.name ?? "اختر المحافظة"}</Text>
           </TouchableOpacity>
           <View style={styles.taxiStepTabs}>
@@ -1596,6 +1640,8 @@ export default function NewRequest() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 18, paddingTop: 52 },
   taxiScreen: { flex: 1, backgroundColor: palette.canvas },
+  taxiNearbyMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.surface, borderWidth: 2, borderColor: palette.brand, alignItems: "center", justifyContent: "center", elevation: 5 },
+  taxiNearbyMarkerText: { fontSize: 19 },
   taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -17, marginTop: -38, zIndex: 4 },
   taxiCenterPinText: { fontSize: 36, textShadowColor: "rgba(0,0,0,0.35)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
   taxiTopBar: { position: "absolute", top: 48, left: 10, right: 10, zIndex: 10, flexDirection: "row", alignItems: "center", gap: 7 },
