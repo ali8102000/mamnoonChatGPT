@@ -122,7 +122,6 @@ export default function RegionalControlsSection() {
     }
   }
 
-  const enabledCount = rows.filter((row) => row.governorate_key !== "all" && row.services_enabled).length;
   const blockedCount = rows.filter((row) => row.governorate_key !== "all" && !row.services_enabled).length;
 
   return (
