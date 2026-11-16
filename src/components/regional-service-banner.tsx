@@ -3,7 +3,7 @@ import { ShieldCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GOV_STORAGE_KEY } from "@/lib/governorates";
 
-type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean };
+type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; message_image_url?: string };
 
 export function RegionalServiceBanner() {
   const [row, setRow] = useState<Row | null>(null);
@@ -44,7 +44,7 @@ export function RegionalServiceBanner() {
       if (!active || !key) return;
       const { data, error } = await (supabase as any)
         .from("regional_service_controls")
-        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate")
+        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,message_image_url")
         .in("governorate_key", [key, "all"]);
       if (!active) return;
       if (error) { console.warn("[regional controls] load failed", error); return; }
@@ -71,8 +71,9 @@ export function RegionalServiceBanner() {
     <div className="mb-4 rounded-2xl border border-amber-400/60 bg-[#080808] px-4 py-3 text-right shadow-[0_8px_30px_rgba(0,0,0,.24)] overflow-hidden" dir="rtl">
       <div className="flex items-center justify-between gap-2 border-b border-amber-500/25 pb-2">
         <span className="text-[10px] font-black tracking-wide bg-gradient-to-l from-yellow-100 via-amber-400 to-yellow-700 bg-clip-text text-transparent">{row.message_title || "تنويه رسمي من إدارة ممنون"}</span>
-        <span className="inline-flex items-center gap-1 text-[9px] text-amber-300"><ShieldCheck className="h-3 w-3" /> الإدارة الرسمية · موثّق</span>
+        <span className="inline-flex items-center gap-1 text-[9px] text-amber-300"><ShieldCheck className="h-3 w-3" /> إدارة ممنون · الحساب الرسمي الموثّق</span>
       </div>
+      {row.message_image_url && <img src={row.message_image_url} alt="صورة تنويه إدارة ممنون" className="mt-3 max-h-48 w-full rounded-xl object-contain" />}
       <div className="relative mt-2 overflow-hidden whitespace-nowrap">
         <div className={row.message_animate ? "mamnoon-regional-marquee" : "text-xs leading-6 text-amber-100 whitespace-normal"}>{text}</div>
       </div>
