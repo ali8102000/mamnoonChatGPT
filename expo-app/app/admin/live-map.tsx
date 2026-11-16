@@ -5,6 +5,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
+import { getAdminStaffRoles } from "@/lib/admin-access";
 
 type Coordinate = { latitude: number; longitude: number };
 type LocationRow = { user_id: string; latitude?: number; longitude?: number; lat?: number; lng?: number; updated_at?: string; profile?: { full_name?: string | null; phone?: string | null } | null };
@@ -31,9 +32,8 @@ export default function AdminLiveMapScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const { data: roles, error: rolesError } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
-      const names = (roles ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
-      if (rolesError || !names.some((role: string) => ["super_admin", "admin", "support"].includes(role))) {
+      const names = await getAdminStaffRoles(user.id);
+      if (!names.some((role: string) => ["super_admin", "admin", "support", "department_operations", "department_monitoring"].includes(role))) {
         setAllowed(false); setLocations([]); setRequests([]); return;
       }
       setAllowed(true);
