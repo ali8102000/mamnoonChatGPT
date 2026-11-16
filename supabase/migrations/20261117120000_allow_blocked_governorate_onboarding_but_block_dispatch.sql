@@ -46,7 +46,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   update public.worker_profiles wp
      set available = false
@@ -98,7 +98,7 @@ begin
 
   return null;
 end;
-$;
+$$;
 
 revoke all on function public.cleanup_disabled_provider_presence() from public, anon, authenticated;
 
