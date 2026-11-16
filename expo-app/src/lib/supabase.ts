@@ -1,12 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 import "react-native-url-polyfill/auto";
 
 // These are public client values only. Never place a Supabase service-role key here.
-const configuredUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ?? "";
+const configuredUrl =
+  process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ||
+  String(Constants.expoConfig?.extra?.supabaseUrl ?? "").trim();
 const configuredPublishableKey =
-  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+  String(Constants.expoConfig?.extra?.supabasePublishableKey ?? "").trim();
 
 export const isSupabaseConfigured = Boolean(
   configuredUrl && configuredPublishableKey,
@@ -65,7 +69,19 @@ export async function authProxy<T>(path: string, body: Record<string, unknown>):
     headers: { "Content-Type": "application/json", apikey: supabaseAnonKey },
     body: JSON.stringify(body),
   });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result?.error || "تعذر تنفيذ الطلب");
+  const responseText = await response.text();
+  let result: any = null;
+  try {
+    result = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    result = null;
+  }
+  if (!response.ok) {
+    const serverMessage = typeof result?.error === "string" ? result.error.trim() : "";
+    throw new Error(serverMessage || `تعذر تنفيذ الطلب (رمز ${response.status})`);
+  }
+  if (!result || typeof result !== "object") {
+    throw new Error("استجابة خادم المصادقة غير صالحة. حاول مرة أخرى.");
+  }
   return result as T;
 }
