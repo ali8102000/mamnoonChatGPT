@@ -227,15 +227,8 @@ function NewRequest() {
   const getCouponBaseAmount = () => {
     if (type === "taxi") {
       if (vehicle === "large") return customerPrice.trim() ? Number(customerPrice) : null;
-      if (routeKm === null) return null;
-      return taxiFare(vehicleCategory, routeKm, {
-        weather: "mild" as const,
-        roadCondition,
-        demandMultiplier: 1,
-        isIntercity: interCity,
-        tripType,
-        extraMinutes,
-      });
+      if (routeKm === null || serverTaxiFare === null) return null;
+      return serverTaxiFare;
     }
     if (pricingMode === "negotiable") return null;
     const amount = Number(customerPrice);
