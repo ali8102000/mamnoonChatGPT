@@ -114,7 +114,7 @@ if (!nativeAuthSource.includes('router.push("/welcome")')) {
 
 const apkWorkflowSource = await readSource("../.github/workflows/android-apk.yml");
 const aabWorkflowSource = await readSource("../.github/workflows/android-aab.yml");
-if (apkWorkflowSource.includes("\\n  pull_request:")) {
+if (apkWorkflowSource.includes("  pull_request:")) {
   missing.push("Full APK builds should run on main only; PRs use the faster mobile CI export checks.");
 }
 if (!aabWorkflowSource.includes("cancel-in-progress: true")) {
