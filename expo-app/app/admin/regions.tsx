@@ -96,10 +96,10 @@ export default function AdminRegionalControlsScreen() {
         <View style={styles.card}>
           <Text style={styles.section}>حالة الخدمات</Text>
           <Text style={styles.muted}>{settings.services_enabled ? "الخدمات تعمل في النطاق المحدد." : "الخدمات متوقفة ولن تُقبل طلبات جديدة."}</Text>
-          <TouchableOpacity onPress={() => update({ services_enabled: !settings.services_enabled })} style={[styles.action, { backgroundColor: settings.services_enabled ? "#7f1d1d" : "#14532d" }]}><Text style={styles.actionText}>{settings.services_enabled ? "إيقاف الخدمات" : "تشغيل الخدمات"}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => update({ services_enabled: !settings.services_enabled })} style={[styles.action, { backgroundColor: settings.services_enabled ? "#7f1d1d" : "#14532d" }]}><Text style={styles.actionText}>{settings.services_enabled ? "الخدمات تعمل" : "الخدمات متوقفة"}</Text></TouchableOpacity>
           <Text style={[styles.section, { marginTop: 18 }]}>الرسالة الرسمية المستقلة</Text>
           <Text style={styles.muted}>{settings.message_enabled ? "الرسالة ظاهرة للمستخدمين." : "الرسالة متوقفة ولا تؤثر على حالة الخدمات."}</Text>
-          <TouchableOpacity onPress={() => update({ message_enabled: !settings.message_enabled })} style={[styles.action, { backgroundColor: settings.message_enabled ? "#7f1d1d" : "#854d0e" }]}><Text style={styles.actionText}>{settings.message_enabled ? "إيقاف الرسالة فقط" : "تشغيل الرسالة فقط"}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => update({ message_enabled: !settings.message_enabled })} style={[styles.action, { backgroundColor: settings.message_enabled ? "#7f1d1d" : "#854d0e" }]}><Text style={styles.actionText}>{settings.message_enabled ? "الرسالة فعّالة" : "الرسائل متوقفة"}</Text></TouchableOpacity>
           <Text style={styles.label}>عنوان الرسالة</Text>
           <TextInput value={settings.message_title} onChangeText={(value) => update({ message_title: value })} style={styles.input} textAlign="right" maxLength={100} />
           <Text style={styles.label}>نص الرسالة المتحركة</Text>
