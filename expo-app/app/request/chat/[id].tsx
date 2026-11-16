@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
+import { showContactOptions } from "@/lib/phone";
 
 type ChatMessage = {
   id: string;
@@ -161,7 +162,7 @@ export default function RequestChatScreen() {
           </View>
         </View>
         {otherProfile?.phone ? (
-          <TouchableOpacity style={styles.callButton} onPress={() => void Linking.openURL(`tel:${otherProfile.phone}`)}>
+          <TouchableOpacity style={styles.callButton} onPress={() => showContactOptions(otherProfile.phone!)}>
             <Text style={styles.callText}>اتصال</Text>
           </TouchableOpacity>
         ) : null}
