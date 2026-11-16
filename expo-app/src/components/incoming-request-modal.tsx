@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -43,6 +44,7 @@ type Offer = {
     type: "taxi" | "service";
     status: string;
     vehicle_category: string | null;
+    vehicle_type: string | null;
     pickup_text: string;
     dest_text: string | null;
     notes: string | null;
@@ -83,9 +85,12 @@ export function IncomingRequestModal() {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [visible, setVisible] = useState(false);
+  const [largeOfferPrice, setLargeOfferPrice] = useState("");
+  const [largeOfferMessage, setLargeOfferMessage] = useState("");
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [attachmentPath, setAttachmentPath] = useState<string | null>(null);
   const loadSequence = useRef(0);
+  const currentOfferId = useRef<string | null>(null);
 
   const loadOffer = useCallback(async () => {
     const sequence = ++loadSequence.current;
@@ -98,9 +103,10 @@ export function IncomingRequestModal() {
     }
     const { data, error } = await (supabase as any)
       .from("request_offers")
-      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, pickup_text, dest_text, notes, attachment_path, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
+      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, vehicle_type, pickup_text, dest_text, notes, attachment_path, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
       .eq("provider_id", user.id)
       .eq("status", "pending")
+      .is("proposed_price", null)
       .gt("expires_at", new Date().toISOString())
       .order("sent_at", { ascending: false })
       .limit(1)
@@ -141,6 +147,11 @@ export function IncomingRequestModal() {
     }
 
     if (sequence !== loadSequence.current) return;
+    if (currentOfferId.current !== data.id) {
+      currentOfferId.current = data.id;
+      setLargeOfferPrice("");
+      setLargeOfferMessage("");
+    }
     setOffer(data as Offer);
     setVisible(true);
   }, [user, canReceive, attachmentPath, attachmentUrl]);
@@ -177,6 +188,34 @@ export function IncomingRequestModal() {
   const imageSource = useMemo(() => SERVICE_IMAGES[serviceSlug], [serviceSlug]);
   const amount = request?.customer_price ?? request?.price_estimate;
   const code = offer?.request_id.slice(-6).toUpperCase();
+  const isLargeVehicle = request?.type === "taxi" && request?.vehicle_category === "large";
+
+  async function sendLargeVehicleOffer() {
+    if (!offer || !isLargeVehicle || busy) return;
+    const price = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
+    if (!Number.isSafeInteger(price) || price < 250 || price > 50000 || price % 250 !== 0) {
+      Alert.alert("السعر غير صحيح", "اكتب سعراً من 250 إلى 50000 دينار ومن مضاعفات 250.");
+      return;
+    }
+    setBusy("accept");
+    try {
+      const { error } = await supabase.rpc("submit_large_vehicle_offer", {
+        _request_id: offer.request_id,
+        _price: price,
+        _message: largeOfferMessage.trim() || null,
+      });
+      if (error) throw error;
+      setVisible(false);
+      setOffer(null);
+      setLargeOfferPrice("");
+      setLargeOfferMessage("");
+      Alert.alert("تم إرسال عرض السعر", "وصل عرضك إلى الزبون، وسيختار العرض المناسب.");
+    } catch (error) {
+      Alert.alert("تعذر إرسال العرض", error instanceof Error ? error.message : "حاول مرة ثانية.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function respond(action: "accept" | "reject") {
     if (!offer || busy) return;
@@ -281,43 +320,53 @@ export function IncomingRequestModal() {
             ) : null}
           </View>
 
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>الأجر المعروض</Text>
-            <Text style={styles.priceValue}>
-              {amount != null ? `${Number(amount).toLocaleString("en")} د.ع${request?.pricing_mode === "hourly" ? " / ساعة" : ""}` : "قابل للتفاوض"}
-            </Text>
-          </View>
-
-          <Text style={styles.expiry}>العرض مؤقت؛ اقبله قبل انتهاء المهلة.</Text>
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.action, styles.reject]}
-              onPress={() => void respond("reject")}
-              disabled={Boolean(busy)}
-            >
-              <Text style={styles.rejectText}>رفض</Text>
-            </TouchableOpacity>
-            {request?.type === "taxi" && request.vehicle_category === "large" ? (
-              <TouchableOpacity
-                style={[styles.action, styles.accept]}
-                onPress={() => {
-                  setVisible(false);
-                  router.push("/home");
-                }}
-                disabled={Boolean(busy)}
-              >
-                <Text style={styles.acceptText}>تقديم عرض السعر</Text>
+          {isLargeVehicle ? (
+            <View style={{ marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: palette.canvas, borderWidth: 1, borderColor: palette.gold }}>
+              <Text style={styles.detailLabel}>نوع المركبة</Text>
+              <Text style={styles.detailValue}>{request?.vehicle_type === "kia_passenger" ? "كيا ركاب" : request?.vehicle_type === "bus" ? "باص" : "كيا حمل"}</Text>
+              <Text style={styles.detailLabel}>ميزانية الزبون</Text>
+              <Text style={styles.detailValue}>{amount != null ? `${Number(amount).toLocaleString("en")} د.ع` : "بانتظار عروض الأسعار"}</Text>
+              <TextInput
+                value={largeOfferPrice}
+                onChangeText={(value) => setLargeOfferPrice(value.replace(/[^0-9]/g, ""))}
+                placeholder="أدخل أجرتك بالدينار (250–50000)"
+                keyboardType="numeric"
+                maxLength={5}
+                style={{ borderWidth: 1, borderColor: palette.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: palette.ink, textAlign: "right", marginTop: 12 }}
+              />
+              <TextInput
+                value={largeOfferMessage}
+                onChangeText={setLargeOfferMessage}
+                placeholder="ملاحظة للزبون (اختياري)"
+                maxLength={500}
+                style={{ borderWidth: 1, borderColor: palette.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: palette.ink, textAlign: "right", marginTop: 10 }}
+              />
+              <TouchableOpacity style={[styles.action, styles.accept, { marginTop: 10 }]} onPress={() => void sendLargeVehicleOffer()} disabled={Boolean(busy)}>
+                {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>إرسال عرض السعر</Text>}
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.action, styles.accept]}
-                onPress={() => void respond("accept")}
-                disabled={Boolean(busy)}
-              >
-                {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>قبول الطلب</Text>}
+              <TouchableOpacity style={[styles.action, styles.reject, { marginTop: 8 }]} onPress={() => void respond("reject")} disabled={Boolean(busy)}>
+                <Text style={styles.rejectText}>تجاهل الطلب</Text>
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>الأجر المعروض</Text>
+                <Text style={styles.priceValue}>
+                  {amount != null ? `${Number(amount).toLocaleString("en")} د.ع${request?.pricing_mode === "hourly" ? " / ساعة" : ""}` : "قابل للتفاوض"}
+                </Text>
+              </View>
+              <Text style={styles.expiry}>العرض مؤقت؛ اقبله قبل انتهاء المهلة.</Text>
+              <View style={styles.actions}>
+                <TouchableOpacity style={[styles.action, styles.reject]} onPress={() => void respond("reject")} disabled={Boolean(busy)}>
+                  <Text style={styles.rejectText}>رفض</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.action, styles.accept]} onPress={() => void respond("accept")} disabled={Boolean(busy)}>
+                  {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>قبول الطلب</Text>}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
           {busy === "reject" ? <ActivityIndicator style={{ marginTop: 10 }} color="#64748b" /> : null}
           </ScrollView>
         </View>
