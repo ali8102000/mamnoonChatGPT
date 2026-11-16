@@ -200,7 +200,7 @@ export default function SupportChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas, paddingTop: 52, paddingHorizontal: 16 },
+  container: { flex: 1, backgroundColor: palette.pageCanvas, paddingTop: 52, paddingHorizontal: 16 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 23, fontWeight: "900", color: palette.ink, marginBottom: 14, textAlign: "right" },
   inbox: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: palette.line, maxHeight: 310 },
