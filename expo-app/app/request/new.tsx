@@ -25,6 +25,7 @@ import { getServiceImage } from "@/lib/service-visuals";
 import { ServiceArtwork, hasServiceArtwork } from "@/components/service-artwork";
 import { palette, radius } from "@/styles/theme";
 import { calculateMobileTaxiFare } from "@/lib/taxi-fares";
+import { GOVERNORATES as WEB_GOVERNORATES, isInGovernorate as isInWebGovernorate } from "../../../src/lib/governorates";
 
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
@@ -145,7 +146,6 @@ export default function NewRequest() {
 
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
-  const destinationGovKey = destinationGovernorateKey;
   const isIntercity = routeIsIntercity;
   const showRequestPhoto = !isTaxi || isLargeVehicle;
   const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle
@@ -308,13 +308,7 @@ export default function NewRequest() {
     let active = true;
     const timer = setTimeout(async () => {
       try {
-        const route = await callMamnoonMapsApi<{
-          distanceKm: number;
-          durationMin: number;
-          fromGovernorateKey: string;
-          toGovernorateKey: string;
-          isIntercity: boolean;
-        }>({
+        const route = await callMamnoonMapsApi<{ distanceKm: number; durationMin: number }>({
           action: "route",
           from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude },
           to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude },
@@ -324,18 +318,23 @@ export default function NewRequest() {
           !Number.isFinite(route.distanceKm) ||
           route.distanceKm <= 0 ||
           !Number.isFinite(route.durationMin) ||
-          route.durationMin < 0 ||
-          !route.fromGovernorateKey ||
-          !route.toGovernorateKey ||
-          typeof route.isIntercity !== "boolean"
+          route.durationMin < 0
         ) {
-          throw new Error("تعذّر التحقق من الطريق والمحافظتين. حرّك نقطة الوجهة أو أعد المحاولة.");
+          throw new Error("تعذّر التحقق من مسافة الطريق. حرّك نقطة الوجهة أو أعد المحاولة.");
         }
-        // The server's administrative-boundary lookup is authoritative;
-        // nearest-city guesses on the phone must not determine intercity pricing.
-        setPickupGovernorateKey(route.fromGovernorateKey);
-        setDestinationGovernorateKey(route.toGovernorateKey);
-        setRouteIsIntercity(route.isIntercity);
+        // Use the same polygon boundaries as the web app, not nearest-city guesses.
+        const fromGovernorate = WEB_GOVERNORATES.find((item) =>
+          isInWebGovernorate({ lat: pickupCoords.latitude, lng: pickupCoords.longitude }, item.key),
+        );
+        const toGovernorate = WEB_GOVERNORATES.find((item) =>
+          isInWebGovernorate({ lat: destinationCoords.latitude, lng: destinationCoords.longitude }, item.key),
+        );
+        if (!fromGovernorate || !toGovernorate) {
+          throw new Error("يجب أن تكون نقطتا الانطلاق والوجهة داخل حدود العراق. اختر موقعاً داخل إحدى المحافظات.");
+        }
+        setPickupGovernorateKey(fromGovernorate.key);
+        setDestinationGovernorateKey(toGovernorate.key);
+        setRouteIsIntercity(fromGovernorate.key !== toGovernorate.key);
         setRouteKm(route.distanceKm);
         setRouteDurationMin(route.durationMin);
       } catch (error) {
@@ -582,13 +581,7 @@ export default function NewRequest() {
     setBusy(true);
     try {
       if (isTaxi && !isLargeVehicle) {
-        const freshRoute = await callMamnoonMapsApi<{
-          distanceKm: number;
-          durationMin: number;
-          fromGovernorateKey: string;
-          toGovernorateKey: string;
-          isIntercity: boolean;
-        }>({
+        const freshRoute = await callMamnoonMapsApi<{ distanceKm: number; durationMin: number }>({
           action: "route",
           from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude },
           to: { lat: destinationCoords!.latitude, lng: destinationCoords!.longitude },
@@ -601,22 +594,32 @@ export default function NewRequest() {
         ) {
           throw new Error("لم يتم تأكيد مسافة طريق صالحة. أعد تحديد الوجهة.");
         }
+        const fromGovernorate = WEB_GOVERNORATES.find((item) =>
+          isInWebGovernorate({ lat: pickupCoords.latitude, lng: pickupCoords.longitude }, item.key),
+        );
+        const toGovernorate = WEB_GOVERNORATES.find((item) =>
+          isInWebGovernorate({ lat: destinationCoords!.latitude, lng: destinationCoords!.longitude }, item.key),
+        );
+        if (!fromGovernorate || !toGovernorate) {
+          throw new Error("يجب أن تكون نقطتا الرحلة داخل حدود العراق.");
+        }
+        const freshIsIntercity = fromGovernorate.key !== toGovernorate.key;
         const freshFare = calculateMobileTaxiFare(
           vehicleCat as Exclude<VehicleCategory, "large">,
           freshRoute.distanceKm,
           1,
-          freshRoute.isIntercity,
+          freshIsIntercity,
           tripType,
           extraMinutes,
         );
         if (
           Math.abs(freshRoute.distanceKm - routeKm!) > 0.05 ||
           freshFare !== estimatedTaxiFare ||
-          freshRoute.isIntercity !== isIntercity
+          freshIsIntercity !== isIntercity
         ) {
-          setPickupGovernorateKey(freshRoute.fromGovernorateKey);
-          setDestinationGovernorateKey(freshRoute.toGovernorateKey);
-          setRouteIsIntercity(freshRoute.isIntercity);
+          setPickupGovernorateKey(fromGovernorate.key);
+          setDestinationGovernorateKey(toGovernorate.key);
+          setRouteIsIntercity(freshIsIntercity);
           setRouteKm(freshRoute.distanceKm);
           setRouteDurationMin(freshRoute.durationMin);
           Alert.alert("تحدّثت تفاصيل الرحلة", "راجع مسافة الطريق والسعر الجديد الظاهر أمامك، ثم اضغط إرسال الطلب مرة ثانية.");
