@@ -132,3 +132,14 @@ revoke all on function public.has_friend_admin_access(uuid) from public,anon;
 grant execute on function public.has_staff_role(uuid),public.get_staff_roles(uuid),public.has_finance_access(uuid),
   public.has_subscription_admin_access(uuid),public.has_provider_ops_access(uuid),public.has_live_ops_access(uuid),
   public.has_user_moderation_access(uuid),public.has_friend_admin_access(uuid) to authenticated;
+
+-- Preserve the existing account as the single owner and apply the approved display title.
+insert into public.staff_assignments(user_id,rank,department,display_title,active,assigned_by)
+select id,'owner','executive','الرئيس المؤسس الأعلى',true,id
+from auth.users where lower(email)=lower('a7md0555666@gmail.com')
+on conflict(user_id) do update set rank='owner',department='executive',
+  display_title='الرئيس المؤسس الأعلى',active=true,assigned_by=excluded.assigned_by,updated_at=now();
+
+update public.profiles
+set full_name='الرئيس المؤسس الأعلى',updated_at=now()
+where id in (select id from auth.users where lower(email)=lower('a7md0555666@gmail.com'));
