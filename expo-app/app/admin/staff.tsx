@@ -21,7 +21,7 @@ const ITEMS = [
 ] as const;
 
 const ROLE_LABELS: Record<string, string> = {
-  super_admin: "المدير الأعلى", admin: "مدير", support: "الدعم",
+  super_admin: "الرئيس المؤسس الأعلى", admin: "مدير", support: "الدعم",
   finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء", department_finance: "قسم المالية", department_operations: "قسم التشغيل", department_monitoring: "قسم المراقبة", department_executive: "الإدارة التنفيذية",
   "rank:owner": "الرئيس المؤسس الأعلى", "rank:general_manager": "مدير عام", "rank:department_manager": "مدير قسم", "rank:supervisor": "مشرف", "rank:employee": "موظف",
 };
