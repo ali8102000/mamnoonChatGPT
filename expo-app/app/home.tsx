@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import * as SecureStore from "expo-secure-store";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import {
   View,
@@ -318,41 +319,166 @@ export default function HomeScreen() {
 
 function CustomerHome() {
   const tiles = [
-    { key: "taxi", label: "سيارة", emoji: "🚕", color: "#2563eb" },
-    { key: "large_vehicle", label: "سيارة كبيرة", emoji: "🚚", color: "#ea580c" },
-    { key: "build", label: "بناء", emoji: "🧱", color: "#ea580c" },
-    { key: "plaster", label: "لبخ", emoji: "🪣", color: "#d97706" },
-    { key: "carpentry_form", label: "نجارة وقالب", emoji: "📐", color: "#a16207" },
-    { key: "flooring", label: "أرضيات", emoji: "🟫", color: "#78716c" },
-    { key: "chef", label: "طباخ", emoji: "👨‍🍳", color: "#e11d48" },
-    { key: "plumbing", label: "تأسيس ماء", emoji: "🚰", color: "#0891b2" },
-    { key: "electric_setup", label: "تأسيس كهرباء", emoji: "💡", color: "#ca8a04" },
-    { key: "electric_street", label: "تصليح كهرباء", emoji: "⚡", color: "#d97706" },
-    { key: "washer_repair", label: "تصليح غسالة", emoji: "🧺", color: "#0284c7" },
-    { key: "stove_repair", label: "تصليح طباخ", emoji: "🔥", color: "#dc2626" },
-    { key: "fridge_repair", label: "تصليح ثلاجة", emoji: "🧊", color: "#0ea5e9" },
-    { key: "ac_repair", label: "مكيفات", emoji: "❄️", color: "#0284c7" },
-    { key: "cleaning", label: "تنظيف بيوت", emoji: "🧹", color: "#16a34a" },
-    { key: "wood_carpentry", label: "نجارة أخشاب", emoji: "🪵", color: "#a16207" },
-    { key: "blacksmith", label: "حدادة", emoji: "⚒️", color: "#475569" },
-    { key: "general", label: "خدمات عامة", emoji: "🏠", color: "#7c3aed" },
+    {
+      key: "taxi",
+      title: "طلب سيارة",
+      subtitle: "خلال دقائق",
+      emoji: "🚕",
+      colors: ["#E9AB2B", "#F97316"] as const,
+      width: "65%" as const,
+      type: "taxi" as const,
+    },
+    {
+      key: "service",
+      title: "طلب فني",
+      subtitle: "١٦ خدمة",
+      emoji: "🛠️",
+      colors: ["#10B981", "#14B8A6"] as const,
+      width: "31.5%" as const,
+      type: "service" as const,
+    },
+    {
+      key: "large",
+      title: "طلب سيارة كبيرة",
+      subtitle: "كيا حمل أو كيا ركاب",
+      emoji: "🚚",
+      colors: ["#F97316", "#D97706"] as const,
+      width: "31.5%" as const,
+      type: "taxi" as const,
+      vehicle: "large" as const,
+    },
   ];
+
   return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
-      <Text style={styles.sectionTitle}>شنو تحتاج اليوم؟</Text>
-      <Text style={styles.sectionSubTitle}>اختَر الخدمة ونرتّب لك الباقي</Text>
-      <View style={styles.tilesGrid}>
-        {tiles.map((t) => (
+    <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 16 }}>
+      <LinearGradient
+        colors={[palette.brand, palette.brandGlow, palette.gold]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          minHeight: 164,
+          borderRadius: 26,
+          padding: 22,
+          justifyContent: "center",
+          overflow: "hidden",
+          elevation: 5,
+        }}
+      >
+        <View
+          style={{
+            alignSelf: "flex-start",
+            borderRadius: 999,
+            paddingHorizontal: 11,
+            paddingVertical: 6,
+            backgroundColor: "rgba(255,255,255,0.22)",
+            marginBottom: 10,
+          }}
+        >
+          <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
+        </View>
+        <Text style={{ color: "#FFFFFF", fontSize: 23, lineHeight: 32, fontWeight: "900", textAlign: "right" }}>
+          اطلب الآن، ادفع للمزوّد مباشرة
+        </Text>
+        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 19, marginTop: 5, textAlign: "right" }}>
+          ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك
+        </Text>
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            width: 150,
+            height: 150,
+            borderRadius: 75,
+            backgroundColor: "rgba(255,255,255,0.12)",
+            top: -55,
+            left: -35,
+          }}
+        />
+      </LinearGradient>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
+        {tiles.map((tile) => (
           <TouchableOpacity
-            key={t.key}
-            style={styles.tile}
-            onPress={() => router.push({ pathname: "/request/new", params: t.key === "large_vehicle" ? { type: "taxi", vehicle: "large" } : { type: t.key } })}
-            activeOpacity={0.85}
+            key={tile.key}
+            accessibilityRole="button"
+            accessibilityLabel={tile.title}
+            activeOpacity={0.86}
+            onPress={() =>
+              router.push({
+                pathname: "/request/new",
+                params: tile.vehicle ? { type: tile.type, vehicle: tile.vehicle } : { type: tile.type },
+              })
+            }
+            style={{
+              width: tile.width,
+              minHeight: 132,
+              borderRadius: 24,
+              padding: 14,
+              justifyContent: "space-between",
+              backgroundColor: palette.surface,
+              borderWidth: 1,
+              borderColor: palette.line,
+              elevation: 2,
+            }}
           >
-            <View style={[styles.tileIconWrap, { backgroundColor: t.color + "16" }]}><Text style={[styles.tileEmoji, { color: t.color }]}>{t.emoji}</Text></View>
-            <Text style={styles.tileLabel}>{t.label}</Text>
+            <LinearGradient
+              colors={tile.colors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 17,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontSize: 25 }}>{tile.emoji}</Text>
+            </LinearGradient>
+            <View>
+              <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>{tile.title}</Text>
+              <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", marginTop: 3, textAlign: "right" }}>{tile.subtitle}</Text>
+            </View>
           </TouchableOpacity>
         ))}
+      </View>
+
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        <View style={{ flex: 1, minHeight: 72, borderRadius: 18, padding: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center" }}>
+          <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", textAlign: "right" }}>أقل من</Text>
+          <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right", marginTop: 2 }}>٣ د</Text>
+        </View>
+        <View style={{ flex: 1, minHeight: 72, borderRadius: 18, padding: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center" }}>
+          <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", textAlign: "right" }}>مزودون</Text>
+          <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right", marginTop: 2 }}>موثق</Text>
+        </View>
+      </View>
+
+      <View style={{ paddingTop: 2, paddingBottom: 20 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <Text style={{ color: palette.ink, fontSize: 15, fontWeight: "900" }}>لماذا ممنون؟</Text>
+          <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700" }}>مميّزاتنا</Text>
+        </View>
+        <View style={{ gap: 9 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
+            <LinearGradient colors={["#E9AB2B", "#F97316"]} style={{ width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontSize: 20 }}>⚡</Text>
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>سرعة في الاستجابة</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 18, marginTop: 2, textAlign: "right" }}>نوصلك بأقرب سيارة أو فني في منطقتك</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
+            <LinearGradient colors={["#10B981", "#14B8A6"]} style={{ width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontSize: 20 }}>🛡️</Text>
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>أمان مضمون</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 18, marginTop: 2, textAlign: "right" }}>جميع الكباتن والفنيين موثّقون رسمياً</Text>
+            </View>
+          </View>
+        </View>
       </View>
     </View>
   );
