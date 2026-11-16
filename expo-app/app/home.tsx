@@ -337,12 +337,6 @@ export default function HomeScreen() {
           />
         )}
       </ScrollView>
-      <View style={styles.bottomTabs}>
-        <TabBtn label="الرئيسية" icon="⌂" active onPress={() => {}} />
-        <TabBtn label="الطلبات" icon="▤" onPress={() => router.push("/history")} />
-        <TabBtn label="الرسائل" icon="◌" onPress={() => router.push("/messages")} />
-        <TabBtn label="حسابي" icon="●" onPress={() => router.push("/profile")} />
-      </View>
     </View>
   );
 }
@@ -646,25 +640,6 @@ function ProviderHome({
         ))
       )}
     </View>
-  );
-}
-
-function TabBtn({
-  label,
-  icon,
-  active,
-  onPress,
-}: {
-  label: string;
-  icon: string;
-  active?: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} style={styles.tabBtn} onPress={onPress} activeOpacity={0.7}>
-      <Text style={[styles.tabIcon, active && styles.tabIconActive]}>{icon}</Text>
-      <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
-    </TouchableOpacity>
   );
 }
 
