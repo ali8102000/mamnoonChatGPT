@@ -890,7 +890,6 @@ export default function RequestDetail() {
             {request.vehicle_category !== "large" && (() => {
               const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
               const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
-              const progress = remaining / 360;
               return <View style={{ width: 104, height: 104, borderRadius: 52, borderWidth: 7, borderColor: palette.gold, alignItems: "center", justifyContent: "center", marginTop: 8, backgroundColor: palette.surface }}>
                 <Text style={{ color: palette.ink, fontSize: 23, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</Text>
                 <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "800" }}>وقت البحث</Text>
