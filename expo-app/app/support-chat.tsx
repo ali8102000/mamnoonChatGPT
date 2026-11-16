@@ -50,14 +50,10 @@ export default function SupportChatScreen() {
       const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone,avatar_url").in("id", ids) : { data: [] };
       const map = new Map((profiles ?? []).map((p: any) => [p.id, p]));
       const conversationIds = (data ?? []).map((c: any) => c.id);
-      const [{ data: latestMessages }, { data: staffRows }] = await Promise.all([
-        conversationIds.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
-        (supabase as any).from("staff_assignments").select("user_id").eq("active", true),
-      ]);
-      const staffIds = new Set((staffRows ?? []).map((r: any) => r.user_id));
+      const { data: latestMessages } = conversationIds.length ? await (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : { data: [] };
       const latestByConversation = new Map<string, any>();
       for (const message of latestMessages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
-      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: map.get(c.user_id), lastMessage, unanswered: !!lastMessage && !staffIds.has(lastMessage.sender_id) }; });
+      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: map.get(c.user_id), lastMessage, unanswered: !!lastMessage && lastMessage.sender_id === c.user_id }; });
       setConversations(rows);
       if (selected) setSelected(rows.find((c: any) => c.id === selected.id) ?? null);
     } else {
@@ -97,12 +93,12 @@ export default function SupportChatScreen() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: "conversation_id=eq." + selected.id }, (payload: any) => {
         setMessages((old) => old.some((m) => m.id === payload.new.id) ? old : [...old, payload.new]);
         if (payload.new.sender_id !== user?.id) {
-          if (!muted) void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: String(payload.new.body ?? "وصلتك رسالة جديدة").slice(0, 120), sound: "default" }, trigger: null });
+          void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: String(payload.new.body ?? "وصلتك رسالة جديدة").slice(0, 120), sound: muted ? false : "default" }, trigger: null });
           (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
         }
       }).subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [selected?.id, user?.id, loadMessages]);
+  }, [selected?.id, user?.id, loadMessages, muted]);
 
   async function enableNotifications() {
     const permission = await Notifications.requestPermissionsAsync();
