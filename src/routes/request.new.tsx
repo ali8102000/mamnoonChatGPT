@@ -289,7 +289,7 @@ function NewRequest() {
         <div className="font-bold text-emerald-700">تم التحقق من الكوبون</div>
         <div>قيمة الخصم: <b>{couponPreview.discount.toLocaleString("ar-IQ")} د.ع</b></div>
         <div>المبلغ بعد الخصم: <b>{couponPreview.payable.toLocaleString("ar-IQ")} د.ع</b></div>
-        <div className="text-[11px] text-muted-foreground">الخصم تتحمله ممنون ولا يقلل مستحقات السائق أو الفني.</div>
+        <div className="text-[11px] text-muted-foreground">الخصم تتحمله ممنون ولا يقلل مستحقات السائق.</div>
       </div>}
     </div>
   );
