@@ -194,13 +194,35 @@ Deno.serve(async (req: Request) => {
           .or(`customer_id.eq.${id},provider_id.eq.${id}`).order("created_at", { ascending: false }).limit(20),
         admin.from("ratings").select("id,stars,professionalism,punctuality,quality,comment,created_at,rater:profiles!ratings_rater_id_fkey(full_name,avatar_url)")
           .eq("ratee_id", id).order("created_at", { ascending: false }).limit(100),
+        admin.from("provider_verifications").select("provider_type,legal_name,phone,email,document_type,id_number,status,rejection_reason,metadata,face_photo_path,id_card_photo_path,id_card_back_photo_path,vehicle_document_path,submitted_at,reviewed_at,updated_at")
+          .eq("user_id", id),
       ]);
-      const failed = [profile, roles, block, driver, worker, transactions, requests].find((r: any) => r.error);
+      const failed = [profile, roles, block, driver, worker, transactions, requests, verifications].find((r: any) => r.error);
       if (failed?.error) return json({ error: "user_detail_load_failed" }, 500);
+      const signedVerifications = await Promise.all((verifications.data ?? []).map(async (row: any) => {
+        const sign = async (path: string | null) => {
+          if (!path) return null;
+          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 600);
+          return error ? null : data?.signedUrl ?? null;
+        };
+        const [face, front, back, vehicle] = await Promise.all([
+          sign(row.face_photo_path), sign(row.id_card_photo_path),
+          sign(row.id_card_back_photo_path), sign(row.vehicle_document_path),
+        ]);
+        return {
+          provider_type: row.provider_type, legal_name: row.legal_name, phone: row.phone, email: row.email,
+          document_type: row.document_type, id_number: row.id_number, status: row.status,
+          rejection_reason: row.rejection_reason, metadata: row.metadata,
+          face_photo_url: face, id_card_photo_url: front, id_card_back_photo_url: back,
+          vehicle_document_url: vehicle, submitted_at: row.submitted_at,
+          reviewed_at: row.reviewed_at, updated_at: row.updated_at,
+        };
+      }));
       return json({
         profile: profile.data, roles: roles.data ?? [], block: block.data,
         driverProfile: driver.data, workerProfile: worker.data,
         transactions: transactions.data ?? [], requests: requests.data ?? [],
+        verifications: signedVerifications,
         ratings: ratings.error ? [] : ratings.data ?? [],
         ratings_error: !!ratings.error,
       });
