@@ -430,8 +430,9 @@ export default function NewRequest() {
     let active = true;
     const timer = setTimeout(async () => {
       try {
+        const governorates = await resolveRouteGovernorates(pickupCoords, destinationCoords);
         const { data: route, error: quoteError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.longitude === undefined ? 0 : destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: vehicleCat, tripType, extraMinutes, isIntercity: routeIsIntercity },
+          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: vehicleCat, tripType, extraMinutes, isIntercity: governorates.isIntercity },
         });
         if (quoteError) throw quoteError;
         if (!active) return;
@@ -443,7 +444,6 @@ export default function NewRequest() {
         ) {
           throw new Error("تعذّر التحقق من مسافة الطريق. حرّك نقطة الوجهة أو أعد المحاولة.");
         }
-        const governorates = await resolveRouteGovernorates(pickupCoords, destinationCoords);
         setPickupGovernorateKey(governorates.fromGovernorateKey);
         setDestinationGovernorateKey(governorates.toGovernorateKey);
         setRouteIsIntercity(governorates.isIntercity);
