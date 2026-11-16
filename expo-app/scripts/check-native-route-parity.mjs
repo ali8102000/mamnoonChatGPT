@@ -200,7 +200,7 @@ if (!pushSoundMigration.includes("ADD COLUMN IF NOT EXISTS sound_enabled") ||
     !pushSoundMigration.includes("ELSE 'silent' END")) {
   missing.push("Push delivery SQL must honor each user's sound preference.");
 }
-if (!pushVibrationMigration.includes("ADD COLUMN IF NOT EXISTS vibration_enabled") ||
+if (!/add column if not exists vibration_enabled/i.test(pushVibrationMigration) ||
     !pushVibrationMigration.includes("mamnoon_vibrate_only") ||
     !pushVibrationMigration.includes("mamnoon_sound_only") ||
     !pushVibrationMigration.includes("mamnoon_sound_vibrate")) {
