@@ -62,6 +62,32 @@ begin
      and dp.available = true
      and not public.regional_services_enabled(p.governorate_key);
 
+  update public.worker_profiles wp
+     set available = false
+   where wp.available = true
+     and wp.user_id in (
+       select pp.user_id
+         from public.provider_presence pp
+         left join public.profiles p on p.id = pp.user_id
+        where not public.regional_services_enabled(
+          coalesce(nullif(lower(trim(p.governorate_key)), ''),
+                   public.infer_governorate_key(pp.lat, pp.lng))
+        )
+     );
+
+  update public.driver_profiles dp
+     set available = false
+   where dp.available = true
+     and dp.user_id in (
+       select pp.user_id
+         from public.provider_presence pp
+         left join public.profiles p on p.id = pp.user_id
+        where not public.regional_services_enabled(
+          coalesce(nullif(lower(trim(p.governorate_key)), ''),
+                   public.infer_governorate_key(pp.lat, pp.lng))
+        )
+     );
+
   delete from public.provider_presence pp
    using public.profiles p
    where p.id = pp.user_id
