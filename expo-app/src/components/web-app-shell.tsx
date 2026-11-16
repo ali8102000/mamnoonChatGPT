@@ -103,6 +103,22 @@ export default function WebAppShell() {
   const [pageError, setPageError] = useState(false);
 
   const storageKey = useMemo(getSupabaseStorageKey, []);
+
+  useEffect(() => {
+    if (!storageKey) return;
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!webViewRef.current) return;
+      const key = JSON.stringify(storageKey);
+      if (event === "SIGNED_OUT") {
+        webViewRef.current.injectJavaScript(`(function(){try{var k=${key};var old=localStorage.getItem(k);localStorage.removeItem(k);window.dispatchEvent(new StorageEvent("storage",{key:k,oldValue:old,newValue:null,storageArea:localStorage}));}catch(_){}})();true;`);
+      } else if (nextSession && ["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
+        const raw = JSON.stringify(JSON.stringify(nextSession));
+        webViewRef.current.injectJavaScript(`(function(){try{var k=${key};var v=${raw};var old=localStorage.getItem(k);localStorage.setItem(k,v);window.dispatchEvent(new StorageEvent("storage",{key:k,oldValue:old,newValue:v,storageArea:localStorage}));}catch(_){}})();true;`);
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, [storageKey]);
+
   const authBridgeScript = useMemo(
     () => buildAuthBridgeScript(storageKey, session),
     [storageKey, session?.access_token, session?.refresh_token],
