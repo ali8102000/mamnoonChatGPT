@@ -12,10 +12,13 @@ export function RegionalServiceBanner() {
     const load = async () => {
       let key = "";
       try { key = localStorage.getItem(GOV_STORAGE_KEY) || ""; } catch {}
-      if (!key && navigator.geolocation) {
-        const position = await new Promise<GeolocationPosition | null>((resolve) =>
-          navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: false, timeout: 4500, maximumAge: 300000 }),
-        );
+      if (!key && navigator.geolocation && navigator.permissions) {
+        const permission = await navigator.permissions.query({ name: "geolocation" }).catch(() => null);
+        const position = permission?.state === "granted"
+          ? await new Promise<GeolocationPosition | null>((resolve) =>
+              navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: false, timeout: 4500, maximumAge: 300000 }),
+            )
+          : null;
         if (position) {
           const { data } = await supabase.auth.getSession();
           if (data.session?.access_token) {
