@@ -18,6 +18,7 @@ const ITEMS = [
   { label: "الصلاحيات وسجل العمليات", route: "/admin/governance", roles: ["super_admin", "admin"] },
   { label: "مساعد استيراد البيانات", route: "/admin/import", roles: ["super_admin", "admin"] },
   { label: "محادثات الدعم", route: "/support-chat", roles: ["super_admin", "admin", "support", "moderator", "customer_service", "rank:general_manager"] },
+  { label: "إدارة الدردشة الخاصة", route: "/admin/chats", roles: ["super_admin", "admin", "support", "moderator"] },
   { label: "موظفو القسم والترقيات", route: "/admin/staff-hierarchy", roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor"] },
 ] as const;
 
