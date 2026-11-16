@@ -113,18 +113,18 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     icon: LayoutDashboard,
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
-  { key: "stats", label: "الإحصائيات", icon: Activity, roles: ["super_admin", "admin", "finance"] },
+  { key: "stats", label: "الإحصائيات", icon: Activity, roles: ["super_admin", "admin", "finance", "department_finance"] },
   {
     key: "users",
     label: "المستخدمون",
     icon: Users,
-    roles: ["super_admin", "admin", "support", "moderator"],
+    roles: ["super_admin", "admin", "support", "moderator", "department_monitoring"],
   },
   {
     key: "providers",
     label: "السائقون والفنيون",
     icon: Car,
-    roles: ["super_admin", "admin", "support"],
+    roles: ["super_admin", "admin", "support", "department_operations"],
   },
   {
     key: "requests",
@@ -142,7 +142,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     key: "friends",
     label: "الأصدقاء",
     icon: UserCheck,
-    roles: ["super_admin", "admin", "moderator"],
+    roles: ["super_admin", "admin", "moderator", "department_monitoring"],
   },
   {
     key: "reports",
@@ -200,8 +200,12 @@ function AdminPage() {
         setStaffDisplayTitle(assignment?.display_title ?? null);
         if (assignment?.rank) parsedRoles.push(`rank:${assignment.rank}`);
         setStaffRoles([...parsedRoles]);
-        if (assignment?.rank && ["general_manager","department_manager","supervisor"].includes(assignment.rank) && !parsedRoles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r))) setSection("staff");
-        if (parsedRoles.includes("customer_service") && !parsedRoles.some((r: string) => ["super_admin", "admin", "support", "finance", "moderator"].includes(r))) setSection("chat");
+        const hasLegacyAdminRole = parsedRoles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
+        if (assignment?.rank && ["general_manager","department_manager","supervisor"].includes(assignment.rank) && !hasLegacyAdminRole) setSection("staff");
+        if (parsedRoles.includes("customer_service") && !hasLegacyAdminRole) setSection("chat");
+        else if (!hasLegacyAdminRole && assignment?.department === "finance") setSection("subscriptions");
+        else if (!hasLegacyAdminRole && assignment?.department === "operations") setSection("providers");
+        else if (!hasLegacyAdminRole && assignment?.department === "monitoring") setSection("reports");
         setAuthorized(true);
       } catch {
         setAuthorized(false);
