@@ -42,7 +42,7 @@ export default function AdminStaffScreen() {
         const names = (data ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
         setRoles(names);
         const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,rank,department").eq("user_id", user.id).eq("active", true).maybeSingle();
-        setDisplayTitle(assignment?.display_title ?? null);
+        setDisplayTitle(assignment?.display_title ?? (names.includes("super_admin") ? "الرئيس المؤسس الأعلى" : null));
         if (assignment?.rank) names.push(`rank:${assignment.rank}`);
         if (assignment?.department) names.push(`department_${assignment.department}`);
         setRoles(names);
