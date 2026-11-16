@@ -1010,6 +1010,7 @@ function NewRequest() {
               </div>
             )}
             {requestAttachmentPanel}
+            {vehicle !== "large" ? couponPanel : null}
 
             {vehicle === "large" && (
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري) — اكتب الوجهة أو أي تفاصيل تريدها" rows={2} className="w-full resize-none bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
@@ -1329,7 +1330,7 @@ function NewRequest() {
         )}
       </div>
 
-      {type === "taxi" && vehicle !== "large" && <div className="mt-5">{couponPanel}</div>}
+
 
       <div className="mt-5">
         <div className="text-xs font-bold text-muted-foreground mb-2">
