@@ -326,38 +326,29 @@ function NewRequest() {
   const destLat = destCoords?.lat;
   const destLng = destCoords?.lng;
 
-  // Calculate distance whenever pickup and dest coords update
+  // The server calculates route distance, ETA and fare.
   useEffect(() => {
     setRouteKm(null);
+    setRouteDurationMin(null);
+    setServerTaxiFare(null);
     setRouteError(null);
     if (type !== "taxi" || vehicle === "large" || !destConfirmed || pickupLat == null || pickupLng == null || destLat == null || destLng == null) return;
     let stale = false;
-
-    const t = setTimeout(() => {
-      runLookup({ data: { action: "route", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng } } })
-        .then((r: any) => {
-          if (!stale && Number.isFinite(r?.distanceKm) && r.distanceKm >= 0)
-            setRouteKm(r.distanceKm);
-        })
-        .catch((e) => {
-          if (!stale) setRouteError(arabicWarning(e));
+    const t = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("auto-taxi-pricing", {
+          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity },
         });
-    }, 400);
-
-    return () => {
-      stale = true;
-      clearTimeout(t);
-    };
-  }, [
-    type,
-    destConfirmed,
-    pickupLat,
-    pickupLng,
-    destLat,
-    destLng,
-    routeRetry,
-    runLookup,
-  ]);
+        if (error) throw error;
+        if (stale) return;
+        if (!Number.isFinite(data?.distanceKm) || data.distanceKm <= 0 || !Number.isFinite(data?.durationMin) || data.durationMin < 0 || !Number.isFinite(data?.priceEstimate)) throw new Error("تعذّر الحصول على تسعير موثوق من الخادم");
+        setRouteKm(Number(data.distanceKm));
+        setRouteDurationMin(Number(data.durationMin));
+        setServerTaxiFare(Number(data.priceEstimate));
+      } catch (e) { if (!stale) setRouteError(arabicWarning(e)); }
+    }, 350);
+    return () => { stale = true; clearTimeout(t); };
+  }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity]);
 
   useEffect(() => {
     if (pickupLat == null || pickupLng == null) return;
