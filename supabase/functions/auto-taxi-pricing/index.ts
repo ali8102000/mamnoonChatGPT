@@ -80,9 +80,14 @@ Deno.serve(async (req) => {
   if(body.action==="quote") return json({...routed,priceEstimate,currency:"IQD",vehicleCategory:category});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
   const governorate=typeof body.governorateKey==="string"?body.governorateKey:null;
+  const couponCode=typeof body.couponCode==="string"&&body.couponCode.trim()?body.couponCode.trim().toUpperCase():null;
+  if(couponCode) {
+    const {data:preview,error:previewError}=await userClient.rpc("preview_my_coupon",{p_code:couponCode,p_amount:priceEstimate});
+    if(previewError||!preview||!Array.isArray(preview)||preview.length===0) return json({error:"الكوبون غير متاح لهذا السعر أو لهذا الحساب"},400);
+  }
   const insert={
     customer_id:user.id,type:"taxi",status:"pending",governorate_key:governorate,
-    coupon_code:typeof body.couponCode==="string"&&body.couponCode.trim()?body.couponCode.trim().toUpperCase():null,
+    coupon_code:null,
     vehicle_category:category,vehicle_type:null,
     pickup_text:String(body.pickupText||"موقع محدد على الخريطة").slice(0,300),
     pickup_lat:body.from.lat,pickup_lng:body.from.lng,
@@ -94,5 +99,12 @@ Deno.serve(async (req) => {
   };
   const {data:created,error:createError}=await admin.from("service_requests").insert(insert).select("id,coupon_discount,customer_payable,price_estimate,distance_km,duration_min").single();
   if(createError||!created){console.error("[auto-taxi-pricing] request insert failed:",createError?.code||"unknown");return json({error:"تعذّر إنشاء الطلب. تحقق من البيانات وحاول مرة أخرى."},400);}
-  return json({requestId:created.id,distanceKm:Number(created.distance_km),durationMin:Number(created.duration_min),priceEstimate:Number(created.price_estimate),couponDiscount:Number(created.coupon_discount||0),customerPayable:created.customer_payable===null?null:Number(created.customer_payable),routeSource:routed.routeSource});
+  let couponResult:any=null;
+  let couponWarning:string|null=null;
+  if(couponCode) {
+    const {data:applied,error:applyError}=await userClient.rpc("apply_coupon_to_existing_request",{p_request_id:created.id,p_code:couponCode});
+    if(applyError) couponWarning="تم إنشاء الطلب، لكن تعذّر تطبيق الكوبون. يمكنك متابعة الطلب دون الخصم.";
+    else couponResult=applied;
+  }
+  return json({requestId:created.id,distanceKm:Number(created.distance_km),durationMin:Number(created.duration_min),priceEstimate:Number(created.price_estimate),couponDiscount:Number(couponResult?.discount||0),customerPayable:couponResult?.payable??created.customer_payable??null,couponWarning,routeSource:routed.routeSource});
 });
