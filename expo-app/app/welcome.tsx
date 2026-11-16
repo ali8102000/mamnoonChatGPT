@@ -82,7 +82,7 @@ export default function WelcomeScreen() {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: palette.canvas },
+  page: { flex: 1, backgroundColor: palette.pageCanvas },
   content: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 22, paddingTop: 30, paddingBottom: 24 },
   topLine: { alignSelf: "center", backgroundColor: palette.surfaceSoft, borderRadius: 30, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 24 },
   topLineText: { color: palette.brand, fontSize: 12, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800", textAlign: "center" },
