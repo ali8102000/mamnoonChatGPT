@@ -207,6 +207,10 @@ DECLARE
   v_count integer := 0;
 BEGIN
   SELECT * INTO r FROM public.service_requests WHERE id = _request_id FOR UPDATE;
+  IF NOT FOUND THEN
+    DELETE FROM public.service_dispatch_queue WHERE request_id = _request_id;
+    RETURN 0;
+  END IF;
   SELECT * INTO q FROM public.service_dispatch_queue WHERE request_id = _request_id FOR UPDATE;
   IF NOT FOUND THEN RETURN 0; END IF;
 
@@ -500,10 +504,11 @@ BEGIN
   WHERE request_id = _request_id AND status IN ('pending', 'expired', 'rejected');
 
   IF r.type = 'taxi' THEN
-    INSERT INTO public.taxi_dispatch_queue(request_id, stage, next_at)
-    VALUES (_request_id, 0, now())
-    ON CONFLICT (request_id) DO UPDATE SET stage = 0, next_at = now();
-    v_count := public.advance_taxi_dispatch(_request_id);
+    -- taxi_dispatch_changed enqueues and sends the first wave from the status update.
+    SELECT count(*)::integer INTO v_count
+    FROM public.request_offers
+    WHERE request_id = _request_id AND status = 'pending'
+      AND sent_at >= now() - interval '10 seconds';
   ELSE
     INSERT INTO public.service_dispatch_queue(request_id, stage, next_at)
     VALUES (_request_id, 0, now())
