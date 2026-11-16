@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
+import { showContactOptions } from "@/lib/phone";
 
 type UserRow = {
   id: string; full_name: string | null; phone: string | null; email: string | null;
@@ -134,6 +135,7 @@ export default function AdminUsersScreen() {
             <Text style={s.muted}>تاريخ التسجيل: {row.created_at ? new Date(row.created_at).toLocaleDateString("ar-IQ") : "—"}</Text>
             {!!row.blocked && <Text style={s.blocked}>محظور · {row.blocked.reason || "بدون سبب"}{row.blocked.expires_at ? " · حتى " + new Date(row.blocked.expires_at).toLocaleDateString("ar-IQ") : " · حظر دائم"}</Text>}
             <View style={s.actions}>
+              {!!row.phone && <TouchableOpacity style={s.secondary} onPress={() => showContactOptions(row.phone!)}><Text style={s.secondaryText}>اتصال / واتساب</Text></TouchableOpacity>}
               <TouchableOpacity style={s.secondary} disabled={busyId===row.id} onPress={() => void showDetail(row.id)}><Text style={s.secondaryText}>{busyId===row.id ? "..." : "التفاصيل"}</Text></TouchableOpacity>
               {canManage && (row.blocked
                 ? <TouchableOpacity style={s.success} disabled={busyId===row.id} onPress={() => unblock(row)}><Text style={s.buttonText}>رفع الحظر</Text></TouchableOpacity>
