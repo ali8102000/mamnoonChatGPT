@@ -138,8 +138,8 @@ export default function WorkerOnboarding() {
         }
         result = await ImagePicker.launchCameraAsync({
           mediaTypes: ["images"],
-          allowsEditing: kind === "face",
-          ...(kind === "face" ? { aspect: [1, 1] as [number, number] } : {}),
+          // Avoid the Android system crop screen; confirmation is handled in Arabic in-app.
+          allowsEditing: false,
           quality: 0.85,
         });
       } else {
@@ -150,16 +150,24 @@ export default function WorkerOnboarding() {
         }
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
-          allowsEditing: true,
+          // Avoid the system "قص" action and use the app's explicit confirmation instead.
+          allowsEditing: false,
           quality: 0.8,
         });
       }
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
       const picked = { uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName };
-      if (kind === "face") setFacePhoto(picked);
-      else if (kind === "id-front") setIdFrontPhoto(picked);
-      else setIdBackPhoto(picked);
+      const photoTitle = kind === "face" ? "الصورة الشخصية"
+        : kind === "id-front" ? "البطاقة الوطنية الأمامية" : "البطاقة الوطنية الخلفية";
+      Alert.alert("تأكيد الصورة", `تم اختيار ${photoTitle}. هل تريد اعتمادها؟`, [
+        { text: "إعادة الاختيار", style: "cancel" },
+        { text: "اعتماد الصورة", onPress: () => {
+          if (kind === "face") setFacePhoto(picked);
+          else if (kind === "id-front") setIdFrontPhoto(picked);
+          else setIdBackPhoto(picked);
+        } },
+      ]);
     } catch {
       Alert.alert("خطأ", "تعذر اختيار الصورة. حاول مرة أخرى.");
     }
