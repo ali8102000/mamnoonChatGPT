@@ -69,6 +69,17 @@ for (const [path, kind] of [["app/terms.tsx", "terms"], ["app/privacy.tsx", "pri
 
 const readSource = async (path) =>
   import("node:fs/promises").then(({ readFile }) => readFile(resolve(root, path), "utf8"));
+const nativeAuthSource = await readSource("app/auth.tsx");
+if (!nativeAuthSource.includes('useState<Mode>("signup")')) {
+  missing.push("Native auth must open in the same default signup mode as web.");
+}
+if (nativeAuthSource.includes("loginMethod") || !nativeAuthSource.includes("رقم الهاتف أو البريد")) {
+  missing.push("Native auth must use the web-equivalent combined phone/email sign-in field.");
+}
+if (!nativeAuthSource.includes('router.push("/welcome")')) {
+  missing.push("Native auth must expose the web-equivalent language and welcome link.");
+}
+
 const notificationLayout = await readSource("app/_layout.tsx");
 const notificationBell = await readSource("src/components/notifications-bell.tsx");
 const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
