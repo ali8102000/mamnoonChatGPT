@@ -6,7 +6,6 @@ create table if not exists public.regional_service_controls (
   message_title text not null default 'تنويه رسمي من إدارة ممنون',
   message_text text not null default '',
   message_animate boolean not null default true,
-  updated_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint regional_service_controls_governorate_key_check check (
@@ -23,7 +22,6 @@ security invoker
 set search_path = public
 as $touch$
 begin
-  new.updated_by := auth.uid();
   new.updated_at := now();
   return new;
 end;
