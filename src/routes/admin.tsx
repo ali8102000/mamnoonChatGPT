@@ -198,7 +198,7 @@ function AdminPage() {
         const parsedRoles = (roles ?? []).map((r: any) => r);
         setStaffRoles(parsedRoles);
         const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,department,rank").eq("user_id", session.user.id).eq("active", true).maybeSingle();
-        setStaffDisplayTitle(assignment?.display_title ?? null);
+        setStaffDisplayTitle(assignment?.display_title ?? (parsedRoles.includes("super_admin") ? "الرئيس المؤسس الأعلى" : null));
         if (assignment?.rank) parsedRoles.push(`rank:${assignment.rank}`);
         setStaffRoles([...parsedRoles]);
         const hasLegacyAdminRole = parsedRoles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
