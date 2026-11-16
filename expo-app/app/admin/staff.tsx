@@ -17,11 +17,12 @@ const ITEMS = [
   { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator"] },
   { label: "الصلاحيات وسجل العمليات", route: "/admin/governance", roles: ["super_admin", "admin"] },
   { label: "محادثات الدعم", route: "/support-chat", roles: ["super_admin", "admin", "support", "moderator", "customer_service"] },
+  { label: "موظفو القسم والترقيات", route: "/admin/staff-hierarchy", roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor"] },
 ] as const;
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "المدير الأعلى", admin: "مدير", support: "الدعم",
-  finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء",
+  finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء",\n  "rank:owner": "الرئيس المؤسس الأعلى", "rank:general_manager": "مدير عام", "rank:department_manager": "مدير قسم", "rank:supervisor": "مشرف", "rank:employee": "موظف",
 };
 
 export default function AdminStaffScreen() {
@@ -57,7 +58,7 @@ export default function AdminStaffScreen() {
     return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة مخصصة لموظفي ممنون المخوّلين.</Text></View>;
   }
 
-  const customerServiceOnly = roles.includes("customer_service") && !roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role));
+  const customerServiceOnly = roles.includes("customer_service") && !roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager", "rank:department_manager", "rank:supervisor"].includes(role));
   const visible = ITEMS.filter((item) => item.roles.some((role) => roles.includes(role)) && (!customerServiceOnly || item.route === "/support-chat"));
 
   return (
