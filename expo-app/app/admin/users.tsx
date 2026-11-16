@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
-import { showContactOptions } from "@/lib/phone";
+import { showContactOptions } from "@/lib/contact-actions";
 
 type UserRow = {
   id: string; full_name: string | null; phone: string | null; email: string | null;
