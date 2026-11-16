@@ -56,6 +56,7 @@ check("Android regional controls super-admin gate", nativeRegions.includes("is_s
 const css = readWeb("src/styles.css");
 const nativeTheme = read("src/styles/theme.ts");
 const nativeLayout = read("app/_layout.tsx");
+const nativeButton = read("src/components/ui.tsx");
 function cssBlock(selector) {
   const pattern = selector === ":root" ? /:root\s*\{([\s\S]*?)\n\}/m : /\.dark\s*\{([\s\S]*?)\n\}/m;
   const match = css.match(pattern);
@@ -114,6 +115,21 @@ for (const [selector, paletteName] of [[":root", "lightPalette"], [".dark", "dar
 }
 check("Android page canvas is transparent over shared gradient", nativeTheme.includes('canvas:"transparent"') && nativeLayout.includes("ApplicationBackdrop") && nativeLayout.includes("contentStyle: { backgroundColor: \"transparent\" }"));
 check("Web radial background gradient", css.includes("radial-gradient") && css.includes("--primary-glow"));
+
+const webButton = readWeb("src/components/ui/button.tsx");
+for (const variant of ["default", "destructive", "outline", "secondary", "ghost", "link"]) {
+  check("Web button variant " + variant, webButton.includes(variant + ":"));
+}
+for (const variant of ["primary", "danger", "secondary", "outline", "ghost", "link"]) {
+  check("Android button variant " + variant, nativeButton.includes('"' + variant + '"'));
+}
+for (const [label, token] of [["default 40dp", "minHeight: 40"], ["small 36dp", "minHeight: 36"], ["large 45dp", "minHeight: 45"], ["icon 40dp", "width: 40"]]) {
+  check("Android button size " + label, nativeButton.includes(token));
+}
+check("Android button web-matched typography", nativeButton.includes("fontSize: 15.75") && nativeButton.includes("lineHeight: 20"));
+check("Android button web-matched radius", nativeButton.includes("borderRadius: 16"));
+check("Android button pressed and disabled states", nativeButton.includes("pressed ? 0.86 : 1") && nativeButton.includes("disabled || loading ? 0.5"));
+
 check("Web Tajawal font token", css.includes('--font-sans: "Tajawal"'));
 check("Web 112.5% root type scale", /html\s*\{[^}]*font-size:\s*112\.5%/s.test(css));
 for (const weight of ["Tajawal_400Regular","Tajawal_500Medium","Tajawal_700Bold","Tajawal_800ExtraBold","Tajawal_900Black"]) {
