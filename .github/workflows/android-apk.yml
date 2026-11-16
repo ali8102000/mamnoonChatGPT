@@ -144,10 +144,8 @@ jobs:
             sleep 20
             adb logcat -d -t 4000 > expo-app/release-artifacts/emulator-logcat.txt
             APP_PID="$(adb shell pidof com.mamnoon.app || true)"
-            if [ -z "$APP_PID" ] || grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt; then
-              echo "::error::Mamnoon failed the Android emulator launch smoke test."
-              exit 1
-            fi
+            test -n "$APP_PID" || { echo "::error::Mamnoon process was not running after launch."; exit 1; }
+            ! grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt || { echo "::error::Mamnoon crashed during the Android emulator launch smoke test."; exit 1; }
             adb shell screencap -p /sdcard/mamnoon-screen.png
             adb pull /sdcard/mamnoon-screen.png expo-app/release-artifacts/emulator-screen.png
       - name: Upload Android emulator smoke evidence
