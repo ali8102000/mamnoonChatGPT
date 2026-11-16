@@ -17,7 +17,7 @@ import { ThemePreferenceProvider } from "@/lib/theme-preference";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
 import { palette } from "@/styles/theme";
-import { loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
+import { isNotificationSoundEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
@@ -29,7 +29,7 @@ Notifications.setNotificationHandler({
     shouldShowBanner: true,
     shouldShowList: true,
     // Android channel controls sound; returning false here would suppress the banner entirely.
-    shouldPlaySound: true,
+    shouldPlaySound: Platform.OS === "android" ? true : isNotificationSoundEnabled(),
     shouldSetBadge: true,
   }),
 });
