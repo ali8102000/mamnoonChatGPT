@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from "react-native";
 import { Stack } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
@@ -37,6 +38,11 @@ export default function AdminUsersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editGovernorate, setEditGovernorate] = useState("");
+  const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
+  const [avatarMime, setAvatarMime] = useState<"image/jpeg" | "image/png" | "image/webp">("image/jpeg");
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [blockTarget, setBlockTarget] = useState<UserRow | null>(null);
   const [blockReason, setBlockReason] = useState("");
   const [duration, setDuration] = useState<(typeof DURATIONS)[number][0]>("permanent");
@@ -86,8 +92,42 @@ export default function AdminUsersScreen() {
 
   const showDetail = async (id: string) => {
     setBusyId(id);
-    try { setDetail(await invoke({ action: "detail", user_id: id })); }
+    try { const loaded = await invoke({ action: "detail", user_id: id }); setDetail(loaded); setEditName(loaded.profile?.full_name ?? ""); setEditGovernorate(loaded.profile?.governorate_key ?? ""); setAvatarBase64(null); setAvatarPreview(loaded.profile?.avatar_url ?? null); }
     catch (e: any) { Alert.alert("تعذر تحميل التفاصيل", String(e?.message || "حاول مرة ثانية")); }
+    finally { setBusyId(null); }
+  };
+
+
+  const pickAdminAvatar = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { Alert.alert("إذن الصور", "اسمح بالوصول للصور حتى تختار صورة المستخدم."); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1],
+      quality: 0.82, base64: true,
+    });
+    if (result.canceled || !result.assets?.[0]?.base64) return;
+    const asset = result.assets[0];
+    if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) { Alert.alert("حجم الصورة", "اختر صورة أقل من 5 ميغابايت."); return; }
+    setAvatarBase64(asset.base64);
+    const mime = asset.mimeType || "image/jpeg";
+    setAvatarMime(mime === "image/png" || mime === "image/webp" ? mime : "image/jpeg");
+    setAvatarPreview(asset.uri);
+  };
+
+  const saveProfile = async () => {
+    if (!detail?.profile?.id || editName.trim().length < 2) { Alert.alert("تحقق من الاسم", "اكتب اسماً من حرفين على الأقل."); return; }
+    setBusyId(detail.profile.id);
+    try {
+      const result = await invoke({
+        action: "update_profile", user_id: detail.profile.id,
+        full_name: editName.trim(), governorate_key: editGovernorate || null,
+        ...(avatarBase64 ? { avatar_base64: avatarBase64, avatar_mime: avatarMime } : {}),
+      });
+      setDetail((current) => current ? { ...current, profile: { ...current.profile, ...result.profile } } : current);
+      setRows((current) => current.map((row) => row.id === detail.profile.id ? { ...row, ...result.profile } : row));
+      setAvatarBase64(null);
+      Alert.alert("تم الحفظ", "تم تحديث اسم المستخدم وصورته ومحافظته.");
+    } catch (e:any) { Alert.alert("تعذر الحفظ", String(e?.message || "حاول مرة ثانية")); }
     finally { setBusyId(null); }
   };
 
@@ -204,7 +244,7 @@ const s = StyleSheet.create({
   searchRow:{flexDirection:"row",gap:8,alignItems:"center"},
   input:{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radius.md,padding:12,color:palette.ink,textAlign:"right"},
   card:{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radius.lg,padding:14,gap:6},
-  name:{fontSize:14,fontWeight:"900",color:palette.ink,textAlign:"right"},
+  avatarPreview:{width:76,height:76,borderRadius:38,alignSelf:"flex-end",backgroundColor:palette.pageCanvas},\n  name:{fontSize:14,fontWeight:"900",color:palette.ink,textAlign:"right"},
   actions:{flexDirection:"row",gap:8,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap",marginTop:8},
   primary:{minHeight:40,backgroundColor:palette.brand,borderRadius:16,paddingHorizontal:16,paddingVertical:8,alignItems:"center",justifyContent:"center"},
   danger:{minHeight:36,backgroundColor:palette.danger,borderRadius:16,paddingHorizontal:12,paddingVertical:6,alignItems:"center",justifyContent:"center"},
