@@ -43,9 +43,13 @@ export default function AdminStaffScreen() {
         setRoles(names);
         const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,rank,department").eq("user_id", user.id).eq("active", true).maybeSingle();
         setDisplayTitle(assignment?.display_title ?? null);
-        if (assignment?.rank) names.push(`rank:${assignment.rank}`);\n        if (assignment?.department) names.push(`department_${assignment.department}`);
+        if (assignment?.rank) names.push(`rank:${assignment.rank}`);
+        if (assignment?.department) names.push(`department_${assignment.department}`);
         setRoles(names);
-        setAllowed(!error && names.some((role: string) => Object.prototype.hasOwnProperty.call(ROLE_LABELS, role)));\n        if (assignment?.department === "finance") setDisplayTitle(assignment.display_title ?? "قسم المالية");\n        if (assignment?.department === "operations") setDisplayTitle(assignment.display_title ?? "قسم التشغيل");\n        if (assignment?.department === "monitoring") setDisplayTitle(assignment.display_title ?? "قسم المراقبة");
+        setAllowed(!error && names.some((role: string) => Object.prototype.hasOwnProperty.call(ROLE_LABELS, role)));
+        if (assignment?.department === "finance") setDisplayTitle(assignment.display_title ?? "قسم المالية");
+        if (assignment?.department === "operations") setDisplayTitle(assignment.display_title ?? "قسم التشغيل");
+        if (assignment?.department === "monitoring") setDisplayTitle(assignment.display_title ?? "قسم المراقبة");
       } catch {
         setAllowed(false);
       } finally {
