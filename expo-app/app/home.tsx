@@ -20,6 +20,7 @@ import { palette, radius, space } from "@/styles/theme";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { useThemePreference } from "@/lib/theme-preference";
+import { getServiceImage } from "@/lib/service-visuals";
 import Svg, { Circle, Path } from "react-native-svg";
 
 type IncomingRequest = {
@@ -512,7 +513,7 @@ function CustomerHome() {
               }}
             >
               {tile.key === "service" ? (
-                <HomeGlyph name="wrench" color="#FFFFFF" size={26} />
+                <Image source={getServiceImage("build")} style={{ width: 54, height: 42 }} resizeMode="contain" />
               ) : (
                 <Image source={{ uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 54, height: 42 }} resizeMode="contain" />
               )}
