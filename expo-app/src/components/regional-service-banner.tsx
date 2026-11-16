@@ -15,17 +15,17 @@ export function RegionalServiceBanner() {
     let active = true;
     const load = async () => {
       let key = await SecureStore.getItemAsync("mamnoon_governorate").catch(() => null);
-      if (!key) {
-        const permission = await Location.getForegroundPermissionsAsync().catch(() => null);
-        if (permission?.granted) {
-          const position = await Location.getLastKnownPositionAsync().catch(() => null);
-          if (position) {
-            const detected = await callMamnoonMapsApi<{ key: string }>({
-              action: "detectGovernorate",
-              center: { lat: position.coords.latitude, lng: position.coords.longitude },
-            }).catch(() => null);
-            key = detected?.key ?? null;
-            if (key) await SecureStore.setItemAsync("mamnoon_governorate", key).catch(() => {});
+      const permission = await Location.getForegroundPermissionsAsync().catch(() => null);
+      if (permission?.granted) {
+        const position = await Location.getLastKnownPositionAsync().catch(() => null);
+        if (position) {
+          const detected = await callMamnoonMapsApi<{ key: string }>({
+            action: "detectGovernorate",
+            center: { lat: position.coords.latitude, lng: position.coords.longitude },
+          }).catch(() => null);
+          if (detected?.key) {
+            key = detected.key;
+            await SecureStore.setItemAsync("mamnoon_governorate", key).catch(() => {});
           }
         }
       }
