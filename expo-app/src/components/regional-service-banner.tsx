@@ -95,5 +95,6 @@ const styles = StyleSheet.create({
   stampText: { color: "#E9C76A", fontSize: 9, fontWeight: "800" },
   marquee: { height: 34, justifyContent: "center", overflow: "hidden", marginTop: 5 },
   message: { color: "#F4E7C1", fontSize: 12, fontWeight: "800", textAlign: "right", alignSelf: "flex-start", flexShrink: 0 },
-  noticeImage: { width: "100%", height: 150, marginTop: 8, borderRadius: 10 },\n  closed: { color: "#FCA5A5", fontSize: 10, fontWeight: "800", textAlign: "right", marginTop: 6 },
+  noticeImage: { width: "100%", height: 150, marginTop: 8, borderRadius: 10 },
+  closed: { color: "#FCA5A5", fontSize: 10, fontWeight: "800", textAlign: "right", marginTop: 6 },
 });
