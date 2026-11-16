@@ -3,7 +3,7 @@ import { ShieldCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GOV_STORAGE_KEY } from "@/lib/governorates";
 
-type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; message_image_url?: string };
+type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; message_image_url?: string; rejection_message?: string };
 
 export function RegionalServiceBanner() {
   const [row, setRow] = useState<Row | null>(null);
@@ -44,7 +44,7 @@ export function RegionalServiceBanner() {
       if (!active || !key) return;
       const { data, error } = await (supabase as any)
         .from("regional_service_controls")
-        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,message_image_url")
+        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,message_image_url,rejection_message")
         .in("governorate_key", [key, "all"]);
       if (!active) return;
       if (error) { console.warn("[regional controls] load failed", error); return; }
@@ -77,7 +77,7 @@ export function RegionalServiceBanner() {
       <div className="relative mt-2 overflow-hidden whitespace-nowrap">
         <div className={row.message_animate ? "mamnoon-regional-marquee" : "text-xs leading-6 text-amber-100 whitespace-normal"}>{text}</div>
       </div>
-      {!row.services_enabled && <div className="mt-2 flex items-center gap-1 text-[10px] text-rose-300"><AlertTriangle className="h-3 w-3" /> إنشاء الطلبات متوقف حالياً في هذه المحافظة.</div>}
+      {!row.services_enabled && <div className="mt-3 rounded-xl border border-amber-500/35 bg-gradient-to-l from-[#211706] to-[#090909] p-3"><div className="flex items-center justify-between text-[10px] font-black text-amber-300"><span>رسالة رفض الطلب</span><span>✓ إدارة ممنون الموثّقة</span></div><p className="mt-2 text-sm font-black leading-7 text-amber-100">{row.rejection_message || "الخدمة متوقفة حالياً في منطقتك بقرار من إدارة ممنون."}</p><div className="mt-2 flex items-center gap-1 text-[10px] text-rose-300"><AlertTriangle className="h-3 w-3" /> إنشاء الطلبات متوقف حالياً في هذه المحافظة.</div></div>}
       <style>{`@keyframes mamnoon-regional-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } } .mamnoon-regional-marquee { display:inline-block; width:max-content; white-space:nowrap; font-size:12px; line-height:1.9; color:#f6d98a; will-change:transform; animation:mamnoon-regional-scroll 24s ease-in-out infinite alternate; }`}</style>
     </div>
   );
