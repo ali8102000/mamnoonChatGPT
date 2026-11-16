@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { router } from "expo-router";
 import {
@@ -6,19 +6,20 @@ import {
   KeyboardAvoidingView, Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { authProxy, supabase } from "@/lib/supabase";
 import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
-import { palette, radius, space } from "@/styles/theme";
+import { palette, space } from "@/styles/theme";
 
 type Mode = "signup" | "login";
-type LoginMethod = "phone" | "email";
 type AuthSessionTokens = Pick<Session, "access_token" | "refresh_token">;
+type AuthIconName = "user" | "phone" | "mail" | "lock";
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState<Mode>("login");
-  const [loginMethod, setLoginMethod] = useState<LoginMethod>("phone");
+  const [mode, setMode] = useState<Mode>("signup");
   const [identifier, setIdentifier] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -62,34 +63,42 @@ export default function AuthScreen() {
         router.replace("/select-role");
       } else {
         const id = identifier.trim();
-        if (!id) throw new Error(loginMethod === "phone" ? "أدخل رقم الهاتف" : "أدخل البريد الإلكتروني");
+        if (!id) throw new Error("أدخل رقم الهاتف أو البريد الإلكتروني");
+        const isEmail = id.includes("@");
         let payload: { phone: string; password: string } | { email: string; password: string };
-        if (loginMethod === "phone") {
-          if (!isValidPhone(id)) throw new Error("رقم الهاتف غير صالح");
-          payload = { phone: normalizePhone(id), password };
-        } else {
+        if (isEmail) {
           const normalizedEmail = id.toLowerCase();
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
             throw new Error("البريد الإلكتروني غير صالح");
           }
           payload = { email: normalizedEmail, password };
+        } else {
+          if (!isValidPhone(id)) throw new Error("رقم الهاتف غير صالح");
+          payload = { phone: normalizePhone(id), password };
         }
         const result = await authProxy<{ session: AuthSessionTokens | null }>("/login", payload);
         if (!result.session) throw new Error("تعذر إنشاء جلسة تسجيل الدخول");
-        const { error } = await supabase.auth.setSession(result.session);
+        const { data: sessionData, error } = await supabase.auth.setSession(result.session);
         if (error) throw error;
+        const userId = sessionData.session?.user.id;
+        const { data: roleRows } = userId
+          ? await supabase.from("user_roles").select("role").eq("user_id", userId)
+          : { data: [] as { role: string }[] };
         await refresh();
-        router.replace("/");
+        if (roleRows?.some((row) => row.role === "super_admin")) {
+          router.replace("/admin/bootstrap");
+        } else {
+          router.replace("/");
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "حدث خطأ";
       if (/Failed to fetch|NetworkError/i.test(msg)) {
         Alert.alert("الاتصال غير متاح", "تحقق من اتصال الإنترنت وحاول مرة ثانية.");
       } else if (/already registered|User already/i.test(msg)) {
-        Alert.alert("الحساب موجود", "هذا الحساب مسجّل مسبقاً. انتقل إلى تسجيل الدخول.");
+        Alert.alert("الحساب موجود", "هذا الحساب مسجّل مسبقاً. أدخل كلمة المرور لتسجيل الدخول.");
+        setIdentifier(phone || email);
         setMode("login");
-        setLoginMethod("phone");
-        setIdentifier(phone);
       } else if (/Invalid login|Invalid credentials/i.test(msg)) {
         Alert.alert("تعذر الدخول", "بيانات الدخول غير صحيحة.");
       } else {
@@ -113,99 +122,108 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <Pressable onPress={() => router.push("/welcome")} style={styles.welcomeLink}>
+            <Text style={styles.welcomeLinkText}>اللغة والترحيب</Text>
+          </Pressable>
+
           <View style={styles.brandTop}>
-            <View style={styles.brandMark}><Text style={styles.brandLetter}>م</Text></View>
+            <LinearGradient
+              colors={[palette.brand, palette.brandGlow]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.brandMark}
+            >
+              <Text style={styles.brandLetter}>م</Text>
+            </LinearGradient>
             <Text style={styles.brandName}>ممنون</Text>
-            <Text style={styles.brandCaption}>كل مشاويرك وخدمات بيتك بمكان واحد</Text>
-            <View style={styles.brandRule}><View style={styles.brandRuleGold} /></View>
+            <Text style={styles.brandCaption}>منصة النقل والخدمات الفاخرة</Text>
           </View>
 
-          <View style={styles.panel}>
-            <View style={styles.panelIntro}>
-              <Text style={styles.kicker}>{isSignup ? "ابدأ رحلتك ويانه" : "أهلاً بعودتك"}</Text>
-              <Text style={styles.title}>{isSignup ? "أنشئ حسابك" : "سجّل دخولك"}</Text>
-              <Text style={styles.subtitle}>
-                {isSignup ? "بيانات بسيطة وتكون جاهز تستخدم ممنون" : "ادخل لحسابك وتابع طلباتك بسهولة"}
-              </Text>
-            </View>
+          <View style={styles.modeSwitch}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSignup }}
+              onPress={() => setMode("signup")}
+              style={[styles.modeOption, isSignup && styles.modeOptionActive]}
+            >
+              <Text style={[styles.modeText, isSignup && styles.modeTextActive]}>حساب جديد</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: !isSignup }}
+              onPress={() => setMode("login")}
+              style={[styles.modeOption, !isSignup && styles.modeOptionActive]}
+            >
+              <Text style={[styles.modeText, !isSignup && styles.modeTextActive]}>تسجيل دخول</Text>
+            </Pressable>
+          </View>
 
-            <View style={styles.modeSwitch}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: !isSignup }}
-                onPress={() => setMode("login")}
-                style={[styles.modeOption, !isSignup && styles.modeOptionActive]}
-              >
-                <Text style={[styles.modeText, !isSignup && styles.modeTextActive]}>تسجيل الدخول</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSignup }}
-                onPress={() => setMode("signup")}
-                style={[styles.modeOption, isSignup && styles.modeOptionActive]}
-              >
-                <Text style={[styles.modeText, isSignup && styles.modeTextActive]}>حساب جديد</Text>
-              </Pressable>
-            </View>
-
-            {!isSignup && (
-              <View style={styles.methodBlock}>
-                <Text style={styles.fieldLabel}>طريقة تسجيل الدخول</Text>
-                <View style={styles.methodSwitch}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: loginMethod === "phone" }}
-                    onPress={() => { setLoginMethod("phone"); setIdentifier(""); }}
-                    style={[styles.methodOption, loginMethod === "phone" && styles.methodOptionActive]}
-                  >
-                    <Text style={[styles.methodText, loginMethod === "phone" && styles.methodTextActive]}>رقم الهاتف</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: loginMethod === "email" }}
-                    onPress={() => { setLoginMethod("email"); setIdentifier(""); }}
-                    style={[styles.methodOption, loginMethod === "email" && styles.methodOptionActive]}
-                  >
-                    <Text style={[styles.methodText, loginMethod === "email" && styles.methodTextActive]}>البريد الإلكتروني</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-
+          <View style={styles.form}>
             {isSignup ? (
               <>
-                <FieldLabel title="الاسم الكامل" />
-                <RealInput value={name} onChangeText={setName} placeholder="اكتب اسمك الثلاثي" autoCapitalize="words" textContentType="name" />
-                <FieldLabel title="رقم الهاتف" />
-                <RealInput value={phone} onChangeText={setPhone} placeholder="07XXXXXXXXX" keyboardType="phone-pad" textContentType="telephoneNumber" />
-                <FieldLabel title="البريد الإلكتروني" hint="اختياري" />
-                <RealInput value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" textContentType="emailAddress" />
+                <AuthField title="الاسم الكامل" icon="user">
+                  <RealInput
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="مثال: أحمد محمد"
+                    autoCapitalize="words"
+                    textContentType="name"
+                    maxLength={100}
+                    style={styles.inputRtl}
+                  />
+                </AuthField>
+                <AuthField title="رقم الهاتف" icon="phone">
+                  <RealInput
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="07XXXXXXXXX"
+                    keyboardType="phone-pad"
+                    textContentType="telephoneNumber"
+                    maxLength={30}
+                    style={styles.inputLtr}
+                  />
+                </AuthField>
+                <AuthField title="البريد الإلكتروني" hint="اختياري" icon="mail">
+                  <RealInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="you@example.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    textContentType="emailAddress"
+                    maxLength={255}
+                    style={styles.inputLtr}
+                  />
+                </AuthField>
               </>
             ) : (
-              <>
-                <FieldLabel title={loginMethod === "phone" ? "رقم الهاتف" : "البريد الإلكتروني"} />
+              <AuthField title="رقم الهاتف أو البريد" icon="phone">
                 <RealInput
                   value={identifier}
                   onChangeText={setIdentifier}
-                  placeholder={loginMethod === "phone" ? "07XXXXXXXXX" : "name@example.com"}
-                  keyboardType={loginMethod === "phone" ? "phone-pad" : "email-address"}
+                  placeholder="07XXXXXXXXX أو البريد"
+                  keyboardType="default"
                   autoCapitalize="none"
-                  textContentType={loginMethod === "phone" ? "telephoneNumber" : "emailAddress"}
+                  autoComplete="username"
+                  style={styles.inputLtr}
                 />
-              </>
+              </AuthField>
             )}
 
-            <FieldLabel title="كلمة المرور" />
-            <RealInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="ستة أحرف على الأقل"
-              secureTextEntry
-              autoCapitalize="none"
-              textContentType={isSignup ? "newPassword" : "password"}
-              returnKeyType="done"
-              onSubmitEditing={onSubmit}
-            />
+            <AuthField title="كلمة المرور" icon="lock">
+              <RealInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••"
+                secureTextEntry
+                autoCapitalize="none"
+                textContentType={isSignup ? "newPassword" : "password"}
+                returnKeyType="done"
+                onSubmitEditing={onSubmit}
+                maxLength={128}
+                style={styles.inputLtr}
+              />
+            </AuthField>
 
             {!isSignup && (
               <Pressable onPress={() => router.push("/forgot-password")} style={styles.forgotButton}>
@@ -214,25 +232,73 @@ export default function AuthScreen() {
             )}
 
             <Button
-              title={busy ? "جارٍ المتابعة..." : isSignup ? "إنشاء حسابي" : "الدخول إلى ممنون"}
+              title={busy ? "جارٍ المتابعة..." : isSignup ? "إنشاء الحساب" : "تسجيل الدخول"}
               onPress={onSubmit}
               loading={busy}
               style={styles.submit}
             />
-            <Text style={styles.terms}>بمتابعتك، أنت توافق على شروط الاستخدام وسياسة الخصوصية.</Text>
           </View>
-          <Text style={styles.footer}>ممنون — تجربة أسهل، وخدمة أقرب</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-function FieldLabel({ title, hint }: { title: string; hint?: string }) {
+function AuthField({
+  title,
+  hint,
+  icon,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  icon: AuthIconName;
+  children: ReactNode;
+}) {
   return (
-    <View style={styles.labelRow}>
-      <Text style={styles.fieldLabel}>{title}</Text>
-      {!!hint && <Text style={styles.fieldHint}>{hint}</Text>}
+    <View style={styles.field}>
+      <View style={styles.labelRow}>
+        <Text style={styles.fieldLabel}>{title}</Text>
+        {!!hint && <Text style={styles.fieldHint}>({hint})</Text>}
+      </View>
+      <View style={styles.inputWrap}>
+        {children}
+        <AuthFieldIcon name={icon} />
+      </View>
+    </View>
+  );
+}
+
+function AuthFieldIcon({ name }: { name: AuthIconName }) {
+  const common = {
+    stroke: palette.muted,
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    fill: "none" as const,
+  };
+  return (
+    <View pointerEvents="none" style={styles.inputIcon}>
+      <Svg width={20} height={20} viewBox="0 0 24 24">
+        {name === "user" ? (
+          <>
+            <Circle {...common} cx="12" cy="8" r="4" />
+            <Path {...common} d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+          </>
+        ) : name === "phone" ? (
+          <Path {...common} d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 2.7a2 2 0 0 1-.6 1.9L7.2 10a16 16 0 0 0 6.8 6.8l1.7-1.8a2 2 0 0 1 1.9-.6l2.7.5a2 2 0 0 1 1.7 2Z" />
+        ) : name === "mail" ? (
+          <>
+            <Rect {...common} x="3" y="5" width="18" height="14" rx="2" />
+            <Path {...common} d="m3 7 9 6 9-6" />
+          </>
+        ) : (
+          <>
+            <Rect {...common} x="4" y="10" width="16" height="11" rx="2" />
+            <Path {...common} d="M8 10V7a4 4 0 0 1 8 0v3" />
+          </>
+        )}
+      </Svg>
     </View>
   );
 }
@@ -240,42 +306,74 @@ function FieldLabel({ title, hint }: { title: string; hint?: string }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: palette.canvas },
   flex: { flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.xxl },
-  brandTop: { alignItems: "center", paddingTop: space.md, paddingBottom: space.xxl },
+  content: {
+    flexGrow: 1,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    paddingHorizontal: space.xl,
+    paddingTop: space.lg,
+    paddingBottom: space.xxl,
+  },
+  welcomeLink: { alignSelf: "flex-start", paddingVertical: 6, marginBottom: 12 },
+  welcomeLinkText: { color: palette.brand, fontSize: 12, fontWeight: "800" },
+  brandTop: { alignItems: "center", paddingBottom: 24 },
   brandMark: {
-    width: 68, height: 68, borderRadius: 22, backgroundColor: palette.brand,
-    alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: palette.gold,
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: palette.brand,
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
   },
   brandLetter: { color: palette.white, fontSize: 34, fontWeight: "900" },
-  brandName: { color: palette.ink, fontSize: 30, fontWeight: "900", marginTop: 10, letterSpacing: -0.5 },
-  brandCaption: { color: palette.muted, fontSize: 13, fontWeight: "600", marginTop: 4 },
-  brandRule: { height: 2, width: 58, backgroundColor: palette.line, marginTop: 16, borderRadius: 2 },
-  brandRuleGold: { width: 22, height: 2, backgroundColor: palette.gold, alignSelf: "center", borderRadius: 2 },
-  panel: {
-    backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.xl,
-    borderWidth: 1, borderColor: palette.line,
+  brandName: { color: palette.ink, fontSize: 36, fontWeight: "900", marginTop: 12, letterSpacing: -0.5 },
+  brandCaption: { color: palette.muted, fontSize: 13, fontWeight: "600", marginTop: 7 },
+  modeSwitch: {
+    flexDirection: "row",
+    backgroundColor: palette.surfaceSoft,
+    borderRadius: 12,
+    padding: 6,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: palette.line,
   },
-  panelIntro: { marginBottom: space.xl },
-  kicker: { color: palette.gold, fontSize: 11, fontWeight: "900", marginBottom: 7 },
-  title: { color: palette.ink, fontSize: 25, fontWeight: "900" },
-  subtitle: { color: palette.muted, fontSize: 13, lineHeight: 21, marginTop: 6 },
-  modeSwitch: { flexDirection: "row", backgroundColor: palette.surfaceSoft, borderRadius: radius.md, padding: 4, marginBottom: space.xl },
-  modeOption: { flex: 1, minHeight: 46, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
-  modeOptionActive: { backgroundColor: palette.brand },
-  modeText: { color: palette.muted, fontSize: 13, fontWeight: "800" },
+  modeOption: { flex: 1, minHeight: 48, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  modeOptionActive: { backgroundColor: palette.brand, elevation: 2 },
+  modeText: { color: palette.muted, fontSize: 14, fontWeight: "800" },
   modeTextActive: { color: palette.white },
-  methodBlock: { marginBottom: space.md },
-  methodSwitch: { flexDirection: "row", gap: 8, backgroundColor: palette.canvas, padding: 5, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line },
-  methodOption: { flex: 1, minHeight: 46, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
-  methodOptionActive: { backgroundColor: palette.goldSoft, borderWidth: 1, borderColor: "#E4D4AD" },
-  methodText: { color: palette.muted, fontSize: 12, fontWeight: "800" },
-  methodTextActive: { color: palette.brandDeep },
-  labelRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: space.md, marginBottom: space.sm },
-  fieldLabel: { color: palette.ink, fontSize: 13, fontWeight: "800" },
-  fieldHint: { color: palette.muted, fontSize: 11 },
-  forgotButton: { alignSelf: "flex-start", paddingVertical: space.md },
+  form: { flex: 1 },
+  field: { marginBottom: 20 },
+  labelRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
+  fieldLabel: { color: palette.ink, fontSize: 14, fontWeight: "800" },
+  fieldHint: { color: palette.muted, fontSize: 12 },
+  inputWrap: { position: "relative", justifyContent: "center" },
+  inputIcon: { position: "absolute", left: 14, top: 0, bottom: 0, justifyContent: "center" },
+  inputRtl: {
+    minHeight: 64,
+    borderRadius: 12,
+    paddingLeft: 46,
+    paddingRight: 16,
+    textAlign: "right",
+    fontSize: 16,
+    borderColor: palette.line,
+    backgroundColor: palette.surfaceSoft,
+  },
+  inputLtr: {
+    minHeight: 64,
+    borderRadius: 12,
+    paddingLeft: 46,
+    paddingRight: 16,
+    textAlign: "left",
+    fontSize: 16,
+    borderColor: palette.line,
+    backgroundColor: palette.surfaceSoft,
+  },
+  forgotButton: { alignSelf: "flex-start", paddingVertical: 8, marginTop: -8, marginBottom: 4 },
   forgotText: { color: palette.brand, fontSize: 12, fontWeight: "800" },
-  submit: { marginTop: space.xl },
-  terms: { color: palette.muted, fontSize: 10, lineHeight: 17, textAlign: "center", marginTop: space.lg },
-  footer: { textAlign: "center", color: palette.muted, fontSize: 11, fontWeight: "700", marginTop: space.xl },
+  submit: { width: "100%", minHeight: 56, borderRadius: 12, marginTop: 8 },
 });
