@@ -27,6 +27,7 @@ export function RegionalServiceBanner() {
             }).catch(() => null);
             const result = response?.ok ? await response.json().catch(() => null) : null;
             key = result?.key || "";
+            if (key) { try { localStorage.setItem(GOV_STORAGE_KEY, key); } catch {} }
           }
         }
       }
