@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { getGovernorate, governorateBounds, governorateOf, isInGovernorate } from "@/lib/governorates";
+import { GOVERNORATES, getGovernorate, governorateBounds, governorateOf, isInGovernorate } from "@/lib/governorates";
 import { parseDrivingRoute } from "@/lib/route-distance";
 
 const coords = z.object({
@@ -225,11 +225,12 @@ async function handleRequest(request: Request) {
   }
 
   if (data.action === "route") {
-    const [route, fromGovernorate, toGovernorate] = await Promise.all([
-      drivingRoute(data.from, data.to),
-      Promise.resolve(governorateOf(data.from)),
-      Promise.resolve(governorateOf(data.to)),
-    ]);
+    const fromGovernorate = GOVERNORATES.find((governorate) => isInGovernorate(data.from, governorate.key));
+    const toGovernorate = GOVERNORATES.find((governorate) => isInGovernorate(data.to, governorate.key));
+    if (!fromGovernorate || !toGovernorate) {
+      return json({ error: "يجب أن تكون نقطتا الانطلاق والوجهة داخل حدود العراق. اختر موقعاً داخل إحدى المحافظات." }, 400);
+    }
+    const route = await drivingRoute(data.from, data.to);
     return json({
       ...route,
       fromGovernorateKey: fromGovernorate.key,
