@@ -152,13 +152,8 @@ export default function NewRequest() {
     : null;
 
   function getCouponBaseAmount() {
-    if (isTaxi) {
-      if (isLargeVehicle) return customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;
-      return estimatedTaxiFare;
-    }
-    if (pricingMode === "negotiable") return null;
-    const amount = Number(customerPrice.replace(/[^0-9]/g, ""));
-    return Number.isFinite(amount) && amount > 0 ? amount : null;
+    if (!isTaxi || isLargeVehicle) return null;
+    return estimatedTaxiFare;
   }
 
   async function previewCoupon() {
@@ -561,7 +556,7 @@ export default function NewRequest() {
 
     setBusy(true);
     try {
-      if (couponCode.trim()) {
+      if (isTaxi && !isLargeVehicle && couponCode.trim()) {
         const amount = getCouponBaseAmount();
         if (!amount || amount <= 0) throw new Error("حدد سعر الطلب أولاً حتى نطبق الكوبون");
         const { data: couponData, error: couponCheckError } = await supabase.rpc("preview_my_coupon", {
@@ -579,7 +574,7 @@ export default function NewRequest() {
           .from("service_requests")
           .insert({
             customer_id: user.id,
-            coupon_code: couponCode.trim().toUpperCase() || null,
+            coupon_code: null,
             type: "taxi",
             status: "pending",
             vehicle_category: "large",
@@ -635,7 +630,7 @@ export default function NewRequest() {
           .from("service_requests")
           .insert({
             customer_id: user.id,
-            coupon_code: couponCode.trim().toUpperCase() || null,
+            coupon_code: null,
             type: "service",
             status: "pending",
             service_id: serviceRow.id,
@@ -889,6 +884,37 @@ export default function NewRequest() {
               )}
             </View>
           )}
+          {isTaxi && !isLargeVehicle && (
+                  <View style={{ marginTop: 18, marginBottom: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: "#F59E0B80", backgroundColor: palette.goldSoft }}>
+                    <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", marginBottom: 9 }}>🎁 عندك كوبون خصم؟</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <TextInput
+                        style={[styles.input, { flex: 1, marginTop: 0, marginBottom: 0 }]}
+                        value={couponCode}
+                        onChangeText={(value) => { setCouponCode(value.toUpperCase()); setCouponPreview(null); setCouponError(""); }}
+                        placeholder="اكتب رمز الكوبون"
+                        placeholderTextColor="#94a3b8"
+                        autoCapitalize="characters"
+                      />
+                      <TouchableOpacity
+                        disabled={couponLoading}
+                        onPress={previewCoupon}
+                        style={{ paddingHorizontal: 16, paddingVertical: 13, borderRadius: 12, backgroundColor: "#F59E0B", opacity: couponLoading ? 0.6 : 1 }}
+                      >
+                        {couponLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 13 }}>تحقق</Text>}
+                      </TouchableOpacity>
+                    </View>
+                    {!!couponError && <Text style={{ color: "#DC2626", fontSize: 12, fontWeight: "800", marginTop: 8 }}>{couponError}</Text>}
+                    {couponPreview && (
+                      <View style={{ marginTop: 10, padding: 11, borderRadius: 12, backgroundColor: palette.surface }}>
+                        <Text style={{ color: "#15803D", fontWeight: "900", marginBottom: 5 }}>تم التحقق من الكوبون</Text>
+                        <Text style={{ color: palette.ink, fontSize: 12, marginTop: 3 }}>قيمة الخصم: {couponPreview.discount.toLocaleString("ar-IQ")} د.ع</Text>
+                        <Text style={{ color: palette.ink, fontSize: 12, marginTop: 3 }}>المبلغ بعد الخصم: {couponPreview.payable.toLocaleString("ar-IQ")} د.ع</Text>
+                        <Text style={{ color: palette.muted, fontSize: 10, marginTop: 5 }}>الخصم تتحمله ممنون ولا يقلل مستحقات السائق.</Text>
+                      </View>
+                    )}
+                  </View>
+          )}
         </>
       ) : (
         <>
@@ -992,35 +1018,7 @@ export default function NewRequest() {
           )}
         </>
       )}
-      <View style={{ marginTop: 18, marginBottom: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: "#F59E0B80", backgroundColor: palette.goldSoft }}>
-        <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", marginBottom: 9 }}>🎁 عندك كوبون خصم؟</Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <TextInput
-            style={[styles.input, { flex: 1, marginTop: 0, marginBottom: 0 }]}
-            value={couponCode}
-            onChangeText={(value) => { setCouponCode(value.toUpperCase()); setCouponPreview(null); setCouponError(""); }}
-            placeholder="اكتب رمز الكوبون"
-            placeholderTextColor="#94a3b8"
-            autoCapitalize="characters"
-          />
-          <TouchableOpacity
-            disabled={couponLoading}
-            onPress={previewCoupon}
-            style={{ paddingHorizontal: 16, paddingVertical: 13, borderRadius: 12, backgroundColor: "#F59E0B", opacity: couponLoading ? 0.6 : 1 }}
-          >
-            {couponLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 13 }}>تحقق</Text>}
-          </TouchableOpacity>
-        </View>
-        {!!couponError && <Text style={{ color: "#DC2626", fontSize: 12, fontWeight: "800", marginTop: 8 }}>{couponError}</Text>}
-        {couponPreview && (
-          <View style={{ marginTop: 10, padding: 11, borderRadius: 12, backgroundColor: palette.surface }}>
-            <Text style={{ color: "#15803D", fontWeight: "900", marginBottom: 5 }}>تم التحقق من الكوبون</Text>
-            <Text style={{ color: palette.ink, fontSize: 12, marginTop: 3 }}>قيمة الخصم: {couponPreview.discount.toLocaleString("ar-IQ")} د.ع</Text>
-            <Text style={{ color: palette.ink, fontSize: 12, marginTop: 3 }}>المبلغ بعد الخصم: {couponPreview.payable.toLocaleString("ar-IQ")} د.ع</Text>
-            <Text style={{ color: palette.muted, fontSize: 10, marginTop: 5 }}>الخصم تتحمله ممنون ولا يقلل مستحقات السائق أو الفني.</Text>
-          </View>
-        )}
-      </View>
+
 
       {showRequestPhoto && (
         <View style={{ marginTop: 18, padding: 14, borderRadius: 16, borderWidth: 1, borderStyle: "dashed", borderColor: palette.gold, backgroundColor: palette.surface }}>

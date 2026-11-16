@@ -309,6 +309,20 @@
       "when": 1794814200000,
       "tag": "0072_fix_shared_provider_status_guard_row_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794814800000,
+      "tag": "0073_customer_taxi_only_coupons",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794815400000,
+      "tag": "0074_exclude_provider_roles_from_customer_coupons",
+      "breakpoints": true
     }
   ]
 }

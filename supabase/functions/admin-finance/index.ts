@@ -16,7 +16,7 @@ const required = (key: string) => {
 const uuid = (value: unknown): value is string =>
   typeof value === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-const targets = ["all", "customers", "drivers", "workers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"];
+const targets = ["customers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"];
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });

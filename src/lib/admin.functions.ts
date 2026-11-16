@@ -681,7 +681,7 @@ export const adminSaveCoupon = createServerFn({ method: "POST" })
 export const adminCouponAudienceCount = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
-    target: z.enum(["all", "customers", "drivers", "workers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"]),
+    target: z.enum(["customers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"]),
   }).parse(d))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
@@ -698,7 +698,7 @@ export const adminDistributeCoupon = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({
       coupon_id: z.string().uuid(),
-      target: z.enum(["all", "customers", "drivers", "workers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"]),
+      target: z.enum(["customers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"]),
       single_user_id: z.string().uuid().optional(),
     }).parse(d),
   )

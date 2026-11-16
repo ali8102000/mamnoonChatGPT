@@ -31,7 +31,7 @@ export default function AdminFinanceScreen() {
   const [value, setValue] = useState("");
   const [maxUses, setMaxUses] = useState("100");
   const [minAmount, setMinAmount] = useState("0");
-  const [target, setTarget] = useState("all");
+  const [target, setTarget] = useState("customers");
   const [busy, setBusy] = useState(false);
 
   const invoke = useCallback(async (body: Record<string, unknown>) => {
@@ -99,12 +99,9 @@ export default function AdminFinanceScreen() {
       max_uses: Number(maxUses), min_amount: Number(minAmount), active: true, expires_at: null }, "تم حفظ الكوبون.");
     setCode(""); setValue("");
   };
-  const distribute = (coupon: Coupon) => Alert.alert("توزيع الكوبون", "اختار الفئة المحددة لتوزيع الكوبون.", [
+  const distribute = (coupon: Coupon) => Alert.alert("توزيع الكوبون", "هذا الكوبون مخصص للزبائن فقط ويُستخدم لطلبات التكسي الاعتيادي.", [
     { text: "إلغاء", style: "cancel" },
-    { text: "كل المستخدمين", onPress: () => void run({ action: "distribute_coupon", coupon_id: coupon.id, target: "all" }, "تم إرسال الكوبون للمستهدفين.") },
-    { text: "الزبائن", onPress: () => void run({ action: "distribute_coupon", coupon_id: coupon.id, target: "customers" }, "تم إرسال الكوبون للزبائن.") },
-    { text: "السائقون", onPress: () => void run({ action: "distribute_coupon", coupon_id: coupon.id, target: "drivers" }, "تم إرسال الكوبون للسائقين.") },
-    { text: "الفنيون", onPress: () => void run({ action: "distribute_coupon", coupon_id: coupon.id, target: "workers" }, "تم إرسال الكوبون للفنيين.") },
+    { text: "توزيع على الزبائن", onPress: () => void run({ action: "distribute_coupon", coupon_id: coupon.id, target: "customers" }, "تم إرسال الكوبون للزبائن.") },
   ]);
 
   if (authLoading || loading) return <View style={s.center}><ActivityIndicator color={palette.brand} /><Text style={s.muted}>جاري تحميل الإدارة المالية...</Text></View>;
