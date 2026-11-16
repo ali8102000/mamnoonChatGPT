@@ -810,7 +810,7 @@ function RequestDetail() {
               <p className="mt-2 text-sm leading-7 text-muted-foreground">
                 {req.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار أول ما توصل." : "نبحث عن أقرب مزوّد متاح ومؤهل. أول شخص يقبل الطلب راح يتواصل وياك مباشرة."}
               </p>
-              {req.vehicle_category !== "large" && (
+              {(
                 (() => {
                   const start = Date.parse(req.searching_started_at || req.created_at || new Date().toISOString());
                   const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
@@ -824,7 +824,7 @@ function RequestDetail() {
                         <div className="text-[10px] font-bold text-muted-foreground">وقت البحث</div>
                       </div>
                     </div>
-                    <div className="text-xs font-bold text-muted-foreground">نجرب ثلاث نطاقات قريبة ثم نعيد المحاولة مرة ثانية</div>
+                    <div className="text-xs font-bold text-muted-foreground">{req.vehicle_category === "large" ? (remaining === 0 ? "انتهت جولات البحث، والعروض التي وصلت تبقى متاحة لاختيارك." : "نعرض الطلب على أصحاب السيارات ضمن ثلاثة نطاقات، ثم نعيد المحاولة مرة ثانية.") : "نجرب ثلاث نطاقات قريبة ثم نعيد المحاولة مرة ثانية"}</div>
                   </div>;
                 })()
               )}
