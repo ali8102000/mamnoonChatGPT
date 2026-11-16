@@ -745,6 +745,17 @@ function UserDetailModal({ user, onClose, onSave }: { user: any; onClose: () => 
             ✕
           </button>
         </div>
+        <div className="glass rounded-2xl p-3 mb-4 space-y-2">
+          <div className="font-black text-sm">تعديل بيانات المستخدم</div>
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={100} placeholder="اسم المستخدم" className="w-full glass rounded-xl px-3 py-2 text-sm" />
+          <select value={governorateKey} onChange={(e) => setGovernorateKey(e.target.value)} className="w-full glass rounded-xl px-3 py-2 text-sm">
+            <option value="">المحافظة غير محددة</option>
+            {Object.entries(GOVERNORATE_LABELS).filter(([key]) => key !== "unknown").map(([key,label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)} className="w-full text-xs" />
+          {avatarFile && <div className="text-[11px] text-muted-foreground">{avatarFile.name}</div>}
+          <button onClick={() => void saveProfile()} disabled={saving} className="w-full rounded-xl bg-primary text-primary-foreground py-2 text-sm font-bold disabled:opacity-50">{saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}</button>
+        </div>
         <div className="space-y-3 text-sm">
           <InfoRow label="الاسم" value={user.profile?.full_name} />
           <InfoRow label="الهاتف" value={user.profile?.phone} />
