@@ -85,7 +85,7 @@ if (!nativeProfileSource.includes("isGeneralManager") ||
     !nativeProfileSource.includes("مركز إدارة ممنون") ||
     !nativeProfileSource.includes("متابعة الشكاوى ومراسلات ممنون") ||
     !nativeProfileSource.includes('router.push("/support-chat"')) {
-  missing.push("General managers must have a visible profile entry to their read-only complaints inbox.");
+  missing.push("General managers must have a visible profile entry to their support inbox.");
 }
 
 if (!nativeProfileSource.includes("mamnoon-wallet-v1") ||
