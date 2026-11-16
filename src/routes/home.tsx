@@ -444,8 +444,6 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
         const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
         setRequests(mappedRequests);
-        const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
-        setRequests(mappedRequests);
         const popupKey = mappedRequests[0] ? `${mappedRequests[0].id}:${mappedRequests[0].my_offer?.sent_at ?? ""}` : null;
         if (mappedRequests.length && popupShownRef.current !== popupKey) {
           popupShownRef.current = popupKey;
