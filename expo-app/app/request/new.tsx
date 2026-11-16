@@ -440,7 +440,8 @@ export default function NewRequest() {
           !Number.isFinite(route.distanceKm) ||
           route.distanceKm <= 0 ||
           !Number.isFinite(route.durationMin) ||
-          route.durationMin < 0
+          route.durationMin < 0 ||
+          !Number.isFinite(route.priceEstimate)
         ) {
           throw new Error("تعذّر التحقق من مسافة الطريق. حرّك نقطة الوجهة أو أعد المحاولة.");
         }
@@ -463,7 +464,7 @@ export default function NewRequest() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, routeIsIntercity, routeRetry]);
+  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, routeRetry]);
 
   useEffect(() => {
     const query = placeQuery.trim();
