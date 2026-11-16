@@ -505,15 +505,16 @@ function CustomerHome() {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 16,
+                width: tile.key === "service" ? 68 : 48,
+                height: tile.key === "service" ? 68 : 48,
+                borderRadius: 18,
                 alignItems: "center",
                 justifyContent: "center",
+                overflow: "hidden",
               }}
             >
               {tile.key === "service" ? (
-                <Image source={getServiceImage("build")} style={{ width: 54, height: 42 }} resizeMode="contain" />
+                <Image source={getServiceImage("build")} style={{ width: 68, height: 68 }} resizeMode="cover" />
               ) : (
                 <Image source={{ uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 54, height: 42 }} resizeMode="contain" />
               )}
