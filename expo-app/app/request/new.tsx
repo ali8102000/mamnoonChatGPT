@@ -714,6 +714,8 @@ export default function NewRequest() {
 
     setBusy(true);
     try {
+      const effectivePickupGovernorateKey = pickupGovernorateKey || await resolveGovernorate(pickupCoords);
+      await SecureStore.setItemAsync("mamnoon_governorate", effectivePickupGovernorateKey).catch(() => {});
       if (isTaxi && !isLargeVehicle) {
         const freshRoute = await callMamnoonMapsApi<{ distanceKm: number; durationMin: number }>({
           action: "route",
@@ -775,6 +777,7 @@ export default function NewRequest() {
             status: "pending",
             vehicle_category: "large",
             vehicle_type: vehicleType,
+            governorate_key: effectivePickupGovernorateKey,
             pickup_text: pickup,
             pickup_lat: pickupCoords.latitude,
             pickup_lng: pickupCoords.longitude,
@@ -806,7 +809,7 @@ export default function NewRequest() {
           to: { lat: destinationCoords!.latitude, lng: destinationCoords!.longitude },
           pickupText: pickup,
           destinationText: destination,
-          pickupGovernorateKey: pickupGovernorateKey ?? undefined,
+          pickupGovernorateKey: effectivePickupGovernorateKey,
           destinationGovernorateKey: destinationGovernorateKey ?? undefined,
           vehicleCategory: vehicleCat,
           notes,
@@ -829,6 +832,7 @@ export default function NewRequest() {
             coupon_code: null,
             type: "service",
             status: "pending",
+            governorate_key: effectivePickupGovernorateKey,
             service_id: serviceRow.id,
             pickup_text: pickup,
             pickup_lat: pickupCoords.latitude,
