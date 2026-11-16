@@ -179,7 +179,7 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
+  container: { flex: 1, backgroundColor: palette.pageCanvas, paddingHorizontal: 20, paddingTop: 52 },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
   offlineNotice: { padding: 11, borderRadius: radius.md, backgroundColor: palette.goldSoft, borderWidth: 1, borderColor: palette.line, marginBottom: 14 },
   offlineNoticeText: { color: palette.ink, fontSize: 11, fontWeight: "700", textAlign: "right" },

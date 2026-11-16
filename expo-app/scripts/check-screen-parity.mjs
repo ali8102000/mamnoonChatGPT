@@ -113,7 +113,7 @@ for (const [selector, paletteName] of [[":root", "lightPalette"], [".dark", "dar
       "Android=" + palette[nativeKey] + " Web=" + expected);
   }
 }
-check("Android page canvas is transparent over shared gradient", nativeTheme.includes('canvas:"transparent"') && nativeLayout.includes("ApplicationBackdrop") && nativeLayout.includes("contentStyle: { backgroundColor: \"transparent\" }"));
+check("Android page canvas is transparent over shared gradient", nativeTheme.includes('pageCanvas:"transparent"') && nativeTheme.includes('canvas:"#F3F7FC"') && nativeLayout.includes("ApplicationBackdrop") && nativeLayout.includes("contentStyle: { backgroundColor: \"transparent\" }"));
 check("Web radial background gradient", css.includes("radial-gradient") && css.includes("--primary-glow"));
 
 const webButton = readWeb("src/components/ui/button.tsx");

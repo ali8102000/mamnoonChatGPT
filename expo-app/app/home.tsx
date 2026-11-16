@@ -669,7 +669,7 @@ function TabBtn({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas },
+  container: { flex: 1, backgroundColor: palette.pageCanvas },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14, zIndex: 30, elevation: 12 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8, zIndex: 40 },
   headerGreetingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },

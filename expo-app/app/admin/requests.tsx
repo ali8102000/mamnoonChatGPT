@@ -139,8 +139,8 @@ function Info({ label, value }: { label: string; value: unknown }) {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: palette.canvas }, content: { padding: space.lg, paddingBottom: 48, gap: 10 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.canvas, padding: 24, gap: 10 },
+  page: { flex: 1, backgroundColor: palette.pageCanvas }, content: { padding: space.lg, paddingBottom: 48, gap: 10 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.pageCanvas, padding: 24, gap: 10 },
   title: { color: palette.ink, fontSize: 21, fontWeight: "900", textAlign: "right" },
   name: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
   muted: { color: palette.muted, fontSize: 11, textAlign: "right", lineHeight: 19 },

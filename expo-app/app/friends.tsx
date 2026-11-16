@@ -228,7 +228,7 @@ export default function FriendsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
+  container: { flex: 1, backgroundColor: palette.pageCanvas, paddingHorizontal: 20, paddingTop: 52 },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
   sectionTitle: { fontSize: 16, fontWeight: "900", color: palette.brand, marginBottom: 12, marginTop: 20 },
   searchRow: { flexDirection: "row", gap: 8 },

@@ -64,7 +64,7 @@ export default function BootstrapScreen() {
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
-    backgroundColor: palette.canvas,
+    backgroundColor: palette.pageCanvas,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,

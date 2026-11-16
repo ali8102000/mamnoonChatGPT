@@ -228,8 +228,8 @@ export default function RequestChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: palette.canvas },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: palette.canvas, gap: 12 },
+  screen: { flex: 1, backgroundColor: palette.pageCanvas },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: palette.pageCanvas, gap: 12 },
   emptyTitle: { color: palette.ink, fontSize: 18, fontWeight: "900" },
   emptyText: { color: palette.muted, fontSize: 13, textAlign: "center" },
   backButton: { backgroundColor: palette.brand, paddingHorizontal: 24, paddingVertical: 12, borderRadius: radius.md, marginTop: 8 },

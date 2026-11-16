@@ -1666,8 +1666,8 @@ export default function NewRequest() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 18, paddingTop: 52 },
-  taxiScreen: { flex: 1, backgroundColor: palette.canvas },
+  container: { flex: 1, backgroundColor: palette.pageCanvas, paddingHorizontal: 18, paddingTop: 52 },
+  taxiScreen: { flex: 1, backgroundColor: palette.pageCanvas },
   governoratePickerButton: { minHeight: 52, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.md, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   governoratePickerLabel: { color: palette.muted, fontSize: 11, fontWeight: "800" },
   governoratePickerValue: { color: palette.ink, fontSize: 14, fontWeight: "900" },

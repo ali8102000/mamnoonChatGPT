@@ -93,9 +93,9 @@ export default function AdminStaffScreen() {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: palette.canvas },
+  page: { flex: 1, backgroundColor: palette.pageCanvas },
   content: { padding: space.lg, paddingBottom: 48, gap: 10 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.canvas, padding: 24, gap: 10 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.pageCanvas, padding: 24, gap: 10 },
   title: { color: palette.ink, fontSize: 22, fontWeight: "900", textAlign: "right" },
   muted: { color: palette.muted, fontSize: 12, textAlign: "right", lineHeight: 20 },
   roles: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginVertical: 4 },

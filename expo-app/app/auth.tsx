@@ -304,7 +304,7 @@ function AuthFieldIcon({ name }: { name: AuthIconName }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: palette.canvas },
+  safe: { flex: 1, backgroundColor: palette.pageCanvas },
   flex: { flex: 1 },
   content: {
     flexGrow: 1,

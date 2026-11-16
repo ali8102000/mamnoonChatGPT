@@ -528,8 +528,8 @@ export default function DriverOnboarding() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
-  statusContainer: { flex: 1, justifyContent: "center", padding: 24, gap: 18, backgroundColor: palette.canvas },
+  container: { flex: 1, backgroundColor: palette.pageCanvas, paddingHorizontal: 20, paddingTop: 52 },
+  statusContainer: { flex: 1, justifyContent: "center", padding: 24, gap: 18, backgroundColor: palette.pageCanvas },
   title: { fontSize: 26, fontWeight: "900", color: palette.ink, marginBottom: 12, textAlign: "right" },
   note: { color: palette.muted, fontSize: 13, lineHeight: 22, textAlign: "right" },
   rejection: { color: palette.danger, backgroundColor: palette.dangerSoft, padding: 13, borderRadius: radius.md, marginTop: 12, textAlign: "right", lineHeight: 22 },

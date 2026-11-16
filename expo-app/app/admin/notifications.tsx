@@ -95,9 +95,9 @@ export default function AdminNotificationsScreen() {
 }
 
 const s = StyleSheet.create({
-  page:{flex:1,backgroundColor:palette.canvas},
+  page:{flex:1,backgroundColor: palette.pageCanvas},
   content:{padding:space.lg,gap:10,paddingBottom:48},
-  center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor:palette.canvas,padding:24,gap:10},
+  center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor: palette.pageCanvas,padding:24,gap:10},
   title:{fontSize:21,fontWeight:"900",color:palette.ink,textAlign:"right"},
   muted:{fontSize:12,color:palette.muted,textAlign:"right",lineHeight:20},
   label:{fontSize:13,fontWeight:"900",color:palette.ink,textAlign:"right",marginTop:8},

@@ -97,7 +97,7 @@ export default function SelectRole() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: palette.canvas },
+  safe: { flex: 1, backgroundColor: palette.pageCanvas },
   container: { flexGrow: 1, paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.huge },
   brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: space.xxl },
   brandMark: { width: 36, height: 36, borderRadius: 12, backgroundColor: palette.brand, borderWidth: 1, borderColor: palette.gold, alignItems: "center", justifyContent: "center" },

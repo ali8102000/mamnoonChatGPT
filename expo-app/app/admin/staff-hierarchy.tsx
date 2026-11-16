@@ -120,7 +120,7 @@ export default function StaffHierarchyScreen() {
   </View>;
 }
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: palette.canvas },
+  page: { flex: 1, backgroundColor: palette.pageCanvas },
   content: { padding: space.lg, paddingBottom: 48, gap: 12 },
   title: { color: palette.ink, fontSize: 21, fontWeight: "900", textAlign: "right" },
   sectionTitle: { color: palette.ink, fontSize: 15, fontWeight: "900", textAlign: "right" },

@@ -157,9 +157,9 @@ export default function SubscriptionsScreen() {
 }
 
 const styles=StyleSheet.create({
- page:{flex:1,backgroundColor:palette.canvas},
+ page:{flex:1,backgroundColor: palette.pageCanvas},
  content:{padding:space.xl,gap:14,paddingBottom:42},
- center:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:palette.canvas,padding:24},
+ center:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor: palette.pageCanvas,padding:24},
  header:{backgroundColor:palette.brand,borderRadius:radius.xl,padding:20,gap:7,borderWidth:1,borderColor:palette.gold},
  title:{fontSize:22,fontWeight:"900",color:palette.white,textAlign:"right"},
  subtitle:{fontSize:12,color:"rgba(255,255,255,0.75)",textAlign:"right"},

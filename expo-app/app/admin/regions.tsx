@@ -162,8 +162,8 @@ export default function AdminRegionalControlsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: palette.canvas, padding: 24 },
+  container: { flex: 1, backgroundColor: palette.pageCanvas },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: palette.pageCanvas, padding: 24 },
   title: { color: palette.ink, fontSize: 20, fontWeight: "900", textAlign: "right", marginBottom: 8 },
   muted: { color: palette.muted, fontSize: 12, textAlign: "right", lineHeight: 20, marginBottom: 12 },
   row: { flexDirection: "row", gap: 8, marginVertical: 12 },
