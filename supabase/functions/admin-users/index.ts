@@ -521,7 +521,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "chats") {
-      requireRoles(["super_admin", "admin", "support", "moderator", "rank:general_manager"]);
+      requireRoles(["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager"]);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       const { data: chats, error } = await admin.from("chats")
         .select("*, participant1:profiles!chats_customer_id_fkey(full_name,phone), participant2:profiles!chats_provider_id_fkey(full_name,phone)")
