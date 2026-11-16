@@ -202,6 +202,45 @@ export default function RequestDetail() {
   const currentProviderId = request?.provider_id;
   const currentCustomerId = request?.customer_id;
 
+  const openTaxiNavigation = useCallback((app: "google" | "waze" | "darbuna") => {
+    if (!request || request.type !== "taxi" || request.pickup_lat == null || request.pickup_lng == null) {
+      Alert.alert("الملاحة", "إحداثيات موقع الزبون غير متوفرة لهذا الطلب.");
+      return;
+    }
+    const latitude = Number(request.pickup_lat);
+    const longitude = Number(request.pickup_lng);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      Alert.alert("الملاحة", "إحداثيات موقع الزبون غير صحيحة.");
+      return;
+    }
+
+    const destination = `${latitude},${longitude}`;
+    const url = app === "google"
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate`
+      : app === "waze"
+        ? `https://waze.com/ul?ll=${encodeURIComponent(destination)}&navigate=yes`
+        : `geo:${destination}?q=${encodeURIComponent(destination)}`;
+
+    void Linking.openURL(url).catch((error) => {
+      console.warn("[taxi navigation] unable to open navigation app:", error);
+      Alert.alert(
+        "تعذر فتح الملاحة",
+        app === "darbuna"
+          ? "تعذر فتح تطبيق دربونة عبر رابط الخرائط في هذا الجهاز. تأكد من تثبيت دربونة، أو اختره من التطبيقات التي تظهر عند فتح الموقع."
+          : "تعذر فتح تطبيق الملاحة. تأكد من اتصال الجهاز وحاول مرة أخرى.",
+      );
+    });
+  }, [request?.type, request?.pickup_lat, request?.pickup_lng]);
+
+  const showTaxiNavigationOptions = useCallback(() => {
+    Alert.alert("اذهب إلى الزبون", "اختَر تطبيق الملاحة", [
+      { text: "Google Maps", onPress: () => openTaxiNavigation("google") },
+      { text: "Waze", onPress: () => openTaxiNavigation("waze") },
+      { text: "دربونة", onPress: () => openTaxiNavigation("darbuna") },
+      { text: "إلغاء", style: "cancel" },
+    ]);
+  }, [openTaxiNavigation]);
+
   useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);
   useEffect(() => {
     const timer = setInterval(() => setFreshnessClock(Date.now()), 5000);
@@ -906,6 +945,12 @@ export default function RequestDetail() {
               {request.type !== "taxi" && <Text style={styles.trackingHint}>{otherLocation ? "يتم استقبال موقع الطرف الآخر" : "بانتظار مشاركة موقع الطرف الآخر"}</Text>}
             </View>
           )}
+        {request.type === "taxi" && request.status === "accepted" && isProvider && (
+          <TouchableOpacity style={styles.navigationButton} onPress={showTaxiNavigationOptions}>
+            <Text style={styles.navigationButtonText}>🧭 اذهب إلى الزبون</Text>
+            <Text style={styles.navigationButtonHint}>افتح الوجهة في تطبيق الملاحة الذي تختاره</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.actionsRow}>
           {request.type === "taxi" &&
             request.vehicle_category !== "large" &&
@@ -1064,6 +1109,9 @@ const styles = StyleSheet.create({
   infoPrice: { fontSize: 18, fontWeight: "900", color: palette.brand, marginTop: 8 },
   actionsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   actionBtn: { flex: 1, backgroundColor: palette.brand, borderRadius: radius.md, paddingVertical: 13, alignItems: "center" },
+  navigationButton: { marginHorizontal: 16, marginBottom: 10, paddingVertical: 13, paddingHorizontal: 15, borderRadius: radius.md, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand, alignItems: "center" },
+  navigationButtonText: { color: palette.brand, fontSize: 14, fontWeight: "900" },
+  navigationButtonHint: { color: palette.muted, fontSize: 10, marginTop: 3 },
   actionBtnText: { color: palette.white, fontSize: 14, fontWeight: "900" },
   reportCard: { marginHorizontal: 16, marginBottom: 12, padding: 14, borderRadius: radius.lg, borderWidth: 1, borderColor: "#D6A936", backgroundColor: palette.surface },
   reportButton: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
