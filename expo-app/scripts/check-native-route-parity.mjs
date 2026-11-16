@@ -172,6 +172,30 @@ if (!supabaseTypes.includes("sound_enabled: boolean")) {
   missing.push("Generated Supabase types must include user_push_tokens.sound_enabled.");
 }
 
+
+const webStylesSource = await readSource("../src/styles.css");
+const nativeRootLayoutSource = await readSource("app/_layout.tsx");
+const nativeTypographySource = await readSource("src/styles/theme.ts");
+if (!webStylesSource.includes('--font-sans: "Tajawal"') ||
+    !webStylesSource.includes("font-family: var(--font-sans)") ||
+    !webStylesSource.includes("font-size: 112.5%")) {
+  missing.push("Web typography source must retain the Tajawal font and its 112.5% root text scale.");
+}
+for (const fontWeight of ["Tajawal_400Regular", "Tajawal_500Medium", "Tajawal_700Bold", "Tajawal_800ExtraBold", "Tajawal_900Black"]) {
+  if (!nativeRootLayoutSource.includes(fontWeight)) {
+    missing.push(`Android must load the matching Tajawal font weight: ${fontWeight}.`);
+  }
+}
+if (!nativeRootLayoutSource.includes('fontFamily: "Tajawal_400Regular"') ||
+    !nativeRootLayoutSource.includes("TextInput")) {
+  missing.push("Android Text and TextInput must inherit the Tajawal base font.");
+}
+for (const token of ["hero:32", "title:25", "heading:18", "body:15", "caption:12", "micro:10"]) {
+  if (!nativeTypographySource.includes(token)) {
+    missing.push(`Android typography scale token is missing or changed: ${token}.`);
+  }
+}
+
 if (missing.length) {
   console.error("Mamnoon native/web route parity check failed:");
   for (const item of missing) console.error(` - ${item}`);
