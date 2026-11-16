@@ -1024,6 +1024,7 @@ function ProvidersSection() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [changeRequests, setChangeRequests] = useState<any[]>([]);
   const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([]);
+  const [expandedProviderId, setExpandedProviderId] = useState<string | null>(null);
   const [bulkProviderBusy, setBulkProviderBusy] = useState(false);
   const [changeRequestsLoading, setChangeRequestsLoading] = useState(true);
   const [rejectingChangeRequest, setRejectingChangeRequest] = useState<any | null>(null);
@@ -1240,6 +1241,10 @@ function ProvidersSection() {
                   <span className="text-[10px] text-muted-foreground">{p.suspended_until ? `ينتهي التعليق: ${new Date(p.suspended_until).toLocaleString("ar-IQ")}` : p.status === "suspended" ? "تعليق دائم" : p.available ? "متاح للعمل" : "غير متاح للعمل"}</span>
                 </div>
               </div>
+              <button type="button" onClick={() => setExpandedProviderId(current => current === p.user_id ? null : p.user_id)} className="w-full rounded-xl bg-surface-2 py-2 text-[11px] font-black text-primary">
+                {expandedProviderId === p.user_id ? "إخفاء التفاصيل" : "عرض التفاصيل والمستمسكات"}
+              </button>
+              {expandedProviderId === p.user_id && <>
               {type !== "worker" && p.vehicle_make && (
                 <div className="text-[10px] text-muted-foreground mb-2">
                   {p.vehicle_make} {p.vehicle_model} · {p.vehicle_plate} · {({economy:"اقتصادي",premium:"متميز",luxury:"فاخر",large:"سيارات كبيرة"} as any)[p.vehicle_category] ?? "غير محدد"}
@@ -1298,6 +1303,7 @@ function ProvidersSection() {
                   </button>
                 )}
               </div>
+              </>}
             </div>
           ))}
         </div>
