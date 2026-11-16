@@ -12,8 +12,9 @@ import {
   Image,
   BackHandler,
   PanResponder,
+  useWindowDimensions,
 } from "react-native";
-import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
@@ -34,9 +35,9 @@ type CatalogService = { id: string; slug: string; name_ar: string };
 
 
 const VEHICLE_CATS: { key: VehicleCategory; label: string; emoji: string }[] = [
-  { key: "economy", label: "اقتصادية", emoji: "🚗" },
-  { key: "premium", label: "فاخرة", emoji: "🚙" },
-  { key: "luxury", label: "VIP", emoji: "🚘" },
+  { key: "economy", label: "ممنون اقتصادي", emoji: "🚗" },
+  { key: "premium", label: "ممنون المتميز", emoji: "🚙" },
+  { key: "luxury", label: "ممنون فاخر", emoji: "🏎️" },
   { key: "large", label: "سيارة كبيرة", emoji: "🚚" },
 ];
 
@@ -58,45 +59,38 @@ function formatAddress(parts: Location.LocationGeocodedAddress[] | null | undefi
     .join("، ");
 }
 
+async function resolveGovernorate(coords: Coordinates): Promise<string> {
+  const detected = await callMamnoonMapsApi<{ key: string }>({
+    action: "detectGovernorate",
+    center: { lat: coords.latitude, lng: coords.longitude },
+  });
+  if (!detected.key) throw new Error("تعذّر تحديد المحافظة.");
+  const validation = await callMamnoonMapsApi<{ valid: boolean }>({
+    action: "validateGovernorate",
+    center: { lat: coords.latitude, lng: coords.longitude },
+    governorateKey: detected.key,
+  });
+  if (!validation.valid) throw new Error("الموقع المحدد خارج حدود المحافظات العراقية.");
+  return detected.key;
+}
+
 async function resolveRouteGovernorates(from: Coordinates, to: Coordinates) {
-  const [fromGovernorate, toGovernorate] = await Promise.all([
-    callMamnoonMapsApi<{ key: string }>({
-      action: "detectGovernorate",
-      center: { lat: from.latitude, lng: from.longitude },
-    }),
-    callMamnoonMapsApi<{ key: string }>({
-      action: "detectGovernorate",
-      center: { lat: to.latitude, lng: to.longitude },
-    }),
+  const [fromGovernorateKey, toGovernorateKey] = await Promise.all([
+    resolveGovernorate(from),
+    resolveGovernorate(to),
   ]);
-  if (!fromGovernorate.key || !toGovernorate.key) {
-    throw new Error("تعذّر تحديد محافظتي الرحلة.");
-  }
-  const [fromValidation, toValidation] = await Promise.all([
-    callMamnoonMapsApi<{ valid: boolean }>({
-      action: "validateGovernorate",
-      center: { lat: from.latitude, lng: from.longitude },
-      governorateKey: fromGovernorate.key,
-    }),
-    callMamnoonMapsApi<{ valid: boolean }>({
-      action: "validateGovernorate",
-      center: { lat: to.latitude, lng: to.longitude },
-      governorateKey: toGovernorate.key,
-    }),
-  ]);
-  if (!fromValidation.valid || !toValidation.valid) {
-    throw new Error("يجب أن تكون نقطتا الانطلاق والوجهة داخل حدود العراق.");
-  }
   return {
-    fromGovernorateKey: fromGovernorate.key,
-    toGovernorateKey: toGovernorate.key,
-    isIntercity: fromGovernorate.key !== toGovernorate.key,
+    fromGovernorateKey,
+    toGovernorateKey,
+    isIntercity: fromGovernorateKey !== toGovernorateKey,
   };
 }
 
 export default function NewRequest() {
   const { type, vehicle } = useLocalSearchParams<{ type: string; vehicle?: string }>();
   const { user } = useAuth();
+  const window = useWindowDimensions();
+  const [taxiSheetHeight, setTaxiSheetHeight] = useState(320);
   const [selectedService, setSelectedService] = useState(type || "taxi");
   const [serviceCatalog, setServiceCatalog] = useState<CatalogService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
@@ -106,11 +100,13 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
+  const [destinationConfirmed, setDestinationConfirmed] = useState(false);
   const [pickupGovernorateKey, setPickupGovernorateKey] = useState<string | null>(null);
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
   const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
   const [region, setRegion] = useState(IRAQ_REGION);
+  const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
@@ -134,6 +130,7 @@ export default function NewRequest() {
   const [routeIsIntercity, setRouteIsIntercity] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeRetry, setRouteRetry] = useState(0);
   const [tripOptionsExpanded, setTripOptionsExpanded] = useState(false);
   const [tripType, setTripType] = useState<"one_way" | "round_trip" | "second_trip" | "stop">("one_way");
   const [extraMinutes, setExtraMinutes] = useState(0);
@@ -169,6 +166,7 @@ export default function NewRequest() {
         setMapMode("pickup");
         setDestinationCoords(null);
         setDestination("");
+        setDestinationConfirmed(false);
         setRouteKm(null);
         setRouteDurationMin(null);
         setRouteError(null);
@@ -325,6 +323,36 @@ export default function NewRequest() {
   }, []);
 
   useEffect(() => {
+    if (!pickupCoords || !isTaxi) {
+      setNearbyDrivers([]);
+      return;
+    }
+    let active = true;
+    const loadNearbyDrivers = async () => {
+      const { data, error } = await (supabase as any).rpc("find_nearby_provider_pins", {
+        _lat: pickupCoords.latitude,
+        _lng: pickupCoords.longitude,
+        _type: "taxi",
+        _category: isLargeVehicle ? "large" : vehicleCat,
+        _service_id: null,
+        _radius_km: isLargeVehicle ? 25 : 5,
+        _limit: 30,
+      });
+      if (!active || error) return;
+      setNearbyDrivers((data ?? []).filter((item: any) =>
+        typeof item?.lat === "number" && typeof item?.lng === "number" &&
+        Number.isFinite(item.lat) && Number.isFinite(item.lng)
+      ));
+    };
+    void loadNearbyDrivers();
+    const timer = setInterval(() => void loadNearbyDrivers(), 15000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [pickupCoords?.latitude, pickupCoords?.longitude, isTaxi, isLargeVehicle, vehicleCat]);
+
+  useEffect(() => {
     if (!pickupCoords || !destinationCoords || !isTaxi || isLargeVehicle) {
       setRouteKm(null);
       setRouteDurationMin(null);
@@ -376,7 +404,7 @@ export default function NewRequest() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat]);
+  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat, routeRetry]);
 
   useEffect(() => {
     const query = placeQuery.trim();
@@ -430,6 +458,8 @@ export default function NewRequest() {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       };
+      setDestinationConfirmed(false);
+      setMapMode("pickup");
       setPickupCoords(coords);
       setPickupGovernorateKey(nearestGovernorateKey(coords));
       void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
@@ -439,6 +469,7 @@ export default function NewRequest() {
       const address = formatAddress(await Location.reverseGeocodeAsync(coords));
       setPickup(address || "موقع محدد على الخريطة");
       setMapMode("pickup");
+      setDestinationConfirmed(false);
       setPlaceQuery("");
       setPlaceSuggestions([]);
     } catch {
@@ -468,6 +499,7 @@ export default function NewRequest() {
         }
       }
       const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
+      setDestinationConfirmed(false);
       if (mapMode === "pickup") {
         setPickupCoords(coords);
         setPickup(address || "موقع محدد على الخريطة");
@@ -481,6 +513,7 @@ export default function NewRequest() {
   function chooseGovernorate(key: string) {
     const governorate = getMobileGovernorate(key);
     if (!governorate) return;
+    setDestinationConfirmed(false);
     if (mapMode === "pickup") setPickupGovernorateKey(key);
     else setDestinationGovernorateKey(key);
     setPlaceQuery("");
@@ -555,6 +588,7 @@ export default function NewRequest() {
     }
     const coords = { latitude: item.coords.lat, longitude: item.coords.lng };
     const label = item.address || item.text;
+    setDestinationConfirmed(false);
     if (mapMode === "pickup") {
       setPickupCoords(coords);
       setPickup(label);
@@ -567,6 +601,43 @@ export default function NewRequest() {
     setPlaceSuggestions([]);
   }
 
+  async function confirmPickupStep() {
+    if (!pickupCoords) {
+      Alert.alert("حدد موقع الانطلاق", "حرّك الخريطة إلى موقعك أو استخدم البحث عن مكان.");
+      return;
+    }
+    try {
+      const governorateKey = await resolveGovernorate(pickupCoords);
+      setPickupGovernorateKey(governorateKey);
+      if (isLargeVehicle) {
+        setDestinationConfirmed(true);
+        return;
+      }
+      setMapMode("destination");
+      setDestinationConfirmed(false);
+      setDestinationCoords(null);
+      setDestination("");
+      setDestinationGovernorateKey(null);
+      setRouteKm(null);
+      setRouteDurationMin(null);
+      setRouteError(null);
+    } catch (error) {
+      Alert.alert("الموقع غير صالح", error instanceof Error ? error.message : "اختر موقعاً داخل العراق.");
+    }
+  }
+
+  function confirmDestinationStep() {
+    if (!destinationCoords) {
+      Alert.alert("حدد الوجهة", "حرّك الخريطة إلى مكان الوصول أو ابحث عن الوجهة.");
+      return;
+    }
+    if (routeLoading || routeKm === null || routeError || !pickupGovernorateKey || !destinationGovernorateKey) {
+      Alert.alert("انتظر تأكيد الطريق", routeError || "نحسب مسافة الطريق ونحدد المحافظتين بدقة.");
+      return;
+    }
+    setDestinationConfirmed(true);
+  }
+
   async function submit() {
     if (!user) {
       Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول قبل إرسال الطلب.");
@@ -574,6 +645,14 @@ export default function NewRequest() {
     }
     if (!pickupCoords) {
       Alert.alert("حدد موقع الانطلاق", "اختر موقعك من الخريطة أو استخدم تحديد موقعي.");
+      return;
+    }
+    if (isTaxi && isLargeVehicle && !destinationConfirmed) {
+      Alert.alert("أكد موقع الانطلاق", "اضغط تأكيد الانطلاق قبل إرسال طلب السيارة الكبيرة.");
+      return;
+    }
+    if (isTaxi && !isLargeVehicle && !destinationConfirmed) {
+      Alert.alert("أكد الوجهة", "اضغط تأكيد الوجهة بعد اكتمال حساب المسافة والسعر.");
       return;
     }
     if (isTaxi && !isLargeVehicle && !destinationCoords) {
@@ -760,6 +839,378 @@ export default function NewRequest() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (isTaxi) {
+    return (
+      <View style={styles.taxiScreen}>
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFillObject}
+          provider={PROVIDER_GOOGLE}
+          initialRegion={region}
+          mapPadding={{ top: 92, right: 0, bottom: taxiSheetHeight, left: 0 }}
+          onPanDrag={() => { userPannedMapRef.current = true; }}
+          onRegionChangeComplete={handleRegionChangeComplete}
+          showsUserLocation
+          showsMyLocationButton={false}
+          loadingEnabled
+        >
+          {mapMode === "destination" && pickupCoords && (
+            <Marker
+              coordinate={pickupCoords}
+              title="نقطة الانطلاق"
+              pinColor="#0284c7"
+            />
+          )}
+          {mapMode === "pickup" && nearbyDrivers.map((driver) => (
+            <Marker
+              key={driver.pin_id}
+              coordinate={{ latitude: driver.lat, longitude: driver.lng }}
+              title="سيارة قريبة"
+              anchor={{ x: 0.5, y: 0.5 }}
+              flat
+              rotation={Number.isFinite(driver.heading) ? Number(driver.heading) : 0}
+            >
+              <View style={styles.taxiNearbyMarker}><Text style={styles.taxiNearbyMarkerText}>🚕</Text></View>
+            </Marker>
+          ))}
+        </MapView>
+        <View pointerEvents="none" style={[styles.taxiCenterPin, { top: 92 + Math.max(0, window.height - 92 - taxiSheetHeight) / 2 - 36 }]}>
+          <Text style={styles.taxiCenterPinText}>{mapMode === "pickup" ? "📍" : "📌"}</Text>
+        </View>
+
+        <View style={styles.taxiTopBar}>
+          <TouchableOpacity
+            style={styles.taxiBackButton}
+            onPress={() => {
+              if (mapMode === "destination") {
+                setMapMode("pickup");
+                setDestinationConfirmed(false);
+              } else {
+                router.back();
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="رجوع"
+          >
+            <Text style={styles.taxiBackText}>‹</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.taxiGovernorateBadge} onPress={() => { setMapMode("pickup"); setDestinationConfirmed(false); }}>
+            <Text style={styles.taxiGovernorateText}>📍 {activeGovernorate?.name ?? "اختر المحافظة"}</Text>
+          </TouchableOpacity>
+          <View style={styles.taxiStepTabs}>
+            <TouchableOpacity
+              style={[styles.taxiStepTab, mapMode === "pickup" && styles.taxiStepTabPickup]}
+              onPress={() => { setMapMode("pickup"); setDestinationConfirmed(false); }}
+            >
+              <Text style={[styles.taxiStepText, mapMode === "pickup" && styles.taxiStepTextActive]}>١. الانطلاق {pickupCoords ? "✓" : ""}</Text>
+            </TouchableOpacity>
+            {!isLargeVehicle && (
+              <TouchableOpacity
+                style={[styles.taxiStepTab, mapMode === "destination" && styles.taxiStepTabDestination]}
+                onPress={() => {
+                  if (!pickupCoords) {
+                    Alert.alert("حدد الانطلاق أولاً", "اختَر موقع الانطلاق قبل تحديد الوجهة.");
+                    return;
+                  }
+                  setMapMode("destination");
+                  setDestinationConfirmed(false);
+                }}
+              >
+                <Text style={[styles.taxiStepText, mapMode === "destination" && styles.taxiStepTextActive]}>٢. الوجهة {destinationCoords ? "✓" : ""}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.taxiBottomSheet} onLayout={(event) => setTaxiSheetHeight(event.nativeEvent.layout.height)}>
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.taxiSheetContent}>
+            {!destinationConfirmed ? (
+              <>
+                <Text style={styles.taxiSheetTitle}>{mapMode === "pickup" ? "حدد موقع الانطلاق" : "حدد وجهة الوصول"}</Text>
+                <Text style={styles.taxiSelectedAddress} numberOfLines={2}>
+                  {mapMode === "pickup"
+                    ? pickup || "حرّك الخريطة حتى تصبح نقطة الانطلاق تحت الدبوس"
+                    : destination || "حرّك الخريطة حتى تصبح وجهتك تحت الدبوس"}
+                </Text>
+
+                <View style={styles.taxiSearchRow}>
+                  <TouchableOpacity
+                    style={styles.taxiLocateButton}
+                    onPress={mapMode === "pickup" ? locateMe : () => {
+                      if (!pickupCoords) {
+                        Alert.alert("حدد الانطلاق أولاً", "حدد موقع الانطلاق أولاً.");
+                        return;
+                      }
+                      const center = destinationCoords ?? pickupCoords;
+                      moveMap({ ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+                    }}
+                    disabled={locationLoading && mapMode === "pickup"}
+                  >
+                    {locationLoading && mapMode === "pickup"
+                      ? <ActivityIndicator color={palette.white} size="small" />
+                      : <Text style={styles.taxiLocateText}>{mapMode === "pickup" ? "موقعي" : "مركز الخريطة"}</Text>}
+                  </TouchableOpacity>
+                  <TextInput
+                    style={styles.taxiSearchInput}
+                    value={placeQuery}
+                    onChangeText={setPlaceQuery}
+                    placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"}
+                    placeholderTextColor={palette.muted}
+                    editable={!!activeGovernorateKey}
+                    returnKeyType="search"
+                  />
+                </View>
+                {searchingPlaces && <ActivityIndicator style={{ marginTop: 8 }} color={palette.brand} />}
+                {!!placeSearchError && <Text style={styles.taxiErrorText}>{placeSearchError}</Text>}
+                {placeSuggestions.length > 0 && (
+                  <View style={styles.taxiSuggestionList}>
+                    {placeSuggestions.map((item) => (
+                      <TouchableOpacity key={item.id} style={styles.taxiSuggestionItem} onPress={() => choosePlaceSuggestion(item)}>
+                        <Text style={styles.taxiSuggestionTitle}>{item.text}</Text>
+                        {!!item.address && item.address !== item.text && <Text style={styles.taxiSuggestionAddress}>{item.address}</Text>}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                <Text style={styles.taxiFieldLabel}>المحافظة</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.taxiGovernorateRow}>
+                  {IRAQ_GOVERNORATES.map((governorate) => (
+                    <TouchableOpacity
+                      key={governorate.key}
+                      style={[styles.taxiGovernorateChip, activeGovernorateKey === governorate.key && styles.taxiGovernorateChipActive]}
+                      onPress={() => chooseGovernorate(governorate.key)}
+                    >
+                      <Text style={[styles.taxiGovernorateChipText, activeGovernorateKey === governorate.key && styles.taxiGovernorateChipTextActive]}>
+                        {activeGovernorateKey === governorate.key ? "✓ " : ""}{governorate.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {isLargeVehicle && mapMode === "pickup" && (
+                  <View style={styles.taxiLargeTypePanel}>
+                    <Text style={styles.taxiFieldLabel}>اختر نوع السيارة الكبيرة</Text>
+                    <View style={styles.taxiLargeTypeRow}>
+                      {([
+                        { key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" },
+                        { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" },
+                        { key: "bus", label: "باص" },
+                      ] as const).map((item) => (
+                        <TouchableOpacity key={item.key} style={[styles.taxiLargeTypeCard, vehicleType === item.key && styles.taxiLargeTypeCardActive]} onPress={() => setVehicleType(item.key)}>
+                          {"image" in item ? <Image source={{ uri: item.image }} style={styles.taxiLargeTypeImage} resizeMode="contain" /> : <Text style={styles.taxiLargeBus}>🚌</Text>}
+                          <Text style={[styles.taxiLargeTypeText, vehicleType === item.key && styles.taxiLargeTypeTextActive]}>{item.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {mapMode === "destination" && routeLoading && (
+                  <Text style={styles.taxiHintText}>جارٍ حساب مسافة الطريق وتأكيد المحافظة...</Text>
+                )}
+                {mapMode === "destination" && !!routeError && (
+                  <View style={styles.taxiErrorPanel}>
+                    <Text style={styles.taxiErrorText}>{routeError}</Text>
+                    <TouchableOpacity style={styles.taxiRetryButton} onPress={() => setRouteRetry((value) => value + 1)}>
+                      <Text style={styles.taxiRetryText}>إعادة حساب الطريق</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={[styles.taxiPrimaryButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || routeLoading || routeKm === null || !!routeError) && styles.taxiButtonDisabled]}
+                  disabled={mapMode === "pickup" ? !pickupCoords : !destinationCoords || routeLoading || routeKm === null || !!routeError}
+                  onPress={mapMode === "pickup" ? confirmPickupStep : confirmDestinationStep}
+                >
+                  <Text style={styles.taxiPrimaryButtonText}>
+                    {mapMode === "pickup" ? "تأكيد الانطلاق" : routeLoading ? "جارٍ حساب الطريق..." : "تأكيد الوجهة"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <View style={styles.taxiDetailsHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.taxiSheetTitle}>{isLargeVehicle ? "طلب سيارة كبيرة" : "اختَر السيارة المناسبة"}</Text>
+                    <Text style={styles.taxiSelectedAddress} numberOfLines={2}>
+                      {pickup || "موقع الانطلاق"}{!isLargeVehicle ? " ← " + (destination || "الوجهة") : ""}
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={styles.taxiEditButton} onPress={() => { setDestinationConfirmed(false); setMapMode(isLargeVehicle ? "pickup" : "destination"); }}>
+                    <Text style={styles.taxiEditButtonText}>تعديل</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {routeLoading && !isLargeVehicle && <Text style={styles.taxiHintText}>جارٍ حساب مسافة الطريق الفعلية...</Text>}
+                {!!routeError && (
+                  <View style={styles.taxiErrorPanel}>
+                    <Text style={styles.taxiErrorText}>{routeError}</Text>
+                    <TouchableOpacity style={styles.taxiRetryButton} onPress={() => setRouteRetry((value) => value + 1)}>
+                      <Text style={styles.taxiRetryText}>إعادة حساب الطريق</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {!isLargeVehicle && (
+                  <>
+                    <View style={styles.taxiRouteSummary}>
+                      <View style={styles.taxiRouteMetric}>
+                        <Text style={styles.taxiRouteMetricLabel}>مسافة الطريق</Text>
+                        <Text style={styles.taxiRouteMetricValue}>{routeKm !== null ? routeKm.toFixed(2) + " كم" : "—"}</Text>
+                      </View>
+                      <View style={styles.taxiRouteMetric}>
+                        <Text style={styles.taxiRouteMetricLabel}>الوقت التقريبي</Text>
+                        <Text style={styles.taxiRouteMetricValue}>{routeDurationMin !== null ? Math.max(1, Math.round(routeDurationMin)) + " دقيقة" : "—"}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.taxiFieldLabel}>فئة السيارة</Text>
+                    <View style={styles.taxiVehicleList}>
+                      {VEHICLE_CATS.filter((category) => category.key !== "large").map((category) => {
+                        const fare = routeKm !== null
+                          ? calculateMobileTaxiFare(category.key as Exclude<VehicleCategory, "large">, routeKm, 1, isIntercity, tripType, extraMinutes)
+                          : null;
+                        const active = vehicleCat === category.key;
+                        return (
+                          <TouchableOpacity key={category.key} style={[styles.taxiVehicleCard, active && styles.taxiVehicleCardActive]} onPress={() => setVehicleCat(category.key as Exclude<VehicleCategory, "large">)}>
+                            <Text style={styles.taxiVehicleEmoji}>{category.emoji}</Text>
+                            <Text style={styles.taxiVehicleName}>{category.label}</Text>
+                            <Text style={styles.taxiVehicleFare}>{fare !== null ? fare.toLocaleString("ar-IQ") + " د.ع" : "—"}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
+
+                {isLargeVehicle && (
+                  <View style={styles.taxiLargeTypePanel}>
+                    <Text style={styles.taxiFieldLabel}>السعر المقترح (اختياري)</Text>
+                    <View style={styles.taxiBudgetRow}>
+                      {[15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000].map((amount) => (
+                        <TouchableOpacity key={amount} style={[styles.taxiBudgetChip, customerPrice === String(amount) && styles.taxiBudgetChipActive]} onPress={() => setCustomerPrice(String(amount))}>
+                          <Text style={[styles.taxiBudgetText, customerPrice === String(amount) && styles.taxiBudgetTextActive]}>{(amount / 1000).toLocaleString("en") + " ألف"}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TextInput style={styles.taxiSearchInputFull} value={customerPrice} onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))} placeholder="أو اكتب أي سعر بالدينار" placeholderTextColor={palette.muted} keyboardType="numeric" />
+                    <Text style={styles.taxiHintText}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب.</Text>
+                  </View>
+                )}
+
+                {!isLargeVehicle && (
+                  <View style={styles.taxiOptionsPanel}>
+                    <TouchableOpacity style={styles.taxiOptionsHeader} onPress={() => setTripOptionsExpanded((value) => !value)}>
+                      <Text style={styles.taxiOptionsTitle}>خيارات الرحلة الاختيارية</Text>
+                      <Text style={styles.taxiOptionsToggle}>{tripOptionsExpanded ? "إخفاء ▲" : "إظهار ▼"}</Text>
+                    </TouchableOpacity>
+                    {tripOptionsExpanded && (
+                      <>
+                        <Text style={styles.taxiHintText}>الاختيار الافتراضي ذهاب فقط. فعّل خياراً إضافياً عند الحاجة.</Text>
+                        <View style={styles.taxiTripTypeGrid}>
+                          {([
+                            { key: "one_way", label: "ذهاب فقط" },
+                            { key: "round_trip", label: "ذهاب وإياب" },
+                            { key: "second_trip", label: "رحلة ثانية" },
+                            { key: "stop", label: "توقف بالطريق" },
+                          ] as const).map((item) => (
+                            <TouchableOpacity key={item.key} style={[styles.taxiTripTypeChip, tripType === item.key && styles.taxiTripTypeChipActive]} onPress={() => { setTripType(item.key); if (item.key !== "stop") setExtraMinutes(0); }}>
+                              <Text style={[styles.taxiTripTypeText, tripType === item.key && styles.taxiTripTypeTextActive]}>{item.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        {tripType === "round_trip" && <Text style={styles.taxiSuccessText}>تم تطبيق خصم 10٪ على أجرة الذهاب والإياب.</Text>}
+                        {tripType === "stop" && (
+                          <>
+                            <View style={styles.taxiOptionsHeader}>
+                              <Text style={styles.taxiOptionsTitle}>مدة التوقف</Text>
+                              <Text style={styles.taxiOptionsToggle}>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</Text>
+                            </View>
+                            <Text style={styles.taxiHintText}>كل 5 دقائق بـ500 دينار، والحد الأعلى ساعتان.</Text>
+                            <View style={styles.extraTimeSliderTouch} onLayout={(event) => { extraTimeTrackWidthRef.current = event.nativeEvent.layout.width; }} {...extraTimePanResponder.panHandlers}>
+                              <View style={styles.extraTimeSliderTrack}>
+                                <View style={[styles.extraTimeSliderFill, { width: (String((extraMinutes / 120) * 100) + "%") as any }]} />
+                                <View style={[styles.extraTimeSliderThumb, { right: (String((extraMinutes / 120) * 100) + "%") as any }]} />
+                              </View>
+                            </View>
+                            <View style={styles.extraTimeScale}>
+                              <Text style={styles.taxiHintText}>بدون توقف</Text>
+                              <Text style={styles.taxiHintText}>30 دقيقة</Text>
+                              <Text style={styles.taxiHintText}>ساعة</Text>
+                              <Text style={styles.taxiHintText}>ساعتان</Text>
+                            </View>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </View>
+                )}
+
+                {!isLargeVehicle && (
+                  <View style={styles.taxiCouponPanel}>
+                    <Text style={styles.taxiFieldLabel}>🎁 عندك كوبون خصم؟</Text>
+                    <View style={styles.taxiSearchRow}>
+                      <TextInput style={[styles.taxiSearchInput, { flex: 1 }]} value={couponCode} onChangeText={(value) => { setCouponCode(value.toUpperCase()); setCouponPreview(null); setCouponError(""); }} placeholder="اكتب رمز الكوبون" placeholderTextColor={palette.muted} autoCapitalize="characters" />
+                      <TouchableOpacity style={styles.taxiCouponButton} onPress={previewCoupon} disabled={couponLoading}>
+                        {couponLoading ? <ActivityIndicator color={palette.white} /> : <Text style={styles.taxiCouponButtonText}>تحقق</Text>}
+                      </TouchableOpacity>
+                    </View>
+                    {!!couponError && <Text style={styles.taxiErrorText}>{couponError}</Text>}
+                    {couponPreview && (
+                      <View style={styles.taxiCouponResult}>
+                        <Text style={styles.taxiSuccessText}>تم التحقق من الكوبون</Text>
+                        <Text style={styles.taxiCouponText}>قيمة الخصم: {couponPreview.discount.toLocaleString("ar-IQ")} د.ع</Text>
+                        <Text style={styles.taxiCouponText}>المبلغ بعد الخصم: {couponPreview.payable.toLocaleString("ar-IQ")} د.ع</Text>
+                        <Text style={styles.taxiHintText}>الخصم تتحمله ممنون ولا يقلل مستحقات السائق.</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {isLargeVehicle && vehicleType === "kia_cargo" && (
+                  <View style={styles.taxiLargeTypePanel}>
+                    <Text style={styles.taxiFieldLabel}>كمية الحمولة أو وصفها (اختياري)</Text>
+                    <TextInput style={styles.taxiSearchInputFull} value={cargoLoadDescription} onChangeText={(value) => setCargoLoadDescription(value.slice(0, 300))} placeholder="مثلاً: 500 طابوقة أو حمولة نصف طن" placeholderTextColor={palette.muted} />
+                  </View>
+                )}
+
+                {isLargeVehicle && (
+                  <View style={styles.taxiPhotoPanel}>
+                    <Text style={styles.taxiFieldLabel}>صورة توضيحية للطلب (اختياري)</Text>
+                    <TouchableOpacity style={styles.taxiPhotoButton} onPress={chooseRequestPhoto}>
+                      <Text style={styles.taxiPhotoButtonText}>{requestPhoto ? "تغيير الصورة" : "اختيار صورة من الجهاز"}</Text>
+                    </TouchableOpacity>
+                    {requestPhoto && (
+                      <View style={{ alignItems: "center", marginTop: 8 }}>
+                        <Image source={{ uri: requestPhoto.uri }} style={styles.requestPhotoPreview} />
+                        <TouchableOpacity onPress={() => setRequestPhoto(null)}><Text style={{ color: palette.danger, fontWeight: "900", marginTop: 6 }}>حذف الصورة</Text></TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                <TextInput
+                  style={styles.taxiNotesInput}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder={isLargeVehicle ? "ملاحظات إضافية — اكتب الوجهة أو تفاصيل الحمولة" : "ملاحظات إضافية (اختياري)"}
+                  placeholderTextColor={palette.muted}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[styles.taxiPrimaryButton, (busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))) && styles.taxiButtonDisabled]}
+                  disabled={busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))}
+                  onPress={submit}
+                >
+                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={styles.taxiPrimaryButtonText}>{isLargeVehicle ? "إرسال الطلب" : "اطلب الآن"}</Text>}
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -1211,6 +1662,94 @@ export default function NewRequest() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 18, paddingTop: 52 },
+  taxiScreen: { flex: 1, backgroundColor: palette.canvas },
+  taxiNearbyMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.surface, borderWidth: 2, borderColor: palette.brand, alignItems: "center", justifyContent: "center", elevation: 5 },
+  taxiNearbyMarkerText: { fontSize: 19 },
+  taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -17, marginTop: -38, zIndex: 4 },
+  taxiCenterPinText: { fontSize: 36, textShadowColor: "rgba(0,0,0,0.35)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  taxiTopBar: { position: "absolute", top: 48, left: 10, right: 10, zIndex: 10, flexDirection: "row", alignItems: "center", gap: 7 },
+  taxiBackButton: { width: 42, height: 44, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
+  taxiBackText: { color: palette.ink, fontSize: 30, fontFamily: "Tajawal_900Black", fontWeight: "900", lineHeight: 34 },
+  taxiGovernorateBadge: { minHeight: 44, paddingHorizontal: 11, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
+  taxiGovernorateText: { color: palette.ink, fontSize: 11, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiStepTabs: { flex: 1, flexDirection: "row", padding: 4, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, gap: 4 },
+  taxiStepTab: { flex: 1, minHeight: 36, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
+  taxiStepTabPickup: { backgroundColor: "#0284c7" },
+  taxiStepTabDestination: { backgroundColor: "#e11d48" },
+  taxiStepText: { color: palette.muted, fontSize: 10, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiStepTextActive: { color: "#FFFFFF" },
+  taxiBottomSheet: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "66%", backgroundColor: palette.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, borderColor: palette.line, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, shadowColor: "#000000", shadowOpacity: 0.18, shadowRadius: 16, elevation: 12 },
+  taxiSheetContent: { paddingBottom: 18, gap: 10 },
+  taxiSheetTitle: { color: palette.ink, fontSize: 18, fontFamily: "Tajawal_900Black", fontWeight: "900", textAlign: "right" },
+  taxiSelectedAddress: { color: palette.muted, fontSize: 12, fontFamily: "Tajawal_700Bold", fontWeight: "700", lineHeight: 18, textAlign: "right" },
+  taxiSearchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  taxiLocateButton: { minHeight: 48, minWidth: 70, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: palette.gold, alignItems: "center", justifyContent: "center" },
+  taxiLocateText: { color: palette.brandDeep, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiSearchInput: { flex: 1, minHeight: 48, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 12, color: palette.ink, backgroundColor: palette.canvas, fontSize: 13, fontFamily: "Tajawal_700Bold", fontWeight: "700", textAlign: "right" },
+  taxiSearchInputFull: { minHeight: 48, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 12, color: palette.ink, backgroundColor: palette.surface, fontSize: 13, fontFamily: "Tajawal_700Bold", fontWeight: "700", textAlign: "right" },
+  taxiSuggestionList: { marginTop: 4, borderRadius: radius.md, overflow: "hidden", borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+  taxiSuggestionItem: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: palette.line },
+  taxiSuggestionTitle: { color: palette.ink, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900", textAlign: "right" },
+  taxiSuggestionAddress: { color: palette.muted, fontSize: 10, marginTop: 3, textAlign: "right" },
+  taxiGovernorateRow: { flexDirection: "row", gap: 7, paddingVertical: 3 },
+  taxiGovernorateChip: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: palette.canvas, borderWidth: 1, borderColor: palette.line },
+  taxiGovernorateChipActive: { backgroundColor: palette.brand, borderColor: palette.gold },
+  taxiGovernorateChipText: { color: palette.ink, fontSize: 11, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800" },
+  taxiGovernorateChipTextActive: { color: palette.white },
+  taxiFieldLabel: { color: palette.ink, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900", textAlign: "right", marginTop: 5 },
+  taxiPrimaryButton: { minHeight: 54, borderRadius: radius.lg, backgroundColor: palette.brand, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, marginTop: 5 },
+  taxiButtonDisabled: { opacity: 0.45 },
+  taxiPrimaryButtonText: { color: palette.white, fontSize: 15, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiErrorText: { color: palette.danger, fontSize: 11, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800", textAlign: "right" },
+  taxiHintText: { color: palette.muted, fontSize: 10, lineHeight: 16, textAlign: "right" },
+  taxiLargeTypePanel: { padding: 11, borderRadius: radius.md, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft, gap: 8 },
+  taxiLargeTypeRow: { flexDirection: "row", gap: 7 },
+  taxiLargeTypeCard: { flex: 1, minHeight: 88, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, alignItems: "center", justifyContent: "center", padding: 6 },
+  taxiLargeTypeCardActive: { borderColor: palette.gold, backgroundColor: palette.brandSoft, borderWidth: 2 },
+  taxiLargeTypeImage: { width: "100%", height: 52 },
+  taxiLargeBus: { fontSize: 32 },
+  taxiLargeTypeText: { color: palette.muted, fontSize: 10, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiLargeTypeTextActive: { color: palette.brand },
+  taxiDetailsHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  taxiEditButton: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.canvas },
+  taxiEditButtonText: { color: palette.brand, fontSize: 11, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiRouteSummary: { flexDirection: "row", gap: 8, padding: 11, borderRadius: radius.md, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.line },
+  taxiRouteMetric: { flex: 1, alignItems: "center", gap: 3 },
+  taxiRouteMetricLabel: { color: palette.muted, fontSize: 10, fontFamily: "Tajawal_700Bold", fontWeight: "700" },
+  taxiRouteMetricValue: { color: palette.brand, fontSize: 15, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiVehicleList: { gap: 7 },
+  taxiVehicleCard: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 56, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+  taxiVehicleCardActive: { borderColor: palette.brand, backgroundColor: palette.brandSoft, borderWidth: 2 },
+  taxiVehicleEmoji: { fontSize: 25, width: 38, textAlign: "center" },
+  taxiVehicleName: { flex: 1, color: palette.ink, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900", textAlign: "right" },
+  taxiVehicleFare: { color: palette.brand, fontSize: 13, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiOptionsPanel: { padding: 12, borderRadius: radius.md, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.surface, gap: 9 },
+  taxiOptionsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  taxiOptionsTitle: { color: palette.ink, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiOptionsToggle: { color: palette.brand, fontSize: 11, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiTripTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  taxiTripTypeChip: { width: "48%", minHeight: 40, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.canvas, alignItems: "center", justifyContent: "center" },
+  taxiTripTypeChipActive: { borderColor: palette.brand, backgroundColor: palette.brand },
+  taxiTripTypeText: { color: palette.ink, fontSize: 11, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800" },
+  taxiTripTypeTextActive: { color: palette.white },
+  taxiSuccessText: { color: palette.success, fontSize: 11, fontFamily: "Tajawal_900Black", fontWeight: "900", textAlign: "right" },
+  taxiCouponPanel: { padding: 12, borderRadius: radius.md, borderWidth: 1, borderColor: "#F59E0B80", backgroundColor: palette.goldSoft, gap: 8 },
+  taxiCouponButton: { minHeight: 46, paddingHorizontal: 15, borderRadius: radius.md, backgroundColor: "#F59E0B", alignItems: "center", justifyContent: "center" },
+  taxiCouponButtonText: { color: "#FFFFFF", fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiCouponResult: { padding: 10, borderRadius: radius.md, backgroundColor: palette.surface, gap: 4 },
+  taxiCouponText: { color: palette.ink, fontSize: 11, textAlign: "right" },
+  taxiBudgetRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  taxiBudgetChip: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+  taxiBudgetChipActive: { borderColor: palette.brand, backgroundColor: palette.brandSoft },
+  taxiBudgetText: { color: palette.ink, fontSize: 10, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800" },
+  taxiBudgetTextActive: { color: palette.brand },
+  taxiPhotoPanel: { padding: 12, borderRadius: radius.md, borderWidth: 1, borderStyle: "dashed", borderColor: palette.gold, backgroundColor: palette.surface, gap: 8 },
+  taxiPhotoButton: { minHeight: 44, borderRadius: radius.md, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center" },
+  taxiPhotoButtonText: { color: palette.brand, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiNotesInput: { minHeight: 72, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 12, color: palette.ink, backgroundColor: palette.surface, textAlign: "right", textAlignVertical: "top", fontSize: 12, fontFamily: "Tajawal_700Bold", fontWeight: "600" },
+  taxiRetryButton: { alignSelf: "flex-end", paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.md, backgroundColor: palette.brandSoft },
+  taxiRetryText: { color: palette.brand, fontSize: 11, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiErrorPanel: { padding: 10, borderRadius: radius.md, borderWidth: 1, borderColor: palette.danger, backgroundColor: palette.dangerSoft, gap: 7 },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
   label: { fontSize: 13, fontWeight: "900", color: palette.ink, marginBottom: 8, marginTop: 16 },
   serviceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
