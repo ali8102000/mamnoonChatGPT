@@ -87,7 +87,8 @@ Deno.serve(async (req) => {
   const couponCode=typeof body.couponCode==="string"&&body.couponCode.trim()?body.couponCode.trim().toUpperCase():null;
   if(couponCode) {
     const {data:preview,error:previewError}=await userClient.rpc("preview_my_coupon",{p_code:couponCode,p_amount:priceEstimate});
-    if(previewError||!preview||!Array.isArray(preview)||preview.length===0) return json({error:"الكوبون غير متاح لهذا السعر أو لهذا الحساب"},400);
+    const previewRow=Array.isArray(preview)?preview[0]:preview;
+    if(previewError||!previewRow) return json({error:"الكوبون غير متاح لهذا السعر أو لهذا الحساب"},400);
   }
   const insert={
     customer_id:user.id,type:"taxi",status:"pending",governorate_key:governorate,
