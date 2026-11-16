@@ -161,6 +161,7 @@ const incomingRequestModal = await readSource("src/components/incoming-request-m
 const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
 const pushVibrationMigration = await readSource("../supabase/migrations/20261116183000_admin_permissions_and_notification_vibration.sql");
 const supabaseTypes = await readSource("../src/integrations/supabase/types.ts");
+const adminUsersFunction = await readSource("../supabase/functions/admin-users/index.ts");
 
 for (const channelId of [
   "mamnoon_sound_vibrate",
@@ -205,6 +206,12 @@ if (!/add column if not exists vibration_enabled/i.test(pushVibrationMigration) 
     !pushVibrationMigration.includes("mamnoon_sound_only") ||
     !pushVibrationMigration.includes("mamnoon_sound_vibrate")) {
   missing.push("Push delivery SQL must honor independent sound and vibration preferences.");
+}
+if (!adminUsersFunction.includes('select("expo_push_token,sound_enabled,vibration_enabled")') ||
+    !adminUsersFunction.includes('row.expo_push_token.startsWith("ExpoPushToken[")') ||
+    !adminUsersFunction.includes("notificationChannelId(soundEnabled, vibrationEnabled)") ||
+    !adminUsersFunction.includes('sound: soundEnabled ? "default" : null')) {
+  missing.push("Provider status push notifications must respect each device's independent sound and vibration preferences.");
 }
 if (!supabaseTypes.includes("sound_enabled: boolean") ||
     !supabaseTypes.includes("vibration_enabled: boolean")) {
