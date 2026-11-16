@@ -68,9 +68,9 @@ export default function AdminRegionalControlsScreen() {
     setImageUploading(true);
     try {
       const response = await fetch(asset.uri);
-      const blob = await response.blob();
+      const imageBuffer = await response.arrayBuffer();
       const path = `${user.id}/${Date.now()}.${asset.mimeType?.split("/")[1] || "jpg"}`;
-      const { error } = await supabase.storage.from("regional-notices").upload(path, blob, { contentType: asset.mimeType || "image/jpeg", upsert: false });
+      const { error } = await supabase.storage.from("regional-notices").upload(path, imageBuffer, { contentType: asset.mimeType || "image/jpeg", upsert: false });
       if (error) throw error;
       const { data } = supabase.storage.from("regional-notices").getPublicUrl(path);
       update({ message_image_url: data.publicUrl });
