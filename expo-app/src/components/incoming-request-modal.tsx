@@ -171,10 +171,14 @@ export function IncomingRequestModal() {
             title: "طلب جديد من ممنون",
             body: data.service_requests?.type === "taxi" ? "وصلك طلب تكسي جديد. افتح التطبيق للتفاصيل." : `وصلك طلب ${data.service_requests?.services?.name_ar || "خدمة"} جديد. افتح التطبيق للتفاصيل.`,
             sound: preferences.soundEnabled ? "default" : false,
-            channelId: getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled),
+            vibrate: preferences.vibrationEnabled ? [0, 250, 180, 250, 180, 350] : [],
             data: { request_id: data.request_id, type: "incoming_request" },
           },
-          trigger: null,
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: 1,
+            channelId: getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled),
+          },
         });
       })().catch((error) => console.warn("[incoming-offer] Local notification failed:", error));
     }
