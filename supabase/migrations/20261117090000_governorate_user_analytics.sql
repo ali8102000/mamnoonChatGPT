@@ -39,10 +39,21 @@ as $$
     from public.user_roles
     group by user_id
   ),
+  activity_regions as (
+    select distinct on (user_id) user_id, governorate_key
+    from (
+      select customer_id as user_id, governorate_key, created_at
+      from public.service_requests where customer_id is not null and governorate_key is not null
+      union all
+      select provider_id as user_id, governorate_key, created_at
+      from public.service_requests where provider_id is not null and governorate_key is not null
+    ) activity
+    order by user_id, created_at desc
+  ),
   classified as (
     select
       p.id,
-      coalesce(nullif(p.governorate_key, ''), 'unknown') as region,
+      coalesce(nullif(p.governorate_key, ''), ar.governorate_key, 'unknown') as region,
       coalesce('worker' = any(r.roles), false) or wp.user_id is not null as is_worker,
       coalesce('large_driver' = any(r.roles), false)
         or dp.vehicle_category::text = 'large'
