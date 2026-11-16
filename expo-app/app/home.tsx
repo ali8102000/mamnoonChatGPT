@@ -7,7 +7,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Pressable,
   ScrollView,
   RefreshControl,
   Alert,
@@ -56,8 +55,6 @@ export default function HomeScreen() {
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const switchableRoles = ["customer", "driver", "large_driver", "worker"].filter((role) => roles.includes(role as (typeof roles)[number]));
-  const roleNames: Record<string, string> = { customer: "زبون", driver: "كابتن", large_driver: "سيارات كبيرة", worker: "فني" };
   const greeting = (() => {
     const hour = new Date().getHours();
     if (hour < 5 || hour >= 18) return "مساء الخير";
@@ -71,12 +68,6 @@ export default function HomeScreen() {
       : activeRole === "worker"
         ? "فني خدمات 🛠️"
         : "زبون 👤";
-
-  async function changeActiveRole(role: string) {
-    if (!switchableRoles.includes(role) || role === activeRole) return;
-    setActiveRole(role);
-    await SecureStore.setItemAsync("mamnoon_active_role", role);
-  }
 
   const loadIncoming = useCallback(async () => {
     if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
@@ -271,44 +262,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerEyebrow}>{greeting}</Text>
-          <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
-          <Text style={styles.roleText}>{roleTitle}</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
-            <Text style={styles.themeToggleText}>{resolvedTheme === "dark" ? "☀" : "☾"}</Text>
-          </TouchableOpacity>
-          <NotificationsBell />
-          <TouchableOpacity onPress={() => router.push("/profile")} accessibilityRole="button" accessibilityLabel="الملف الشخصي">
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <TouchableOpacity onPress={() => router.push("/account-settings")} accessibilityRole="button" accessibilityLabel="تبديل الدور" style={styles.roleSettingsLink}>
-        <Text style={styles.roleSettingsText}>⇄  تبديل الدور</Text>
-      </TouchableOpacity>
-      {switchableRoles.length > 1 && (
-        <View style={styles.roleSwitcherWrap}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roleSwitcher}>
-            {switchableRoles.map((role) => (
-              <Pressable
-                key={role}
-                accessibilityRole="button"
-                accessibilityState={{ selected: activeRole === role }}
-                onPress={() => changeActiveRole(role)}
-                style={({ pressed }) => [styles.roleChip, activeRole === role && styles.roleChipActive, pressed && { opacity: 0.8 }]}
-              >
-                <Text style={[styles.roleChipText, activeRole === role && styles.roleChipTextActive]}>{roleNames[role]}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      )}
       {roles.includes("super_admin") && (
         <TouchableOpacity onPress={() => router.push("/admin")} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="لوحة الإدارة">
           <LinearGradient
@@ -318,8 +271,8 @@ export default function HomeScreen() {
             style={{ marginHorizontal: 18, marginBottom: 10, borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "#392707", fontSize: 12, fontWeight: "900", textAlign: "right" }}>إدارة شركة ممنون</Text>
-              <Text style={{ color: "#513B13", fontSize: 10, fontWeight: "700", marginTop: 3, textAlign: "right" }}>اعتماد السائقين والفنيين · حظر الحسابات · الدعم</Text>
+              <Text style={{ color: "#392707", fontSize: 12, fontWeight: "900", textAlign: "right" }}>إدارة {companyName}</Text>
+              <Text style={{ color: "#513B13", fontSize: 10, fontWeight: "700", marginTop: 3, textAlign: "right" }}>اعتماد السائقين والفنيين · حظر الحسابات · توزيع الخصومات · الدعم</Text>
             </View>
             <View style={{ backgroundColor: "rgba(57,39,7,0.12)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginLeft: 12 }}>
               <Text style={{ color: "#392707", fontSize: 11, fontWeight: "900" }}>لوحة الإدارة ←</Text>
@@ -327,6 +280,26 @@ export default function HomeScreen() {
           </LinearGradient>
         </TouchableOpacity>
       )}
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.headerGreetingRow}>
+            <Text style={styles.headerEyebrow}>{greeting}</Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>{roleTitle}</Text>
+            </View>
+          </View>
+          <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
+            <HomeGlyph name={resolvedTheme === "dark" ? "sun" : "moon"} color={palette.ink} size={20} />
+          </TouchableOpacity>
+          <NotificationsBell />
+        </View>
+      </View>
+      <TouchableOpacity onPress={() => router.push("/account-settings")} accessibilityRole="button" accessibilityLabel="تبديل الدور" style={styles.roleSettingsLink}>
+        <Text style={styles.roleSettingsText}>⇄  تبديل الدور</Text>
+      </TouchableOpacity>
       <TouchableOpacity
         onPress={() => router.push("/coupons")}
         activeOpacity={0.85}
@@ -372,7 +345,7 @@ export default function HomeScreen() {
   );
 }
 
-type HomeGlyphName = "car" | "wrench" | "clock" | "shield" | "zap" | "arrow";
+type HomeGlyphName = "car" | "wrench" | "clock" | "shield" | "zap" | "arrow" | "sun" | "moon";
 
 function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: string; size?: number }) {
   const common = { stroke: color, strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" as const };
@@ -387,6 +360,17 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
   if (name === "wrench") return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path {...common} d="M14.7 6.3a5 5 0 0 0-6.6 6.6l-5.2 5.2a2 2 0 0 0 2.8 2.8l5.2-5.2a5 5 0 0 0 6.6-6.6l-3 3-3-3 3.2-2.8Z" />
+    </Svg>
+  );
+  if (name === "sun") return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle {...common} cx="12" cy="12" r="4" />
+      <Path {...common} d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+    </Svg>
+  );
+  if (name === "moon") return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path {...common} d="M20.985 12.486A9 9 0 1 1 11.514 3.015a7 7 0 0 0 9.471 9.471Z" />
     </Svg>
   );
   if (name === "clock") return (
@@ -452,10 +436,8 @@ function CustomerHome() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          minHeight: 164,
           borderRadius: 24,
           padding: 24,
-          justifyContent: "center",
           overflow: "hidden",
           elevation: 5,
         }}
@@ -475,18 +457,18 @@ function CustomerHome() {
           style={{
             alignSelf: "flex-start",
             borderRadius: 999,
-            paddingHorizontal: 11,
-            paddingVertical: 6,
-            backgroundColor: "rgba(255,255,255,0.22)",
-            marginBottom: 10,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            backgroundColor: "rgba(255,255,255,0.20)",
+            marginBottom: 8,
           }}
         >
           <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
         </View>
-        <Text style={{ color: "#FFFFFF", fontSize: 23, lineHeight: 32, fontWeight: "900", textAlign: "right" }}>
+        <Text style={{ color: "#FFFFFF", fontSize: 24, lineHeight: 29, fontWeight: "900", textAlign: "right" }}>
           اطلب الآن، ادفع للمزوّد مباشرة
         </Text>
-        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 19, marginTop: 5, textAlign: "right" }}>
+        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 16, marginTop: 4, textAlign: "right" }}>
           ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك
         </Text>
       </LinearGradient>
@@ -542,12 +524,12 @@ function CustomerHome() {
       </View>
 
       <View style={{ flexDirection: "row", gap: 10 }}>
-        <View style={{ flex: 1, minHeight: 72, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
+        <View style={{ flex: 1, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
           <HomeGlyph name="clock" color={palette.brand} size={18} />
           <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "center", marginTop: 2 }}>٣ د</Text>
           <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", textAlign: "center" }}>أقل من</Text>
         </View>
-        <View style={{ flex: 1, minHeight: 72, borderRadius: 18, padding: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center" }}>
+        <View style={{ flex: 1, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
           <HomeGlyph name="shield" color={palette.brand} size={18} />
           <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "center", marginTop: 2 }}>موثق</Text>
           <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", textAlign: "center" }}>مزودون</Text>
@@ -566,10 +548,10 @@ function CustomerHome() {
             </LinearGradient>
             <View style={{ flex: 1 }}>
               <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>سرعة في الاستجابة</Text>
-              <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 18, marginTop: 2, textAlign: "right" }}>نوصلك بأقرب سيارة أو فني في منطقتك</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 14, marginTop: 2, textAlign: "right" }}>نوصلك بأقرب سيارة أو فني في منطقتك</Text>
             </View>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
             <LinearGradient colors={["#10B981", "#14B8A6"]} style={{ width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" }}>
               <HomeGlyph name="shield" color="#FFFFFF" size={22} />
             </LinearGradient>
@@ -684,12 +666,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14, zIndex: 30, elevation: 12 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8, zIndex: 40 },
-  themeToggle: { width: 40, height: 40, borderRadius: 16, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
+  headerGreetingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
+  roleBadge: { borderRadius: 999, backgroundColor: palette.brand + "1A", paddingHorizontal: 10, paddingVertical: 2 },
+  roleBadgeText: { color: palette.brand, fontSize: 10, fontWeight: "700" },
+  themeToggle: { width: 44, height: 44, borderRadius: 16, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
   themeToggleText: { color: palette.ink, fontSize: 22, fontWeight: "700" },
   roleSettingsLink: { alignSelf: "flex-start", marginHorizontal: space.xl, marginBottom: 12, borderRadius: 12, borderWidth: 1, borderColor: palette.brand + "33", backgroundColor: palette.brand + "0D", paddingHorizontal: 12, paddingVertical: 8 },
   roleSettingsText: { color: palette.brand, fontSize: 12, fontWeight: "800" },
-  headerEyebrow: { color: palette.gold, fontSize: 9, fontWeight: "900", letterSpacing: 1.5, marginBottom: 5 },
-  greeting: { fontSize: 25, fontWeight: "900", color: palette.ink },
+  headerEyebrow: { color: palette.brand, fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+  greeting: { fontSize: 24, lineHeight: 29, fontWeight: "900", color: palette.ink },
   roleText: { fontSize: 12, color: palette.muted, marginTop: 3, fontWeight: "600" },
   avatar: { width: 48, height: 48, borderRadius: 17, backgroundColor: palette.brand, borderWidth: 1, borderColor: palette.gold, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 19, fontWeight: "900", color: palette.white },
