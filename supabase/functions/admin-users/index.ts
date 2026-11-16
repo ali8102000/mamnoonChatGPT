@@ -16,6 +16,13 @@ const required = (key: string) => {
 const isUuid = (value: unknown): value is string =>
   typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+function notificationChannelId(soundEnabled: boolean, vibrationEnabled: boolean) {
+  if (soundEnabled && vibrationEnabled) return "mamnoon_sound_vibrate";
+  if (soundEnabled) return "mamnoon_sound_only";
+  if (vibrationEnabled) return "mamnoon_vibrate_only";
+  return "mamnoon_silent";
+}
+
 function searchTerms(raw: string) {
   const term = raw.trim().replace(/[,%()]/g, " ").slice(0, 100);
   const digits = term.replace(/[٠-٩۰-۹]/g, d => {
@@ -274,15 +281,26 @@ Deno.serve(async (req: Request) => {
         if (notificationError) return json({ error: "provider_notification_save_failed" }, 500);
         notificationSent = true;
 
-        const { data: pushRows } = await admin.from("user_push_tokens").select("expo_push_token").eq("user_id", body.user_id);
-        const tokens = (pushRows ?? []).map((row: any) => row.expo_push_token)
-          .filter((token: string) => typeof token === "string" && token.startsWith("ExponentPushToken["));
+        const { data: pushRows, error: pushRowsError } = await admin.from("user_push_tokens")
+          .select("expo_push_token,sound_enabled,vibration_enabled").eq("user_id", body.user_id);
+        if (pushRowsError) return json({ error: "provider_push_preferences_load_failed" }, 500);
+        const tokens = (pushRows ?? []).filter((row: any) =>
+          typeof row.expo_push_token === "string" &&
+          (row.expo_push_token.startsWith("ExpoPushToken[") || row.expo_push_token.startsWith("ExponentPushToken[")),
+        );
         for (let i = 0; i < tokens.length; i += 100) {
-          const messages = tokens.slice(i, i + 100).map((to: string) => ({
-            to, sound: "default", title, body: messageBody,
-            data: { type: "provider_verification", provider_type: body.type, status: body.status },
-            channelId: "default",
-          }));
+          const messages = tokens.slice(i, i + 100).map((row: any) => {
+            const soundEnabled = row.sound_enabled !== false;
+            const vibrationEnabled = row.vibration_enabled !== false;
+            return {
+              to: row.expo_push_token,
+              sound: soundEnabled ? "default" : null,
+              title,
+              body: messageBody,
+              data: { type: "provider_verification", provider_type: body.type, status: body.status },
+              channelId: notificationChannelId(soundEnabled, vibrationEnabled),
+            };
+          });
           try {
             const response = await fetch("https://exp.host/--/api/v2/push/send", {
               method: "POST",
