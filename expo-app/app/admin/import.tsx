@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
@@ -70,7 +70,7 @@ export default function ImportScreen() {
     try {
       const rows = parseCsv(csvText.replace(/^\uFEFF/, ""));
       if (rows.length < 2) throw new Error("الملف يحتاج صف عناوين وصف بيانات واحد على الأقل.");
-      if (rows[0].length > 200) throw new Error("عدد الأعمدة يتجاوز الحد المسموح (200).");
+      if (rows[0]!.length > 200) throw new Error("عدد الأعمدة يتجاوز الحد المسموح (200).");
       if (rows.length > 5001) throw new Error("عدد الصفوف يتجاوز 5000 صف في المعاينة الواحدة.");
       setParsed(rows);
       setValidated(true);
@@ -175,7 +175,7 @@ const s = StyleSheet.create({
   statValue:{fontSize:20,fontWeight:"900",color:palette.brand,textAlign:"right"},
   statLabel:{fontSize:9,color:palette.muted,textAlign:"right"},
   strong:{fontWeight:"900",color:palette.ink},
-  warning:{padding:10,borderRadius:radius.md,backgroundColor:palette.warningSoft ?? palette.surface,borderWidth:1,borderColor:palette.line},
+  warning:{padding:10,borderRadius:radius.md,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line},
   warningText:{fontSize:11,color:palette.ink,textAlign:"right",lineHeight:18},
   headers:{flexDirection:"row",flexWrap:"wrap",gap:6},
   headerChip:{padding:7,borderRadius:radius.sm,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line},
