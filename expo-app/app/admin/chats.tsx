@@ -158,9 +158,9 @@ export default function AdminChatsScreen() {
 }
 
 const s = StyleSheet.create({
-  page:{flex:1,backgroundColor:palette.canvas},
+  page:{flex:1,backgroundColor: palette.pageCanvas},
   header:{paddingHorizontal:space.lg,paddingTop:space.lg,gap:4},
-  center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor:palette.canvas,padding:24,gap:10},
+  center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor: palette.pageCanvas,padding:24,gap:10},
   title:{fontSize:21,fontWeight:"900",color:palette.ink,textAlign:"right"},
   muted:{fontSize:11,color:palette.muted,textAlign:"right",lineHeight:18},
   tabs:{flexDirection:"row",gap:8,paddingHorizontal:space.lg,paddingTop:space.md},
