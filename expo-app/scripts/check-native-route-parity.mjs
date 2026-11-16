@@ -67,6 +67,33 @@ for (const [path, kind] of [["app/terms.tsx", "terms"], ["app/privacy.tsx", "pri
   }
 }
 
+const readSource = async (path) =>
+  import("node:fs/promises").then(({ readFile }) => readFile(resolve(root, path), "utf8"));
+const notificationLayout = await readSource("app/_layout.tsx");
+const notificationBell = await readSource("src/components/notifications-bell.tsx");
+const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
+const supabaseTypes = await readSource("../src/integrations/supabase/types.ts");
+
+if (!notificationLayout.includes('setNotificationChannelAsync("silent"')) {
+  missing.push("Android must register the silent notification channel.");
+}
+if (!notificationLayout.includes("sound_enabled: soundEnabled")) {
+  missing.push("Native push-token registration must persist the user's sound preference.");
+}
+if (!notificationBell.includes("<Switch") || !notificationBell.includes("setNotificationSoundPreference")) {
+  missing.push("Native notification center must expose the sound mute control.");
+}
+if (!notificationBell.includes('channelId: isNotificationSoundEnabled() ? "default" : "silent"')) {
+  missing.push("Foreground notifications must respect the selected sound channel.");
+}
+if (!pushSoundMigration.includes("ADD COLUMN IF NOT EXISTS sound_enabled") ||
+    !pushSoundMigration.includes("ELSE 'silent' END")) {
+  missing.push("Push delivery SQL must honor each user's sound preference.");
+}
+if (!supabaseTypes.includes("sound_enabled: boolean")) {
+  missing.push("Generated Supabase types must include user_push_tokens.sound_enabled.");
+}
+
 if (missing.length) {
   console.error("Mamnoon native/web route parity check failed:");
   for (const item of missing) console.error(` - ${item}`);

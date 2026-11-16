@@ -1762,6 +1762,7 @@ export type Database = {
           device_platform: string
           expo_push_token: string
           id: string
+          sound_enabled: boolean
           updated_at: string
           user_id: string
         }
@@ -1769,6 +1770,7 @@ export type Database = {
           device_platform?: string
           expo_push_token: string
           id?: string
+          sound_enabled?: boolean
           updated_at?: string
           user_id: string
         }
@@ -1776,6 +1778,7 @@ export type Database = {
           device_platform?: string
           expo_push_token?: string
           id?: string
+          sound_enabled?: boolean
           updated_at?: string
           user_id?: string
         }
