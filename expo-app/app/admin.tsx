@@ -59,6 +59,12 @@ export default function AdminScreen() {
       p_user_id: user?.id,
     });
     if (permissionError || superAdminCheck !== true) {
+      const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank").eq("user_id", user?.id).eq("active", true).maybeSingle();
+      if (assignment?.rank === "general_manager") {
+        router.replace("/support-chat");
+        setLoading(false);
+        return;
+      }
       Alert.alert("غير مصرّح", "هذه الإدارة العليا مخصصة لصاحب الحساب فقط");
       router.replace("/home");
       setLoading(false);
