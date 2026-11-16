@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
+import { getAdminStaffRoles } from "@/lib/admin-access";
 
 type RequestRow = {
   id: string; type?: string; status?: string; price_estimate?: number | null;
@@ -39,9 +40,8 @@ export default function AdminRequestsScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const { data: roles, error: staffError } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
-      const roleNames = (roles ?? []).map((r: any) => typeof r === "string" ? r : r.role);
-      if (staffError || !roleNames.some((role: string) => ["super_admin", "admin", "support"].includes(role))) {
+      const roleNames = await getAdminStaffRoles(user.id);
+      if (!roleNames.some((role: string) => ["super_admin", "admin", "support", "department_operations"].includes(role))) {
         setCanView(false); setRows([]); return;
       }
       setCanManage(roleNames.includes("super_admin") || roleNames.includes("admin"));

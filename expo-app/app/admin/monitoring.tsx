@@ -7,6 +7,7 @@ import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
+import { getAdminStaffRoles } from "@/lib/admin-access";
 
 type Tab = "live" | "reports" | "blocks" | "support";
 type Report = { id: string; reason?: string; details?: string | null; reported_id?: string | null; created_at: string; status?: string };
@@ -39,14 +40,13 @@ export default function MonitoringScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const [rolesResult, admin] = await Promise.all([
-        supabase.rpc("get_staff_roles", { p_user_id: user.id }),
+      const [roleNames, admin] = await Promise.all([
+        getAdminStaffRoles(user.id),
         supabase.rpc("has_admin_access", { p_user_id: user.id }),
       ]);
-      const roleNames = (rolesResult.data ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
       const canMonitor = roleNames.some((role: string) => ["super_admin", "admin", "support"].includes(role));
-      const canReviewReports = roleNames.some((role: string) => ["super_admin", "admin", "support", "moderator"].includes(role));
-      if (rolesResult.error || (!canMonitor && !canReviewReports)) {
+      const canReviewReports = roleNames.some((role: string) => ["super_admin", "admin", "support", "moderator", "department_monitoring"].includes(role));
+      if (!canMonitor && !canReviewReports) {
         setAllowed(false); return;
       }
       setAllowed(true);

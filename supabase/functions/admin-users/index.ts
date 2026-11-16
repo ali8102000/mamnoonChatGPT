@@ -67,6 +67,13 @@ Deno.serve(async (req: Request) => {
     const staffRoles = new Set(staffRolesData.map((entry: unknown) =>
       typeof entry === "string" ? entry : String((entry as { role?: unknown } | null)?.role ?? ""),
     ));
+    // Mirror the web admin's department/rank access model. These derived roles
+    // are used only where the web panel grants read access; mutation handlers
+    // continue to require their existing admin/super-admin checks.
+    const { data: assignment } = await caller.from("staff_assignments")
+      .select("rank,department").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+    if (assignment?.rank) staffRoles.add(`rank:${assignment.rank}`);
+    if (assignment?.department) staffRoles.add(`department_${assignment.department}`);
     const requireRoles = (allowed: string[]) => {
       if (!allowed.some((role) => staffRoles.has(role))) throw new Error("role_required");
     };
@@ -79,7 +86,7 @@ Deno.serve(async (req: Request) => {
     };
 
     if (body.action === "list" || body.action === "search") {
-      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring"]);
       const isSearch = body.action === "search";
       if (isSearch && (typeof body.query !== "string" || body.query.trim().length < 2)) {
         return json({ error: "query_too_short" }, 400);
@@ -116,7 +123,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "detail") {
-      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring"]);
       if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
       const id = body.user_id;
       const [profile, roles, block, driver, worker, transactions, requests, ratings] = await Promise.all([
@@ -143,7 +150,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "providers") {
-      requireRoles(["super_admin", "admin", "support"]);
+      requireRoles(["super_admin", "admin", "support", "department_operations"]);
       const type = ["driver", "large_driver", "worker"].includes(body.type) ? body.type : "driver";
       const status = ["all", "approved", "pending", "suspended", "rejected"].includes(body.status) ? body.status : "all";
       const category = typeof body.category === "string" ? body.category.slice(0, 80) : "all";
@@ -183,7 +190,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "requests") {
-      requireRoles(["super_admin", "admin", "support"]);
+      requireRoles(["super_admin", "admin", "support", "department_operations"]);
       const status = typeof body.status === "string" ? body.status.slice(0, 40) : "all";
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let requestQuery = admin.from("service_requests")
@@ -338,7 +345,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "live_map") {
-      requireRoles(["super_admin", "admin", "support"]);
+      requireRoles(["super_admin", "admin", "support", "department_operations", "department_monitoring"]);
       const [locations, requests] = await Promise.all([
         admin.from("live_locations")
           .select("*, profile:profiles!live_locations_user_id_fkey(full_name,phone)")
@@ -353,7 +360,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "reports") {
-      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring"]);
       const { data: reports, error } = await admin.from("user_reports")
         .select("*, reporter:profiles!user_reports_reporter_id_fkey(full_name,phone), reported:profiles!user_reports_reported_id_fkey(full_name,phone)")
         .eq("status", "pending")
@@ -411,8 +418,38 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    if (body.action === "chats") {
+      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
+      const { data: chats, error } = await admin.from("chats")
+        .select("*, participant1:profiles!chats_customer_id_fkey(full_name,phone), participant2:profiles!chats_provider_id_fkey(full_name,phone)")
+        .order("updated_at", { ascending: false }).limit(limit);
+      if (error) return json({ error: "chats_load_failed" }, 500);
+      return json({ chats: chats ?? [] });
+    }
+
+    if (body.action === "messages") {
+      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
+      let query = admin.from("messages")
+        .select("*, sender:profiles!messages_sender_id_fkey(full_name,phone), chat:chats(id)")
+        .order("created_at", { ascending: false }).limit(limit);
+      if (typeof body.chat_id === "string" && isUuid(body.chat_id)) query = query.eq("chat_id", body.chat_id);
+      const { data: messages, error } = await query;
+      if (error) return json({ error: "messages_load_failed" }, 500);
+      return json({ messages: messages ?? [] });
+    }
+
+    if (body.action === "delete_message") {
+      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      if (!isUuid(body.message_id)) return json({ error: "invalid_message_id" }, 400);
+      const { error } = await caller.rpc("admin_delete_message", { p_message_id: body.message_id });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true });
+    }
+
     if (body.action === "friends" || body.action === "friend_requests") {
-      requireRoles(["super_admin", "admin", "moderator"]);
+      requireRoles(["super_admin", "admin", "moderator", "department_monitoring"]);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       if (body.action === "friends") {
         const { data, error } = await admin.from("friends")

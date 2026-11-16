@@ -7,6 +7,7 @@ import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
+import { getAdminStaffRoles } from "@/lib/admin-access";
 
 type ProviderType = "driver" | "large_driver" | "worker";
 type ProviderStatus = "all" | "approved" | "pending" | "suspended" | "rejected";
@@ -66,9 +67,8 @@ export default function AdminProvidersScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const { data: roles, error: permissionError } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
-      const roleNames = (roles ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
-      if (permissionError || !roleNames.some((role: string) => ["super_admin", "admin", "support"].includes(role))) {
+      const roleNames = await getAdminStaffRoles(user.id);
+      if (!roleNames.some((role: string) => ["super_admin", "admin", "support", "department_operations"].includes(role))) {
         setCanView(false); setProviders([]); setTotal(0); return;
       }
       setCanManage(roleNames.includes("super_admin") || roleNames.includes("admin"));

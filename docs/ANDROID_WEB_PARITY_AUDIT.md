@@ -55,12 +55,13 @@ Native routes currently present:
 - `app/admin/notifications.tsx`
 - `app/admin/staff.tsx`
 - `app/admin/staff-hierarchy.tsx`
+- `app/admin/chats.tsx`
 
 The Web admin shell exposes sections for overview, statistics, users, providers, requests, support chat, friends, reports, subscriptions, coupons, wallet, map, notifications, roles, staff, company settings, and audit. Each section must be mapped to its Native destination or recorded as missing. Similar names do not establish equivalent data, controls, or permissions.
 
 ## Confirmed issues / items requiring live verification
 
-1. **CSV import:** Web `src/routes/admin_.import.tsx` parses CSV, analyzes sample rows and calls `suggestCsvMapping`; Native `expo-app/app/admin/import.tsx` currently renders a disabled `ProtectedAdminTool`. This is a real feature gap. Do not enable data import until preview, mapping validation, authorization, and safe commit/rollback behavior are implemented and tested.
+1. **CSV import:** Web `src/routes/admin_.import.tsx` parses CSV, analyzes sample rows and calls `suggestCsvMapping`; Native `expo-app/app/admin/import.tsx` now supports paste, parsing, validation and preview only. AI-assisted column mapping and actual import/write are still missing. Do not claim full import parity or enable database writes until authorization and safe commit/rollback behavior are implemented and tested.
 2. **Admin backend:** Native finance, governance, subscriptions and other admin tools depend on privileged Edge Functions. Verify production deployment and authorization before claiming operational parity; do not deploy or change production permissions as part of a visual-only task.
 3. **Messages:** The project contains support-conversation messaging and a separate support-ticket flow. Keep their purposes, role access and read-only general-manager rules distinct during comparisons.
 4. **Push notifications:** Source registers Expo push tokens and sound preference. End-to-end delivery, tap routing, mute behavior and background/terminated-app behavior still require device tests.
@@ -80,3 +81,30 @@ For every screen and every account type:
 - CI checks plus Android emulator launch; physical-device verification for camera, notifications, location and maps.
 
 **Completion status:** Not yet certified. The 28 route declarations are a starting inventory only. No overall parity percentage is assigned until the screen-by-screen evidence above exists.
+
+## Native admin parity work in progress — 2026-11-16
+
+The Native admin navigation and role routing were expanded to mirror the Web admin section inventory:
+
+| Web admin section | Native destination | Notes |
+|---|---|---|
+| Overview / statistics | `app/admin.tsx` | Dashboard metrics and company settings are combined on the Native dashboard |
+| Users | `app/admin/users.tsx` | Department-monitoring role receives read access; block actions remain admin-only |
+| Drivers and technicians | `app/admin/providers.tsx` | Operations department receives list access; management actions remain restricted |
+| Requests | `app/admin/requests.tsx` | Operations department receives list access; destructive actions remain restricted |
+| Chat / private messages | `app/admin/chats.tsx` | Native screen for chats, messages and message deletion using dedicated Edge Function actions |
+| Support conversations | `app/support-chat.tsx` | Kept separate from private chat moderation; general-manager access remains read-only |
+| Friends | `app/admin/friends.tsx` | Department-monitoring view is read-only in Native |
+| Reports / monitoring | `app/admin/monitoring.tsx` | Department-monitoring role is routed to reports-only view |
+| Subscriptions | `app/admin/subscriptions.tsx` | Separate Native subscriptions screen |
+| Coupons / wallet | `app/admin/finance.tsx` | Combined Native screen with wallet, coupons and transactions tabs |
+| Live map | `app/admin/live-map.tsx` | Native map; device/API-key verification still required |
+| Notifications | `app/admin/notifications.tsx` | Production permissions and delivery tests remain required |
+| Roles / audit | `app/admin/governance.tsx` | Roles and audit log tabs |
+| Staff | `app/admin/staff-hierarchy.tsx` | Rank, department, promotion and deactivation workflow |
+| Company settings | `app/admin.tsx` | Company name editor is on the dashboard rather than a separate route |
+| CSV assistant | `app/admin/import.tsx` | Preview only; AI mapping and write/import are not yet implemented |
+
+Native role resolution now reads both legacy roles and active staff assignment rank/department for navigation. The `admin-users` Edge Function derives the same assignment roles for read-only list endpoints; write operations continue to use their existing admin checks. A dedicated private-chat screen and Edge Function actions were added for the Web admin's chat/message moderation section.
+
+**Important:** This is route and capability alignment work, not visual certification. Screenshots at matched viewport/density and end-to-end action tests remain required. The full admin panel must not be described as 100% identical until those tests pass.
