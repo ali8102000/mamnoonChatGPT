@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";\nimport * as ImagePicker from "expo-image-picker";
 import { Stack } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
@@ -19,7 +19,7 @@ export default function AdminRegionalControlsScreen() {
   const [selected, setSelected] = useState<string[]>([]);
   const [settings, setSettings] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(false);\n  const [imageUploading, setImageUploading] = useState(false);
 
   const load = useCallback(async () => {
     const { data, error } = await (supabase as any).from("regional_service_controls").select("*").order("governorate_key");
@@ -57,7 +57,7 @@ export default function AdminRegionalControlsScreen() {
 
   };
 
-  async function toggleAndSave(field: "services_enabled" | "message_enabled") {
+  async function pickNoticeImage() {\n    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.85 });\n    if (result.canceled || !result.assets?.[0]) return;\n    const asset = result.assets[0];\n    if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) { Alert.alert("حجم الصورة كبير", "اختَر صورة لا يتجاوز حجمها 5 ميغابايت."); return; }\n    if (!user) return;\n    setImageUploading(true);\n    try {\n      const response = await fetch(asset.uri);\n      const blob = await response.blob();\n      const path = `${user.id}/${Date.now()}.${asset.mimeType?.split("/")[1] || "jpg"}`;\n      const { error } = await supabase.storage.from("regional-notices").upload(path, blob, { contentType: asset.mimeType || "image/jpeg", upsert: false });\n      if (error) throw error;\n      const { data } = supabase.storage.from("regional-notices").getPublicUrl(path);\n      update({ message_image_url: data.publicUrl });\n      Alert.alert("تم إرفاق الصورة", "احفظ الإعدادات حتى تظهر للمستخدمين.");\n    } catch (error: any) { Alert.alert("تعذّر رفع الصورة", error?.message || "حاول مرة ثانية."); }\n    finally { setImageUploading(false); }\n  }\n\n  async function toggleAndSave(field: "services_enabled" | "message_enabled") {
     if (!targetKeys.length) { Alert.alert("اختيار ناقص", "اختَر محافظة واحدة على الأقل."); return; }
     const next = { ...settings, [field]: !settings[field] };
     setSettings(next);
@@ -123,7 +123,7 @@ export default function AdminRegionalControlsScreen() {
           <View style={styles.previewHead}><Text style={styles.stamp}>✦ الإدارة الرسمية · موثّق ✦</Text><Text style={styles.stamp}>✓</Text></View>
           <Text style={styles.previewTitle}>{settings.message_title}</Text>
           <Text style={styles.previewText}>{settings.message_text || "معاينة الرسالة تظهر هنا بعد الكتابة."}</Text>
-          {!!settings.message_image_url && <Text style={styles.previewText}>الصورة المرفقة: {settings.message_image_url}</Text>}
+          {!!settings.message_image_url && <Image source={{ uri: settings.message_image_url }} style={styles.previewImage} resizeMode="contain" />}
           <Text style={styles.watermark}>إدارة ممنون · الحساب الرسمي الموثّق</Text>
         </View>
         <TouchableOpacity onPress={save} disabled={saving || !targetKeys.length} style={[styles.save, (saving || !targetKeys.length) && { opacity: 0.5 }]}><LinearGradient colors={["#F7DF91", "#D6A63B", "#8A5B12"]} style={styles.saveGradient}><Text style={styles.saveText}>{saving ? "جاري الحفظ..." : "حفظ وتطبيق الإعدادات"}</Text></LinearGradient></TouchableOpacity>
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   previewTitle: { color: "#F4D98C", fontSize: 15, fontWeight: "900", textAlign: "right", marginTop: 12 },
   previewText: { color: "#F4E7C1", fontSize: 13, lineHeight: 24, textAlign: "right", marginTop: 8 },
   watermark: { color: "#9A742D", fontSize: 8, textAlign: "left", marginTop: 12, letterSpacing: 1 },
-  save: { marginTop: 14, borderRadius: 14, overflow: "hidden" },
+  imagePick: { borderWidth: 1, borderColor: "#C99A35", borderRadius: 12, padding: 12, alignItems: "center", marginTop: 8 },\n  imagePickText: { color: palette.gold, fontWeight: "900", fontSize: 12 },\n  previewImage: { width: "100%", height: 150, marginTop: 10, borderRadius: 12 },\n  save: { marginTop: 14, borderRadius: 14, overflow: "hidden" },
   saveGradient: { padding: 15, alignItems: "center" },
   saveText: { color: "#2B1D08", fontWeight: "900", fontSize: 14 },
   reset: { borderWidth: 1, borderColor: palette.line, borderRadius: 12, padding: 12, marginTop: 8, alignItems: "center" },
