@@ -6,7 +6,7 @@ import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 
-type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; message_image_url?: string };
+type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; message_image_url?: string; rejection_message?: string };
 
 export function RegionalServiceBanner() {
   const [row, setRow] = useState<Row | null>(null);
@@ -35,7 +35,7 @@ export function RegionalServiceBanner() {
       if (!active || !key) return;
       const { data, error } = await (supabase as any)
         .from("regional_service_controls")
-        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,message_image_url")
+        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,message_image_url,rejection_message")
         .in("governorate_key", [key, "all"]);
       if (!active) return;
       if (error) { console.warn("[regional controls] load failed", error); return; }
@@ -80,7 +80,7 @@ export function RegionalServiceBanner() {
             <Animated.Text numberOfLines={1} onLayout={(event) => setTextWidth(event.nativeEvent.layout.width)} style={[styles.message, { transform: [{ translateX: translate.interpolate({ inputRange: [0, 1], outputRange: [marqueeWidth, -textWidth] }) }] }]}>{text}</Animated.Text>
           </> : <Text style={[styles.message, { textAlign: "right" }]}>{text}</Text>}
         </View>
-        {!row.services_enabled && <Text style={styles.closed}>الخدمات متوقفة حالياً في هذه المحافظة.</Text>}
+        {!row.services_enabled && <View style={styles.rejectionCard}><View style={styles.rejectionHead}><Text style={styles.rejectionLabel}>رسالة رفض الطلب</Text><Text style={styles.stampText}>✓ إدارة ممنون الموثّقة</Text></View><Text style={styles.rejectionText}>{row.rejection_message || "الخدمة متوقفة حالياً في منطقتك بقرار من إدارة ممنون."}</Text><Text style={styles.closed}>إنشاء الطلبات متوقف حالياً في هذه المحافظة.</Text></View>}
       </LinearGradient>
     </View>
   );
@@ -95,6 +95,6 @@ const styles = StyleSheet.create({
   stampText: { color: "#E9C76A", fontSize: 9, fontWeight: "800" },
   marquee: { height: 34, justifyContent: "center", overflow: "hidden", marginTop: 5 },
   message: { color: "#F4E7C1", fontSize: 12, fontWeight: "800", textAlign: "right", alignSelf: "flex-start", flexShrink: 0 },
-  noticeImage: { width: "100%", height: 150, marginTop: 8, borderRadius: 10 },
+  rejectionCard: { marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: "#211706", borderWidth: 1, borderColor: "#8A6426" },\n  rejectionHead: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },\n  rejectionLabel: { color: "#F2D58A", fontSize: 10, fontWeight: "900" },\n  rejectionText: { color: "#FFF0C7", fontSize: 14, lineHeight: 25, fontWeight: "900", textAlign: "right", marginTop: 8 },\n  noticeImage: { width: "100%", height: 150, marginTop: 8, borderRadius: 10 },
   closed: { color: "#FCA5A5", fontSize: 10, fontWeight: "800", textAlign: "right", marginTop: 6 },
 });
