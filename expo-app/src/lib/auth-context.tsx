@@ -79,6 +79,7 @@ async function clearCachedAuthProfile(uid: string | null) {
       SecureStore.deleteItemAsync(authCacheKey(uid)),
       SecureStore.deleteItemAsync(`mamnoon-history-v1:${uid}`),
       SecureStore.deleteItemAsync(`mamnoon-wallet-v1:${uid}`),
+      SecureStore.deleteItemAsync(`mamnoon-chats-v1:${uid}`),
     ]);
   } catch (error) {
     console.warn("[offline] Could not clear the local account snapshot:", error);
