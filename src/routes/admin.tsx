@@ -1876,18 +1876,18 @@ function CouponsSection() {
           <option value="customers_3">زبائن طلبوا 3 طلبات خلال آخر 7 أيام</option>
           <option value="customers_4">زبائن طلبوا 4 طلبات خلال آخر 7 أيام</option>
           <option value="customers_5">زبائن طلبوا 5 طلبات أو أكثر خلال آخر 7 أيام</option>
-          <option value="single">مستخدم محدد</option>
+          <option value="single">زبون محدد</option>
         </select>
         {distributionTarget === "single" && (
           <input
             value={singleUserId}
             onChange={(e) => setSingleUserId(e.target.value)}
-            placeholder="معرّف المستخدم UUID"
+            placeholder="معرّف الزبون UUID"
             className="w-full glass rounded-xl px-3 py-2.5 text-sm"
           />
         )}
         <div className="rounded-xl bg-background/70 px-3 py-2 text-xs font-bold">
-          {distributionTarget === "single" ? "سيُرسل إلى المستخدم المحدد بعد إدخال معرّفه" :
+          {distributionTarget === "single" ? "سيُرسل إلى الزبون المحدد بعد إدخال معرّفه" :
             audienceCountLoading ? "جارٍ حساب الجمهور المطابق..." :
             audienceCount === null ? "تعذّر حساب عدد المستلمين حالياً" :
             `عدد الحسابات المطابقة: ${audienceCount.toLocaleString("ar-IQ")}`}
