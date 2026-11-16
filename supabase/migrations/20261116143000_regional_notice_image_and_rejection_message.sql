@@ -87,7 +87,6 @@ begin
     select nullif(trim(rejection_message), '') into v_rejection_message
     from public.regional_service_controls
     where governorate_key in (v_governorate_key, 'all')
-      and message_enabled = true
     order by case when governorate_key = v_governorate_key then 0 else 1 end
     limit 1;
 
