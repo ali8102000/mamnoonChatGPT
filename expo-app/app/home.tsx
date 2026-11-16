@@ -292,7 +292,7 @@ export default function HomeScreen() {
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
-            <Text style={styles.themeToggleText}>{resolvedTheme === "dark" ? "☀" : "☾"}</Text>
+            <HomeGlyph name={resolvedTheme === "dark" ? "sun" : "moon"} color={palette.ink} size={20} />
           </TouchableOpacity>
           <NotificationsBell />
         </View>
@@ -345,7 +345,7 @@ export default function HomeScreen() {
   );
 }
 
-type HomeGlyphName = "car" | "wrench" | "clock" | "shield" | "zap" | "arrow";
+type HomeGlyphName = "car" | "wrench" | "clock" | "shield" | "zap" | "arrow" | "sun" | "moon";
 
 function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: string; size?: number }) {
   const common = { stroke: color, strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" as const };
@@ -360,6 +360,17 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
   if (name === "wrench") return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path {...common} d="M14.7 6.3a5 5 0 0 0-6.6 6.6l-5.2 5.2a2 2 0 0 0 2.8 2.8l5.2-5.2a5 5 0 0 0 6.6-6.6l-3 3-3-3 3.2-2.8Z" />
+    </Svg>
+  );
+  if (name === "sun") return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle {...common} cx="12" cy="12" r="4" />
+      <Path {...common} d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+    </Svg>
+  );
+  if (name === "moon") return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path {...common} d="M20.985 12.486A9 9 0 1 1 11.514 3.015a7 7 0 0 0 9.471 9.471Z" />
     </Svg>
   );
   if (name === "clock") return (
