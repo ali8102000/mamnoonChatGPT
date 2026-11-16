@@ -11,25 +11,25 @@ declare
   v_detected_governorate text;
 begin
   if new.pickup_lat is null or new.pickup_lng is null then
-    raise exception 'governorate_required'
-      using message = 'موقع الانطلاق مطلوب حتى نتحقق من توفر الخدمة في محافظتك.';
+    raise exception using errcode = 'P0001',
+      message = 'موقع الانطلاق مطلوب حتى نتحقق من توفر الخدمة في محافظتك.';
   end if;
 
   v_detected_governorate := public.infer_governorate_key(new.pickup_lat, new.pickup_lng);
   if v_detected_governorate is null then
-    raise exception 'governorate_required'
-      using message = 'تعذّر تحديد المحافظة من موقع الانطلاق. حدّد الموقع من جديد ثم أرسل الطلب.';
+    raise exception using errcode = 'P0001',
+      message = 'تعذّر تحديد المحافظة من موقع الانطلاق. حدّد الموقع من جديد ثم أرسل الطلب.';
   end if;
   new.governorate_key := v_detected_governorate;
 
   if new.governorate_key is null or length(trim(new.governorate_key)) = 0 then
-    raise exception 'governorate_required'
-      using message = 'تعذّر تحديد المحافظة. حدّد موقع الانطلاق من جديد ثم أرسل الطلب.';
+    raise exception using errcode = 'P0001',
+      message = 'تعذّر تحديد المحافظة. حدّد موقع الانطلاق من جديد ثم أرسل الطلب.';
   end if;
 
   if not public.regional_services_enabled(new.governorate_key) then
-    raise exception 'regional_services_disabled'
-      using message = 'الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون.';
+    raise exception using errcode = 'P0001',
+      message = 'الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون.';
   end if;
 
   return new;
@@ -56,8 +56,8 @@ begin
   if new.status::text = 'accepted'
      and old.status::text is distinct from 'accepted'
      and not public.regional_services_enabled(v_governorate_key) then
-    raise exception 'regional_services_disabled'
-      using message = 'الخدمات متوقفة حالياً في هذه المحافظة بقرار من الإدارة.';
+    raise exception using errcode = 'P0001',
+      message = 'الخدمات متوقفة حالياً في هذه المحافظة بقرار من الإدارة.';
   end if;
   return new;
 end;
