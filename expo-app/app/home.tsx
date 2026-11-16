@@ -7,7 +7,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Pressable,
   ScrollView,
   RefreshControl,
   Alert,
@@ -56,8 +55,6 @@ export default function HomeScreen() {
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const switchableRoles = ["customer", "driver", "large_driver", "worker"].filter((role) => roles.includes(role as (typeof roles)[number]));
-  const roleNames: Record<string, string> = { customer: "زبون", driver: "كابتن", large_driver: "سيارات كبيرة", worker: "فني" };
   const greeting = (() => {
     const hour = new Date().getHours();
     if (hour < 5 || hour >= 18) return "مساء الخير";
@@ -71,12 +68,6 @@ export default function HomeScreen() {
       : activeRole === "worker"
         ? "فني خدمات 🛠️"
         : "زبون 👤";
-
-  async function changeActiveRole(role: string) {
-    if (!switchableRoles.includes(role) || role === activeRole) return;
-    setActiveRole(role);
-    await SecureStore.setItemAsync("mamnoon_active_role", role);
-  }
 
   const loadIncoming = useCallback(async () => {
     if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
@@ -291,23 +282,6 @@ export default function HomeScreen() {
       <TouchableOpacity onPress={() => router.push("/account-settings")} accessibilityRole="button" accessibilityLabel="تبديل الدور" style={styles.roleSettingsLink}>
         <Text style={styles.roleSettingsText}>⇄  تبديل الدور</Text>
       </TouchableOpacity>
-      {switchableRoles.length > 1 && (
-        <View style={styles.roleSwitcherWrap}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roleSwitcher}>
-            {switchableRoles.map((role) => (
-              <Pressable
-                key={role}
-                accessibilityRole="button"
-                accessibilityState={{ selected: activeRole === role }}
-                onPress={() => changeActiveRole(role)}
-                style={({ pressed }) => [styles.roleChip, activeRole === role && styles.roleChipActive, pressed && { opacity: 0.8 }]}
-              >
-                <Text style={[styles.roleChipText, activeRole === role && styles.roleChipTextActive]}>{roleNames[role]}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      )}
       {roles.includes("super_admin") && (
         <TouchableOpacity onPress={() => router.push("/admin")} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="لوحة الإدارة">
           <LinearGradient
