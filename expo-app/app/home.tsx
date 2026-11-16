@@ -452,10 +452,8 @@ function CustomerHome() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          minHeight: 164,
           borderRadius: 24,
           padding: 24,
-          justifyContent: "center",
           overflow: "hidden",
           elevation: 5,
         }}
@@ -475,18 +473,18 @@ function CustomerHome() {
           style={{
             alignSelf: "flex-start",
             borderRadius: 999,
-            paddingHorizontal: 11,
-            paddingVertical: 6,
-            backgroundColor: "rgba(255,255,255,0.22)",
-            marginBottom: 10,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            backgroundColor: "rgba(255,255,255,0.20)",
+            marginBottom: 8,
           }}
         >
           <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
         </View>
-        <Text style={{ color: "#FFFFFF", fontSize: 23, lineHeight: 32, fontWeight: "900", textAlign: "right" }}>
+        <Text style={{ color: "#FFFFFF", fontSize: 24, lineHeight: 29, fontWeight: "900", textAlign: "right" }}>
           اطلب الآن، ادفع للمزوّد مباشرة
         </Text>
-        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 19, marginTop: 5, textAlign: "right" }}>
+        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 16, marginTop: 4, textAlign: "right" }}>
           ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك
         </Text>
       </LinearGradient>
@@ -542,12 +540,12 @@ function CustomerHome() {
       </View>
 
       <View style={{ flexDirection: "row", gap: 10 }}>
-        <View style={{ flex: 1, minHeight: 72, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
+        <View style={{ flex: 1, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
           <HomeGlyph name="clock" color={palette.brand} size={18} />
           <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "center", marginTop: 2 }}>٣ د</Text>
           <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", textAlign: "center" }}>أقل من</Text>
         </View>
-        <View style={{ flex: 1, minHeight: 72, borderRadius: 18, padding: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center" }}>
+        <View style={{ flex: 1, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
           <HomeGlyph name="shield" color={palette.brand} size={18} />
           <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "center", marginTop: 2 }}>موثق</Text>
           <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", textAlign: "center" }}>مزودون</Text>
@@ -566,10 +564,10 @@ function CustomerHome() {
             </LinearGradient>
             <View style={{ flex: 1 }}>
               <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>سرعة في الاستجابة</Text>
-              <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 18, marginTop: 2, textAlign: "right" }}>نوصلك بأقرب سيارة أو فني في منطقتك</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 14, marginTop: 2, textAlign: "right" }}>نوصلك بأقرب سيارة أو فني في منطقتك</Text>
             </View>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
             <LinearGradient colors={["#10B981", "#14B8A6"]} style={{ width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" }}>
               <HomeGlyph name="shield" color="#FFFFFF" size={22} />
             </LinearGradient>
