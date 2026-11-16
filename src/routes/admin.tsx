@@ -1417,7 +1417,10 @@ function ChatSection() {
   const listChats = useServerFn(adminListChats);
   const listMessages = useServerFn(adminListMessages);
   const deleteMessage = useServerFn(adminDeleteMessage);
-  useEffect(() => {\n    if (!session?.user.id) return;\n    void (async () => { const { data } = await (supabase as any).rpc("get_staff_roles", { p_user_id: session.user.id }); const roles = data ?? []; setCustomerServiceOnly(roles.includes("customer_service") && !roles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r))); })();\n  }, [session?.user.id]);
+  useEffect(() => {
+    if (!session?.user.id) return;
+    void (async () => { const { data } = await (supabase as any).rpc("get_staff_roles", { p_user_id: session.user.id }); const roles = data ?? []; setCustomerServiceOnly(roles.includes("customer_service") && !roles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r))); })();
+  }, [session?.user.id]);
   const load = useCallback(async () => {
     if (customerServiceOnly) { setLoading(false); return; }
     setLoading(true);
