@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Image } from "react-native";
 import * as Notifications from "expo-notifications";
 
-Notifications.setNotificationHandler({ handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false }) });
+Notifications.setNotificationHandler({ handleNotification: async () => ({ shouldShowAlert: true, shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }) });
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
@@ -95,7 +95,7 @@ export default function SupportChatScreen() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: "conversation_id=eq." + selected.id }, (payload: any) => {
         setMessages((old) => old.some((m) => m.id === payload.new.id) ? old : [...old, payload.new]);
         if (payload.new.sender_id !== user?.id) {
-          void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: String(payload.new.body ?? "وصلتك رسالة جديدة").slice(0, 120), sound: muted ? false : "default" }, trigger: null, channelId: "support-messages" });
+          void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: String(payload.new.body ?? "وصلتك رسالة جديدة").slice(0, 120), sound: muted ? false : "default", channelId: "support-messages" }, trigger: null });
           (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
         }
       }).subscribe();
