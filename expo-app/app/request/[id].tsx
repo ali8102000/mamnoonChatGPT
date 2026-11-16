@@ -139,11 +139,7 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
       tracksViewChanges
     >
       <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
-        <View style={styles.luxuryCarRoof} />
-        <View style={styles.luxuryCarWindows} />
-        <View style={styles.luxuryCarFront} />
-        <View style={styles.luxuryCarWheelLeft} />
-        <View style={styles.luxuryCarWheelRight} />
+        <Image source={{ uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />
       </Animated.View>
     </Marker>
   );
@@ -1079,6 +1075,7 @@ const styles = StyleSheet.create({
   trackingTitle: { fontSize: 15, fontWeight: "900", color: palette.ink, marginBottom: 10 },
   trackingMap: { height: 220, borderRadius: radius.md },
   trackingMapTaxi: { height: 340 },
+  luxuryCarPhoto: { width: 54, height: 36 },
   luxuryCarMarker: { width: 48, height: 30, borderRadius: 13, backgroundColor: "#B88A24", borderWidth: 2, borderColor: "#172033", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 7 },
   luxuryCarRoof: { position: "absolute", top: 3, width: 25, height: 12, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: "#24364A" },
   luxuryCarWindows: { position: "absolute", top: 5, width: 21, height: 7, borderRadius: 4, backgroundColor: "#9CC6D8" },
