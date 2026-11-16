@@ -1,12 +1,12 @@
 import { Appearance } from "react-native";
 const lightPalette = {
-  ink:"#08101A", muted:"#47515E", canvas:"#F3F7FC", surface:"#FCFEFF", surfaceSoft:"#E5ECF3",
+  ink:"#08101A", muted:"#47515E", canvas:"transparent", canvasSolid:"#F3F7FC", surface:"#FCFEFF", surfaceSoft:"#E5ECF3",
   line:"#D9E1EA", brand:"#0065D2", brandDeep:"#004EA6", brandGlow:"#5283FE", brandSoft:"#E7F0FC", gold:"#E9AB2B",
   goldSoft:"#FBF2DF", success:"#00B667", danger:"#EE343B", dangerSoft:"#FCEAE8", white:"#FFFFFF",
   shadow:"rgba(8, 16, 26, 0.08)",
 } as const;
 const darkPalette = {
-  ink:"#F2F5F9", muted:"#B8BEC5", canvas:"#040A14", surface:"#0E1824", surfaceSoft:"#192431",
+  ink:"#F2F5F9", muted:"#B8BEC5", canvas:"transparent", canvasSolid:"#040A14", surface:"#0E1824", surfaceSoft:"#192431",
   line:"#2D3948", brand:"#5FA7FF", brandDeep:"#337FD6", brandGlow:"#669CFF", brandSoft:"#142B45", gold:"#E9AB2B",
   goldSoft:"#3B2D17", success:"#2EC97A", danger:"#FC4447", dangerSoft:"#3A211F", white:"#FFFFFF",
   shadow:"rgba(0, 0, 0, 0.38)",
