@@ -273,20 +273,19 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerEyebrow}>{greeting}</Text>
+          <View style={styles.headerGreetingRow}>
+            <Text style={styles.headerEyebrow}>{greeting}</Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>{roleTitle}</Text>
+            </View>
+          </View>
           <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
-          <Text style={styles.roleText}>{roleTitle}</Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
             <Text style={styles.themeToggleText}>{resolvedTheme === "dark" ? "☀" : "☾"}</Text>
           </TouchableOpacity>
           <NotificationsBell />
-          <TouchableOpacity onPress={() => router.push("/profile")} accessibilityRole="button" accessibilityLabel="الملف الشخصي">
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
-            </View>
-          </TouchableOpacity>
         </View>
       </View>
       <TouchableOpacity onPress={() => router.push("/account-settings")} accessibilityRole="button" accessibilityLabel="تبديل الدور" style={styles.roleSettingsLink}>
@@ -682,12 +681,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14, zIndex: 30, elevation: 12 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8, zIndex: 40 },
-  themeToggle: { width: 40, height: 40, borderRadius: 16, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
+  headerGreetingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 },
+  roleBadge: { borderRadius: 999, backgroundColor: palette.brand + "1A", paddingHorizontal: 10, paddingVertical: 2 },
+  roleBadgeText: { color: palette.brand, fontSize: 10, fontWeight: "700" },
+  themeToggle: { width: 44, height: 44, borderRadius: 16, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
   themeToggleText: { color: palette.ink, fontSize: 22, fontWeight: "700" },
   roleSettingsLink: { alignSelf: "flex-start", marginHorizontal: space.xl, marginBottom: 12, borderRadius: 12, borderWidth: 1, borderColor: palette.brand + "33", backgroundColor: palette.brand + "0D", paddingHorizontal: 12, paddingVertical: 8 },
   roleSettingsText: { color: palette.brand, fontSize: 12, fontWeight: "800" },
-  headerEyebrow: { color: palette.gold, fontSize: 9, fontWeight: "900", letterSpacing: 1.5, marginBottom: 5 },
-  greeting: { fontSize: 25, fontWeight: "900", color: palette.ink },
+  headerEyebrow: { color: palette.brand, fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+  greeting: { fontSize: 24, lineHeight: 29, fontWeight: "900", color: palette.ink },
   roleText: { fontSize: 12, color: palette.muted, marginTop: 3, fontWeight: "600" },
   avatar: { width: 48, height: 48, borderRadius: 17, backgroundColor: palette.brand, borderWidth: 1, borderColor: palette.gold, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 19, fontWeight: "900", color: palette.white },
