@@ -364,6 +364,17 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
   const [popupAttachmentUrl, setPopupAttachmentUrl] = useState<string | null>(null);
   const [popupAttachmentLoading, setPopupAttachmentLoading] = useState(false);
+  const [dispatchClock, setDispatchClock] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const expiresAt = popupRequest?.my_offer?.expires_at;
+    if (expiresAt && Date.parse(expiresAt) <= dispatchClock) setPopupRequest(null);
+  }, [popupRequest?.my_offer?.expires_at, dispatchClock]);
 
   useEffect(() => {
     let active = true;
@@ -416,7 +427,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       if (largeDriverMode) {
         const { data: offerRows, error: offerError } = await (supabase as any)
           .from("request_offers")
-          .select("request_id, proposed_price, offer_message")
+          .select("request_id, proposed_price, offer_message, expires_at, sent_at, distance_km")
           .eq("provider_id", providerUserId)
           .eq("status", "pending")
           .gt("expires_at", new Date().toISOString());
@@ -433,25 +444,40 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
         const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
         setRequests(mappedRequests);
-        if (mappedRequests.length && popupShownRef.current !== mappedRequests[0].id) {
-          popupShownRef.current = mappedRequests[0].id;
+        const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
+        setRequests(mappedRequests);
+        const popupKey = mappedRequests[0] ? `${mappedRequests[0].id}:${mappedRequests[0].my_offer?.sent_at ?? ""}` : null;
+        if (mappedRequests.length && popupShownRef.current !== popupKey) {
+          popupShownRef.current = popupKey;
           setPopupRequest(mappedRequests[0]);
         } else if (!mappedRequests.length) {
           setPopupRequest(null);
         }
         return;
       }
+
+      const { data: offerRows, error: offerError } = await (supabase as any)
+        .from("request_offers")
+        .select("request_id, expires_at, sent_at, distance_km")
+        .eq("provider_id", providerUserId)
+        .eq("status", "pending")
+        .gt("expires_at", new Date().toISOString());
+      if (offerError || !offerRows?.length) { setRequests([]); setPopupRequest(null); return; }
+      const requestIds: string[] = [...new Set<string>(offerRows.map((offer: any) => String(offer.request_id)))];
       let query = supabase
         .from("service_requests")
-        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type")
+        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km")
+        .in("id", requestIds)
         .in("status", ["pending", "searching"])
         .eq("type", type);
       if (type === "taxi") query = query.neq("vehicle_category", "large");
-      const { data } = await query.order("created_at", { ascending: false }).limit(20);
-      const mappedRequests = data ?? [];
+      const { data } = await query.order("created_at", { ascending: false }).limit(50);
+      const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
+      const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
       setRequests(mappedRequests);
-      if (mappedRequests.length && popupShownRef.current !== mappedRequests[0].id) {
-        popupShownRef.current = mappedRequests[0].id;
+      const popupKey = mappedRequests[0] ? `${mappedRequests[0].id}:${mappedRequests[0].my_offer?.sent_at ?? ""}` : null;
+      if (mappedRequests.length && popupShownRef.current !== popupKey) {
+        popupShownRef.current = popupKey;
         setPopupRequest(mappedRequests[0]);
       } else if (!mappedRequests.length) {
         setPopupRequest(null);
@@ -530,8 +556,23 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
           <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl border border-primary/40 bg-background p-5 shadow-2xl">
             <div className="mb-3 text-xs font-black text-primary">🔔 طلب جديد موجّه إلك</div>
             <div className="text-lg font-black text-foreground">{type === "taxi" ? (largeDriverMode ? "طلب سيارة كبيرة جديد" : "طلب رحلة جديد") : "طلب خدمة جديد"}</div>
+            {popupRequest.my_offer?.expires_at && (() => {
+              const remaining = Math.max(0, Math.ceil((Date.parse(popupRequest.my_offer.expires_at) - dispatchClock) / 1000));
+              const progress = Math.max(0, Math.min(100, remaining / 60 * 100));
+              return <div className="my-4 flex items-center justify-center gap-3">
+                <div className="grid h-20 w-20 place-items-center rounded-full" style={{ background: `conic-gradient(#d69e36 ${progress}%, #e5e7eb ${progress}% 100%)` }}>
+                  <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-background text-center">
+                    <span className="text-xl font-black tabular-nums">{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</span>
+                    <span className="text-[9px] text-muted-foreground">للقبول</span>
+                  </div>
+                </div>
+                <div className="max-w-[210px] text-xs leading-6 text-muted-foreground">{remaining <= 10 ? "انتبه، راح ينتهي العرض خلال ثوانٍ!" : "أول مزوّد يقبل الطلب يحصل عليه، وبعد انتهاء الدقيقة ينتقل البحث للنطاق التالي."}</div>
+              </div>;
+            })()}
             <div className="mt-2 rounded-2xl bg-muted/60 p-3 text-sm font-bold text-foreground">📍 {popupRequest.pickup_text || "موقع الزبون"}</div>
             {popupRequest.dest_text && <div className="mt-2 text-xs text-muted-foreground">🎯 {popupRequest.dest_text}</div>}
+            {popupRequest.my_offer?.distance_km != null && <div className="mt-2 text-xs font-bold text-muted-foreground">المسافة إليك: {Number(popupRequest.my_offer.distance_km).toFixed(1)} كم</div>}
+            {(popupRequest.customer_price ?? popupRequest.customer_payable ?? popupRequest.price_estimate) != null && <div className="mt-2 text-sm font-black text-primary">السعر: {Number(popupRequest.customer_price ?? popupRequest.customer_payable ?? popupRequest.price_estimate).toLocaleString("ar-IQ")} د.ع</div>}
             {popupRequest.work_description && <div className="mt-2 text-xs text-muted-foreground">🛠️ {popupRequest.work_description}</div>}
             {popupRequest.attachment_path && (
               <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
