@@ -1237,6 +1237,23 @@ export const adminGetGovernorateUserStats = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+export const adminGetCustomerActivityStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    limit: z.number().int().min(1).max(500).default(200),
+    offset: z.number().int().min(0).default(0),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: report, error } = await (supabaseAdmin as any).rpc("admin_customer_activity_stats", {
+      p_limit: data.limit,
+      p_offset: data.offset,
+    });
+    if (error) throw new Error("تعذر تحميل إحصائيات الزبائن: " + error.message);
+    return report ?? {};
+  });
+
 export const adminUpdateUserProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
