@@ -138,6 +138,15 @@ if (!aabWorkflowSource.includes("cancel-in-progress: true")) {
   missing.push("AAB builds must cancel obsolete main builds when a newer release commit arrives.");
 }
 
+const nativeThemeSource = await readSource("src/styles/theme.ts");
+if (!nativeThemeSource.includes('success:"#00B667"') ||
+    !nativeThemeSource.includes('danger:"#EE343B"') ||
+    !nativeThemeSource.includes('surfaceSoft:"#192431"') ||
+    !nativeThemeSource.includes('success:"#2EC97A"') ||
+    !nativeThemeSource.includes('danger:"#FC4447"')) {
+  missing.push("Native semantic success/danger and dark surface colors must stay aligned with the Web CSS theme tokens.");
+}
+
 const notificationLayout = await readSource("app/_layout.tsx");
 const notificationBell = await readSource("src/components/notifications-bell.tsx");
 const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
