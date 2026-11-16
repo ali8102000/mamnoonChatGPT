@@ -138,9 +138,12 @@ export default function AdminRegionalControlsScreen() {
           <TextInput value={settings.message_text} onChangeText={(value) => update({ message_text: value })} style={[styles.input, { minHeight: 100, textAlignVertical: "top" }]} multiline textAlign="right" maxLength={1200} />
           <Text style={styles.label}>الرسالة التي تظهر عند رفض الطلب</Text>
           <TextInput value={settings.rejection_message} onChangeText={(value) => update({ rejection_message: value })} style={[styles.input, { minHeight: 90, textAlignVertical: "top" }]} multiline textAlign="right" maxLength={1000} />
-          <Text style={styles.label}>رابط صورة اختيارية للتنويه</Text>
-          <TextInput value={settings.message_image_url} onChangeText={(value) => update({ message_image_url: value })} style={styles.input} textAlign="right" autoCapitalize="none" keyboardType="url" placeholder="https://..." />
-          <TouchableOpacity onPress={() => update({ message_animate: !settings.message_animate }) style={styles.switchRow}><Text style={styles.label}>تحريك الرسالة</Text><Text style={styles.gold}>{settings.message_animate ? "مفعّل ✓" : "متوقف"}</Text></TouchableOpacity>
+          <Text style={styles.label}>صورة اختيارية للتنويه</Text>
+          <TouchableOpacity onPress={() => void pickNoticeImage()} disabled={imageUploading} style={[styles.action, { backgroundColor: "#292114", borderWidth: 1, borderColor: palette.gold, opacity: imageUploading ? 0.6 : 1 }]}>
+            {imageUploading ? <ActivityIndicator color={palette.gold} /> : <Text style={[styles.actionText, { color: palette.gold }]}>{settings.message_image_url ? "تغيير الصورة المرفقة" : "إرفاق صورة من الجهاز"}</Text>}
+          </TouchableOpacity>
+          {!!settings.message_image_url && <TouchableOpacity onPress={() => update({ message_image_url: "" })} style={{ alignSelf: "flex-end", paddingVertical: 7 }}><Text style={{ color: "#f87171", fontSize: 11, fontWeight: "800" }}>إزالة الصورة</Text></TouchableOpacity>}
+          <TouchableOpacity onPress={() => update({ message_animate: !settings.message_animate })} style={styles.switchRow}><Text style={styles.label}>تحريك الرسالة</Text><Text style={styles.gold}>{settings.message_animate ? "مفعّل ✓" : "متوقف"}</Text></TouchableOpacity>
         </View>
         <View style={styles.preview}>
           <View style={styles.previewHead}><Text style={styles.stamp}>✦ الإدارة الرسمية · موثّق ✦</Text><Text style={styles.stamp}>✓</Text></View>
