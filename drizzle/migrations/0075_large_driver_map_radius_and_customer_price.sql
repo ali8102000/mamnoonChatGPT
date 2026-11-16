@@ -115,3 +115,126 @@ CREATE TRIGGER trg_guard_large_vehicle_customer_price
 
 REVOKE EXECUTE ON FUNCTION public.guard_large_vehicle_customer_price()
   FROM PUBLIC, anon, authenticated;
+
+
+-- Provider roles are granted only after staff approval. Both provider profile
+-- types must enter the review queue; worker profiles must not self-approve.
+CREATE OR REPLACE FUNCTION public.grant_provider_role_safe(_role public.app_role)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'unauthorized';
+  END IF;
+  IF _role IS NULL OR _role NOT IN ('driver', 'large_driver', 'worker') THEN
+    RAISE EXCEPTION 'invalid_provider_role';
+  END IF;
+
+  IF _role = 'driver' AND NOT EXISTS (
+    SELECT 1
+    FROM public.driver_profiles
+    WHERE user_id = auth.uid()
+      AND vehicle_category::text IN ('economy', 'premium', 'luxury')
+      AND status = 'approved'
+  ) THEN
+    RAISE EXCEPTION 'approved_taxi_profile_required';
+  END IF;
+
+  IF _role = 'large_driver' AND NOT EXISTS (
+    SELECT 1
+    FROM public.driver_profiles
+    WHERE user_id = auth.uid()
+      AND vehicle_category::text = 'large'
+      AND status = 'approved'
+  ) THEN
+    RAISE EXCEPTION 'large_driver_profile_required';
+  END IF;
+
+  IF _role = 'worker' AND NOT EXISTS (
+    SELECT 1
+    FROM public.worker_profiles
+    WHERE user_id = auth.uid()
+      AND status = 'approved'
+  ) THEN
+    RAISE EXCEPTION 'approved_worker_profile_required';
+  END IF;
+
+  INSERT INTO public.user_roles(user_id, role)
+  VALUES (auth.uid(), _role)
+  ON CONFLICT (user_id, role) DO NOTHING;
+  RETURN true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.grant_provider_role_safe(public.app_role)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.grant_provider_role_safe(public.app_role)
+  TO authenticated;
+
+-- Preserve existing qualification/rating protections while requiring staff
+-- approval for both driver and worker profiles.
+CREATE OR REPLACE FUNCTION public.guard_provider_status()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_new jsonb := to_jsonb(NEW);
+  v_old jsonb := to_jsonb(OLD);
+BEGIN
+  IF auth.uid() IS NOT NULL
+     AND NOT public.has_admin_access(auth.uid()) THEN
+    IF TG_OP = 'INSERT' THEN
+      NEW.status := 'pending';
+      NEW.available := false;
+    ELSIF TG_OP = 'UPDATE' THEN
+      IF NEW.status IS DISTINCT FROM OLD.status THEN
+        IF NOT (
+          TG_TABLE_NAME = 'driver_profiles'
+          AND auth.uid() = OLD.user_id
+          AND OLD.status = 'rejected'
+          AND NEW.status = 'pending'
+        ) THEN
+          RAISE EXCEPTION 'status_readonly';
+        END IF;
+      END IF;
+
+      IF OLD.status = 'approved' THEN
+        IF TG_TABLE_NAME = 'driver_profiles' AND (
+          v_new->'vehicle_make' IS DISTINCT FROM v_old->'vehicle_make'
+          OR v_new->'vehicle_model' IS DISTINCT FROM v_old->'vehicle_model'
+          OR v_new->'vehicle_year' IS DISTINCT FROM v_old->'vehicle_year'
+          OR v_new->'vehicle_category' IS DISTINCT FROM v_old->'vehicle_category'
+          OR v_new->'vehicle_type' IS DISTINCT FROM v_old->'vehicle_type'
+          OR v_new->'vehicle_plate' IS DISTINCT FROM v_old->'vehicle_plate'
+          OR v_new->'vehicle_color' IS DISTINCT FROM v_old->'vehicle_color'
+        ) THEN
+          RAISE EXCEPTION 'approved_vehicle_changes_require_admin_review';
+        END IF;
+
+        IF TG_TABLE_NAME = 'worker_profiles'
+           AND v_new->'level' IS DISTINCT FROM v_old->'level' THEN
+          RAISE EXCEPTION 'approved_worker_level_change_requires_admin_review';
+        END IF;
+      END IF;
+
+      IF v_new->'rating_avg' IS DISTINCT FROM v_old->'rating_avg' THEN
+        RAISE EXCEPTION 'rating_readonly';
+      END IF;
+    END IF;
+
+    IF NEW.status <> 'approved' AND NEW.available THEN
+      NEW.available := false;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.guard_provider_status()
+  FROM PUBLIC, anon, authenticated;
