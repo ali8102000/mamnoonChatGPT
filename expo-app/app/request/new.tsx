@@ -884,7 +884,7 @@ export default function NewRequest() {
               )}
             </View>
           )}
-          {!isLargeVehicle && (
+          {isTaxi && !isLargeVehicle && (
                   <View style={{ marginTop: 18, marginBottom: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: "#F59E0B80", backgroundColor: palette.goldSoft }}>
                     <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", marginBottom: 9 }}>🎁 عندك كوبون خصم؟</Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
