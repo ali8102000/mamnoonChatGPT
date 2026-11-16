@@ -131,6 +131,13 @@ if (!nativeAuthSource.includes('router.push("/welcome")')) {
 
 const apkWorkflowSource = await readSource("../.github/workflows/android-apk.yml");
 const aabWorkflowSource = await readSource("../.github/workflows/android-aab.yml");
+const emulatorSmokeSection = apkWorkflowSource.split("name: Install and launch APK on Android emulator")[1] ?? "";
+if (emulatorSmokeSection.slice(0, 1800).includes("continue-on-error: true") ||
+    !emulatorSmokeSection.includes("emulator-screen.png") ||
+    !apkWorkflowSource.includes("Upload Android emulator smoke evidence")) {
+  missing.push("Release APK validation must require an emulator launch and retain screenshot/logcat evidence.");
+}
+
 if (apkWorkflowSource.includes("  pull_request:")) {
   missing.push("Full APK builds should run on main only; PRs use the faster mobile CI export checks.");
 }
