@@ -123,7 +123,7 @@ export default function HistoryScreen() {
         ))}
       </View>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 104 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {visibleRequests.length === 0 ? (

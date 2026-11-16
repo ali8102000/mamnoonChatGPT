@@ -337,12 +337,6 @@ export default function HomeScreen() {
           />
         )}
       </ScrollView>
-      <View style={styles.bottomTabs}>
-        <TabBtn label="الرئيسية" icon="⌂" active onPress={() => {}} />
-        <TabBtn label="الطلبات" icon="▤" onPress={() => router.push("/history")} />
-        <TabBtn label="الرسائل" icon="◌" onPress={() => router.push("/messages")} />
-        <TabBtn label="حسابي" icon="●" onPress={() => router.push("/profile")} />
-      </View>
     </View>
   );
 }
@@ -649,25 +643,6 @@ function ProviderHome({
   );
 }
 
-function TabBtn({
-  label,
-  icon,
-  active,
-  onPress,
-}: {
-  label: string;
-  icon: string;
-  active?: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} style={styles.tabBtn} onPress={onPress} activeOpacity={0.7}>
-      <Text style={[styles.tabIcon, active && styles.tabIconActive]}>{icon}</Text>
-      <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.pageCanvas },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14, zIndex: 30, elevation: 12 },
@@ -711,10 +686,4 @@ const styles = StyleSheet.create({
   requestType: { fontSize: 12, color: palette.muted, marginTop: 5 },
   requestPrice: { fontSize: 14, fontWeight: "900", color: palette.brand, marginTop: 7 },
   requestArrow: { fontSize: 23, color: palette.gold },
-  bottomTabs: { flexDirection: "row", backgroundColor: palette.surface, paddingTop: 10, paddingBottom: 24, borderTopWidth: 1, borderTopColor: palette.line },
-  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 4 },
-  tabIcon: { fontSize: 22, color: palette.muted, fontWeight: "700" },
-  tabIconActive: { color: palette.brand },
-  tabLabel: { fontSize: 10, color: palette.muted, marginTop: 4, fontWeight: "700" },
-  tabLabelActive: { color: palette.brand, fontWeight: "900" },
 });

@@ -161,7 +161,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 104 }}>
       <View style={styles.header}>
         <View style={styles.avatar}>
           {profile?.avatar_url ? (
