@@ -68,8 +68,17 @@ export function NotificationsBell() {
         // Request offers already receive a dedicated Expo push; other in-app events get a local audible alert.
         if (isImportantNotificationType(item.type)) {
           void Notifications.scheduleNotificationAsync({
-            content: { title: item.title, body: item.body ?? undefined, sound: true, data: { url: item.link ?? "/home" } },
-            trigger: null,
+            content: {
+              title: item.title,
+              body: item.body ?? undefined,
+              sound: isNotificationSoundEnabled() ? "default" : null,
+              data: { url: item.link ?? "/home" },
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+              seconds: 1,
+              channelId: isNotificationSoundEnabled() ? "default" : "silent",
+            },
           }).catch((error) => console.warn("[notifications] local sound alert failed:", error));
         }
       }).subscribe();
