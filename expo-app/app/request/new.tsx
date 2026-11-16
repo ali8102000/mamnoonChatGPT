@@ -423,6 +423,8 @@ export default function NewRequest() {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       };
+      setDestinationConfirmed(false);
+      setMapMode("pickup");
       setPickupCoords(coords);
       setPickupGovernorateKey(nearestGovernorateKey(coords));
       void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
