@@ -39,7 +39,7 @@ export default function ForgotPassword() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
+  container: { flex: 1, backgroundColor: palette.pageCanvas, paddingHorizontal: 20, paddingTop: 52 },
   title: { fontSize: 26, fontWeight: "900", color: palette.ink, marginBottom: 8 },
   subtitle: { fontSize: 13, color: palette.muted, marginBottom: 24, lineHeight: 22 },
 });
