@@ -28,6 +28,7 @@ type IncomingRequest = {
   type: string;
   price_estimate: number | null;
   customer_price?: number | null;
+  customer_payable?: number | null;
   vehicle_category?: string | null;
   vehicle_type?: string | null;
   pickup_text?: string | null;
@@ -350,6 +351,7 @@ export default function HomeScreen() {
             companyName={companyName}
             toggleAvailable={toggleAvailable}
             incoming={incoming}
+            dispatchClock={dispatchClock}
           />
         )}
       </ScrollView>
@@ -594,6 +596,7 @@ function ProviderHome({
   companyName,
   toggleAvailable,
   incoming,
+  dispatchClock,
 }: {
   available: boolean;
   verified: boolean;
@@ -601,6 +604,7 @@ function ProviderHome({
   companyName: string;
   toggleAvailable: () => void;
   incoming: IncomingRequest[];
+  dispatchClock: number;
 }) {
   return (
     <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
