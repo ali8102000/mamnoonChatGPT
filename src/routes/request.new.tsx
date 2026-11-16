@@ -63,6 +63,10 @@ export const Route = createFileRoute("/request/new")({
 
 type Service = { id: string; slug: string; name_ar: string };
 
+const EXPERT_ONLY_SERVICE_SLUGS = new Set([
+  "plaster", "carpentry_form", "flooring", "chef", "plumbing", "electric_setup", "electric_street",
+]);
+
 const VEHICLE_CATS: {
   key: VehicleCategory;
   label: string;
@@ -1078,7 +1082,10 @@ function NewRequest() {
               key={s.id}
               type="button"
               variant="ghost"
-              onClick={() => setServiceId(s.id)}
+              onClick={() => {
+                setServiceId(s.id);
+                if (!EXPERT_ONLY_SERVICE_SLUGS.has(s.slug)) setLevel("fani");
+              }}
               className={`relative h-auto whitespace-normal flex flex-col items-center gap-2 p-3 rounded-2xl btn-press tap-highlight-none transition-all ${
                 active
                   ? "bg-card ring-2 ring-primary shadow-lg scale-105"
@@ -1128,8 +1135,10 @@ function NewRequest() {
         {(
           [
             { k: "fani", label: "فني", img: technicianIcon, desc: "خبرة جيدة" },
-            { k: "khabir", label: "خبير", img: expertIcon, desc: "خبرة عالية" },
-          ] as const
+            ...(selectedService && EXPERT_ONLY_SERVICE_SLUGS.has(selectedService.slug)
+              ? [{ k: "khabir" as const, label: "خبير", img: expertIcon, desc: "خبرة عالية" }]
+              : []),
+          ]
         ).map((opt) => (
           <button
             key={opt.k}
@@ -1158,8 +1167,12 @@ function NewRequest() {
         ))}
       </div>
 
-      {level === "khabir" ? (
+      {level === "khabir" && selectedService && EXPERT_ONLY_SERVICE_SLUGS.has(selectedService.slug) ? (
         <>
+          <div className="mb-3 rounded-2xl border border-amber-300/60 bg-amber-50/80 dark:bg-amber-950/20 p-3 text-right">
+            <div className="font-black text-sm text-amber-800 dark:text-amber-300">مميزات اختيار الخبير</div>
+            <p className="mt-1 text-xs leading-6 text-amber-900/80 dark:text-amber-200/80">خبرة تخصصية أعلى، تشخيص أدق، تنفيذ الأعمال المعقدة، وإمكانية طلب خبير منفرد أو خبير مع فريق عمال حسب حجم العمل.</p>
+          </div>
           <div className="mb-2 text-sm font-bold text-muted-foreground">الخبير يحتاج عمال؟</div>
           <div className="grid grid-cols-2 gap-3 mb-5">
             <button
