@@ -39,6 +39,8 @@ import {
   adminDeleteFriendship,
   adminDeleteMessage,
   adminGetDashboardStats,
+  adminGetGovernorateUserStats,
+  adminUpdateUserProfile,
   adminGetLiveLocations,
   adminGetLiveRequests,
   adminGetUserDetail,
@@ -103,6 +105,7 @@ type Section =
   | "coupons"
   | "wallet"
   | "stats"
+  | "governorateStats"
   | "map"
   | "notifications"
   | "regions"
@@ -119,6 +122,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
   { key: "stats", label: "الإحصائيات", icon: Activity, roles: ["super_admin", "admin", "finance"] },
+  { key: "governorateStats", label: "إحصائيات المستخدمين حسب المحافظة", icon: MapPin, roles: ["super_admin", "admin"] },
   {
     key: "users",
     label: "المستخدمون",
@@ -312,6 +316,7 @@ function AdminPage() {
         <div className="p-4 lg:p-8 max-w-5xl mx-auto">
           {section === "overview" && <OverviewSection />}
           {section === "stats" && <StatsSection />}
+          {section === "governorateStats" && <GovernorateUserStatsSection />}
           {section === "users" && <UsersSection />}
           {section === "providers" && <ProvidersSection />}
           {section === "requests" && <RequestsSection />}
@@ -393,6 +398,79 @@ function StatCard({ icon: Icon, label, value, accent }: any) {
       <Icon className={`h-5 w-5 mb-2 ${accent ?? "text-primary"}`} />
       <div className="text-2xl font-black">{value ?? "—"}</div>
       <div className="text-[10px] text-muted-foreground font-bold mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+
+const GOVERNORATE_LABELS: Record<string, string> = {
+  baghdad: "بغداد", basra: "البصرة", nineveh: "نينوى", erbil: "أربيل",
+  sulaymaniyah: "السليمانية", duhok: "دهوك", kirkuk: "كركوك", najaf: "النجف",
+  karbala: "كربلاء", babil: "بابل", anbar: "الأنبار", diyala: "ديالى",
+  saladin: "صلاح الدين", wasit: "واسط", dhiqar: "ذي قار", maysan: "ميسان",
+  muthanna: "المثنى", qadisiyah: "القادسية", unknown: "غير محددة",
+};
+
+function GovernorateUserStatsSection() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const getStats = useServerFn(adminGetGovernorateUserStats);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try { setRows(await getStats({ data: {} })); }
+    catch (e: any) { setError(e?.message || "تعذر تحميل الإحصائيات"); }
+    finally { setLoading(false); }
+  }, [getStats]);
+  useEffect(() => { void load(); }, [load]);
+  const total = rows.find((row) => row.governorate_key === "__all__");
+  const regions = rows.filter((row) => row.governorate_key !== "__all__")
+    .sort((a,b) => Number(b.total_users) - Number(a.total_users));
+  const number = (value: unknown) => Number(value || 0).toLocaleString("ar-IQ");
+  return (
+    <div dir="rtl">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 className="text-xl font-black">إحصائيات المستخدمين حسب المحافظة</h2>
+          <p className="text-xs text-muted-foreground mt-1">أعداد مباشرة من حسابات قاعدة البيانات، مع احتساب كل حساب مرة واحدة في الإجمالي.</p>
+        </div>
+        <button onClick={() => void load()} className="px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold">تحديث</button>
+      </div>
+      {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : error ? (
+        <div className="glass rounded-xl p-4 text-sm text-red-600">{error}</div>
+      ) : (
+        <>
+          <div className="glass rounded-2xl p-4 mb-4">
+            <div className="text-xs text-muted-foreground">إجمالي الحسابات المسجلة</div>
+            <div className="text-3xl font-black mt-1">{number(total?.total_users)}</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+              {[["الفنيون",total?.workers],["سائقو السيارات الكبيرة",total?.large_drivers],["كباتن التكسي",total?.taxi_drivers],["الزبائن",total?.customers]].map(([label,value]) => (
+                <div key={String(label)} className="rounded-xl bg-surface-2 p-3">
+                  <div className="text-[11px] text-muted-foreground">{label}</div>
+                  <div className="text-xl font-black">{number(value)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="glass rounded-2xl overflow-hidden">
+            <div className="grid grid-cols-6 gap-2 px-3 py-3 text-[10px] font-black text-muted-foreground border-b border-border">
+              <div className="col-span-2">المحافظة</div><div>الفنيون</div><div>الكبيرة</div><div>التكسي</div><div>الزبائن</div>
+            </div>
+            {regions.map((row) => (
+              <div key={row.governorate_key} className="grid grid-cols-6 gap-2 px-3 py-3 text-xs border-b border-border last:border-0 items-center">
+                <div className="col-span-2 min-w-0">
+                  <div className="font-bold">{GOVERNORATE_LABELS[row.governorate_key] ?? row.governorate_key}</div>
+                  <div className="text-[10px] text-muted-foreground">المجموع: {number(row.total_users)}</div>
+                </div>
+                <div>{number(row.workers)}</div><div>{number(row.large_drivers)}</div><div>{number(row.taxi_drivers)}</div><div>{number(row.customers)}</div>
+              </div>
+            ))}
+            {!regions.length && <div className="p-6 text-center text-sm text-muted-foreground">لا توجد حسابات بعد</div>}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-3">المستخدمون الذين لم تُحدد محافظتهم يظهرون ضمن «غير محددة». وقد يكون الحساب الواحد ضمن أكثر من فئة إذا كان مسجلاً بأكثر من دور، لذلك لا تُجمع أعداد الفئات لاستخراج الإجمالي.</p>
+        </>
+      )}
     </div>
   );
 }
@@ -620,7 +698,7 @@ function UsersSection() {
         </div>
       )}
       {selectedUser && (
-        <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+        <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} onSave={(profile: any) => setSelectedUser((current: any) => current ? { ...current, profile: { ...current.profile, ...profile } } : current)} />
       )}
       {blockModal && (
         <BlockModal
@@ -633,7 +711,31 @@ function UsersSection() {
   );
 }
 
-function UserDetailModal({ user, onClose }: { user: any; onClose: () => void }) {
+function UserDetailModal({ user, onClose, onSave }: { user: any; onClose: () => void; onSave: (profile: any) => void }) {
+  const updateProfile = useServerFn(adminUpdateUserProfile);
+  const [fullName, setFullName] = useState(user.profile?.full_name ?? "");
+  const [governorateKey, setGovernorateKey] = useState(user.profile?.governorate_key ?? "");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  async function saveProfile() {
+    if (fullName.trim().length < 2) { toast.error("الاسم يجب أن يكون حرفين على الأقل"); return; }
+    if (avatarFile && avatarFile.size > 5 * 1024 * 1024) { toast.error("حجم الصورة يجب ألا يتجاوز 5 ميغابايت"); return; }
+    setSaving(true);
+    try {
+      let avatar_base64: string | undefined;
+      if (avatarFile) {
+        const bytes = new Uint8Array(await avatarFile.arrayBuffer());
+        let binary = ""; for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+        avatar_base64 = btoa(binary);
+      }
+      const updated = await updateProfile({ data: {
+        user_id: user.profile.id, full_name: fullName.trim(), governorate_key: governorateKey || null,
+        ...(avatar_base64 ? { avatar_base64, avatar_mime: avatarFile!.type as "image/jpeg" | "image/png" | "image/webp" } : {}),
+      } });
+      onSave(updated); setAvatarFile(null); toast.success("تم تحديث بيانات المستخدم");
+    } catch (e: any) { toast.error(e?.message || "تعذر حفظ التعديلات"); }
+    finally { setSaving(false); }
+  }
   return (
     <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4 overflow-y-auto">
       <div className="glass rounded-3xl p-5 w-full max-w-lg my-8 max-h-[90vh] overflow-y-auto">
