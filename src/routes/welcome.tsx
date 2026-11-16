@@ -175,6 +175,7 @@ function WelcomePage() {
           {(["build", "chef", "electric_setup"] as const).map((slug) => (
             <img key={slug} src={serviceIcon(slug)} alt="" className="h-20 w-full rounded-xl bg-card object-contain p-1 shadow-sm" loading="lazy" />
           ))}
+          <img src="https://xcode.shamayah.co.ke/assets/login-bus-CChLKdVW.png" alt="باص ركاب" className="h-20 w-full rounded-xl bg-card object-contain p-1 shadow-sm" loading="lazy" />
         </div>
         <section aria-live="polite" aria-atomic="true" className="mt-6 min-h-32">
           <p className="text-xs font-bold text-primary">{slide.label}</p>
