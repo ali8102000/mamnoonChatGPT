@@ -19,6 +19,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "credentialsSource": "remote",
       "environment": "production",
       "env": {
         "APP_ENV": "production"

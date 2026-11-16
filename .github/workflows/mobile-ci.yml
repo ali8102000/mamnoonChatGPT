@@ -53,6 +53,9 @@ jobs:
           env -u EAS_PROJECT_ID EAS_BUILD_PROJECT_ID="00000000-0000-4000-8000-000000000000" bunx expo config --type public
       - name: Expo dependency compatibility
         run: bunx expo install --check
+      - name: Validate GitHub Actions workflow YAML
+        run: |
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true); puts "Valid workflow YAML: #{path}" }' ../.github/workflows/*.yml
       - name: Expo Doctor
         run: npx --yes expo-doctor
       - name: Export Android bundle

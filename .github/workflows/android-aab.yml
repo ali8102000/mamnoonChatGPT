@@ -1,4 +1,4 @@
-# Build the Mamnoon Android App Bundle from the Expo project in expo-app.
+# Build a signed Mamnoon Android App Bundle locally using the existing remote EAS upload key.
 name: Mamnoon Android production AAB
 
 on:
@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build:
-    name: Validate and build Mamnoon Android App Bundle
+    name: Validate and build signed Mamnoon Android App Bundle
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -28,15 +28,35 @@ jobs:
     env:
       APP_ENV: production
       EAS_PROJECT_ID: a6c763c4-3a5c-4725-b370-81967e3c0aab
+      ANDROID_NDK_VERSION: 27.1.12297006
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22.14.0"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android SDK packages
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::Android SDK command-line tools were not found on the runner."
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          "$SDKMANAGER" --install "ndk;$ANDROID_NDK_VERSION"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Install dependencies
-        run: bun install
-      - name: Remove transient Bun lockfile
-        run: rm -f bun.lock
+      - name: Install dependencies with the EAS Yarn lockfile
+        run: |
+          npm install --global yarn@1.22.22
+          yarn install --frozen-lockfile
       - name: TypeScript check
         run: bunx tsc --noEmit
       - name: Expo dependency compatibility
@@ -62,36 +82,46 @@ jobs:
             echo "::error::EAS_PROJECT_ID does not match expo-app/app.json extra.eas.projectId."
             exit 1
           fi
-      - name: Validate Mamnoon production EAS environment variables
+      - name: Build signed production AAB locally with the existing remote key
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/release-artifacts
         run: |
-          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs'
-      - name: Build signed Mamnoon production AAB and wait for completion
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          bunx eas-cli@latest env:exec production 'bunx eas-cli@latest build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"'
-      - name: Download the finished AAB directly from Expo
-        id: download
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          BUILD_ID="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; if(!b?.id) process.exit(2); process.stdout.write(b.id)')"
-          BUILD_URL="$(node -e 'const v=JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/eas-build.json","utf8")); const b=Array.isArray(v)?v[0]:v; const u=b?.artifacts?.buildUrl || b?.artifacts?.applicationArchiveUrl; if(!u || !u.startsWith("https://")) process.exit(2); process.stdout.write(u)')"
-          echo "EAS_BUILD_ID=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
           mkdir -p ../release-artifacts
-          curl --fail --location --retry 3 --retry-delay 2 "$BUILD_URL" --output ../release-artifacts/mamnoon-production.aab
-          test -s ../release-artifacts/mamnoon-production.aab
-          node -e 'const fs=require("fs"); const p="../release-artifacts/mamnoon-production.aab"; const b=Buffer.alloc(4); const fd=fs.openSync(p,"r"); fs.readSync(fd,b,0,4,0); fs.closeSync(fd); if(b.toString("hex")!=="504b0304") { console.error("Downloaded file is not a valid ZIP-based Android App Bundle"); process.exit(1); }'
-      - name: Upload AAB as a GitHub Actions artifact
+          # The production profile defaults to remote EAS credentials. Local EAS
+          # builds do not consume cloud build credits and must fail rather than
+          # generate a replacement upload key if the existing key is unavailable.
+          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx eas-cli@latest build --platform android --profile production --local --non-interactive'
+      - name: Validate signed production AAB
+        run: |
+          set -euo pipefail
+          AAB="$(find ../release-artifacts -type f -name '*.aab' -print -quit)"
+          if [ -z "$AAB" ]; then
+            echo "::error::EAS local build did not produce an Android App Bundle."
+            exit 1
+          fi
+          if [ "$AAB" != "../release-artifacts/mamnoon-production.aab" ]; then cp "$AAB" ../release-artifacts/mamnoon-production.aab; fi
+          unzip -t ../release-artifacts/mamnoon-production.aab
+          jarsigner -verify -verbose -certs ../release-artifacts/mamnoon-production.aab > ../release-artifacts/aab-signature-verification.txt
+          grep -qi "jar verified" ../release-artifacts/aab-signature-verification.txt
+          keytool -printcert -jarfile ../release-artifacts/mamnoon-production.aab > ../release-artifacts/aab-signing-certificate.txt
+          sha256sum ../release-artifacts/mamnoon-production.aab > ../release-artifacts/mamnoon-production.aab.sha256
+          node -e 'const c=require("./app.json"); if(c.expo.android.package!=="com.mamnoon.app") throw new Error("Unexpected Android package name"); console.log("Android package configuration verified:", c.expo.android.package);'
+          du -h ../release-artifacts/mamnoon-production.aab
+      - name: Upload signed Google Play AAB
         uses: actions/upload-artifact@v4
         with:
           name: mamnoon-production-aab
-          path: release-artifacts/mamnoon-production.aab
+          path: |
+            release-artifacts/mamnoon-production.aab
+            release-artifacts/mamnoon-production.aab.sha256
+            release-artifacts/aab-signing-certificate.txt
+            release-artifacts/aab-signature-verification.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
+          compression-level: 0
       - name: Build summary
         run: |
-          echo "Mamnoon AAB build completed. EAS build ID: ${{ steps.download.outputs.EAS_BUILD_ID }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "The signed AAB is attached as the mamnoon-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
+          echo "Mamnoon signed production AAB was built locally with the configured EAS upload key." >> "$GITHUB_STEP_SUMMARY"
+          echo "The AAB, SHA-256 and signing certificate details are attached as the mamnoon-production-aab artifact." >> "$GITHUB_STEP_SUMMARY"
