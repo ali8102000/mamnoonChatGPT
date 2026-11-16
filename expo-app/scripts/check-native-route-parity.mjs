@@ -80,6 +80,12 @@ if (!nativeAuthContextSource.includes("mamnoon-chats-v1")) {
 }
 
 const nativeProfileSource = await readSource("app/profile.tsx");
+if (!nativeProfileSource.includes("isGeneralManager") ||
+    !nativeProfileSource.includes("متابعة الشكاوى ومراسلات ممنون") ||
+    !nativeProfileSource.includes('router.push("/support-chat"')) {
+  missing.push("General managers must have a visible profile entry to their read-only complaints inbox.");
+}
+
 if (!nativeProfileSource.includes("mamnoon-wallet-v1") ||
     !nativeProfileSource.includes("walletOffline")) {
   missing.push("Native provider wallet must restore and label cached values when offline.");
