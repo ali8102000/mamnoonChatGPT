@@ -317,7 +317,7 @@ function AdminPage() {
           {section === "overview" && <OverviewSection />}
           {section === "stats" && <StatsSection />}
           {section === "governorateStats" && <GovernorateUserStatsSection />}
-          {section === "users" && <UsersSection />}
+          {section === "users" && <UsersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "providers" && <ProvidersSection />}
           {section === "requests" && <RequestsSection />}
           {section === "chat" && <ChatSection />}
@@ -468,7 +468,7 @@ function GovernorateUserStatsSection() {
             ))}
             {!regions.length && <div className="p-6 text-center text-sm text-muted-foreground">لا توجد حسابات بعد</div>}
           </div>
-          <p className="text-[11px] text-muted-foreground mt-3">المستخدمون الذين لم تُحدد محافظتهم يظهرون ضمن «غير محددة». وقد يكون الحساب الواحد ضمن أكثر من فئة إذا كان مسجلاً بأكثر من دور، لذلك لا تُجمع أعداد الفئات لاستخراج الإجمالي.</p>
+          <p className="text-[11px] text-muted-foreground mt-3">تُعتمد المحافظة التي حدّدتها الإدارة في ملف المستخدم، وإلا تُستخدم آخر محافظة مسجلة في طلباته. من لا يملك محافظة مسجلة يظهر ضمن «غير محددة». وقد يكون الحساب الواحد ضمن أكثر من فئة إذا كان مسجلاً بأكثر من دور، لذلك لا تُجمع أعداد الفئات لاستخراج الإجمالي.</p>
         </>
       )}
     </div>
@@ -557,7 +557,7 @@ function StatsSection() {
   );
 }
 
-function UsersSection() {
+function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -698,7 +698,7 @@ function UsersSection() {
         </div>
       )}
       {selectedUser && (
-        <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} onSave={(profile: any) => setSelectedUser((current: any) => current ? { ...current, profile: { ...current.profile, ...profile } } : current)} />
+        <UserDetailModal user={selectedUser} canEdit={canEdit} onClose={() => setSelectedUser(null)} onSave={(profile: any) => setSelectedUser((current: any) => current ? { ...current, profile: { ...current.profile, ...profile } } : current)} />
       )}
       {blockModal && (
         <BlockModal
@@ -711,7 +711,7 @@ function UsersSection() {
   );
 }
 
-function UserDetailModal({ user, onClose, onSave }: { user: any; onClose: () => void; onSave: (profile: any) => void }) {
+function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdit: boolean; onClose: () => void; onSave: (profile: any) => void }) {
   const updateProfile = useServerFn(adminUpdateUserProfile);
   const [fullName, setFullName] = useState(user.profile?.full_name ?? "");
   const [governorateKey, setGovernorateKey] = useState(user.profile?.governorate_key ?? "");
