@@ -44,6 +44,7 @@ export default function WelcomeScreen() {
           <Image source={getServiceImage("build")} style={s.welcomeGalleryImage} resizeMode="cover" />
           <Image source={getServiceImage("chef")} style={s.welcomeGalleryImage} resizeMode="cover" />
           <Image source={getServiceImage("electric_setup")} style={s.welcomeGalleryImage} resizeMode="cover" />
+          <Image source={{ uri: "https://xcode.shamayah.co.ke/assets/login-bus-CChLKdVW.png" }} style={s.welcomeGalleryImage} resizeMode="contain" />
         </View>
         <View style={s.card}>
           <Text style={s.cardTitle}>شنو تكدر تسوي بممنون؟</Text>
