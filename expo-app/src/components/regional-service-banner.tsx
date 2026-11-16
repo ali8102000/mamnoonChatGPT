@@ -11,6 +11,8 @@ type Row = { governorate_key: string; services_enabled: boolean; message_enabled
 export function RegionalServiceBanner() {
   const [row, setRow] = useState<Row | null>(null);
   const translate = useState(() => new Animated.Value(0))[0];
+  const [marqueeWidth, setMarqueeWidth] = useState(0);
+  const [textWidth, setTextWidth] = useState(0);
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -54,12 +56,17 @@ export function RegionalServiceBanner() {
     return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
   }, []);
   useEffect(() => {
-    if (!row?.message_animate || (!row.message_enabled && row.services_enabled)) return;
+    if (!row?.message_animate || (!row.message_enabled && row.services_enabled) || marqueeWidth <= 0 || textWidth <= 0) return;
     translate.setValue(0);
-    const animation = Animated.loop(Animated.timing(translate, { toValue: 1, duration: 18000, easing: Easing.linear, useNativeDriver: true }));
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(translate, { toValue: 1, duration: 14000, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(translate, { toValue: 0, duration: 14000, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+      ]),
+    );
     animation.start();
     return () => animation.stop();
-  }, [row?.message_animate, row?.message_enabled, row?.services_enabled, row?.message_text, translate]);
+  }, [row?.message_animate, row?.message_enabled, row?.services_enabled, row?.message_text, marqueeWidth, textWidth, translate]);
   if (!row || (row.services_enabled && !row.message_enabled)) return null;
   const text = row.message_text || (row.services_enabled ? "" : "الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون.");
   if (!text) return null;
@@ -67,8 +74,10 @@ export function RegionalServiceBanner() {
     <View style={styles.wrap}>
       <LinearGradient colors={["#050505", "#17120A", "#050505"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.card}>
         <View style={styles.head}><Text style={styles.title}>{row.message_title || "تنويه رسمي من إدارة ممنون"}</Text><View style={styles.stamp}><Text style={styles.stampText}>✓ الإدارة الرسمية · موثّق</Text></View></View>
-        <View style={styles.marquee}>
-          {row.message_animate ? <Animated.Text numberOfLines={1} style={[styles.message, { transform: [{ translateX: translate.interpolate({ inputRange: [0, 1], outputRange: [260, -520] }) }] }]}>{text}</Animated.Text> : <Text style={[styles.message, { textAlign: "right" }]}>{text}</Text>}
+        <View style={styles.marquee} onLayout={(event) => setMarqueeWidth(event.nativeEvent.layout.width)}>
+          {row.message_animate ? <>
+            <Animated.Text numberOfLines={1} onLayout={(event) => setTextWidth(event.nativeEvent.layout.width)} style={[styles.message, { transform: [{ translateX: translate.interpolate({ inputRange: [0, 1], outputRange: [marqueeWidth, -textWidth] }) }] }]}>{text}</Animated.Text>
+          </> : <Text style={[styles.message, { textAlign: "right" }]}>{text}</Text>}
         </View>
         {!row.services_enabled && <Text style={styles.closed}>الخدمات متوقفة حالياً في هذه المحافظة.</Text>}
       </LinearGradient>
@@ -84,6 +93,6 @@ const styles = StyleSheet.create({
   stamp: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
   stampText: { color: "#E9C76A", fontSize: 9, fontWeight: "800" },
   marquee: { height: 34, justifyContent: "center", overflow: "hidden", marginTop: 5 },
-  message: { color: "#F4E7C1", fontSize: 12, fontWeight: "800", textAlign: "left", width: 520 },
+  message: { color: "#F4E7C1", fontSize: 12, fontWeight: "800", textAlign: "right", alignSelf: "flex-start", flexShrink: 0 },
   closed: { color: "#FCA5A5", fontSize: 10, fontWeight: "800", textAlign: "right", marginTop: 6 },
 });
