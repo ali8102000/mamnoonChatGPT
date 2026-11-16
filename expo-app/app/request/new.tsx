@@ -8,6 +8,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Modal,
   TextInput,
   ActivityIndicator,
   Image,
@@ -86,6 +87,26 @@ async function resolveRouteGovernorates(from: Coordinates, to: Coordinates) {
   };
 }
 
+
+
+function GovernoratePickerModal({ visible, selectedKey, onClose, onSelect }: { visible: boolean; selectedKey: string | null; onClose: () => void; onSelect: (key: string) => void }) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: "rgba(5,10,18,0.72)", justifyContent: "center", padding: 20 }}>
+        <View style={{ maxHeight: "78%", borderRadius: 24, padding: 18, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <TouchableOpacity onPress={onClose} style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: palette.canvas, alignItems: "center", justifyContent: "center" }}><Text style={{ color: palette.ink, fontSize: 22, fontWeight: "900" }}>×</Text></TouchableOpacity>
+            <View style={{ flex: 1, alignItems: "flex-end" }}><Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900" }}>اختر محافظة</Text><Text style={{ color: palette.muted, fontSize: 11, marginTop: 3 }}>حدد المحافظة للبحث عن الأماكن القريبة</Text></View>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {IRAQ_GOVERNORATES.map((governorate) => { const selected = selectedKey === governorate.key; return <TouchableOpacity key={governorate.key} onPress={() => onSelect(governorate.key)} style={{ minWidth: "47%", flexGrow: 1, paddingVertical: 13, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: selected ? palette.gold : palette.line, backgroundColor: selected ? palette.brand : palette.canvas, alignItems: "center" }}><Text style={{ color: selected ? palette.white : palette.ink, fontSize: 13, fontWeight: "900" }}>{selected ? "✓  " : ""}{governorate.name}</Text></TouchableOpacity>; })}
+          </View></ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function NewRequest() {
   const { type, vehicle } = useLocalSearchParams<{ type: string; vehicle?: string }>();
   const { user } = useAuth();
@@ -105,6 +126,7 @@ export default function NewRequest() {
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
   const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
+  const [governoratePickerVisible, setGovernoratePickerVisible] = useState(false);
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
@@ -884,7 +906,7 @@ export default function NewRequest() {
           style={StyleSheet.absoluteFillObject}
           provider={PROVIDER_GOOGLE}
           initialRegion={region}
-          mapPadding={{ top: 92, right: 0, bottom: taxiSheetHeight, left: 0 }}
+          mapPadding={{ top: 158, right: 0, bottom: taxiSheetHeight, left: 0 }}
           onPanDrag={() => { userPannedMapRef.current = true; }}
           onRegionChangeComplete={handleRegionChangeComplete}
           showsUserLocation
@@ -916,6 +938,7 @@ export default function NewRequest() {
         </View>
 
         <View style={styles.taxiTopBar}>
+          <View style={styles.taxiTopControls}>
           <TouchableOpacity
             style={styles.taxiBackButton}
             onPress={() => {
@@ -931,7 +954,7 @@ export default function NewRequest() {
           >
             <Text style={styles.taxiBackText}>‹</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.taxiGovernorateBadge} onPress={() => { setMapMode("pickup"); setDestinationConfirmed(false); }}>
+          <TouchableOpacity style={styles.taxiGovernorateBadge} onPress={() => setGovernoratePickerVisible(true)}>
             <Text style={styles.taxiGovernorateText}>📍 {activeGovernorate?.name ?? "اختر المحافظة"}</Text>
           </TouchableOpacity>
           <View style={styles.taxiStepTabs}>
@@ -957,6 +980,16 @@ export default function NewRequest() {
               </TouchableOpacity>
             )}
           </View>
+          </View>
+          <View style={styles.taxiSearchRow}>
+            <TouchableOpacity style={styles.taxiLocateButton} onPress={mapMode === "pickup" ? locateMe : () => { if (!pickupCoords) { Alert.alert("حدد الانطلاق أولاً", "حدد موقع الانطلاق أولاً."); return; } const center = destinationCoords ?? pickupCoords; moveMap({ ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 }); }} disabled={locationLoading && mapMode === "pickup"}>
+              {locationLoading && mapMode === "pickup" ? <ActivityIndicator color={palette.white} size="small" /> : <Text style={styles.taxiLocateText}>{mapMode === "pickup" ? "موقعي" : "مركز الخريطة"}</Text>}
+            </TouchableOpacity>
+            <TextInput style={styles.taxiSearchInput} value={placeQuery} onChangeText={setPlaceQuery} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
+          </View>
+          {searchingPlaces && <ActivityIndicator style={{ marginTop: 6 }} color={palette.brand} />}
+          {!!placeSearchError && <Text style={styles.taxiErrorText}>{placeSearchError}</Text>}
+          {placeSuggestions.length > 0 && <View style={styles.taxiSuggestionList}>{placeSuggestions.map((item) => <TouchableOpacity key={item.id} style={styles.taxiSuggestionItem} onPress={() => choosePlaceSuggestion(item)}><Text style={styles.taxiSuggestionTitle}>{item.text}</Text>{!!item.address && item.address !== item.text && <Text style={styles.taxiSuggestionAddress}>{item.address}</Text>}</TouchableOpacity>)}</View>}
         </View>
 
         <View style={styles.taxiBottomSheet} onLayout={(event) => setTaxiSheetHeight(event.nativeEvent.layout.height)}>
@@ -969,61 +1002,6 @@ export default function NewRequest() {
                     ? pickup || "حرّك الخريطة حتى تصبح نقطة الانطلاق تحت الدبوس"
                     : destination || "حرّك الخريطة حتى تصبح وجهتك تحت الدبوس"}
                 </Text>
-
-                <View style={styles.taxiSearchRow}>
-                  <TouchableOpacity
-                    style={styles.taxiLocateButton}
-                    onPress={mapMode === "pickup" ? locateMe : () => {
-                      if (!pickupCoords) {
-                        Alert.alert("حدد الانطلاق أولاً", "حدد موقع الانطلاق أولاً.");
-                        return;
-                      }
-                      const center = destinationCoords ?? pickupCoords;
-                      moveMap({ ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 });
-                    }}
-                    disabled={locationLoading && mapMode === "pickup"}
-                  >
-                    {locationLoading && mapMode === "pickup"
-                      ? <ActivityIndicator color={palette.white} size="small" />
-                      : <Text style={styles.taxiLocateText}>{mapMode === "pickup" ? "موقعي" : "مركز الخريطة"}</Text>}
-                  </TouchableOpacity>
-                  <TextInput
-                    style={styles.taxiSearchInput}
-                    value={placeQuery}
-                    onChangeText={setPlaceQuery}
-                    placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"}
-                    placeholderTextColor={palette.muted}
-                    editable={!!activeGovernorateKey}
-                    returnKeyType="search"
-                  />
-                </View>
-                {searchingPlaces && <ActivityIndicator style={{ marginTop: 8 }} color={palette.brand} />}
-                {!!placeSearchError && <Text style={styles.taxiErrorText}>{placeSearchError}</Text>}
-                {placeSuggestions.length > 0 && (
-                  <View style={styles.taxiSuggestionList}>
-                    {placeSuggestions.map((item) => (
-                      <TouchableOpacity key={item.id} style={styles.taxiSuggestionItem} onPress={() => choosePlaceSuggestion(item)}>
-                        <Text style={styles.taxiSuggestionTitle}>{item.text}</Text>
-                        {!!item.address && item.address !== item.text && <Text style={styles.taxiSuggestionAddress}>{item.address}</Text>}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-
-                <Text style={styles.taxiFieldLabel}>المحافظة</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.taxiGovernorateRow}>
-                  {IRAQ_GOVERNORATES.map((governorate) => (
-                    <TouchableOpacity
-                      key={governorate.key}
-                      style={[styles.taxiGovernorateChip, activeGovernorateKey === governorate.key && styles.taxiGovernorateChipActive]}
-                      onPress={() => chooseGovernorate(governorate.key)}
-                    >
-                      <Text style={[styles.taxiGovernorateChipText, activeGovernorateKey === governorate.key && styles.taxiGovernorateChipTextActive]}>
-                        {activeGovernorateKey === governorate.key ? "✓ " : ""}{governorate.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
 
                 {isLargeVehicle && mapMode === "pickup" && (
                   <View style={styles.taxiLargeTypePanel}>
@@ -1244,6 +1222,7 @@ export default function NewRequest() {
             )}
           </ScrollView>
         </View>
+        <GovernoratePickerModal visible={governoratePickerVisible} selectedKey={activeGovernorateKey} onClose={() => setGovernoratePickerVisible(false)} onSelect={(key) => { chooseGovernorate(key); setGovernoratePickerVisible(false); }} />
       </View>
     );
   }
@@ -1332,23 +1311,13 @@ export default function NewRequest() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.label}>المحافظة</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.governorateRow}>
-        {IRAQ_GOVERNORATES.map((governorate) => (
-          <TouchableOpacity
-            key={governorate.key}
-            style={[styles.governorateChip, activeGovernorateKey === governorate.key && styles.governorateChipActive]}
-            onPress={() => chooseGovernorate(governorate.key)}
-          >
-            <Text style={[styles.governorateChipText, activeGovernorateKey === governorate.key && styles.governorateChipTextActive]}>
-              {activeGovernorateKey === governorate.key ? "✓ " : ""}{governorate.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <TouchableOpacity style={styles.governoratePickerButton} onPress={() => setGovernoratePickerVisible(true)}>
+        <Text style={styles.governoratePickerLabel}>اختر محافظة</Text>
+        <Text style={styles.governoratePickerValue}>{activeGovernorate?.name ?? "اضغط لاختيار المحافظة"}　⌄</Text>
+      </TouchableOpacity>
       <TextInput
         ref={placeSearchInputRef}
-        style={styles.input}
+        style={[styles.input, styles.placeSearchTop]}
         value={placeQuery}
         onChangeText={setPlaceQuery}
         placeholder={activeGovernorate ? `ابحث عن مكان داخل ${activeGovernorate.name}...` : "اختر المحافظة أولاً"}
@@ -1691,6 +1660,7 @@ export default function NewRequest() {
       )}
       <View style={{ height: 24 }} />
       <Button title="إرسال الطلب" onPress={submit} loading={busy} />
+      <GovernoratePickerModal visible={governoratePickerVisible} selectedKey={activeGovernorateKey} onClose={() => setGovernoratePickerVisible(false)} onSelect={(key) => { chooseGovernorate(key); setGovernoratePickerVisible(false); }} />
     </ScrollView>
   );
 }
@@ -1698,11 +1668,16 @@ export default function NewRequest() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 18, paddingTop: 52 },
   taxiScreen: { flex: 1, backgroundColor: palette.canvas },
+  governoratePickerButton: { minHeight: 52, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.md, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
+  governoratePickerLabel: { color: palette.muted, fontSize: 11, fontWeight: "800" },
+  governoratePickerValue: { color: palette.ink, fontSize: 14, fontWeight: "900" },
+  placeSearchTop: { borderWidth: 1.5, borderColor: palette.gold, backgroundColor: palette.surface, minHeight: 52, marginTop: 8 },
   taxiNearbyMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.surface, borderWidth: 2, borderColor: palette.brand, alignItems: "center", justifyContent: "center", elevation: 5 },
   taxiNearbyMarkerText: { fontSize: 19 },
   taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -17, marginTop: -38, zIndex: 4 },
   taxiCenterPinText: { fontSize: 36, textShadowColor: "rgba(0,0,0,0.35)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
-  taxiTopBar: { position: "absolute", top: 48, left: 10, right: 10, zIndex: 10, flexDirection: "row", alignItems: "center", gap: 7 },
+  taxiTopBar: { position: "absolute", top: 42, left: 10, right: 10, zIndex: 10, flexDirection: "column", alignItems: "stretch", gap: 8 },
+  taxiTopControls: { flexDirection: "row", alignItems: "center", gap: 7 },
   taxiBackButton: { width: 42, height: 44, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
   taxiBackText: { color: palette.ink, fontSize: 30, fontFamily: "Tajawal_900Black", fontWeight: "900", lineHeight: 34 },
   taxiGovernorateBadge: { minHeight: 44, paddingHorizontal: 11, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
