@@ -43,10 +43,10 @@ for (const route of [
 
 const webSupport = readWeb("src/routes/support-chat.tsx");
 const nativeSupport = read("app/support-chat.tsx");
-check("web general-manager read-only gate", webSupport.includes("complaintsReadOnly") &&
-  webSupport.includes("!complaintsReadOnly") && webSupport.includes("general_manager"));
-check("Android general-manager read-only gate", nativeSupport.includes("complaintsReadOnly") &&
-  nativeSupport.includes("!complaintsReadOnly") && nativeSupport.includes("general_manager"));
+check("web general-manager support reply access", webSupport.includes('assignment?.rank === "general_manager"') &&
+  webSupport.includes('from("support_messages").insert') && !webSupport.includes("complaintsReadOnly"));
+check("Android general-manager support reply access", nativeSupport.includes('assignment?.rank === "general_manager"') &&
+  nativeSupport.includes('from("support_messages").insert') && !nativeSupport.includes("complaintsReadOnly"));
 const webRegions = readWeb("src/components/admin-regional-controls.tsx");
 const nativeRegions = read("app/admin/regions.tsx");
 const webRegionsNav = webAdmin.slice(webAdmin.indexOf('key: "regions"'), webAdmin.indexOf('key: "roles"'));
