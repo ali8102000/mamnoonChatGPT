@@ -61,6 +61,8 @@ import {
   adminSaveCoupon,
   adminSearchUsers,
   adminSetStaffRank,
+  adminListDepartmentStaff,
+  adminPromoteStaffOneLevel,
   adminSetProviderStatus,
   adminUpdateProviderName,
   adminUnblockUser,
@@ -100,6 +102,7 @@ type Section =
   | "notifications"
   | "audit"
   | "roles"
+  | "staff"
   | "company";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
@@ -162,6 +165,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
+  { key: "staff", label: "موظفو القسم والترقيات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
@@ -191,8 +195,11 @@ function AdminPage() {
         });
         const parsedRoles = (roles ?? []).map((r: any) => r);
         setStaffRoles(parsedRoles);
-        const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,department").eq("user_id", session.user.id).eq("active", true).maybeSingle();
+        const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,department,rank").eq("user_id", session.user.id).eq("active", true).maybeSingle();
         setStaffDisplayTitle(assignment?.display_title ?? null);
+        if (assignment?.rank) parsedRoles.push(`rank:${assignment.rank}`);
+        setStaffRoles([...parsedRoles]);
+        if (assignment?.rank && ["general_manager","department_manager","supervisor"].includes(assignment.rank) && !parsedRoles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r))) setSection("staff");
         if (parsedRoles.includes("customer_service") && !parsedRoles.some((r: string) => ["super_admin", "admin", "support", "finance", "moderator"].includes(r))) setSection("chat");
         setAuthorized(true);
       } catch {
@@ -306,6 +313,7 @@ function AdminPage() {
           {section === "map" && <MapSection />}
           {section === "notifications" && <NotificationsSection />}
           {section === "roles" && <RolesSection />}
+          {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
           {section === "audit" && <AuditSection />}
         </div>
@@ -2548,6 +2556,39 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onClose }: any) {
       </div>
     </div>
   );
+}
+
+function StaffHierarchySection() {
+  const [staff, setStaff] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [promoting, setPromoting] = useState<string | null>(null);
+  const listStaff = useServerFn(adminListDepartmentStaff);
+  const promote = useServerFn(adminPromoteStaffOneLevel);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setStaff(await listStaff({ data: {} })); }
+    catch (e: any) { toast.error(e?.message || "تعذر تحميل موظفي القسم"); }
+    finally { setLoading(false); }
+  }, [listStaff]);
+  useEffect(() => { void load(); }, [load]);
+  const rankLabels: Record<string,string> = { owner: "الرئيس المؤسس الأعلى", general_manager: "مدير عام", department_manager: "مدير قسم", supervisor: "مشرف", employee: "موظف" };
+  const departmentLabels: Record<string,string> = { executive: "الإدارة التنفيذية", customer_service: "خدمة العملاء", finance: "المالية", operations: "التشغيل", monitoring: "المراقبة" };
+  async function promoteOne(id: string) {
+    setPromoting(id);
+    try { const result = await promote({ data: { target_user_id: id } }); toast.success("تمت الترقية إلى " + (rankLabels[result.rank] ?? result.rank)); await load(); }
+    catch (e: any) { toast.error(e?.message || "تعذرت الترقية"); }
+    finally { setPromoting(null); }
+  }
+  return <div>
+    <h2 className="text-xl font-black mb-2">موظفو القسم والترقيات</h2>
+    <p className="text-xs text-muted-foreground mb-4">تقدر ترقّي الموظف درجة واحدة فقط، بشرط تبقى رتبته أقل من رتبتك. وكل ترقية تنسجل بسجل العمليات.</p>
+    {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : staff.length === 0 ? <EmptyState text="ماكو موظفين أدنى من رتبتك بهذا القسم حالياً" /> : <div className="space-y-2">
+      {staff.map((person) => <div key={person.user_id} className="glass rounded-2xl p-3 flex items-center justify-between gap-3">
+        <div className="min-w-0"><div className="font-bold text-sm truncate">{person.full_name || person.email || "موظف"}</div><div className="text-[10px] text-muted-foreground">{departmentLabels[person.department] ?? person.department} · {rankLabels[person.rank] ?? person.rank}</div><div className="text-[10px] text-muted-foreground">{person.phone || ""}</div></div>
+        <button disabled={!!promoting} onClick={() => void promoteOne(person.user_id)} className="shrink-0 rounded-lg bg-primary/10 text-primary px-3 py-2 text-xs font-bold disabled:opacity-50">{promoting === person.user_id ? "..." : "ترقية درجة"}</button>
+      </div>)}
+    </div>}
+  </div>;
 }
 
 function AuditSection() {
