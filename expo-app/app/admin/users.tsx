@@ -208,7 +208,7 @@ export default function AdminUsersScreen() {
         <View style={s.overlay}><View style={[s.modalCard,{maxHeight:"92%"}]}>
           <View style={s.actions}><Text style={s.title}>تفاصيل المستخدم</Text><TouchableOpacity onPress={()=>setDetail(null)}><Text style={s.secondaryText}>إغلاق</Text></TouchableOpacity></View>
           <ScrollView>
-            <Text style={s.section}>تعديل بيانات المستخدم</Text>
+            {canManage && <><Text style={s.section}>تعديل بيانات المستخدم</Text>
             {avatarPreview ? <Image source={{uri:avatarPreview}} style={s.avatarPreview}/> : null}
             <TouchableOpacity style={s.secondary} onPress={()=>void pickAdminAvatar()}><Text style={s.secondaryText}>اختيار / تغيير الصورة</Text></TouchableOpacity>
             <TextInput value={editName} onChangeText={setEditName} placeholder="اسم المستخدم" placeholderTextColor={palette.muted} style={s.input} textAlign="right" maxLength={100}/>
@@ -220,7 +220,7 @@ export default function AdminUsersScreen() {
               <TouchableOpacity onPress={()=>setEditGovernorate("")} style={[s.duration,!editGovernorate&&s.durationActive]}><Text style={[s.durationText,!editGovernorate&&s.durationTextActive]}>غير محددة</Text></TouchableOpacity>
             </View>
             <TouchableOpacity style={s.primary} disabled={busyId===detail?.profile?.id} onPress={()=>void saveProfile()}><Text style={s.buttonText}>{busyId===detail?.profile?.id ? "جارٍ الحفظ..." : "حفظ التعديلات"}</Text></TouchableOpacity>
-            <Info label="الاسم" value={detail?.profile?.full_name}/>
+            </>}\n            <Info label="الاسم" value={detail?.profile?.full_name}/>
 
             <Info label="الهاتف" value={detail?.profile?.phone}/>
             <Info label="البريد" value={detail?.profile?.email}/>
