@@ -104,6 +104,8 @@ export default function SubscriptionsScreen() {
         {subscription?.current_period_end ? <Text style={styles.muted}>ينتهي: {new Date(subscription.current_period_end).toLocaleString("ar-IQ")}</Text> : null}
       </View>
 
+      {subscription?.is_trial ? <View style={styles.card}><Text style={styles.sectionTitle}>فترة تجريبية برونزية</Text><Text style={styles.muted}>تبقى باقتك برونزية طوال الفترة التجريبية. ما تتفعّل الفضية أو الذهبية إلا بعد إكمال الدفع وتأكيده من زين كاش.</Text></View> : null}
+
       {plans.length>0 && <View style={styles.card}>
         <Text style={styles.sectionTitle}>الباقات المدفوعة</Text>
         <Text style={styles.muted}>الدفع الإلكتروني عبر زين كاش فقط. تبقى الباقة الحالية والمنح الإدارية كما هي ولا تتغير بمجرد اختيار باقة.</Text>
