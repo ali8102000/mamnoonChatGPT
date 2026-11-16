@@ -9,6 +9,7 @@ set search_path = public
 as $$
 declare
   v_detected_governorate text;
+  v_notice_text text;
 begin
   if new.pickup_lat is null or new.pickup_lng is null then
     raise exception 'governorate_required'
@@ -28,8 +29,15 @@ begin
   end if;
 
   if not public.regional_services_enabled(new.governorate_key) then
+    select nullif(trim(message_text), '') into v_notice_text
+    from public.regional_service_controls
+    where governorate_key in (new.governorate_key, 'all')
+      and message_enabled = true
+    order by case when governorate_key = new.governorate_key then 0 else 1 end
+    limit 1;
+
     raise exception 'regional_services_disabled'
-      using message = 'الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون.';
+      using message = 'الخدمة المطلوبة متوقفة حالياً في محافظتك. ' || coalesce(v_notice_text, 'الخدمات متوقفة بقرار من إدارة ممنون.');
   end if;
 
   return new;
@@ -46,6 +54,7 @@ set search_path = public
 as $$
 declare
   v_governorate_key text;
+  v_notice_text text;
 begin
   v_governorate_key := case
     when old.pickup_lat is not null and old.pickup_lng is not null
@@ -56,8 +65,15 @@ begin
   if new.status::text = 'accepted'
      and old.status::text is distinct from 'accepted'
      and not public.regional_services_enabled(v_governorate_key) then
+    select nullif(trim(message_text), '') into v_notice_text
+    from public.regional_service_controls
+    where governorate_key in (v_governorate_key, 'all')
+      and message_enabled = true
+    order by case when governorate_key = v_governorate_key then 0 else 1 end
+    limit 1;
+
     raise exception 'regional_services_disabled'
-      using message = 'الخدمات متوقفة حالياً في هذه المحافظة بقرار من الإدارة.';
+      using message = 'الخدمة المطلوبة متوقفة حالياً في محافظتك. ' || coalesce(v_notice_text, 'الخدمات متوقفة بقرار من إدارة ممنون.');
   end if;
   return new;
 end;
