@@ -38,7 +38,11 @@ export function RegionalServiceBanner() {
       if (!active) return;
       const exact = (data ?? []).find((item: Row) => item.governorate_key === key);
       const global = (data ?? []).find((item: Row) => item.governorate_key === "all");
-      setRow((exact || global || null) as Row | null);
+      const notice = exact || global;
+      const services_enabled = global?.services_enabled === false
+        ? false
+        : exact?.services_enabled ?? global?.services_enabled ?? true;
+      setRow(notice ? { ...notice, services_enabled } as Row : null);
     };
     void load();
     const timer = setInterval(() => void load(), 60000);
