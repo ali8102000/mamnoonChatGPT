@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Animated, Easing, Text, View, StyleSheet } from "react-native";
+import { Animated, Easing, Image, Text, View, StyleSheet } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import * as Location from "expo-location";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
@@ -74,7 +74,7 @@ export function RegionalServiceBanner() {
     <View style={styles.wrap}>
       <LinearGradient colors={["#050505", "#17120A", "#050505"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.card}>
         <View style={styles.head}><Text style={styles.title}>{row.message_title || "تنويه رسمي من إدارة ممنون"}</Text><View style={styles.stamp}><Text style={styles.stampText}>✓ إدارة ممنون · الحساب الرسمي الموثّق</Text></View></View>
-        {!!row.message_image_url && <Text style={styles.message}>{row.message_image_url}</Text>}
+        {!!row.message_image_url && <Image source={{ uri: row.message_image_url }} style={styles.noticeImage} resizeMode="contain" />}
         <View style={styles.marquee} onLayout={(event) => setMarqueeWidth(event.nativeEvent.layout.width)}>
           {row.message_animate ? <>
             <Animated.Text numberOfLines={1} onLayout={(event) => setTextWidth(event.nativeEvent.layout.width)} style={[styles.message, { transform: [{ translateX: translate.interpolate({ inputRange: [0, 1], outputRange: [marqueeWidth, -textWidth] }) }] }]}>{text}</Animated.Text>
@@ -95,5 +95,5 @@ const styles = StyleSheet.create({
   stampText: { color: "#E9C76A", fontSize: 9, fontWeight: "800" },
   marquee: { height: 34, justifyContent: "center", overflow: "hidden", marginTop: 5 },
   message: { color: "#F4E7C1", fontSize: 12, fontWeight: "800", textAlign: "right", alignSelf: "flex-start", flexShrink: 0 },
-  closed: { color: "#FCA5A5", fontSize: 10, fontWeight: "800", textAlign: "right", marginTop: 6 },
+  noticeImage: { width: "100%", height: 150, marginTop: 8, borderRadius: 10 },\n  closed: { color: "#FCA5A5", fontSize: 10, fontWeight: "800", textAlign: "right", marginTop: 6 },
 });
