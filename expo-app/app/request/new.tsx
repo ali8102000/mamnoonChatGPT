@@ -851,6 +851,13 @@ export default function NewRequest() {
           showsMyLocationButton={false}
           loadingEnabled
         >
+          {mapMode === "destination" && pickupCoords && (
+            <Marker
+              coordinate={pickupCoords}
+              title="نقطة الانطلاق"
+              pinColor="#0284c7"
+            />
+          )}
           {mapMode === "pickup" && nearbyDrivers.map((driver) => (
             <Marker
               key={driver.pin_id}
