@@ -132,6 +132,7 @@ function NewRequest() {
   const [servicesLoadError, setServicesLoadError] = useState<string | null>(null);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [serviceId, setServiceId] = useState<string | null>(null);
+  const [serviceDetailsStep, setServiceDetailsStep] = useState(false);
   const [level, setLevel] = useState<"fani" | "khabir">("fani");
   const [khabirMode, setKhabirMode] = useState<"alone" | "with_workers">("alone");
   const [workersCount, setWorkersCount] = useState(1);
@@ -612,6 +613,27 @@ function NewRequest() {
   const estimatedEtaMinutes =
     routeKm !== null ? Math.max(3, Math.round((routeKm / 32) * 60) + 3) : 5;
 
+  if (type === "service" && !serviceDetailsStep) {
+    return (
+      <div className="min-h-screen px-5 pt-10 pb-12" dir="rtl">
+        <button onClick={goBack} className="text-sm text-muted-foreground mb-4">رجوع</button>
+        <h1 className="text-2xl font-black">الفنيون والخدمات</h1>
+        <p className="mt-2 text-sm text-muted-foreground">اختَر اختصاص الفني حتى نعرض لك تفاصيل الطلب بالخطوة التالية.</p>
+        {servicesLoading && <div className="mt-5 rounded-2xl bg-card p-4 text-center text-sm text-muted-foreground">جارٍ تحميل قائمة الفنيين...</div>}
+        {servicesLoadError && <div className="mt-4 rounded-2xl border border-destructive/30 p-4 text-sm text-destructive">{servicesLoadError}<button onClick={() => void loadServiceCatalog()} className="block mt-3 font-bold">إعادة المحاولة</button></div>}
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          {services.map((s) => (
+            <button key={s.id} type="button" onClick={() => { setServiceId(s.id); if (!EXPERT_ONLY_SERVICE_SLUGS.has(s.slug)) setLevel("fani"); setServiceDetailsStep(true); }}
+              className="min-h-32 rounded-2xl bg-card p-3 flex flex-col items-center justify-center gap-2 border border-border shadow-sm">
+              <img src={serviceIcon(s.slug)} alt="" className="h-16 w-16 object-contain" />
+              <span className="text-xs font-black text-center">{s.name_ar}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   /* =========================================================================
      1. TAXI VIEW: FULL-SCREEN INTERACTIVE MAP WITH AUTO TRANSITION & REAL PRICING
      ========================================================================= */
@@ -1041,12 +1063,7 @@ function NewRequest() {
 
   return (
     <div className="min-h-screen px-5 pt-10 pb-36">
-      <button
-        onClick={goBack}
-        className="text-sm text-muted-foreground mb-4 flex items-center gap-1"
-      >
-        رجوع
-      </button>
+      <button onClick={() => setServiceDetailsStep(false)} className="text-sm text-muted-foreground mb-4 flex items-center gap-1">← قائمة الفنيين</button>
       <h1 className="text-3xl font-black flex items-center gap-2">
         <img
           src={technicianIcon}
@@ -1059,76 +1076,7 @@ function NewRequest() {
       </h1>
       <p className="text-sm text-muted-foreground mt-1">اختر الحرفة وحدد موقع العمل بسهولة</p>
 
-      {/* Services Grid */}
-      <div className="mt-6 mb-3 text-sm font-bold text-muted-foreground">اختر الخدمة</div>
-      {servicesLoading && (
-        <div className="mb-4 rounded-2xl bg-card p-4 text-center text-sm text-muted-foreground">
-          جارٍ تحميل صور وخدمات المهن...
-        </div>
-      )}
-      {servicesLoadError && (
-        <div className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-right">
-          <p className="text-sm font-bold text-destructive">{servicesLoadError}</p>
-          <button type="button" onClick={() => void loadServiceCatalog()} className="mt-3 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">
-            إعادة تحميل الخدمات
-          </button>
-        </div>
-      )}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {services.map((s) => {
-          const active = serviceId === s.id;
-          return (
-            <Button
-              key={s.id}
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setServiceId(s.id);
-                if (!EXPERT_ONLY_SERVICE_SLUGS.has(s.slug)) setLevel("fani");
-              }}
-              className={`relative h-auto whitespace-normal flex flex-col items-center gap-2 p-3 rounded-2xl btn-press tap-highlight-none transition-all ${
-                active
-                  ? "bg-card ring-2 ring-primary shadow-lg scale-105"
-                  : "bg-card/70 hover:bg-card"
-              }`}
-            >
-              {active && (
-                <CheckCircle2 className="absolute top-1.5 left-1.5 h-4 w-4 text-primary fill-card" />
-              )}
-              <div className="h-14 w-14 shrink-0 flex items-center justify-center">
-                <img
-                  src={serviceIcon(s.slug)}
-                  alt=""
-                  loading="lazy"
-                  width={56}
-                  height={56}
-                  className="h-14 w-14 object-contain"
-                />
-              </div>
-              <div className="text-[11px] font-bold text-center leading-tight min-h-[28px]">
-                {s.name_ar}
-              </div>
-            </Button>
-          );
-        })}
-      </div>
-
-      {selectedService && (
-        <div className="glass rounded-2xl p-3 mb-5 flex items-center gap-3">
-          <div className="h-10 w-10 shrink-0 flex items-center justify-center">
-            <img
-              src={serviceIcon(selectedService.slug)}
-              alt=""
-              loading="lazy"
-              width={40}
-              height={40}
-              className="h-10 w-10 object-contain"
-            />
-          </div>
-          <div className="text-sm font-bold">{selectedService.name_ar}</div>
-        </div>
-      )}
-
+      {/* Technician choices are shown on the previous dedicated screen. */}
       {/* Level Selection */}
       <div className="mb-2 text-sm font-bold text-muted-foreground">المستوى المطلوب</div>
       <div className="grid grid-cols-2 gap-3 mb-5">
