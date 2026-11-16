@@ -90,6 +90,7 @@ export function IncomingRequestModal() {
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [attachmentPath, setAttachmentPath] = useState<string | null>(null);
   const loadSequence = useRef(0);
+  const currentOfferId = useRef<string | null>(null);
 
   const loadOffer = useCallback(async () => {
     const sequence = ++loadSequence.current;
@@ -105,6 +106,7 @@ export function IncomingRequestModal() {
       .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, vehicle_type, pickup_text, dest_text, notes, attachment_path, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
       .eq("provider_id", user.id)
       .eq("status", "pending")
+      .is("proposed_price", null)
       .gt("expires_at", new Date().toISOString())
       .order("sent_at", { ascending: false })
       .limit(1)
@@ -145,6 +147,11 @@ export function IncomingRequestModal() {
     }
 
     if (sequence !== loadSequence.current) return;
+    if (currentOfferId.current !== data.id) {
+      currentOfferId.current = data.id;
+      setLargeOfferPrice("");
+      setLargeOfferMessage("");
+    }
     setOffer(data as Offer);
     setVisible(true);
   }, [user, canReceive, attachmentPath, attachmentUrl]);
