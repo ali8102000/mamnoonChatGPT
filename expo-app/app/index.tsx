@@ -5,7 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
 
 export default function Index() {
-  const { session, loading, roles } = useAuth();
+  const { session, loading, roles, profile } = useAuth();
   const [welcomeReady, setWelcomeReady] = useState(false);
   const [welcomeCompleted, setWelcomeCompleted] = useState(false);
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function Index() {
   }, []);
   if (loading || !welcomeReady) return <View style={styles.center}><ActivityIndicator size="large" color="#2563eb" /></View>;
   if (!session) return <Redirect href={welcomeCompleted ? "/auth" : "/welcome"} />;
-  if (roles.length === 0) return <Redirect href="/select-role" />;
+  if (!profile || roles.length === 0) return <Redirect href="/select-role" />;
   return <Redirect href="/home" />;
 }
 const styles = StyleSheet.create({ center: { flex: 1, justifyContent: "center", alignItems: "center" } });
