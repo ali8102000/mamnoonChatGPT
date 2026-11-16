@@ -185,7 +185,7 @@
   ],
   "adminSections": [
     {
-      "id": "admin-overview",
+      "id": "admin-section-overview",
       "key": "overview",
       "label": "نظرة عامة",
       "native": [
@@ -196,7 +196,7 @@
       ]
     },
     {
-      "id": "admin-stats",
+      "id": "admin-section-stats",
       "key": "stats",
       "label": "الإحصائيات",
       "native": [
@@ -209,7 +209,7 @@
       ]
     },
     {
-      "id": "admin-users",
+      "id": "admin-section-users",
       "key": "users",
       "label": "المستخدمون",
       "native": [
@@ -220,7 +220,7 @@
       ]
     },
     {
-      "id": "admin-providers",
+      "id": "admin-section-providers",
       "key": "providers",
       "label": "السائقون والفنيون",
       "native": [
@@ -231,7 +231,7 @@
       ]
     },
     {
-      "id": "admin-requests",
+      "id": "admin-section-requests",
       "key": "requests",
       "label": "الطلبات",
       "native": [
@@ -242,7 +242,7 @@
       ]
     },
     {
-      "id": "admin-chat",
+      "id": "admin-section-chat",
       "key": "chat",
       "label": "الدردشة ورسائل الدعم",
       "native": [
@@ -255,7 +255,7 @@
       ]
     },
     {
-      "id": "admin-friends",
+      "id": "admin-section-friends",
       "key": "friends",
       "label": "الأصدقاء",
       "native": [
@@ -266,7 +266,7 @@
       ]
     },
     {
-      "id": "admin-reports",
+      "id": "admin-section-reports",
       "key": "reports",
       "label": "البلاغات",
       "native": [
@@ -279,7 +279,7 @@
       ]
     },
     {
-      "id": "admin-subscriptions",
+      "id": "admin-section-subscriptions",
       "key": "subscriptions",
       "label": "الاشتراكات",
       "native": [
@@ -291,7 +291,7 @@
       ]
     },
     {
-      "id": "admin-coupons",
+      "id": "admin-section-coupons",
       "key": "coupons",
       "label": "الكوبونات",
       "native": [
@@ -302,7 +302,7 @@
       ]
     },
     {
-      "id": "admin-wallet",
+      "id": "admin-section-wallet",
       "key": "wallet",
       "label": "المحفظة",
       "native": [
@@ -313,7 +313,7 @@
       ]
     },
     {
-      "id": "admin-map",
+      "id": "admin-section-map",
       "key": "map",
       "label": "الخريطة المباشرة",
       "native": [
@@ -324,7 +324,7 @@
       ]
     },
     {
-      "id": "admin-notifications",
+      "id": "admin-section-notifications",
       "key": "notifications",
       "label": "الإشعارات",
       "native": [
@@ -335,7 +335,7 @@
       ]
     },
     {
-      "id": "admin-regions",
+      "id": "admin-section-regions",
       "key": "regions",
       "label": "التحكم بالمحافظات",
       "native": [
@@ -347,7 +347,7 @@
       ]
     },
     {
-      "id": "admin-roles",
+      "id": "admin-section-roles",
       "key": "roles",
       "label": "الصلاحيات",
       "native": [
@@ -358,7 +358,7 @@
       ]
     },
     {
-      "id": "admin-staff",
+      "id": "admin-section-staff",
       "key": "staff",
       "label": "موظفو القسم والترقيات",
       "native": [
@@ -370,7 +370,7 @@
       ]
     },
     {
-      "id": "admin-company",
+      "id": "admin-section-company",
       "key": "company",
       "label": "إعدادات الشركة",
       "native": [
@@ -382,7 +382,7 @@
       ]
     },
     {
-      "id": "admin-audit",
+      "id": "admin-section-audit",
       "key": "audit",
       "label": "سجل العمليات",
       "native": [
