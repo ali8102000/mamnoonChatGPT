@@ -63,6 +63,7 @@ export default function AdminProvidersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [expandedProviderId, setExpandedProviderId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -199,6 +200,10 @@ export default function AdminProvidersScreen() {
             <Text style={s.name}>{provider.profiles?.full_name || "بدون اسم"}</Text>
             <Text style={s.muted}>{provider.profiles?.phone || provider.profiles?.email || "لا توجد معلومات اتصال"}</Text>
             {!!provider.profiles?.phone && <TouchableOpacity style={s.contactButton} onPress={() => showContactOptions(provider.profiles!.phone!)}><Text style={s.contactButtonText}>اتصال / واتساب</Text></TouchableOpacity>}
+            <TouchableOpacity style={s.expandButton} onPress={() => setExpandedProviderId(current => current === provider.user_id ? null : provider.user_id)}>
+              <Text style={s.expandButtonText}>{expandedProviderId === provider.user_id ? "إخفاء التفاصيل" : "عرض التفاصيل والمستمسكات"}</Text>
+            </TouchableOpacity>
+            {expandedProviderId === provider.user_id && <>
             <View style={s.metaRow}>
               <Text style={s.status}>{provider.status || "غير محدد"}</Text>
               <Text style={s.meta}>{provider.available ? "متاح حالياً" : "غير متاح"}</Text>
@@ -222,6 +227,7 @@ export default function AdminProvidersScreen() {
               <TouchableOpacity disabled={busyId === provider.user_id} onPress={() => openProviderAction(provider, "rejected")} style={s.rejectButton}><Text style={s.actionText}>رفض مع السبب</Text></TouchableOpacity>
               <TouchableOpacity disabled={busyId === provider.user_id} onPress={() => openProviderAction(provider, "suspended")} style={s.suspendButton}><Text style={s.actionText}>تعليق الحساب</Text></TouchableOpacity>
             </View>}
+            </>}
           </View>
         ))}
         {!canManage && <Text style={s.footnote}>يمكنك مراجعة المستندات. اعتماد الحساب أو رفضه أو تعليقه محصور بصلاحية المدير.</Text>}
@@ -277,6 +283,8 @@ const s = StyleSheet.create({
   name: { color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" },
   contactButton: { alignSelf: "flex-start", minHeight: 36, backgroundColor: palette.brandSoft, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, alignItems: "center", justifyContent: "center", marginBottom: 8 },
   contactButtonText: { color: palette.brand, fontWeight: "800", fontSize: 12 },
+  expandButton: { minHeight: 34, borderRadius: 12, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  expandButtonText: { color: palette.brand, fontWeight: "900", fontSize: 11 },
   metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   status: { color: palette.brand, fontSize: 11, fontWeight: "900" },
   meta: { color: palette.muted, fontSize: 10 },
