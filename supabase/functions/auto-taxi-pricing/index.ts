@@ -73,13 +73,17 @@ Deno.serve(async (req) => {
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
   const routed=await route(body.from,body.to);
-  const isIntercity=body.isIntercity===true;
+  const [fromGovResult,toGovResult]=await Promise.all([admin.rpc("infer_governorate_key",{p_lat:body.from.lat,p_lng:body.from.lng}),admin.rpc("infer_governorate_key",{p_lat:body.to.lat,p_lng:body.to.lng})]);
+  const fromGovernorate=fromGovResult.data;
+  const toGovernorate=toGovResult.data;
+  if(fromGovResult.error||toGovResult.error||!fromGovernorate||!toGovernorate) return json({error:"تعذّر التحقق من المحافظتين من إحداثيات الرحلة"},400);
+  const isIntercity=fromGovernorate!==toGovernorate;
   const {data:settings,error:settingsError}=await admin.from("pricing_settings").select("*").eq("service_type",category).eq("is_intercity",isIntercity).single();
   if(settingsError||!settings) return json({error:"إعدادات التسعير غير متوفرة حالياً"},503);
   const priceEstimate=fare(category,routed.distanceKm,routed.durationMin,{...settings,is_intercity:isIntercity},tripType,extraMinutes);
   if(body.action==="quote") return json({...routed,priceEstimate,currency:"IQD",vehicleCategory:category});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
-  const governorate=typeof body.governorateKey==="string"?body.governorateKey:null;
+  const governorate=fromGovernorate;
   const couponCode=typeof body.couponCode==="string"&&body.couponCode.trim()?body.couponCode.trim().toUpperCase():null;
   if(couponCode) {
     const {data:preview,error:previewError}=await userClient.rpc("preview_my_coupon",{p_code:couponCode,p_amount:priceEstimate});
