@@ -98,6 +98,7 @@ export default function WebAppShell() {
   const webViewRef = useRef<WebView>(null);
   const lastTrackedRequest = useRef<string | null>(null);
   const [targetUrl, setTargetUrl] = useState(APP_URL);
+  const [currentUrl, setCurrentUrl] = useState(APP_URL);
   const [canGoBack, setCanGoBack] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [pageError, setPageError] = useState(false);
@@ -170,39 +171,74 @@ export default function WebAppShell() {
     }
   }, []);
 
-  const handleNavigation = useCallback(async (navigation: WebViewNavigation) => {
+  const handleNavigation = useCallback((navigation: WebViewNavigation) => {
     setCanGoBack(navigation.canGoBack);
-    try {
-      const url = new URL(navigation.url);
-      if (url.origin !== APP_ORIGIN) return;
-      const match = url.pathname.match(/^\/request\/([^/]+)\/?$/);
-      const requestId = match?.[1];
-      if (!requestId || !user?.id || !session || lastTrackedRequest.current === requestId) return;
-      lastTrackedRequest.current = requestId;
+    setCurrentUrl(navigation.url);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let refreshTimer: ReturnType<typeof setInterval> | undefined;
+    let channel: ReturnType<typeof supabase.channel> | undefined;
+
+    async function startTrackingIfActive(requestId: string) {
+      if (!user?.id || !session || lastTrackedRequest.current === requestId) return;
       const { data: request, error } = await supabase
         .from("service_requests")
         .select("customer_id, provider_id, status")
         .eq("id", requestId)
         .maybeSingle();
-      if (error || !request || !["accepted", "in_progress"].includes(request.status)) {
-        lastTrackedRequest.current = null;
-        return;
-      }
+      if (!active || error || !request || !["accepted", "in_progress"].includes(request.status)) return;
+
       const role = request.customer_id === user.id
         ? "customer"
         : request.provider_id === user.id
           ? "provider"
           : null;
-      if (!role) {
+      if (!role) return;
+
+      lastTrackedRequest.current = requestId;
+      try {
+        await startMamnoonBackgroundLocation({ requestId, userId: user.id, role });
+      } catch (error) {
         lastTrackedRequest.current = null;
-        return;
+        console.warn("[Mamnoon WebView] Request location bridge failed:", error);
       }
-      await startMamnoonBackgroundLocation({ requestId, userId: user.id, role });
-    } catch (error) {
-      lastTrackedRequest.current = null;
-      console.warn("[Mamnoon WebView] Request location bridge failed:", error);
     }
-  }, [session, user?.id]);
+
+    try {
+      const url = new URL(currentUrl);
+      const match = url.origin === APP_ORIGIN
+        ? url.pathname.match(/^\\/request\\/([^/]+)\\/?$/)
+        : null;
+      const requestId = match?.[1];
+      if (!requestId || !user?.id || !session) return;
+      void startTrackingIfActive(requestId);
+      channel = supabase
+        .channel(`webview-active-request-${requestId}`)
+        .on("postgres_changes", {
+          event: "UPDATE",
+          schema: "public",
+          table: "service_requests",
+          filter: `id=eq.${requestId}`,
+        }, (payload) => {
+          const row = payload.new as { status?: string };
+          if (row.status === "accepted" || row.status === "in_progress") {
+            void startTrackingIfActive(requestId);
+          }
+        })
+        .subscribe();
+      refreshTimer = setInterval(() => { void startTrackingIfActive(requestId); }, 10000);
+    } catch (error) {
+      console.warn("[Mamnoon WebView] Could not monitor request location:", error);
+    }
+
+    return () => {
+      active = false;
+      if (refreshTimer) clearInterval(refreshTimer);
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [currentUrl, session?.access_token, user?.id]);
 
   const shouldStartNavigation = useCallback((request: { url: string }) => {
     if (request.url === "about:blank") return true;
