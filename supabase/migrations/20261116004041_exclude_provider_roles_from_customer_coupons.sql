@@ -9,7 +9,7 @@ DECLARE c public.coupons%rowtype; v_discount numeric;
 BEGIN
  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'يجب تسجيل الدخول'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='customer')
-    OR EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role IN ('driver','worker')) THEN
+    OR EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role IN ('driver','large_driver','worker')) THEN
    RAISE EXCEPTION 'الكوبونات مخصصة لحسابات الزبائن فقط ولا تشمل حسابات مقدمي الخدمة';
  END IF;
  IF p_amount IS NULL OR p_amount<=0 THEN RAISE EXCEPTION 'قيمة الطلب غير صالحة'; END IF;
@@ -36,7 +36,7 @@ BEGIN
  END IF;
  IF auth.uid() IS NULL OR auth.uid() IS DISTINCT FROM new.customer_id THEN RAISE EXCEPTION 'غير مخوّل لاستخدام الكوبون'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=new.customer_id AND r.role='customer')
-    OR EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=new.customer_id AND r.role IN ('driver','worker')) THEN
+    OR EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=new.customer_id AND r.role IN ('driver','large_driver','worker')) THEN
   RAISE EXCEPTION 'الكوبونات مخصصة لحسابات الزبائن فقط ولا تشمل حسابات مقدمي الخدمة';
  END IF;
  IF new.type::text<>'taxi' OR coalesce(new.vehicle_category::text,'') NOT IN ('economy','premium','luxury') THEN
@@ -66,7 +66,7 @@ AS $function$
  FROM public.coupon_assignments a JOIN public.coupons c ON c.id=a.coupon_id
  WHERE a.user_id=auth.uid()
   AND EXISTS(SELECT 1 FROM public.user_roles ur WHERE ur.user_id=auth.uid() AND ur.role='customer')
-  AND NOT EXISTS(SELECT 1 FROM public.user_roles ur WHERE ur.user_id=auth.uid() AND ur.role IN ('driver','worker'))
+  AND NOT EXISTS(SELECT 1 FROM public.user_roles ur WHERE ur.user_id=auth.uid() AND ur.role IN ('driver','large_driver','worker'))
  ORDER BY a.assigned_at DESC;
 $function$;
 
@@ -83,7 +83,7 @@ BEGIN
  IF p_target IN ('customers_1','customers_2','customers_3','customers_4','customers_5') THEN
   SELECT count(*) INTO v_count FROM public.profiles p
   WHERE EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role='customer')
-   AND NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role IN ('driver','worker'))
+   AND NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role IN ('driver','large_driver','worker'))
    AND (CASE WHEN p_target='customers_5' THEN
     (SELECT count(*) FROM public.service_requests sr WHERE sr.customer_id=p.id AND sr.created_at>=now()-interval '7 days' AND sr.status::text<>'cancelled')>=5
    ELSE
@@ -93,7 +93,7 @@ BEGIN
  ELSE
   SELECT count(*) INTO v_count FROM public.profiles p
   WHERE EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role='customer')
-   AND NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role IN ('driver','worker'));
+   AND NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role IN ('driver','large_driver','worker'));
  END IF;
  RETURN coalesce(v_count,0);
 END;
@@ -114,7 +114,7 @@ BEGIN
  IF NOT FOUND THEN RAISE EXCEPTION 'الكوبون غير فعال أو منتهي الصلاحية أو مكتمل الاستخدام'; END IF;
  IF p_target='single' AND (
   NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p_single_user_id AND r.role='customer')
-  OR EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p_single_user_id AND r.role IN ('driver','worker'))
+  OR EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p_single_user_id AND r.role IN ('driver','large_driver','worker'))
  ) THEN RAISE EXCEPTION 'المستخدم المحدد ليس حساب زبون'; END IF;
  WITH customer_activity AS (
   SELECT customer_id,count(*)::integer AS request_count FROM public.service_requests
@@ -122,7 +122,7 @@ BEGIN
  ), targets AS (
   SELECT p.id FROM public.profiles p LEFT JOIN customer_activity ca ON ca.customer_id=p.id
   WHERE EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role='customer')
-   AND NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role IN ('driver','worker'))
+   AND NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role IN ('driver','large_driver','worker'))
    AND CASE p_target
     WHEN 'customers' THEN true WHEN 'single' THEN p.id=p_single_user_id
     WHEN 'customers_1' THEN coalesce(ca.request_count,0)=1
@@ -149,7 +149,7 @@ $function$;
 
 DELETE FROM public.coupon_assignments ca
 WHERE NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=ca.user_id AND r.role='customer')
- OR EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=ca.user_id AND r.role IN ('driver','worker'));
+ OR EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=ca.user_id AND r.role IN ('driver','large_driver','worker'));
 
 REVOKE ALL ON FUNCTION public.preview_my_coupon(text,numeric) FROM PUBLIC,anon;
 REVOKE ALL ON FUNCTION public.apply_coupon_to_new_request() FROM PUBLIC,anon;
