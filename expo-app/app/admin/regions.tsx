@@ -84,7 +84,7 @@ export default function AdminRegionalControlsScreen() {
       <Stack.Screen options={{ title: "التحكم بالمحافظات", headerBackTitle: "رجوع" }} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <Text style={styles.title}>التحكم بالخدمات حسب المحافظات</Text>
-        <Text style={styles.muted}>الإعدادات نفسها تعمل على الويب والأندرويد وتُطبق من قاعدة البيانات.</Text>
+        <Text style={styles.muted}>إيقاف كل العراق يوقف جميع المحافظات. وعند تشغيله تگدر توقف محافظات منفردة.</Text>
         <View style={styles.row}>
           <TouchableOpacity onPress={() => setMode("all")} style={[styles.mode, mode === "all" && styles.modeActive]}><Text style={[styles.modeText, mode === "all" && styles.modeTextActive]}>كل العراق</Text></TouchableOpacity>
           <TouchableOpacity onPress={() => setMode("selected")} style={[styles.mode, mode === "selected" && styles.modeActive]}><Text style={[styles.modeText, mode === "selected" && styles.modeTextActive]}>محافظات محددة</Text></TouchableOpacity>
