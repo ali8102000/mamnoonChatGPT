@@ -125,6 +125,7 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
 
 export const adminListDepartmentStaff = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({}).parse(d))
   .handler(async ({ context }) => {
     const { supabase } = context;
     const { data, error } = await (supabase as any).rpc("staff_list_department");
