@@ -235,28 +235,6 @@ export default function NewRequest() {
     }
   }, [type]);
 
-  if (type === "service" && !serviceDetailsStep) {
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 12 }}>
-          <Text style={{ color: palette.brand, fontSize: 13, fontWeight: "900", textAlign: "right" }}>رجوع</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>الفنيون والخدمات</Text>
-        <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginBottom: 16 }}>اختَر اختصاص الفني حتى نعرض لك تفاصيل الطلب بالخطوة التالية.</Text>
-        {servicesLoading && <ActivityIndicator color={palette.brand} style={{ marginVertical: 16 }} />}
-        {!!servicesError && <Text style={{ color: palette.danger, textAlign: "right" }}>{servicesError}</Text>}
-        <View style={styles.serviceGrid}>
-          {serviceCatalog.filter((service) => service.slug !== "taxi").map((service) => (
-            <TouchableOpacity key={service.slug} style={styles.serviceTile} onPress={() => { setSelectedService(service.slug); if (!EXPERT_ONLY_SERVICE_SLUGS.has(service.slug)) setWorkerLevel("fani"); setServiceDetailsStep(true); }}>
-              {hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="cover" />}
-              <Text style={styles.serviceLabel}>{service.name_ar}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-    );
-  }
-
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
   const isIntercity = routeIsIntercity;
@@ -1251,6 +1229,28 @@ export default function NewRequest() {
         </View>
         <GovernoratePickerModal visible={governoratePickerVisible} selectedKey={activeGovernorateKey} onClose={() => setGovernoratePickerVisible(false)} onSelect={(key) => { chooseGovernorate(key); setGovernoratePickerVisible(false); }} />
       </View>
+    );
+  }
+
+  if (type === "service" && !serviceDetailsStep) {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 12 }}>
+          <Text style={{ color: palette.brand, fontSize: 13, fontWeight: "900", textAlign: "right" }}>رجوع</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>الفنيون والخدمات</Text>
+        <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginBottom: 16 }}>اختَر اختصاص الفني حتى نعرض لك تفاصيل الطلب بالخطوة التالية.</Text>
+        {servicesLoading && <ActivityIndicator color={palette.brand} style={{ marginVertical: 16 }} />}
+        {!!servicesError && <Text style={{ color: palette.danger, textAlign: "right" }}>{servicesError}</Text>}
+        <View style={styles.serviceGrid}>
+          {serviceCatalog.filter((service) => service.slug !== "taxi").map((service) => (
+            <TouchableOpacity key={service.slug} style={styles.serviceTile} onPress={() => { setSelectedService(service.slug); if (!EXPERT_ONLY_SERVICE_SLUGS.has(service.slug)) setWorkerLevel("fani"); setServiceDetailsStep(true); }}>
+              {hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="cover" />}
+              <Text style={styles.serviceLabel}>{service.name_ar}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
     );
   }
 
