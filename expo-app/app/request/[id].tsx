@@ -38,6 +38,7 @@ import service_blacksmith from "../../assets/services/blacksmith.png";
 import service_general from "../../assets/services/general.png";
 import { palette, radius } from "@/styles/theme";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
+import { showContactOptions } from "@/lib/phone";
 
 const QUICK_REPLIES_CUSTOMER = ["وصلت!", "كم دقيقة؟", "أين أنت؟", "شكراً جزيلاً", "هل أنت قريب؟"];
 const QUICK_REPLIES_PROVIDER = [
@@ -810,7 +811,7 @@ export default function RequestDetail() {
               <Text style={styles.personName}>{otherProfile.full_name || "مستخدم"}</Text>
               {!!otherProfile.phone && <Text style={styles.personPhone}>{otherProfile.phone}</Text>}
               <View style={styles.personQuickActions}>
-                {!!otherProfile.phone && <TouchableOpacity style={styles.personQuickButton} onPress={() => void Linking.openURL(`tel:${otherProfile.phone}`)}><Text style={styles.personQuickButtonText}>اتصال</Text></TouchableOpacity>}
+                {!!otherProfile.phone && <TouchableOpacity style={styles.personQuickButton} onPress={() => showContactOptions(otherProfile.phone!)}><Text style={styles.personQuickButtonText}>اتصال</Text></TouchableOpacity>}
                 {!!chatId && !["completed", "cancelled"].includes(request.status) && <TouchableOpacity style={styles.personQuickButton} onPress={() => router.push({ pathname: "/request/chat/[id]", params: { id } })}><Text style={styles.personQuickButtonText}>المحادثة{messages.length ? ` · ${messages.length}` : ""}</Text></TouchableOpacity>}
               </View>
               <Text style={styles.personRole}>{isCustomer ? "مقدم الخدمة" : "الزبون"}</Text>
