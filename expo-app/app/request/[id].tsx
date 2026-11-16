@@ -1050,8 +1050,8 @@ export default function RequestDetail() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.canvas },
+  container: { flex: 1, backgroundColor: palette.pageCanvas },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.pageCanvas },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 52, paddingBottom: 14, backgroundColor: palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line },
   backBtn: { fontSize: 24, color: palette.brand, fontWeight: "900" },
   headerTitle: { fontSize: 17, fontWeight: "900", color: palette.ink },
