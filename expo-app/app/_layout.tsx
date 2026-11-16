@@ -17,7 +17,7 @@ import { ThemePreferenceProvider } from "@/lib/theme-preference";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
 import { palette } from "@/styles/theme";
-import { isNotificationSoundEnabled, loadNotificationSoundPreference } from "@/lib/notification-sound";
+import { isNotificationSoundEnabled, loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
@@ -63,6 +63,14 @@ function PushNotificationSetup() {
             lightColor: "#D4AF37",
             sound: "default",
           });
+          await Notifications.setNotificationChannelAsync("silent", {
+            name: "إشعارات ممنون الصامتة",
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [],
+            enableVibrate: false,
+            enableLights: false,
+            sound: null,
+          });
         }
 
         const current = await Notifications.getPermissionsAsync();
@@ -82,11 +90,29 @@ function PushNotificationSetup() {
         const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!active) return;
 
+        const localSoundEnabled = await loadNotificationSoundPreference();
+        const { data: savedPreference, error: preferenceError } = await supabase
+          .from("user_push_tokens")
+          .select("sound_enabled")
+          .eq("user_id", userId)
+          .limit(1)
+          .maybeSingle();
+        if (preferenceError) {
+          console.warn("[notifications] Could not read sound preference:", preferenceError.message);
+        }
+        const soundEnabled = typeof savedPreference?.sound_enabled === "boolean"
+          ? savedPreference.sound_enabled
+          : localSoundEnabled;
+        if (typeof savedPreference?.sound_enabled === "boolean") {
+          await setNotificationSoundPreference(soundEnabled);
+        }
+
         const { error } = await supabase.from("user_push_tokens").upsert(
           {
             user_id: userId,
             expo_push_token: tokenResult.data,
             device_platform: Platform.OS,
+            sound_enabled: soundEnabled,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "user_id,expo_push_token" },
