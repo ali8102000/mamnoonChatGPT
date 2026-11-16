@@ -43,7 +43,7 @@ export default function RegionalControlsSection() {
     } else {
       setRows((data ?? []) as ControlRow[]);
       const global = (data ?? []).find((row: ControlRow) => row.governorate_key === "all");
-      if (global) setSettings({
+      if (global && targetMode === "all") setSettings({
         services_enabled: global.services_enabled,
         message_enabled: global.message_enabled,
         message_title: global.message_title,
@@ -52,7 +52,7 @@ export default function RegionalControlsSection() {
       });
     }
     setLoading(false);
-  }, []);
+  }, [targetMode]);
 
   useEffect(() => { void load(); }, [load]);
 
