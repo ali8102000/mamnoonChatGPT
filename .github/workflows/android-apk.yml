@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mamnoon-android-test-apk
+  group: mamnoon-android-test-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
