@@ -40,6 +40,7 @@ import {
   adminDeleteMessage,
   adminGetDashboardStats,
   adminGetGovernorateUserStats,
+  adminGetCustomerActivityStats,
   adminUpdateUserProfile,
   adminGetLiveLocations,
   adminGetLiveRequests,
@@ -412,17 +413,17 @@ const GOVERNORATE_LABELS: Record<string, string> = {
 };
 
 function GovernorateUserStatsSection() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<any[]>([]);\n  const [activity, setActivity] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const getStats = useServerFn(adminGetGovernorateUserStats);
+  const getStats = useServerFn(adminGetGovernorateUserStats);\n  const getActivity = useServerFn(adminGetCustomerActivityStats);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    try { setRows(await getStats({ data: {} })); }
+    try {\n      const [regional, detailed] = await Promise.all([getStats({ data: {} }), getActivity({ data: { limit: 200, offset: 0 } })]);\n      setRows(regional);\n      setActivity(detailed);\n    }
     catch (e: any) { setError(e?.message || "تعذر تحميل الإحصائيات"); }
     finally { setLoading(false); }
-  }, [getStats]);
+  }, [getStats, getActivity]);
   useEffect(() => { void load(); }, [load]);
   const total = rows.find((row) => row.governorate_key === "__all__");
   const regions = Object.keys(GOVERNORATE_LABELS).filter((key) => key !== "unknown")
@@ -472,7 +473,54 @@ function GovernorateUserStatsSection() {
             ))}
             {!regions.length && <div className="p-6 text-center text-sm text-muted-foreground">لا توجد حسابات بعد</div>}
           </div>
-          <p className="text-[11px] text-muted-foreground mt-3">تُعتمد المحافظة التي حدّدتها الإدارة في ملف المستخدم، وإلا تُستخدم آخر محافظة مسجلة في طلباته. من لا يملك محافظة مسجلة يظهر ضمن «غير محددة». وقد يكون الحساب الواحد ضمن أكثر من فئة إذا كان مسجلاً بأكثر من دور، لذلك لا تُجمع أعداد الفئات لاستخراج الإجمالي.</p>
+
+          <div className="glass rounded-2xl p-4 mt-4">
+            <h3 className="font-black text-base mb-3">إحصائية الحسابات والأدوار والطلبات</h3>
+            <p className="text-[11px] text-muted-foreground mb-3">كل دور يُحتسب بصورة مستقلة؛ إذا كان الحساب يحمل أكثر من دور يظهر في كل دور، ولا نحذف التكرار بين الأدوار.</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+              {[
+                ["إجمالي الحسابات", activity?.summary?.total_users],
+                ["مجموع تعيينات الأدوار", activity?.summary?.total_role_assignments],
+                ["الزبائن", activity?.summary?.total_customers],
+                ["طلبات الزبائن", activity?.summary?.customer_requests],
+                ["طلبات نشطة", activity?.summary?.customer_active_requests],
+                ["طلبات مكتملة", activity?.summary?.customer_completed_requests],
+                ["طلبات ملغاة", activity?.summary?.customer_cancelled_requests],
+                ["كل طلبات المنصة", activity?.summary?.all_requests],
+              ].map(([label,value]) => <div key={String(label)} className="rounded-xl bg-surface-2 p-3"><div className="text-[10px] text-muted-foreground">{label}</div><div className="text-xl font-black">{number(value)}</div></div>)}
+            </div>
+            <div className="font-bold text-sm mb-2">عدد الحسابات حسب الدور (مع السماح بتعدد الأدوار)</div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {(activity?.role_counts ?? []).map((item:any) => <div key={item.role} className="rounded-xl border border-border px-3 py-2 text-xs"><span className="font-bold">{item.role}</span><span className="mr-2">{number(item.accounts)}</span></div>)}
+            </div>
+            <div className="font-bold text-sm mb-2">حالة جميع الطلبات</div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {(activity?.request_status_counts ?? []).map((item:any) => <div key={item.status} className="rounded-xl bg-surface-2 px-3 py-2 text-xs">{item.status}: <b>{number(item.requests)}</b></div>)}
+            </div>
+            <div className="font-bold text-sm mb-2">تفاصيل كل زبون وطلباته</div>
+            <div className="space-y-2">
+              {(activity?.customers ?? []).map((customer:any) => <div key={customer.id} className="rounded-xl border border-border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-black text-sm">{customer.full_name}</div>
+                  <div className="text-xs text-muted-foreground">{customer.phone || "بدون هاتف"}</div>
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1">المحافظة: {GOVERNORATE_LABELS[customer.governorate_key] ?? customer.governorate_key} · الأدوار ({customer.roles_count}): {(customer.roles ?? []).join("، ") || "لا توجد أدوار"}</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                  {[
+                    ["كل الطلبات",customer.total_requests],
+                    ["النشطة",customer.active_requests],
+                    ["المكتملة",customer.completed_requests],
+                    ["الملغاة",customer.cancelled_requests],
+                    ["تكسي",customer.taxi_requests],
+                    ["خدمات",customer.service_requests],
+                  ].map(([label,value]) => <div key={String(label)} className="rounded-lg bg-surface-2 p-2"><div className="text-[10px] text-muted-foreground">{label}</div><div className="font-black">{number(value)}</div></div>)}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-2">تفصيل الحالات: {Object.entries(customer.statuses ?? {}).map(([status,count]) => `${status}: ${number(count)}`).join(" · ") || "لا توجد طلبات"}</div>
+              </div>)}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-3">المعروض أول 200 زبون حسب تاريخ التسجيل. البيانات من سجلات الطلبات الفعلية.</p>
+          </div>
+\n          <p className="text-[11px] text-muted-foreground mt-3">تُعتمد المحافظة التي حدّدتها الإدارة في ملف المستخدم، وإلا تُستخدم آخر محافظة مسجلة في طلباته. من لا يملك محافظة مسجلة يظهر ضمن «غير محددة». وقد يكون الحساب الواحد ضمن أكثر من فئة إذا كان مسجلاً بأكثر من دور، لذلك لا تُجمع أعداد الفئات لاستخراج الإجمالي.</p>
         </>
       )}
     </div>
