@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
+import { getAdminStaffRoles } from "@/lib/admin-access";
 
 type Target = "all" | "drivers" | "workers" | "single";
 const TARGETS: { value: Target; label: string }[] = [
@@ -38,9 +39,8 @@ export default function AdminNotificationsScreen() {
     if (!user?.id) { setAllowed(false); return; }
     void (async () => {
       try {
-        const { data, error: roleError } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
-        const roles = (data ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
-        setAllowed(!roleError && roles.some((role: string) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)));
+        const roles = await getAdminStaffRoles(user.id);
+        setAllowed(roles.some((role: string) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)));
       } catch {
         setAllowed(false);
       }
