@@ -60,6 +60,7 @@ import {
   adminRevokeRole,
   adminSaveCoupon,
   adminSearchUsers,
+  adminSetStaffRank,
   adminSetProviderStatus,
   adminUpdateProviderName,
   adminUnblockUser,
@@ -2353,6 +2354,7 @@ function RolesSection() {
   const searchUsers = useServerFn(adminSearchUsers);
   const grantRole = useServerFn(adminGrantRole);
   const revokeRole = useServerFn(adminRevokeRole);
+  const setStaffRank = useServerFn(adminSetStaffRank);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2381,6 +2383,14 @@ function RolesSection() {
       await revokeRole({ data: { target_user_id: userId, role } });
       load();
     } catch (e) {}
+  }
+  async function handleAssign(userId: string, rank: string, department: string, displayTitle: string) {
+    try {
+      await setStaffRank({ data: { target_user_id: userId, rank: rank as any, department: department as any, display_title: displayTitle || undefined } });
+      toast.success("تم حفظ الرتبة والقسم");
+      setRoleModal(null);
+      load();
+    } catch (e: any) { toast.error(e?.message || "تعذر حفظ بيانات الموظف"); }
   }
   return (
     <div>
@@ -2426,6 +2436,7 @@ function RolesSection() {
           user={roleModal}
           onGrant={handleGrant}
           onRevoke={handleRevoke}
+          onAssign={handleAssign}
           onClose={() => setRoleModal(null)}
         />
       )}
@@ -2433,13 +2444,19 @@ function RolesSection() {
   );
 }
 
-function RoleModal({ user, onGrant, onRevoke, onClose }: any) {
+function RoleModal({ user, onGrant, onRevoke, onAssign, onClose }: any) {
   const [roles, setRoles] = useState<string[]>([]);
+  const [rank, setRank] = useState("employee");
+  const [department, setDepartment] = useState("customer_service");
+  const [displayTitle, setDisplayTitle] = useState("موظف خدمة العملاء");
+  const [assignmentSaving, setAssignmentSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
       try {
         const { supabase } = await import("@/integrations/supabase/client");
+        const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank,department,display_title").eq("user_id", user.id).maybeSingle();
+        if (assignment) { setRank(assignment.rank); setDepartment(assignment.department); setDisplayTitle(assignment.display_title ?? ""); }
         const { data } = await (supabase as any)
           .from("user_roles")
           .select("role")
@@ -2488,6 +2505,26 @@ function RoleModal({ user, onGrant, onRevoke, onClose }: any) {
                 </div>
               );
             })}
+            <div className="glass rounded-xl p-3 mt-4 space-y-3">
+              <div className="font-black text-sm">الرتبة والقسم الوظيفي</div>
+              <label className="block text-xs font-bold">الرتبة
+                <select value={rank} onChange={(e) => setRank(e.target.value)} className="mt-1 w-full glass rounded-lg p-2">
+                  <option value="general_manager">مدير عام</option><option value="department_manager">مدير قسم</option><option value="supervisor">مشرف</option><option value="employee">موظف</option>
+                </select>
+              </label>
+              <label className="block text-xs font-bold">القسم
+                <select value={department} onChange={(e) => setDepartment(e.target.value)} className="mt-1 w-full glass rounded-lg p-2">
+                  <option value="customer_service">خدمة العملاء</option><option value="finance">المالية</option><option value="operations">التشغيل</option><option value="monitoring">المراقبة</option><option value="executive">الإدارة التنفيذية</option>
+                </select>
+              </label>
+              <label className="block text-xs font-bold">المسمى الظاهر
+                <input value={displayTitle} onChange={(e) => setDisplayTitle(e.target.value)} maxLength={100} className="mt-1 w-full glass rounded-lg p-2" placeholder="مثال: موظف خدمة العملاء" />
+              </label>
+              <button disabled={assignmentSaving} onClick={async () => { setAssignmentSaving(true); await onAssign(user.id, rank, department, displayTitle); setAssignmentSaving(false); }} className="w-full rounded-lg bg-primary text-primary-foreground py-2 text-sm font-bold disabled:opacity-50">
+                {assignmentSaving ? "جاري الحفظ..." : "حفظ الرتبة والقسم"}
+              </button>
+              <p className="text-[10px] text-muted-foreground">موظف خدمة العملاء بصلاحية قسم خدمة العملاء فقط، ولا يحصل على صلاحيات الإدارة الأخرى.</p>
+            </div>
             {roles.includes("super_admin") && (
               <div className="glass rounded-xl p-3 border border-amber-500/30">
                 <div className="text-sm font-bold text-amber-600">شركة ممنون | Mamnoon Company (لا يمكن إزالة صلاحية المدير الأعلى)</div>
