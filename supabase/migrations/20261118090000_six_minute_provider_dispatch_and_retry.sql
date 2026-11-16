@@ -81,7 +81,7 @@ BEGIN
         request_id, provider_id, distance_km, status, sent_at, expires_at
       )
       SELECT r.id, d.user_id, d.distance_km, 'pending', now(), now() + interval '60 seconds'
-      FROM public.find_nearby_drivers(r.pickup_lat, r.pickup_lng, 'large', v_radius, 250) d
+      FROM public.find_nearby_drivers(r.pickup_lat, r.pickup_lng, 'large', v_radius, 1000) d
       JOIN public.driver_profiles dp ON dp.user_id = d.user_id
       WHERE d.distance_km > v_min
         AND d.user_id <> r.customer_id
@@ -152,7 +152,7 @@ BEGIN
     )
     SELECT _request_id, d.user_id, d.distance_km, 'pending', now(), now() + interval '60 seconds'
     FROM public.find_nearby_drivers(
-      r.pickup_lat, r.pickup_lng, r.vehicle_category::text, v_radius, 250
+      r.pickup_lat, r.pickup_lng, r.vehicle_category::text, v_radius, 1000
     ) d
     WHERE d.distance_km > v_min AND d.user_id <> r.customer_id
       AND NOT EXISTS (
@@ -440,6 +440,96 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
+$function$;
+
+
+-- Expand the existing bounded driver discovery page so each dispatch wave reaches
+-- every eligible nearby driver up to a safe 1,000-row ceiling.
+CREATE OR REPLACE FUNCTION public.find_nearby_drivers(
+  _lat numeric,
+  _lng numeric,
+  _category text,
+  _radius_km numeric DEFAULT 5,
+  _limit integer DEFAULT 10
+)
+RETURNS TABLE(user_id uuid, distance_km numeric, rating_avg numeric)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT x.user_id, x.distance_km, x.rating_avg
+  FROM (
+    SELECT DISTINCT ON (dp.user_id)
+      dp.user_id,
+      dp.rating_avg,
+      COALESCE(sp.priority_weight, 0) AS subscription_priority,
+      (
+        6371 * acos(LEAST(1.0, GREATEST(-1.0,
+          cos(radians(_lat)) * cos(radians(loc.lat)) *
+          cos(radians(loc.lng) - radians(_lng)) +
+          sin(radians(_lat)) * sin(radians(loc.lat))
+        )))
+      )::numeric AS distance_km
+    FROM public.driver_profiles dp
+    JOIN (
+      SELECT pp.user_id, pp.lat, pp.lng, pp.updated_at
+      FROM public.provider_presence pp
+      UNION ALL
+      SELECT ll.user_id, ll.lat, ll.lng, ll.updated_at
+      FROM public.live_locations ll
+    ) loc ON loc.user_id = dp.user_id
+    LEFT JOIN public.user_subscriptions us
+      ON us.user_id = dp.user_id AND us.status = 'active'
+      AND (us.current_period_end IS NULL OR us.current_period_end > now())
+    LEFT JOIN public.subscription_plans sp ON sp.id = us.plan_id
+    WHERE dp.available = true
+      AND public.mamnoon_provider_subscription_active_internal(dp.user_id)
+      AND dp.status = 'approved'
+      AND (dp.suspended_until IS NULL OR dp.suspended_until <= now())
+      AND (_category IS NULL OR dp.vehicle_category::text = _category)
+      AND (
+        (_category = 'large' AND EXISTS (
+          SELECT 1 FROM public.user_roles ur
+          WHERE ur.user_id = dp.user_id AND ur.role = 'large_driver'::public.app_role
+        ))
+        OR
+        (_category IS DISTINCT FROM 'large' AND _category IN ('economy', 'premium', 'luxury')
+          AND EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = dp.user_id AND ur.role = 'driver'::public.app_role
+          ))
+      )
+      AND loc.updated_at > now() - interval '5 minutes'
+      AND NOT EXISTS (
+        SELECT 1 FROM public.service_requests sr
+        WHERE sr.provider_id = dp.user_id AND sr.status IN ('accepted', 'in_progress')
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM public.user_blocks b
+        WHERE b.user_id = dp.user_id AND (b.expires_at IS NULL OR b.expires_at > now())
+      )
+    ORDER BY dp.user_id, loc.updated_at DESC
+  ) x
+  WHERE x.distance_km <= LEAST(GREATEST(COALESCE(_radius_km, 5), 0.1), 55)
+    AND (
+      _category IS DISTINCT FROM 'large'
+      OR x.distance_km <= COALESCE((
+        SELECT LEAST(COALESCE(dp.service_radius_km, 25),
+          CASE COALESCE(sp2.code, 'bronze')
+            WHEN 'gold' THEN 55 WHEN 'silver' THEN 40 ELSE 25
+          END
+        )
+        FROM public.driver_profiles dp
+        LEFT JOIN public.user_subscriptions us2
+          ON us2.user_id = dp.user_id AND us2.status = 'active'
+          AND (us2.current_period_end IS NULL OR us2.current_period_end > now())
+        LEFT JOIN public.subscription_plans sp2 ON sp2.id = us2.plan_id
+        WHERE dp.user_id = x.user_id
+      ), 25)
+    )
+  ORDER BY x.subscription_priority DESC, x.distance_km ASC, x.rating_avg DESC NULLS LAST
+  LIMIT LEAST(GREATEST(COALESCE(_limit, 10), 1), 1000);
 $function$;
 
 CREATE OR REPLACE FUNCTION public.retry_service_request(
