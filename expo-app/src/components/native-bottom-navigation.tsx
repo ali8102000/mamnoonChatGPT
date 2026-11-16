@@ -22,7 +22,7 @@ function NavigationIcon({ name, color }: { name: Tab["icon"]; color: string }) {
 
 export function NativeBottomNavigation() {
   const pathname = usePathname();
-  const visible = tabs.some((tab) => pathname === tab.path || pathname.startsWith(tab.path + "/"));
+  const visible = pathname === "/subscriptions" || tabs.some((tab) => pathname === tab.path || pathname.startsWith(tab.path + "/"));
   if (!visible) return null;
 
   return (
