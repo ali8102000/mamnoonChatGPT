@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Animated, Easing, Text, View, StyleSheet } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { LinearGradient } from "expo-linear-gradient";
-import { ShieldCheck } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 
 type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean };
@@ -41,7 +40,7 @@ export function RegionalServiceBanner() {
   return (
     <View style={styles.wrap}>
       <LinearGradient colors={["#050505", "#17120A", "#050505"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.card}>
-        <View style={styles.head}><Text style={styles.title}>{row.message_title || "تنويه رسمي من إدارة ممنون"}</Text><View style={styles.stamp}><ShieldCheck color="#E9C76A" size={13} /><Text style={styles.stampText}>الإدارة الرسمية · موثّق</Text></View></View>
+        <View style={styles.head}><Text style={styles.title}>{row.message_title || "تنويه رسمي من إدارة ممنون"}</Text><View style={styles.stamp}><Text style={styles.stampText}>✓ الإدارة الرسمية · موثّق</Text></View></View>
         <View style={styles.marquee}>
           {row.message_animate ? <Animated.Text numberOfLines={1} style={[styles.message, { transform: [{ translateX: translate.interpolate({ inputRange: [0, 1], outputRange: [260, -520] }) }] }]}>{text}</Animated.Text> : <Text style={[styles.message, { textAlign: "right" }]}>{text}</Text>}
         </View>
