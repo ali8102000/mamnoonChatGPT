@@ -137,20 +137,19 @@ jobs:
           disable-animations: true
           script: |
             set -euo pipefail
-            cd expo-app
-            mkdir -p release-artifacts
-            adb install -r release-artifacts/mamnoon-test.apk
+            test -s expo-app/release-artifacts/mamnoon-test.apk
+            adb install -r expo-app/release-artifacts/mamnoon-test.apk
             adb logcat -c
             adb shell monkey -p com.mamnoon.app 1
             sleep 20
-            adb logcat -d -t 4000 > release-artifacts/emulator-logcat.txt
+            adb logcat -d -t 4000 > expo-app/release-artifacts/emulator-logcat.txt
             APP_PID="$(adb shell pidof com.mamnoon.app || true)"
-            if [ -z "$APP_PID" ] || grep -q "FATAL EXCEPTION" release-artifacts/emulator-logcat.txt; then
+            if [ -z "$APP_PID" ] || grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt; then
               echo "::error::Mamnoon failed the Android emulator launch smoke test."
               exit 1
             fi
             adb shell screencap -p /sdcard/mamnoon-screen.png
-            adb pull /sdcard/mamnoon-screen.png release-artifacts/emulator-screen.png
+            adb pull /sdcard/mamnoon-screen.png expo-app/release-artifacts/emulator-screen.png
       - name: Upload Android emulator smoke evidence
         if: always()
         uses: actions/upload-artifact@v4
