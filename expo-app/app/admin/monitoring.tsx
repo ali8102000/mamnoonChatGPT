@@ -193,14 +193,14 @@ function Stat({ label, value }: { label: string; value: number }) {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: palette.canvas },
+  page: { flex: 1, backgroundColor: palette.pageCanvas },
   tabs: { flexDirection: "row", gap: 5, padding: 9, backgroundColor: palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line },
   tab: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: radius.md },
   tabActive: { backgroundColor: palette.brand },
   tabText: { color: palette.muted, fontSize: 10, fontWeight: "800" },
   tabTextActive: { color: palette.white },
   content: { padding: space.lg, gap: 10, paddingBottom: 48 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.canvas, padding: 20, gap: 10 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.pageCanvas, padding: 20, gap: 10 },
   title: { fontSize: 21, fontWeight: "900", color: palette.ink, textAlign: "right" },
   muted: { fontSize: 11, color: palette.muted, textAlign: "right", lineHeight: 19 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
