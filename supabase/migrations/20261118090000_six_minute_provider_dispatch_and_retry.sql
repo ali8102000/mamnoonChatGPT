@@ -477,10 +477,11 @@ BEGIN
   END IF;
 
   v_base := COALESCE(r.customer_price::numeric, r.price_estimate, 0);
-  IF _price_increase > 0 AND v_base <= 0 THEN
-    RAISE EXCEPTION 'request_price_not_adjustable';
-  END IF;
-  v_new_price := CASE WHEN _price_increase > 0 THEN v_base + _price_increase ELSE r.customer_price END;
+  v_new_price := CASE
+    WHEN _price_increase > 0 AND v_base > 0 THEN v_base + _price_increase
+    WHEN _price_increase > 0 THEN _price_increase
+    ELSE r.customer_price
+  END;
 
   PERFORM set_config('mamnoon.allow_dispatch_retry', 'true', true);
   UPDATE public.service_requests
@@ -489,6 +490,10 @@ BEGIN
       cancelled_by = NULL,
       searching_started_at = now(),
       customer_price = v_new_price,
+      pricing_mode = CASE
+        WHEN _price_increase > 0 AND r.pricing_mode = 'negotiable' THEN 'fixed'
+        ELSE r.pricing_mode
+      END,
       customer_payable = CASE
         WHEN _price_increase > 0 AND r.coupon_id IS NOT NULL
           THEN GREATEST(v_new_price - COALESCE(r.coupon_discount, 0), 0)
