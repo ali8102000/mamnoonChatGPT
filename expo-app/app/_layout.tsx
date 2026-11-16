@@ -29,7 +29,7 @@ Notifications.setNotificationHandler({
     shouldShowBanner: true,
     shouldShowList: true,
     // Android channel controls sound; returning false here would suppress the banner entirely.
-    shouldPlaySound: Platform.OS === "android" ? true : true,
+    shouldPlaySound: true,
     shouldSetBadge: true,
   }),
 });
