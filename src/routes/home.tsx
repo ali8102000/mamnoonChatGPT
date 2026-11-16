@@ -440,7 +440,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       }
       let query = supabase
         .from("service_requests")
-        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, vehicle_category, vehicle_type")
+        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type")
         .in("status", ["pending", "searching"])
         .eq("type", type);
       if (type === "taxi") query = query.neq("vehicle_category", "large");
