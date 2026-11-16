@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
   },
   defaultSize: { minHeight: 40, paddingVertical: 8, paddingHorizontal: 16 },
-  actionBase: { minWidth: 0, borderRadius: 16, alignItems: "center", justifyContent: "center", flexDirection: "row" },
+  actionBase: { borderRadius: 16, alignItems: "center", justifyContent: "center", flexDirection: "row" },
   actionDefault: { minHeight: 40, paddingVertical: 8, paddingHorizontal: 16 },
   actionSmall: { minHeight: 36, paddingVertical: 6, paddingHorizontal: 12 },
   actionLarge: { minHeight: 45, paddingVertical: 10, paddingHorizontal: 32 },
