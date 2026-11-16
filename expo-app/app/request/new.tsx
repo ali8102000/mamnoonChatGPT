@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import * as SecureStore from "expo-secure-store";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   View,
