@@ -70,8 +70,12 @@ Deno.serve(async (req) => {
     return json({error:"إنشاء طلبات التاكسي متاح لحسابات الزبائن فقط"},403);
   const body=await req.json().catch(()=>null);
   if(!body||!validPoint(body.from)||!validPoint(body.to)) return json({error:"إحداثيات الانطلاق والوجهة غير صالحة"},400);
-  const category=body.vehicleCategory as Category;
-  if(!["economy","premium","luxury"].includes(category)) return json({error:"هذه الخدمة مخصصة لفئات التاكسي ذات السعر التلقائي فقط"},400);
+  const rawCategory=typeof body.vehicleCategory==="string"?body.vehicleCategory.trim().toLowerCase():"";
+  if(!["economy","premium","luxury"].includes(rawCategory)) {
+    console.warn("[auto-taxi-pricing] invalid vehicle category", { action: body.action, category: rawCategory.slice(0,40) || "(missing)" });
+    return json({error:"فئة السيارة المرسلة غير مدعومة للتسعير التلقائي",code:"INVALID_VEHICLE_CATEGORY",receivedCategory:rawCategory||null,allowedCategories:["economy","premium","luxury"]},400);
+  }
+  const category=rawCategory as Category;
   const tripType=["one_way","round_trip","second_trip","stop"].includes(body.tripType)?body.tripType:"one_way";
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
@@ -79,7 +83,10 @@ Deno.serve(async (req) => {
   const [fromGovResult,toGovResult]=await Promise.all([admin.rpc("infer_governorate_key",{p_lat:body.from.lat,p_lng:body.from.lng}),admin.rpc("infer_governorate_key",{p_lat:body.to.lat,p_lng:body.to.lng})]);
   const fromGovernorate=fromGovResult.data;
   const toGovernorate=toGovResult.data;
-  if(fromGovResult.error||toGovResult.error||!fromGovernorate||!toGovernorate) return json({error:"تعذّر التحقق من المحافظتين من إحداثيات الرحلة"},400);
+  if(fromGovResult.error||toGovResult.error||!fromGovernorate||!toGovernorate) {
+    console.error("[auto-taxi-pricing] governorate lookup failed", { fromCode: fromGovResult.error?.code || null, toCode: toGovResult.error?.code || null, fromFound: !!fromGovernorate, toFound: !!toGovernorate });
+    return json({error:"تعذّر التحقق من المحافظتين من إحداثيات الرحلة",code:"GOVERNORATE_LOOKUP_FAILED"},400);
+  }
   const isIntercity=fromGovernorate!==toGovernorate;
   const {data:settings,error:settingsError}=await admin.from("pricing_settings").select("*").eq("service_type",category).eq("is_intercity",isIntercity).single();
   if(settingsError||!settings) return json({error:"إعدادات التسعير غير متوفرة حالياً"},503);
