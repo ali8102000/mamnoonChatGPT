@@ -25,6 +25,7 @@ import { acceptServiceRequest } from "@/lib/dispatch.functions";
 import { useTheme } from "@/lib/use-theme";
 import { playClick } from "@/lib/click-sound";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
+import { serviceIcon } from "@/lib/service-visuals";
 
 export const Route = createFileRoute("/home")({
   ssr: false,
@@ -213,7 +214,7 @@ function CustomerHome() {
           type="service"
           title="طلب فني"
           subtitle="١٦ خدمة"
-          icon={<Wrench className="h-6 w-6" />}
+          icon={<img src={serviceIcon("build")} alt="" className="h-11 w-11 object-contain" />}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
