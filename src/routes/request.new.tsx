@@ -955,10 +955,7 @@ function NewRequest() {
               <div className="space-y-2">
                 {VEHICLE_CATS.filter((item) => item.key !== "large").map((c) => {
                   const active = vehicleCategory === c.key;
-                  const fare =
-                    routeKm !== null
-                      ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes })
-                      : null;
+                  const fare = active && routeKm !== null ? serverTaxiFare : null;
                   return (
                     <button
                       key={c.key}
