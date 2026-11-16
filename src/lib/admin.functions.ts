@@ -1026,6 +1026,25 @@ export const adminBroadcastNotification = createServerFn({ method: "POST" })
   });
 
 
+export const adminBroadcastGovernorateNotification = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    governorate_key: z.enum(["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"]),
+    title: z.string().trim().min(1).max(200),
+    body: z.string().trim().min(1).max(2000),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireStaff(context);
+    const { supabase } = context;
+    const { data: count, error } = await (supabase as any).rpc("admin_broadcast_governorate_notification", {
+      p_governorate_key: data.governorate_key,
+      p_title: data.title,
+      p_body: data.body,
+    });
+    if (error) throw new Error(error.message);
+    return { sent: Number(count ?? 0) };
+  });
+
 export const adminListStaffActivity = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d))
