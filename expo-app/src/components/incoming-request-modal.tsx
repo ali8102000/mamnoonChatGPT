@@ -45,6 +45,7 @@ type Offer = {
     pickup_text: string;
     dest_text: string | null;
     notes: string | null;
+    attachment_path: string | null;
     work_description: string | null;
     price_estimate: number | null;
     customer_price: number | null;
@@ -81,6 +82,8 @@ export function IncomingRequestModal() {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [visible, setVisible] = useState(false);
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [attachmentPath, setAttachmentPath] = useState<string | null>(null);
 
   const loadOffer = useCallback(async () => {
     if (!user || !canReceive) {
@@ -90,7 +93,7 @@ export function IncomingRequestModal() {
     }
     const { data, error } = await (supabase as any)
       .from("request_offers")
-      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, pickup_text, dest_text, notes, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
+      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, pickup_text, dest_text, notes, attachment_path, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
       .eq("provider_id", user.id)
       .eq("status", "pending")
       .gt("expires_at", new Date().toISOString())
@@ -102,14 +105,34 @@ export function IncomingRequestModal() {
       console.warn("[incoming-offer] Could not load targeted offer:", error.message);
       return;
     }
+    const nextAttachmentPath = data?.service_requests?.attachment_path ?? null;
+    if (nextAttachmentPath !== attachmentPath) {
+      setAttachmentPath(nextAttachmentPath);
+      if (nextAttachmentPath) {
+        const { data: signed, error: signedError } = await supabase.storage
+          .from("request-attachments")
+          .createSignedUrl(nextAttachmentPath, 60 * 60);
+        if (signedError) {
+          console.warn("[incoming-offer] Could not sign request photo:", signedError.message);
+          setAttachmentUrl(null);
+        } else {
+          setAttachmentUrl(signed?.signedUrl ?? null);
+        }
+      } else {
+        setAttachmentUrl(null);
+      }
+    }
+
     if (data?.service_requests?.status === "pending" || data?.service_requests?.status === "searching") {
       setOffer(data as Offer);
       setVisible(true);
     } else {
       setOffer(null);
       setVisible(false);
+      setAttachmentPath(null);
+      setAttachmentUrl(null);
     }
-  }, [user, canReceive]);
+  }, [user, canReceive, attachmentPath]);
 
   useEffect(() => {
     void loadOffer();
@@ -219,6 +242,17 @@ export function IncomingRequestModal() {
                 <Text style={styles.detailValue}>{request.dest_text}</Text>
               </>
             ) : null}
+            {attachmentUrl ? (
+              <View style={styles.attachmentWrap}>
+                <Text style={styles.attachmentTitle}>صورة الزبون المرفقة بالطلب</Text>
+                <Image
+                  source={{ uri: attachmentUrl }}
+                  style={styles.attachmentImage}
+                  resizeMode="contain"
+                  onError={() => console.warn("[incoming-offer] Request photo failed to render")}
+                />
+              </View>
+            ) : null}
             {request?.work_description || request?.notes ? (
               <>
                 <Text style={styles.detailLabel}>تفاصيل العمل</Text>
@@ -294,6 +328,9 @@ const styles = StyleSheet.create({
   serviceTitle: { color: palette.ink, fontSize: 19, fontWeight: "900" },
   distance: { color: palette.muted, fontSize: 12, marginTop: 5 },
   details: { backgroundColor: palette.canvas, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: palette.line },
+  attachmentWrap: { marginTop: 12, padding: 10, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, gap: 8 },
+  attachmentTitle: { color: palette.brand, fontSize: 12, fontWeight: "900", textAlign: "right" },
+  attachmentImage: { width: "100%", height: 190, borderRadius: radius.md, backgroundColor: palette.surfaceSoft },
   detailLabel: { color: palette.muted, fontSize: 10, fontWeight: "900", marginTop: 5 },
   detailValue: { color: palette.ink, fontSize: 13, fontWeight: "700", marginTop: 3, lineHeight: 20 },
   priceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 },
