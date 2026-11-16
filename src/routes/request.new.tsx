@@ -62,6 +62,7 @@ export const Route = createFileRoute("/request/new")({
 });
 
 type Service = { id: string; slug: string; name_ar: string };
+const EXPERT_SERVICE_SLUGS = new Set(["build", "plaster", "carpentry_form", "flooring", "chef", "plumbing", "electric_setup", "electric_street"]);
 
 const VEHICLE_CATS: {
   key: VehicleCategory;
@@ -76,6 +77,7 @@ const VEHICLE_CATS: {
     key: "economy",
     label: "ممنون اقتصادي",
     emoji: "🚗",
+    img: luxuryCar,
     gradient: "from-emerald-400 to-teal-500",
     eta: "3-5 د",
     desc: "توفير وسرعة في الوصول",
@@ -84,6 +86,7 @@ const VEHICLE_CATS: {
     key: "premium",
     label: "ممنون المتميز",
     emoji: "🚙",
+    img: luxuryCar,
     gradient: "from-sky-500 to-indigo-600",
     eta: "4-6 د",
     desc: "سيارة واسعة ومكيفة بالكامل",
@@ -1128,7 +1131,7 @@ function NewRequest() {
         {(
           [
             { k: "fani", label: "فني", img: technicianIcon, desc: "خبرة جيدة" },
-            { k: "khabir", label: "خبير", img: expertIcon, desc: "خبرة عالية" },
+            ...(selectedService?.slug && EXPERT_SERVICE_SLUGS.has(selectedService.slug) ? [{ k: "khabir" as const, label: "خبير", img: expertIcon, desc: "خبرة عالية ومشاريع متخصصة" }] : []),
           ] as const
         ).map((opt) => (
           <button
@@ -1160,7 +1163,8 @@ function NewRequest() {
 
       {level === "khabir" ? (
         <>
-          <div className="mb-2 text-sm font-bold text-muted-foreground">الخبير يحتاج عمال؟</div>
+          <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 dark:bg-amber-950/20 p-3 mb-4 text-right" dir="rtl"><div className="font-black text-sm text-foreground">مميزات اختيار الخبير</div><ul className="mt-2 text-xs leading-6 text-muted-foreground list-disc pr-5"><li>تنفيذ الأعمال المتخصصة والمشاريع المتكاملة.</li><li>اختيار الخبير وحده أو مع فريق عمل.</li><li>تحديد عدد العمال المساعدين عند الحاجة.</li><li>توضيح نطاق العمل والاتفاق على السعر قبل التنفيذ.</li></ul></div>
+          <div className="mb-2 text-sm font-bold text-muted-foreground">طريقة تنفيذ الخبير للعمل</div>
           <div className="grid grid-cols-2 gap-3 mb-5">
             <button
               onClick={() => setKhabirMode("alone")}
