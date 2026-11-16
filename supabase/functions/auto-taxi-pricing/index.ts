@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
   const {data:{user},error:userError}=await userClient.auth.getUser();
   if(userError||!user) return json({error:"جلسة الدخول غير صالحة"},401);
   const {data:roles,error:rolesError}=await admin.from("user_roles").select("role").eq("user_id",user.id);
-  if(rolesError||!roles?.some((r:any)=>r.role==="customer")||roles.some((r:any)=>r.role==="driver"||r.role==="worker"||r.role==="large_driver"))
+  if(rolesError||!roles?.some((r:any)=>r.role==="customer"))
     return json({error:"إنشاء طلبات التاكسي متاح لحسابات الزبائن فقط"},403);
   const body=await req.json().catch(()=>null);
   if(!body||!validPoint(body.from)||!validPoint(body.to)) return json({error:"إحداثيات الانطلاق والوجهة غير صالحة"},400);
