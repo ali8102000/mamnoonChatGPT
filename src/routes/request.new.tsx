@@ -621,7 +621,7 @@ function NewRequest() {
         <p className="mt-2 text-sm text-muted-foreground">اختَر اختصاص الفني حتى نعرض لك تفاصيل الطلب بالخطوة التالية.</p>
         {servicesLoading && <div className="mt-5 rounded-2xl bg-card p-4 text-center text-sm text-muted-foreground">جارٍ تحميل قائمة الفنيين...</div>}
         {servicesLoadError && <div className="mt-4 rounded-2xl border border-destructive/30 p-4 text-sm text-destructive">{servicesLoadError}<button onClick={() => void loadServiceCatalog()} className="block mt-3 font-bold">إعادة المحاولة</button></div>}
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="mt-5 grid grid-cols-3 gap-3">
           {services.map((s) => (
             <button key={s.id} type="button" onClick={() => { setServiceId(s.id); if (!EXPERT_ONLY_SERVICE_SLUGS.has(s.slug)) setLevel("fani"); setServiceDetailsStep(true); }}
               className="min-h-40 rounded-2xl bg-card p-0 flex flex-col items-stretch justify-start gap-0 border border-border shadow-sm overflow-hidden">
