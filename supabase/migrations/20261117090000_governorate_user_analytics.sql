@@ -72,6 +72,7 @@ as $$
         ) as is_customer
     from public.profiles p
     left join role_sets r on r.user_id = p.id
+    left join activity_regions ar on ar.user_id = p.id
     left join public.driver_profiles dp on dp.user_id = p.id
     left join public.worker_profiles wp on wp.user_id = p.id
   )
