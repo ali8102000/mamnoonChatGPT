@@ -6,7 +6,7 @@ import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 
-type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean };
+type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; message_image_url?: string };
 
 export function RegionalServiceBanner() {
   const [row, setRow] = useState<Row | null>(null);
@@ -35,7 +35,7 @@ export function RegionalServiceBanner() {
       if (!active || !key) return;
       const { data, error } = await (supabase as any)
         .from("regional_service_controls")
-        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate")
+        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,message_image_url")
         .in("governorate_key", [key, "all"]);
       if (!active) return;
       if (error) { console.warn("[regional controls] load failed", error); return; }
@@ -73,7 +73,8 @@ export function RegionalServiceBanner() {
   return (
     <View style={styles.wrap}>
       <LinearGradient colors={["#050505", "#17120A", "#050505"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.card}>
-        <View style={styles.head}><Text style={styles.title}>{row.message_title || "تنويه رسمي من إدارة ممنون"}</Text><View style={styles.stamp}><Text style={styles.stampText}>✓ الإدارة الرسمية · موثّق</Text></View></View>
+        <View style={styles.head}><Text style={styles.title}>{row.message_title || "تنويه رسمي من إدارة ممنون"}</Text><View style={styles.stamp}><Text style={styles.stampText}>✓ إدارة ممنون · الحساب الرسمي الموثّق</Text></View></View>
+        {!!row.message_image_url && <Text style={styles.message}>{row.message_image_url}</Text>}
         <View style={styles.marquee} onLayout={(event) => setMarqueeWidth(event.nativeEvent.layout.width)}>
           {row.message_animate ? <>
             <Animated.Text numberOfLines={1} onLayout={(event) => setTextWidth(event.nativeEvent.layout.width)} style={[styles.message, { transform: [{ translateX: translate.interpolate({ inputRange: [0, 1], outputRange: [marqueeWidth, -textWidth] }) }] }]}>{text}</Animated.Text>
