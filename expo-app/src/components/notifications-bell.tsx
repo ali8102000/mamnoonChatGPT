@@ -89,13 +89,13 @@ export function NotificationsBell() {
               title: item.title,
               body: item.body ?? undefined,
               sound: isNotificationSoundEnabled() ? "default" : false,
-              channelId: getNotificationChannelId(soundEnabled, vibrationEnabled),
+              vibrate: vibrationEnabled ? [0, 250, 180, 250, 180, 350] : [],
               data: { url: item.link ?? "/home" },
             },
             trigger: {
               type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
               seconds: 1,
-              channelId: isNotificationSoundEnabled() ? "default" : "silent",
+              channelId: getNotificationChannelId(soundEnabled, vibrationEnabled),
             },
           }).catch((error) => console.warn("[notifications] local sound alert failed:", error));
         }
