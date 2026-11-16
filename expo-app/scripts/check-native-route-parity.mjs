@@ -69,6 +69,20 @@ for (const [path, kind] of [["app/terms.tsx", "terms"], ["app/privacy.tsx", "pri
 
 const readSource = async (path) =>
   import("node:fs/promises").then(({ readFile }) => readFile(resolve(root, path), "utf8"));
+const nativeIndexSource = await readSource("app/index.tsx");
+if (!nativeIndexSource.includes("!profile || roles.length === 0")) {
+  missing.push("Native startup must require the same cached profile and role checks as web.");
+}
+
+const nativeAuthContextSource = await readSource("src/lib/auth-context.tsx");
+if (!nativeAuthContextSource.includes("mamnoon-auth-profile-v1") ||
+    !nativeAuthContextSource.includes("readCachedAuthProfile")) {
+  missing.push("Native auth must restore the last saved account profile and roles when offline.");
+}
+if (!nativeAuthContextSource.includes("clearCachedAuthProfile(previousId)")) {
+  missing.push("Native auth must clear the local account snapshot on sign-out or account switch.");
+}
+
 const nativeAuthSource = await readSource("app/auth.tsx");
 if (!nativeAuthSource.includes('useState<Mode>("signup")')) {
   missing.push("Native auth must open in the same default signup mode as web.");
