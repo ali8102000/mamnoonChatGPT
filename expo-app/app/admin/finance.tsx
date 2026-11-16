@@ -178,7 +178,7 @@ const s=StyleSheet.create({
   input:{backgroundColor:palette.surface,color:palette.ink,borderWidth:1,borderColor:palette.line,borderRadius:radius.md,padding:12,textAlign:"right"},
   card:{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radius.lg,padding:14,gap:8},selected:{borderColor:palette.brand,borderWidth:2},
   row:{flexDirection:"row",gap:8,flexWrap:"wrap"},choice:{flex:1,alignItems:"center",padding:11,borderRadius:radius.md,borderWidth:1,borderColor:palette.line},
-  action:{backgroundColor:palette.brand,borderRadius:radius.md,padding:13,alignItems:"center"},actionText:{color:palette.white,fontWeight:"900",fontSize:12},
-  small:{backgroundColor:palette.brandSoft,paddingHorizontal:14,paddingVertical:9,borderRadius:radius.md},smallDanger:{backgroundColor:palette.dangerSoft,paddingHorizontal:14,paddingVertical:9,borderRadius:radius.md},smallText:{color:palette.ink,fontWeight:"900",fontSize:11},
+  action:{minHeight:40,backgroundColor:palette.brand,borderRadius:16,paddingHorizontal:16,paddingVertical:8,alignItems:"center",justifyContent:"center"},actionText:{color:palette.white,fontWeight:"900",fontSize:12},
+  small:{minHeight:36,backgroundColor:palette.brandSoft,paddingHorizontal:12,paddingVertical:6,borderRadius:16,alignItems:"center",justifyContent:"center"},smallDanger:{minHeight:36,backgroundColor:palette.dangerSoft,paddingHorizontal:12,paddingVertical:6,borderRadius:16,alignItems:"center",justifyContent:"center"},smallText:{color:palette.ink,fontWeight:"900",fontSize:11},
   error:{backgroundColor:palette.dangerSoft,padding:12,borderRadius:radius.md},errorText:{color:palette.danger,fontWeight:"900",textAlign:"right"},
 });
