@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: "900", color: palette.ink, marginBottom: 8, marginTop: 18, textAlign: "right" },
   servicesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   serviceChip: { width: "47%", minHeight: 145, alignItems: "center", justifyContent: "center", paddingHorizontal: 10, paddingVertical: 14, borderRadius: radius.lg, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
-  serviceArtworkFrame: { width: 84, height: 84, marginBottom: 8, borderRadius: radius.md, overflow: "hidden" },
+  serviceArtworkFrame: { width: 100, height: 100, marginBottom: 8, overflow: "hidden" },
   serviceArtwork: { width: "100%", height: "100%" },
   serviceChipActive: { borderColor: palette.gold, backgroundColor: palette.brandSoft },
   serviceChipText: { fontSize: 12, fontWeight: "800", color: palette.muted, textAlign: "center" },
