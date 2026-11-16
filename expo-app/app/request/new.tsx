@@ -12,6 +12,7 @@ import {
   Image,
   BackHandler,
   PanResponder,
+  useWindowDimensions,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
@@ -88,6 +89,8 @@ async function resolveRouteGovernorates(from: Coordinates, to: Coordinates) {
 export default function NewRequest() {
   const { type, vehicle } = useLocalSearchParams<{ type: string; vehicle?: string }>();
   const { user } = useAuth();
+  const window = useWindowDimensions();
+  const [taxiSheetHeight, setTaxiSheetHeight] = useState(320);
   const [selectedService, setSelectedService] = useState(type || "taxi");
   const [serviceCatalog, setServiceCatalog] = useState<CatalogService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
@@ -846,6 +849,7 @@ export default function NewRequest() {
           style={StyleSheet.absoluteFillObject}
           provider={PROVIDER_GOOGLE}
           initialRegion={region}
+          mapPadding={{ top: 92, right: 0, bottom: taxiSheetHeight, left: 0 }}
           onPanDrag={() => { userPannedMapRef.current = true; }}
           onRegionChangeComplete={handleRegionChangeComplete}
           showsUserLocation
@@ -872,7 +876,7 @@ export default function NewRequest() {
             </Marker>
           ))}
         </MapView>
-        <View pointerEvents="none" style={styles.taxiCenterPin}>
+        <View pointerEvents="none" style={[styles.taxiCenterPin, { top: 92 + Math.max(0, window.height - 92 - taxiSheetHeight) / 2 - 36 }]}>
           <Text style={styles.taxiCenterPinText}>{mapMode === "pickup" ? "📍" : "📌"}</Text>
         </View>
 
@@ -920,7 +924,7 @@ export default function NewRequest() {
           </View>
         </View>
 
-        <View style={styles.taxiBottomSheet}>
+        <View style={styles.taxiBottomSheet} onLayout={(event) => setTaxiSheetHeight(event.nativeEvent.layout.height)}>
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.taxiSheetContent}>
             {!destinationConfirmed ? (
               <>
