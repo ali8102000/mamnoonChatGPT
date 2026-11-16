@@ -121,3 +121,104 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.prepare_taxi_request() FROM PUBLIC, anon, authenticated;
+
+-- Coupon redemption for Edge-created taxi requests. The customer JWT is checked
+-- here so service-role insertion never has to impersonate the customer.
+CREATE OR REPLACE FUNCTION public.prevent_request_coupon_tampering()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF current_setting('app.allow_coupon_update', true) = 'on'
+     AND auth.uid() = OLD.customer_id THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.coupon_code IS DISTINCT FROM OLD.coupon_code
+     OR NEW.coupon_id IS DISTINCT FROM OLD.coupon_id
+     OR NEW.coupon_discount IS DISTINCT FROM OLD.coupon_discount
+     OR NEW.customer_payable IS DISTINCT FROM OLD.customer_payable THEN
+    RAISE EXCEPTION 'لا يمكن تعديل الكوبون أو الخصم بعد إرسال الطلب';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.apply_coupon_to_existing_request(
+  p_request_id uuid,
+  p_code text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_request public.service_requests%ROWTYPE;
+  v_coupon public.coupons%ROWTYPE;
+  v_amount numeric;
+  v_discount numeric;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'سجّل الدخول أولاً'; END IF;
+  SELECT * INTO v_request FROM public.service_requests
+   WHERE id = p_request_id AND customer_id = auth.uid()
+   FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'الطلب غير موجود أو لا تملك صلاحية تعديله'; END IF;
+  IF v_request.type::text <> 'taxi'
+     OR COALESCE(v_request.vehicle_category::text,'') NOT IN ('economy','premium','luxury')
+     OR v_request.status::text NOT IN ('pending','searching')
+     OR v_request.coupon_id IS NOT NULL THEN
+    RAISE EXCEPTION 'الكوبون غير متاح لهذا الطلب';
+  END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='customer')
+     OR EXISTS(SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role IN ('driver','worker')) THEN
+    RAISE EXCEPTION 'الكوبونات مخصصة لحسابات الزبائن فقط';
+  END IF;
+  v_amount := COALESCE(v_request.price_estimate,v_request.customer_price);
+  IF v_amount IS NULL OR v_amount <= 0 THEN RAISE EXCEPTION 'سعر الطلب غير صالح'; END IF;
+
+  SELECT cp.* INTO v_coupon
+    FROM public.coupons cp
+    JOIN public.coupon_assignments ca ON ca.coupon_id=cp.id
+   WHERE ca.user_id=auth.uid()
+     AND upper(cp.code)=upper(trim(p_code))
+     AND cp.active=true
+     AND (cp.expires_at IS NULL OR cp.expires_at>now())
+     AND cp.used_count<cp.max_uses
+     AND v_amount>=cp.min_amount
+     AND NOT EXISTS (
+       SELECT 1 FROM public.coupon_redemptions cr
+        WHERE cr.coupon_id=cp.id AND cr.user_id=auth.uid()
+     )
+   FOR UPDATE OF cp;
+  IF NOT FOUND THEN RAISE EXCEPTION 'الكوبون غير متاح لحسابك أو منتهي أو لا يطابق شروط الطلب'; END IF;
+
+  v_discount := CASE WHEN v_coupon.type='percentage'
+    THEN round(v_amount*v_coupon.value/100,2)
+    ELSE least(v_amount,v_coupon.value) END;
+  v_discount := greatest(0,least(v_amount,v_discount));
+
+  PERFORM set_config('app.allow_coupon_update','on',true);
+  UPDATE public.service_requests
+     SET coupon_code=v_coupon.code,coupon_id=v_coupon.id,
+         coupon_discount=v_discount,customer_payable=v_amount-v_discount
+   WHERE id=p_request_id;
+
+  INSERT INTO public.coupon_redemptions(coupon_id,user_id,request_id,discount_amount)
+  VALUES(v_coupon.id,auth.uid(),p_request_id,v_discount);
+  UPDATE public.coupons SET used_count=used_count+1,updated_at=now() WHERE id=v_coupon.id;
+  INSERT INTO public.coupon_subsidy_ledger(request_id,coupon_id,customer_id,discount_amount,currency,status)
+  VALUES(p_request_id,v_coupon.id,auth.uid(),v_discount,'IQD','pending_completion');
+  INSERT INTO public.notifications(user_id,type,title,body,link,data)
+  VALUES(auth.uid(),'coupon_redeemed','تم تطبيق الكوبون 🎉',
+    'تم خصم '||trim(to_char(v_discount,'FM999999990.##'))||' د.ع من طلبك',
+    '/request/'||p_request_id,
+    jsonb_build_object('coupon_id',v_coupon.id,'request_id',p_request_id,'discount',v_discount,'payable',v_amount-v_discount));
+
+  RETURN jsonb_build_object('discount',v_discount,'payable',v_amount-v_discount,'coupon_id',v_coupon.id);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.apply_coupon_to_existing_request(uuid,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.apply_coupon_to_existing_request(uuid,text) TO authenticated;
