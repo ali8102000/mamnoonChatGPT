@@ -1,36 +1,33 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- React Native requires static asset require() calls. */
 import type { ImageSourcePropType } from "react-native";
 
-// Local bundled JPG assets keep the web/native service catalog visually aligned
-// and make the service artwork available offline.
+// Keep service artwork keyed by the same stable slug stored in Supabase.
+// New catalog entries safely use the general-service illustration until artwork is added.
 const images: Record<string, ImageSourcePropType> = {
-  build: require("../../assets/services/build.jpg"),
-  plaster: require("../../assets/services/plaster.jpg"),
-  carpentry_form: require("../../assets/services/carpentry_form.jpg"),
-  flooring: require("../../assets/services/flooring.jpg"),
-  chef: require("../../assets/services/chef.jpg"),
-  plumbing: require("../../assets/services/plumbing.jpg"),
-  electric_setup: require("../../assets/services/electric_setup.jpg"),
-  electric_street: require("../../assets/services/electric_street.jpg"),
-  washer_repair: require("../../assets/services/washer_repair.jpg"),
-  stove_repair: require("../../assets/services/stove_repair.jpg"),
-  fridge_repair: require("../../assets/services/fridge_repair.jpg"),
-  ac_repair: require("../../assets/services/ac_repair.jpg"),
-  cleaning: require("../../assets/services/cleaning.jpg"),
-  wood_carpentry: require("../../assets/services/wood_carpentry.jpg"),
-  blacksmith: require("../../assets/services/blacksmith.jpg"),
-  goods_transport: require("../../assets/services/goods_transport.jpg"),
-  furniture_moving: require("../../assets/services/furniture_moving.jpg"),
-  cargo_handling: require("../../assets/services/cargo_handling.jpg"),
-  gardener: require("../../assets/services/gardener.jpg"),
-  internet_install: require("../../assets/services/internet_install.jpg"),
-  phone_repair: require("../../assets/services/phone_repair.jpg"),
-  electronics_repair: require("../../assets/services/electronics_repair.jpg"),
-  computer_repair: require("../../assets/services/computer_repair.jpg"),
-  security_cameras: require("../../assets/services/security_cameras.jpg"),
-  general: require("../../assets/services/general.jpg"),
-  // No dedicated Kia-driver photo is included in this 25-image package.
+  ac_repair: require("../../assets/services/ac_repair.png"),
+  blacksmith: require("../../assets/services/blacksmith.png"),
+  build: require("../../assets/services/build.png"),
+  carpentry_form: require("../../assets/services/carpentry_form.png"),
+  chef: require("../../assets/services/chef.png"),
+  cleaning: require("../../assets/services/cleaning.png"),
+  electric_setup: require("../../assets/services/electric_setup.png"),
+  electric_street: require("../../assets/services/electric_street.png"),
+  flooring: require("../../assets/services/flooring.png"),
+  fridge_repair: require("../../assets/services/fridge_repair.png"),
+  general: require("../../assets/services/general.png"),
+  plaster: require("../../assets/services/plaster.png"),
+  plumbing: require("../../assets/services/plumbing.png"),
+  stove_repair: require("../../assets/services/stove_repair.png"),
+  washer_repair: require("../../assets/services/washer_repair.png"),
+  // These specialist photos already exist in the web asset catalog. Reuse the
+  // same per-trade photographs on native so each category keeps its own image.
+  goods_transport: { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-goods_transport.png" },
+  furniture_moving: { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-furniture_moving.png" },
+  cargo_handling: { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-cargo_handling.png" },
+  gardener: { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-gardener.png" },
   kia_driver: { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" },
+  internet_install: { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-internet.png" },
+  wood_carpentry: require("../../assets/services/wood_carpentry.png"),
 };
 
 export function getServiceImage(slug: string): ImageSourcePropType {

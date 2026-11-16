@@ -1,0 +1,54 @@
+name: Validate Mamnoon service photo integration
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/assets/service-*.jpg"
+      - "src/lib/service-visuals.ts"
+      - "expo-app/assets/services/*.jpg"
+      - "expo-app/src/lib/service-visuals.ts"
+      - "expo-app/**"
+      - "src/**"
+      - ".github/workflows/service-photo-validation.yml"
+  push:
+    branches:
+      - feat/import-mamnoon-service-photos
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web typecheck, tests, and production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
+
+  android:
+    name: Android TypeScript and parity checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: expo-app/yarn.lock
+      - name: Install Expo dependencies
+        working-directory: expo-app
+        run: yarn install --frozen-lockfile
+      - name: Typecheck native app
+        working-directory: expo-app
+        run: npx tsc --noEmit
+      - name: Check native route and screen parity
+        working-directory: expo-app
+        run: yarn test:parity
