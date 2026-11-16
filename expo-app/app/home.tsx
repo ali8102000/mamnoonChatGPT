@@ -417,7 +417,7 @@ function CustomerHome() {
     {
       key: "large",
       title: "طلب سيارة كبيرة",
-      subtitle: "كيا حمل أو كيا ركاب",
+      subtitle: "كيا حمل أو كيا ركاب أو باص",
       emoji: "🚚",
       colors: ["#F97316", "#D97706"] as const,
       width: "31.5%" as const,
