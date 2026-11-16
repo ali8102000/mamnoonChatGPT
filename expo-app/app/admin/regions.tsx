@@ -144,7 +144,7 @@ export default function AdminRegionalControlsScreen() {
         <View style={styles.preview}>
           <View style={styles.previewHead}><Text style={styles.stamp}>✦ الإدارة الرسمية · موثّق ✦</Text><Text style={styles.stamp}>✓</Text></View>
           <Text style={styles.previewTitle}>{settings.message_title}</Text>
-          <Text style={styles.previewText}>{settings.message_text || "معاينة الرسالة تظهر هنا بعد الكتابة."}</Text>
+          <Text style={styles.previewText}>{settings.message_text || "معاينة الرسالة تظهر هنا بعد الكتابة."}</Text><View style={styles.rejectionPreview}><Text style={styles.stamp}>رسالة رفض الطلب · إدارة ممنون الموثّقة</Text><Text style={styles.rejectionPreviewText}>{settings.rejection_message}</Text></View>
           {!!settings.message_image_url && <Image source={{ uri: settings.message_image_url }} style={styles.previewImage} resizeMode="contain" />}
           <Text style={styles.watermark}>إدارة ممنون · الحساب الرسمي الموثّق</Text>
         </View>
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   stamp: { color: "#E9C76A", fontWeight: "900", fontSize: 10 },
   previewTitle: { color: "#F4D98C", fontSize: 15, fontWeight: "900", textAlign: "right", marginTop: 12 },
   previewText: { color: "#F4E7C1", fontSize: 13, lineHeight: 24, textAlign: "right", marginTop: 8 },
-  watermark: { color: "#9A742D", fontSize: 8, textAlign: "left", marginTop: 12, letterSpacing: 1 },
+  rejectionPreview: { marginTop: 12, padding: 10, borderRadius: 12, backgroundColor: "#211706", borderWidth: 1, borderColor: "#8A6426" },\n  rejectionPreviewText: { color: "#FFF0C7", fontSize: 13, lineHeight: 24, fontWeight: "900", textAlign: "right", marginTop: 6 },\n  watermark: { color: "#9A742D", fontSize: 8, textAlign: "left", marginTop: 12, letterSpacing: 1 },
   imagePick: { borderWidth: 1, borderColor: "#C99A35", borderRadius: 12, padding: 12, alignItems: "center", marginTop: 8 },
   imagePickText: { color: palette.gold, fontWeight: "900", fontSize: 12 },
   previewImage: { width: "100%", height: 150, marginTop: 10, borderRadius: 12 },
