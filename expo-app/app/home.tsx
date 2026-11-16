@@ -56,6 +56,19 @@ export default function HomeScreen() {
   const isWorker = activeRole === "worker" || activeRole === "driver" || activeRole === "large_driver";
   const switchableRoles = ["customer", "driver", "large_driver", "worker"].filter((role) => roles.includes(role as (typeof roles)[number]));
   const roleNames: Record<string, string> = { customer: "زبون", driver: "كابتن", large_driver: "سيارات كبيرة", worker: "فني" };
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 5 || hour >= 18) return "مساء الخير";
+    if (hour < 12) return "صباح الخير";
+    return "نهارك سعيد";
+  })();
+  const roleTitle = activeRole === "large_driver"
+    ? "سائق سيارات كبيرة 🚚"
+    : activeRole === "driver"
+      ? "كابتن تكسي 🚗"
+      : activeRole === "worker"
+        ? "فني خدمات 🛠️"
+        : "زبون 👤";
 
   async function changeActiveRole(role: string) {
     if (!switchableRoles.includes(role) || role === activeRole) return;
@@ -258,9 +271,9 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerEyebrow}>MAMNOON · ممنون</Text>
-          <Text style={styles.greeting}>هلا {profile?.full_name?.split(" ")[0] || "بيك"}</Text>
-          <Text style={styles.roleText}>مساحة العمل الخاصة بك</Text>
+          <Text style={styles.headerEyebrow}>{greeting}</Text>
+          <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
+          <Text style={styles.roleText}>{roleTitle}</Text>
         </View>
         <View style={styles.headerActions}>
           <NotificationsBell />
