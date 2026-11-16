@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Image } from "react-native";
 import * as Notifications from "expo-notifications";
+
+Notifications.setNotificationHandler({ handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false }) });
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
@@ -93,7 +95,7 @@ export default function SupportChatScreen() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: "conversation_id=eq." + selected.id }, (payload: any) => {
         setMessages((old) => old.some((m) => m.id === payload.new.id) ? old : [...old, payload.new]);
         if (payload.new.sender_id !== user?.id) {
-          void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: String(payload.new.body ?? "وصلتك رسالة جديدة").slice(0, 120), sound: muted ? false : "default" }, trigger: null });
+          void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: String(payload.new.body ?? "وصلتك رسالة جديدة").slice(0, 120), sound: muted ? false : "default" }, trigger: null, channelId: "support-messages" });
           (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
         }
       }).subscribe();
@@ -101,6 +103,7 @@ export default function SupportChatScreen() {
   }, [selected?.id, user?.id, loadMessages, muted]);
 
   async function enableNotifications() {
+    await Notifications.setNotificationChannelAsync("support-messages", { name: "رسائل الدعم", importance: Notifications.AndroidImportance.HIGH, sound: "default", vibrationPattern: [0, 250, 150, 250] });
     const permission = await Notifications.requestPermissionsAsync();
     if (!permission.granted) Alert.alert("الإشعارات", "فعّل إذن الإشعارات من إعدادات الجهاز حتى توصلك تنبيهات الرسائل.");
     else Alert.alert("ممنون", "تم تفعيل إذن إشعارات الرسائل.");
