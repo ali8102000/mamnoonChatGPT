@@ -14,7 +14,8 @@ begin
     where (coalesce(p.full_name,'') ilike '%'||trim(p_query)||'%'
        or coalesce(p.phone,'') ilike '%'||trim(p_query)||'%'
        or coalesce(p.email,'') ilike '%'||trim(p_query)||'%')
-      and not exists (select 1 from public.user_roles r where r.user_id=p.id and r.role::text='super_admin' and p.id<>'a06c0102-c5c8-488c-9309-8a320b400df1'::uuid)
+      and p.id <> 'a06c0102-c5c8-488c-9309-8a320b400df1'::uuid
+      and not exists (select 1 from public.user_roles r where r.user_id=p.id and r.role::text='super_admin')
     order by p.created_at desc
     limit 30;
 end;
