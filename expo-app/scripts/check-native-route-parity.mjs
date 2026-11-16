@@ -106,8 +106,15 @@ if (!nativeAuthContextSource.includes("mamnoon-history-v1")) {
 }
 
 const nativeIndexSource = await readSource("app/index.tsx");
-if (!nativeIndexSource.includes("!profile || roles.length === 0")) {
-  missing.push("Native startup must require the same cached profile and role checks as web.");
+const nativeWelcomeSource = await readSource("app/welcome.tsx");
+if (!nativeIndexSource.includes('href="/welcome"')) {
+  missing.push("Native startup must open the welcome screen on every cold launch.");
+}
+if (!nativeWelcomeSource.includes("!profile || roles.length === 0") ||
+    !nativeWelcomeSource.includes('router.replace("/select-role")') ||
+    !nativeWelcomeSource.includes('router.replace("/home")') ||
+    !nativeWelcomeSource.includes('router.replace("/auth")')) {
+  missing.push("Native welcome continuation must preserve signed-out, incomplete-profile, and signed-in routing.");
 }
 
 if (!nativeAuthContextSource.includes("mamnoon-auth-profile-v1") ||
