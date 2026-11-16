@@ -57,7 +57,7 @@ for (const path of nativeAdminSections) {
 const staffHubSource = await import("node:fs/promises").then(({ readFile }) => readFile(resolve(root, "app/admin/staff.tsx"), "utf8"));
 const managerChatRoute = staffHubSource.match(/route:\s*"\/support-chat",\s*roles:\s*\[([^\]]+)\]/);
 if (!managerChatRoute?.[1].includes("rank:general_manager")) {
-  missing.push("Native staff hub must expose read-only support conversations to general managers.");
+  missing.push("Native staff hub must expose the writable support inbox to general managers.");
 }
 
 for (const [path, kind] of [["app/terms.tsx", "terms"], ["app/privacy.tsx", "privacy"]]) {
