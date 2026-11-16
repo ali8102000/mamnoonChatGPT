@@ -132,7 +132,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     key: "chat",
     label: "الدردشة ورسائل الدعم",
     icon: MessageSquare,
-    roles: ["super_admin", "admin", "support", "moderator"],
+    roles: ["super_admin", "admin", "support", "moderator", "customer_service"],
   },
   {
     key: "friends",
@@ -171,6 +171,7 @@ function AdminPage() {
   const { session, loading } = useAuth();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [staffRoles, setStaffRoles] = useState<string[]>([]);
+  const [staffDisplayTitle, setStaffDisplayTitle] = useState<string | null>(null);
   const [section, setSection] = useState<Section>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -188,7 +189,11 @@ function AdminPage() {
         const { data: roles } = await (supabase as any).rpc("get_staff_roles", {
           p_user_id: session.user.id,
         });
-        setStaffRoles((roles ?? []).map((r: any) => r));
+        const parsedRoles = (roles ?? []).map((r: any) => r);
+        setStaffRoles(parsedRoles);
+        const { data: assignment } = await supabase.from("staff_assignments").select("display_title,department").eq("user_id", session.user.id).eq("active", true).maybeSingle();
+        setStaffDisplayTitle(assignment?.display_title ?? null);
+        if (parsedRoles.includes("customer_service") && !parsedRoles.some((r: string) => ["super_admin", "admin", "support", "finance", "moderator"].includes(r))) setSection("chat");
         setAuthorized(true);
       } catch {
         setAuthorized(false);
@@ -236,7 +241,7 @@ function AdminPage() {
         <div className="p-5">
           <div className="flex items-center gap-2 mb-6">
             <ShieldCheck className="h-6 w-6 text-primary" />
-            <h1 className="text-lg font-black">لوحة الإدارة</h1>
+            <h1 className="text-lg font-black">{staffDisplayTitle ?? "لوحة الإدارة"}</h1>
           </div>
           <Link
             to="/admin/import"
@@ -283,7 +288,7 @@ function AdminPage() {
           <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg bg-surface-2">
             <LayoutDashboard className="h-5 w-5" />
           </button>
-          <span className="font-black text-sm">لوحة الإدارة</span>
+          <span className="font-black text-sm">{staffDisplayTitle ?? "لوحة الإدارة"}</span>
           <div className="w-9" />
         </div>
         <div className="p-4 lg:p-8 max-w-5xl mx-auto">
