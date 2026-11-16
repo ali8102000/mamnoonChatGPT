@@ -157,9 +157,9 @@ jobs:
               echo "::error::Mamnoon crashed during the Android emulator launch smoke test."
               exit 1
             fi
-production-aab:
+  production-aab:
     name: Build signed Google Play AAB locally
-    if: \${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' }}
     needs: build
     runs-on: ubuntu-latest
     defaults:
@@ -181,7 +181,7 @@ production-aab:
       - name: Install Android SDK packages
         run: |
           set -euo pipefail
-          SDK_ROOT="\${ANDROID_HOME:-\${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
           if [ -z "$SDKMANAGER" ]; then
             echo "::error::Android SDK command-line tools were not found on the runner."
@@ -199,7 +199,7 @@ production-aab:
           yarn install --frozen-lockfile
       - name: Verify EAS token is available
         env:
-          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
             echo "::error::Missing GitHub Actions secret EXPO_TOKEN."
@@ -207,8 +207,8 @@ production-aab:
           fi
       - name: Build production AAB with the existing remote upload key
         env:
-          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: \${{ github.workspace }}/expo-app/release-artifacts
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/expo-app/release-artifacts
         run: |
           set -euo pipefail
           mkdir -p release-artifacts
