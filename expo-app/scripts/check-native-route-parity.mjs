@@ -71,7 +71,7 @@ const readSource = async (path) =>
   import("node:fs/promises").then(({ readFile }) => readFile(resolve(root, path), "utf8"));
 const notificationLayout = await readSource("app/_layout.tsx");
 const notificationBell = await readSource("src/components/notifications-bell.tsx");
-const pushSoundMigration = await readSource("../supabase/migrations/20261116090000_notification_sound_preferences.sql");
+const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
 const supabaseTypes = await readSource("../src/integrations/supabase/types.ts");
 
 if (!notificationLayout.includes('setNotificationChannelAsync("silent"')) {
