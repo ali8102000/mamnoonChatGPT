@@ -113,7 +113,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     icon: LayoutDashboard,
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
-  { key: "stats", label: "الإحصائيات", icon: Activity, roles: ["super_admin", "admin", "finance", "department_finance"] },
+  { key: "stats", label: "الإحصائيات", icon: Activity, roles: ["super_admin", "admin", "finance"] },
   {
     key: "users",
     label: "المستخدمون",
