@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   AppState,
   Image,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -45,6 +46,7 @@ type Offer = {
     pickup_text: string;
     dest_text: string | null;
     notes: string | null;
+    attachment_path: string | null;
     work_description: string | null;
     price_estimate: number | null;
     customer_price: number | null;
@@ -81,16 +83,22 @@ export function IncomingRequestModal() {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [visible, setVisible] = useState(false);
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [attachmentPath, setAttachmentPath] = useState<string | null>(null);
+  const loadSequence = useRef(0);
 
   const loadOffer = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     if (!user || !canReceive) {
       setOffer(null);
       setVisible(false);
+      setAttachmentPath(null);
+      setAttachmentUrl(null);
       return;
     }
     const { data, error } = await (supabase as any)
       .from("request_offers")
-      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, pickup_text, dest_text, notes, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
+      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, pickup_text, dest_text, notes, attachment_path, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
       .eq("provider_id", user.id)
       .eq("status", "pending")
       .gt("expires_at", new Date().toISOString())
@@ -98,18 +106,44 @@ export function IncomingRequestModal() {
       .limit(1)
       .maybeSingle();
 
+    if (sequence !== loadSequence.current) return;
     if (error) {
       console.warn("[incoming-offer] Could not load targeted offer:", error.message);
       return;
     }
-    if (data?.service_requests?.status === "pending" || data?.service_requests?.status === "searching") {
-      setOffer(data as Offer);
-      setVisible(true);
-    } else {
+
+    const isActive = data?.service_requests?.status === "pending" || data?.service_requests?.status === "searching";
+    if (!data || !isActive) {
       setOffer(null);
       setVisible(false);
+      setAttachmentPath(null);
+      setAttachmentUrl(null);
+      return;
     }
-  }, [user, canReceive]);
+
+    const nextAttachmentPath = data.service_requests?.attachment_path ?? null;
+    if (!nextAttachmentPath) {
+      setAttachmentPath(null);
+      setAttachmentUrl(null);
+    } else if (nextAttachmentPath !== attachmentPath || !attachmentUrl) {
+      // Retry signing on later polls if a transient storage error occurred.
+      const { data: signed, error: signedError } = await supabase.storage
+        .from("request-attachments")
+        .createSignedUrl(nextAttachmentPath, 60 * 60);
+      if (sequence !== loadSequence.current) return;
+      setAttachmentPath(nextAttachmentPath);
+      if (signedError) {
+        console.warn("[incoming-offer] Could not sign request photo:", signedError.message);
+        setAttachmentUrl(null);
+      } else {
+        setAttachmentUrl(signed?.signedUrl ?? null);
+      }
+    }
+
+    if (sequence !== loadSequence.current) return;
+    setOffer(data as Offer);
+    setVisible(true);
+  }, [user, canReceive, attachmentPath, attachmentUrl]);
 
   useEffect(() => {
     void loadOffer();
@@ -186,6 +220,7 @@ export function IncomingRequestModal() {
     >
       <View style={styles.backdrop}>
         <View style={styles.card}>
+          <ScrollView style={styles.cardScroll} contentContainerStyle={styles.cardContent} showsVerticalScrollIndicator={false}>
           <View style={styles.topLine}>
             <View style={styles.pulse} />
             <Text style={styles.topText}>طلب جديد موجّه إلك</Text>
@@ -218,6 +253,17 @@ export function IncomingRequestModal() {
                 <Text style={styles.detailLabel}>الوجهة</Text>
                 <Text style={styles.detailValue}>{request.dest_text}</Text>
               </>
+            ) : null}
+            {attachmentUrl ? (
+              <View style={styles.attachmentWrap}>
+                <Text style={styles.attachmentTitle}>صورة الزبون المرفقة بالطلب</Text>
+                <Image
+                  source={{ uri: attachmentUrl }}
+                  style={styles.attachmentImage}
+                  resizeMode="contain"
+                  onError={() => console.warn("[incoming-offer] Request photo failed to render")}
+                />
+              </View>
             ) : null}
             {request?.work_description || request?.notes ? (
               <>
@@ -273,6 +319,7 @@ export function IncomingRequestModal() {
             )}
           </View>
           {busy === "reject" ? <ActivityIndicator style={{ marginTop: 10 }} color="#64748b" /> : null}
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -281,7 +328,9 @@ export function IncomingRequestModal() {
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(12, 29, 23, 0.72)", justifyContent: "center", padding: 18 },
-  card: { backgroundColor: palette.surface, borderRadius: 28, padding: 20, borderWidth: 1, borderColor: palette.gold },
+  card: { backgroundColor: palette.surface, borderRadius: 28, borderWidth: 1, borderColor: palette.gold, maxHeight: "92%", overflow: "hidden" },
+  cardScroll: { flexGrow: 0 },
+  cardContent: { padding: 20 },
   topLine: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
   pulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: palette.success },
   topText: { flex: 1, color: palette.brand, fontSize: 14, fontWeight: "900" },
@@ -294,6 +343,9 @@ const styles = StyleSheet.create({
   serviceTitle: { color: palette.ink, fontSize: 19, fontWeight: "900" },
   distance: { color: palette.muted, fontSize: 12, marginTop: 5 },
   details: { backgroundColor: palette.canvas, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: palette.line },
+  attachmentWrap: { marginTop: 12, padding: 10, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, gap: 8 },
+  attachmentTitle: { color: palette.brand, fontSize: 12, fontWeight: "900", textAlign: "right" },
+  attachmentImage: { width: "100%", height: 190, borderRadius: radius.md, backgroundColor: palette.surfaceSoft },
   detailLabel: { color: palette.muted, fontSize: 10, fontWeight: "900", marginTop: 5 },
   detailValue: { color: palette.ink, fontSize: 13, fontWeight: "700", marginTop: 3, lineHeight: 20 },
   priceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 },
