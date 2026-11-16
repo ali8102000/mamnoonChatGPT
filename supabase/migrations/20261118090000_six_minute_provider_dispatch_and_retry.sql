@@ -573,6 +573,11 @@ BEGIN
     ELSE r.customer_price
   END;
 
+  -- Release all previous attempts before the taxi status trigger sends wave one.
+  UPDATE public.request_offers
+  SET status = 'cancelled', responded_at = now()
+  WHERE request_id = _request_id AND status IN ('pending', 'expired', 'rejected');
+
   PERFORM set_config('mamnoon.allow_dispatch_retry', 'true', true);
   UPDATE public.service_requests
   SET status = 'searching',
@@ -593,10 +598,6 @@ BEGIN
       END
   WHERE id = _request_id;
   PERFORM set_config('mamnoon.allow_dispatch_retry', 'false', true);
-
-  UPDATE public.request_offers
-  SET status = 'cancelled', responded_at = now()
-  WHERE request_id = _request_id AND status IN ('pending', 'expired', 'rejected');
 
   IF r.type = 'taxi' THEN
     -- taxi_dispatch_changed enqueues and sends the first wave from the status update.
