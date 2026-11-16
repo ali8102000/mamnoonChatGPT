@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 28,
-    backgroundColor: palette.canvas,
+    backgroundColor: palette.pageCanvas,
   },
   title: {
     fontSize: 18,
