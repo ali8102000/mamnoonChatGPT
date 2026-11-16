@@ -63,17 +63,23 @@ stable
 security definer
 set search_path = public
 as $$
-  select coalesce(
-    (select c.services_enabled
-       from public.regional_service_controls c
-      where c.governorate_key = lower(trim(coalesce(p_governorate_key,'')))
-      limit 1),
-    (select c.services_enabled
-       from public.regional_service_controls c
-      where c.governorate_key = 'all'
-      limit 1),
-    true
-  );
+  select case
+    when exists (
+      select 1 from public.regional_service_controls c
+       where c.governorate_key = 'all' and c.services_enabled = false
+    ) then false
+    else coalesce(
+      (select c.services_enabled
+         from public.regional_service_controls c
+        where c.governorate_key = lower(trim(coalesce(p_governorate_key,'')))
+        limit 1),
+      (select c.services_enabled
+         from public.regional_service_controls c
+        where c.governorate_key = 'all'
+        limit 1),
+      true
+    )
+  end;
 $$;
 
 revoke all on function public.regional_services_enabled(text) from public;
