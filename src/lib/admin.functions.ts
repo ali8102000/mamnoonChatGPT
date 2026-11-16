@@ -989,6 +989,22 @@ export const adminBroadcastNotification = createServerFn({ method: "POST" })
     return { sent: count ?? 0 };
   });
 
+
+export const adminListStaffActivity = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await (supabaseAdmin as any).from("staff_activity_log")
+      .select("*").order("created_at", { ascending: false }).limit(data.limit);
+    if (error) throw new Error(error.message);
+    const ids = [...new Set((rows ?? []).flatMap((r: any) => [r.staff_user_id, r.actor_user_id]))];
+    const { data: profiles } = ids.length ? await (supabaseAdmin as any).from("profiles").select("id,full_name,email").in("id", ids) : { data: [] };
+    const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+    return (rows ?? []).map((r: any) => ({ ...r, staff: byId.get(r.staff_user_id), actor: byId.get(r.actor_user_id) }));
+  });
+
 export const adminListAuditLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
