@@ -143,7 +143,7 @@ export default function RegionalControlsSection() {
       <section className="glass rounded-2xl p-4 space-y-4">
         <div>
           <h3 className="font-black text-sm">نطاق التطبيق</h3>
-          <p className="text-[11px] text-muted-foreground mt-1">إعداد «كل العراق» هو الأساس، وأي محافظة لها إعداد خاص تتقدم على الإعداد العام.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">إيقاف «كل العراق» يوقف الجميع دائماً. عند تشغيله، تگدر توقف محافظات منفردة بإعداد خاص.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setTargetMode("all")} className={`rounded-xl px-4 py-2 text-xs font-black border ${targetMode === "all" ? "bg-amber-500 text-black border-amber-500" : "border-border"}`}><Globe2 className="inline h-4 w-4 ml-1" /> كل العراق</button>
