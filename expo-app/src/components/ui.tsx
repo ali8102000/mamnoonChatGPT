@@ -37,7 +37,7 @@ export function Button({
     resolvedVariant === "primary" ? palette.brand :
     resolvedVariant === "danger" ? palette.danger :
     resolvedVariant === "secondary" ? palette.surfaceSoft :
-    resolvedVariant === "outline" ? "transparent" : "transparent";
+    resolvedVariant === "outline" ? palette.canvasSolid : "transparent";
   const color = resolvedVariant === "secondary" || resolvedVariant === "outline"
     ? palette.ink
     : isGhost ? palette.brand : palette.white;
@@ -57,7 +57,7 @@ export function Button({
         styles.button,
         buttonSizeStyle,
         { backgroundColor, borderColor, borderWidth: resolvedVariant === "outline" ? 1 : 0 },
-        resolvedVariant === "primary" || resolvedVariant === "danger" ? styles.elevated : null,
+        ["primary", "danger", "secondary", "outline"].includes(resolvedVariant) ? styles.elevated : null,
         { opacity: disabled || loading ? 0.5 : pressed ? 0.86 : 1, transform: [{ scale: pressed && !disabled && !loading ? 0.985 : 1 }] },
         style,
       ]}
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   button: {
     minWidth: 0,
     paddingHorizontal: space.lg,
-    borderRadius: 8,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
