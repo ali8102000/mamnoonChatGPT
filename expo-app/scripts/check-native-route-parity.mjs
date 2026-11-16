@@ -70,6 +70,15 @@ for (const [path, kind] of [["app/terms.tsx", "terms"], ["app/privacy.tsx", "pri
 const readSource = async (path) =>
   import("node:fs/promises").then(({ readFile }) => readFile(resolve(root, path), "utf8"));
 const nativeAuthContextSource = await readSource("src/lib/auth-context.tsx");
+const nativeMessagesSource = await readSource("app/messages.tsx");
+if (!nativeMessagesSource.includes("mamnoon-chats-v1") ||
+    !nativeMessagesSource.includes("usingCachedData")) {
+  missing.push("Native messages list must restore and label cached chats when offline.");
+}
+if (!nativeAuthContextSource.includes("mamnoon-chats-v1")) {
+  missing.push("Native sign-out must clear the locally cached chat list.");
+}
+
 const nativeProfileSource = await readSource("app/profile.tsx");
 if (!nativeProfileSource.includes("mamnoon-wallet-v1") ||
     !nativeProfileSource.includes("walletOffline")) {
