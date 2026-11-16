@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { router } from "expo-router";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
@@ -36,28 +37,55 @@ export default function HistoryScreen() {
   const [tab, setTab] = useState<"all" | "active" | "done">("all");
   const [showAllRequests, setShowAllRequests] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [usingCachedData, setUsingCachedData] = useState(false);
 
   const load = useCallback(async () => {
-    let query = supabase
-      .from("service_requests")
-      .select(
-        "*, customer:profiles!service_requests_customer_id_fkey(full_name), provider:profiles!service_requests_provider_id_fkey(full_name)",
-      )
-      .or(`customer_id.eq.${user?.id},provider_id.eq.${user?.id}`)
-      .order("created_at", { ascending: false });
-    if (tab === "active")
-      query = query.in("status", ["searching", "pending", "accepted", "in_progress"]);
-    if (tab === "done") query = query.in("status", ["completed", "cancelled"]);
-    const { data } = await query;
-    setRequests(data || []);
-  }, [user?.id, tab]);
+    if (!user?.id) {
+      setRequests([]);
+      setUsingCachedData(false);
+      return;
+    }
+    const cacheKey = `mamnoon-history-v1:${user.id}`;
+    try {
+      const { data, error } = await supabase
+        .from("service_requests")
+        .select("id,type,status,created_at,price_estimate")
+        .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      const rows = (data || []) as HistoryRequest[];
+      setRequests(rows);
+      setUsingCachedData(false);
+      try {
+        await SecureStore.setItemAsync(cacheKey, JSON.stringify(rows));
+      } catch (cacheError) {
+        console.warn("[offline] Could not save request history:", cacheError);
+      }
+    } catch (error) {
+      console.warn("[offline] Request history unavailable; restoring saved entries.", error);
+      try {
+        const raw = await SecureStore.getItemAsync(cacheKey);
+        const saved = raw ? JSON.parse(raw) : [];
+        setRequests(Array.isArray(saved) ? saved as HistoryRequest[] : []);
+      } catch {
+        setRequests([]);
+      }
+      setUsingCachedData(true);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     load();
   }, [load]);
+  const tabRequests = tab === "active"
+    ? requests.filter((request) => ["searching", "pending", "accepted", "in_progress"].includes(request.status))
+    : tab === "done"
+      ? requests.filter((request) => ["completed", "cancelled"].includes(request.status))
+      : requests;
   const visibleRequests = showAllRequests
-    ? requests
-    : requests.filter((request) => new Date(request.created_at).getTime() >= Date.now() - 60 * 60 * 1000);
+    ? tabRequests
+    : tabRequests.filter((request) => new Date(request.created_at).getTime() >= Date.now() - 60 * 60 * 1000);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -68,6 +96,11 @@ export default function HistoryScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>السجل</Text>
+      {usingCachedData && (
+        <View style={styles.offlineNotice}>
+          <Text style={styles.offlineNoticeText}>تعرض بيانات محفوظة من آخر اتصال، وقد لا تكون محدثة.</Text>
+        </View>
+      )}
       <View style={styles.tabs}>
         <TouchableOpacity style={[styles.tab, !showAllRequests && styles.tabActive]} onPress={() => setShowAllRequests(false)}>
           <Text style={[styles.tabText, !showAllRequests && styles.tabTextActive]}>آخر ساعة</Text>
@@ -103,7 +136,13 @@ export default function HistoryScreen() {
             <TouchableOpacity
               key={req.id}
               style={styles.card}
-              onPress={() => router.push({ pathname: "/request/[id]", params: { id: req.id } })}
+              onPress={() => {
+                if (usingCachedData) {
+                  Alert.alert("أنت دون اتصال", "تفاصيل الطلب الكاملة تحتاج إلى اتصال بالإنترنت.");
+                  return;
+                }
+                router.push({ pathname: "/request/[id]", params: { id: req.id } });
+              }}
               activeOpacity={0.85}
             >
               <View style={{ flex: 1 }}>
@@ -142,6 +181,8 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
+  offlineNotice: { padding: 11, borderRadius: radius.md, backgroundColor: palette.goldSoft, borderWidth: 1, borderColor: palette.line, marginBottom: 14 },
+  offlineNoticeText: { color: palette.ink, fontSize: 11, fontWeight: "700", textAlign: "right" },
   tabs: { flexDirection: "row", gap: 8, marginBottom: 16 },
   tab: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: palette.surfaceSoft, borderWidth: 1, borderColor: palette.line },
   tabActive: { backgroundColor: palette.brand, borderColor: palette.brand },
