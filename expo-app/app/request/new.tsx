@@ -30,7 +30,6 @@ import { calculateMobileTaxiFare } from "@/lib/taxi-fares";
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 
-const TAXI_SERVICE = { slug: "taxi", label: "سيارة", emoji: "🚕", color: palette.brand };
 type CatalogService = { id: string; slug: string; name_ar: string };
 
 
@@ -176,6 +175,36 @@ export default function NewRequest() {
     });
     return () => subscription.remove();
   }, [selectedService, vehicle, mapMode]);
+
+  useEffect(() => {
+    const requestedType = type || "taxi";
+    setSelectedService((current) => current === requestedType ? current : requestedType);
+    // The same Expo Router screen can be reused when moving between service
+    // and taxi requests. Clear technician-only form state on route changes.
+    if (requestedType === "taxi" || requestedType === "service") {
+      setWorkerLevel("fani");
+      setExtraWorkers(0);
+      setWorkDescription("");
+      setBrickQuantity("");
+      setCargoLoadDescription("");
+      setPricingMode("fixed");
+      setWorkHours("");
+      setCustomerPrice("");
+      setRequestPhoto(null);
+      setNotes("");
+      setDestination("");
+      setDestinationCoords(null);
+      setDestinationGovernorateKey(null);
+      setDestinationConfirmed(false);
+      setMapMode("pickup");
+      setRouteKm(null);
+      setRouteDurationMin(null);
+      setRouteError(null);
+      setCouponCode("");
+      setCouponPreview(null);
+      setCouponError("");
+    }
+  }, [type]);
 
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
@@ -1239,7 +1268,7 @@ export default function NewRequest() {
           {servicesLoading && <ActivityIndicator style={{ marginVertical: 12 }} color={palette.brand} />}
           {!!servicesError && <TouchableOpacity onPress={() => router.replace("/request/new" as never)}><Text style={{ color: palette.danger, marginBottom: 10 }}>{servicesError} اضغط لإعادة المحاولة.</Text></TouchableOpacity>}
           <View style={styles.serviceGrid}>
-            {[TAXI_SERVICE, ...serviceCatalog.map((service) => ({ ...service, label: service.name_ar, emoji: "", color: "#0f766e" }))].map((service) => (
+            {serviceCatalog.map((service) => ({ ...service, label: service.name_ar, emoji: "", color: "#0f766e" })).map((service) => (
               <TouchableOpacity
                 key={service.slug}
                 style={[
