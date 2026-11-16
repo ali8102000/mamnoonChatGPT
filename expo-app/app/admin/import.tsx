@@ -87,8 +87,8 @@ export default function ImportScreen() {
     setValidated(false);
   }
 
-  if (loading) return <View style={s.center}><Text style={s.muted}>جارٍ التحقق من الصلاحيات...</Text></View>;
-  if (!session || !isAdmin) return <View style={s.center}><Text style={s.title}>{!session ? "سجّل الدخول" : "غير مصرّح"}</Text><Text style={s.muted}>هذه الصفحة للمديرين المخوّلين فقط.</Text></View>;
+  if (loading) return <View style={s.center}><Text style={s.description}>جارٍ التحقق من الصلاحيات...</Text></View>;
+  if (!session || !isAdmin) return <View style={s.center}><Text style={s.title}>{!session ? "سجّل الدخول" : "غير مصرّح"}</Text><Text style={s.description}>هذه الصفحة للمديرين المخوّلين فقط.</Text></View>;
 
   return (
     <View style={s.page}>
