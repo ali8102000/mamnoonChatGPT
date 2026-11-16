@@ -1194,3 +1194,61 @@ export const adminGetMonitoringData = createServerFn({ method: "GET" })
       tickets: (tck.data ?? []) as any[],
     };
   });
+
+
+const governorateKeySchema = z.enum([
+  "baghdad", "basra", "nineveh", "erbil", "sulaymaniyah", "duhok", "kirkuk",
+  "najaf", "karbala", "babil", "anbar", "diyala", "saladin", "wasit",
+  "dhiqar", "maysan", "muthanna", "qadisiyah",
+]);
+
+export const adminGetGovernorateUserStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({}).parse(d))
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await (supabaseAdmin as any).rpc("admin_governorate_user_stats");
+    if (error) throw new Error("تعذر تحميل إحصائيات المحافظات: " + error.message);
+    return data ?? [];
+  });
+
+export const adminUpdateUserProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    user_id: z.string().uuid(),
+    full_name: z.string().trim().min(2).max(100),
+    governorate_key: governorateKeySchema.nullable(),
+    avatar_base64: z.string().max(7_000_000).optional(),
+    avatar_mime: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const updates: Record<string, unknown> = {
+      full_name: data.full_name,
+      governorate_key: data.governorate_key,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.avatar_base64) {
+      if (!data.avatar_mime) throw new Error("نوع الصورة غير صالح");
+      const extension = data.avatar_mime === "image/png" ? "png" : data.avatar_mime === "image/webp" ? "webp" : "jpg";
+      const bytes = Uint8Array.from(atob(data.avatar_base64), (char) => char.charCodeAt(0));
+      const path = `${data.user_id}/admin-${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(path, bytes, {
+        contentType: data.avatar_mime,
+        cacheControl: "3600",
+        upsert: false,
+      });
+      if (uploadError) throw new Error("فشل رفع الصورة: " + uploadError.message);
+      const { data: publicUrl } = supabaseAdmin.storage.from("avatars").getPublicUrl(path);
+      updates.avatar_url = publicUrl.publicUrl;
+    }
+    const { data: profile, error } = await (supabaseAdmin as any)
+      .from("profiles").update(updates)
+      .eq("id", data.user_id)
+      .select("id,full_name,avatar_url,governorate_key")
+      .single();
+    if (error) throw new Error("فشل تحديث بيانات المستخدم: " + error.message);
+    return profile;
+  });
