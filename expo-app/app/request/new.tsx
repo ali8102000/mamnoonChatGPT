@@ -1260,7 +1260,8 @@ export default function NewRequest() {
       contentContainerStyle={{ paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "تفاصيل طلب الفني"}</Text>\n      {!isTaxi && serviceDetailsStep && <TouchableOpacity onPress={() => setServiceDetailsStep(false)} style={{ marginBottom: 12 }}><Text style={{ color: palette.brand, textAlign: "right", fontWeight: "900" }}>← قائمة الفنيين</Text></TouchableOpacity>}
+      <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "تفاصيل طلب الفني"}</Text>
+      {!isTaxi && serviceDetailsStep && <TouchableOpacity onPress={() => setServiceDetailsStep(false)} style={{ marginBottom: 12 }}><Text style={{ color: palette.brand, textAlign: "right", fontWeight: "900" }}>← قائمة الفنيين</Text></TouchableOpacity>}
       {isLargeVehicle && (
         <View style={{ marginBottom: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
           <Text style={styles.label}>اختار نوع الكيا أولاً</Text>
@@ -1274,7 +1275,7 @@ export default function NewRequest() {
           </View>
         </View>
       )}
-      {vehicle !== "large" && !serviceDetailsStep && (\n
+      {vehicle !== "large" && !serviceDetailsStep && (
         <>
           <Text style={styles.label}>نوع الخدمة</Text>
           {servicesLoading && <ActivityIndicator style={{ marginVertical: 12 }} color={palette.brand} />}
@@ -1310,7 +1311,9 @@ export default function NewRequest() {
         </>
       )}
 
-      )}\n\n      <Text style={styles.label}>حدد النقطة على الخريطة</Text>
+      )}
+
+      <Text style={styles.label}>حدد النقطة على الخريطة</Text>
       <View style={styles.mapModeRow}>
         <TouchableOpacity
           style={[styles.mapModeButton, mapMode === "pickup" && styles.mapModeButtonActive]}
