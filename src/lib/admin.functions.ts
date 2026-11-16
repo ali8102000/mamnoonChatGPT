@@ -1005,7 +1005,7 @@ export const adminBroadcastNotification = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
-        target: z.enum(["all", "drivers", "workers", "single"]),
+        target: z.enum(["all", "drivers", "large_drivers", "workers", "customers", "single"]),
         title: z.string().min(1).max(200),
         body: z.string().min(1).max(2000),
         user_id: z.string().uuid().optional(),
