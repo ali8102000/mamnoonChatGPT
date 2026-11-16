@@ -49,7 +49,8 @@ check("Android general-manager read-only gate", nativeSupport.includes("complain
   nativeSupport.includes("!complaintsReadOnly") && nativeSupport.includes("general_manager"));
 const webRegions = readWeb("src/components/admin-regional-controls.tsx");
 const nativeRegions = read("app/admin/regions.tsx");
-check("web regional controls super-admin gate", webRegions.includes("isSuperAdmin") || webRegions.includes("super_admin"));
+const webRegionsNav = webAdmin.slice(webAdmin.indexOf('key: "regions"'), webAdmin.indexOf('key: "roles"'));
+check("web regional controls super-admin gate", webRegionsNav.includes("super_admin") && !webRegionsNav.includes("rank:general_manager"));
 check("Android regional controls super-admin gate", nativeRegions.includes("is_super_admin") || nativeRegions.includes("super_admin"));
 
 const css = readWeb("src/styles.css");
