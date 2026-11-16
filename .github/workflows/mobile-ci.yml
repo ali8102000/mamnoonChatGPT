@@ -34,6 +34,8 @@ jobs:
         run: rm -f bun.lock
       - name: TypeScript
         run: bunx tsc --noEmit
+      - name: Verify Android and web route coverage
+        run: node scripts/check-native-route-parity.mjs
       - name: Web and Android taxi fare parity tests
         run: bun -e 'import { runTaxiFareParityTests } from "./src/lib/taxi-fares-parity.test.ts"; const result = runTaxiFareParityTests(); console.log(`Verified ${result.comparisons} web/Android fare combinations and ${result.invalidInputsChecked} invalid-input cases.`);'
       - name: Validate production configuration guards
