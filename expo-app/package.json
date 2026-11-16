@@ -8,7 +8,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:android": "bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs && bunx eas-cli@latest build -p android --profile production'",
-    "build:ios": "bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs && bunx eas-cli@latest build -p ios --profile production'"
+    "build:ios": "bunx eas-cli@latest env:exec --environment production 'node scripts/validate-production-env.mjs && bunx eas-cli@latest build -p ios --profile production'",
+    "test:parity": "node scripts/check-native-route-parity.mjs && node scripts/check-screen-parity.mjs",
+    "test:visual-parity": "node scripts/compare-screen-captures.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
