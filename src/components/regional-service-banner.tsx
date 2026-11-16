@@ -77,7 +77,7 @@ export function RegionalServiceBanner() {
         <div className={row.message_animate ? "mamnoon-regional-marquee" : "text-xs leading-6 text-amber-100 whitespace-normal"}>{text}</div>
       </div>
       {!row.services_enabled && <div className="mt-2 flex items-center gap-1 text-[10px] text-rose-300"><AlertTriangle className="h-3 w-3" /> إنشاء الطلبات متوقف حالياً في هذه المحافظة.</div>}
-      <style>{`@keyframes mamnoon-regional-scroll { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } } .mamnoon-regional-marquee { display:inline-block; min-width:100%; white-space:nowrap; font-size:12px; line-height:1.9; color:#f6d98a; animation:mamnoon-regional-scroll 20s linear infinite; }`}</style>
+      <style>{`@keyframes mamnoon-regional-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } } .mamnoon-regional-marquee { display:inline-block; width:max-content; white-space:nowrap; font-size:12px; line-height:1.9; color:#f6d98a; will-change:transform; animation:mamnoon-regional-scroll 24s ease-in-out infinite alternate; }`}</style>
     </div>
   );
 }
