@@ -1,0 +1,412 @@
+{
+  "version": 1,
+  "reference": "Web is the source of truth. Capture web and Android with the same viewport, locale, theme, role and seeded data before comparing.",
+  "capture": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 1,
+    "locale": "ar-IQ",
+    "direction": "rtl",
+    "fontScale": 1,
+    "theme": [
+      "light",
+      "dark"
+    ]
+  },
+  "screenPairs": [
+    {
+      "id": "home-entry",
+      "native": "app/index.tsx",
+      "web": "../src/routes/index.tsx",
+      "url": "/"
+    },
+    {
+      "id": "welcome",
+      "native": "app/welcome.tsx",
+      "web": "../src/routes/welcome.tsx",
+      "url": "/welcome"
+    },
+    {
+      "id": "authentication",
+      "native": "app/auth.tsx",
+      "web": "../src/routes/auth.tsx",
+      "url": "/auth"
+    },
+    {
+      "id": "auth-callback",
+      "native": "app/auth/callback.tsx",
+      "web": "../src/routes/auth.callback.tsx",
+      "url": "/auth/callback"
+    },
+    {
+      "id": "account-settings",
+      "native": "app/account-settings.tsx",
+      "web": "../src/routes/account-settings.tsx",
+      "url": "/account-settings"
+    },
+    {
+      "id": "role-selection",
+      "native": "app/select-role.tsx",
+      "web": "../src/routes/select-role.tsx",
+      "url": "/select-role"
+    },
+    {
+      "id": "home",
+      "native": "app/home.tsx",
+      "web": "../src/routes/home.tsx",
+      "url": "/home"
+    },
+    {
+      "id": "request-create",
+      "native": "app/request/new.tsx",
+      "web": "../src/routes/request.new.tsx",
+      "url": "/request/new"
+    },
+    {
+      "id": "request-details",
+      "native": "app/request/[id].tsx",
+      "web": "../src/routes/request.$id.tsx",
+      "url": "/request/:id"
+    },
+    {
+      "id": "messages",
+      "native": "app/messages.tsx",
+      "web": "../src/routes/messages.tsx",
+      "url": "/messages"
+    },
+    {
+      "id": "support-chat",
+      "native": "app/support-chat.tsx",
+      "web": "../src/routes/support-chat.tsx",
+      "url": "/support-chat"
+    },
+    {
+      "id": "friends",
+      "native": "app/friends.tsx",
+      "web": "../src/routes/friends.tsx",
+      "url": "/friends"
+    },
+    {
+      "id": "history",
+      "native": "app/history.tsx",
+      "web": "../src/routes/history.tsx",
+      "url": "/history"
+    },
+    {
+      "id": "profile",
+      "native": "app/profile.tsx",
+      "web": "../src/routes/profile.tsx",
+      "url": "/profile"
+    },
+    {
+      "id": "coupons",
+      "native": "app/coupons.tsx",
+      "web": "../src/routes/coupons.tsx",
+      "url": "/coupons"
+    },
+    {
+      "id": "subscriptions",
+      "native": "app/subscriptions.tsx",
+      "web": "../src/routes/subscriptions.tsx",
+      "url": "/subscriptions"
+    },
+    {
+      "id": "support",
+      "native": "app/support.tsx",
+      "web": "../src/routes/support.tsx",
+      "url": "/support"
+    },
+    {
+      "id": "forgot-password",
+      "native": "app/forgot-password.tsx",
+      "web": "../src/routes/forgot-password.tsx",
+      "url": "/forgot-password"
+    },
+    {
+      "id": "reset-password",
+      "native": "app/reset-password.tsx",
+      "web": "../src/routes/reset-password.tsx",
+      "url": "/reset-password"
+    },
+    {
+      "id": "privacy",
+      "native": "app/privacy.tsx",
+      "web": "../src/routes/privacy.tsx",
+      "url": "/privacy"
+    },
+    {
+      "id": "terms",
+      "native": "app/terms.tsx",
+      "web": "../src/routes/terms.tsx",
+      "url": "/terms"
+    },
+    {
+      "id": "driver-onboarding",
+      "native": "app/onboarding/driver.tsx",
+      "web": "../src/routes/onboarding.driver.tsx",
+      "url": "/onboarding/driver"
+    },
+    {
+      "id": "worker-onboarding",
+      "native": "app/onboarding/worker.tsx",
+      "web": "../src/routes/onboarding.worker.tsx",
+      "url": "/onboarding/worker"
+    },
+    {
+      "id": "admin-dashboard",
+      "native": "app/admin.tsx",
+      "web": "../src/routes/admin.tsx",
+      "url": "/admin"
+    },
+    {
+      "id": "admin-bootstrap",
+      "native": "app/admin/bootstrap.tsx",
+      "web": "../src/routes/admin/bootstrap.tsx",
+      "url": "/admin/bootstrap"
+    },
+    {
+      "id": "admin-monitoring",
+      "native": "app/admin/monitoring.tsx",
+      "web": "../src/routes/admin/monitoring.tsx",
+      "url": "/admin/monitoring"
+    },
+    {
+      "id": "admin-subscriptions",
+      "native": "app/admin/subscriptions.tsx",
+      "web": "../src/routes/admin/subscriptions.tsx",
+      "url": "/admin/subscriptions"
+    },
+    {
+      "id": "admin-import",
+      "native": "app/admin/import.tsx",
+      "web": "../src/routes/admin_.import.tsx",
+      "url": "/admin/import"
+    }
+  ],
+  "adminSections": [
+    {
+      "id": "admin-overview",
+      "key": "overview",
+      "label": "نظرة عامة",
+      "native": [
+        "app/admin.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-stats",
+      "key": "stats",
+      "label": "الإحصائيات",
+      "native": [
+        "app/admin/monitoring.tsx",
+        "app/admin.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx",
+        "../src/routes/admin/monitoring.tsx"
+      ]
+    },
+    {
+      "id": "admin-users",
+      "key": "users",
+      "label": "المستخدمون",
+      "native": [
+        "app/admin/users.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-providers",
+      "key": "providers",
+      "label": "السائقون والفنيون",
+      "native": [
+        "app/admin/providers.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-requests",
+      "key": "requests",
+      "label": "الطلبات",
+      "native": [
+        "app/admin/requests.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-chat",
+      "key": "chat",
+      "label": "الدردشة ورسائل الدعم",
+      "native": [
+        "app/admin/chats.tsx",
+        "app/support-chat.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx",
+        "../src/routes/support-chat.tsx"
+      ]
+    },
+    {
+      "id": "admin-friends",
+      "key": "friends",
+      "label": "الأصدقاء",
+      "native": [
+        "app/admin/friends.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-reports",
+      "key": "reports",
+      "label": "البلاغات",
+      "native": [
+        "app/admin/monitoring.tsx",
+        "app/admin.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx",
+        "../src/routes/admin/monitoring.tsx"
+      ]
+    },
+    {
+      "id": "admin-subscriptions",
+      "key": "subscriptions",
+      "label": "الاشتراكات",
+      "native": [
+        "app/admin/subscriptions.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx",
+        "../src/routes/admin/subscriptions.tsx"
+      ]
+    },
+    {
+      "id": "admin-coupons",
+      "key": "coupons",
+      "label": "الكوبونات",
+      "native": [
+        "app/admin/finance.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-wallet",
+      "key": "wallet",
+      "label": "المحفظة",
+      "native": [
+        "app/admin/finance.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-map",
+      "key": "map",
+      "label": "الخريطة المباشرة",
+      "native": [
+        "app/admin/live-map.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-notifications",
+      "key": "notifications",
+      "label": "الإشعارات",
+      "native": [
+        "app/admin/notifications.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-regions",
+      "key": "regions",
+      "label": "التحكم بالمحافظات",
+      "native": [
+        "app/admin/regions.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx",
+        "../src/components/admin-regional-controls.tsx"
+      ]
+    },
+    {
+      "id": "admin-roles",
+      "key": "roles",
+      "label": "الصلاحيات",
+      "native": [
+        "app/admin/governance.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-staff",
+      "key": "staff",
+      "label": "موظفو القسم والترقيات",
+      "native": [
+        "app/admin/staff.tsx",
+        "app/admin/staff-hierarchy.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    },
+    {
+      "id": "admin-company",
+      "key": "company",
+      "label": "إعدادات الشركة",
+      "native": [
+        "app/admin.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx",
+        "../src/components/admin-company-settings.tsx"
+      ]
+    },
+    {
+      "id": "admin-audit",
+      "key": "audit",
+      "label": "سجل العمليات",
+      "native": [
+        "app/admin/governance.tsx"
+      ],
+      "web": [
+        "../src/routes/admin.tsx"
+      ]
+    }
+  ],
+  "visual": {
+    "maxDifferentPixelRatio": 0.01,
+    "channelTolerance": 12,
+    "requireSameDimensions": true,
+    "compareThemes": [
+      "light",
+      "dark"
+    ],
+    "compareRoles": [
+      "customer",
+      "driver",
+      "worker",
+      "super_admin",
+      "general_manager"
+    ]
+  }
+}
