@@ -1525,8 +1525,12 @@ function ChatSection() {
           <div className="space-y-2">
             {chats.map((c) => (
               <div key={c.id} className="glass rounded-2xl p-3 text-sm">
-                <div className="font-bold">
-                  {c.participant1?.full_name ?? "—"} ↔ {c.participant2?.full_name ?? "—"}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-bold">{c.participant1?.full_name ?? "—"}</span>
+                  <ContactOptions phone={c.participant1?.phone} label="اتصال / واتساب" />
+                  <span className="text-muted-foreground">↔</span>
+                  <span className="font-bold">{c.participant2?.full_name ?? "—"}</span>
+                  <ContactOptions phone={c.participant2?.phone} label="اتصال / واتساب" />
                 </div>
                 <div className="text-[10px] text-muted-foreground">
                   {new Date(c.updated_at ?? c.created_at).toLocaleString("ar-IQ")}
@@ -1542,7 +1546,10 @@ function ChatSection() {
           {messages.map((m) => (
             <div key={m.id} className="glass rounded-2xl p-3 text-sm">
               <div className="flex justify-between items-start mb-1">
-                <div className="font-bold text-xs">{m.sender?.full_name ?? "—"}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="font-bold text-xs">{m.sender?.full_name ?? "—"}</div>
+                  <ContactOptions phone={m.sender?.phone} label="اتصال / واتساب" />
+                </div>
                 <button
                   onClick={() => handleDelete(m.id)}
                   className="text-xs px-2 py-1 rounded-lg bg-red-100 text-red-700 font-bold"
