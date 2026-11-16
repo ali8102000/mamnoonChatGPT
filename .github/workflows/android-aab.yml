@@ -65,7 +65,7 @@ jobs:
         run: bunx expo export --platform android
       - name: Check EXPO_TOKEN secret
         env:
-          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
             echo "::error::Missing GitHub Actions secret EXPO_TOKEN."
@@ -84,8 +84,8 @@ jobs:
           fi
       - name: Build signed production AAB locally with the existing remote key
         env:
-          EXPO_TOKEN: \${{ secrets.EXPO_TOKEN }}
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: \${{ github.workspace }}/release-artifacts
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/release-artifacts
         run: |
           set -euo pipefail
           mkdir -p ../release-artifacts
