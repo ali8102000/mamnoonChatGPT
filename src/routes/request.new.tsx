@@ -1142,7 +1142,7 @@ function NewRequest() {
         ).map((opt) => (
           <button
             key={opt.k}
-            onClick={() => setLevel(opt.k)}
+            onClick={() => setLevel(opt.k as "fani" | "khabir")}
             className={`p-4 rounded-2xl btn-press text-center transition-all ${
               level === opt.k
                 ? "bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-lg scale-105"
