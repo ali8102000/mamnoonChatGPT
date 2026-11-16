@@ -5,6 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
+import { getNotificationChannelId, isNotificationSoundEnabled, isNotificationVibrationEnabled, loadNotificationPreferences } from "@/lib/notification-sound";
 
 export default function SupportChatScreen() {
   const { user } = useAuth();
@@ -32,12 +33,7 @@ export default function SupportChatScreen() {
     void SecureStore.getItemAsync("mamnoon-support-muted")
       .then((value) => { if (active) setMuted(value === "1"); })
       .catch(() => {});
-    void Notifications.setNotificationChannelAsync("support-messages", {
-      name: "رسائل الدعم",
-      importance: Notifications.AndroidImportance.HIGH,
-      sound: "default",
-      vibrationPattern: [0, 250, 150, 250],
-    }).catch(() => {});
+    void loadNotificationPreferences().catch(() => {});
     return () => { active = false; };
   }, []);
 
@@ -127,8 +123,10 @@ export default function SupportChatScreen() {
             content: {
               title: "رسالة جديدة في ممنون",
               body: String(payload.new.body ?? "وصلتك رسالة جديدة").slice(0, 120),
+              sound: isNotificationSoundEnabled() ? "default" : false,
+              vibrate: isNotificationVibrationEnabled() ? [0, 250, 150, 250] : [],
             },
-            trigger: { channelId: "support-messages" },
+            trigger: { channelId: getNotificationChannelId() },
           }).catch(() => {});
         }
         if (staff) void loadConversations().catch(() => {});
@@ -139,7 +137,7 @@ export default function SupportChatScreen() {
 
   async function enableNotifications() {
     try {
-      await Notifications.setNotificationChannelAsync("support-messages", { name: "رسائل الدعم", importance: Notifications.AndroidImportance.HIGH, sound: "default", vibrationPattern: [0, 250, 150, 250] });
+      await loadNotificationPreferences();
       const current = await Notifications.getPermissionsAsync();
       const permission = current.granted ? current : await Notifications.requestPermissionsAsync();
       if (!permission.granted) Alert.alert("الإشعارات", "فعّل إذن الإشعارات من إعدادات الجهاز حتى توصلك تنبيهات الرسائل.");
