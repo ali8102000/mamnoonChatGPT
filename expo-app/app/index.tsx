@@ -1,5 +1,6 @@
 import { Redirect } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
+import brandIcon from "../assets/favicon.png";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator, Image, Text, StyleSheet } from "react-native";
 
@@ -18,7 +19,7 @@ export default function Index() {
   if (loading || !splashFinished) {
     return (
       <View style={styles.center}>
-        <Image source={require("../assets/favicon.png")} style={styles.logo} resizeMode="contain" />
+        <Image source={brandIcon} style={styles.logo} resizeMode="contain" />
         <Text style={styles.brand}>ممنون</Text>
         <Text style={styles.tagline}>مشوارك وخدماتك… بمكان واحد</Text>
         {loading ? <ActivityIndicator size="small" color="#C99A35" style={styles.loader} /> : <View style={styles.loaderSpace} />}
