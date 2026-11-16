@@ -3,7 +3,7 @@ import { ShieldCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GOV_STORAGE_KEY } from "@/lib/governorates";
 
-type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean };
+type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; message_image_url?: string; rejection_message?: string };
 
 export function RegionalServiceBanner() {
   const [row, setRow] = useState<Row | null>(null);
@@ -44,7 +44,7 @@ export function RegionalServiceBanner() {
       if (!active || !key) return;
       const { data, error } = await (supabase as any)
         .from("regional_service_controls")
-        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate")
+        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,message_image_url,rejection_message")
         .in("governorate_key", [key, "all"]);
       if (!active) return;
       if (error) { console.warn("[regional controls] load failed", error); return; }
@@ -71,13 +71,14 @@ export function RegionalServiceBanner() {
     <div className="mb-4 rounded-2xl border border-amber-400/60 bg-[#080808] px-4 py-3 text-right shadow-[0_8px_30px_rgba(0,0,0,.24)] overflow-hidden" dir="rtl">
       <div className="flex items-center justify-between gap-2 border-b border-amber-500/25 pb-2">
         <span className="text-[10px] font-black tracking-wide bg-gradient-to-l from-yellow-100 via-amber-400 to-yellow-700 bg-clip-text text-transparent">{row.message_title || "تنويه رسمي من إدارة ممنون"}</span>
-        <span className="inline-flex items-center gap-1 text-[9px] text-amber-300"><ShieldCheck className="h-3 w-3" /> الإدارة الرسمية · موثّق</span>
+        <span className="inline-flex items-center gap-1 text-[9px] text-amber-300"><ShieldCheck className="h-3 w-3" /> إدارة ممنون · الحساب الرسمي الموثّق</span>
       </div>
+      {row.message_enabled && row.message_image_url && <img src={row.message_image_url} alt="صورة تنويه إدارة ممنون" className="mt-3 max-h-48 w-full rounded-xl object-contain" />}
       <div className="relative mt-2 overflow-hidden whitespace-nowrap">
         <div className={row.message_animate ? "mamnoon-regional-marquee" : "text-xs leading-6 text-amber-100 whitespace-normal"}>{text}</div>
       </div>
-      {!row.services_enabled && <div className="mt-2 flex items-center gap-1 text-[10px] text-rose-300"><AlertTriangle className="h-3 w-3" /> إنشاء الطلبات متوقف حالياً في هذه المحافظة.</div>}
-      <style>{`@keyframes mamnoon-regional-scroll { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } } .mamnoon-regional-marquee { display:inline-block; min-width:100%; white-space:nowrap; font-size:12px; line-height:1.9; color:#f6d98a; animation:mamnoon-regional-scroll 20s linear infinite; }`}</style>
+      {!row.services_enabled && <div className="mt-3 rounded-xl border border-amber-500/35 bg-gradient-to-l from-[#211706] to-[#090909] p-3"><div className="flex items-center justify-between text-[10px] font-black text-amber-300"><span>رسالة رفض الطلب</span><span>✓ إدارة ممنون الموثّقة</span></div><p className="mt-2 text-sm font-black leading-7 text-amber-100">{row.rejection_message || "الخدمة متوقفة حالياً في منطقتك بقرار من إدارة ممنون."}</p><div className="mt-2 flex items-center gap-1 text-[10px] text-rose-300"><AlertTriangle className="h-3 w-3" /> إنشاء الطلبات متوقف حالياً في هذه المحافظة.</div></div>}
+      <style>{`@keyframes mamnoon-regional-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } } .mamnoon-regional-marquee { display:inline-block; width:max-content; white-space:nowrap; font-size:12px; line-height:1.9; color:#f6d98a; will-change:transform; animation:mamnoon-regional-scroll 24s ease-in-out infinite alternate; }`}</style>
     </div>
   );
 }
