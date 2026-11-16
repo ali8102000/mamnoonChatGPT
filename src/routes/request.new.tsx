@@ -491,8 +491,8 @@ function NewRequest() {
         verifiedRouteKm = freshDistanceKm;
         priceEstimate = taxiFare(vehicleCategory, freshDistanceKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes });
       }
-      if (couponCode.trim()) {
-        const amount = type === "taxi" && vehicle !== "large" ? priceEstimate : getCouponBaseAmount();
+      if (type === "taxi" && vehicle !== "large" && couponCode.trim()) {
+        const amount = priceEstimate;
         if (!amount || amount <= 0) throw new Error("حدد سعر الطلب أولاً حتى نطبق الكوبون");
         const { data: couponData, error: couponCheckError } = await (supabase as any).rpc("preview_my_coupon", {
           p_code: couponCode.trim(),
@@ -505,7 +505,7 @@ function NewRequest() {
         .from("service_requests")
         .insert({
           customer_id: session.user.id,
-          coupon_code: couponCode.trim() || null,
+          coupon_code: type === "taxi" && vehicle !== "large" ? couponCode.trim() || null : null,
           type,
           status: "pending",
           service_id: type === "service" ? serviceId : null,
@@ -1010,7 +1010,7 @@ function NewRequest() {
               </div>
             )}
             {requestAttachmentPanel}
-            {couponPanel}
+            {type === "taxi" && vehicle !== "large" ? couponPanel : null}
             {vehicle === "large" && (
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري) — اكتب الوجهة أو أي تفاصيل تريدها" rows={2} className="w-full resize-none bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
             )}
@@ -1329,7 +1329,7 @@ function NewRequest() {
         )}
       </div>
 
-      <div className="mt-5">{couponPanel}</div>
+      {type === "taxi" && vehicle !== "large" && <div className="mt-5">{couponPanel}</div>}
 
       <div className="mt-5">
         <div className="text-xs font-bold text-muted-foreground mb-2">
