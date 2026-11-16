@@ -418,6 +418,36 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    if (body.action === "chats") {
+      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
+      const { data: chats, error } = await admin.from("chats")
+        .select("*, participant1:profiles!chats_customer_id_fkey(full_name,phone), participant2:profiles!chats_provider_id_fkey(full_name,phone)")
+        .order("updated_at", { ascending: false }).limit(limit);
+      if (error) return json({ error: "chats_load_failed" }, 500);
+      return json({ chats: chats ?? [] });
+    }
+
+    if (body.action === "messages") {
+      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
+      let query = admin.from("messages")
+        .select("*, sender:profiles!messages_sender_id_fkey(full_name,phone), chat:chats(id)")
+        .order("created_at", { ascending: false }).limit(limit);
+      if (typeof body.chat_id === "string" && isUuid(body.chat_id)) query = query.eq("chat_id", body.chat_id);
+      const { data: messages, error } = await query;
+      if (error) return json({ error: "messages_load_failed" }, 500);
+      return json({ messages: messages ?? [] });
+    }
+
+    if (body.action === "delete_message") {
+      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      if (!isUuid(body.message_id)) return json({ error: "invalid_message_id" }, 400);
+      const { error } = await caller.rpc("admin_delete_message", { p_message_id: body.message_id });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true });
+    }
+
     if (body.action === "friends" || body.action === "friend_requests") {
       requireRoles(["super_admin", "admin", "moderator", "department_monitoring"]);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
