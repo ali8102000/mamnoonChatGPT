@@ -1,4 +1,5 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Loader2 } from "lucide-react";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
@@ -21,15 +22,25 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { loading, session, roles, profile } = useAuth();
   const { ready, completed } = useWelcomePreferences();
+  const [splashFinished, setSplashFinished] = useState(false);
 
-  if (loading || !ready) {
+  // Re-show the branded entry screen whenever the web app is opened/reloaded.
+  useEffect(() => {
+    if (loading || !ready) return;
+    const timer = window.setTimeout(() => setSplashFinished(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, [loading, ready]);
+
+  if (loading || !ready || !splashFinished) {
     return (
-      <div className="min-h-screen grid place-items-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="text-5xl font-black text-gradient">ممنون</div>
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <main className="min-h-screen grid place-items-center bg-[#F7F8F5] px-6">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <img src="/icon-192.png" alt="شعار ممنون" className="h-28 w-28 object-contain" />
+          <div className="text-4xl font-black tracking-wide text-[#17324D]">ممنون</div>
+          <div className="text-sm font-semibold text-[#758394]">مشوارك وخدماتك… بمكان واحد</div>
+          {loading || !ready ? <Loader2 className="mt-5 h-5 w-5 animate-spin text-amber-600" /> : <div className="mt-5 h-5" />}
         </div>
-      </div>
+      </main>
     );
   }
 
