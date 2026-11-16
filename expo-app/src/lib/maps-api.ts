@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 
 const API_BASE =
   process.env.EXPO_PUBLIC_MAMNOON_API_URL?.trim().replace(/\/+$/, "") ||
-  "https://mamnoon-theta.vercel.app";
+  "https://existing-project-onrampadminbootstrap.lovable.app";
 
 export async function callMamnoonMapsApi<T>(payload: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.auth.getSession();
