@@ -145,6 +145,18 @@ export const adminPromoteStaffOneLevel = createServerFn({ method: "POST" })
     return { ok: true, rank };
   });
 
+
+export const adminDeactivateStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ target_user_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireSuperAdmin(context);
+    const { supabase } = context;
+    const { error } = await (supabase as any).rpc("staff_deactivate", { p_target_user: data.target_user_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const adminSetStaffRank = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
