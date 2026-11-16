@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { router } from "expo-router";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
@@ -17,45 +18,70 @@ export default function MessagesScreen() {
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [usingCachedData, setUsingCachedData] = useState(false);
 
   const loadChats = useCallback(async () => {
     if (!user?.id) {
       setChats([]);
+      setUsingCachedData(false);
       setLoading(false);
       return;
     }
-    const { data: activeRequests } = await supabase
-      .from("service_requests")
-      .select("id")
-      .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
-      .in("status", ["pending", "searching", "accepted", "in_progress"]);
-    const activeIds = (activeRequests ?? []).map((request) => request.id);
-    if (!activeIds.length) { setChats([]); setLoading(false); return; }
-    const { data, error } = await supabase
-      .from("chats")
-      .select("id, request_id, customer_id, provider_id, request:service_requests(type, status)")
-      .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
-      .in("request_id", activeIds)
-      .order("updated_at", { ascending: false });
-    if (error || !data) {
-      setChats([]);
+    const cacheKey = `mamnoon-chats-v1:${user.id}`;
+    try {
+      const { data: activeRequests, error: activeError } = await supabase
+        .from("service_requests")
+        .select("id")
+        .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
+        .in("status", ["pending", "searching", "accepted", "in_progress"]);
+      if (activeError) throw activeError;
+      const activeIds = (activeRequests ?? []).map((request) => request.id);
+      if (!activeIds.length) {
+        setChats([]);
+        setUsingCachedData(false);
+        await SecureStore.setItemAsync(cacheKey, "[]").catch(() => {});
+        setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("chats")
+        .select("id, request_id, customer_id, provider_id, request:service_requests(type, status)")
+        .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
+        .in("request_id", activeIds)
+        .order("updated_at", { ascending: false });
+      if (error || !data) throw error ?? new Error("تعذر تحميل المحادثات");
+      const otherIds = [...new Set(data.map((chat) =>
+        chat.customer_id === user.id ? chat.provider_id : chat.customer_id
+      ))];
+      const { data: profiles, error: profilesError } = otherIds.length
+        ? await supabase.from("profiles").select("id, full_name, phone").in("id", otherIds)
+        : { data: [], error: null };
+      if (profilesError) throw profilesError;
+      const profileById = new Map((profiles || []).map((profile) => [profile.id, profile]));
+      const rows = data.map((chat) => ({
+        id: chat.id,
+        request_id: chat.request_id,
+        request: Array.isArray(chat.request) ? chat.request[0] ?? null : chat.request,
+        other: profileById.get(chat.customer_id === user.id ? chat.provider_id : chat.customer_id) ?? null,
+      })) as ChatListItem[];
+      setChats(rows);
+      setUsingCachedData(false);
+      await SecureStore.setItemAsync(cacheKey, JSON.stringify(rows)).catch((cacheError) => {
+        console.warn("[offline] Could not save chat list:", cacheError);
+      });
+    } catch (error) {
+      console.warn("[offline] Chat list unavailable; restoring saved entries.", error);
+      try {
+        const raw = await SecureStore.getItemAsync(cacheKey);
+        const saved = raw ? JSON.parse(raw) : [];
+        setChats(Array.isArray(saved) ? saved as ChatListItem[] : []);
+      } catch {
+        setChats([]);
+      }
+      setUsingCachedData(true);
+    } finally {
       setLoading(false);
-      return;
     }
-    const otherIds = [...new Set(data.map((chat) =>
-      chat.customer_id === user.id ? chat.provider_id : chat.customer_id
-    ))];
-    const { data: profiles } = otherIds.length
-      ? await supabase.from("profiles").select("id, full_name, phone").in("id", otherIds)
-      : { data: [] };
-    const profileById = new Map((profiles || []).map((profile) => [profile.id, profile]));
-    setChats(data.map((chat) => ({
-      id: chat.id,
-      request_id: chat.request_id,
-      request: Array.isArray(chat.request) ? chat.request[0] ?? null : chat.request,
-      other: profileById.get(chat.customer_id === user.id ? chat.provider_id : chat.customer_id) ?? null,
-    })));
-    setLoading(false);
   }, [user?.id]);
 
   useEffect(() => {
@@ -79,7 +105,21 @@ export default function MessagesScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>الرسائل</Text>
-      <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>مراسلة إدارة ممنون</Text></TouchableOpacity>
+      {usingCachedData && (
+        <View style={styles.offlineNotice}>
+          <Text style={styles.offlineNoticeText}>تعرض محادثات محفوظة من آخر اتصال، وقد لا تكون محدثة.</Text>
+        </View>
+      )}
+      <TouchableOpacity
+        onPress={() => {
+          if (usingCachedData) {
+            Alert.alert("أنت دون اتصال", "مراسلة إدارة ممنون تحتاج إلى اتصال بالإنترنت.");
+            return;
+          }
+          router.push("/support-chat");
+        }}
+        style={styles.supportButton}
+      ><Text style={styles.supportButtonText}>مراسلة إدارة ممنون</Text></TouchableOpacity>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -96,9 +136,13 @@ export default function MessagesScreen() {
             <TouchableOpacity
               key={chat.id}
               style={styles.chatCard}
-              onPress={() =>
-                router.push({ pathname: "/request/[id]", params: { id: chat.request_id } })
-              }
+              onPress={() => {
+                if (usingCachedData) {
+                  Alert.alert("أنت دون اتصال", "فتح المحادثة والرسائل يحتاج إلى اتصال بالإنترنت.");
+                  return;
+                }
+                router.push({ pathname: "/request/[id]", params: { id: chat.request_id } });
+              }}
               activeOpacity={0.85}
             >
               <View style={styles.chatAvatar}>
@@ -122,6 +166,8 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: 20, paddingTop: 52 },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
+  offlineNotice: { padding: 11, borderRadius: radius.md, backgroundColor: palette.goldSoft, borderWidth: 1, borderColor: palette.line, marginBottom: 14 },
+  offlineNoticeText: { color: palette.ink, fontSize: 11, fontWeight: "700", textAlign: "right" },
   supportButton: { backgroundColor: palette.brand, borderRadius: radius.md, padding: 15, marginBottom: 16 },
   supportButtonText: { color: palette.white, fontWeight: "900", textAlign: "center" },
   empty: { textAlign: "center", color: palette.muted, marginTop: 40 },
