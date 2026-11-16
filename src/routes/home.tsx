@@ -222,7 +222,7 @@ function CustomerHome() {
           type="taxi"
           vehicle="large"
           title="طلب سيارة كبيرة"
-          subtitle="كيا حمل أو كيا ركاب"
+          subtitle="كيا حمل أو كيا ركاب أو باص"
           icon={<img src="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" alt="" className="h-11 w-11 object-contain" />}
           gradient="from-orange-500 to-amber-600"
           delay={0.15}
