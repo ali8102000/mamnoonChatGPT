@@ -266,9 +266,9 @@ export default function AdminScreen() {
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
         <Text style={styles.companyHint}>تغيير الاسم الظاهر للمنصة</Text>
         <TextInput value={companyName} onChangeText={setCompanyName} maxLength={80} placeholder="اسم الشركة" style={styles.companyInput} textAlign="right" />
-        <TouchableOpacity onPress={saveCompanyName} disabled={savingCompanyName} style={styles.companySave}>
+        <ActionButton onPress={saveCompanyName} disabled={savingCompanyName} size="default" style={styles.companySave}>
           <Text style={styles.companySaveText}>{savingCompanyName ? "جاري الحفظ..." : "حفظ اسم الشركة"}</Text>
-        </TouchableOpacity>
+        </ActionButton>
       </View>
       <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></TouchableOpacity>
       <TouchableOpacity onPress={() => router.push("/admin/chats")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة الدردشة الخاصة والرسائل</Text></TouchableOpacity>
