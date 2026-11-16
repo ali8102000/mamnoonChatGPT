@@ -65,7 +65,10 @@ begin
   delete from public.provider_presence pp
    using public.profiles p
    where p.id = pp.user_id
-     and not public.regional_services_enabled(p.governorate_key);
+     and not public.regional_services_enabled(
+       coalesce(nullif(lower(trim(p.governorate_key)), ''),
+                public.infer_governorate_key(pp.lat, pp.lng))
+     );
 
   return null;
 end;
