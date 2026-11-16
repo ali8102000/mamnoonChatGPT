@@ -1,0 +1,32 @@
+name: Import Mamnoon service photos
+
+on:
+  push:
+    branches:
+      - feat/import-mamnoon-service-photos
+
+permissions:
+  contents: write
+
+jobs:
+  import-service-photos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/import-mamnoon-service-photos
+          persist-credentials: true
+      - name: Extract and wire local images
+        run: python3 .github/scripts/import-mamnoon-service-photos.py
+      - name: Commit imported images and mappings
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/assets/service-*.jpg expo-app/assets/services/*.jpg src/lib/service-visuals.ts expo-app/src/lib/service-visuals.ts
+          if git diff --cached --quiet; then
+            echo "No asset changes to commit."
+            exit 0
+          fi
+          git commit -m "Add local photographic service assets for web and Android"
+          git push origin HEAD:feat/import-mamnoon-service-photos
