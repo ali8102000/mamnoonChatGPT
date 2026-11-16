@@ -38,6 +38,46 @@ create trigger guard_provider_regional_presence_before_write
 before insert or update on public.provider_presence
 for each row execute function public.guard_provider_regional_presence();
 
+
+-- When an administrator disables a governorate, immediately take existing
+-- providers there offline as well; do not wait for their next heartbeat.
+create or replace function public.cleanup_disabled_provider_presence()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  update public.worker_profiles wp
+     set available = false
+    from public.profiles p
+   where p.id = wp.user_id
+     and wp.available = true
+     and not public.regional_services_enabled(p.governorate_key);
+
+  update public.driver_profiles dp
+     set available = false
+    from public.profiles p
+   where p.id = dp.user_id
+     and dp.available = true
+     and not public.regional_services_enabled(p.governorate_key);
+
+  delete from public.provider_presence pp
+   using public.profiles p
+   where p.id = pp.user_id
+     and not public.regional_services_enabled(p.governorate_key);
+
+  return null;
+end;
+$;
+
+revoke all on function public.cleanup_disabled_provider_presence() from public, anon, authenticated;
+
+drop trigger if exists cleanup_disabled_provider_presence_after_change on public.regional_service_controls;
+create trigger cleanup_disabled_provider_presence_after_change
+after insert or update or delete on public.regional_service_controls
+for each statement execute function public.cleanup_disabled_provider_presence();
+
 create or replace function public.guard_regional_request_offer()
 returns trigger
 language plpgsql
