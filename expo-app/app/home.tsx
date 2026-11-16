@@ -262,6 +262,24 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      {roles.includes("super_admin") && (
+        <TouchableOpacity onPress={() => router.push("/admin")} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="لوحة الإدارة">
+          <LinearGradient
+            colors={["#F4C95D", "#E9AB2B", "#C58B18"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ marginHorizontal: 18, marginBottom: 10, borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "#392707", fontSize: 12, fontWeight: "900", textAlign: "right" }}>إدارة {companyName}</Text>
+              <Text style={{ color: "#513B13", fontSize: 10, fontWeight: "700", marginTop: 3, textAlign: "right" }}>اعتماد السائقين والفنيين · حظر الحسابات · توزيع الخصومات · الدعم</Text>
+            </View>
+            <View style={{ backgroundColor: "rgba(57,39,7,0.12)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginLeft: 12 }}>
+              <Text style={{ color: "#392707", fontSize: 11, fontWeight: "900" }}>لوحة الإدارة ←</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <View style={styles.headerGreetingRow}>
@@ -282,24 +300,6 @@ export default function HomeScreen() {
       <TouchableOpacity onPress={() => router.push("/account-settings")} accessibilityRole="button" accessibilityLabel="تبديل الدور" style={styles.roleSettingsLink}>
         <Text style={styles.roleSettingsText}>⇄  تبديل الدور</Text>
       </TouchableOpacity>
-      {roles.includes("super_admin") && (
-        <TouchableOpacity onPress={() => router.push("/admin")} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="لوحة الإدارة">
-          <LinearGradient
-            colors={["#F4C95D", "#E9AB2B", "#C58B18"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{ marginHorizontal: 18, marginBottom: 10, borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "#392707", fontSize: 12, fontWeight: "900", textAlign: "right" }}>إدارة شركة ممنون</Text>
-              <Text style={{ color: "#513B13", fontSize: 10, fontWeight: "700", marginTop: 3, textAlign: "right" }}>اعتماد السائقين والفنيين · حظر الحسابات · الدعم</Text>
-            </View>
-            <View style={{ backgroundColor: "rgba(57,39,7,0.12)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginLeft: 12 }}>
-              <Text style={{ color: "#392707", fontSize: 11, fontWeight: "900" }}>لوحة الإدارة ←</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      )}
       <TouchableOpacity
         onPress={() => router.push("/coupons")}
         activeOpacity={0.85}
