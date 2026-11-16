@@ -17,6 +17,10 @@ type Offer = {
   status: string;
 };
 
+function roundPriceToNearest250(value: number) {
+  return Math.round(value / 250) * 250;
+}
+
 export function DriverOfferPopup() {
   const { session, roles } = useAuth();
   const navigate = useNavigate();
@@ -309,9 +313,10 @@ export function DriverOfferPopup() {
 
   async function sendLargeVehicleOffer() {
     if (!offer || !request || !uid) return;
-    const price = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
-    if (!Number.isSafeInteger(price) || price < 250 || price > 50000 || price % 250 !== 0) {
-      toast.error("اكتب سعراً من 250 إلى 50000 دينار ومن مضاعفات 250");
+    const enteredPrice = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
+    const price = roundPriceToNearest250(enteredPrice);
+    if (!Number.isSafeInteger(enteredPrice) || enteredPrice <= 0 || price < 250 || price > 50000) {
+      toast.error("اكتب سعراً أكبر من صفر؛ راح يتقرب تلقائياً لأقرب 250 دينار وبحد أعلى 50000");
       return;
     }
     setBusy(true);
@@ -469,10 +474,15 @@ export function DriverOfferPopup() {
 
         {isLargeVehicle ? (
           <div className="space-y-3">
+            <div className="text-[11px] text-muted-foreground">السعر يتقرب تلقائياً لأقرب 250 دينار</div>
             <input
               inputMode="numeric"
               value={largeOfferPrice}
               onChange={(event) => setLargeOfferPrice(event.target.value.replace(/[^0-9]/g, ""))}
+              onBlur={() => {
+                const entered = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
+                if (Number.isSafeInteger(entered) && entered > 0) setLargeOfferPrice(String(roundPriceToNearest250(entered)));
+              }}
               maxLength={5}
               placeholder="أدخل أجرتك بالدينار (حتى 50000)"
               className="w-full h-12 rounded-xl border border-border bg-background px-4 text-sm font-bold outline-none focus:border-primary"
