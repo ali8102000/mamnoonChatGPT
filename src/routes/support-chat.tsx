@@ -15,6 +15,7 @@ function SupportChatPage() {
   const { session, loading } = useAuth();
   const uid = session?.user.id;
   const [isStaff, setIsStaff] = useState(false);
+  const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
   const [providerTargets, setProviderTargets] = useState<any[]>([]);
   const [providerSearch, setProviderSearch] = useState("");
@@ -33,9 +34,12 @@ function SupportChatPage() {
   const loadConversations = useCallback(async () => {
     if (!uid) return;
     const { data: staff } = await (supabase as any).rpc("has_staff_role", { p_user_id: uid });
+    const { data: staffRoles } = await (supabase as any).rpc("get_staff_roles", { p_user_id: uid });
+    const restrictedSupport = (staffRoles ?? []).includes("customer_service") && !(staffRoles ?? []).some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
     setIsStaff(staff === true);
+    setCustomerServiceOnly(restrictedSupport);
     if (staff) {
-      const [drivers, workers] = await Promise.all([
+      const [drivers, workers] = restrictedSupport ? [{ data: [] }, { data: [] }] : await Promise.all([
         (supabase as any).from("driver_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
         (supabase as any).from("worker_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
       ]);
@@ -115,7 +119,7 @@ function SupportChatPage() {
   if (booting) return <div className="min-h-screen grid place-items-center"><Loader2 className="animate-spin" /></div>;
 
   async function startConversation(targetId: string) {
-    if (!uid || !isStaff) return;
+    if (!uid || !isStaff || customerServiceOnly) return;
     const existing = await (supabase as any).from("support_conversations").select("*").eq("user_id", targetId).eq("status", "open").maybeSingle();
     let conversation = existing.data;
     if (!conversation) {
@@ -144,9 +148,9 @@ function SupportChatPage() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-5">
         <a href={isStaff ? "/admin" : "/messages"} className="h-10 w-10 rounded-xl bg-card border border-border grid place-items-center"><ArrowRight className="h-5 w-5" /></a>
-        <div><h1 className="text-2xl font-black">محادثة إدارة ممنون</h1><p className="text-xs text-muted-foreground">{isStaff ? "استقبال رسائل الفنيين والسائقين والرد عليهم" : "تواصل مباشرة مع فريق شركة ممنون"}</p></div>
+        <div><h1 className="text-2xl font-black">{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</h1><p className="text-xs text-muted-foreground">{customerServiceOnly ? "الرد على استفسارات ورسائل الزبائن فقط" : isStaff ? "استقبال رسائل الفنيين والسائقين والرد عليهم" : "تواصل مباشرة مع فريق شركة ممنون"}</p></div>
       </div>
-      {isStaff && <div className="glass rounded-2xl p-3 mb-3">
+      {isStaff && !customerServiceOnly && <div className="glass rounded-2xl p-3 mb-3">
         <div className="font-bold text-sm mb-2">ابدأ محادثة مع فني أو سائق</div>
         <input value={providerSearch} onChange={(e) => setProviderSearch(e.target.value)} placeholder="ابحث بالاسم أو رقم الهاتف" className="w-full rounded-xl bg-card border border-border px-3 py-2 text-sm outline-none mb-2" />
         <div className="flex flex-wrap gap-2">{providerTargets.filter((p) => !providerSearch.trim() || String(p.full_name ?? "").includes(providerSearch.trim()) || String(p.phone ?? "").includes(providerSearch.trim())).slice(0, 8).map((p) => <button key={p.id} onClick={() => void startConversation(p.id)} className="rounded-xl bg-primary/10 text-primary px-3 py-2 text-xs font-bold">{p.full_name || "مقدم خدمة"} · {p.phone || ""}</button>)}</div>

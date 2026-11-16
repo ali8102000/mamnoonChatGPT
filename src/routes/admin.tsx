@@ -60,6 +60,11 @@ import {
   adminRevokeRole,
   adminSaveCoupon,
   adminSearchUsers,
+  adminSetStaffRank,
+  adminListDepartmentStaff,
+  adminPromoteStaffOneLevel,
+  adminListStaffActivity,
+  adminDeactivateStaff,
   adminSetProviderStatus,
   adminUpdateProviderName,
   adminUnblockUser,
@@ -99,6 +104,7 @@ type Section =
   | "notifications"
   | "audit"
   | "roles"
+  | "staff"
   | "company";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
@@ -113,47 +119,47 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     key: "users",
     label: "المستخدمون",
     icon: Users,
-    roles: ["super_admin", "admin", "support", "moderator"],
+    roles: ["super_admin", "admin", "support", "moderator", "department_monitoring"],
   },
   {
     key: "providers",
     label: "السائقون والفنيون",
     icon: Car,
-    roles: ["super_admin", "admin", "support"],
+    roles: ["super_admin", "admin", "support", "department_operations"],
   },
   {
     key: "requests",
     label: "الطلبات",
     icon: ListChecks,
-    roles: ["super_admin", "admin", "support"],
+    roles: ["super_admin", "admin", "support", "department_operations"],
   },
   {
     key: "chat",
     label: "الدردشة ورسائل الدعم",
     icon: MessageSquare,
-    roles: ["super_admin", "admin", "support", "moderator"],
+    roles: ["super_admin", "admin", "support", "moderator", "customer_service"],
   },
   {
     key: "friends",
     label: "الأصدقاء",
     icon: UserCheck,
-    roles: ["super_admin", "admin", "moderator"],
+    roles: ["super_admin", "admin", "moderator", "department_monitoring"],
   },
   {
     key: "reports",
     label: "البلاغات",
     icon: Flag,
-    roles: ["super_admin", "admin", "support", "moderator"],
+    roles: ["super_admin", "admin", "support", "moderator", "department_monitoring"],
   },
   {
     key: "subscriptions",
     label: "الاشتراكات",
     icon: Crown,
-    roles: ["super_admin", "admin", "finance"],
+    roles: ["super_admin", "admin", "finance", "department_finance"],
   },
-  { key: "coupons", label: "الكوبونات", icon: Tag, roles: ["super_admin", "admin", "finance"] },
-  { key: "wallet", label: "المحفظة", icon: Wallet, roles: ["super_admin", "admin", "finance"] },
-  { key: "map", label: "الخريطة المباشرة", icon: Map, roles: ["super_admin", "admin", "support"] },
+  { key: "coupons", label: "الكوبونات", icon: Tag, roles: ["super_admin", "admin", "finance", "department_finance"] },
+  { key: "wallet", label: "المحفظة", icon: Wallet, roles: ["super_admin", "admin", "finance", "department_finance"] },
+  { key: "map", label: "الخريطة المباشرة", icon: Map, roles: ["super_admin", "admin", "support", "department_operations", "department_monitoring"] },
   {
     key: "notifications",
     label: "الإشعارات",
@@ -161,6 +167,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
+  { key: "staff", label: "موظفو القسم والترقيات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
@@ -170,6 +177,7 @@ function AdminPage() {
   const { session, loading } = useAuth();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [staffRoles, setStaffRoles] = useState<string[]>([]);
+  const [staffDisplayTitle, setStaffDisplayTitle] = useState<string | null>(null);
   const [section, setSection] = useState<Section>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -187,7 +195,18 @@ function AdminPage() {
         const { data: roles } = await (supabase as any).rpc("get_staff_roles", {
           p_user_id: session.user.id,
         });
-        setStaffRoles((roles ?? []).map((r: any) => r));
+        const parsedRoles = (roles ?? []).map((r: any) => r);
+        setStaffRoles(parsedRoles);
+        const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,department,rank").eq("user_id", session.user.id).eq("active", true).maybeSingle();
+        setStaffDisplayTitle(assignment?.display_title ?? null);
+        if (assignment?.rank) parsedRoles.push(`rank:${assignment.rank}`);
+        setStaffRoles([...parsedRoles]);
+        const hasLegacyAdminRole = parsedRoles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
+        if (assignment?.rank && ["general_manager","department_manager","supervisor"].includes(assignment.rank) && !hasLegacyAdminRole) setSection("staff");
+        if (parsedRoles.includes("customer_service") && !hasLegacyAdminRole) setSection("chat");
+        else if (!hasLegacyAdminRole && assignment?.department === "finance") setSection("subscriptions");
+        else if (!hasLegacyAdminRole && assignment?.department === "operations") setSection("providers");
+        else if (!hasLegacyAdminRole && assignment?.department === "monitoring") setSection("reports");
         setAuthorized(true);
       } catch {
         setAuthorized(false);
@@ -235,7 +254,7 @@ function AdminPage() {
         <div className="p-5">
           <div className="flex items-center gap-2 mb-6">
             <ShieldCheck className="h-6 w-6 text-primary" />
-            <h1 className="text-lg font-black">لوحة الإدارة</h1>
+            <h1 className="text-lg font-black">{staffDisplayTitle ?? "لوحة الإدارة"}</h1>
           </div>
           <Link
             to="/admin/import"
@@ -282,7 +301,7 @@ function AdminPage() {
           <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg bg-surface-2">
             <LayoutDashboard className="h-5 w-5" />
           </button>
-          <span className="font-black text-sm">لوحة الإدارة</span>
+          <span className="font-black text-sm">{staffDisplayTitle ?? "لوحة الإدارة"}</span>
           <div className="w-9" />
         </div>
         <div className="p-4 lg:p-8 max-w-5xl mx-auto">
@@ -300,6 +319,7 @@ function AdminPage() {
           {section === "map" && <MapSection />}
           {section === "notifications" && <NotificationsSection />}
           {section === "roles" && <RolesSection />}
+          {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
           {section === "audit" && <AuditSection />}
         </div>
@@ -1404,13 +1424,19 @@ function ChatSection() {
   const [supportPreview, setSupportPreview] = useState<any[]>([]);
   const [supportUnread, setSupportUnread] = useState(0);
   const [tab, setTab] = useState("chats");
+  const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
   const [chats, setChats] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const listChats = useServerFn(adminListChats);
   const listMessages = useServerFn(adminListMessages);
   const deleteMessage = useServerFn(adminDeleteMessage);
+  useEffect(() => {
+    if (!session?.user.id) return;
+    void (async () => { const { data } = await (supabase as any).rpc("get_staff_roles", { p_user_id: session.user.id }); const roles = data ?? []; setCustomerServiceOnly(roles.includes("customer_service") && !roles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r))); })();
+  }, [session?.user.id]);
   const load = useCallback(async () => {
+    if (customerServiceOnly) { setLoading(false); return; }
     setLoading(true);
     try {
       if (tab === "chats") setChats(await listChats({ data: {} }));
@@ -1419,7 +1445,7 @@ function ChatSection() {
     } finally {
       setLoading(false);
     }
-  }, [tab, listChats, listMessages]);
+  }, [tab, listChats, listMessages, customerServiceOnly]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1451,7 +1477,7 @@ function ChatSection() {
   }
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-xl font-black">إدارة الدردشة</h2><a href="/support-chat" className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">فتح صندوق رسائل الدعم ({supportUnread} غير مقروءة)</a></div>
+      <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-xl font-black">{customerServiceOnly ? "مركز خدمة العملاء" : "إدارة الدردشة"}</h2><a href="/support-chat" className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">فتح صندوق رسائل الدعم ({supportUnread} غير مقروءة)</a></div>
       <div className="glass rounded-2xl p-3 mb-4">
         <div className="font-black text-sm mb-2">آخر رسائل المستخدمين للإدارة</div>
         {supportPreview.length === 0 ? <p className="text-xs text-muted-foreground">ماكو رسائل دعم واردة حالياً</p> : <div className="space-y-2">
@@ -1461,7 +1487,7 @@ function ChatSection() {
           </a>)}
         </div>}
       </div>
-      <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
+      {!customerServiceOnly && <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
         {["chats", "messages"].map((t) => (
           <button
             key={t}
@@ -1471,8 +1497,10 @@ function ChatSection() {
             {t === "chats" ? "المحادثات" : "الرسائل"}
           </button>
         ))}
-      </div>
-      {loading ? (
+      </div>}
+      {customerServiceOnly ? (
+        <div className="glass rounded-2xl p-4 text-sm font-bold">صلاحيتك محصورة برسائل الدعم ومحادثات الزبائن. ما عندك وصول إلى المحادثات الخاصة أو حذف الرسائل.</div>
+      ) : loading ? (
         <Loader2 className="h-6 w-6 animate-spin mx-auto" />
       ) : tab === "chats" ? (
         chats.length === 0 ? (
@@ -2353,6 +2381,8 @@ function RolesSection() {
   const searchUsers = useServerFn(adminSearchUsers);
   const grantRole = useServerFn(adminGrantRole);
   const revokeRole = useServerFn(adminRevokeRole);
+  const setStaffRank = useServerFn(adminSetStaffRank);
+  const deactivateStaff = useServerFn(adminDeactivateStaff);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2381,6 +2411,22 @@ function RolesSection() {
       await revokeRole({ data: { target_user_id: userId, role } });
       load();
     } catch (e) {}
+  }
+  async function handleAssign(userId: string, rank: string, department: string, displayTitle: string) {
+    try {
+      await setStaffRank({ data: { target_user_id: userId, rank: rank as any, department: department as any, display_title: displayTitle || undefined } });
+      toast.success("تم حفظ الرتبة والقسم");
+      setRoleModal(null);
+      load();
+    } catch (e: any) { toast.error(e?.message || "تعذر حفظ بيانات الموظف"); }
+  }
+  async function handleDeactivate(userId: string) {
+    try {
+      await deactivateStaff({ data: { target_user_id: userId } });
+      toast.success("تمت إزالة الموظف من الطاقم");
+      setRoleModal(null);
+      load();
+    } catch (e: any) { toast.error(e?.message || "تعذرت إزالة الموظف"); }
   }
   return (
     <div>
@@ -2426,6 +2472,8 @@ function RolesSection() {
           user={roleModal}
           onGrant={handleGrant}
           onRevoke={handleRevoke}
+          onAssign={handleAssign}
+          onDeactivate={handleDeactivate}
           onClose={() => setRoleModal(null)}
         />
       )}
@@ -2433,13 +2481,21 @@ function RolesSection() {
   );
 }
 
-function RoleModal({ user, onGrant, onRevoke, onClose }: any) {
+function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }: any) {
   const [roles, setRoles] = useState<string[]>([]);
+  const [rank, setRank] = useState("employee");
+  const [department, setDepartment] = useState("customer_service");
+  const [displayTitle, setDisplayTitle] = useState("موظف خدمة العملاء");
+  const [assignmentSaving, setAssignmentSaving] = useState(false);
+  const [assignmentActive, setAssignmentActive] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
       try {
         const { supabase } = await import("@/integrations/supabase/client");
+        const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank,department,display_title,active").eq("user_id", user.id).maybeSingle();
+        if (assignment) { setRank(assignment.rank); setDepartment(assignment.department); setDisplayTitle(assignment.display_title ?? ""); setAssignmentActive(assignment.active); }
         const { data } = await (supabase as any)
           .from("user_roles")
           .select("role")
@@ -2488,6 +2544,32 @@ function RoleModal({ user, onGrant, onRevoke, onClose }: any) {
                 </div>
               );
             })}
+            <div className="glass rounded-xl p-3 mt-4 space-y-3">
+              <div className="font-black text-sm">الرتبة والقسم الوظيفي</div>
+              <label className="block text-xs font-bold">الرتبة
+                <select value={rank} onChange={(e) => setRank(e.target.value)} className="mt-1 w-full glass rounded-lg p-2">
+                  <option value="general_manager">مدير عام</option><option value="department_manager">مدير قسم</option><option value="supervisor">مشرف</option><option value="employee">موظف</option>
+                </select>
+              </label>
+              <label className="block text-xs font-bold">القسم
+                <select value={department} onChange={(e) => setDepartment(e.target.value)} className="mt-1 w-full glass rounded-lg p-2">
+                  <option value="customer_service">خدمة العملاء</option><option value="finance">المالية</option><option value="operations">التشغيل</option><option value="monitoring">المراقبة</option><option value="executive">الإدارة التنفيذية</option>
+                </select>
+              </label>
+              <label className="block text-xs font-bold">المسمى الظاهر
+                <input value={displayTitle} onChange={(e) => setDisplayTitle(e.target.value)} maxLength={100} className="mt-1 w-full glass rounded-lg p-2" placeholder="مثال: موظف خدمة العملاء" />
+              </label>
+              <button disabled={assignmentSaving} onClick={async () => { setAssignmentSaving(true); await onAssign(user.id, rank, department, displayTitle); setAssignmentSaving(false); }} className="w-full rounded-lg bg-primary text-primary-foreground py-2 text-sm font-bold disabled:opacity-50">
+                {assignmentSaving ? "جاري الحفظ..." : "حفظ الرتبة والقسم"}
+              </button>
+              {assignmentActive && !roles.includes("super_admin") && <div className="pt-2 border-t border-border">
+                {!confirmDeactivate ? <button onClick={() => setConfirmDeactivate(true)} className="w-full rounded-lg bg-red-50 text-red-700 py-2 text-xs font-bold">إزالة الموظف من الطاقم</button> : <div className="space-y-2">
+                  <p className="text-xs text-red-700 font-bold">راح تنلغي صلاحياته الوظيفية، ويبقى حسابه الشخصي موجود. متأكد؟</p>
+                  <div className="flex gap-2"><button onClick={() => setConfirmDeactivate(false)} className="flex-1 rounded-lg border border-border py-2 text-xs">تراجع</button><button onClick={() => onDeactivate(user.id)} className="flex-1 rounded-lg bg-red-600 text-white py-2 text-xs font-bold">تأكيد الإزالة</button></div>
+                </div>}
+              </div>}
+              <p className="text-[10px] text-muted-foreground">موظف خدمة العملاء بصلاحية قسم خدمة العملاء فقط، ولا يحصل على صلاحيات الإدارة الأخرى.</p>
+            </div>
             {roles.includes("super_admin") && (
               <div className="glass rounded-xl p-3 border border-amber-500/30">
                 <div className="text-sm font-bold text-amber-600">شركة ممنون | Mamnoon Company (لا يمكن إزالة صلاحية المدير الأعلى)</div>
@@ -2500,10 +2582,45 @@ function RoleModal({ user, onGrant, onRevoke, onClose }: any) {
   );
 }
 
+function StaffHierarchySection() {
+  const [staff, setStaff] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [promoting, setPromoting] = useState<string | null>(null);
+  const listStaff = useServerFn(adminListDepartmentStaff);
+  const promote = useServerFn(adminPromoteStaffOneLevel);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setStaff(await listStaff({ data: {} })); }
+    catch (e: any) { toast.error(e?.message || "تعذر تحميل موظفي القسم"); }
+    finally { setLoading(false); }
+  }, [listStaff]);
+  useEffect(() => { void load(); }, [load]);
+  const rankLabels: Record<string,string> = { owner: "الرئيس المؤسس الأعلى", general_manager: "مدير عام", department_manager: "مدير قسم", supervisor: "مشرف", employee: "موظف" };
+  const departmentLabels: Record<string,string> = { executive: "الإدارة التنفيذية", customer_service: "خدمة العملاء", finance: "المالية", operations: "التشغيل", monitoring: "المراقبة" };
+  async function promoteOne(id: string) {
+    setPromoting(id);
+    try { const result = await promote({ data: { target_user_id: id } }); toast.success("تمت الترقية إلى " + (rankLabels[result.rank] ?? result.rank)); await load(); }
+    catch (e: any) { toast.error(e?.message || "تعذرت الترقية"); }
+    finally { setPromoting(null); }
+  }
+  return <div>
+    <h2 className="text-xl font-black mb-2">موظفو القسم والترقيات</h2>
+    <p className="text-xs text-muted-foreground mb-4">تقدر ترقّي الموظف درجة واحدة فقط، بشرط تبقى رتبته أقل من رتبتك. وكل ترقية تنسجل بسجل العمليات.</p>
+    {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : staff.length === 0 ? <EmptyState text="ماكو موظفين أدنى من رتبتك بهذا القسم حالياً" /> : <div className="space-y-2">
+      {staff.map((person) => <div key={person.user_id} className="glass rounded-2xl p-3 flex items-center justify-between gap-3">
+        <div className="min-w-0"><div className="font-bold text-sm truncate">{person.full_name || person.email || "موظف"}</div><div className="text-[10px] text-muted-foreground">{departmentLabels[person.department] ?? person.department} · {rankLabels[person.rank] ?? person.rank}</div><div className="text-[10px] text-muted-foreground">{person.phone || ""}</div></div>
+        {!["owner", "general_manager"].includes(person.rank) && <button disabled={!!promoting} onClick={() => void promoteOne(person.user_id)} className="shrink-0 rounded-lg bg-primary/10 text-primary px-3 py-2 text-xs font-bold disabled:opacity-50">{promoting === person.user_id ? "..." : "ترقية درجة"}</button>}
+      </div>)}
+    </div>}
+  </div>;
+}
+
 function AuditSection() {
   const [logs, setLogs] = useState<any[]>([]);
+  const [staffActivity, setStaffActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const listLogs = useServerFn(adminListAuditLogs);
+  const listStaffActivity = useServerFn(adminListStaffActivity);
   useEffect(() => {
     (async () => {
       try {
@@ -2514,6 +2631,8 @@ function AuditSection() {
       }
     })();
   }, [listLogs]);
+  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e) {} })(); }, [listStaffActivity]);
+  const staffActionLabels: Record<string, string> = { view_support_message: "شاهد رسالة دعم", reply_support_message: "رد على رسالة دعم", rank_changed: "تغيير رتبة", department_changed: "تغيير قسم", staff_activated: "تفعيل موظف", staff_deactivated: "إيقاف موظف" };
   const actionLabels: Record<string, string> = {
     grant_role: "منح صلاحية",
     revoke_role: "إزالة صلاحية",
@@ -2564,6 +2683,16 @@ function AuditSection() {
           ))}
         </div>
       )}
+      <div className="mt-6">
+        <h3 className="font-black text-base mb-3">سجل نشاط خدمة العملاء والرتب</h3>
+        {staffActivity.length === 0 ? <EmptyState text="لا توجد أنشطة مسجلة بعد" /> : <div className="space-y-2">
+          {staffActivity.map((entry) => <div key={entry.id} className="glass rounded-xl p-3 text-sm">
+            <div className="flex justify-between gap-2"><span className="font-bold">{staffActionLabels[entry.activity] ?? entry.activity}</span><span className="text-[10px] text-muted-foreground">{new Date(entry.created_at).toLocaleString("ar-IQ")}</span></div>
+            <div className="text-xs text-muted-foreground mt-1">الموظف: {entry.staff?.full_name ?? entry.staff?.email ?? entry.staff_user_id.slice(0,8)} · بواسطة: {entry.actor?.full_name ?? entry.actor?.email ?? entry.actor_user_id.slice(0,8)}</div>
+            {entry.message_id && <div className="text-[10px] text-muted-foreground mt-1">رقم الرسالة: {entry.message_id}</div>}
+          </div>)}
+        </div>}
+      </div>
     </div>
   );
 }

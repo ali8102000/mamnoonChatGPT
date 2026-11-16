@@ -7,6 +7,7 @@ import { palette, radius } from "@/styles/theme";
 export default function SupportChatScreen() {
   const { user } = useAuth();
   const [staff, setStaff] = useState(false);
+  const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
   const [providerTargets, setProviderTargets] = useState<any[]>([]);
   const [providerSearch, setProviderSearch] = useState("");
@@ -25,9 +26,12 @@ export default function SupportChatScreen() {
   const loadConversations = useCallback(async () => {
     if (!user?.id) return;
     const { data: staffCheck } = await (supabase as any).rpc("has_staff_role", { p_user_id: user.id });
+    const { data: staffRoles } = await (supabase as any).rpc("get_staff_roles", { p_user_id: user.id });
+    const restrictedSupport = (staffRoles ?? []).includes("customer_service") && !(staffRoles ?? []).some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
     setStaff(staffCheck === true);
+    setCustomerServiceOnly(restrictedSupport);
     if (staffCheck) {
-      const [drivers, workers] = await Promise.all([
+      const [drivers, workers] = restrictedSupport ? [{ data: [] }, { data: [] }] : await Promise.all([
         (supabase as any).from("driver_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
         (supabase as any).from("worker_profiles").select("user_id, profiles!inner(full_name, phone)").limit(300),
       ]);
@@ -87,7 +91,7 @@ export default function SupportChatScreen() {
   }, [selected?.id, user?.id, loadMessages]);
 
   async function startConversation(targetId: string) {
-    if (!user?.id || !staff) return;
+    if (!user?.id || !staff || customerServiceOnly) return;
     const existing = await (supabase as any).from("support_conversations").select("*").eq("user_id", targetId).eq("status", "open").maybeSingle();
     let conversation = existing.data;
     if (!conversation) {
@@ -114,8 +118,8 @@ export default function SupportChatScreen() {
 
   if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
   return <View style={styles.container}>
-    <Text style={styles.title}>محادثة إدارة ممنون</Text>
-    {staff && <View style={styles.startBox}>
+    <Text style={styles.title}>{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</Text>
+    {staff && !customerServiceOnly && <View style={styles.startBox}>
       <Text style={styles.startTitle}>ابدأ محادثة مع فني أو سائق</Text>
       <TextInput value={providerSearch} onChangeText={setProviderSearch} placeholder="ابحث بالاسم أو الهاتف" style={styles.searchInput} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>

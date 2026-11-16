@@ -4,8 +4,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 async function requireStaff(context: any) {
   const { supabase, userId } = context;
-  const { data } = await (supabase as any).rpc("has_staff_role", { p_user_id: userId });
-  if (!data) throw new Error("غير مصرّح: للمشرفين فقط");
+  const { data: roles, error } = await (supabase as any).rpc("get_staff_roles", { p_user_id: userId });
+  const allowed = ["super_admin", "admin", "support", "finance", "moderator"];
+  if (error || !(roles ?? []).some((role: string) => allowed.includes(role))) {
+    throw new Error("غير مصرّح: هذه الصلاحية غير متاحة لهذا القسم الوظيفي");
+  }
 }
 
 
@@ -17,6 +20,13 @@ async function requireScopedAccess(context: any, rpcName: string, message: strin
 async function requireChatModeration(context: any) {
   return requireScopedAccess(context, "has_chat_moderation_access", "غير مصرّح: إدارة المحادثات للمخولين فقط");
 }
+async function requireFullChatModeration(context: any) {
+  await requireChatModeration(context);
+  const { supabase, userId } = context;
+  const { data, error } = await (supabase as any).rpc("is_customer_service_staff", { p_user_id: userId });
+  if (!error && data) throw new Error("غير مصرّح: موظف خدمة العملاء لا يملك صلاحية محادثات المستخدمين الخاصة");
+}
+
 async function requireLiveOps(context: any) {
   return requireScopedAccess(context, "has_live_ops_access", "غير مصرّح: متابعة المواقع للدعم والإدارة فقط");
 }
@@ -106,6 +116,63 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
     const { error } = await (supabase as any).rpc("admin_revoke_role", {
       p_target_user: data.target_user_id,
       p_role: data.role,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+
+
+export const adminListDepartmentStaff = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({}).parse(d))
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+    const { data, error } = await (supabase as any).rpc("staff_list_department");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const adminPromoteStaffOneLevel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ target_user_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: rank, error } = await (supabase as any).rpc("staff_promote_one_level", {
+      p_target_user: data.target_user_id,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true, rank };
+  });
+
+
+export const adminDeactivateStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ target_user_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireSuperAdmin(context);
+    const { supabase } = context;
+    const { error } = await (supabase as any).rpc("staff_deactivate", { p_target_user: data.target_user_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminSetStaffRank = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(),
+    rank: z.enum(["owner", "general_manager", "department_manager", "supervisor", "employee"]),
+    department: z.enum(["executive", "customer_service", "finance", "operations", "monitoring"]),
+    display_title: z.string().max(100).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireSuperAdmin(context);
+    const { supabase } = context;
+    const { error } = await (supabase as any).rpc("staff_set_rank", {
+      p_target_user: data.target_user_id,
+      p_new_rank: data.rank,
+      p_department: data.department,
+      p_display_title: data.display_title ?? null,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -864,7 +931,7 @@ export const adminListMessages = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireChatModeration(context);
+    await requireFullChatModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let query = (supabaseAdmin as any)
       .from("messages")
@@ -881,7 +948,7 @@ export const adminDeleteMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ message_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireChatModeration(context);
+    await requireFullChatModeration(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_delete_message", {
       p_message_id: data.message_id,
@@ -896,7 +963,7 @@ export const adminListChats = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireChatModeration(context);
+    await requireFullChatModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: chats, error } = await (supabaseAdmin as any)
       .from("chats")
@@ -932,6 +999,22 @@ export const adminBroadcastNotification = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
     return { sent: count ?? 0 };
+  });
+
+
+export const adminListStaffActivity = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireSuperAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await (supabaseAdmin as any).from("staff_activity_log")
+      .select("*").order("created_at", { ascending: false }).limit(data.limit);
+    if (error) throw new Error(error.message);
+    const ids = [...new Set((rows ?? []).flatMap((r: any) => [r.staff_user_id, r.actor_user_id]))];
+    const { data: profiles } = ids.length ? await (supabaseAdmin as any).from("profiles").select("id,full_name,email").in("id", ids) : { data: [] };
+    const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+    return (rows ?? []).map((r: any) => ({ ...r, staff: byId.get(r.staff_user_id), actor: byId.get(r.actor_user_id) }));
   });
 
 export const adminListAuditLogs = createServerFn({ method: "GET" })
