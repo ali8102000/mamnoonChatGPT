@@ -63,6 +63,7 @@ import {
   adminSetStaffRank,
   adminListDepartmentStaff,
   adminPromoteStaffOneLevel,
+  adminListStaffActivity,
   adminSetProviderStatus,
   adminUpdateProviderName,
   adminUnblockUser,
@@ -2593,8 +2594,10 @@ function StaffHierarchySection() {
 
 function AuditSection() {
   const [logs, setLogs] = useState<any[]>([]);
+  const [staffActivity, setStaffActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const listLogs = useServerFn(adminListAuditLogs);
+  const listStaffActivity = useServerFn(adminListStaffActivity);
   useEffect(() => {
     (async () => {
       try {
@@ -2605,6 +2608,8 @@ function AuditSection() {
       }
     })();
   }, [listLogs]);
+  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e) {} })(); }, [listStaffActivity]);
+  const staffActionLabels: Record<string, string> = { view_support_message: "شاهد رسالة دعم", reply_support_message: "رد على رسالة دعم", rank_changed: "تغيير رتبة", department_changed: "تغيير قسم", staff_activated: "تفعيل موظف", staff_deactivated: "إيقاف موظف" };
   const actionLabels: Record<string, string> = {
     grant_role: "منح صلاحية",
     revoke_role: "إزالة صلاحية",
@@ -2655,6 +2660,16 @@ function AuditSection() {
           ))}
         </div>
       )}
+      <div className="mt-6">
+        <h3 className="font-black text-base mb-3">سجل نشاط خدمة العملاء والرتب</h3>
+        {staffActivity.length === 0 ? <EmptyState text="لا توجد أنشطة مسجلة بعد" /> : <div className="space-y-2">
+          {staffActivity.map((entry) => <div key={entry.id} className="glass rounded-xl p-3 text-sm">
+            <div className="flex justify-between gap-2"><span className="font-bold">{staffActionLabels[entry.activity] ?? entry.activity}</span><span className="text-[10px] text-muted-foreground">{new Date(entry.created_at).toLocaleString("ar-IQ")}</span></div>
+            <div className="text-xs text-muted-foreground mt-1">الموظف: {entry.staff?.full_name ?? entry.staff?.email ?? entry.staff_user_id.slice(0,8)} · بواسطة: {entry.actor?.full_name ?? entry.actor?.email ?? entry.actor_user_id.slice(0,8)}</div>
+            {entry.message_id && <div className="text-[10px] text-muted-foreground mt-1">رقم الرسالة: {entry.message_id}</div>}
+          </div>)}
+        </div>}
+      </div>
     </div>
   );
 }
