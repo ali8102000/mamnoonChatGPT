@@ -187,9 +187,9 @@ if (!notificationBell.includes("<Switch") ||
     !notificationBell.includes("اهتزاز الإشعارات")) {
   missing.push("Native notification center must expose independent sound and vibration controls.");
 }
-if (!notificationBell.includes("getNotificationChannelId(soundEnabled, vibrationEnabled)") ||
+if (!notificationBell.includes("getNotificationChannelId()") ||
     !notificationBell.includes('sound: isNotificationSoundEnabled() ? "default" : false') ||
-    !notificationBell.includes("vibrate: vibrationEnabled")) {
+    !notificationBell.includes("isNotificationVibrationEnabled()")) {
   missing.push("Foreground notifications must honor the selected sound and vibration channel.");
 }
 if (!incomingRequestModal.includes("getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled)") ||
