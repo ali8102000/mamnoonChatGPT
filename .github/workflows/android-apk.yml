@@ -6,11 +6,8 @@ on:
     paths:
       - "expo-app/**"
       - ".github/workflows/android-apk.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "expo-app/**"
-      - ".github/workflows/android-apk.yml"
+  # Pull requests are validated by mobile-ci (TypeScript, Expo Doctor and Android export).
+  # Build the full APK only for main so obsolete PR builds do not queue behind release builds.
   workflow_dispatch:
 
 permissions:
