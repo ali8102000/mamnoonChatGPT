@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { router } from "expo-router";
 import {
@@ -12,7 +12,7 @@ import { authProxy, supabase } from "@/lib/supabase";
 import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
-import { palette, radius, space } from "@/styles/theme";
+import { palette, space } from "@/styles/theme";
 
 type Mode = "signup" | "login";
 type AuthSessionTokens = Pick<Session, "access_token" | "refresh_token">;
@@ -253,7 +253,7 @@ function AuthField({
   title: string;
   hint?: string;
   icon: AuthIconName;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <View style={styles.field}>
