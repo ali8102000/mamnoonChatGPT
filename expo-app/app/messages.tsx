@@ -121,7 +121,7 @@ export default function MessagesScreen() {
         style={styles.supportButton}
       ><Text style={styles.supportButtonText}>مراسلة إدارة ممنون</Text></TouchableOpacity>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 104 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {loading ? (
