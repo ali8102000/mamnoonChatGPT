@@ -14,5 +14,5 @@ export function subscribeToWebNavigation(listener: (path: string) => void) {
     pendingPath = null;
     listener(path);
   }
-  return () => listeners.delete(listener);
+  return () => { listeners.delete(listener); };
 }
