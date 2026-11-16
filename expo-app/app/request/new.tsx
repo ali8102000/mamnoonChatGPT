@@ -58,39 +58,30 @@ function formatAddress(parts: Location.LocationGeocodedAddress[] | null | undefi
     .join("، ");
 }
 
+async function resolveGovernorate(coords: Coordinates): Promise<string> {
+  const detected = await callMamnoonMapsApi<{ key: string }>({
+    action: "detectGovernorate",
+    center: { lat: coords.latitude, lng: coords.longitude },
+  });
+  if (!detected.key) throw new Error("تعذّر تحديد المحافظة.");
+  const validation = await callMamnoonMapsApi<{ valid: boolean }>({
+    action: "validateGovernorate",
+    center: { lat: coords.latitude, lng: coords.longitude },
+    governorateKey: detected.key,
+  });
+  if (!validation.valid) throw new Error("الموقع المحدد خارج حدود المحافظات العراقية.");
+  return detected.key;
+}
+
 async function resolveRouteGovernorates(from: Coordinates, to: Coordinates) {
-  const [fromGovernorate, toGovernorate] = await Promise.all([
-    callMamnoonMapsApi<{ key: string }>({
-      action: "detectGovernorate",
-      center: { lat: from.latitude, lng: from.longitude },
-    }),
-    callMamnoonMapsApi<{ key: string }>({
-      action: "detectGovernorate",
-      center: { lat: to.latitude, lng: to.longitude },
-    }),
+  const [fromGovernorateKey, toGovernorateKey] = await Promise.all([
+    resolveGovernorate(from),
+    resolveGovernorate(to),
   ]);
-  if (!fromGovernorate.key || !toGovernorate.key) {
-    throw new Error("تعذّر تحديد محافظتي الرحلة.");
-  }
-  const [fromValidation, toValidation] = await Promise.all([
-    callMamnoonMapsApi<{ valid: boolean }>({
-      action: "validateGovernorate",
-      center: { lat: from.latitude, lng: from.longitude },
-      governorateKey: fromGovernorate.key,
-    }),
-    callMamnoonMapsApi<{ valid: boolean }>({
-      action: "validateGovernorate",
-      center: { lat: to.latitude, lng: to.longitude },
-      governorateKey: toGovernorate.key,
-    }),
-  ]);
-  if (!fromValidation.valid || !toValidation.valid) {
-    throw new Error("يجب أن تكون نقطتا الانطلاق والوجهة داخل حدود العراق.");
-  }
   return {
-    fromGovernorateKey: fromGovernorate.key,
-    toGovernorateKey: toGovernorate.key,
-    isIntercity: fromGovernorate.key !== toGovernorate.key,
+    fromGovernorateKey,
+    toGovernorateKey,
+    isIntercity: fromGovernorateKey !== toGovernorateKey,
   };
 }
 
@@ -106,6 +97,7 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
+  const [destinationConfirmed, setDestinationConfirmed] = useState(false);
   const [pickupGovernorateKey, setPickupGovernorateKey] = useState<string | null>(null);
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
