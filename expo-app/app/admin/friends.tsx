@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
+import { getAdminStaffRoles } from "@/lib/admin-access";
 
 type Tab = "friends" | "requests";
 type Person = { full_name?: string | null; phone?: string | null } | null;
@@ -41,9 +42,8 @@ export default function AdminFriendsScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const { data: roles, error: rolesError } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
-      const names = (roles ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
-      if (rolesError || !names.some((role: string) => ["super_admin", "admin", "moderator"].includes(role))) {
+      const names = await getAdminStaffRoles(user.id);
+      if (!names.some((role: string) => ["super_admin", "admin", "moderator", "department_monitoring"].includes(role))) {
         setAllowed(false); setRows([]); return;
       }
       setAllowed(true);
