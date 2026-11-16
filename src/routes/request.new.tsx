@@ -218,6 +218,8 @@ function NewRequest() {
 
   const [notes, setNotes] = useState("");
   const [routeKm, setRouteKm] = useState<number | null>(null);
+  const [routeDurationMin, setRouteDurationMin] = useState<number | null>(null);
+  const [serverTaxiFare, setServerTaxiFare] = useState<number | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeRetry, setRouteRetry] = useState(0);
   const runLookup = useServerFn(lookupMapPlace);
@@ -225,15 +227,8 @@ function NewRequest() {
   const getCouponBaseAmount = () => {
     if (type === "taxi") {
       if (vehicle === "large") return customerPrice.trim() ? Number(customerPrice) : null;
-      if (routeKm === null) return null;
-      return taxiFare(vehicleCategory, routeKm, {
-        weather: "mild" as const,
-        roadCondition,
-        demandMultiplier: 1,
-        isIntercity: interCity,
-        tripType,
-        extraMinutes,
-      });
+      if (routeKm === null || serverTaxiFare === null) return null;
+      return serverTaxiFare;
     }
     if (pricingMode === "negotiable") return null;
     const amount = Number(customerPrice);
@@ -324,38 +319,29 @@ function NewRequest() {
   const destLat = destCoords?.lat;
   const destLng = destCoords?.lng;
 
-  // Calculate distance whenever pickup and dest coords update
+  // The server calculates route distance, ETA and fare.
   useEffect(() => {
     setRouteKm(null);
+    setRouteDurationMin(null);
+    setServerTaxiFare(null);
     setRouteError(null);
     if (type !== "taxi" || vehicle === "large" || !destConfirmed || pickupLat == null || pickupLng == null || destLat == null || destLng == null) return;
     let stale = false;
-
-    const t = setTimeout(() => {
-      runLookup({ data: { action: "route", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng } } })
-        .then((r: any) => {
-          if (!stale && Number.isFinite(r?.distanceKm) && r.distanceKm >= 0)
-            setRouteKm(r.distanceKm);
-        })
-        .catch((e) => {
-          if (!stale) setRouteError(arabicWarning(e));
+    const t = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("auto-taxi-pricing", {
+          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity },
         });
-    }, 400);
-
-    return () => {
-      stale = true;
-      clearTimeout(t);
-    };
-  }, [
-    type,
-    destConfirmed,
-    pickupLat,
-    pickupLng,
-    destLat,
-    destLng,
-    routeRetry,
-    runLookup,
-  ]);
+        if (error) throw error;
+        if (stale) return;
+        if (!Number.isFinite(data?.distanceKm) || data.distanceKm <= 0 || !Number.isFinite(data?.durationMin) || data.durationMin < 0 || !Number.isFinite(data?.priceEstimate)) throw new Error("تعذّر الحصول على تسعير موثوق من الخادم");
+        setRouteKm(Number(data.distanceKm));
+        setRouteDurationMin(Number(data.durationMin));
+        setServerTaxiFare(Number(data.priceEstimate));
+      } catch (e) { if (!stale) setRouteError(arabicWarning(e)); }
+    }, 350);
+    return () => { stale = true; clearTimeout(t); };
+  }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity, routeRetry]);
 
   useEffect(() => {
     if (pickupLat == null || pickupLng == null) return;
@@ -485,16 +471,9 @@ function NewRequest() {
     setBusy(true);
     try {
       if (type === "taxi" && vehicle !== "large") {
-        const freshRoute = await runLookup({ data: { action: "route", from: { lat: pickupCoords.lat, lng: pickupCoords.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng } } }) as { distanceKm: number; durationMin: number };
-        const freshDistanceKm = Number(freshRoute.distanceKm);
-        if (!Number.isFinite(freshDistanceKm) || freshDistanceKm <= 0) throw new Error("لم يتم تأكيد مسافة طريق صالحة. أعد تحديد الوجهة.");
-        if (routeKm !== null && Math.abs(freshDistanceKm - routeKm) > 0.05) {
-          setRouteKm(freshDistanceKm);
-          toast.error("تحدّثت مسافة الطريق بعد المراجعة. راجع السعر الجديد واضغط إرسال الطلب مرة ثانية.");
-          return;
-        }
-        verifiedRouteKm = freshDistanceKm;
-        priceEstimate = taxiFare(vehicleCategory, freshDistanceKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes });
+        if (routeKm === null || routeDurationMin === null || serverTaxiFare === null) throw new Error("لم يصل تسعير موثوق من الخادم. أعد تحديد الوجهة وحاول مرة ثانية.");
+        verifiedRouteKm = routeKm;
+        priceEstimate = serverTaxiFare;
       }
       if (type === "taxi" && vehicle !== "large" && couponCode.trim()) {
         const amount = priceEstimate;
@@ -506,7 +485,17 @@ function NewRequest() {
         if (couponCheckError) throw couponCheckError;
         if (!couponData || !couponData.length) throw new Error("الكوبون غير متاح لهذا الطلب");
       }
-      const { data, error } = await supabase
+      let data: any;
+      let error: any;
+      if (type === "taxi" && vehicle !== "large") {
+        const { data: secureTaxi, error: secureTaxiError } = await supabase.functions.invoke("auto-taxi-pricing", {
+          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
+        });
+        if (secureTaxiError) throw secureTaxiError;
+        if (!secureTaxi?.requestId) throw new Error(secureTaxi?.error || "تعذّر إنشاء طلب التاكسي.");
+        data = { id: secureTaxi.requestId, coupon_discount: secureTaxi.couponDiscount ?? 0, customer_payable: secureTaxi.customerPayable };
+      } else {
+      const inserted = await supabase
         .from("service_requests")
         .insert({
           customer_id: session.user.id,
@@ -553,7 +542,11 @@ function NewRequest() {
         } as any)
         .select("id,coupon_discount,customer_payable")
         .single();
+      data = inserted.data;
+      error = inserted.error;
 
+
+      }
       if (error) throw error;
       if (attachmentFile) {
         const extension = attachmentFile.type === "image/png" ? "png" : attachmentFile.type === "image/webp" ? "webp" : "jpg";
@@ -605,13 +598,9 @@ function NewRequest() {
   }
 
   // Active calculated taxi fare
-  const activeFare =
-    routeKm !== null
-      ? taxiFare(vehicleCategory, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes })
-      : FARE_TABLE[vehicleCategory].minimum;
+  const activeFare = serverTaxiFare ?? FARE_TABLE[vehicleCategory].minimum;
 
-  const estimatedEtaMinutes =
-    routeKm !== null ? Math.max(3, Math.round((routeKm / 32) * 60) + 3) : 5;
+  const estimatedEtaMinutes = routeDurationMin !== null ? Math.max(1, Math.round(routeDurationMin)) : 5;
 
   if (type === "service" && !serviceDetailsStep) {
     return (
@@ -966,10 +955,7 @@ function NewRequest() {
               <div className="space-y-2">
                 {VEHICLE_CATS.filter((item) => item.key !== "large").map((c) => {
                   const active = vehicleCategory === c.key;
-                  const fare =
-                    routeKm !== null
-                      ? taxiFare(c.key, routeKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes })
-                      : null;
+                  const fare = active && routeKm !== null ? serverTaxiFare : null;
                   return (
                     <button
                       key={c.key}
