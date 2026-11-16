@@ -18,7 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
-import { showContactOptions } from "@/lib/phone";
+import { showContactOptions } from "@/lib/contact-actions";
 
 type ChatMessage = {
   id: string;
