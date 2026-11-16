@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AppState, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { AppState, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
@@ -71,7 +71,7 @@ export function NotificationsBell() {
             content: {
               title: item.title,
               body: item.body ?? undefined,
-              sound: isNotificationSoundEnabled() ? "default" : null,
+              sound: isNotificationSoundEnabled() ? "default" : false,
               data: { url: item.link ?? "/home" },
             },
             trigger: {
