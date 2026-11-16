@@ -18,169 +18,278 @@
       "id": "home-entry",
       "native": "app/index.tsx",
       "web": "src/routes/index.tsx",
-      "url": "/"
+      "url": "/",
+      "contexts": [
+        "guest"
+      ]
     },
     {
       "id": "welcome",
       "native": "app/welcome.tsx",
       "web": "src/routes/welcome.tsx",
-      "url": "/welcome"
+      "url": "/welcome",
+      "contexts": [
+        "guest"
+      ]
     },
     {
       "id": "authentication",
       "native": "app/auth.tsx",
       "web": "src/routes/auth.tsx",
-      "url": "/auth"
+      "url": "/auth",
+      "contexts": [
+        "guest"
+      ]
     },
     {
       "id": "auth-callback",
       "native": "app/auth/callback.tsx",
       "web": "src/routes/auth.callback.tsx",
-      "url": "/auth/callback"
+      "url": "/auth/callback",
+      "contexts": [
+        "guest"
+      ]
     },
     {
       "id": "account-settings",
       "native": "app/account-settings.tsx",
       "web": "src/routes/account-settings.tsx",
-      "url": "/account-settings"
+      "url": "/account-settings",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "role-selection",
       "native": "app/select-role.tsx",
       "web": "src/routes/select-role.tsx",
-      "url": "/select-role"
+      "url": "/select-role",
+      "contexts": [
+        "guest"
+      ]
     },
     {
       "id": "home",
       "native": "app/home.tsx",
       "web": "src/routes/home.tsx",
-      "url": "/home"
+      "url": "/home",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "request-create",
       "native": "app/request/new.tsx",
       "web": "src/routes/request.new.tsx",
-      "url": "/request/new"
+      "url": "/request/new",
+      "contexts": [
+        "customer"
+      ]
     },
     {
       "id": "request-details",
       "native": "app/request/[id].tsx",
       "web": "src/routes/request.$id.tsx",
-      "url": "/request/:id"
+      "url": "/request/:id",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "messages",
       "native": "app/messages.tsx",
       "web": "src/routes/messages.tsx",
-      "url": "/messages"
+      "url": "/messages",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "support-chat",
       "native": "app/support-chat.tsx",
       "web": "src/routes/support-chat.tsx",
-      "url": "/support-chat"
+      "url": "/support-chat",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "friends",
       "native": "app/friends.tsx",
       "web": "src/routes/friends.tsx",
-      "url": "/friends"
+      "url": "/friends",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "history",
       "native": "app/history.tsx",
       "web": "src/routes/history.tsx",
-      "url": "/history"
+      "url": "/history",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "profile",
       "native": "app/profile.tsx",
       "web": "src/routes/profile.tsx",
-      "url": "/profile"
+      "url": "/profile",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "coupons",
       "native": "app/coupons.tsx",
       "web": "src/routes/coupons.tsx",
-      "url": "/coupons"
+      "url": "/coupons",
+      "contexts": [
+        "customer"
+      ]
     },
     {
       "id": "subscriptions",
       "native": "app/subscriptions.tsx",
       "web": "src/routes/subscriptions.tsx",
-      "url": "/subscriptions"
+      "url": "/subscriptions",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "support",
       "native": "app/support.tsx",
       "web": "src/routes/support.tsx",
-      "url": "/support"
+      "url": "/support",
+      "contexts": [
+        "customer",
+        "driver",
+        "worker"
+      ]
     },
     {
       "id": "forgot-password",
       "native": "app/forgot-password.tsx",
       "web": "src/routes/forgot-password.tsx",
-      "url": "/forgot-password"
+      "url": "/forgot-password",
+      "contexts": [
+        "guest"
+      ]
     },
     {
       "id": "reset-password",
       "native": "app/reset-password.tsx",
       "web": "src/routes/reset-password.tsx",
-      "url": "/reset-password"
+      "url": "/reset-password",
+      "contexts": [
+        "guest"
+      ]
     },
     {
       "id": "privacy",
       "native": "app/privacy.tsx",
       "web": "src/routes/privacy.tsx",
-      "url": "/privacy"
+      "url": "/privacy",
+      "contexts": [
+        "guest"
+      ]
     },
     {
       "id": "terms",
       "native": "app/terms.tsx",
       "web": "src/routes/terms.tsx",
-      "url": "/terms"
+      "url": "/terms",
+      "contexts": [
+        "guest"
+      ]
     },
     {
       "id": "driver-onboarding",
       "native": "app/onboarding/driver.tsx",
       "web": "src/routes/onboarding.driver.tsx",
-      "url": "/onboarding/driver"
+      "url": "/onboarding/driver",
+      "contexts": [
+        "driver"
+      ]
     },
     {
       "id": "worker-onboarding",
       "native": "app/onboarding/worker.tsx",
       "web": "src/routes/onboarding.worker.tsx",
-      "url": "/onboarding/worker"
+      "url": "/onboarding/worker",
+      "contexts": [
+        "worker"
+      ]
     },
     {
       "id": "admin-dashboard",
       "native": "app/admin.tsx",
       "web": "src/routes/admin.tsx",
-      "url": "/admin"
+      "url": "/admin",
+      "contexts": [
+        "super_admin",
+        "admin"
+      ]
     },
     {
       "id": "admin-bootstrap",
       "native": "app/admin/bootstrap.tsx",
       "web": "src/routes/admin/bootstrap.tsx",
-      "url": "/admin/bootstrap"
+      "url": "/admin/bootstrap",
+      "contexts": [
+        "super_admin"
+      ]
     },
     {
       "id": "admin-monitoring",
       "native": "app/admin/monitoring.tsx",
       "web": "src/routes/admin/monitoring.tsx",
-      "url": "/admin/monitoring"
+      "url": "/admin/monitoring",
+      "contexts": [
+        "super_admin",
+        "admin"
+      ]
     },
     {
       "id": "admin-subscriptions",
       "native": "app/admin/subscriptions.tsx",
       "web": "src/routes/admin/subscriptions.tsx",
-      "url": "/admin/subscriptions"
+      "url": "/admin/subscriptions",
+      "contexts": [
+        "super_admin",
+        "admin",
+        "finance"
+      ]
     },
     {
       "id": "admin-import",
       "native": "app/admin/import.tsx",
       "web": "src/routes/admin_.import.tsx",
-      "url": "/admin/import"
+      "url": "/admin/import",
+      "contexts": [
+        "super_admin",
+        "admin"
+      ]
     }
   ],
   "adminSections": [
@@ -193,6 +302,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -206,6 +319,10 @@
       "web": [
         "src/routes/admin.tsx",
         "src/routes/admin/monitoring.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -217,6 +334,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -228,6 +349,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -239,6 +364,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -252,6 +381,11 @@
       "web": [
         "src/routes/admin.tsx",
         "src/routes/support-chat.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin",
+        "general_manager"
       ]
     },
     {
@@ -263,6 +397,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -276,6 +414,10 @@
       "web": [
         "src/routes/admin.tsx",
         "src/routes/admin/monitoring.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -288,6 +430,10 @@
       "web": [
         "src/routes/admin.tsx",
         "src/routes/admin/subscriptions.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -299,6 +445,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -310,6 +460,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -321,6 +475,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -332,6 +490,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin"
       ]
     },
     {
@@ -344,6 +506,9 @@
       "web": [
         "src/routes/admin.tsx",
         "src/components/admin-regional-controls.tsx"
+      ],
+      "contexts": [
+        "super_admin"
       ]
     },
     {
@@ -355,6 +520,9 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin"
       ]
     },
     {
@@ -367,6 +535,10 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "general_manager"
       ]
     },
     {
@@ -379,6 +551,9 @@
       "web": [
         "src/routes/admin.tsx",
         "src/components/admin-company-settings.tsx"
+      ],
+      "contexts": [
+        "super_admin"
       ]
     },
     {
@@ -390,6 +565,9 @@
       ],
       "web": [
         "src/routes/admin.tsx"
+      ],
+      "contexts": [
+        "super_admin"
       ]
     }
   ],
