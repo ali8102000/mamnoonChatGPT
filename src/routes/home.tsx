@@ -203,7 +203,7 @@ function CustomerHome() {
           type="taxi"
           title="طلب سيارة"
           subtitle="خلال دقائق"
-          icon={<Car className="h-7 w-7" />}
+          icon={<img src="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" alt="" className="h-11 w-11 object-contain" />}
           gradient="from-amber-500 to-orange-500"
           span={2}
           delay={0.05}
@@ -223,7 +223,7 @@ function CustomerHome() {
           vehicle="large"
           title="طلب سيارة كبيرة"
           subtitle="كيا حمل أو كيا ركاب"
-          icon={<Car className="h-7 w-7" />}
+          icon={<img src="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" alt="" className="h-11 w-11 object-contain" />}
           gradient="from-orange-500 to-amber-600"
           delay={0.15}
         />
