@@ -209,7 +209,7 @@ export default function WebAppShell() {
     try {
       const url = new URL(currentUrl);
       const match = url.origin === APP_ORIGIN
-        ? url.pathname.match(/^\\/request\\/([^/]+)\\/?$/)
+        ? url.pathname.match(new RegExp("^/request/([^/]+)/?$"))
         : null;
       const requestId = match?.[1];
       if (!requestId || !user?.id || !session) return;
