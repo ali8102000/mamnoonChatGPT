@@ -193,8 +193,9 @@ export function LiveTrackMap({
         (effectivePickup ? bearingDeg(activeDriverCoord, effectivePickup) : 0);
       const carIcon = serviceType === "taxi"
         ? {
-            path: "M32 3 C25 3 21 6 18 13 L13 25 L10 29 L10 49 L15 49 L17 57 L23 57 L25 49 L39 49 L41 57 L47 57 L49 49 L54 49 L54 29 L51 25 L46 13 C43 6 39 3 32 3 Z M19 22 L23 12 Q32 8 41 12 L45 22 Z M16 28 L48 28 L48 43 L16 43 Z",
-            scale: 0.9, fillColor: "#D4AF37", fillOpacity: 1, strokeColor: "#172033", strokeWeight: 2.2, rotation: heading,
+            url: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png",
+            scaledSize: new g.maps.Size(52, 36),
+            anchor: new g.maps.Point(26, 18),
           }
         : {
             path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, fillColor: "#16a34a", fillOpacity: 1,

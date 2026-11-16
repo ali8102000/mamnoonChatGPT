@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
 import welcomeImage from "@/assets/welcome.jpg";
+import { serviceIcon } from "@/lib/service-visuals";
 
 export const Route = createFileRoute("/welcome")({
   ssr: false,
@@ -170,6 +171,12 @@ function WelcomePage() {
           className="mx-auto mt-5 w-full max-w-[340px] aspect-square object-contain rounded-lg"
         />
 
+        <div className="mx-auto mt-3 grid w-full max-w-[340px] grid-cols-4 gap-2" aria-label="صور الخدمات">
+          {(["build", "chef", "electric_setup"] as const).map((slug) => (
+            <img key={slug} src={serviceIcon(slug)} alt="" className="h-20 w-full rounded-xl bg-card object-contain p-1 shadow-sm" loading="lazy" />
+          ))}
+          <img src="https://xcode.shamayah.co.ke/assets/login-bus-CChLKdVW.png" alt="باص ركاب" className="h-20 w-full rounded-xl bg-card object-contain p-1 shadow-sm" loading="lazy" />
+        </div>
         <section aria-live="polite" aria-atomic="true" className="mt-6 min-h-32">
           <p className="text-xs font-bold text-primary">{slide.label}</p>
           <h2 className="mt-2 text-2xl font-extrabold leading-snug">{slide.title}</h2>

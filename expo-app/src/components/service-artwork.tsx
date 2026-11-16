@@ -4,10 +4,7 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 type Props = { slug: string };
 const ink = "#18324B", blue = "#4D91C6", pale = "#EAF3F8", gold = "#E6A94E", green = "#67A886";
-export const hasServiceArtwork = (slug: string) => [
-  "security_cameras", "goods_transport", "furniture_moving", "cargo_handling",
-  "gardener", "kia_driver", "internet_install",
-].includes(slug);
+export const hasServiceArtwork = (_slug: string) => false;
 
 export function ServiceArtwork({ slug }: Props) {
   return (

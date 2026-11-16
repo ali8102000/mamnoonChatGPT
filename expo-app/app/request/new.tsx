@@ -34,6 +34,10 @@ type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 
 type CatalogService = { id: string; slug: string; name_ar: string };
 
+const EXPERT_ONLY_SERVICE_SLUGS = new Set([
+  "plaster", "carpentry_form", "flooring", "chef", "plumbing", "electric_setup", "electric_street",
+]);
+
 
 const VEHICLE_CATS: { key: VehicleCategory; label: string; emoji: string }[] = [
   { key: "economy", label: "ممنون اقتصادي", emoji: "🚗" },
@@ -1010,7 +1014,7 @@ export default function NewRequest() {
                       {([
                         { key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" },
                         { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" },
-                        { key: "bus", label: "باص" },
+                        { key: "bus", label: "باص", image: "https://xcode.shamayah.co.ke/assets/login-bus-CChLKdVW.png" },
                       ] as const).map((item) => (
                         <TouchableOpacity key={item.key} style={[styles.taxiLargeTypeCard, vehicleType === item.key && styles.taxiLargeTypeCardActive]} onPress={() => setVehicleType(item.key)}>
                           {"image" in item ? <Image source={{ uri: item.image }} style={styles.taxiLargeTypeImage} resizeMode="contain" /> : <Text style={styles.taxiLargeBus}>🚌</Text>}
@@ -1263,7 +1267,10 @@ export default function NewRequest() {
                     borderColor: service.color,
                   },
                 ]}
-                onPress={() => setSelectedService(service.slug)}
+                onPress={() => {
+                  setSelectedService(service.slug);
+                  if (!EXPERT_ONLY_SERVICE_SLUGS.has(service.slug)) setWorkerLevel("fani");
+                }}
               >
                 {service.slug === "taxi" ? <Text style={styles.serviceEmoji}>{service.emoji}</Text> : hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
                 <Text
@@ -1471,15 +1478,23 @@ export default function NewRequest() {
                 فني
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.catChip, workerLevel === "khabir" && styles.catChipActive]}
-              onPress={() => setWorkerLevel("khabir")}
-            >
-              <Text style={[styles.catLabel, workerLevel === "khabir" && styles.catLabelActive]}>
-                خبير
-              </Text>
-            </TouchableOpacity>
+            {EXPERT_ONLY_SERVICE_SLUGS.has(selectedService) && (
+              <TouchableOpacity
+                style={[styles.catChip, workerLevel === "khabir" && styles.catChipActive]}
+                onPress={() => setWorkerLevel("khabir")}
+              >
+                <Text style={[styles.catLabel, workerLevel === "khabir" && styles.catLabelActive]}>
+                  خبير
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
+          {workerLevel === "khabir" && EXPERT_ONLY_SERVICE_SLUGS.has(selectedService) && (
+            <View style={{ marginTop: 8, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
+              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>مميزات اختيار الخبير</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 19, textAlign: "right", marginTop: 5 }}>خبرة تخصصية أعلى، تشخيص أدق، تنفيذ الأعمال المعقدة، وإمكانية طلب خبير منفرد أو خبير مع فريق عمال حسب حجم العمل.</Text>
+            </View>
+          )}
           <Text style={styles.label}>عدد الفنيين الإضافيين: {extraWorkers}</Text>
           <View style={styles.stepperRow}>
             <TouchableOpacity

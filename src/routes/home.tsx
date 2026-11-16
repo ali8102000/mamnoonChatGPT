@@ -25,6 +25,7 @@ import { acceptServiceRequest } from "@/lib/dispatch.functions";
 import { useTheme } from "@/lib/use-theme";
 import { playClick } from "@/lib/click-sound";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
+import { serviceIcon } from "@/lib/service-visuals";
 
 export const Route = createFileRoute("/home")({
   ssr: false,
@@ -203,7 +204,7 @@ function CustomerHome() {
           type="taxi"
           title="طلب سيارة"
           subtitle="خلال دقائق"
-          icon={<Car className="h-7 w-7" />}
+          icon={<img src="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" alt="" className="h-11 w-11 object-contain" />}
           gradient="from-amber-500 to-orange-500"
           span={2}
           delay={0.05}
@@ -213,7 +214,7 @@ function CustomerHome() {
           type="service"
           title="طلب فني"
           subtitle="١٦ خدمة"
-          icon={<Wrench className="h-6 w-6" />}
+          icon={<img src={serviceIcon("build")} alt="" className="h-11 w-11 object-contain" />}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
@@ -222,8 +223,8 @@ function CustomerHome() {
           type="taxi"
           vehicle="large"
           title="طلب سيارة كبيرة"
-          subtitle="كيا حمل أو كيا ركاب"
-          icon={<Car className="h-7 w-7" />}
+          subtitle="كيا حمل أو كيا ركاب أو باص"
+          icon={<img src="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" alt="" className="h-11 w-11 object-contain" />}
           gradient="from-orange-500 to-amber-600"
           delay={0.15}
         />

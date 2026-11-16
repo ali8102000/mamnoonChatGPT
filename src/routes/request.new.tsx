@@ -63,6 +63,10 @@ export const Route = createFileRoute("/request/new")({
 
 type Service = { id: string; slug: string; name_ar: string };
 
+const EXPERT_ONLY_SERVICE_SLUGS = new Set([
+  "plaster", "carpentry_form", "flooring", "chef", "plumbing", "electric_setup", "electric_street",
+]);
+
 const VEHICLE_CATS: {
   key: VehicleCategory;
   label: string;
@@ -810,7 +814,7 @@ function NewRequest() {
                 <div className="space-y-2">
                   <div className="font-black text-sm text-foreground">اختر نوع الكيا</div>
                   <div className="grid grid-cols-2 gap-2">
-                    {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }, { key: "bus", label: "باص" }] as const).map((item) => (
+                    {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }, { key: "bus", label: "باص", image: "https://xcode.shamayah.co.ke/assets/login-bus-CChLKdVW.png" }] as const).map((item) => (
                       <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-2xl border p-2.5 font-black flex flex-col items-center gap-1 ${vehicleType === item.key ? "border-orange-500 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 ring-2 ring-orange-300" : "border-orange-200 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/70 dark:bg-black/70 dark:text-slate-100 dark:border-slate-700"}`}>
                         {"image" in item ? <img src={item.image} alt={item.label} className="w-full h-16 object-contain" /> : <span className="text-4xl">🚌</span>}
                         <span>{item.label}</span>
@@ -1078,7 +1082,10 @@ function NewRequest() {
               key={s.id}
               type="button"
               variant="ghost"
-              onClick={() => setServiceId(s.id)}
+              onClick={() => {
+                setServiceId(s.id);
+                if (!EXPERT_ONLY_SERVICE_SLUGS.has(s.slug)) setLevel("fani");
+              }}
               className={`relative h-auto whitespace-normal flex flex-col items-center gap-2 p-3 rounded-2xl btn-press tap-highlight-none transition-all ${
                 active
                   ? "bg-card ring-2 ring-primary shadow-lg scale-105"
@@ -1128,12 +1135,14 @@ function NewRequest() {
         {(
           [
             { k: "fani", label: "فني", img: technicianIcon, desc: "خبرة جيدة" },
-            { k: "khabir", label: "خبير", img: expertIcon, desc: "خبرة عالية" },
-          ] as const
+            ...(selectedService && EXPERT_ONLY_SERVICE_SLUGS.has(selectedService.slug)
+              ? [{ k: "khabir" as const, label: "خبير", img: expertIcon, desc: "خبرة عالية" }]
+              : []),
+          ]
         ).map((opt) => (
           <button
             key={opt.k}
-            onClick={() => setLevel(opt.k)}
+            onClick={() => setLevel(opt.k as "fani" | "khabir")}
             className={`p-4 rounded-2xl btn-press text-center transition-all ${
               level === opt.k
                 ? "bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-lg scale-105"
@@ -1158,8 +1167,12 @@ function NewRequest() {
         ))}
       </div>
 
-      {level === "khabir" ? (
+      {level === "khabir" && selectedService && EXPERT_ONLY_SERVICE_SLUGS.has(selectedService.slug) ? (
         <>
+          <div className="mb-3 rounded-2xl border border-amber-300/60 bg-amber-50/80 dark:bg-amber-950/20 p-3 text-right">
+            <div className="font-black text-sm text-amber-800 dark:text-amber-300">مميزات اختيار الخبير</div>
+            <p className="mt-1 text-xs leading-6 text-amber-900/80 dark:text-amber-200/80">خبرة تخصصية أعلى، تشخيص أدق، تنفيذ الأعمال المعقدة، وإمكانية طلب خبير منفرد أو خبير مع فريق عمال حسب حجم العمل.</p>
+          </div>
           <div className="mb-2 text-sm font-bold text-muted-foreground">الخبير يحتاج عمال؟</div>
           <div className="grid grid-cols-2 gap-3 mb-5">
             <button

@@ -10,6 +10,7 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  Image,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
@@ -19,6 +20,7 @@ import { palette, radius, space } from "@/styles/theme";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { useThemePreference } from "@/lib/theme-preference";
+import { getServiceImage } from "@/lib/service-visuals";
 import Svg, { Circle, Path } from "react-native-svg";
 
 type IncomingRequest = {
@@ -416,7 +418,7 @@ function CustomerHome() {
     {
       key: "large",
       title: "طلب سيارة كبيرة",
-      subtitle: "كيا حمل أو كيا ركاب",
+      subtitle: "كيا حمل أو كيا ركاب أو باص",
       emoji: "🚚",
       colors: ["#F97316", "#D97706"] as const,
       width: "31.5%" as const,
@@ -510,7 +512,11 @@ function CustomerHome() {
                 justifyContent: "center",
               }}
             >
-              <HomeGlyph name={tile.key === "service" ? "wrench" : "car"} color="#FFFFFF" size={26} />
+              {tile.key === "service" ? (
+                <Image source={getServiceImage("build")} style={{ width: 54, height: 42 }} resizeMode="contain" />
+              ) : (
+                <Image source={{ uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 54, height: 42 }} resizeMode="contain" />
+              )}
             </LinearGradient>
             <View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
