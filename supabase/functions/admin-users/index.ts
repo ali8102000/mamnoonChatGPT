@@ -92,6 +92,56 @@ Deno.serve(async (req: Request) => {
       if (error || data !== true) throw new Error("admin_required");
     };
 
+    if (body.action === "governorate_stats") {
+      requireRoles(["super_admin", "admin"]);
+      const { data, error } = await admin.rpc("admin_governorate_user_stats");
+      if (error) return json({ error: "governorate_stats_failed" }, 500);
+      return json({ rows: data ?? [] });
+    }
+
+    if (body.action === "update_profile") {
+      await requireAdmin();
+      if (!isUuid(body.user_id) ||
+          typeof body.full_name !== "string" ||
+          body.full_name.trim().length < 2 ||
+          body.full_name.trim().length > 100) {
+        return json({ error: "invalid_profile_update" }, 400);
+      }
+      const allowedGovernorates = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
+      const governorateKey = body.governorate_key === null || body.governorate_key === "" ? null : body.governorate_key;
+      if (governorateKey !== null && (typeof governorateKey !== "string" || !allowedGovernorates.includes(governorateKey))) {
+        return json({ error: "invalid_governorate" }, 400);
+      }
+      const updates: Record<string, unknown> = {
+        full_name: body.full_name.trim(),
+        governorate_key: governorateKey,
+        updated_at: new Date().toISOString(),
+      };
+      if (body.avatar_base64 !== undefined) {
+        if (typeof body.avatar_base64 !== "string" || body.avatar_base64.length > 7000000 ||
+            !["image/jpeg","image/png","image/webp"].includes(body.avatar_mime)) {
+          return json({ error: "invalid_avatar" }, 400);
+        }
+        const extension = body.avatar_mime === "image/png" ? "png" : body.avatar_mime === "image/webp" ? "webp" : "jpg";
+        const binary = atob(body.avatar_base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const path = `${body.user_id}/admin-${Date.now()}.${extension}`;
+        const { error: uploadError } = await admin.storage.from("avatars").upload(path, bytes, {
+          contentType: body.avatar_mime, cacheControl: "3600", upsert: false,
+        });
+        if (uploadError) return json({ error: "avatar_upload_failed" }, 500);
+        const { data: publicUrl } = admin.storage.from("avatars").getPublicUrl(path);
+        updates.avatar_url = publicUrl.publicUrl;
+      }
+      const { data: profile, error } = await admin.from("profiles").update(updates)
+        .eq("id", body.user_id)
+        .select("id,full_name,avatar_url,governorate_key")
+        .single();
+      if (error) return json({ error: "profile_update_failed" }, 500);
+      return json({ profile });
+    }
+
     if (body.action === "list" || body.action === "search") {
       requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"]);
       const isSearch = body.action === "search";
