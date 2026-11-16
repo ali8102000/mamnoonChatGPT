@@ -317,6 +317,7 @@ export function IncomingRequestModal() {
               <Text style={styles.distance}>
                 {offer?.distance_km != null ? `يبعد عنك ${Number(offer.distance_km).toFixed(1)} كم` : "طلب قريب منك"}
               </Text>
+              {request?.type === "taxi" && <Text style={styles.distance}>نوع المركبة: {request.vehicle_category === "large" ? "سيارة كبيرة" : request.vehicle_category === "luxury" ? "فاخر" : request.vehicle_category === "premium" ? "متميز" : "اقتصادي"}</Text>}
             </View>
           </View>
 
