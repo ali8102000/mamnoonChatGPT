@@ -606,10 +606,9 @@ BEGIN
     WHERE request_id = _request_id AND status = 'pending'
       AND sent_at >= now() - interval '10 seconds';
   ELSE
-    INSERT INTO public.service_dispatch_queue(request_id, stage, next_at)
-    VALUES (_request_id, 0, now())
-    ON CONFLICT (request_id) DO UPDATE SET stage = 0, next_at = now();
-    v_count := public.advance_service_dispatch(_request_id);
+    DELETE FROM public.service_dispatch_queue WHERE request_id = _request_id;
+    -- Reuse the canonical enqueue path so the five-second pg_cron worker is ensured.
+    v_count := public.dispatch_service_request(_request_id);
   END IF;
 
   RETURN COALESCE(v_count, 0);
