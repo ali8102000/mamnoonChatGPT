@@ -214,7 +214,7 @@ function CustomerHome() {
           type="service"
           title="طلب فني"
           subtitle="١٦ خدمة"
-          icon={<img src={serviceIcon("build")} alt="" className="h-11 w-11 object-contain" />}
+          icon={<img src={serviceIcon("build")} alt="" className="h-16 w-16 object-cover" />}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
@@ -295,7 +295,7 @@ function QuickTile({
       />
       <div className="relative flex flex-col h-full justify-between">
         <div
-          className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg`}
+          className={`${type === "service" ? "h-16 w-16" : "h-12 w-12"} rounded-2xl bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg overflow-hidden`}
         >
           {icon}
         </div>
