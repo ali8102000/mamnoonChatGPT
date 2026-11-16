@@ -23,15 +23,19 @@ export function Button({
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
-  variant?: "primary" | "secondary" | "danger" | "ghost";
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "outline";
   style?: ViewStyle;
 }) {
   const backgroundColor =
     variant === "primary" ? palette.brand :
     variant === "danger" ? palette.danger :
     variant === "secondary" ? palette.surfaceSoft : "transparent";
-  const color = variant === "secondary" ? palette.ink :
+  const color =
+    variant === "secondary" || variant === "outline" ? palette.ink :
     variant === "ghost" ? palette.brand : palette.white;
+  const isElevated = variant === "primary" || variant === "danger";
+  const isOutlined = variant === "outline";
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -41,11 +45,23 @@ export function Button({
       disabled={disabled || loading}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor, opacity: disabled || loading ? 0.55 : pressed ? 0.82 : 1 },
+        {
+          backgroundColor,
+          borderColor: isOutlined ? palette.line : "transparent",
+          borderWidth: isOutlined ? 1 : 0,
+          opacity: disabled || loading ? 0.5 : pressed ? 0.88 : 1,
+          shadowColor: isElevated ? palette.brandDeep : "transparent",
+          shadowOpacity: isElevated && !disabled && !loading ? 0.16 : 0,
+          elevation: isElevated && !disabled && !loading ? 2 : 0,
+        },
         style,
       ]}
     >
-      {loading ? <ActivityIndicator color={color} /> : <Text style={[styles.buttonText, { color }]}>{title}</Text>}
+      {loading ? (
+        <ActivityIndicator color={color} />
+      ) : (
+        <Text style={[styles.buttonText, { color }]}>{title}</Text>
+      )}
     </Pressable>
   );
 }
@@ -99,15 +115,27 @@ export function Eyebrow({ children, style }: { children: ReactNode; style?: View
 }
 
 const styles = StyleSheet.create({
+  // Mirrors the web Button default (h-9, px-4, rounded-md, text-sm, shadow)
+  // while preserving Android's 44dp minimum touch target.
   button: {
-    minHeight: 56,
+    minHeight: 44,
     paddingHorizontal: space.xl,
-    paddingVertical: space.lg,
+    paddingVertical: 9,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
-  buttonText: { fontSize: 15, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800", letterSpacing: 0.1 },
+  buttonText: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontFamily: "Tajawal_800ExtraBold",
+    fontWeight: "800",
+    letterSpacing: 0.1,
+    includeFontPadding: false,
+    textAlign: "center",
+  },
   realInput: {
     minHeight: 56,
     borderWidth: 1,
