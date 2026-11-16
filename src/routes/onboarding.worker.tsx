@@ -628,7 +628,7 @@ function OnboardingWorker() {
                         : "bg-white/80 border-border/70 hover:bg-white text-foreground"
                     }`}
                   >
-                    <span className="flex items-center gap-3 min-w-0"><img src={serviceIcon(s.slug)} alt={s.name_ar} loading="eager" className="h-16 w-16 object-contain shrink-0 rounded-xl bg-white" /><span className="truncate">{s.name_ar}</span></span>
+                    <span className="flex items-center gap-3 min-w-0"><span className="h-20 w-20 shrink-0 overflow-hidden"><img src={serviceIcon(s.slug)} alt={s.name_ar} loading="eager" className="block h-full w-full object-cover" /></span><span className="truncate">{s.name_ar}</span></span>
                     {on ? (
                       <Check className="h-4 w-4 text-primary shrink-0" />
                     ) : (
