@@ -211,7 +211,7 @@ export const findNearbyProviderPins = createServerFn({ method: "POST" })
         type: z.enum(["taxi", "service"]),
         category: z.string().trim().max(80).nullable().optional(),
         serviceId: z.string().uuid().nullable().optional(),
-        radiusKm: z.number().finite().min(0.1).max(15).default(5),
+        radiusKm: z.number().finite().min(0.1).max(25).default(5),
         limit: z.number().int().min(1).max(30).default(30),
       })
       .parse(d),
