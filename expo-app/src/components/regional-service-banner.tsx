@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Animated, Easing, Text, View, StyleSheet } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import * as Location from "expo-location";
+import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 
@@ -12,7 +14,21 @@ export function RegionalServiceBanner() {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const key = await SecureStore.getItemAsync("mamnoon_governorate").catch(() => null);
+      let key = await SecureStore.getItemAsync("mamnoon_governorate").catch(() => null);
+      if (!key) {
+        const permission = await Location.getForegroundPermissionsAsync().catch(() => null);
+        if (permission?.granted) {
+          const position = await Location.getLastKnownPositionAsync().catch(() => null);
+          if (position) {
+            const detected = await callMamnoonMapsApi<{ key: string }>({
+              action: "detectGovernorate",
+              center: { lat: position.coords.latitude, lng: position.coords.longitude },
+            }).catch(() => null);
+            key = detected?.key ?? null;
+            if (key) await SecureStore.setItemAsync("mamnoon_governorate", key).catch(() => {});
+          }
+        }
+      }
       if (!active || !key) return;
       const { data } = await (supabase as any).from("regional_service_controls").select("*").in("governorate_key", [key, "all"]);
       if (!active) return;
