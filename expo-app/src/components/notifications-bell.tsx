@@ -5,6 +5,7 @@ import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
+import { isNotificationSoundEnabled, loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
 
 const IMPORTANT_NOTIFICATION_TYPES = /^(support_message|provider_approved|provider_rejected|provider_suspended|coupon_received|coupon_redeemed|announcement|company_announcement|admin_alert|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted|subscription_admin_updated|subscription_extended)$/i;
 
@@ -20,6 +21,26 @@ export function NotificationsBell() {
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [featured, setFeatured] = useState<NotificationRow | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(isNotificationSoundEnabled());
+
+  useEffect(() => {
+    let active = true;
+    void loadNotificationSoundPreference().then((enabled) => {
+      if (active) setSoundEnabled(enabled);
+    });
+    return () => { active = false; };
+  }, []);
+
+  async function changeSoundPreference(enabled: boolean) {
+    setSoundEnabled(enabled);
+    await setNotificationSoundPreference(enabled);
+    if (!user?.id) return;
+    const { error } = await (supabase as any)
+      .from("user_push_tokens")
+      .update({ sound_enabled: enabled, updated_at: new Date().toISOString() })
+      .eq("user_id", user.id);
+    if (error) console.warn("[notifications] Could not sync sound preference:", error.message);
+  }
   const load = useCallback(async () => {
     if (!user?.id) return;
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -114,6 +135,19 @@ export function NotificationsBell() {
               <View><Text style={styles.title}>مركز الإشعارات</Text><Text style={styles.subtitle}>إشعارات آخر 24 ساعة</Text></View>
               <TouchableOpacity onPress={() => setOpen(false)} style={styles.close}><Text style={styles.closeText}>×</Text></TouchableOpacity>
             </View>
+            <View style={styles.soundSetting}>
+              <View style={styles.soundSettingCopy}>
+                <Text style={styles.soundSettingTitle}>صوت الإشعارات</Text>
+                <Text style={styles.soundSettingDescription}>{soundEnabled ? "الصوت والاهتزاز مفعّلان" : "الإشعارات صامتة"}</Text>
+              </View>
+              <Switch
+                value={soundEnabled}
+                onValueChange={changeSoundPreference}
+                trackColor={{ false: palette.line, true: palette.brandSoft }}
+                thumbColor={soundEnabled ? palette.brand : "#8B918D"}
+                accessibilityLabel="كتم صوت الإشعارات"
+              />
+            </View>
             <ScrollView contentContainerStyle={styles.list}>
               {visible.length === 0 ? <Text style={styles.empty}>ما عندك إشعارات جديدة حالياً</Text> : visible.map((item) => {
                 const official = isOfficial(item);
@@ -162,6 +196,10 @@ const styles = StyleSheet.create({
   subtitle: { color: palette.muted, fontSize: 11, marginTop: 4, textAlign: "right" },
   close: { width: 36, height: 36, borderRadius: 13, backgroundColor: palette.surface, alignItems: "center", justifyContent: "center" },
   closeText: { color: palette.ink, fontSize: 24, lineHeight: 27 },
+  soundSetting: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingHorizontal: 13, paddingVertical: 11, marginBottom: 12, borderRadius: 15, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
+  soundSettingCopy: { flex: 1, gap: 3 },
+  soundSettingTitle: { color: palette.ink, fontSize: 12, fontWeight: "900", textAlign: "right" },
+  soundSettingDescription: { color: palette.muted, fontSize: 10, textAlign: "right" },
   list: { gap: 10, paddingBottom: 18 },
   empty: { color: palette.muted, textAlign: "center", paddingVertical: 40, fontSize: 13 },
   item: { flexDirection: "row", alignItems: "flex-start", gap: 11, padding: 14, borderRadius: radius.lg, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
