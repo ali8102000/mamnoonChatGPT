@@ -33,6 +33,39 @@ export function DriverOfferPopup() {
   const beepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const uid = session?.user.id;
   const isDriver = roles.includes("driver");
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [attachmentLoading, setAttachmentLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const attachmentPath = request?.attachment_path as string | null | undefined;
+    setAttachmentUrl(null);
+    if (!attachmentPath) {
+      setAttachmentLoading(false);
+      return;
+    }
+    setAttachmentLoading(true);
+    supabase.storage
+      .from("request-attachments")
+      .createSignedUrl(attachmentPath, 60 * 60)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          console.warn("[driver-offer] Could not sign request photo:", error.message);
+          setAttachmentUrl(null);
+        } else {
+          setAttachmentUrl(data?.signedUrl ?? null);
+        }
+        setAttachmentLoading(false);
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.warn("[driver-offer] Could not load request photo:", error);
+        setAttachmentUrl(null);
+        setAttachmentLoading(false);
+      });
+    return () => { active = false; };
+  }, [request?.id, request?.attachment_path]);
 
   useEffect(() => {
     offerRef.current = offer;
@@ -312,7 +345,7 @@ export function DriverOfferPopup() {
       className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md grid place-items-center p-4 animate-in fade-in duration-200"
     >
       <div
-        className={`w-full max-w-md bg-gradient-to-b from-background to-background/95 rounded-3xl p-6 shadow-2xl border-2 ${
+        className={`w-full max-w-md max-h-[92vh] overflow-y-auto bg-gradient-to-b from-background to-background/95 rounded-3xl p-6 shadow-2xl border-2 ${
           urgent ? "border-rose-500 animate-pulse" : "border-primary"
         } animate-in zoom-in-95 slide-in-from-bottom-6 duration-300`}
         style={{
@@ -382,6 +415,22 @@ export function DriverOfferPopup() {
                 </div>
                 <div className="font-bold truncate">{request.dest_text}</div>
               </div>
+            </div>
+          )}
+          {request.attachment_path && (
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <div className="text-sm font-black text-primary">صورة الزبون المرفقة بالطلب</div>
+              {attachmentUrl ? (
+                <img
+                  src={attachmentUrl}
+                  alt="صورة مرفقة بطلب الزبون"
+                  className="w-full max-h-48 rounded-xl object-contain bg-background"
+                />
+              ) : (
+                <div className="text-xs text-muted-foreground py-4 text-center">
+                  {attachmentLoading ? "جاري تحميل الصورة..." : "تعذر تحميل الصورة حالياً"}
+                </div>
+              )}
             </div>
           )}
           {isLargeVehicle && (
