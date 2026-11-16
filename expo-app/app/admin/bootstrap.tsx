@@ -1,24 +1,49 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Stack, router } from "expo-router";
 import ProtectedAdminTool from "@/components/protected-admin-tool";
 import { useAuth } from "@/lib/auth-context";
+import { getAdminStaffRoles } from "@/lib/admin-access";
 import { palette } from "@/styles/theme";
 
 export default function BootstrapScreen() {
-  const { loading, roles } = useAuth();
-  const isSuperAdmin = roles.includes("super_admin");
+  const { loading, user } = useAuth();
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
 
-  // First-admin bootstrap is a one-time, server-protected operation.
-  // Once a super admin already exists, an owner opening this legacy route
-  // should be sent to the real native admin dashboard, not shown a dead end.
+  // Resolve the effective server-backed staff roles just like the rest of the
+  // Native admin navigation. The local auth role snapshot may not include a
+  // role granted through an active staff assignment.
   useEffect(() => {
-    if (!loading && isSuperAdmin) {
+    if (loading) return;
+    if (!user?.id) {
+      setIsSuperAdmin(false);
+      return;
+    }
+
+    let active = true;
+    setIsSuperAdmin(null);
+    void getAdminStaffRoles(user.id)
+      .then((roles) => {
+        if (active) {
+          setIsSuperAdmin(roles.includes("super_admin") || roles.includes("rank:owner"));
+        }
+      })
+      .catch(() => {
+        if (active) setIsSuperAdmin(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [loading, user?.id]);
+
+  useEffect(() => {
+    if (!loading && isSuperAdmin === true) {
       router.replace("/admin");
     }
   }, [loading, isSuperAdmin]);
 
-  if (loading || isSuperAdmin) {
+  if (loading || isSuperAdmin === null || isSuperAdmin === true) {
     return (
       <View style={styles.loading}>
         <Stack.Screen options={{ title: "الإعداد الأولي" }} />
