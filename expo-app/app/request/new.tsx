@@ -1008,6 +1008,17 @@ export default function NewRequest() {
                   </View>
                 )}
 
+                {mapMode === "destination" && routeLoading && (
+                  <Text style={styles.taxiHintText}>جارٍ حساب مسافة الطريق وتأكيد المحافظة...</Text>
+                )}
+                {mapMode === "destination" && !!routeError && (
+                  <View style={styles.taxiErrorPanel}>
+                    <Text style={styles.taxiErrorText}>{routeError}</Text>
+                    <TouchableOpacity style={styles.taxiRetryButton} onPress={() => setRouteRetry((value) => value + 1)}>
+                      <Text style={styles.taxiRetryText}>إعادة حساب الطريق</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 <TouchableOpacity
                   style={[styles.taxiPrimaryButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || routeLoading || routeKm === null || !!routeError) && styles.taxiButtonDisabled]}
                   disabled={mapMode === "pickup" ? !pickupCoords : !destinationCoords || routeLoading || routeKm === null || !!routeError}
