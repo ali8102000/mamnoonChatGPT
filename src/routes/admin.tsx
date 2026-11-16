@@ -425,7 +425,11 @@ function GovernorateUserStatsSection() {
   }, [getStats]);
   useEffect(() => { void load(); }, [load]);
   const total = rows.find((row) => row.governorate_key === "__all__");
-  const regions = rows.filter((row) => row.governorate_key !== "__all__")
+  const regions = Object.keys(GOVERNORATE_LABELS).filter((key) => key !== "unknown")
+    .map((key) => rows.find((row) => row.governorate_key === key) ?? ({
+      governorate_key: key, workers: 0, large_drivers: 0, taxi_drivers: 0, customers: 0, total_users: 0,
+    }))
+    .concat(rows.filter((row) => row.governorate_key === "unknown"))
     .sort((a,b) => Number(b.total_users) - Number(a.total_users));
   const number = (value: unknown) => Number(value || 0).toLocaleString("ar-IQ");
   return (
