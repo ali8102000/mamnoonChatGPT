@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import * as SecureStore from "expo-secure-store";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   View,
@@ -104,6 +105,7 @@ export default function NewRequest() {
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
   const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
+  useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
   const [locationLoading, setLocationLoading] = useState(true);
@@ -714,6 +716,8 @@ export default function NewRequest() {
 
     setBusy(true);
     try {
+      const effectivePickupGovernorateKey = pickupGovernorateKey || await resolveGovernorate(pickupCoords);
+      await SecureStore.setItemAsync("mamnoon_governorate", effectivePickupGovernorateKey).catch(() => {});
       if (isTaxi && !isLargeVehicle) {
         const freshRoute = await callMamnoonMapsApi<{ distanceKm: number; durationMin: number }>({
           action: "route",
@@ -775,6 +779,7 @@ export default function NewRequest() {
             status: "pending",
             vehicle_category: "large",
             vehicle_type: vehicleType,
+            governorate_key: effectivePickupGovernorateKey,
             pickup_text: pickup,
             pickup_lat: pickupCoords.latitude,
             pickup_lng: pickupCoords.longitude,
@@ -806,7 +811,7 @@ export default function NewRequest() {
           to: { lat: destinationCoords!.latitude, lng: destinationCoords!.longitude },
           pickupText: pickup,
           destinationText: destination,
-          pickupGovernorateKey: pickupGovernorateKey ?? undefined,
+          pickupGovernorateKey: effectivePickupGovernorateKey,
           destinationGovernorateKey: destinationGovernorateKey ?? undefined,
           vehicleCategory: vehicleCat,
           notes,
@@ -829,6 +834,7 @@ export default function NewRequest() {
             coupon_code: null,
             type: "service",
             status: "pending",
+            governorate_key: effectivePickupGovernorateKey,
             service_id: serviceRow.id,
             pickup_text: pickup,
             pickup_lat: pickupCoords.latitude,
@@ -843,7 +849,7 @@ export default function NewRequest() {
             work_hours: pricingMode === "hourly" ? hours : null,
             work_description: [workDescription.trim(), selectedService === "build" && brickQuantity.trim() ? "كمية الطابوق: " + brickQuantity.trim() : ""].filter(Boolean).join("\n") || null,
             notes: notes || null,
-          })
+          } as any)
           .select("id")
           .single();
         if (error || !request) throw error ?? new Error("تعذّر إنشاء طلب الخدمة.");

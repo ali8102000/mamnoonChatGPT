@@ -24,6 +24,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { acceptServiceRequest } from "@/lib/dispatch.functions";
 import { useTheme } from "@/lib/use-theme";
 import { playClick } from "@/lib/click-sound";
+import { RegionalServiceBanner } from "@/components/regional-service-banner";
 
 export const Route = createFileRoute("/home")({
   ssr: false,
@@ -84,6 +85,7 @@ function HomePage() {
       </div>
 
       <div className="relative px-5 pt-10 pb-6">
+        <RegionalServiceBanner />
         {isSuperAdmin && (
           <div className="mb-4 glass rounded-2xl p-3.5 border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent flex items-center justify-between animate-pop-in shadow-sm">
             <div className="flex items-center gap-2.5">

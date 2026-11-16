@@ -287,6 +287,7 @@ async function handleRequest(request: Request) {
     .from("service_requests")
     .insert({
       customer_id: authData.user.id,
+      governorate_key: fromGovernorate.key,
       coupon_code: data.couponCode?.trim().toUpperCase() || null,
       type: "taxi",
       status: "pending",
