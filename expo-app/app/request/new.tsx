@@ -104,6 +104,7 @@ export default function NewRequest() {
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
   const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
+  useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
   const [locationLoading, setLocationLoading] = useState(true);
@@ -847,7 +848,7 @@ export default function NewRequest() {
             work_hours: pricingMode === "hourly" ? hours : null,
             work_description: [workDescription.trim(), selectedService === "build" && brickQuantity.trim() ? "كمية الطابوق: " + brickQuantity.trim() : ""].filter(Boolean).join("\n") || null,
             notes: notes || null,
-          })
+          } as any)
           .select("id")
           .single();
         if (error || !request) throw error ?? new Error("تعذّر إنشاء طلب الخدمة.");
