@@ -124,14 +124,14 @@ export default function AdminFriendsScreen() {
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: palette.canvas },
+  page: { flex: 1, backgroundColor: palette.pageCanvas },
   tabs: { flexDirection: "row", gap: 8, paddingHorizontal: space.lg, paddingTop: space.md },
   tab: { flex: 1, padding: 12, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center" },
   tabActive: { backgroundColor: palette.brand, borderColor: palette.brand },
   tabText: { color: palette.ink, fontSize: 12, fontWeight: "800" },
   tabTextActive: { color: palette.white },
   content: { padding: space.lg, gap: 10, paddingBottom: 48 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.canvas, padding: 24, gap: 10 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.pageCanvas, padding: 24, gap: 10 },
   muted: { color: palette.muted, fontSize: 11, textAlign: "right" },
   title: { color: palette.ink, fontSize: 21, fontWeight: "900", textAlign: "right" },
   name: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
