@@ -40,7 +40,7 @@ export default function RegionalControlsSection() {
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from("regional_service_controls")
-      .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,updated_at")
+      .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,rejection_message,message_image_url,updated_at")
       .order("governorate_key");
     if (error) {
       toast.error("تعذّر تحميل إعدادات المحافظات: " + error.message);
