@@ -119,6 +119,7 @@ function ProviderSubscriptionsPage() {
           <div><h1 className="text-xl font-black">اشتراكات ممنون</h1><p className="text-xs text-muted-foreground">باقات مقدمي الخدمة</p></div>
         </div>
         {loadingData ? <Loader2 className="h-7 w-7 animate-spin mx-auto mt-16" /> : <>
+          {subscription?.is_trial && <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 mb-4"><div className="font-black text-sm">أنت حالياً بالفترة التجريبية البرونزية</div><p className="text-xs text-muted-foreground mt-1 leading-6">تبقى باقتك برونزية طوال التجربة. ما تتفعّل الفضية أو الذهبية إلا بعد إكمال الدفع وتأكيده من زين كاش.</p></div>}
           {subscription && <div className="glass rounded-2xl p-4 mb-4">
             <div className="flex items-center gap-2 font-black"><ShieldCheck className="h-5 w-5 text-primary" /> اشتراكك الحالي</div>
             <div className="mt-2 text-sm">{subscription.plan?.name_ar ?? "بدون باقة"} · {subscription.is_trial ? "تجربة مجانية بميزات البرونزي" : subscription.status === "active" ? "نشط" : subscription.status === "paused" ? "موقوف مؤقتاً" : "منتهي"}{companyGranted ? " · منحة شركة ممنون" : ""}</div>
