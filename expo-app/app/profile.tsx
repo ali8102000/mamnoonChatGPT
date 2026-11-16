@@ -241,7 +241,7 @@ export default function ProfileScreen() {
         <Text style={styles.menuItemText}>تبديل الدور وإعدادات الحساب</Text>
         <Text style={styles.menuArrow}>←</Text>
       </TouchableOpacity>
-      {roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)) || hasStaffRank ? (
+      {(roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)) || hasStaffRank) && (
         <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/admin/staff" as any)}>
           <Text style={styles.menuItemText}>مركز إدارة ممنون</Text>
           <Text style={styles.menuArrow}>←</Text>
