@@ -149,7 +149,7 @@ as $$
 begin
   if new.status::text = 'accepted'
      and old.status::text is distinct from 'accepted'
-     and not public.regional_services_enabled(old.governorate_key) then
+     and not public.regional_services_enabled(coalesce(old.governorate_key, public.infer_governorate_key(old.pickup_lat, old.pickup_lng))) then
     raise exception 'regional_services_disabled'
       using message = 'الخدمات متوقفة حالياً في هذه المحافظة بقرار من الإدارة.';
   end if;
@@ -171,7 +171,7 @@ as $$
 declare
   v_governorate_key text;
 begin
-  select sr.governorate_key into v_governorate_key
+  select coalesce(sr.governorate_key, public.infer_governorate_key(sr.pickup_lat, sr.pickup_lng)) into v_governorate_key
     from public.service_requests sr
    where sr.id = new.request_id;
 
@@ -194,18 +194,12 @@ security definer
 set search_path = public
 as $$
 begin
-  update public.service_requests sr
-     set governorate_key = public.infer_governorate_key(sr.pickup_lat, sr.pickup_lng)
-   where sr.governorate_key is null
-     and sr.pickup_lat is not null
-     and sr.pickup_lng is not null;
-
   update public.request_offers o
      set status = 'cancelled', responded_at = now()
     from public.service_requests sr
    where sr.id = o.request_id
      and o.status = 'pending'
-     and not public.regional_services_enabled(sr.governorate_key);
+     and not public.regional_services_enabled(coalesce(sr.governorate_key, public.infer_governorate_key(sr.pickup_lat, sr.pickup_lng)));
 
   delete from public.service_dispatch_queue q
    using public.service_requests sr
