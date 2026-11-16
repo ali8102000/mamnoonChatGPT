@@ -910,7 +910,7 @@ export default function NewRequest() {
                         <Text style={{ color: "#15803D", fontWeight: "900", marginBottom: 5 }}>تم التحقق من الكوبون</Text>
                         <Text style={{ color: palette.ink, fontSize: 12, marginTop: 3 }}>قيمة الخصم: {couponPreview.discount.toLocaleString("ar-IQ")} د.ع</Text>
                         <Text style={{ color: palette.ink, fontSize: 12, marginTop: 3 }}>المبلغ بعد الخصم: {couponPreview.payable.toLocaleString("ar-IQ")} د.ع</Text>
-                        <Text style={{ color: palette.muted, fontSize: 10, marginTop: 5 }}>الخصم تتحمله ممنون ولا يقلل مستحقات السائق أو الفني.</Text>
+                        <Text style={{ color: palette.muted, fontSize: 10, marginTop: 5 }}>الخصم تتحمله ممنون ولا يقلل مستحقات السائق.</Text>
                       </View>
                     )}
                   </View>
