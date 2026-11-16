@@ -57,7 +57,7 @@ for (const path of nativeAdminSections) {
 const staffHubSource = await import("node:fs/promises").then(({ readFile }) => readFile(resolve(root, "app/admin/staff.tsx"), "utf8"));
 const managerChatRoute = staffHubSource.match(/route:\s*"\/support-chat",\s*roles:\s*\[([^\]]+)\]/);
 if (!managerChatRoute?.[1].includes("rank:general_manager")) {
-  missing.push("Native staff hub must expose read-only support conversations to general managers.");
+  missing.push("Native staff hub must expose the writable support inbox to general managers.");
 }
 
 for (const [path, kind] of [["app/terms.tsx", "terms"], ["app/privacy.tsx", "privacy"]]) {
@@ -85,7 +85,7 @@ if (!nativeProfileSource.includes("isGeneralManager") ||
     !nativeProfileSource.includes("مركز إدارة ممنون") ||
     !nativeProfileSource.includes("متابعة الشكاوى ومراسلات ممنون") ||
     !nativeProfileSource.includes('router.push("/support-chat"')) {
-  missing.push("General managers must have a visible profile entry to their read-only complaints inbox.");
+  missing.push("General managers must have a visible profile entry to their support inbox.");
 }
 
 if (!nativeProfileSource.includes("mamnoon-wallet-v1") ||
@@ -156,27 +156,66 @@ if (!nativeThemeSource.includes('success:"#00B667"') ||
 
 const notificationLayout = await readSource("app/_layout.tsx");
 const notificationBell = await readSource("src/components/notifications-bell.tsx");
+const notificationPreferences = await readSource("src/lib/notification-sound.ts");
+const incomingRequestModal = await readSource("src/components/incoming-request-modal.tsx");
 const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
+const pushVibrationMigration = await readSource("../supabase/migrations/20261116183000_admin_permissions_and_notification_vibration.sql");
 const supabaseTypes = await readSource("../src/integrations/supabase/types.ts");
+const adminUsersFunction = await readSource("../supabase/functions/admin-users/index.ts");
 
-if (!notificationLayout.includes('setNotificationChannelAsync("silent"')) {
-  missing.push("Android must register the silent notification channel.");
+for (const channelId of [
+  "mamnoon_sound_vibrate",
+  "mamnoon_sound_only",
+  "mamnoon_vibrate_only",
+  "mamnoon_silent",
+]) {
+  if (!notificationLayout.includes(`setNotificationChannelAsync("${channelId}"`)) {
+    missing.push(`Android must register notification channel: ${channelId}.`);
+  }
+  if (!notificationPreferences.includes(`"${channelId}"`)) {
+    missing.push(`Native notification preferences must map to channel: ${channelId}.`);
+  }
 }
-if (!notificationLayout.includes("sound_enabled: soundEnabled")) {
-  missing.push("Native push-token registration must persist the user's sound preference.");
+if (!notificationLayout.includes("sound_enabled: soundEnabled") ||
+    !notificationLayout.includes("vibration_enabled: vibrationEnabled")) {
+  missing.push("Native push-token registration must persist independent sound and vibration preferences.");
 }
-if (!notificationBell.includes("<Switch") || !notificationBell.includes("setNotificationSoundPreference")) {
-  missing.push("Native notification center must expose the sound mute control.");
+if (!notificationBell.includes("<Switch") ||
+    !notificationBell.includes("changeSoundPreference") ||
+    !notificationBell.includes("changeVibrationPreference") ||
+    !notificationBell.includes("setNotificationPreferences") ||
+    !notificationBell.includes("صوت الإشعارات") ||
+    !notificationBell.includes("اهتزاز الإشعارات")) {
+  missing.push("Native notification center must expose independent sound and vibration controls.");
 }
-if (!notificationBell.includes('channelId: isNotificationSoundEnabled() ? "default" : "silent"')) {
-  missing.push("Foreground notifications must respect the selected sound channel.");
+if (!notificationBell.includes("getNotificationChannelId()") ||
+    !notificationBell.includes('sound: isNotificationSoundEnabled() ? "default" : false') ||
+    !notificationBell.includes("isNotificationVibrationEnabled()")) {
+  missing.push("Foreground notifications must honor the selected sound and vibration channel.");
+}
+if (!incomingRequestModal.includes("getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled)") ||
+    !incomingRequestModal.includes("sound: preferences.soundEnabled ? \"default\" : false")) {
+  missing.push("Incoming request alerts must honor independent sound and vibration preferences.");
 }
 if (!pushSoundMigration.includes("ADD COLUMN IF NOT EXISTS sound_enabled") ||
     !pushSoundMigration.includes("ELSE 'silent' END")) {
   missing.push("Push delivery SQL must honor each user's sound preference.");
 }
-if (!supabaseTypes.includes("sound_enabled: boolean")) {
-  missing.push("Generated Supabase types must include user_push_tokens.sound_enabled.");
+if (!/add column if not exists vibration_enabled/i.test(pushVibrationMigration) ||
+    !pushVibrationMigration.includes("mamnoon_vibrate_only") ||
+    !pushVibrationMigration.includes("mamnoon_sound_only") ||
+    !pushVibrationMigration.includes("mamnoon_sound_vibrate")) {
+  missing.push("Push delivery SQL must honor independent sound and vibration preferences.");
+}
+if (!adminUsersFunction.includes('select("expo_push_token,sound_enabled,vibration_enabled")') ||
+    !adminUsersFunction.includes('row.expo_push_token.startsWith("ExpoPushToken[")') ||
+    !adminUsersFunction.includes("notificationChannelId(soundEnabled, vibrationEnabled)") ||
+    !adminUsersFunction.includes('sound: soundEnabled ? "default" : null')) {
+  missing.push("Provider status push notifications must respect each device's independent sound and vibration preferences.");
+}
+if (!supabaseTypes.includes("sound_enabled: boolean") ||
+    !supabaseTypes.includes("vibration_enabled: boolean")) {
+  missing.push("Generated Supabase types must include both user_push_tokens notification preferences.");
 }
 
 

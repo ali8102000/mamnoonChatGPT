@@ -1763,6 +1763,7 @@ export type Database = {
           expo_push_token: string
           id: string
           sound_enabled: boolean
+          vibration_enabled: boolean
           updated_at: string
           user_id: string
         }
@@ -1771,6 +1772,7 @@ export type Database = {
           expo_push_token: string
           id?: string
           sound_enabled?: boolean
+          vibration_enabled?: boolean
           updated_at?: string
           user_id: string
         }

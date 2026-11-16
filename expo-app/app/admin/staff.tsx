@@ -6,19 +6,20 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 const ITEMS = [
-  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring"] },
-  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "support", "department_operations"] },
-  { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "support", "department_operations"] },
-  { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance"] },
-  { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance", "department_finance"] },
-  { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring"] },
-  { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support", "department_operations", "department_monitoring"] },
-  { label: "إدارة الأصدقاء", route: "/admin/friends", roles: ["super_admin", "admin", "moderator", "department_monitoring"] },
-  { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator"] },
-  { label: "الصلاحيات وسجل العمليات", route: "/admin/governance", roles: ["super_admin", "admin"] },
+  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"] },
+  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "support", "department_operations", "rank:general_manager"] },
+  { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "support", "department_operations", "rank:general_manager"] },
+  { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager"] },
+  { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager"] },
+  { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"] },
+  { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support", "department_operations", "department_monitoring", "rank:general_manager"] },
+  { label: "إدارة الأصدقاء", route: "/admin/friends", roles: ["super_admin", "admin", "moderator", "department_monitoring", "rank:general_manager"] },
+  { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager"] },
+  { label: "الصلاحيات وسجل العمليات", route: "/admin/governance", roles: ["super_admin", "admin", "rank:general_manager"] },
+  { label: "التحكم بالمحافظات", route: "/admin/regions", roles: ["super_admin"] },
   { label: "مساعد استيراد البيانات", route: "/admin/import", roles: ["super_admin", "admin"] },
   { label: "محادثات الدعم", route: "/support-chat", roles: ["super_admin", "admin", "support", "moderator", "customer_service", "rank:general_manager"] },
-  { label: "إدارة الدردشة الخاصة", route: "/admin/chats", roles: ["super_admin", "admin", "support", "moderator"] },
+  { label: "إدارة الدردشة الخاصة", route: "/admin/chats", roles: ["super_admin", "admin", "support", "moderator", "rank:general_manager"] },
   { label: "موظفو القسم والترقيات", route: "/admin/staff-hierarchy", roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor"] },
 ] as const;
 

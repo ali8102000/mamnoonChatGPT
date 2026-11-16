@@ -16,6 +16,13 @@ const required = (key: string) => {
 const isUuid = (value: unknown): value is string =>
   typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+function notificationChannelId(soundEnabled: boolean, vibrationEnabled: boolean) {
+  if (soundEnabled && vibrationEnabled) return "mamnoon_sound_vibrate";
+  if (soundEnabled) return "mamnoon_sound_only";
+  if (vibrationEnabled) return "mamnoon_vibrate_only";
+  return "mamnoon_silent";
+}
+
 function searchTerms(raw: string) {
   const term = raw.trim().replace(/[,%()]/g, " ").slice(0, 100);
   const digits = term.replace(/[٠-٩۰-۹]/g, d => {
@@ -86,7 +93,7 @@ Deno.serve(async (req: Request) => {
     };
 
     if (body.action === "list" || body.action === "search") {
-      requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring"]);
+      requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"]);
       const isSearch = body.action === "search";
       if (isSearch && (typeof body.query !== "string" || body.query.trim().length < 2)) {
         return json({ error: "query_too_short" }, 400);
@@ -123,7 +130,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "detail") {
-      requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring"]);
+      requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"]);
       if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
       const id = body.user_id;
       const [profile, roles, block, driver, worker, transactions, requests, ratings] = await Promise.all([
@@ -150,7 +157,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "providers") {
-      requireRoles(["super_admin", "admin", "support", "department_operations"]);
+      requireRoles(["super_admin", "admin", "support", "department_operations", "rank:general_manager"]);
       const type = ["driver", "large_driver", "worker"].includes(body.type) ? body.type : "driver";
       const status = ["all", "approved", "pending", "suspended", "rejected"].includes(body.status) ? body.status : "all";
       const category = typeof body.category === "string" ? body.category.slice(0, 80) : "all";
@@ -190,7 +197,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "requests") {
-      requireRoles(["super_admin", "admin", "support", "department_operations"]);
+      requireRoles(["super_admin", "admin", "support", "department_operations", "rank:general_manager"]);
       const status = typeof body.status === "string" ? body.status.slice(0, 40) : "all";
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let requestQuery = admin.from("service_requests")
@@ -274,15 +281,26 @@ Deno.serve(async (req: Request) => {
         if (notificationError) return json({ error: "provider_notification_save_failed" }, 500);
         notificationSent = true;
 
-        const { data: pushRows } = await admin.from("user_push_tokens").select("expo_push_token").eq("user_id", body.user_id);
-        const tokens = (pushRows ?? []).map((row: any) => row.expo_push_token)
-          .filter((token: string) => typeof token === "string" && token.startsWith("ExponentPushToken["));
+        const { data: pushRows, error: pushRowsError } = await admin.from("user_push_tokens")
+          .select("expo_push_token,sound_enabled,vibration_enabled").eq("user_id", body.user_id);
+        if (pushRowsError) return json({ error: "provider_push_preferences_load_failed" }, 500);
+        const tokens = (pushRows ?? []).filter((row: any) =>
+          typeof row.expo_push_token === "string" &&
+          (row.expo_push_token.startsWith("ExpoPushToken[") || row.expo_push_token.startsWith("ExponentPushToken[")),
+        );
         for (let i = 0; i < tokens.length; i += 100) {
-          const messages = tokens.slice(i, i + 100).map((to: string) => ({
-            to, sound: "default", title, body: messageBody,
-            data: { type: "provider_verification", provider_type: body.type, status: body.status },
-            channelId: "default",
-          }));
+          const messages = tokens.slice(i, i + 100).map((row: any) => {
+            const soundEnabled = row.sound_enabled !== false;
+            const vibrationEnabled = row.vibration_enabled !== false;
+            return {
+              to: row.expo_push_token,
+              sound: soundEnabled ? "default" : null,
+              title,
+              body: messageBody,
+              data: { type: "provider_verification", provider_type: body.type, status: body.status },
+              channelId: notificationChannelId(soundEnabled, vibrationEnabled),
+            };
+          });
           try {
             const response = await fetch("https://exp.host/--/api/v2/push/send", {
               method: "POST",
@@ -345,7 +363,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "live_map") {
-      requireRoles(["super_admin", "admin", "support", "department_operations", "department_monitoring"]);
+      requireRoles(["super_admin", "admin", "support", "department_operations", "department_monitoring", "rank:general_manager"]);
       const [locations, requests] = await Promise.all([
         admin.from("live_locations")
           .select("*, profile:profiles!live_locations_user_id_fkey(full_name,phone)")
@@ -360,7 +378,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "reports") {
-      requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring"]);
+      requireRoles(["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"]);
       const { data: reports, error } = await admin.from("user_reports")
         .select("*, reporter:profiles!user_reports_reporter_id_fkey(full_name,phone), reported:profiles!user_reports_reported_id_fkey(full_name,phone)")
         .eq("status", "pending")
@@ -371,7 +389,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "monitoring") {
-      requireRoles(["super_admin", "admin", "support"]);
+      requireRoles(["super_admin", "admin", "support", "rank:general_manager"]);
       const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
         admin.from("profiles").select("id", { count: "exact", head: true }),
         admin.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
@@ -419,7 +437,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "chats") {
-      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      requireRoles(["super_admin", "admin", "support", "moderator", "rank:general_manager"]);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       const { data: chats, error } = await admin.from("chats")
         .select("*, participant1:profiles!chats_customer_id_fkey(full_name,phone), participant2:profiles!chats_provider_id_fkey(full_name,phone)")
@@ -429,7 +447,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "messages") {
-      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      requireRoles(["super_admin", "admin", "support", "moderator", "rank:general_manager"]);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let query = admin.from("messages")
         .select("*, sender:profiles!messages_sender_id_fkey(full_name,phone), chat:chats(id)")
@@ -441,7 +459,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_message") {
-      requireRoles(["super_admin", "admin", "support", "moderator"]);
+      requireRoles(["super_admin", "admin", "support", "moderator", "rank:general_manager"]);
       if (!isUuid(body.message_id)) return json({ error: "invalid_message_id" }, 400);
       const { error } = await caller.rpc("admin_delete_message", { p_message_id: body.message_id });
       if (error) return json({ error: error.message }, 400);
@@ -449,7 +467,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "friends" || body.action === "friend_requests") {
-      requireRoles(["super_admin", "admin", "moderator", "department_monitoring"]);
+      requireRoles(["super_admin", "admin", "moderator", "department_monitoring", "rank:general_manager"]);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       if (body.action === "friends") {
         const { data, error } = await admin.from("friends")
@@ -466,7 +484,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friendship") {
-      requireRoles(["super_admin", "admin", "moderator"]);
+      requireRoles(["super_admin", "admin", "moderator", "rank:general_manager"]);
       if (!isUuid(body.user1_id) || !isUuid(body.user2_id) || body.user1_id === body.user2_id) {
         return json({ error: "invalid_friendship" }, 400);
       }
@@ -479,7 +497,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friend_request") {
-      requireRoles(["super_admin", "admin", "moderator"]);
+      requireRoles(["super_admin", "admin", "moderator", "rank:general_manager"]);
       if (!isUuid(body.request_id)) return json({ error: "invalid_request_id" }, 400);
       const { error } = await caller.rpc("admin_delete_friend_request", {
         p_request_id: body.request_id,
@@ -489,7 +507,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "broadcast_notification") {
-      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
+      requireRoles(["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager"]);
       const targets = ["all", "drivers", "workers", "single"];
       if (!targets.includes(body.target) || typeof body.title !== "string" ||
           body.title.trim().length < 1 || body.title.length > 200 ||

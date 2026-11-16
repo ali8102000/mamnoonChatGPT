@@ -34,6 +34,7 @@ import service_blacksmith from "../../assets/services/blacksmith.png";
 import service_general from "../../assets/services/general.png";
 import type { AppRole } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
+import { getNotificationChannelId, loadNotificationPreferences } from "@/lib/notification-sound";
 
 type Offer = {
   id: string;
@@ -163,15 +164,23 @@ export function IncomingRequestModal() {
     setVisible(true);
     if (lastNotifiedOfferId.current !== data.id) {
       lastNotifiedOfferId.current = data.id;
-      void Notifications.scheduleNotificationAsync({
-        content: {
-          title: "طلب جديد من ممنون",
-          body: data.service_requests?.type === "taxi" ? "وصلك طلب تكسي جديد. افتح التطبيق للتفاصيل." : `وصلك طلب ${data.service_requests?.services?.name_ar || "خدمة"} جديد. افتح التطبيق للتفاصيل.`,
-          sound: true,
-          data: { request_id: data.request_id, type: "incoming_request" },
-        },
-        trigger: null,
-      }).catch((error) => console.warn("[incoming-offer] Sound notification failed:", error));
+      void (async () => {
+        const preferences = await loadNotificationPreferences();
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "طلب جديد من ممنون",
+            body: data.service_requests?.type === "taxi" ? "وصلك طلب تكسي جديد. افتح التطبيق للتفاصيل." : `وصلك طلب ${data.service_requests?.services?.name_ar || "خدمة"} جديد. افتح التطبيق للتفاصيل.`,
+            sound: preferences.soundEnabled ? "default" : false,
+            vibrate: preferences.vibrationEnabled ? [0, 250, 180, 250, 180, 350] : [],
+            data: { request_id: data.request_id, type: "incoming_request" },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: 1,
+            channelId: getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled),
+          },
+        });
+      })().catch((error) => console.warn("[incoming-offer] Local notification failed:", error));
     }
   }, [user, canReceive, attachmentPath, attachmentUrl]);
 
