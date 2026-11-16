@@ -19,6 +19,26 @@ export default function ProfileScreen() {
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [walletOffline, setWalletOffline] = useState(false);
+  const [isGeneralManager, setIsGeneralManager] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function loadStaffRank() {
+      if (!user?.id) {
+        setIsGeneralManager(false);
+        return;
+      }
+      const { data, error } = await (supabase as any)
+        .from("staff_assignments")
+        .select("rank")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .maybeSingle();
+      if (active) setIsGeneralManager(!error && data?.rank === "general_manager");
+    }
+    void loadStaffRank();
+    return () => { active = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -222,6 +242,12 @@ export default function ProfileScreen() {
       {roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)) && (
         <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/admin/staff" as any)}>
           <Text style={styles.menuItemText}>مركز إدارة ممنون</Text>
+          <Text style={styles.menuArrow}>←</Text>
+        </TouchableOpacity>
+      )}
+      {isGeneralManager && (
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/support-chat" as any)}>
+          <Text style={styles.menuItemText}>متابعة الشكاوى ومراسلات ممنون</Text>
           <Text style={styles.menuArrow}>←</Text>
         </TouchableOpacity>
       )}
