@@ -122,6 +122,28 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
   });
 
 
+
+export const adminListDepartmentStaff = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context;
+    const { data, error } = await (supabase as any).rpc("staff_list_department");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const adminPromoteStaffOneLevel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ target_user_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: rank, error } = await (supabase as any).rpc("staff_promote_one_level", {
+      p_target_user: data.target_user_id,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true, rank };
+  });
+
 export const adminSetStaffRank = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
