@@ -401,7 +401,7 @@ export default function NewRequest() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat]);
+  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat, routeRetry]);
 
   useEffect(() => {
     const query = placeQuery.trim();
