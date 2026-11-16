@@ -208,7 +208,20 @@ export default function AdminUsersScreen() {
         <View style={s.overlay}><View style={[s.modalCard,{maxHeight:"92%"}]}>
           <View style={s.actions}><Text style={s.title}>تفاصيل المستخدم</Text><TouchableOpacity onPress={()=>setDetail(null)}><Text style={s.secondaryText}>إغلاق</Text></TouchableOpacity></View>
           <ScrollView>
+            <Text style={s.section}>تعديل بيانات المستخدم</Text>
+            {avatarPreview ? <Image source={{uri:avatarPreview}} style={s.avatarPreview}/> : null}
+            <TouchableOpacity style={s.secondary} onPress={()=>void pickAdminAvatar()}><Text style={s.secondaryText}>اختيار / تغيير الصورة</Text></TouchableOpacity>
+            <TextInput value={editName} onChangeText={setEditName} placeholder="اسم المستخدم" placeholderTextColor={palette.muted} style={s.input} textAlign="right" maxLength={100}/>
+            <Text style={s.muted}>المحافظة المسجلة</Text>
+            <View style={s.durationWrap}>
+              {[
+                ["baghdad","بغداد"],["basra","البصرة"],["nineveh","نينوى"],["erbil","أربيل"],["sulaymaniyah","السليمانية"],["duhok","دهوك"],["kirkuk","كركوك"],["najaf","النجف"],["karbala","كربلاء"],["babil","بابل"],["anbar","الأنبار"],["diyala","ديالى"],["saladin","صلاح الدين"],["wasit","واسط"],["dhiqar","ذي قار"],["maysan","ميسان"],["muthanna","المثنى"],["qadisiyah","القادسية"]
+              ].map(([key,label])=><TouchableOpacity key={key} onPress={()=>setEditGovernorate(key)} style={[s.duration,editGovernorate===key&&s.durationActive]}><Text style={[s.durationText,editGovernorate===key&&s.durationTextActive]}>{label}</Text></TouchableOpacity>)}
+              <TouchableOpacity onPress={()=>setEditGovernorate("")} style={[s.duration,!editGovernorate&&s.durationActive]}><Text style={[s.durationText,!editGovernorate&&s.durationTextActive]}>غير محددة</Text></TouchableOpacity>
+            </View>
+            <TouchableOpacity style={s.primary} disabled={busyId===detail?.profile?.id} onPress={()=>void saveProfile()}><Text style={s.buttonText}>{busyId===detail?.profile?.id ? "جارٍ الحفظ..." : "حفظ التعديلات"}</Text></TouchableOpacity>
             <Info label="الاسم" value={detail?.profile?.full_name}/>
+
             <Info label="الهاتف" value={detail?.profile?.phone}/>
             <Info label="البريد" value={detail?.profile?.email}/>
             <Info label="تاريخ التسجيل" value={detail?.profile?.created_at ? new Date(detail.profile.created_at).toLocaleString("ar-IQ") : "—"}/>
