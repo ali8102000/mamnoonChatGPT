@@ -1745,7 +1745,7 @@ function CouponsSection() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [distributionTarget, setDistributionTarget] = useState<"all" | "customers" | "drivers" | "workers" | "single" | "customers_1" | "customers_2" | "customers_3" | "customers_4" | "customers_5">("all");
+  const [distributionTarget, setDistributionTarget] = useState<"customers" | "single" | "customers_1" | "customers_2" | "customers_3" | "customers_4" | "customers_5">("customers");
   const [singleUserId, setSingleUserId] = useState("");
   const [distributionMessage, setDistributionMessage] = useState("");
   const [audienceCount, setAudienceCount] = useState<number | null>(null);
@@ -1863,21 +1863,19 @@ function CouponsSection() {
         ) : <div className="text-xs text-muted-foreground">جارٍ تحميل الحساب المالي...</div>}
       </div>
       <div className="glass rounded-2xl p-3 mb-4 space-y-2">
-        <div className="text-xs font-bold">توزيع الكوبون إلى</div>
+        <div className="text-xs font-bold">توزيع الكوبون إلى الزبائن فقط</div>
+        <p className="text-[11px] text-muted-foreground">الكوبون يُستخدم لطلبات التكسي العادي فقط ولا يشمل الفنيين أو سيارات الكيا الكبيرة.</p>
         <select
           value={distributionTarget}
           onChange={(e) => setDistributionTarget(e.target.value as any)}
           className="w-full glass rounded-xl px-3 py-2.5 text-sm"
         >
-          <option value="all">كل المستخدمين</option>
           <option value="customers">الزبائن فقط</option>
           <option value="customers_1">زبائن طلبوا طلباً واحداً خلال آخر 7 أيام</option>
           <option value="customers_2">زبائن طلبوا طلبين خلال آخر 7 أيام</option>
           <option value="customers_3">زبائن طلبوا 3 طلبات خلال آخر 7 أيام</option>
           <option value="customers_4">زبائن طلبوا 4 طلبات خلال آخر 7 أيام</option>
           <option value="customers_5">زبائن طلبوا 5 طلبات أو أكثر خلال آخر 7 أيام</option>
-          <option value="drivers">السائقون</option>
-          <option value="workers">الفنيون</option>
           <option value="single">مستخدم محدد</option>
         </select>
         {distributionTarget === "single" && (
