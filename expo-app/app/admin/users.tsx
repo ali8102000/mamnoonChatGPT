@@ -220,7 +220,8 @@ export default function AdminUsersScreen() {
               <TouchableOpacity onPress={()=>setEditGovernorate("")} style={[s.duration,!editGovernorate&&s.durationActive]}><Text style={[s.durationText,!editGovernorate&&s.durationTextActive]}>غير محددة</Text></TouchableOpacity>
             </View>
             <TouchableOpacity style={s.primary} disabled={busyId===detail?.profile?.id} onPress={()=>void saveProfile()}><Text style={s.buttonText}>{busyId===detail?.profile?.id ? "جارٍ الحفظ..." : "حفظ التعديلات"}</Text></TouchableOpacity>
-            </>}\n            <Info label="الاسم" value={detail?.profile?.full_name}/>
+            </>}
+            <Info label="الاسم" value={detail?.profile?.full_name}/>
 
             <Info label="الهاتف" value={detail?.profile?.phone}/>
             <Info label="البريد" value={detail?.profile?.email}/>
