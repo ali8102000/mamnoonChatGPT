@@ -33,7 +33,7 @@ export function showContactOptions(rawPhone: string): void {
     return;
   }
 
-  const digits = normalized.replace(/\\D/g, "");
+  const digits = normalized.slice(1);
   const whatsappUrl = `https://wa.me/${digits}`;
   const phoneUrl = `tel:${normalized}`;
 
