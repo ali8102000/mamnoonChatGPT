@@ -112,7 +112,7 @@ export default function StaffHierarchyScreen() {
           {!!person.phone && <Text style={s.note}>{person.phone}</Text>}
         </View>
         {person.rank !== "owner" && <View style={s.actions}>
-          <TouchableOpacity disabled={!!busy} onPress={() => void promote(person.user_id)} style={s.button}><Text style={s.buttonText}>{busy === person.user_id ? "..." : "ترقية"}</Text></TouchableOpacity>
+          {!["owner", "general_manager"].includes(person.rank) && <TouchableOpacity disabled={!!busy} onPress={() => void promote(person.user_id)} style={s.button}><Text style={s.buttonText}>{busy === person.user_id ? "..." : "ترقية"}</Text></TouchableOpacity>}
           {superAdmin && <TouchableOpacity disabled={!!busy} onPress={() => deactivate(person.user_id)} style={s.removeButton}><Text style={s.removeText}>إزالة</Text></TouchableOpacity>}
         </View>}
       </View>)}
