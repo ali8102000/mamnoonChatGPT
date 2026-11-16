@@ -485,7 +485,17 @@ function NewRequest() {
         if (couponCheckError) throw couponCheckError;
         if (!couponData || !couponData.length) throw new Error("الكوبون غير متاح لهذا الطلب");
       }
-      const { data, error } = await supabase
+      let data: any;
+      let error: any;
+      if (type === "taxi" && vehicle !== "large") {
+        const { data: secureTaxi, error: secureTaxiError } = await supabase.functions.invoke("auto-taxi-pricing", {
+          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
+        });
+        if (secureTaxiError) throw secureTaxiError;
+        if (!secureTaxi?.requestId) throw new Error(secureTaxi?.error || "تعذّر إنشاء طلب التاكسي.");
+        data = { id: secureTaxi.requestId, coupon_discount: secureTaxi.couponDiscount ?? 0, customer_payable: secureTaxi.customerPayable };
+      } else {
+      const inserted = await supabase
         .from("service_requests")
         .insert({
           customer_id: session.user.id,
@@ -532,7 +542,11 @@ function NewRequest() {
         } as any)
         .select("id,coupon_discount,customer_payable")
         .single();
+      data = inserted.data;
+      error = inserted.error;
 
+
+      }
       if (error) throw error;
       if (attachmentFile) {
         const extension = attachmentFile.type === "image/png" ? "png" : attachmentFile.type === "image/webp" ? "webp" : "jpg";
