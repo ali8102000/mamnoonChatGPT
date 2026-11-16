@@ -161,6 +161,7 @@ export default function NewRequest() {
         setMapMode("pickup");
         setDestinationCoords(null);
         setDestination("");
+        setDestinationConfirmed(false);
         setRouteKm(null);
         setRouteDurationMin(null);
         setRouteError(null);
@@ -431,6 +432,7 @@ export default function NewRequest() {
       const address = formatAddress(await Location.reverseGeocodeAsync(coords));
       setPickup(address || "موقع محدد على الخريطة");
       setMapMode("pickup");
+      setDestinationConfirmed(false);
       setPlaceQuery("");
       setPlaceSuggestions([]);
     } catch {
@@ -460,6 +462,7 @@ export default function NewRequest() {
         }
       }
       const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
+      setDestinationConfirmed(false);
       if (mapMode === "pickup") {
         setPickupCoords(coords);
         setPickup(address || "موقع محدد على الخريطة");
@@ -473,6 +476,7 @@ export default function NewRequest() {
   function chooseGovernorate(key: string) {
     const governorate = getMobileGovernorate(key);
     if (!governorate) return;
+    setDestinationConfirmed(false);
     if (mapMode === "pickup") setPickupGovernorateKey(key);
     else setDestinationGovernorateKey(key);
     setPlaceQuery("");
@@ -547,6 +551,7 @@ export default function NewRequest() {
     }
     const coords = { latitude: item.coords.lat, longitude: item.coords.lng };
     const label = item.address || item.text;
+    setDestinationConfirmed(false);
     if (mapMode === "pickup") {
       setPickupCoords(coords);
       setPickup(label);
@@ -559,6 +564,43 @@ export default function NewRequest() {
     setPlaceSuggestions([]);
   }
 
+  async function confirmPickupStep() {
+    if (!pickupCoords) {
+      Alert.alert("حدد موقع الانطلاق", "حرّك الخريطة إلى موقعك أو استخدم البحث عن مكان.");
+      return;
+    }
+    try {
+      const governorateKey = await resolveGovernorate(pickupCoords);
+      setPickupGovernorateKey(governorateKey);
+      if (isLargeVehicle) {
+        setDestinationConfirmed(true);
+        return;
+      }
+      setMapMode("destination");
+      setDestinationConfirmed(false);
+      setDestinationCoords(null);
+      setDestination("");
+      setDestinationGovernorateKey(null);
+      setRouteKm(null);
+      setRouteDurationMin(null);
+      setRouteError(null);
+    } catch (error) {
+      Alert.alert("الموقع غير صالح", error instanceof Error ? error.message : "اختر موقعاً داخل العراق.");
+    }
+  }
+
+  function confirmDestinationStep() {
+    if (!destinationCoords) {
+      Alert.alert("حدد الوجهة", "حرّك الخريطة إلى مكان الوصول أو ابحث عن الوجهة.");
+      return;
+    }
+    if (routeLoading || routeKm === null || routeError || !pickupGovernorateKey || !destinationGovernorateKey) {
+      Alert.alert("انتظر تأكيد الطريق", routeError || "نحسب مسافة الطريق ونحدد المحافظتين بدقة.");
+      return;
+    }
+    setDestinationConfirmed(true);
+  }
+
   async function submit() {
     if (!user) {
       Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول قبل إرسال الطلب.");
@@ -566,6 +608,14 @@ export default function NewRequest() {
     }
     if (!pickupCoords) {
       Alert.alert("حدد موقع الانطلاق", "اختر موقعك من الخريطة أو استخدم تحديد موقعي.");
+      return;
+    }
+    if (isTaxi && isLargeVehicle && !destinationConfirmed) {
+      Alert.alert("أكد موقع الانطلاق", "اضغط تأكيد الانطلاق قبل إرسال طلب السيارة الكبيرة.");
+      return;
+    }
+    if (isTaxi && !isLargeVehicle && !destinationConfirmed) {
+      Alert.alert("أكد الوجهة", "اضغط تأكيد الوجهة بعد اكتمال حساب المسافة والسعر.");
       return;
     }
     if (isTaxi && !isLargeVehicle && !destinationCoords) {
