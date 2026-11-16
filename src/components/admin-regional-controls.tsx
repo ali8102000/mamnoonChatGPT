@@ -11,6 +11,8 @@ type ControlRow = {
   message_title: string;
   message_text: string;
   message_animate: boolean;
+  rejection_message: string;
+  message_image_url: string;
   updated_at?: string;
 };
 
@@ -20,6 +22,8 @@ const EMPTY: Omit<ControlRow, "governorate_key"> = {
   message_title: "تنويه رسمي من إدارة ممنون",
   message_text: "",
   message_animate: true,
+  rejection_message: "الخدمة متوقفة مؤقتاً في منطقتك. نعتذر عن ذلك، وسيتم إعلامك عند عودة الخدمة.",
+  message_image_url: "",
 };
 
 export default function RegionalControlsSection() {
@@ -49,6 +53,8 @@ export default function RegionalControlsSection() {
         message_title: global.message_title,
         message_text: global.message_text,
         message_animate: global.message_animate,
+        rejection_message: global.rejection_message || EMPTY.rejection_message,
+        message_image_url: global.message_image_url || "",
       });
     }
     setLoading(false);
@@ -70,8 +76,23 @@ export default function RegionalControlsSection() {
       message_title: row.message_title,
       message_text: row.message_text,
       message_animate: row.message_animate,
+      rejection_message: row.rejection_message || EMPTY.rejection_message,
+      message_image_url: row.message_image_url || "",
     } : { ...EMPTY });
     setSaved(false);
+  }
+
+  async function toggleAndSave(field: "services_enabled" | "message_enabled") {
+    if (!targetKeys.length) { toast.error("اختَر محافظة واحدة على الأقل."); return; }
+    const next = { ...settings, [field]: !settings[field] };
+    setSettings(next);
+    setSaved(false);
+    const { error } = await (supabase as any).from("regional_service_controls").upsert(
+      targetKeys.map((governorate_key) => ({ governorate_key, ...next, updated_at: new Date().toISOString() })),
+      { onConflict: "governorate_key" },
+    );
+    if (error) { setSettings(settings); toast.error("تعذّر تطبيق الحالة: " + error.message); }
+    else { setRows((current) => [...current.filter((r) => !targetKeys.includes(r.governorate_key)), ...targetKeys.map((governorate_key) => ({ governorate_key, ...next }))]); toast.success(field === "services_enabled" ? (next.services_enabled ? "الخدمات مفعّلة" : "الخدمات متوقفة") : (next.message_enabled ? "الرسائل مفعّلة" : "الرسائل متوقفة")); }
   }
 
   async function save() {
@@ -164,12 +185,12 @@ export default function RegionalControlsSection() {
           <div className="rounded-xl border border-border p-3">
             <div className="flex items-center justify-between gap-2"><span className="text-sm font-black">الخدمات في النطاق</span>{settings.services_enabled ? <ToggleRight className="text-emerald-500" /> : <ToggleLeft className="text-rose-500" />}</div>
             <p className="text-[11px] text-muted-foreground mt-1">{settings.services_enabled ? "الخدمات تعمل ويمكن إنشاء طلبات جديدة." : "الخدمات متوقفة ولن تُقبل طلبات جديدة أو عروض في هذا النطاق."}</p>
-            <button onClick={() => setSettings((s) => ({ ...s, services_enabled: !s.services_enabled }))} className={`mt-3 w-full rounded-xl py-2 text-xs font-black ${settings.services_enabled ? "bg-rose-500/10 text-rose-600" : "bg-emerald-500/10 text-emerald-600"}`}>{settings.services_enabled ? "الخدمات تعمل" : "الخدمات متوقفة"}</button>
+            <button onClick={() => void toggleAndSave("services_enabled")} className={`mt-3 w-full rounded-xl py-2 text-xs font-black ${settings.services_enabled ? "bg-rose-500/10 text-rose-600" : "bg-emerald-500/10 text-emerald-600"}`}>{settings.services_enabled ? "الخدمات مفعّلة" : "الخدمات متوقفة"}</button>
           </div>
           <div className="rounded-xl border border-border p-3">
             <div className="flex items-center justify-between gap-2"><span className="text-sm font-black">الرسالة الرسمية</span>{settings.message_enabled ? <BellRing className="text-amber-500" /> : <BellRing className="text-muted-foreground" />}</div>
             <p className="text-[11px] text-muted-foreground mt-1">{settings.message_enabled ? "الرسالة تظهر للمستخدمين في النطاق المحدد." : "الرسالة متوقفة بشكل مستقل عن الخدمات."}</p>
-            <button onClick={() => setSettings((s) => ({ ...s, message_enabled: !s.message_enabled }))} className={`mt-3 w-full rounded-xl py-2 text-xs font-black ${settings.message_enabled ? "bg-rose-500/10 text-rose-600" : "bg-amber-500/10 text-amber-700"}`}>{settings.message_enabled ? "الرسالة فعّالة" : "الرسائل متوقفة"}</button>
+            <button onClick={() => void toggleAndSave("message_enabled")} className={`mt-3 w-full rounded-xl py-2 text-xs font-black ${settings.message_enabled ? "bg-rose-500/10 text-rose-600" : "bg-amber-500/10 text-amber-700"}`}>{settings.message_enabled ? "الرسائل مفعّلة" : "الرسائل متوقفة"}</button>
           </div>
         </div>
 
@@ -178,6 +199,10 @@ export default function RegionalControlsSection() {
           <input value={settings.message_title} onChange={(e) => setSettings((s) => ({ ...s, message_title: e.target.value }))} maxLength={100} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
           <label className="block text-xs font-bold">نص الرسالة المتحركة</label>
           <textarea value={settings.message_text} onChange={(e) => setSettings((s) => ({ ...s, message_text: e.target.value }))} maxLength={1200} rows={3} placeholder="اكتب التنويه الذي تريد إظهاره للمستخدمين..." className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+          <label className="block text-xs font-bold">الرسالة التي تظهر عند رفض الطلب</label>
+          <textarea value={settings.rejection_message} onChange={(e) => setSettings((s) => ({ ...s, rejection_message: e.target.value }))} maxLength={1000} rows={3} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" placeholder="اكتب سبب الرفض الذي سيظهر للعميل..." />
+          <label className="block text-xs font-bold">رابط صورة اختيارية للتنويه</label>
+          <input value={settings.message_image_url} onChange={(e) => setSettings((s) => ({ ...s, message_image_url: e.target.value }))} type="url" placeholder="https://..." className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
           <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={settings.message_animate} onChange={(e) => setSettings((s) => ({ ...s, message_animate: e.target.checked }))} /> تحريك الرسالة بشكل مستمر</label>
         </div>
 
@@ -188,7 +213,8 @@ export default function RegionalControlsSection() {
           </div>
           <div className="text-sm font-black mt-3 bg-gradient-to-l from-yellow-200 via-amber-400 to-yellow-700 bg-clip-text text-transparent">{settings.message_title || "تنويه رسمي من إدارة ممنون"}</div>
           <div className="mt-2 text-xs leading-6 text-amber-100 whitespace-pre-wrap">{settings.message_text || "ستظهر رسالتك هنا بعد كتابتها..."}</div>
-          <div className="mt-3 text-[9px] text-amber-500/80">MAMNOON · OFFICIAL ADMIN NOTICE</div>
+          {settings.message_image_url && <img src={settings.message_image_url} alt="صورة التنويه" className="mt-3 max-h-44 w-full rounded-xl object-contain" />}
+          <div className="mt-3 text-[9px] text-amber-500/80">إدارة ممنون · الحساب الرسمي الموثّق</div>
         </div>
 
         <div className="flex flex-wrap gap-2">
