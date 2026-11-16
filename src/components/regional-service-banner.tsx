@@ -11,13 +11,15 @@ export function RegionalServiceBanner() {
     let active = true;
     const load = async () => {
       let key = "";
-      if (navigator.geolocation && navigator.permissions) {
-        const permission = await navigator.permissions.query({ name: "geolocation" }).catch(() => null);
-        const position = permission?.state === "granted"
-          ? await new Promise<GeolocationPosition | null>((resolve) =>
-              navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: false, timeout: 4500, maximumAge: 300000 }),
-            )
-          : null;
+      try { key = localStorage.getItem(GOV_STORAGE_KEY) || ""; } catch {}
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition | null>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            () => resolve(null),
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
+          );
+        });
         if (position) {
           const { data } = await supabase.auth.getSession();
           if (data.session?.access_token) {
@@ -27,26 +29,35 @@ export function RegionalServiceBanner() {
               body: JSON.stringify({ action: "detectGovernorate", center: { lat: position.coords.latitude, lng: position.coords.longitude } }),
             }).catch(() => null);
             const result = response?.ok ? await response.json().catch(() => null) : null;
-            key = result?.key || "";
-            if (key) { try { localStorage.setItem(GOV_STORAGE_KEY, key); } catch {} }
+            if (result?.key) {
+              key = result.key;
+              try { localStorage.setItem(GOV_STORAGE_KEY, key); } catch {}
+            }
           }
         }
       }
-      if (!key) { try { key = localStorage.getItem(GOV_STORAGE_KEY) || ""; } catch {} }
       if (!active || !key) return;
-      const { data } = await (supabase as any).from("regional_service_controls").select("*").in("governorate_key", [key, "all"]);
+      const { data, error } = await (supabase as any)
+        .from("regional_service_controls")
+        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate")
+        .in("governorate_key", [key, "all"]);
       if (!active) return;
+      if (error) { console.warn("[regional controls] load failed", error); return; }
       const exact = (data ?? []).find((item: Row) => item.governorate_key === key);
       const global = (data ?? []).find((item: Row) => item.governorate_key === "all");
-      const notice = exact || global;
+      const base = exact || global;
+      if (!base) { setRow(null); return; }
       const services_enabled = global?.services_enabled === false
         ? false
         : exact?.services_enabled ?? global?.services_enabled ?? true;
-      setRow(notice ? { ...notice, services_enabled } as Row : null);
+      setRow({ ...base, services_enabled });
     };
     void load();
-    const timer = setInterval(() => void load(), 60000);
-    return () => { active = false; clearInterval(timer); };
+    const channel = supabase.channel("regional-service-controls-web")
+      .on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls" }, () => { void load(); })
+      .subscribe();
+    const timer = setInterval(() => void load(), 30000);
+    return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
   }, []);
   if (!row || (row.services_enabled && !row.message_enabled)) return null;
   const text = row.message_text || (row.services_enabled ? "" : "الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون.");
