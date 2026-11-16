@@ -331,6 +331,7 @@ export function IncomingRequestModal() {
               <Text style={styles.detailValue}>{request?.vehicle_type === "kia_passenger" ? "كيا ركاب" : request?.vehicle_type === "bus" ? "باص" : "كيا حمل"}</Text>
               <Text style={styles.detailLabel}>ميزانية الزبون</Text>
               <Text style={styles.detailValue}>{amount != null ? `${Number(amount).toLocaleString("en")} د.ع` : "بانتظار عروض الأسعار"}</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, marginTop: 8 }}>السعر يتقرب تلقائياً لأقرب 250 دينار</Text>
               <TextInput
                 value={largeOfferPrice}
                 onChangeText={(value) => setLargeOfferPrice(value.replace(/[^0-9]/g, ""))}
