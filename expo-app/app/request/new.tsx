@@ -152,10 +152,9 @@ export default function NewRequest() {
     : null;
 
   function getCouponBaseAmount() {
-    if (isTaxi) {
-      if (isLargeVehicle) return customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;
-      return estimatedTaxiFare;
-    }
+    if (!isTaxi || isLargeVehicle) return null;
+    return estimatedTaxiFare;
+    /* service and large-vehicle requests are not coupon-eligible */
     if (pricingMode === "negotiable") return null;
     const amount = Number(customerPrice.replace(/[^0-9]/g, ""));
     return Number.isFinite(amount) && amount > 0 ? amount : null;
@@ -561,7 +560,7 @@ export default function NewRequest() {
 
     setBusy(true);
     try {
-      if (couponCode.trim()) {
+      if (isTaxi && !isLargeVehicle && couponCode.trim()) {
         const amount = getCouponBaseAmount();
         if (!amount || amount <= 0) throw new Error("حدد سعر الطلب أولاً حتى نطبق الكوبون");
         const { data: couponData, error: couponCheckError } = await supabase.rpc("preview_my_coupon", {
@@ -579,7 +578,7 @@ export default function NewRequest() {
           .from("service_requests")
           .insert({
             customer_id: user.id,
-            coupon_code: couponCode.trim().toUpperCase() || null,
+            coupon_code: null,
             type: "taxi",
             status: "pending",
             vehicle_category: "large",
