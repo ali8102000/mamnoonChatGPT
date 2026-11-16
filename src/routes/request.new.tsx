@@ -471,16 +471,9 @@ function NewRequest() {
     setBusy(true);
     try {
       if (type === "taxi" && vehicle !== "large") {
-        const freshRoute = await runLookup({ data: { action: "route", from: { lat: pickupCoords.lat, lng: pickupCoords.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng } } }) as { distanceKm: number; durationMin: number };
-        const freshDistanceKm = Number(freshRoute.distanceKm);
-        if (!Number.isFinite(freshDistanceKm) || freshDistanceKm <= 0) throw new Error("لم يتم تأكيد مسافة طريق صالحة. أعد تحديد الوجهة.");
-        if (routeKm !== null && Math.abs(freshDistanceKm - routeKm) > 0.05) {
-          setRouteKm(freshDistanceKm);
-          toast.error("تحدّثت مسافة الطريق بعد المراجعة. راجع السعر الجديد واضغط إرسال الطلب مرة ثانية.");
-          return;
-        }
-        verifiedRouteKm = freshDistanceKm;
-        priceEstimate = taxiFare(vehicleCategory, freshDistanceKm, { weather: "mild" as const, roadCondition, demandMultiplier: 1, isIntercity: interCity, tripType, extraMinutes });
+        if (routeKm === null || routeDurationMin === null || serverTaxiFare === null) throw new Error("لم يصل تسعير موثوق من الخادم. أعد تحديد الوجهة وحاول مرة ثانية.");
+        verifiedRouteKm = routeKm;
+        priceEstimate = serverTaxiFare;
       }
       if (type === "taxi" && vehicle !== "large" && couponCode.trim()) {
         const amount = priceEstimate;
