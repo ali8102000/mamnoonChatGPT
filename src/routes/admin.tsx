@@ -32,6 +32,7 @@ import {
   adminCouponSubsidyReport,
   adminCouponAudienceCount,
   adminBroadcastNotification,
+  adminBroadcastGovernorateNotification,
   adminCancelRequest,
   adminDeleteCoupon,
   adminDistributeCoupon,
@@ -2524,20 +2525,29 @@ function NotificationsSection() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [userId, setUserId] = useState("");
+  const [governorateKey, setGovernorateKey] = useState("najaf");
   const [sending, setSending] = useState(false);
   const [sentCount, setSentCount] = useState<number | null>(null);
   const broadcast = useServerFn(adminBroadcastNotification);
+  const broadcastGovernorate = useServerFn(adminBroadcastGovernorateNotification);
   async function handleSend() {
+    if (!title.trim() || !body.trim()) { toast.error("اكتب عنوان الإشعار ونصه أولاً"); return; }
+    if (target === "single" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId.trim())) {
+      toast.error("أدخل UUID صحيحاً للمستخدم المستهدف"); return;
+    }
     setSending(true);
+    setSentCount(null);
     try {
-      const r = await broadcast({
-        data: { target, title, body, user_id: target === "single" ? userId : undefined },
-      });
+      const r = target === "governorate"
+        ? await broadcastGovernorate({ data: { governorate_key: governorateKey as any, title: title.trim(), body: body.trim() } })
+        : await broadcast({ data: { target, title: title.trim(), body: body.trim(), user_id: target === "single" ? userId.trim() : undefined } });
       setSentCount(r.sent);
+      toast.success(`تم حفظ وإرسال الإشعار إلى ${r.sent.toLocaleString("ar-IQ")} مستخدم`);
       setTitle("");
       setBody("");
       setUserId("");
-    } catch (e) {
+    } catch (e: any) {
+      toast.error(e?.message || "تعذّر إرسال الإشعار. راجع صلاحيات الإدارة واتصال الخدمة.");
     } finally {
       setSending(false);
     }
@@ -2561,9 +2571,17 @@ function NotificationsSection() {
             <option value="all">جميع المستخدمين</option>
             <option value="drivers">السائقون فقط</option>
             <option value="workers">الفنيون فقط</option>
+            <option value="large_drivers">سائقو السيارات الكبيرة</option>
+            <option value="customers">الزبائن فقط</option>
+            <option value="governorate">محافظة محددة</option>
             <option value="single">مستخدم محدد</option>
           </select>
         </div>
+        {target === "governorate" && (
+          <select value={governorateKey} onChange={(e) => setGovernorateKey(e.target.value)} className="w-full glass rounded-xl px-4 py-2.5 text-sm">
+            {Object.entries(GOVERNORATE_LABELS).filter(([key]) => key !== "unknown").map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+        )}
         {target === "single" && (
           <input
             value={userId}
