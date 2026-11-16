@@ -22,7 +22,8 @@ const ITEMS = [
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "المدير الأعلى", admin: "مدير", support: "الدعم",
-  finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء",\n  "rank:owner": "الرئيس المؤسس الأعلى", "rank:general_manager": "مدير عام", "rank:department_manager": "مدير قسم", "rank:supervisor": "مشرف", "rank:employee": "موظف",
+  finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء",
+  "rank:owner": "الرئيس المؤسس الأعلى", "rank:general_manager": "مدير عام", "rank:department_manager": "مدير قسم", "rank:supervisor": "مشرف", "rank:employee": "موظف",
 };
 
 export default function AdminStaffScreen() {
@@ -42,6 +43,8 @@ export default function AdminStaffScreen() {
         setRoles(names);
         const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,rank,department").eq("user_id", user.id).eq("active", true).maybeSingle();
         setDisplayTitle(assignment?.display_title ?? null);
+        if (assignment?.rank) names.push(`rank:${assignment.rank}`);
+        setRoles(names);
         setAllowed(!error && names.some((role: string) => Object.prototype.hasOwnProperty.call(ROLE_LABELS, role)));
       } catch {
         setAllowed(false);
