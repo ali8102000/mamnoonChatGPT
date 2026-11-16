@@ -164,12 +164,12 @@ export default function RegionalControlsSection() {
           <div className="rounded-xl border border-border p-3">
             <div className="flex items-center justify-between gap-2"><span className="text-sm font-black">الخدمات في النطاق</span>{settings.services_enabled ? <ToggleRight className="text-emerald-500" /> : <ToggleLeft className="text-rose-500" />}</div>
             <p className="text-[11px] text-muted-foreground mt-1">{settings.services_enabled ? "الخدمات تعمل ويمكن إنشاء طلبات جديدة." : "الخدمات متوقفة ولن تُقبل طلبات جديدة أو عروض في هذا النطاق."}</p>
-            <button onClick={() => setSettings((s) => ({ ...s, services_enabled: !s.services_enabled }))} className={`mt-3 w-full rounded-xl py-2 text-xs font-black ${settings.services_enabled ? "bg-rose-500/10 text-rose-600" : "bg-emerald-500/10 text-emerald-600"}`}>{settings.services_enabled ? "إيقاف الخدمات" : "تشغيل الخدمات"}</button>
+            <button onClick={() => setSettings((s) => ({ ...s, services_enabled: !s.services_enabled }))} className={`mt-3 w-full rounded-xl py-2 text-xs font-black ${settings.services_enabled ? "bg-rose-500/10 text-rose-600" : "bg-emerald-500/10 text-emerald-600"}`}>{settings.services_enabled ? "الخدمات تعمل" : "الخدمات متوقفة"}</button>
           </div>
           <div className="rounded-xl border border-border p-3">
             <div className="flex items-center justify-between gap-2"><span className="text-sm font-black">الرسالة الرسمية</span>{settings.message_enabled ? <BellRing className="text-amber-500" /> : <BellRing className="text-muted-foreground" />}</div>
             <p className="text-[11px] text-muted-foreground mt-1">{settings.message_enabled ? "الرسالة تظهر للمستخدمين في النطاق المحدد." : "الرسالة متوقفة بشكل مستقل عن الخدمات."}</p>
-            <button onClick={() => setSettings((s) => ({ ...s, message_enabled: !s.message_enabled }))} className={`mt-3 w-full rounded-xl py-2 text-xs font-black ${settings.message_enabled ? "bg-rose-500/10 text-rose-600" : "bg-amber-500/10 text-amber-700"}`}>{settings.message_enabled ? "إيقاف الرسالة فقط" : "تشغيل الرسالة فقط"}</button>
+            <button onClick={() => setSettings((s) => ({ ...s, message_enabled: !s.message_enabled }))} className={`mt-3 w-full rounded-xl py-2 text-xs font-black ${settings.message_enabled ? "bg-rose-500/10 text-rose-600" : "bg-amber-500/10 text-amber-700"}`}>{settings.message_enabled ? "الرسالة فعّالة" : "الرسائل متوقفة"}</button>
           </div>
         </div>
 
