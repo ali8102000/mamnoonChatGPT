@@ -74,7 +74,7 @@ export function RegionalServiceBanner() {
     <View style={styles.wrap}>
       <LinearGradient colors={["#050505", "#17120A", "#050505"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.card}>
         <View style={styles.head}><Text style={styles.title}>{row.message_title || "تنويه رسمي من إدارة ممنون"}</Text><View style={styles.stamp}><Text style={styles.stampText}>✓ إدارة ممنون · الحساب الرسمي الموثّق</Text></View></View>
-        {!!row.message_image_url && <Image source={{ uri: row.message_image_url }} style={styles.noticeImage} resizeMode="contain" />}
+        {!!row.message_enabled && !!row.message_image_url && <Image source={{ uri: row.message_image_url }} style={styles.noticeImage} resizeMode="contain" />}
         <View style={styles.marquee} onLayout={(event) => setMarqueeWidth(event.nativeEvent.layout.width)}>
           {row.message_animate ? <>
             <Animated.Text numberOfLines={1} onLayout={(event) => setTextWidth(event.nativeEvent.layout.width)} style={[styles.message, { transform: [{ translateX: translate.interpolate({ inputRange: [0, 1], outputRange: [marqueeWidth, -textWidth] }) }] }]}>{text}</Animated.Text>
