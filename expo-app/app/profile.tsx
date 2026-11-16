@@ -19,13 +19,15 @@ export default function ProfileScreen() {
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [walletOffline, setWalletOffline] = useState(false);
-  const [isGeneralManager, setIsGeneralManager] = useState(false);
+  const [staffRank, setStaffRank] = useState<string | null>(null);
+  const isGeneralManager = staffRank === "general_manager";
+  const hasStaffRank = ["general_manager", "department_manager", "supervisor"].includes(staffRank ?? "");
 
   useEffect(() => {
     let active = true;
     async function loadStaffRank() {
       if (!user?.id) {
-        setIsGeneralManager(false);
+        setStaffRank(null);
         return;
       }
       const { data, error } = await (supabase as any)
@@ -34,7 +36,7 @@ export default function ProfileScreen() {
         .eq("user_id", user.id)
         .eq("active", true)
         .maybeSingle();
-      if (active) setIsGeneralManager(!error && data?.rank === "general_manager");
+      if (active) setStaffRank(!error && data?.rank ? String(data.rank) : null);
     }
     void loadStaffRank();
     return () => { active = false; };
@@ -239,7 +241,7 @@ export default function ProfileScreen() {
         <Text style={styles.menuItemText}>تبديل الدور وإعدادات الحساب</Text>
         <Text style={styles.menuArrow}>←</Text>
       </TouchableOpacity>
-      {roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)) && (
+      {roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)) || hasStaffRank ? (
         <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/admin/staff" as any)}>
           <Text style={styles.menuItemText}>مركز إدارة ممنون</Text>
           <Text style={styles.menuArrow}>←</Text>
