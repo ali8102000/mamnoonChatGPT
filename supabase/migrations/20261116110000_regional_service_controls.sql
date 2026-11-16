@@ -204,12 +204,12 @@ begin
   delete from public.service_dispatch_queue q
    using public.service_requests sr
    where sr.id = q.request_id
-     and not public.regional_services_enabled(sr.governorate_key);
+     and not public.regional_services_enabled(coalesce(sr.governorate_key, public.infer_governorate_key(sr.pickup_lat, sr.pickup_lng)));
 
   delete from public.taxi_dispatch_queue q
    using public.service_requests sr
    where sr.id = q.request_id
-     and not public.regional_services_enabled(sr.governorate_key);
+     and not public.regional_services_enabled(coalesce(sr.governorate_key, public.infer_governorate_key(sr.pickup_lat, sr.pickup_lng)));
 
   return null;
 end;
