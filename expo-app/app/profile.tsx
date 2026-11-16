@@ -19,6 +19,28 @@ export default function ProfileScreen() {
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [walletOffline, setWalletOffline] = useState(false);
+  const [staffRank, setStaffRank] = useState<string | null>(null);
+  const isGeneralManager = staffRank === "general_manager";
+  const hasStaffRank = ["general_manager", "department_manager", "supervisor"].includes(staffRank ?? "");
+
+  useEffect(() => {
+    let active = true;
+    async function loadStaffRank() {
+      if (!user?.id) {
+        setStaffRank(null);
+        return;
+      }
+      const { data, error } = await (supabase as any)
+        .from("staff_assignments")
+        .select("rank")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .maybeSingle();
+      if (active) setStaffRank(!error && data?.rank ? String(data.rank) : null);
+    }
+    void loadStaffRank();
+    return () => { active = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -219,9 +241,15 @@ export default function ProfileScreen() {
         <Text style={styles.menuItemText}>تبديل الدور وإعدادات الحساب</Text>
         <Text style={styles.menuArrow}>←</Text>
       </TouchableOpacity>
-      {roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)) && (
+      {(roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)) || hasStaffRank) && (
         <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/admin/staff" as any)}>
           <Text style={styles.menuItemText}>مركز إدارة ممنون</Text>
+          <Text style={styles.menuArrow}>←</Text>
+        </TouchableOpacity>
+      )}
+      {isGeneralManager && (
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/support-chat" as any)}>
+          <Text style={styles.menuItemText}>متابعة الشكاوى ومراسلات ممنون</Text>
           <Text style={styles.menuArrow}>←</Text>
         </TouchableOpacity>
       )}
