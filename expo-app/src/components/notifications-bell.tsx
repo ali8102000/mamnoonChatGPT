@@ -5,7 +5,7 @@ import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
-import { getNotificationChannelId, isNotificationSoundEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
+import { getNotificationChannelId, isNotificationSoundEnabled, isNotificationVibrationEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 
 const IMPORTANT_NOTIFICATION_TYPES = /^(support_message|provider_approved|provider_rejected|provider_suspended|coupon_received|coupon_redeemed|announcement|company_announcement|admin_alert|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted|subscription_admin_updated|subscription_extended)$/i;
 
@@ -89,13 +89,13 @@ export function NotificationsBell() {
               title: item.title,
               body: item.body ?? undefined,
               sound: isNotificationSoundEnabled() ? "default" : false,
-              vibrate: vibrationEnabled ? [0, 250, 180, 250, 180, 350] : [],
+              vibrate: isNotificationVibrationEnabled() ? [0, 250, 180, 250, 180, 350] : [],
               data: { url: item.link ?? "/home" },
             },
             trigger: {
               type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
               seconds: 1,
-              channelId: getNotificationChannelId(soundEnabled, vibrationEnabled),
+              channelId: getNotificationChannelId(),
             },
           }).catch((error) => console.warn("[notifications] local sound alert failed:", error));
         }
