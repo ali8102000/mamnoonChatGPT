@@ -280,7 +280,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.canvas, paddingHorizontal: space.xl, paddingTop: 54 },
+  container: { flex: 1, backgroundColor: palette.pageCanvas, paddingHorizontal: space.xl, paddingTop: 54 },
   header: { alignItems: "center", marginBottom: 20, backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.xl, borderWidth: 1, borderColor: palette.line },
   avatar: { width: 84, height: 84, borderRadius: 28, backgroundColor: palette.brand, borderWidth: 1, borderColor: palette.gold, alignItems: "center", justifyContent: "center", marginBottom: 12, overflow: "hidden" },
   avatarText: { fontSize: 32, fontWeight: "900", color: palette.white },
