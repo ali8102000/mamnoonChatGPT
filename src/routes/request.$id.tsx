@@ -34,6 +34,7 @@ import { ReputationBadge } from "@/components/reputation";
 import { isSoundEnabled, playMessageSound, setSoundEnabled } from "@/lib/click-sound";
 import { NavigationAppModal } from "@/components/navigation-app-modal";
 import { Button } from "@/components/ui/button";
+import { ContactOptions } from "@/components/contact-options";
 
 const VEHICLE_CAT_META: Record<string, { label: string; emoji: string; gradient: string }> = {
   economy: { label: "ممنون اقتصادي", emoji: "🚗", gradient: "from-emerald-400 to-teal-500" },
@@ -438,12 +439,7 @@ function RequestDetail() {
             </div>
           </div>
           {other && (
-            <a
-              href={`tel:${other.phone}`}
-              className="glass h-11 w-11 rounded-2xl grid place-items-center btn-press"
-            >
-              <Phone className="h-5 w-5 text-primary" />
-            </a>
+            <ContactOptions phone={other.phone} className="glass h-11 w-11 rounded-2xl grid place-items-center btn-press text-primary" label="" />
           )}
         </div>
       </div>
@@ -622,7 +618,7 @@ function RequestDetail() {
                 <div className="font-black text-sm truncate">{other.full_name || "مستخدم"}</div>
                 <div className="text-xs text-muted-foreground mt-0.5" dir="ltr">{other.phone}</div>
                 <div className="flex items-center gap-2 mt-2">
-                  {!!other.phone && <a href={`tel:${other.phone}`} className="rounded-xl bg-primary/10 text-primary px-3 py-1.5 text-[11px] font-black">اتصال</a>}
+                  {!!other.phone && <ContactOptions phone={other.phone} label="اتصال / واتساب" />}
                   {chat && !["completed", "cancelled"].includes(req.status as string) && <button type="button" onClick={() => setShowChat(true)} className="rounded-xl bg-primary/10 text-primary px-3 py-1.5 text-[11px] font-black">المحادثة{messages.length ? ` · ${messages.length}` : ""}</button>}
                 </div>
                 {otherBadges.length > 0 && req.type !== "taxi" && (
@@ -745,7 +741,7 @@ function RequestDetail() {
               <div className="font-black text-sm truncate">{other?.full_name || "المستخدم"}</div>
               <div className="text-[10px] text-muted-foreground">المحادثة المباشرة</div>
             </div>
-            {other?.phone && <a href={`tel:${other.phone}`} className="h-10 rounded-xl bg-primary px-3 grid place-items-center text-xs font-black text-primary-foreground">اتصال</a>}
+            {other?.phone && <ContactOptions phone={other.phone} label="اتصال / واتساب" className="h-10 rounded-xl bg-primary px-3 grid place-items-center text-xs font-black text-primary-foreground" />}
             <button type="button" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); setSoundEnabledState(next); toast.success(next ? "تم تفعيل صوت الإشعارات" : "تم إيقاف صوت الإشعارات"); }} className="h-10 w-10 rounded-xl border border-border grid place-items-center" title={soundEnabled ? "إيقاف صوت الإشعارات" : "تفعيل صوت الإشعارات"}>{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
           </div>
           <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-2.5">

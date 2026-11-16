@@ -42,7 +42,7 @@ export function NavigationAppModal({
   const coords = current ? { lat: current.lat, lng: current.lng } : null;
   const label = current?.label || (targetType === "pickup" ? "موقع الانطلاق" : "وجهة الوصول");
 
-  function openApp(app: "google" | "waze" | "native") {
+  function openApp(app: "google" | "waze" | "native" | "darbuna") {
     if (!coords) {
       toast.error("إحداثيات الموقع غير متوفرة");
       return;
@@ -65,9 +65,17 @@ export function NavigationAppModal({
         break;
       }
 
+      case "darbuna": {
+        // Darbuna does not expose a verified public deep-link contract.
+        // Try Android's standard geo intent; the device may offer Darbuna if installed.
+        window.location.href = `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(label)})`;
+        toast.success("نحاول فتح الموقع عبر دربونة أو تطبيق الخرائط المتاح 🧭");
+        break;
+      }
+
       case "native": {
         const nativeUrl = `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(label)})`;
-        window.open(nativeUrl, "_blank");
+        window.location.href = nativeUrl;
         toast.success("جاري فتح تطبيق الخرائط الافتراضي 🧭");
         break;
       }
@@ -195,6 +203,20 @@ export function NavigationAppModal({
               <div className="text-[11px] text-muted-foreground mt-0.5">
                 تنبيهات الازدحام اللحظية، الرادارات، والحوادث المرورية
               </div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 opacity-60 group-hover:opacity-100" />
+          </Button>
+
+          {/* Darbuna: standard geo intent; availability depends on installed app handlers */}
+          <Button
+            type="button"
+            onClick={() => openApp("darbuna")}
+            className="w-full p-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-border/70 shadow-sm flex items-center gap-3 text-right btn-press transition-all group"
+          >
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-xl grid place-items-center shadow-md shrink-0">🧭</div>
+            <div className="flex-1 min-w-0">
+              <div className="font-black text-sm text-foreground">دربونة (إذا كان مثبتاً ويدعم الموقع)</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">نرسل الموقع بصيغة الخرائط القياسية؛ قد يفتح دربونة أو يعرض تطبيقات الخرائط المتاحة</div>
             </div>
             <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 opacity-60 group-hover:opacity-100" />
           </Button>
