@@ -11,8 +11,7 @@ export function RegionalServiceBanner() {
     let active = true;
     const load = async () => {
       let key = "";
-      try { key = localStorage.getItem(GOV_STORAGE_KEY) || ""; } catch {}
-      if (!key && navigator.geolocation && navigator.permissions) {
+      if (navigator.geolocation && navigator.permissions) {
         const permission = await navigator.permissions.query({ name: "geolocation" }).catch(() => null);
         const position = permission?.state === "granted"
           ? await new Promise<GeolocationPosition | null>((resolve) =>
@@ -33,6 +32,7 @@ export function RegionalServiceBanner() {
           }
         }
       }
+      if (!key) { try { key = localStorage.getItem(GOV_STORAGE_KEY) || ""; } catch {} }
       if (!active || !key) return;
       const { data } = await (supabase as any).from("regional_service_controls").select("*").in("governorate_key", [key, "all"]);
       if (!active) return;
