@@ -3,6 +3,8 @@ import { router, Stack } from "expo-router";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
+import { Image } from "react-native";
+import { getServiceImage } from "@/lib/service-visuals";
 
 export default function WelcomeScreen() {
   const { session, loading, profile, roles } = useAuth();
@@ -38,6 +40,11 @@ export default function WelcomeScreen() {
           </Text>
         </View>
 
+        <View style={s.welcomeGallery}>
+          <Image source={getServiceImage("build")} style={s.welcomeGalleryImage} resizeMode="cover" />
+          <Image source={getServiceImage("chef")} style={s.welcomeGalleryImage} resizeMode="cover" />
+          <Image source={getServiceImage("electric_setup")} style={s.welcomeGalleryImage} resizeMode="cover" />
+        </View>
         <View style={s.card}>
           <Text style={s.cardTitle}>شنو تكدر تسوي بممنون؟</Text>
           <View style={s.feature}>
@@ -92,6 +99,8 @@ const s = StyleSheet.create({
   brand: { fontSize: 34, fontFamily: "Tajawal_800ExtraBold", fontWeight: "900", color: palette.ink, textAlign: "center", marginTop: 10 },
   title: { fontSize: 23, fontFamily: "Tajawal_800ExtraBold", fontWeight: "900", color: palette.ink, textAlign: "center", marginTop: 18 },
   desc: { fontSize: 15, fontFamily: "Tajawal_500Medium", color: palette.muted, textAlign: "center", lineHeight: 26, marginTop: 8, maxWidth: 340 },
+  welcomeGallery: { flexDirection: "row", gap: 8, marginTop: 22, marginBottom: 2 },
+  welcomeGalleryImage: { flex: 1, height: 82, borderRadius: 15, backgroundColor: palette.surfaceSoft },
   card: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.xl, padding: 17, marginTop: 25, marginBottom: 20 },
   cardTitle: { fontSize: 17, fontFamily: "Tajawal_800ExtraBold", fontWeight: "900", color: palette.ink, textAlign: "right", marginBottom: 13 },
   feature: { flexDirection: "row-reverse", alignItems: "center", paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: palette.line, gap: 12 },
