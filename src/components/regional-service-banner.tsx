@@ -73,7 +73,7 @@ export function RegionalServiceBanner() {
         <span className="text-[10px] font-black tracking-wide bg-gradient-to-l from-yellow-100 via-amber-400 to-yellow-700 bg-clip-text text-transparent">{row.message_title || "تنويه رسمي من إدارة ممنون"}</span>
         <span className="inline-flex items-center gap-1 text-[9px] text-amber-300"><ShieldCheck className="h-3 w-3" /> إدارة ممنون · الحساب الرسمي الموثّق</span>
       </div>
-      {row.message_image_url && <img src={row.message_image_url} alt="صورة تنويه إدارة ممنون" className="mt-3 max-h-48 w-full rounded-xl object-contain" />}
+      {row.message_enabled && row.message_image_url && <img src={row.message_image_url} alt="صورة تنويه إدارة ممنون" className="mt-3 max-h-48 w-full rounded-xl object-contain" />}
       <div className="relative mt-2 overflow-hidden whitespace-nowrap">
         <div className={row.message_animate ? "mamnoon-regional-marquee" : "text-xs leading-6 text-amber-100 whitespace-normal"}>{text}</div>
       </div>
