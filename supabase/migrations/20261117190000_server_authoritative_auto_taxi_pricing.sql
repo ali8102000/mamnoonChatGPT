@@ -75,7 +75,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF auth.role() <> 'service_role' THEN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'أنشئ طلب التاكسي من خدمة التسعير الآمنة';
   END IF;
 
