@@ -388,7 +388,7 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
   );
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path {...common} d="M7 17 17 7M7 7h10v10" />
+      <Path {...common} d="M17 17 7 7M7 7v10h10" />
     </Svg>
   );
 }
@@ -433,8 +433,8 @@ function CustomerHome() {
         end={{ x: 1, y: 1 }}
         style={{
           minHeight: 164,
-          borderRadius: 26,
-          padding: 22,
+          borderRadius: 24,
+          padding: 24,
           justifyContent: "center",
           overflow: "hidden",
           elevation: 5,
@@ -488,7 +488,7 @@ function CustomerHome() {
               width: tile.width,
               minHeight: 132,
               borderRadius: 24,
-              padding: 14,
+              padding: 16,
               justifyContent: "space-between",
               backgroundColor: palette.surface,
               borderWidth: 1,
@@ -503,7 +503,7 @@ function CustomerHome() {
               style={{
                 width: 48,
                 height: 48,
-                borderRadius: 17,
+                borderRadius: 16,
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -522,30 +522,30 @@ function CustomerHome() {
       </View>
 
       <View style={{ flexDirection: "row", gap: 10 }}>
-        <View style={{ flex: 1, minHeight: 72, borderRadius: 18, padding: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center" }}>
+        <View style={{ flex: 1, minHeight: 72, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
           <HomeGlyph name="clock" color={palette.brand} size={18} />
-          <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", textAlign: "right", marginTop: 3 }}>أقل من</Text>
-          <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right", marginTop: 2 }}>٣ د</Text>
+          <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "center", marginTop: 2 }}>٣ د</Text>
+          <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", textAlign: "center" }}>أقل من</Text>
         </View>
         <View style={{ flex: 1, minHeight: 72, borderRadius: 18, padding: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center" }}>
           <HomeGlyph name="shield" color={palette.brand} size={18} />
-          <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", textAlign: "right", marginTop: 3 }}>مزودون</Text>
-          <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right", marginTop: 2 }}>موثق</Text>
+          <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "center", marginTop: 2 }}>موثق</Text>
+          <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", textAlign: "center" }}>مزودون</Text>
         </View>
       </View>
 
-      <View style={{ paddingTop: 2, paddingBottom: 20 }}>
+      <View style={{ paddingTop: 2, paddingBottom: 20, marginTop: 8 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <Text style={{ color: palette.ink, fontSize: 15, fontWeight: "900" }}>لماذا ممنون؟</Text>
           <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700" }}>مميّزاتنا</Text>
         </View>
         <View style={{ gap: 9 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
             <LinearGradient colors={["#E9AB2B", "#F97316"]} style={{ width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" }}>
               <HomeGlyph name="zap" color="#FFFFFF" size={22} />
             </LinearGradient>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>سرعة في الاستجابة</Text>
+              <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>سرعة في الاستجابة</Text>
               <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 18, marginTop: 2, textAlign: "right" }}>نوصلك بأقرب سيارة أو فني في منطقتك</Text>
             </View>
           </View>
@@ -554,7 +554,7 @@ function CustomerHome() {
               <HomeGlyph name="shield" color="#FFFFFF" size={22} />
             </LinearGradient>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>أمان مضمون</Text>
+              <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>أمان مضمون</Text>
               <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 18, marginTop: 2, textAlign: "right" }}>جميع الكباتن والفنيين موثّقون رسمياً</Text>
             </View>
           </View>
