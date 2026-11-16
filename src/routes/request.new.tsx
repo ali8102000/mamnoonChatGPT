@@ -5,7 +5,7 @@ import luxuryCar from "@/assets/car-luxury.png";
 import { serviceIcon } from "@/lib/service-visuals";
 import technicianIcon from "@/assets/service-technician.png";
 import expertIcon from "@/assets/service-expert.png";
-import { GOVERNORATES, GOV_STORAGE_KEY, getGovernorate, isInGovernorate } from "@/lib/governorates";
+import { GOVERNORATES, GOV_STORAGE_KEY, getGovernorate, governorateOf, isInGovernorate } from "@/lib/governorates";
 import { Button } from "@/components/ui/button";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
@@ -505,6 +505,7 @@ function NewRequest() {
         .from("service_requests")
         .insert({
           customer_id: session.user.id,
+          governorate_key: govKey ?? (pickupCoords ? governorateOf(pickupCoords).key : null),
           coupon_code: type === "taxi" && vehicle !== "large" ? couponCode.trim() || null : null,
           type,
           status: "pending",
