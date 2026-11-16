@@ -74,6 +74,7 @@ import { useServerFn } from "@tanstack/react-start";
 import AdminCompanySettings from "@/components/admin-company-settings";
 import RegionalControlsSection from "@/components/admin-regional-controls";
 import { toast } from "@/lib/toast";
+import { ContactOptions } from "@/components/contact-options";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -572,6 +573,7 @@ function UsersSection() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <ContactOptions phone={u.phone} label="تواصل" />
                 {u.blocked ? (
                   <button
                     onClick={() => handleUnblock(u.id)}
@@ -854,6 +856,7 @@ function ProviderDetailModal({
           <div className="min-w-0">
             <div className="font-black">{profile.full_name || "بدون اسم"}</div>
             <div className="text-sm text-muted-foreground" dir="ltr">{profile.phone || "لا يوجد رقم"}</div>
+            <div className="mt-2"><ContactOptions phone={profile.phone} label="اتصال / واتساب" /></div>
             <div className="text-xs text-muted-foreground">{user.driverProfile ? "سائق تكسي" : "فني"}</div>
           </div>
         </div>
@@ -1109,6 +1112,7 @@ function ProvidersSection() {
                   <div className="text-[10px] text-muted-foreground">
                     {p.profiles?.phone ?? "—"}
                   </div>
+                  <div className="mt-2"><ContactOptions phone={p.profiles?.phone} label="اتصال / واتساب" /></div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${p.status === "approved" ? "bg-emerald-100 text-emerald-700" : p.status === "suspended" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
