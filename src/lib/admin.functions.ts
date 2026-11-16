@@ -111,6 +111,28 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+export const adminSetStaffRank = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(),
+    rank: z.enum(["owner", "general_manager", "department_manager", "supervisor", "employee"]),
+    department: z.enum(["executive", "customer_service", "finance", "operations", "monitoring"]),
+    display_title: z.string().max(100).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireSuperAdmin(context);
+    const { supabase } = context;
+    const { error } = await (supabase as any).rpc("staff_set_rank", {
+      p_target_user: data.target_user_id,
+      p_new_rank: data.rank,
+      p_department: data.department,
+      p_display_title: data.display_title ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const getStaffRoles = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ user_id: z.string().uuid().optional() }).parse(d))
