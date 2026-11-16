@@ -2,7 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Send, Loader2, ArrowRight, ShieldCheck } from "lucide-react";
+import { MessageCircle, Send, Loader2, ArrowRight, ShieldCheck, Bell, BellOff, Volume2, VolumeX, Search, Clock3, CheckCheck } from "lucide-react";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/support-chat")({
@@ -25,6 +25,8 @@ function SupportChatPage() {
   const [busy, setBusy] = useState(false);
   const [booting, setBooting] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [unansweredOnly, setUnansweredOnly] = useState(false);
+  const [muted, setMuted] = useState(() => typeof window !== "undefined" && window.localStorage.getItem("mamnoon-support-muted") === "1");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,9 +54,17 @@ function SupportChatPage() {
       const { data, error } = await (supabase as any).from("support_conversations").select("*").order("priority_tier", { ascending: false }).order("updated_at", { ascending: true });
       if (error) throw error;
       const ids: string[] = Array.from(new Set<string>((data ?? []).map((c: any) => String(c.user_id))));
-      const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone").in("id", ids) : { data: [] };
+      const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone,avatar_url").in("id", ids) : { data: [] };
       const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
-      const rows = (data ?? []).map((c: any) => ({ ...c, profile: byId.get(c.user_id) }));
+      const conversationIds = (data ?? []).map((c: any) => c.id);
+      const [{ data: latestMessages }, { data: staffRows }] = await Promise.all([
+        conversationIds.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [] }),
+        (supabase as any).from("staff_assignments").select("user_id").eq("active", true),
+      ]);
+      const staffIds = new Set((staffRows ?? []).map((r: any) => r.user_id));
+      const latestByConversation = new Map<string, any>();
+      for (const message of latestMessages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
+      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: byId.get(c.user_id), lastMessage, unanswered: !!lastMessage && !staffIds.has(lastMessage.sender_id) }; });
       setConversations(rows);
       if (selected) setSelected(rows.find((c: any) => c.id === selected.id) ?? null);
     } else {
@@ -99,6 +109,7 @@ function SupportChatPage() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: "conversation_id=eq." + selected.id }, (payload: any) => {
         setMessages((current) => current.some((m) => m.id === payload.new.id) ? current : [...current, payload.new]);
         if (payload.new.sender_id !== uid) {
+          notifyIncoming(payload.new);
           (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
         }
         loadConversations().catch(() => {});
@@ -133,6 +144,15 @@ function SupportChatPage() {
     await loadConversations();
   }
 
+  function notifyIncoming(message: any) {
+    if (muted) return;
+    try {
+      if ("Notification" in window && Notification.permission === "granted") new Notification("رسالة جديدة في ممنون", { body: String(message.body ?? "وصلتك رسالة جديدة").slice(0, 120) });
+      const AudioContextClass = window.AudioContext;
+      if (AudioContextClass) { const ctx = new AudioContextClass(); const oscillator = ctx.createOscillator(); const gain = ctx.createGain(); oscillator.type = "sine"; oscillator.frequency.value = 880; gain.gain.value = 0.045; oscillator.connect(gain); gain.connect(ctx.destination); oscillator.start(); oscillator.stop(ctx.currentTime + 0.16); oscillator.onended = () => void ctx.close(); }
+    } catch { /* Browser notification/audio may be unavailable until permission or a user gesture. */ }
+  }
+
   async function send() {
     if (!draft.trim() || !selected || !uid || busy) return;
     const body = draft.trim();
@@ -157,13 +177,16 @@ function SupportChatPage() {
       </div>}
       <div className="grid md:grid-cols-[280px_1fr] gap-3">
         {isStaff && <aside className="glass rounded-2xl p-3 space-y-2">
-          <div className="font-bold text-sm mb-2">المحادثات الواردة</div>
-          {conversations.length === 0 ? <p className="text-xs text-muted-foreground p-3">لا توجد محادثات بعد</p> : conversations.map((c) => <button key={c.id} onClick={() => setSelected(c)} className={"w-full text-right rounded-xl p-3 " + (selected?.id === c.id ? "bg-primary/10 border border-primary/30" : "bg-card border border-border")}>
-            <div className="font-bold text-sm">{c.profile?.full_name || "مستخدم ممنون"}</div><div className="text-xs text-muted-foreground" dir="ltr">{c.profile?.phone || ""}</div><div className="text-[10px] text-muted-foreground mt-1">{c.status === "open" ? "مفتوحة" : "مغلقة"} · {c.priority_tier === 3 ? "أولوية ذهبية" : c.priority_tier === 2 ? "أولوية فضية" : c.priority_tier === 1 ? "أولوية برونزية" : "اعتيادي"}</div>
-          </button>)}
+          <div className="flex items-center justify-between gap-2 mb-3"><div className="font-black text-sm">صندوق الوارد</div><span className="text-[10px] text-muted-foreground">{conversations.length} محادثة</span></div>
+          <div className="grid grid-cols-2 gap-1.5 mb-3"><button onClick={() => setUnansweredOnly(false)} className={"rounded-lg py-2 text-xs font-bold " + (!unansweredOnly ? "bg-primary text-primary-foreground" : "bg-card border border-border")}>الكل</button><button onClick={() => setUnansweredOnly(true)} className={"rounded-lg py-2 text-xs font-bold " + (unansweredOnly ? "bg-primary text-primary-foreground" : "bg-card border border-border")}>بانتظار الرد</button></div>
+          <div className="space-y-2 max-h-[65vh] overflow-y-auto">{conversations.filter((c) => !unansweredOnly || c.unanswered).length === 0 ? <p className="text-xs text-muted-foreground p-4 text-center">{unansweredOnly ? "ماكو رسائل تنتظر الرد" : "لا توجد محادثات بعد"}</p> : conversations.filter((c) => !unansweredOnly || c.unanswered).map((c) => <button key={c.id} onClick={() => setSelected(c)} className={"w-full text-right rounded-2xl p-3 transition " + (selected?.id === c.id ? "bg-primary/10 border border-primary/40" : "bg-card border border-border hover:border-primary/30")}>
+            <div className="flex items-center gap-2.5"><div className="h-11 w-11 rounded-full bg-muted overflow-hidden shrink-0 grid place-items-center">{c.profile?.avatar_url ? <img src={c.profile.avatar_url} alt="" className="h-full w-full object-cover" /> : <span className="font-black text-primary">{String(c.profile?.full_name || "م").slice(0,1)}</span>}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><span className="font-black text-sm truncate">{c.profile?.full_name || "مستخدم ممنون"}</span>{c.unanswered && <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />}</div><div className="text-[11px] text-muted-foreground" dir="ltr">{c.profile?.phone || "—"}</div></div></div>
+            <div className="mt-2 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground truncate flex-1">{c.lastMessage?.body || "لا توجد رسائل بعد"}</p><span className="text-[9px] text-muted-foreground shrink-0">{c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"}) : ""}</span></div>
+            {c.unanswered && <div className="text-[10px] font-bold text-emerald-600 mt-1">تنتظر رد فريق الدعم</div>}
+          </button>)}</div>
         </aside>}
         <section className="glass rounded-2xl min-h-[70vh] flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-border flex items-center gap-2"><MessageCircle className="text-primary" /><div className="font-bold">{isStaff ? selected?.profile?.full_name || "اختر محادثة" : "فريق دعم ممنون"}</div></div>
+          <div className="p-4 border-b border-border flex items-center justify-between gap-3"><div className="flex items-center gap-3 min-w-0"><div className="h-11 w-11 rounded-full bg-muted overflow-hidden shrink-0 grid place-items-center">{selected?.profile?.avatar_url ? <img src={selected.profile.avatar_url} alt="" className="h-full w-full object-cover" /> : <MessageCircle className="text-primary" />}</div><div className="min-w-0"><div className="font-black truncate">{isStaff ? selected?.profile?.full_name || "اختر محادثة" : "فريق دعم ممنون"}</div>{isStaff && <div className="text-xs text-muted-foreground" dir="ltr">{selected?.profile?.phone || ""}</div>}</div></div>{isStaff && <div className="flex items-center gap-1"><button title={muted ? "تشغيل الصوت" : "كتم الصوت"} onClick={() => { const next = !muted; setMuted(next); window.localStorage.setItem("mamnoon-support-muted", next ? "1" : "0"); }} className="rounded-xl border border-border p-2">{muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}</button><button title="السماح بالإشعارات" onClick={() => { if ("Notification" in window) void Notification.requestPermission(); }} className="rounded-xl border border-border p-2"><Bell className="h-4 w-4" /></button></div>}</div>
           {loadError && <div role="alert" className="mx-3 mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{loadError} — حدّث الصفحة وحاول مرة ثانية</div>}
           <div className="flex-1 p-4 space-y-3 overflow-y-auto">
             {messages.length === 0 ? <div className="text-center text-sm text-muted-foreground py-12">أهلاً بك، اكتب رسالتك وسيقوم فريق ممنون بالرد عليك.</div> : messages.map((m) => { const isCompanyMessage = isStaff ? m.sender_id === uid : m.sender_id !== uid; return <div key={m.id} className={"max-w-[85%] rounded-2xl px-3 py-2 text-sm border shadow-sm " + (isCompanyMessage ? "ml-auto border-[#B98A24] bg-gradient-to-br from-[#F8E7A1] via-[#E5BD50] to-[#C99A2E] text-[#2C2108] shadow-[#C99A2E]/20" : "mr-auto border-primary/20 bg-primary text-primary-foreground")}>
