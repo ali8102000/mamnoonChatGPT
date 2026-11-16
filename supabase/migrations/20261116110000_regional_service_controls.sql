@@ -122,7 +122,7 @@ begin
     from public.service_requests sr
    where sr.id = new.request_id;
 
-  if not public.regional_services_enabled(v_governorate_key) then
+  if new.status = 'pending' and not public.regional_services_enabled(v_governorate_key) then
     return null;
   end if;
   return new;
