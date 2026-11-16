@@ -1051,10 +1051,8 @@ export default function NewRequest() {
                     <Text style={styles.taxiFieldLabel}>فئة السيارة</Text>
                     <View style={styles.taxiVehicleList}>
                       {VEHICLE_CATS.filter((category) => category.key !== "large").map((category) => {
-                        const fare = routeKm !== null
-                          ? calculateMobileTaxiFare(category.key as Exclude<VehicleCategory, "large">, routeKm, 1, isIntercity, tripType, extraMinutes)
-                          : null;
                         const active = vehicleCat === category.key;
+                        const fare = active && routeKm !== null ? serverTaxiFare : null;
                         return (
                           <TouchableOpacity key={category.key} style={[styles.taxiVehicleCard, active && styles.taxiVehicleCardActive]} onPress={() => setVehicleCat(category.key as Exclude<VehicleCategory, "large">)}>
                             <Text style={styles.taxiVehicleEmoji}>{category.emoji}</Text>
