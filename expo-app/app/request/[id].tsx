@@ -5,6 +5,7 @@ import {
   View,
   Text,
   Image,
+  Image,
   StyleSheet,
   ScrollView,
   TextInput,
