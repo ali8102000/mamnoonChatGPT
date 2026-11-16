@@ -413,14 +413,20 @@ const GOVERNORATE_LABELS: Record<string, string> = {
 };
 
 function GovernorateUserStatsSection() {
-  const [rows, setRows] = useState<any[]>([]);\n  const [activity, setActivity] = useState<any>(null);
+  const [rows, setRows] = useState<any[]>([]);
+  const [activity, setActivity] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const getStats = useServerFn(adminGetGovernorateUserStats);\n  const getActivity = useServerFn(adminGetCustomerActivityStats);
+  const getStats = useServerFn(adminGetGovernorateUserStats);
+  const getActivity = useServerFn(adminGetCustomerActivityStats);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    try {\n      const [regional, detailed] = await Promise.all([getStats({ data: {} }), getActivity({ data: { limit: 200, offset: 0 } })]);\n      setRows(regional);\n      setActivity(detailed);\n    }
+    try {
+      const [regional, detailed] = await Promise.all([getStats({ data: {} }), getActivity({ data: { limit: 200, offset: 0 } })]);
+      setRows(regional);
+      setActivity(detailed);
+    }
     catch (e: any) { setError(e?.message || "تعذر تحميل الإحصائيات"); }
     finally { setLoading(false); }
   }, [getStats, getActivity]);
@@ -520,7 +526,8 @@ function GovernorateUserStatsSection() {
             </div>
             <p className="text-[10px] text-muted-foreground mt-3">المعروض أول 200 زبون حسب تاريخ التسجيل. البيانات من سجلات الطلبات الفعلية.</p>
           </div>
-\n          <p className="text-[11px] text-muted-foreground mt-3">تُعتمد المحافظة التي حدّدتها الإدارة في ملف المستخدم، وإلا تُستخدم آخر محافظة مسجلة في طلباته. من لا يملك محافظة مسجلة يظهر ضمن «غير محددة». وقد يكون الحساب الواحد ضمن أكثر من فئة إذا كان مسجلاً بأكثر من دور، لذلك لا تُجمع أعداد الفئات لاستخراج الإجمالي.</p>
+
+          <p className="text-[11px] text-muted-foreground mt-3">تُعتمد المحافظة التي حدّدتها الإدارة في ملف المستخدم، وإلا تُستخدم آخر محافظة مسجلة في طلباته. من لا يملك محافظة مسجلة يظهر ضمن «غير محددة». وقد يكون الحساب الواحد ضمن أكثر من فئة إذا كان مسجلاً بأكثر من دور، لذلك لا تُجمع أعداد الفئات لاستخراج الإجمالي.</p>
         </>
       )}
     </div>
