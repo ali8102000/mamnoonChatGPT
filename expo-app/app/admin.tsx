@@ -59,13 +59,20 @@ export default function AdminScreen() {
       p_user_id: user?.id,
     });
     if (permissionError || superAdminCheck !== true) {
-      const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank").eq("user_id", user?.id).eq("active", true).maybeSingle();
-      if (assignment?.rank === "general_manager") {
-        router.replace("/support-chat");
+      const { data: staffRoles, error: staffRolesError } = await supabase.rpc("get_staff_roles", { p_user_id: user?.id });
+      const { data: assignment } = await (supabase as any)
+        .from("staff_assignments").select("rank,department").eq("user_id", user?.id).eq("active", true).maybeSingle();
+      const roleNames = (staffRoles ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
+      const hasStaffAccess = !staffRolesError && (
+        roleNames.some((role: string) => ["admin", "support", "finance", "moderator", "customer_service", "department_finance", "department_operations", "department_monitoring"].includes(role)) ||
+        ["general_manager", "department_manager", "supervisor"].includes(assignment?.rank)
+      );
+      if (hasStaffAccess) {
+        router.replace("/admin/staff");
         setLoading(false);
         return;
       }
-      Alert.alert("غير مصرّح", "هذه الإدارة العليا مخصصة لصاحب الحساب فقط");
+      Alert.alert("غير مصرّح", "هذه الصفحة مخصصة للمدير الأعلى والموظفين المخوّلين فقط");
       router.replace("/home");
       setLoading(false);
       return;
@@ -251,6 +258,7 @@ export default function AdminScreen() {
         <TouchableOpacity onPress={() => router.push("/admin/staff-hierarchy")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الهيكل الوظيفي والترقيات</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/admin/import")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>مساعد استيراد البيانات</Text></TouchableOpacity>
       </View>
       <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
