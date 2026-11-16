@@ -481,7 +481,7 @@ function CustomerHome() {
             marginBottom: 10,
           }}
         >
-          <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
+          <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
         </View>
         <Text style={{ color: "#FFFFFF", fontSize: 23, lineHeight: 32, fontWeight: "900", textAlign: "right" }}>
           اطلب الآن، ادفع للمزوّد مباشرة
