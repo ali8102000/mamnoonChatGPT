@@ -8,8 +8,8 @@ import { palette } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
 import { IRAQ_GOVERNORATES } from "@/lib/governorates";
 
-type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; updated_at?: string };
-const EMPTY = { services_enabled: true, message_enabled: false, message_title: "تنويه رسمي من إدارة ممنون", message_text: "", message_animate: true };
+type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; rejection_message: string; message_image_url: string; updated_at?: string };
+const EMPTY = { services_enabled: true, message_enabled: false, message_title: "تنويه رسمي من إدارة ممنون", message_text: "", message_animate: true, rejection_message: "الخدمة متوقفة مؤقتاً في منطقتك. نعتذر عن ذلك، وسيتم إعلامك عند عودة الخدمة.", message_image_url: "" };
 
 export default function AdminRegionalControlsScreen() {
   const { user, loading: authLoading } = useAuth();
@@ -27,7 +27,7 @@ export default function AdminRegionalControlsScreen() {
     else {
       setRows((data ?? []) as Row[]);
       const global = (data ?? []).find((row: Row) => row.governorate_key === "all");
-      if (global && mode === "all") setSettings({ services_enabled: global.services_enabled, message_enabled: global.message_enabled, message_title: global.message_title, message_text: global.message_text, message_animate: global.message_animate });
+      if (global && mode === "all") setSettings({ services_enabled: global.services_enabled, message_enabled: global.message_enabled, message_title: global.message_title, message_text: global.message_text, message_animate: global.message_animate, rejection_message: global.rejection_message || EMPTY.rejection_message, message_image_url: global.message_image_url || "" });
     }
     setLoading(false);
   }, [mode]);
@@ -52,10 +52,19 @@ export default function AdminRegionalControlsScreen() {
     setSelected((current) => current.includes(key) ? current.filter((value) => value !== key) : [...current, key]);
     const row = rows.find((item) => item.governorate_key === key);
     setSettings(row
-      ? { services_enabled: row.services_enabled, message_enabled: row.message_enabled, message_title: row.message_title, message_text: row.message_text, message_animate: row.message_animate }
+      ? { services_enabled: row.services_enabled, message_enabled: row.message_enabled, message_title: row.message_title, message_text: row.message_text, message_animate: row.message_animate, rejection_message: row.rejection_message || EMPTY.rejection_message, message_image_url: row.message_image_url || "" }
       : { ...EMPTY });
 
   };
+
+  async function toggleAndSave(field: "services_enabled" | "message_enabled") {
+    if (!targetKeys.length) { Alert.alert("اختيار ناقص", "اختَر محافظة واحدة على الأقل."); return; }
+    const next = { ...settings, [field]: !settings[field] };
+    setSettings(next);
+    const { error } = await (supabase as any).from("regional_service_controls").upsert(targetKeys.map((governorate_key) => ({ governorate_key, ...next, updated_at: new Date().toISOString() })), { onConflict: "governorate_key" });
+    if (error) { setSettings(settings); Alert.alert("تعذّر التطبيق", error.message); }
+    else { Alert.alert("تم التحديث", field === "services_enabled" ? (next.services_enabled ? "الخدمات مفعّلة" : "الخدمات متوقفة") : (next.message_enabled ? "الرسائل مفعّلة" : "الرسائل متوقفة")); await load(); }
+  }
 
   async function save() {
     if (!targetKeys.length) { Alert.alert("اختيار ناقص", "اختَر محافظة واحدة على الأقل."); return; }
@@ -96,21 +105,26 @@ export default function AdminRegionalControlsScreen() {
         <View style={styles.card}>
           <Text style={styles.section}>حالة الخدمات</Text>
           <Text style={styles.muted}>{settings.services_enabled ? "الخدمات تعمل في النطاق المحدد." : "الخدمات متوقفة ولن تُقبل طلبات جديدة."}</Text>
-          <TouchableOpacity onPress={() => update({ services_enabled: !settings.services_enabled })} style={[styles.action, { backgroundColor: settings.services_enabled ? "#7f1d1d" : "#14532d" }]}><Text style={styles.actionText}>{settings.services_enabled ? "الخدمات تعمل" : "الخدمات متوقفة"}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => void toggleAndSave("services_enabled")} style={[styles.action, { backgroundColor: settings.services_enabled ? "#7f1d1d" : "#14532d" }]}><Text style={styles.actionText}>{settings.services_enabled ? "الخدمات مفعّلة" : "الخدمات متوقفة"}</Text></TouchableOpacity>
           <Text style={[styles.section, { marginTop: 18 }]}>الرسالة الرسمية المستقلة</Text>
           <Text style={styles.muted}>{settings.message_enabled ? "الرسالة ظاهرة للمستخدمين." : "الرسالة متوقفة ولا تؤثر على حالة الخدمات."}</Text>
-          <TouchableOpacity onPress={() => update({ message_enabled: !settings.message_enabled })} style={[styles.action, { backgroundColor: settings.message_enabled ? "#7f1d1d" : "#854d0e" }]}><Text style={styles.actionText}>{settings.message_enabled ? "الرسالة فعّالة" : "الرسائل متوقفة"}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => void toggleAndSave("message_enabled")} style={[styles.action, { backgroundColor: settings.message_enabled ? "#7f1d1d" : "#854d0e" }]}><Text style={styles.actionText}>{settings.message_enabled ? "الرسائل مفعّلة" : "الرسائل متوقفة"}</Text></TouchableOpacity>
           <Text style={styles.label}>عنوان الرسالة</Text>
           <TextInput value={settings.message_title} onChangeText={(value) => update({ message_title: value })} style={styles.input} textAlign="right" maxLength={100} />
           <Text style={styles.label}>نص الرسالة المتحركة</Text>
           <TextInput value={settings.message_text} onChangeText={(value) => update({ message_text: value })} style={[styles.input, { minHeight: 100, textAlignVertical: "top" }]} multiline textAlign="right" maxLength={1200} />
-          <TouchableOpacity onPress={() => update({ message_animate: !settings.message_animate })} style={styles.switchRow}><Text style={styles.label}>تحريك الرسالة</Text><Text style={styles.gold}>{settings.message_animate ? "مفعّل ✓" : "متوقف"}</Text></TouchableOpacity>
+          <Text style={styles.label}>الرسالة التي تظهر عند رفض الطلب</Text>
+          <TextInput value={settings.rejection_message} onChangeText={(value) => update({ rejection_message: value })} style={[styles.input, { minHeight: 90, textAlignVertical: "top" }]} multiline textAlign="right" maxLength={1000} />
+          <Text style={styles.label}>رابط صورة اختيارية للتنويه</Text>
+          <TextInput value={settings.message_image_url} onChangeText={(value) => update({ message_image_url: value })} style={styles.input} textAlign="right" autoCapitalize="none" keyboardType="url" placeholder="https://..." />
+          <TouchableOpacity onPress={() => update({ message_animate: !settings.message_animate }) style={styles.switchRow}><Text style={styles.label}>تحريك الرسالة</Text><Text style={styles.gold}>{settings.message_animate ? "مفعّل ✓" : "متوقف"}</Text></TouchableOpacity>
         </View>
         <View style={styles.preview}>
           <View style={styles.previewHead}><Text style={styles.stamp}>✦ الإدارة الرسمية · موثّق ✦</Text><Text style={styles.stamp}>✓</Text></View>
           <Text style={styles.previewTitle}>{settings.message_title}</Text>
           <Text style={styles.previewText}>{settings.message_text || "معاينة الرسالة تظهر هنا بعد الكتابة."}</Text>
-          <Text style={styles.watermark}>MAMNOON · OFFICIAL ADMIN NOTICE</Text>
+          {!!settings.message_image_url && <Text style={styles.previewText}>الصورة المرفقة: {settings.message_image_url}</Text>}
+          <Text style={styles.watermark}>إدارة ممنون · الحساب الرسمي الموثّق</Text>
         </View>
         <TouchableOpacity onPress={save} disabled={saving || !targetKeys.length} style={[styles.save, (saving || !targetKeys.length) && { opacity: 0.5 }]}><LinearGradient colors={["#F7DF91", "#D6A63B", "#8A5B12"]} style={styles.saveGradient}><Text style={styles.saveText}>{saving ? "جاري الحفظ..." : "حفظ وتطبيق الإعدادات"}</Text></LinearGradient></TouchableOpacity>
         {mode === "selected" && <TouchableOpacity onPress={removeOverrides} disabled={saving || !selected.length} style={styles.reset}><Text style={styles.resetText}>إزالة الاستثناءات المحددة</Text></TouchableOpacity>}
