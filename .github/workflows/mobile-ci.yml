@@ -36,6 +36,10 @@ jobs:
         run: bunx tsc --noEmit
       - name: Verify Android and web route coverage
         run: node scripts/check-native-route-parity.mjs
+      - name: Strict screen, admin, typography and color parity audit
+        env:
+          PARITY_REPORT_PATH: parity/screen-parity-report.json
+        run: node scripts/check-screen-parity.mjs
       - name: Web and Android taxi fare parity tests
         run: bun -e 'import { runTaxiFareParityTests } from "./src/lib/taxi-fares-parity.test.ts"; const result = runTaxiFareParityTests(); console.log(`Verified ${result.comparisons} web/Android fare combinations and ${result.invalidInputsChecked} invalid-input cases.`);'
       - name: Validate production configuration guards
