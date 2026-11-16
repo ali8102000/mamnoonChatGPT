@@ -137,7 +137,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     key: "chat",
     label: "الدردشة ورسائل الدعم",
     icon: MessageSquare,
-    roles: ["super_admin", "admin", "support", "moderator", "customer_service"],
+    roles: ["super_admin", "admin", "support", "moderator", "customer_service", "rank:general_manager"],
   },
   {
     key: "friends",
@@ -1425,6 +1425,7 @@ function ChatSection() {
   const [supportUnread, setSupportUnread] = useState(0);
   const [tab, setTab] = useState("chats");
   const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
+  const [complaintsReadOnly, setComplaintsReadOnly] = useState(false);
   const [chats, setChats] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1433,10 +1434,18 @@ function ChatSection() {
   const deleteMessage = useServerFn(adminDeleteMessage);
   useEffect(() => {
     if (!session?.user.id) return;
-    void (async () => { const { data } = await (supabase as any).rpc("get_staff_roles", { p_user_id: session.user.id }); const roles = data ?? []; setCustomerServiceOnly(roles.includes("customer_service") && !roles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r))); })();
+    void (async () => {
+      const [{ data: roles }, { data: assignment }] = await Promise.all([
+        (supabase as any).rpc("get_staff_roles", { p_user_id: session.user.id }),
+        (supabase as any).from("staff_assignments").select("rank").eq("user_id", session.user.id).eq("active", true).maybeSingle(),
+      ]);
+      const privileged = (roles ?? []).some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
+      setCustomerServiceOnly((roles ?? []).includes("customer_service") && !privileged);
+      setComplaintsReadOnly(assignment?.rank === "general_manager" && !privileged);
+    })();
   }, [session?.user.id]);
   const load = useCallback(async () => {
-    if (customerServiceOnly) { setLoading(false); return; }
+    if (customerServiceOnly || complaintsReadOnly) { setLoading(false); return; }
     setLoading(true);
     try {
       if (tab === "chats") setChats(await listChats({ data: {} }));
@@ -1445,7 +1454,7 @@ function ChatSection() {
     } finally {
       setLoading(false);
     }
-  }, [tab, listChats, listMessages, customerServiceOnly]);
+  }, [tab, listChats, listMessages, customerServiceOnly, complaintsReadOnly]);
   useEffect(() => {
     load();
   }, [load]);
@@ -1477,7 +1486,7 @@ function ChatSection() {
   }
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-xl font-black">{customerServiceOnly ? "مركز خدمة العملاء" : "إدارة الدردشة"}</h2><a href="/support-chat" className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">فتح صندوق رسائل الدعم ({supportUnread} غير مقروءة)</a></div>
+      <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-xl font-black">{complaintsReadOnly ? "متابعة الشكاوى والمراسلات" : customerServiceOnly ? "مركز خدمة العملاء" : "إدارة الدردشة"}</h2><a href="/support-chat" className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">{complaintsReadOnly ? "فتح مراسلات الشكاوى" : "فتح صندوق رسائل الدعم"} ({supportUnread} غير مقروءة)</a></div>
       <div className="glass rounded-2xl p-3 mb-4">
         <div className="font-black text-sm mb-2">آخر رسائل المستخدمين للإدارة</div>
         {supportPreview.length === 0 ? <p className="text-xs text-muted-foreground">ماكو رسائل دعم واردة حالياً</p> : <div className="space-y-2">
@@ -1487,7 +1496,7 @@ function ChatSection() {
           </a>)}
         </div>}
       </div>
-      {!customerServiceOnly && <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
+      {!customerServiceOnly && !complaintsReadOnly && <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
         {["chats", "messages"].map((t) => (
           <button
             key={t}
@@ -1498,8 +1507,8 @@ function ChatSection() {
           </button>
         ))}
       </div>}
-      {customerServiceOnly ? (
-        <div className="glass rounded-2xl p-4 text-sm font-bold">صلاحيتك محصورة برسائل الدعم ومحادثات الزبائن. ما عندك وصول إلى المحادثات الخاصة أو حذف الرسائل.</div>
+      {(customerServiceOnly || complaintsReadOnly) ? (
+        <div className="glass rounded-2xl p-4 text-sm font-bold">{complaintsReadOnly ? "صلاحيتك متابعة مراسلات الشكاوى للقراءة فقط. لا يمكنك إرسال الرسائل أو حذفها أو تعديلها أو فتح محادثات خاصة." : "صلاحيتك محصورة برسائل الدعم ومحادثات الزبائن. ما عندك وصول إلى المحادثات الخاصة أو حذف الرسائل."}</div>
       ) : loading ? (
         <Loader2 className="h-6 w-6 animate-spin mx-auto" />
       ) : tab === "chats" ? (
