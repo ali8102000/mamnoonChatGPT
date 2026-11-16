@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BellRing, Check, Globe2, MapPin, Save, ShieldCheck, ToggleLeft, ToggleRight } from "lucide-react";
+import { BellRing, Check, Globe2, ImagePlus, MapPin, Save, ShieldCheck, ToggleLeft, ToggleRight } from "lucide-react";
 import { GOVERNORATES } from "@/lib/governorates";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/lib/toast";
@@ -34,6 +34,7 @@ export default function RegionalControlsSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +81,21 @@ export default function RegionalControlsSection() {
       message_image_url: row.message_image_url || "",
     } : { ...EMPTY });
     setSaved(false);
+  }
+
+  async function uploadNoticeImage(file: File) {
+    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) { toast.error("اختَر صورة لا يتجاوز حجمها 5 ميغابايت."); return; }
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) { toast.error("سجّل الدخول أولاً."); return; }
+    setImageUploading(true);
+    const path = `${auth.user.id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
+    const { error } = await supabase.storage.from("regional-notices").upload(path, file, { contentType: file.type, upsert: false });
+    setImageUploading(false);
+    if (error) { toast.error("تعذّر رفع الصورة: " + error.message); return; }
+    const { data } = supabase.storage.from("regional-notices").getPublicUrl(path);
+    setSettings((s) => ({ ...s, message_image_url: data.publicUrl }));
+    setSaved(false);
+    toast.success("تم إرفاق الصورة. احفظ الإعدادات لتطبيقها.");
   }
 
   async function toggleAndSave(field: "services_enabled" | "message_enabled") {
