@@ -69,6 +69,15 @@ for (const [path, kind] of [["app/terms.tsx", "terms"], ["app/privacy.tsx", "pri
 
 const readSource = async (path) =>
   import("node:fs/promises").then(({ readFile }) => readFile(resolve(root, path), "utf8"));
+const nativeHistorySource = await readSource("app/history.tsx");
+if (!nativeHistorySource.includes("mamnoon-history-v1") ||
+    !nativeHistorySource.includes("usingCachedData")) {
+  missing.push("Native request history must restore and label cached entries when offline.");
+}
+if (!nativeAuthContextSource.includes("mamnoon-history-v1")) {
+  missing.push("Native sign-out must clear the locally cached request history.");
+}
+
 const nativeIndexSource = await readSource("app/index.tsx");
 if (!nativeIndexSource.includes("!profile || roles.length === 0")) {
   missing.push("Native startup must require the same cached profile and role checks as web.");
