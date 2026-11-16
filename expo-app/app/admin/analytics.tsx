@@ -35,7 +35,7 @@ export default function AdminAnalyticsScreen() {
   },[user?.id]);
   useEffect(()=>{void load();},[load]);
   const total=rows.find(r=>r.governorate_key==="__all__");
-  const regions=rows.filter(r=>r.governorate_key!=="__all__").sort((a,b)=>Number(b.total_users)-Number(a.total_users));
+  const regions=Object.keys(LABELS).filter(key=>key!=="unknown").map(key=>rows.find(r=>r.governorate_key===key) ?? ({governorate_key:key,workers:0,large_drivers:0,taxi_drivers:0,customers:0,total_users:0})).concat(rows.filter(r=>r.governorate_key==="unknown")).sort((a,b)=>Number(b.total_users)-Number(a.total_users));
   const fmt=(v:any)=>Number(v||0).toLocaleString("ar-IQ");
   return <View style={s.page}>
     <Stack.Screen options={{title:"إحصائيات المستخدمين حسب المحافظة"}}/>
