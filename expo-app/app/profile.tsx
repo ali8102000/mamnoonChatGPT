@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
@@ -17,27 +18,69 @@ export default function ProfileScreen() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
+  const [walletOffline, setWalletOffline] = useState(false);
 
   useEffect(() => {
+    let active = true;
     async function load() {
-      if (roles.includes("driver") || roles.includes("large_driver")) {
-        const { data } = await supabase
-          .from("driver_wallets")
-          .select("*")
-          .eq("user_id", user?.id)
-          .maybeSingle();
-        setWallet(data);
+      if (!user?.id || !(roles.includes("driver") || roles.includes("large_driver"))) {
+        setWallet(null);
+        setTransactions([]);
+        setWalletOffline(false);
+        return;
+      }
+      const cacheKey = `mamnoon-wallet-v1:${user.id}`;
+      try {
         const since24Hours = new Date(Date.now() - 86400000).toISOString();
-        const { data: txns } = await supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user?.id)
-          .gte("created_at", since24Hours)
-          .order("created_at", { ascending: false });
-        setTransactions(txns || []);
+        const [walletResult, transactionResult] = await Promise.all([
+          supabase
+            .from("driver_wallets")
+            .select("balance,total_earned,total_commission")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+          supabase
+            .from("transactions")
+            .select("id,type,created_at,amount")
+            .eq("user_id", user.id)
+            .gte("created_at", since24Hours)
+            .order("created_at", { ascending: false })
+            .limit(30),
+        ]);
+        if (walletResult.error) throw walletResult.error;
+        if (transactionResult.error) throw transactionResult.error;
+        const nextWallet = walletResult.data as DriverWallet | null;
+        const nextTransactions = (transactionResult.data || []) as WalletTransaction[];
+        if (!active) return;
+        setWallet(nextWallet);
+        setTransactions(nextTransactions);
+        setWalletOffline(false);
+        try {
+          await SecureStore.setItemAsync(cacheKey, JSON.stringify({
+            wallet: nextWallet,
+            transactions: nextTransactions,
+            cachedAt: Date.now(),
+          }));
+        } catch (cacheError) {
+          console.warn("[offline] Could not save wallet snapshot:", cacheError);
+        }
+      } catch (error) {
+        console.warn("[offline] Wallet unavailable; restoring saved wallet snapshot.", error);
+        try {
+          const raw = await SecureStore.getItemAsync(cacheKey);
+          const saved = raw ? JSON.parse(raw) : null;
+          if (!active) return;
+          setWallet(saved?.wallet ?? null);
+          setTransactions(Array.isArray(saved?.transactions) ? saved.transactions : []);
+        } catch {
+          if (!active) return;
+          setWallet(null);
+          setTransactions([]);
+        }
+        if (active) setWalletOffline(true);
       }
     }
-    load();
+    void load();
+    return () => { active = false; };
   }, [user?.id, roles]);
 
   async function chooseAndUploadAvatar() {
@@ -129,6 +172,11 @@ export default function ProfileScreen() {
       </View>
       {wallet && (
         <View style={styles.walletCard}>
+          {walletOffline && (
+            <View style={styles.walletOfflineNotice}>
+              <Text style={styles.walletOfflineText}>بيانات محفوظة من آخر اتصال وقد لا تكون محدثة.</Text>
+            </View>
+          )}
           <Text style={styles.walletTitle}>أرباحي</Text>
           <Text style={styles.walletBalance}>{(wallet.balance || 0).toLocaleString("en")} د.ع</Text>
           <TouchableOpacity style={styles.walletDetailsButton} onPress={() => setShowWalletDetails((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showWalletDetails }}>
@@ -219,6 +267,8 @@ const styles = StyleSheet.create({
   rolesRow: { flexDirection: "row", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 20 },
   roleBadge: { backgroundColor: palette.brandSoft, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7 },
   roleBadgeText: { fontSize: 11, fontWeight: "900", color: palette.brand },
+  walletOfflineNotice: { padding: 9, borderRadius: 10, backgroundColor: palette.goldSoft, marginBottom: 10 },
+  walletOfflineText: { color: palette.ink, fontSize: 10, fontWeight: "700", textAlign: "right" },
   walletCard: { backgroundColor: palette.brand, borderRadius: radius.xl, padding: 22, marginBottom: 22, borderWidth: 1, borderColor: palette.gold },
   walletTitle: { fontSize: 13, color: "rgba(255,255,255,0.78)", fontWeight: "800" },
   walletBalance: { fontSize: 32, fontWeight: "900", color: palette.white, marginTop: 6 },
