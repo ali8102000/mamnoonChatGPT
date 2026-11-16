@@ -12,7 +12,12 @@ export function RegionalServiceBanner() {
     const load = async () => {
       let key = "";
       try { key = localStorage.getItem(GOV_STORAGE_KEY) || ""; } catch {}
-      if (navigator.geolocation) {
+      let shouldLocate = !key;
+      if (navigator.permissions?.query) {
+        const permission = await navigator.permissions.query({ name: "geolocation" }).catch(() => null);
+        shouldLocate = shouldLocate || permission?.state === "granted";
+      }
+      if (navigator.geolocation && shouldLocate) {
         const position = await new Promise<GeolocationPosition | null>((resolve) => {
           navigator.geolocation.getCurrentPosition(
             resolve,
