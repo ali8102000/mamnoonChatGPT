@@ -88,7 +88,6 @@ export default function RegionalControlsSection() {
       ...settings,
       message_title: settings.message_title.trim() || "تنويه رسمي من إدارة ممنون",
       message_text: settings.message_text.trim(),
-      updated_by: null,
       updated_at: new Date().toISOString(),
     }));
     const { error } = await (supabase as any)
