@@ -34,9 +34,9 @@ type CatalogService = { id: string; slug: string; name_ar: string };
 
 
 const VEHICLE_CATS: { key: VehicleCategory; label: string; emoji: string }[] = [
-  { key: "economy", label: "اقتصادية", emoji: "🚗" },
-  { key: "premium", label: "فاخرة", emoji: "🚙" },
-  { key: "luxury", label: "VIP", emoji: "🚘" },
+  { key: "economy", label: "ممنون اقتصادي", emoji: "🚗" },
+  { key: "premium", label: "ممنون المتميز", emoji: "🚙" },
+  { key: "luxury", label: "ممنون فاخر", emoji: "🏎️" },
   { key: "large", label: "سيارة كبيرة", emoji: "🚚" },
 ];
 
@@ -804,6 +804,346 @@ export default function NewRequest() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (isTaxi) {
+    return (
+      <View style={styles.taxiScreen}>
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFillObject}
+          provider={PROVIDER_GOOGLE}
+          initialRegion={region}
+          onPanDrag={() => { userPannedMapRef.current = true; }}
+          onRegionChangeComplete={handleRegionChangeComplete}
+          showsUserLocation
+          showsMyLocationButton={false}
+          loadingEnabled
+        />
+        <View pointerEvents="none" style={styles.taxiCenterPin}>
+          <Text style={styles.taxiCenterPinText}>{mapMode === "pickup" ? "📍" : "📌"}</Text>
+        </View>
+
+        <View style={styles.taxiTopBar}>
+          <TouchableOpacity
+            style={styles.taxiBackButton}
+            onPress={() => {
+              if (mapMode === "destination") {
+                setMapMode("pickup");
+                setDestinationConfirmed(false);
+              } else {
+                router.back();
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="رجوع"
+          >
+            <Text style={styles.taxiBackText}>‹</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.taxiGovernorateBadge} onPress={() => setMapMode("pickup")}>
+            <Text style={styles.taxiGovernorateText}>📍 {activeGovernorate?.name ?? "اختر المحافظة"}</Text>
+          </TouchableOpacity>
+          <View style={styles.taxiStepTabs}>
+            <TouchableOpacity
+              style={[styles.taxiStepTab, mapMode === "pickup" && styles.taxiStepTabPickup]}
+              onPress={() => { setMapMode("pickup"); setDestinationConfirmed(false); }}
+            >
+              <Text style={[styles.taxiStepText, mapMode === "pickup" && styles.taxiStepTextActive]}>١. الانطلاق {pickupCoords ? "✓" : ""}</Text>
+            </TouchableOpacity>
+            {!isLargeVehicle && (
+              <TouchableOpacity
+                style={[styles.taxiStepTab, mapMode === "destination" && styles.taxiStepTabDestination]}
+                onPress={() => {
+                  if (!pickupCoords) {
+                    Alert.alert("حدد الانطلاق أولاً", "اختَر موقع الانطلاق قبل تحديد الوجهة.");
+                    return;
+                  }
+                  setMapMode("destination");
+                  setDestinationConfirmed(false);
+                }}
+              >
+                <Text style={[styles.taxiStepText, mapMode === "destination" && styles.taxiStepTextActive]}>٢. الوجهة {destinationCoords ? "✓" : ""}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.taxiBottomSheet}>
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.taxiSheetContent}>
+            {!destinationConfirmed ? (
+              <>
+                <Text style={styles.taxiSheetTitle}>{mapMode === "pickup" ? "حدد موقع الانطلاق" : "حدد وجهة الوصول"}</Text>
+                <Text style={styles.taxiSelectedAddress} numberOfLines={2}>
+                  {mapMode === "pickup"
+                    ? pickup || "حرّك الخريطة حتى تصبح نقطة الانطلاق تحت الدبوس"
+                    : destination || "حرّك الخريطة حتى تصبح وجهتك تحت الدبوس"}
+                </Text>
+
+                <View style={styles.taxiSearchRow}>
+                  <TouchableOpacity
+                    style={styles.taxiLocateButton}
+                    onPress={mapMode === "pickup" ? locateMe : () => {
+                      if (!pickupCoords) {
+                        Alert.alert("حدد الانطلاق أولاً", "حدد موقع الانطلاق أولاً.");
+                        return;
+                      }
+                      const center = destinationCoords ?? pickupCoords;
+                      moveMap({ ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+                    }}
+                    disabled={locationLoading && mapMode === "pickup"}
+                  >
+                    {locationLoading && mapMode === "pickup"
+                      ? <ActivityIndicator color={palette.white} size="small" />
+                      : <Text style={styles.taxiLocateText}>{mapMode === "pickup" ? "موقعي" : "مركز الخريطة"}</Text>}
+                  </TouchableOpacity>
+                  <TextInput
+                    style={styles.taxiSearchInput}
+                    value={placeQuery}
+                    onChangeText={setPlaceQuery}
+                    placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"}
+                    placeholderTextColor={palette.muted}
+                    editable={!!activeGovernorateKey}
+                    returnKeyType="search"
+                  />
+                </View>
+                {searchingPlaces && <ActivityIndicator style={{ marginTop: 8 }} color={palette.brand} />}
+                {!!placeSearchError && <Text style={styles.taxiErrorText}>{placeSearchError}</Text>}
+                {placeSuggestions.length > 0 && (
+                  <View style={styles.taxiSuggestionList}>
+                    {placeSuggestions.map((item) => (
+                      <TouchableOpacity key={item.id} style={styles.taxiSuggestionItem} onPress={() => choosePlaceSuggestion(item)}>
+                        <Text style={styles.taxiSuggestionTitle}>{item.text}</Text>
+                        {!!item.address && item.address !== item.text && <Text style={styles.taxiSuggestionAddress}>{item.address}</Text>}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                <Text style={styles.taxiFieldLabel}>المحافظة</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.taxiGovernorateRow}>
+                  {IRAQ_GOVERNORATES.map((governorate) => (
+                    <TouchableOpacity
+                      key={governorate.key}
+                      style={[styles.taxiGovernorateChip, activeGovernorateKey === governorate.key && styles.taxiGovernorateChipActive]}
+                      onPress={() => chooseGovernorate(governorate.key)}
+                    >
+                      <Text style={[styles.taxiGovernorateChipText, activeGovernorateKey === governorate.key && styles.taxiGovernorateChipTextActive]}>
+                        {activeGovernorateKey === governorate.key ? "✓ " : ""}{governorate.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {isLargeVehicle && mapMode === "pickup" && (
+                  <View style={styles.taxiLargeTypePanel}>
+                    <Text style={styles.taxiFieldLabel}>اختر نوع السيارة الكبيرة</Text>
+                    <View style={styles.taxiLargeTypeRow}>
+                      {([
+                        { key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" },
+                        { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" },
+                        { key: "bus", label: "باص" },
+                      ] as const).map((item) => (
+                        <TouchableOpacity key={item.key} style={[styles.taxiLargeTypeCard, vehicleType === item.key && styles.taxiLargeTypeCardActive]} onPress={() => setVehicleType(item.key)}>
+                          {"image" in item ? <Image source={{ uri: item.image }} style={styles.taxiLargeTypeImage} resizeMode="contain" /> : <Text style={styles.taxiLargeBus}>🚌</Text>}
+                          <Text style={[styles.taxiLargeTypeText, vehicleType === item.key && styles.taxiLargeTypeTextActive]}>{item.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.taxiPrimaryButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || routeLoading || routeKm === null || !!routeError) && styles.taxiButtonDisabled]}
+                  disabled={mapMode === "pickup" ? !pickupCoords : !destinationCoords || routeLoading || routeKm === null || !!routeError}
+                  onPress={mapMode === "pickup" ? confirmPickupStep : confirmDestinationStep}
+                >
+                  <Text style={styles.taxiPrimaryButtonText}>
+                    {mapMode === "pickup" ? "تأكيد الانطلاق" : routeLoading ? "جارٍ حساب الطريق..." : "تأكيد الوجهة"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <View style={styles.taxiDetailsHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.taxiSheetTitle}>{isLargeVehicle ? "طلب سيارة كبيرة" : "اختَر السيارة المناسبة"}</Text>
+                    <Text style={styles.taxiSelectedAddress} numberOfLines={2}>
+                      {pickup || "موقع الانطلاق"}{!isLargeVehicle ? " ← " + (destination || "الوجهة") : ""}
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={styles.taxiEditButton} onPress={() => { setDestinationConfirmed(false); setMapMode(isLargeVehicle ? "pickup" : "destination"); }}>
+                    <Text style={styles.taxiEditButtonText}>تعديل</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {routeLoading && !isLargeVehicle && <Text style={styles.taxiHintText}>جارٍ حساب مسافة الطريق الفعلية...</Text>}
+                {!!routeError && (
+                  <View style={styles.taxiErrorPanel}>
+                    <Text style={styles.taxiErrorText}>{routeError}</Text>
+                    <TouchableOpacity style={styles.taxiRetryButton} onPress={() => setRouteRetry((value) => value + 1)}>
+                      <Text style={styles.taxiRetryText}>إعادة حساب الطريق</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {!isLargeVehicle && (
+                  <>
+                    <View style={styles.taxiRouteSummary}>
+                      <View style={styles.taxiRouteMetric}>
+                        <Text style={styles.taxiRouteMetricLabel}>مسافة الطريق</Text>
+                        <Text style={styles.taxiRouteMetricValue}>{routeKm !== null ? routeKm.toFixed(2) + " كم" : "—"}</Text>
+                      </View>
+                      <View style={styles.taxiRouteMetric}>
+                        <Text style={styles.taxiRouteMetricLabel}>الوقت التقريبي</Text>
+                        <Text style={styles.taxiRouteMetricValue}>{routeDurationMin !== null ? Math.max(1, Math.round(routeDurationMin)) + " دقيقة" : "—"}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.taxiFieldLabel}>فئة السيارة</Text>
+                    <View style={styles.taxiVehicleList}>
+                      {VEHICLE_CATS.filter((category) => category.key !== "large").map((category) => {
+                        const fare = routeKm !== null
+                          ? calculateMobileTaxiFare(category.key as Exclude<VehicleCategory, "large">, routeKm, 1, isIntercity, tripType, extraMinutes)
+                          : null;
+                        const active = vehicleCat === category.key;
+                        return (
+                          <TouchableOpacity key={category.key} style={[styles.taxiVehicleCard, active && styles.taxiVehicleCardActive]} onPress={() => setVehicleCat(category.key as Exclude<VehicleCategory, "large">)}>
+                            <Text style={styles.taxiVehicleEmoji}>{category.emoji}</Text>
+                            <Text style={styles.taxiVehicleName}>{category.label}</Text>
+                            <Text style={styles.taxiVehicleFare}>{fare !== null ? fare.toLocaleString("ar-IQ") + " د.ع" : "—"}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
+
+                {isLargeVehicle && (
+                  <View style={styles.taxiLargeTypePanel}>
+                    <Text style={styles.taxiFieldLabel}>السعر المقترح (اختياري)</Text>
+                    <View style={styles.taxiBudgetRow}>
+                      {[15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000].map((amount) => (
+                        <TouchableOpacity key={amount} style={[styles.taxiBudgetChip, customerPrice === String(amount) && styles.taxiBudgetChipActive]} onPress={() => setCustomerPrice(String(amount))}>
+                          <Text style={[styles.taxiBudgetText, customerPrice === String(amount) && styles.taxiBudgetTextActive]}>{(amount / 1000).toLocaleString("en") + " ألف"}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TextInput style={styles.taxiSearchInputFull} value={customerPrice} onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))} placeholder="أو اكتب أي سعر بالدينار" placeholderTextColor={palette.muted} keyboardType="numeric" />
+                    <Text style={styles.taxiHintText}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب.</Text>
+                  </View>
+                )}
+
+                {!isLargeVehicle && (
+                  <View style={styles.taxiOptionsPanel}>
+                    <TouchableOpacity style={styles.taxiOptionsHeader} onPress={() => setTripOptionsExpanded((value) => !value)}>
+                      <Text style={styles.taxiOptionsTitle}>خيارات الرحلة الاختيارية</Text>
+                      <Text style={styles.taxiOptionsToggle}>{tripOptionsExpanded ? "إخفاء ▲" : "إظهار ▼"}</Text>
+                    </TouchableOpacity>
+                    {tripOptionsExpanded && (
+                      <>
+                        <Text style={styles.taxiHintText}>الاختيار الافتراضي ذهاب فقط. فعّل خياراً إضافياً عند الحاجة.</Text>
+                        <View style={styles.taxiTripTypeGrid}>
+                          {([
+                            { key: "one_way", label: "ذهاب فقط" },
+                            { key: "round_trip", label: "ذهاب وإياب" },
+                            { key: "second_trip", label: "رحلة ثانية" },
+                            { key: "stop", label: "توقف بالطريق" },
+                          ] as const).map((item) => (
+                            <TouchableOpacity key={item.key} style={[styles.taxiTripTypeChip, tripType === item.key && styles.taxiTripTypeChipActive]} onPress={() => { setTripType(item.key); if (item.key !== "stop") setExtraMinutes(0); }}>
+                              <Text style={[styles.taxiTripTypeText, tripType === item.key && styles.taxiTripTypeTextActive]}>{item.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        {tripType === "round_trip" && <Text style={styles.taxiSuccessText}>تم تطبيق خصم 10٪ على أجرة الذهاب والإياب.</Text>}
+                        {tripType === "stop" && (
+                          <>
+                            <View style={styles.taxiOptionsHeader}>
+                              <Text style={styles.taxiOptionsTitle}>مدة التوقف</Text>
+                              <Text style={styles.taxiOptionsToggle}>{extraMinutes} دقيقة · {(Math.ceil(extraMinutes / 5) * 500).toLocaleString("ar-IQ")} د.ع</Text>
+                            </View>
+                            <Text style={styles.taxiHintText}>كل 5 دقائق بـ500 دينار، والحد الأعلى ساعتان.</Text>
+                            <View style={styles.extraTimeSliderTouch} onLayout={(event) => { extraTimeTrackWidthRef.current = event.nativeEvent.layout.width; }} {...extraTimePanResponder.panHandlers}>
+                              <View style={styles.extraTimeSliderTrack}>
+                                <View style={[styles.extraTimeSliderFill, { width: String((extraMinutes / 120) * 100) + "%" }]} />
+                                <View style={[styles.extraTimeSliderThumb, { right: String((extraMinutes / 120) * 100) + "%" }]} />
+                              </View>
+                            </View>
+                            <View style={styles.extraTimeScale}>
+                              <Text style={styles.taxiHintText}>بدون توقف</Text>
+                              <Text style={styles.taxiHintText}>30 دقيقة</Text>
+                              <Text style={styles.taxiHintText}>ساعة</Text>
+                              <Text style={styles.taxiHintText}>ساعتان</Text>
+                            </View>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </View>
+                )}
+
+                {!isLargeVehicle && (
+                  <View style={styles.taxiCouponPanel}>
+                    <Text style={styles.taxiFieldLabel}>🎁 عندك كوبون خصم؟</Text>
+                    <View style={styles.taxiSearchRow}>
+                      <TextInput style={[styles.taxiSearchInput, { flex: 1 }]} value={couponCode} onChangeText={(value) => { setCouponCode(value.toUpperCase()); setCouponPreview(null); setCouponError(""); }} placeholder="اكتب رمز الكوبون" placeholderTextColor={palette.muted} autoCapitalize="characters" />
+                      <TouchableOpacity style={styles.taxiCouponButton} onPress={previewCoupon} disabled={couponLoading}>
+                        {couponLoading ? <ActivityIndicator color={palette.white} /> : <Text style={styles.taxiCouponButtonText}>تحقق</Text>}
+                      </TouchableOpacity>
+                    </View>
+                    {!!couponError && <Text style={styles.taxiErrorText}>{couponError}</Text>}
+                    {couponPreview && (
+                      <View style={styles.taxiCouponResult}>
+                        <Text style={styles.taxiSuccessText}>تم التحقق من الكوبون</Text>
+                        <Text style={styles.taxiCouponText}>قيمة الخصم: {couponPreview.discount.toLocaleString("ar-IQ")} د.ع</Text>
+                        <Text style={styles.taxiCouponText}>المبلغ بعد الخصم: {couponPreview.payable.toLocaleString("ar-IQ")} د.ع</Text>
+                        <Text style={styles.taxiHintText}>الخصم تتحمله ممنون ولا يقلل مستحقات السائق.</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {isLargeVehicle && vehicleType === "kia_cargo" && (
+                  <View style={styles.taxiLargeTypePanel}>
+                    <Text style={styles.taxiFieldLabel}>كمية الحمولة أو وصفها (اختياري)</Text>
+                    <TextInput style={styles.taxiSearchInputFull} value={cargoLoadDescription} onChangeText={(value) => setCargoLoadDescription(value.slice(0, 300))} placeholder="مثلاً: 500 طابوقة أو حمولة نصف طن" placeholderTextColor={palette.muted} />
+                  </View>
+                )}
+
+                {isLargeVehicle && (
+                  <View style={styles.taxiPhotoPanel}>
+                    <Text style={styles.taxiFieldLabel}>صورة توضيحية للطلب (اختياري)</Text>
+                    <TouchableOpacity style={styles.taxiPhotoButton} onPress={chooseRequestPhoto}>
+                      <Text style={styles.taxiPhotoButtonText}>{requestPhoto ? "تغيير الصورة" : "اختيار صورة من الجهاز"}</Text>
+                    </TouchableOpacity>
+                    {requestPhoto && (
+                      <View style={{ alignItems: "center", marginTop: 8 }}>
+                        <Image source={{ uri: requestPhoto.uri }} style={styles.requestPhotoPreview} />
+                        <TouchableOpacity onPress={() => setRequestPhoto(null)}><Text style={{ color: palette.danger, fontWeight: "900", marginTop: 6 }}>حذف الصورة</Text></TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                <TextInput
+                  style={styles.taxiNotesInput}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder={isLargeVehicle ? "ملاحظات إضافية — اكتب الوجهة أو تفاصيل الحمولة" : "ملاحظات إضافية (اختياري)"}
+                  placeholderTextColor={palette.muted}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[styles.taxiPrimaryButton, (busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))) && styles.taxiButtonDisabled]}
+                  disabled={busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))}
+                  onPress={submit}
+                >
+                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={styles.taxiPrimaryButtonText}>{isLargeVehicle ? "إرسال الطلب" : "اطلب الآن"}</Text>}
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    );
   }
 
   return (
