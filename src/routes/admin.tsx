@@ -1250,25 +1250,22 @@ function ProvidersSection() {
         <div className="space-y-2">
           {providers.map((p) => (
             <div key={p.id} className="glass rounded-2xl p-3">
-              <label className="flex items-center gap-2 text-xs font-bold mb-2"><input type="checkbox" checked={selectedProviderIds.includes(p.user_id)} onChange={(e)=>setSelectedProviderIds(current=>e.target.checked?[...current,p.user_id]:current.filter(id=>id!==p.user_id))}/> تحديد هذا الحساب للإجراء الجماعي</label>
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="font-bold text-sm">{p.profiles?.full_name ?? "—"}</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {p.profiles?.phone ?? "—"}
-                  </div>
-                  <div className="mt-2"><ContactOptions phone={p.profiles?.phone} label="اتصال / واتساب" /></div>
+              <div className="flex items-center gap-2">
+                <label className="shrink-0 flex items-center gap-1.5 text-[10px] font-bold"><input type="checkbox" checked={selectedProviderIds.includes(p.user_id)} onChange={(e)=>setSelectedProviderIds(current=>e.target.checked?[...current,p.user_id]:current.filter(id=>id!==p.user_id))}/> تحديد</label>
+                <div className="min-w-0 flex-1">
+                  <div className="font-black text-xs leading-tight truncate">{p.profiles?.full_name ?? "—"}</div>
+                  <div className="text-[10px] text-muted-foreground truncate">{p.profiles?.phone ?? "—"}</div>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${p.status === "approved" ? "bg-emerald-100 text-emerald-700" : p.status === "suspended" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
-                    {p.status === "approved" ? "الحساب مفعّل" : p.status === "pending" ? "بانتظار التفعيل" : p.status === "suspended" ? "الحساب معلّق" : p.status === "rejected" ? "مرفوض" : p.status}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">{p.suspended_until ? `ينتهي التعليق: ${new Date(p.suspended_until).toLocaleString("ar-IQ")}` : p.status === "suspended" ? "تعليق دائم" : p.available ? "متاح للعمل" : "غير متاح للعمل"}</span>
-                </div>
+                <span className={`shrink-0 text-[9px] font-black px-2 py-1 rounded-full ${p.status === "approved" ? "bg-emerald-100 text-emerald-700" : p.status === "suspended" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
+                  {p.status === "approved" ? "مفعّل" : p.status === "pending" ? "بانتظار" : p.status === "suspended" ? "معلّق" : p.status === "rejected" ? "مرفوض" : p.status}
+                </span>
               </div>
-              <button type="button" onClick={() => setExpandedProviderId(current => current === p.user_id ? null : p.user_id)} className="w-full rounded-xl bg-surface-2 py-2 text-[11px] font-black text-primary">
-                {expandedProviderId === p.user_id ? "إخفاء التفاصيل" : "عرض التفاصيل والمستمسكات"}
-              </button>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex-1 min-w-0"><ContactOptions phone={p.profiles?.phone} label="اتصال / واتساب" /></div>
+                <button type="button" onClick={() => setExpandedProviderId(current => current === p.user_id ? null : p.user_id)} className="flex-1 rounded-xl bg-surface-2 py-2 text-[10px] font-black text-primary">
+                  {expandedProviderId === p.user_id ? "إخفاء التفاصيل" : "التفاصيل والمستمسكات"}
+                </button>
+              </div>
               {expandedProviderId === p.user_id && <>
               {type !== "worker" && p.vehicle_make && (
                 <div className="text-[10px] text-muted-foreground mb-2">
