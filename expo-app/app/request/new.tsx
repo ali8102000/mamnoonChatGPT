@@ -25,7 +25,7 @@ import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { IRAQ_GOVERNORATES, getMobileGovernorate, nearestGovernorateKey } from "@/lib/governorates";
 import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
-import { ServiceArtwork, hasServiceArtwork } from "@/components/service-artwork";
+import { LargeVehicleIllustration } from "@/components/large-vehicle-illustration";
 import { palette, radius } from "@/styles/theme";
 import { calculateMobileTaxiFare } from "@/lib/taxi-fares";
 
@@ -33,6 +33,7 @@ type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 
 type CatalogService = { id: string; slug: string; name_ar: string };
+const EXPERT_SERVICE_SLUGS = new Set(["build", "plaster", "carpentry_form", "flooring", "chef", "plumbing", "electric_setup", "electric_street"]);
 
 
 const VEHICLE_CATS: { key: VehicleCategory; label: string; emoji: string }[] = [
@@ -231,6 +232,7 @@ export default function NewRequest() {
   }, [type]);
 
   const isTaxi = selectedService === "taxi";
+  useEffect(() => { if (!EXPERT_SERVICE_SLUGS.has(selectedService) && workerLevel === "khabir") setWorkerLevel("fani"); }, [selectedService, workerLevel]);
   const isLargeVehicle = vehicle === "large";
   const isIntercity = routeIsIntercity;
   const showRequestPhoto = !isTaxi || isLargeVehicle;
@@ -1013,7 +1015,7 @@ export default function NewRequest() {
                         { key: "bus", label: "باص" },
                       ] as const).map((item) => (
                         <TouchableOpacity key={item.key} style={[styles.taxiLargeTypeCard, vehicleType === item.key && styles.taxiLargeTypeCardActive]} onPress={() => setVehicleType(item.key)}>
-                          {"image" in item ? <Image source={{ uri: item.image }} style={styles.taxiLargeTypeImage} resizeMode="contain" /> : <Text style={styles.taxiLargeBus}>🚌</Text>}
+                          {"image" in item ? <Image source={{ uri: item.image }} style={styles.taxiLargeTypeImage} resizeMode="contain" /> : <LargeVehicleIllustration kind="bus" />}
                           <Text style={[styles.taxiLargeTypeText, vehicleType === item.key && styles.taxiLargeTypeTextActive]}>{item.label}</Text>
                         </TouchableOpacity>
                       ))}
@@ -1265,7 +1267,7 @@ export default function NewRequest() {
                 ]}
                 onPress={() => setSelectedService(service.slug)}
               >
-                {service.slug === "taxi" ? <Text style={styles.serviceEmoji}>{service.emoji}</Text> : hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
+                {service.slug === "taxi" ? <Text style={styles.serviceEmoji}>{service.emoji}</Text> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
                 <Text
                   style={[
                     styles.serviceLabel,
@@ -1471,16 +1473,15 @@ export default function NewRequest() {
                 فني
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
+            {EXPERT_SERVICE_SLUGS.has(selectedService) && <TouchableOpacity
               style={[styles.catChip, workerLevel === "khabir" && styles.catChipActive]}
               onPress={() => setWorkerLevel("khabir")}
             >
-              <Text style={[styles.catLabel, workerLevel === "khabir" && styles.catLabelActive]}>
-                خبير
-              </Text>
-            </TouchableOpacity>
+              <Text style={[styles.catLabel, workerLevel === "khabir" && styles.catLabelActive]}>خبير</Text>
+            </TouchableOpacity>}
           </View>
-          <Text style={styles.label}>عدد الفنيين الإضافيين: {extraWorkers}</Text>
+          {workerLevel === "khabir" && <View style={{ padding: 12, borderRadius: radius.md, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft, marginTop: 8, marginBottom: 10 }}><Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>مميزات الخبير</Text><Text style={{ color: palette.muted, fontSize: 11, lineHeight: 19, textAlign: "right", marginTop: 5 }}>خبرة متقدمة بالأعمال المتخصصة · تنفيذ المشروع وحده أو مع فريق · اختيار عدد الفنيين المساعدين · تفاصيل أوضح للعمل والاتفاق على السعر قبل البدء.</Text></View>}
+          <Text style={styles.label}>{workerLevel === "khabir" ? "عدد العمال المساعدين" : "عدد الفنيين الإضافيين"}: {extraWorkers}</Text>
           <View style={styles.stepperRow}>
             <TouchableOpacity
               style={styles.stepperBtn}
