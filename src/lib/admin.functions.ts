@@ -17,6 +17,13 @@ async function requireScopedAccess(context: any, rpcName: string, message: strin
 async function requireChatModeration(context: any) {
   return requireScopedAccess(context, "has_chat_moderation_access", "غير مصرّح: إدارة المحادثات للمخولين فقط");
 }
+async function requireFullChatModeration(context: any) {
+  await requireChatModeration(context);
+  const { supabase, userId } = context;
+  const { data, error } = await (supabase as any).rpc("is_customer_service_staff", { p_user_id: userId });
+  if (!error && data) throw new Error("غير مصرّح: موظف خدمة العملاء لا يملك صلاحية محادثات المستخدمين الخاصة");
+}
+
 async function requireLiveOps(context: any) {
   return requireScopedAccess(context, "has_live_ops_access", "غير مصرّح: متابعة المواقع للدعم والإدارة فقط");
 }
@@ -886,7 +893,7 @@ export const adminListMessages = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireChatModeration(context);
+    await requireFullChatModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let query = (supabaseAdmin as any)
       .from("messages")
@@ -903,7 +910,7 @@ export const adminDeleteMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ message_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireChatModeration(context);
+    await requireFullChatModeration(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_delete_message", {
       p_message_id: data.message_id,
@@ -918,7 +925,7 @@ export const adminListChats = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireChatModeration(context);
+    await requireFullChatModeration(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: chats, error } = await (supabaseAdmin as any)
       .from("chats")
