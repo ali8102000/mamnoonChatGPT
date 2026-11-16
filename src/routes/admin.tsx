@@ -64,6 +64,7 @@ import {
   adminListDepartmentStaff,
   adminPromoteStaffOneLevel,
   adminListStaffActivity,
+  adminDeactivateStaff,
   adminSetProviderStatus,
   adminUpdateProviderName,
   adminUnblockUser,
@@ -2381,6 +2382,7 @@ function RolesSection() {
   const grantRole = useServerFn(adminGrantRole);
   const revokeRole = useServerFn(adminRevokeRole);
   const setStaffRank = useServerFn(adminSetStaffRank);
+  const deactivateStaff = useServerFn(adminDeactivateStaff);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2417,6 +2419,14 @@ function RolesSection() {
       setRoleModal(null);
       load();
     } catch (e: any) { toast.error(e?.message || "تعذر حفظ بيانات الموظف"); }
+  }
+  async function handleDeactivate(userId: string) {
+    try {
+      await deactivateStaff({ data: { target_user_id: userId } });
+      toast.success("تمت إزالة الموظف من الطاقم");
+      setRoleModal(null);
+      load();
+    } catch (e: any) { toast.error(e?.message || "تعذرت إزالة الموظف"); }
   }
   return (
     <div>
@@ -2463,6 +2473,7 @@ function RolesSection() {
           onGrant={handleGrant}
           onRevoke={handleRevoke}
           onAssign={handleAssign}
+          onDeactivate={handleDeactivate}
           onClose={() => setRoleModal(null)}
         />
       )}
@@ -2470,19 +2481,21 @@ function RolesSection() {
   );
 }
 
-function RoleModal({ user, onGrant, onRevoke, onAssign, onClose }: any) {
+function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }: any) {
   const [roles, setRoles] = useState<string[]>([]);
   const [rank, setRank] = useState("employee");
   const [department, setDepartment] = useState("customer_service");
   const [displayTitle, setDisplayTitle] = useState("موظف خدمة العملاء");
   const [assignmentSaving, setAssignmentSaving] = useState(false);
+  const [assignmentActive, setAssignmentActive] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
       try {
         const { supabase } = await import("@/integrations/supabase/client");
-        const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank,department,display_title").eq("user_id", user.id).maybeSingle();
-        if (assignment) { setRank(assignment.rank); setDepartment(assignment.department); setDisplayTitle(assignment.display_title ?? ""); }
+        const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank,department,display_title,active").eq("user_id", user.id).maybeSingle();
+        if (assignment) { setRank(assignment.rank); setDepartment(assignment.department); setDisplayTitle(assignment.display_title ?? ""); setAssignmentActive(assignment.active); }
         const { data } = await (supabase as any)
           .from("user_roles")
           .select("role")
@@ -2549,6 +2562,12 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onClose }: any) {
               <button disabled={assignmentSaving} onClick={async () => { setAssignmentSaving(true); await onAssign(user.id, rank, department, displayTitle); setAssignmentSaving(false); }} className="w-full rounded-lg bg-primary text-primary-foreground py-2 text-sm font-bold disabled:opacity-50">
                 {assignmentSaving ? "جاري الحفظ..." : "حفظ الرتبة والقسم"}
               </button>
+              {assignmentActive && !roles.includes("super_admin") && <div className="pt-2 border-t border-border">
+                {!confirmDeactivate ? <button onClick={() => setConfirmDeactivate(true)} className="w-full rounded-lg bg-red-50 text-red-700 py-2 text-xs font-bold">إزالة الموظف من الطاقم</button> : <div className="space-y-2">
+                  <p className="text-xs text-red-700 font-bold">راح تنلغي صلاحياته الوظيفية، ويبقى حسابه الشخصي موجود. متأكد؟</p>
+                  <div className="flex gap-2"><button onClick={() => setConfirmDeactivate(false)} className="flex-1 rounded-lg border border-border py-2 text-xs">تراجع</button><button onClick={() => onDeactivate(user.id)} className="flex-1 rounded-lg bg-red-600 text-white py-2 text-xs font-bold">تأكيد الإزالة</button></div>
+                </div>}
+              </div>}
               <p className="text-[10px] text-muted-foreground">موظف خدمة العملاء بصلاحية قسم خدمة العملاء فقط، ولا يحصل على صلاحيات الإدارة الأخرى.</p>
             </div>
             {roles.includes("super_admin") && (
