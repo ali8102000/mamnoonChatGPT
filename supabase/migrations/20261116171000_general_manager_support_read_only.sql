@@ -1,31 +1,67 @@
--- General managers are read-only for support complaints and correspondence.
--- This helper is used by the support conversation/message RLS policies.
--- Exclude an active general_manager assignment before granting customer-service
--- or moderation capabilities, regardless of the staff member's department.
-create or replace function public.has_chat_moderation_access(p_user_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $function$
-  select case
-    when auth.uid() is null or p_user_id is distinct from auth.uid() then false
-    when exists (
-      select 1
-      from public.staff_assignments sa
-      where sa.user_id = auth.uid()
-        and sa.active = true
-        and sa.rank = 'general_manager'
-    ) then false
-    else (
-      public.is_customer_service_staff(auth.uid())
-      or exists (
-        select 1
-        from public.user_roles
-        where user_id = auth.uid()
-          and role::text in ('super_admin','admin','support','moderator')
-      )
+-- General managers can inspect complaints and correspondence, but cannot write.
+-- Explicitly block INSERT even when a general manager is also assigned to customer
+-- service or has a moderation role. Existing table grants already omit UPDATE/DELETE.
+drop policy if exists "Users open own support conversation" on public.support_conversations;
+create policy "Users open own support conversation"
+on public.support_conversations
+for insert
+to authenticated
+with check (
+  not exists (
+    select 1
+    from public.staff_assignments sa
+    where sa.user_id = (select auth.uid())
+      and sa.active = true
+      and sa.rank = 'general_manager'
+  )
+  and (
+    (user_id = (select auth.uid()) and created_by = (select auth.uid()))
+    or (
+      public.has_chat_moderation_access((select auth.uid()))
+      and created_by = (select auth.uid())
     )
-  end;
-$function$;
+  )
+);
+
+drop policy if exists "Support participants send messages" on public.support_messages;
+create policy "Support participants send messages"
+on public.support_messages
+for insert
+to authenticated
+with check (
+  not exists (
+    select 1
+    from public.staff_assignments sa
+    where sa.user_id = (select auth.uid())
+      and sa.active = true
+      and sa.rank = 'general_manager'
+  )
+  and sender_id = (select auth.uid())
+  and exists (
+    select 1
+    from public.support_conversations c
+    where c.id = support_messages.conversation_id
+      and (
+        c.user_id = (select auth.uid())
+        or public.has_chat_moderation_access((select auth.uid()))
+      )
+      and c.status = 'open'
+  )
+);
+
+-- Reports/complaints are visible to every active general manager, independent
+-- of department. This is SELECT-only; no UPDATE or DELETE grant is added.
+drop policy if exists "General managers can view user reports" on public.user_reports;
+create policy "General managers can view user reports"
+on public.user_reports
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.staff_assignments sa
+    where sa.user_id = (select auth.uid())
+      and sa.active = true
+      and sa.rank = 'general_manager'
+  )
+);
