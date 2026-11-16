@@ -137,7 +137,11 @@ export default function DriverOnboarding() {
           return;
         }
         result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ["images"], allowsEditing: kind === "face", ...(kind === "face" ? { aspect: [1, 1] as [number, number] } : {}), quality: 0.85,
+          mediaTypes: ["images"],
+          // Avoid the Android system crop screen whose action is labelled "قص".
+          // The app asks the user to confirm the selected photo in Arabic instead.
+          allowsEditing: false,
+          quality: 0.85,
         });
       } else {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -146,16 +150,27 @@ export default function DriverOnboarding() {
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"], allowsEditing: true, quality: 0.75,
+          mediaTypes: ["images"],
+          // Keep photo selection in the gallery; confirm it with the app's Arabic action.
+          allowsEditing: false,
+          quality: 0.75,
         });
       }
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         const picked = { uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName };
-        if (kind === "face") { setFacePhoto(picked); setChangedDocuments((current) => ({ ...current, face_photo: true })); }
-        else if (kind === "id") { setIdPhoto(picked); setChangedDocuments((current) => ({ ...current, id_card: true })); }
-        else if (kind === "id-back") { setIdBackPhoto(picked); setChangedDocuments((current) => ({ ...current, id_card_back: true })); }
-        else { setVehicleDocumentPhoto(picked); setChangedDocuments((current) => ({ ...current, vehicle_document: true })); }
+        const photoTitle = kind === "face" ? "الصورة الشخصية"
+          : kind === "id" ? "البطاقة الوطنية الأمامية"
+          : kind === "id-back" ? "البطاقة الوطنية الخلفية" : "مستند السيارة";
+        Alert.alert("تأكيد الصورة", `تم اختيار ${photoTitle}. هل تريد اعتمادها؟`, [
+          { text: "إعادة الاختيار", style: "cancel" },
+          { text: "اعتماد الصورة", onPress: () => {
+            if (kind === "face") { setFacePhoto(picked); setChangedDocuments((current) => ({ ...current, face_photo: true })); }
+            else if (kind === "id") { setIdPhoto(picked); setChangedDocuments((current) => ({ ...current, id_card: true })); }
+            else if (kind === "id-back") { setIdBackPhoto(picked); setChangedDocuments((current) => ({ ...current, id_card_back: true })); }
+            else { setVehicleDocumentPhoto(picked); setChangedDocuments((current) => ({ ...current, vehicle_document: true })); }
+          } },
+        ]);
       }
     } catch {
       Alert.alert("خطأ", "تعذر اختيار الصورة. حاول مرة أخرى.");
