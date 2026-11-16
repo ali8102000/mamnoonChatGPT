@@ -15,7 +15,8 @@ if (!webDir || !androidDir) {
 const maxRatio = Number(args.get("--max-diff-ratio") ?? 0.01);
 const tolerance = Number(args.get("--channel-tolerance") ?? 12);
 const manifest = JSON.parse(readFileSync(resolve("parity/screen-parity-manifest.json"), "utf8"));
-const visualIds = [...manifest.screenPairs.map((x) => x.id), ...manifest.adminSections.map((x) => x.id)];
+const visualScreens = [...manifest.screenPairs, ...manifest.adminSections];
+const capturePairs = visualScreens.flatMap((screen) => (screen.contexts ?? ["customer"]).flatMap((context) => manifest.capture.theme.map((theme) => ({ id: screen.id, context, theme, filename: screen.id + "__" + context + "__" + theme + ".png" }))));
 function decodePng(path) {
   const bytes = readFileSync(path);
   if (!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) throw new Error(path + " is not a PNG");
@@ -57,11 +58,11 @@ function compare(webPath,androidPath){
   return{pass:ratio<=maxRatio,width:a.width,height:a.height,differentPixels:different,totalPixels:total,differentRatio:Number(ratio.toFixed(6)),meanChannelDifference:Number((absolute/(total*3)).toFixed(3)),threshold:maxRatio,tolerance};
 }
 const results=[];
-for(const id of visualIds){
-  try{results.push({id,...compare(resolve(webDir,id+".png"),resolve(androidDir,id+".png"))});}
-  catch(error){results.push({id,pass:false,error:String(error)});}
+for(const capture of capturePairs){
+  try{results.push({...capture,...compare(resolve(webDir,capture.filename),resolve(androidDir,capture.filename))});}
+  catch(error){results.push({...capture,pass:false,error:String(error)});}
 }
 const failures=results.filter((x)=>!x.pass);
-const report={status:failures.length?"FAIL":"PASS",screens:results.length,passed:results.length-failures.length,failed:failures.length,maxDiffRatio:maxRatio,channelTolerance:tolerance,results};
+const report={status:failures.length?"FAIL":"PASS",screens:results.length,visualScreens:visualScreens.length,contexts:[...new Set(capturePairs.map((x)=>x.context))],themes:manifest.capture.theme,passed:results.length-failures.length,failed:failures.length,maxDiffRatio:maxRatio,channelTolerance:tolerance,results};
 console.log(JSON.stringify(report,null,2));
 if(failures.length)process.exitCode=1;
