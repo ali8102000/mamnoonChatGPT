@@ -198,7 +198,7 @@ export default function AccountSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: palette.canvas },
+  safe: { flex: 1, backgroundColor: palette.pageCanvas },
   container: { flexGrow: 1, paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.huge },
   kicker: { color: palette.gold, fontSize: 10, fontWeight: "900", letterSpacing: 1.3, marginBottom: 8 },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 5 },
