@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import service_build from "../../assets/services/build.png";
@@ -95,6 +96,8 @@ export function IncomingRequestModal() {
   const [attachmentPath, setAttachmentPath] = useState<string | null>(null);
   const loadSequence = useRef(0);
   const currentOfferId = useRef<string | null>(null);
+  const lastNotifiedOfferId = useRef<string | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
 
   const loadOffer = useCallback(async () => {
     const sequence = ++loadSequence.current;
@@ -158,6 +161,18 @@ export function IncomingRequestModal() {
     }
     setOffer(data as Offer);
     setVisible(true);
+    if (lastNotifiedOfferId.current !== data.id) {
+      lastNotifiedOfferId.current = data.id;
+      void Notifications.scheduleNotificationAsync({
+        content: {
+          title: "طلب جديد من ممنون",
+          body: data.service_requests?.type === "taxi" ? "وصلك طلب تكسي جديد. افتح التطبيق للتفاصيل." : `وصلك طلب ${data.service_requests?.services?.name_ar || "خدمة"} جديد. افتح التطبيق للتفاصيل.`,
+          sound: true,
+          data: { request_id: data.request_id, type: "incoming_request" },
+        },
+        trigger: null,
+      }).catch((error) => console.warn("[incoming-offer] Sound notification failed:", error));
+    }
   }, [user, canReceive, attachmentPath, attachmentUrl]);
 
   useEffect(() => {
@@ -186,6 +201,14 @@ export function IncomingRequestModal() {
       supabase.removeChannel(channel);
     };
   }, [user, canReceive, loadOffer]);
+
+  useEffect(() => {
+    if (!offer?.expires_at) { setRemainingSeconds(0); return; }
+    const update = () => setRemainingSeconds(Math.max(0, Math.ceil((new Date(offer.expires_at).getTime() - Date.now()) / 1000)));
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [offer?.id, offer?.expires_at]);
 
   const request = offer?.service_requests;
   const serviceSlug = request?.services?.slug ?? "";
@@ -271,6 +294,14 @@ export function IncomingRequestModal() {
             <Text style={styles.code}>#{code}</Text>
           </View>
 
+          <View style={[styles.countdown, remainingSeconds <= 10 && styles.countdownUrgent]}>
+            <Text style={styles.countdownCaption}>الوقت المتبقي لقبول الطلب</Text>
+            <Text style={[styles.countdownValue, remainingSeconds <= 10 && styles.countdownValueUrgent]}>
+              {`${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`}
+            </Text>
+            <Text style={styles.countdownFoot}>{remainingSeconds > 0 ? "لا تفوّت الفرصة" : "انتهت مهلة هذا العرض"}</Text>
+          </View>
+
           <View style={styles.serviceRow}>
             {imageSource ? (
               <Image source={imageSource} style={styles.serviceImage} resizeMode="cover" />
@@ -351,7 +382,7 @@ export function IncomingRequestModal() {
                 maxLength={500}
                 style={{ borderWidth: 1, borderColor: palette.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: palette.ink, textAlign: "right", marginTop: 10 }}
               />
-              <TouchableOpacity style={[styles.action, styles.accept, { marginTop: 10 }]} onPress={() => void sendLargeVehicleOffer()} disabled={Boolean(busy)}>
+              <TouchableOpacity style={[styles.action, styles.accept, { marginTop: 10 }]} onPress={() => void sendLargeVehicleOffer()} disabled={Boolean(busy) || remainingSeconds <= 0}>
                 {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>إرسال عرض السعر</Text>}
               </TouchableOpacity>
               <TouchableOpacity style={[styles.action, styles.reject, { marginTop: 8 }]} onPress={() => void respond("reject")} disabled={Boolean(busy)}>
@@ -371,7 +402,7 @@ export function IncomingRequestModal() {
                 <TouchableOpacity style={[styles.action, styles.reject]} onPress={() => void respond("reject")} disabled={Boolean(busy)}>
                   <Text style={styles.rejectText}>رفض</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.action, styles.accept]} onPress={() => void respond("accept")} disabled={Boolean(busy)}>
+                <TouchableOpacity style={[styles.action, styles.accept]} onPress={() => void respond("accept")} disabled={Boolean(busy) || remainingSeconds <= 0}>
                   {busy === "accept" ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>قبول الطلب</Text>}
                 </TouchableOpacity>
               </View>
@@ -394,6 +425,12 @@ const styles = StyleSheet.create({
   pulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: palette.success },
   topText: { flex: 1, color: palette.brand, fontSize: 14, fontWeight: "900" },
   code: { color: palette.muted, fontSize: 11, fontWeight: "900" },
+  countdown: { alignItems: "center", justifyContent: "center", marginBottom: 16, paddingVertical: 12, borderRadius: 18, borderWidth: 1.5, borderColor: "#D6AE42", backgroundColor: "#171307", shadowColor: "#E2B94F", shadowOpacity: 0.48, shadowRadius: 14, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
+  countdownUrgent: { borderColor: "#F97373", backgroundColor: "#260D0D", shadowColor: "#EF4444" },
+  countdownCaption: { color: "#E8D7A4", fontSize: 11, fontWeight: "900" },
+  countdownValue: { color: "#FFE08A", fontSize: 34, lineHeight: 42, fontWeight: "900", letterSpacing: 3, fontVariant: ["tabular-nums"], textShadowColor: "rgba(255,208,94,0.8)", textShadowRadius: 12 },
+  countdownValueUrgent: { color: "#FF9B9B", textShadowColor: "rgba(255,80,80,0.9)" },
+  countdownFoot: { color: "#BBA46A", fontSize: 10, fontWeight: "800" },
   serviceRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
   serviceImage: { width: 76, height: 76, borderRadius: radius.lg, backgroundColor: palette.surfaceSoft },
   taxiImage: { width: 76, height: 76, borderRadius: radius.lg, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center" },
