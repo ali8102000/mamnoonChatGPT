@@ -176,7 +176,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     icon: Bell,
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
-  { key: "regions", label: "التحكم بالمحافظات", icon: MapPin, roles: ["super_admin"] },
+  { key: "regions", label: "التحكم بالمحافظات", icon: MapPin, roles: ["super_admin", "admin"] },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "موظفو القسم والترقيات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
