@@ -17,7 +17,8 @@ export function RegionalServiceBanner() {
       let key = await SecureStore.getItemAsync("mamnoon_governorate").catch(() => null);
       const permission = await Location.getForegroundPermissionsAsync().catch(() => null);
       if (permission?.granted) {
-        const position = await Location.getLastKnownPositionAsync().catch(() => null);
+        let position = await Location.getLastKnownPositionAsync().catch(() => null);
+        if (!position) position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).catch(() => null);
         if (position) {
           const detected = await callMamnoonMapsApi<{ key: string }>({
             action: "detectGovernorate",
@@ -30,21 +31,26 @@ export function RegionalServiceBanner() {
         }
       }
       if (!active || !key) return;
-      const { data } = await (supabase as any).from("regional_service_controls").select("*").in("governorate_key", [key, "all"]);
+      const { data, error } = await (supabase as any)
+        .from("regional_service_controls")
+        .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate")
+        .in("governorate_key", [key, "all"]);
       if (!active) return;
+      if (error) { console.warn("[regional controls] load failed", error); return; }
       const exact = (data ?? []).find((item: Row) => item.governorate_key === key);
       const global = (data ?? []).find((item: Row) => item.governorate_key === "all");
-      const notice = exact || global;
+      const base = exact || global;
+      if (!base) { setRow(null); return; }
       const services_enabled = global?.services_enabled === false
         ? false
         : exact?.services_enabled ?? global?.services_enabled ?? true;
-      setRow(notice ? { ...notice, services_enabled } as Row : null);
+      setRow({ ...base, services_enabled });
     };
     void load();
-    const channel = supabase.channel("regional-service-controls")
+    const channel = supabase.channel("regional-service-controls-mobile")
       .on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls" }, () => { void load(); })
       .subscribe();
-    const timer = setInterval(() => void load(), 60000);
+    const timer = setInterval(() => void load(), 30000);
     return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
   }, []);
   useEffect(() => {
