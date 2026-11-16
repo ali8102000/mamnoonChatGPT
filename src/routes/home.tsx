@@ -359,6 +359,39 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   const [popupRequest, setPopupRequest] = useState<any | null>(null);
   const popupShownRef = useRef<string | null>(null);
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
+  const [popupAttachmentUrl, setPopupAttachmentUrl] = useState<string | null>(null);
+  const [popupAttachmentLoading, setPopupAttachmentLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const attachmentPath = popupRequest?.attachment_path as string | null | undefined;
+    setPopupAttachmentUrl(null);
+    if (!attachmentPath) {
+      setPopupAttachmentLoading(false);
+      return;
+    }
+    setPopupAttachmentLoading(true);
+    supabase.storage
+      .from("request-attachments")
+      .createSignedUrl(attachmentPath, 60 * 60)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          console.warn("[provider-home] Could not sign request photo:", error.message);
+          setPopupAttachmentUrl(null);
+        } else {
+          setPopupAttachmentUrl(data?.signedUrl ?? null);
+        }
+        setPopupAttachmentLoading(false);
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.warn("[provider-home] Could not load request photo:", error);
+        setPopupAttachmentUrl(null);
+        setPopupAttachmentLoading(false);
+      });
+    return () => { active = false; };
+  }, [popupRequest?.id, popupRequest?.attachment_path]);
 
   useEffect(() => {
     if (!session) return;
@@ -388,7 +421,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         const requestIds: string[] = [...new Set<string>((offerRows ?? []).map((offer: any) => String(offer.request_id)))];
         const { data } = await supabase
           .from("service_requests")
-          .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, vehicle_category, vehicle_type")
+          .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type")
           .in("id", requestIds)
           .eq("type", "taxi")
           .eq("vehicle_category", "large")
@@ -491,12 +524,28 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
     <div className="space-y-4">
       {popupRequest && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-label="طلب جديد">
-          <div className="w-full max-w-md rounded-3xl border border-primary/40 bg-background p-5 shadow-2xl">
+          <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl border border-primary/40 bg-background p-5 shadow-2xl">
             <div className="mb-3 text-xs font-black text-primary">🔔 طلب جديد موجّه إلك</div>
             <div className="text-lg font-black text-foreground">{type === "taxi" ? (largeDriverMode ? "طلب سيارة كبيرة جديد" : "طلب رحلة جديد") : "طلب خدمة جديد"}</div>
             <div className="mt-2 rounded-2xl bg-muted/60 p-3 text-sm font-bold text-foreground">📍 {popupRequest.pickup_text || "موقع الزبون"}</div>
             {popupRequest.dest_text && <div className="mt-2 text-xs text-muted-foreground">🎯 {popupRequest.dest_text}</div>}
             {popupRequest.work_description && <div className="mt-2 text-xs text-muted-foreground">🛠️ {popupRequest.work_description}</div>}
+            {popupRequest.attachment_path && (
+              <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
+                <div className="mb-2 text-sm font-black text-primary">صورة الزبون المرفقة بالطلب</div>
+                {popupAttachmentUrl ? (
+                  <img
+                    src={popupAttachmentUrl}
+                    alt="صورة مرفقة بطلب الزبون"
+                    className="w-full max-h-48 rounded-xl bg-background object-contain"
+                  />
+                ) : (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    {popupAttachmentLoading ? "جاري تحميل الصورة..." : "تعذر تحميل الصورة حالياً"}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mt-4 flex gap-2">
               {!largeDriverMode && (
                 <button onClick={() => { const id = popupRequest.id; setPopupRequest(null); void accept(id); }} className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-black text-primary-foreground">موافقة وقبول</button>
