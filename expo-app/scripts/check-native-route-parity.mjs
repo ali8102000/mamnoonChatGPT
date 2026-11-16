@@ -112,6 +112,15 @@ if (!nativeAuthSource.includes('router.push("/welcome")')) {
   missing.push("Native auth must expose the web-equivalent language and welcome link.");
 }
 
+const apkWorkflowSource = await readSource("../.github/workflows/android-apk.yml");
+const aabWorkflowSource = await readSource("../.github/workflows/android-aab.yml");
+if (apkWorkflowSource.includes("\\n  pull_request:")) {
+  missing.push("Full APK builds should run on main only; PRs use the faster mobile CI export checks.");
+}
+if (!aabWorkflowSource.includes("cancel-in-progress: true")) {
+  missing.push("AAB builds must cancel obsolete main builds when a newer release commit arrives.");
+}
+
 const notificationLayout = await readSource("app/_layout.tsx");
 const notificationBell = await readSource("src/components/notifications-bell.tsx");
 const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
