@@ -61,6 +61,27 @@ $$;
 revoke all on function public.regional_services_enabled(text) from public;
 grant execute on function public.regional_services_enabled(text) to anon, authenticated;
 
+
+create or replace function public.infer_governorate_key(p_lat numeric, p_lng numeric)
+returns text
+language sql
+immutable
+set search_path = public
+as $
+  select g.key
+    from (values
+      ('baghdad',33.3152,44.3661),('basra',30.5085,47.7804),('nineveh',36.34,43.13),
+      ('erbil',36.1911,44.0092),('sulaymaniyah',35.5613,45.4306),('duhok',36.8669,42.9503),
+      ('kirkuk',35.4681,44.3922),('najaf',32.0259,44.3462),('karbala',32.616,44.0249),
+      ('babil',32.4637,44.4196),('anbar',33.4206,43.3058),('diyala',33.7502,44.6066),
+      ('saladin',34.6,43.68),('wasit',32.5128,45.8182),('dhiqar',31.0439,46.2573),
+      ('maysan',31.8356,47.1449),('muthanna',31.3099,45.2803),('qadisiyah',31.9929,44.925)
+    ) as g(key, lat, lng)
+   order by power(p_lat::double precision - g.lat, 2)
+          + power((p_lng::double precision - g.lng) * cos(radians(p_lat::double precision)), 2)
+   limit 1;
+$;
+
 create or replace function public.guard_regional_service_request()
 returns trigger
 language plpgsql
@@ -68,6 +89,11 @@ security definer
 set search_path = public
 as $$
 begin
+  if new.governorate_key is null or length(trim(new.governorate_key)) = 0 then
+    if new.pickup_lat is not null and new.pickup_lng is not null then
+      new.governorate_key := public.infer_governorate_key(new.pickup_lat, new.pickup_lng);
+    end if;
+  end if;
   if new.governorate_key is null or length(trim(new.governorate_key)) = 0 then
     raise exception 'governorate_required'
       using message = 'تعذّر تحديد المحافظة. حدّد موقع الانطلاق من جديد ثم أرسل الطلب.';
@@ -81,6 +107,9 @@ begin
   return new;
 end;
 $$;
+
+revoke all on function public.infer_governorate_key(numeric,numeric) from public;
+grant execute on function public.infer_governorate_key(numeric,numeric) to anon, authenticated;
 
 drop trigger if exists guard_regional_service_request_before_insert on public.service_requests;
 create trigger guard_regional_service_request_before_insert
@@ -141,6 +170,12 @@ security definer
 set search_path = public
 as $$
 begin
+  update public.service_requests sr
+     set governorate_key = public.infer_governorate_key(sr.pickup_lat, sr.pickup_lng)
+   where sr.governorate_key is null
+     and sr.pickup_lat is not null
+     and sr.pickup_lng is not null;
+
   update public.request_offers o
      set status = 'cancelled', responded_at = now()
     from public.service_requests sr
