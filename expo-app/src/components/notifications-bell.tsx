@@ -5,7 +5,7 @@ import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
-import { isNotificationSoundEnabled, loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
+import { getNotificationChannelId, isNotificationSoundEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 
 const IMPORTANT_NOTIFICATION_TYPES = /^(support_message|provider_approved|provider_rejected|provider_suspended|coupon_received|coupon_redeemed|announcement|company_announcement|admin_alert|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted|subscription_admin_updated|subscription_extended)$/i;
 
@@ -22,24 +22,41 @@ export function NotificationsBell() {
   const [now, setNow] = useState(Date.now());
   const [featured, setFeatured] = useState<NotificationRow | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(isNotificationSoundEnabled());
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
 
   useEffect(() => {
     let active = true;
-    void loadNotificationSoundPreference().then((enabled) => {
-      if (active) setSoundEnabled(enabled);
+    void loadNotificationPreferences().then((preferences) => {
+      if (active) {
+        setSoundEnabled(preferences.soundEnabled);
+        setVibrationEnabled(preferences.vibrationEnabled);
+      }
     });
     return () => { active = false; };
   }, []);
 
-  async function changeSoundPreference(enabled: boolean) {
-    setSoundEnabled(enabled);
-    await setNotificationSoundPreference(enabled);
+  async function saveNotificationPreferences(next: { soundEnabled: boolean; vibrationEnabled: boolean }) {
+    setSoundEnabled(next.soundEnabled);
+    setVibrationEnabled(next.vibrationEnabled);
+    await setNotificationPreferences(next);
     if (!user?.id) return;
     const { error } = await (supabase as any)
       .from("user_push_tokens")
-      .update({ sound_enabled: enabled, updated_at: new Date().toISOString() })
+      .update({
+        sound_enabled: next.soundEnabled,
+        vibration_enabled: next.vibrationEnabled,
+        updated_at: new Date().toISOString(),
+      })
       .eq("user_id", user.id);
-    if (error) console.warn("[notifications] Could not sync sound preference:", error.message);
+    if (error) console.warn("[notifications] Could not sync notification preferences:", error.message);
+  }
+
+  async function changeSoundPreference(enabled: boolean) {
+    await saveNotificationPreferences({ soundEnabled: enabled, vibrationEnabled });
+  }
+
+  async function changeVibrationPreference(enabled: boolean) {
+    await saveNotificationPreferences({ soundEnabled, vibrationEnabled: enabled });
   }
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -72,6 +89,7 @@ export function NotificationsBell() {
               title: item.title,
               body: item.body ?? undefined,
               sound: isNotificationSoundEnabled() ? "default" : false,
+              channelId: getNotificationChannelId(soundEnabled, vibrationEnabled),
               data: { url: item.link ?? "/home" },
             },
             trigger: {
@@ -147,14 +165,27 @@ export function NotificationsBell() {
             <View style={styles.soundSetting}>
               <View style={styles.soundSettingCopy}>
                 <Text style={styles.soundSettingTitle}>صوت الإشعارات</Text>
-                <Text style={styles.soundSettingDescription}>{soundEnabled ? "الصوت والاهتزاز مفعّلان" : "الإشعارات صامتة"}</Text>
+                <Text style={styles.soundSettingDescription}>{soundEnabled ? "صوت التنبيه مفعّل" : "صوت التنبيه متوقف"}</Text>
               </View>
               <Switch
                 value={soundEnabled}
                 onValueChange={changeSoundPreference}
                 trackColor={{ false: palette.line, true: palette.brandSoft }}
                 thumbColor={soundEnabled ? palette.brand : "#8B918D"}
-                accessibilityLabel="كتم صوت الإشعارات"
+                accessibilityLabel="تشغيل أو إيقاف صوت الإشعارات"
+              />
+            </View>
+            <View style={styles.soundSetting}>
+              <View style={styles.soundSettingCopy}>
+                <Text style={styles.soundSettingTitle}>اهتزاز الإشعارات</Text>
+                <Text style={styles.soundSettingDescription}>{vibrationEnabled ? "الاهتزاز مفعّل" : "الاهتزاز متوقف"}</Text>
+              </View>
+              <Switch
+                value={vibrationEnabled}
+                onValueChange={changeVibrationPreference}
+                trackColor={{ false: palette.line, true: palette.brandSoft }}
+                thumbColor={vibrationEnabled ? palette.brand : "#8B918D"}
+                accessibilityLabel="تشغيل أو إيقاف اهتزاز الإشعارات"
               />
             </View>
             <ScrollView contentContainerStyle={styles.list}>
