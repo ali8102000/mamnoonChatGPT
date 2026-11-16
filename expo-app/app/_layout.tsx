@@ -76,6 +76,7 @@ function PushNotificationSetup() {
     async function registerPushToken() {
       try {
         if (Platform.OS === "android") {
+          await configureAndroidNotificationChannels();
           await Notifications.setNotificationCategoryAsync("incoming_request", [
             {
               identifier: "accept",
