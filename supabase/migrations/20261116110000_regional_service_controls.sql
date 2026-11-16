@@ -16,6 +16,24 @@ create table if not exists public.regional_service_controls (
   constraint regional_service_controls_message_text_check check (char_length(message_text) <= 1200)
 );
 
+create or replace function public.touch_regional_service_control()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $touch$
+begin
+  new.updated_by := auth.uid();
+  new.updated_at := now();
+  return new;
+end;
+$touch$;
+
+drop trigger if exists touch_regional_service_control_before_write on public.regional_service_controls;
+create trigger touch_regional_service_control_before_write
+before insert or update on public.regional_service_controls
+for each row execute function public.touch_regional_service_control();
+
 alter table public.regional_service_controls enable row level security;
 grant select on public.regional_service_controls to anon, authenticated;
 grant insert, update, delete on public.regional_service_controls to authenticated;
@@ -67,7 +85,7 @@ returns text
 language sql
 immutable
 set search_path = public
-as $
+as $infer$
   select g.key
     from (values
       ('baghdad',33.3152,44.3661),('basra',30.5085,47.7804),('nineveh',36.34,43.13),
@@ -80,7 +98,7 @@ as $
    order by power(p_lat::double precision - g.lat, 2)
           + power((p_lng::double precision - g.lng) * cos(radians(p_lat::double precision)), 2)
    limit 1;
-$;
+$infer$;
 
 create or replace function public.guard_regional_service_request()
 returns trigger
