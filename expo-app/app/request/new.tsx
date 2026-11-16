@@ -117,6 +117,7 @@ export default function NewRequest() {
   const window = useWindowDimensions();
   const [taxiSheetHeight, setTaxiSheetHeight] = useState(320);
   const [selectedService, setSelectedService] = useState(type || "taxi");
+  const [serviceDetailsStep, setServiceDetailsStep] = useState(false);
   const [serviceCatalog, setServiceCatalog] = useState<CatalogService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [servicesError, setServicesError] = useState<string | null>(null);
@@ -233,6 +234,28 @@ export default function NewRequest() {
       setCouponError("");
     }
   }, [type]);
+
+  if (type === "service" && !serviceDetailsStep) {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 12 }}>
+          <Text style={{ color: palette.brand, fontSize: 13, fontWeight: "900", textAlign: "right" }}>رجوع</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>الفنيون والخدمات</Text>
+        <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginBottom: 16 }}>اختَر اختصاص الفني حتى نعرض لك تفاصيل الطلب بالخطوة التالية.</Text>
+        {servicesLoading && <ActivityIndicator color={palette.brand} style={{ marginVertical: 16 }} />}
+        {!!servicesError && <Text style={{ color: palette.danger, textAlign: "right" }}>{servicesError}</Text>}
+        <View style={styles.serviceGrid}>
+          {serviceCatalog.filter((service) => service.slug !== "taxi").map((service) => (
+            <TouchableOpacity key={service.slug} style={styles.serviceTile} onPress={() => { setSelectedService(service.slug); if (!EXPERT_ONLY_SERVICE_SLUGS.has(service.slug)) setWorkerLevel("fani"); setServiceDetailsStep(true); }}>
+              {hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="contain" />}
+              <Text style={styles.serviceLabel}>{service.name_ar}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    );
+  }
 
   const isTaxi = selectedService === "taxi";
   const isLargeVehicle = vehicle === "large";
@@ -1237,7 +1260,7 @@ export default function NewRequest() {
       contentContainerStyle={{ paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "طلب جديد"}</Text>
+      <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "تفاصيل طلب الفني"}</Text>\n      {!isTaxi && serviceDetailsStep && <TouchableOpacity onPress={() => setServiceDetailsStep(false)} style={{ marginBottom: 12 }}><Text style={{ color: palette.brand, textAlign: "right", fontWeight: "900" }}>← قائمة الفنيين</Text></TouchableOpacity>}
       {isLargeVehicle && (
         <View style={{ marginBottom: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
           <Text style={styles.label}>اختار نوع الكيا أولاً</Text>
@@ -1251,7 +1274,7 @@ export default function NewRequest() {
           </View>
         </View>
       )}
-      {vehicle !== "large" && (
+      {vehicle !== "large" && !serviceDetailsStep && (\n
         <>
           <Text style={styles.label}>نوع الخدمة</Text>
           {servicesLoading && <ActivityIndicator style={{ marginVertical: 12 }} color={palette.brand} />}
@@ -1287,7 +1310,7 @@ export default function NewRequest() {
         </>
       )}
 
-      <Text style={styles.label}>حدد النقطة على الخريطة</Text>
+      )}\n\n      <Text style={styles.label}>حدد النقطة على الخريطة</Text>
       <View style={styles.mapModeRow}>
         <TouchableOpacity
           style={[styles.mapModeButton, mapMode === "pickup" && styles.mapModeButtonActive]}
