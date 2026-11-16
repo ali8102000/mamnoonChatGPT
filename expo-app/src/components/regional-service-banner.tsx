@@ -95,6 +95,10 @@ const styles = StyleSheet.create({
   stampText: { color: "#E9C76A", fontSize: 9, fontWeight: "800" },
   marquee: { height: 34, justifyContent: "center", overflow: "hidden", marginTop: 5 },
   message: { color: "#F4E7C1", fontSize: 12, fontWeight: "800", textAlign: "right", alignSelf: "flex-start", flexShrink: 0 },
-  rejectionCard: { marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: "#211706", borderWidth: 1, borderColor: "#8A6426" },\n  rejectionHead: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },\n  rejectionLabel: { color: "#F2D58A", fontSize: 10, fontWeight: "900" },\n  rejectionText: { color: "#FFF0C7", fontSize: 14, lineHeight: 25, fontWeight: "900", textAlign: "right", marginTop: 8 },\n  noticeImage: { width: "100%", height: 150, marginTop: 8, borderRadius: 10 },
+  rejectionCard: { marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: "#211706", borderWidth: 1, borderColor: "#8A6426" },
+  rejectionHead: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
+  rejectionLabel: { color: "#F2D58A", fontSize: 10, fontWeight: "900" },
+  rejectionText: { color: "#FFF0C7", fontSize: 14, lineHeight: 25, fontWeight: "900", textAlign: "right", marginTop: 8 },
+  noticeImage: { width: "100%", height: 150, marginTop: 8, borderRadius: 10 },
   closed: { color: "#FCA5A5", fontSize: 10, fontWeight: "800", textAlign: "right", marginTop: 6 },
 });
