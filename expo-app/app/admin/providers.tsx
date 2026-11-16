@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
+import { showContactOptions } from "@/lib/phone";
 
 type ProviderType = "driver" | "large_driver" | "worker";
 type ProviderStatus = "all" | "approved" | "pending" | "suspended" | "rejected";
@@ -197,6 +198,7 @@ export default function AdminProvidersScreen() {
           <View key={provider.user_id} style={s.card}>
             <Text style={s.name}>{provider.profiles?.full_name || "بدون اسم"}</Text>
             <Text style={s.muted}>{provider.profiles?.phone || provider.profiles?.email || "لا توجد معلومات اتصال"}</Text>
+            {!!provider.profiles?.phone && <TouchableOpacity style={s.contactButton} onPress={() => showContactOptions(provider.profiles!.phone!)}><Text style={s.contactButtonText}>اتصال / واتساب</Text></TouchableOpacity>}
             <View style={s.metaRow}>
               <Text style={s.status}>{provider.status || "غير محدد"}</Text>
               <Text style={s.meta}>{provider.available ? "متاح حالياً" : "غير متاح"}</Text>
@@ -273,6 +275,8 @@ const s = StyleSheet.create({
   search: { backgroundColor: palette.surface, color: palette.ink, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 12 },
   card: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 14, gap: 7 },
   name: { color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" },
+  contactButton: { alignSelf: "flex-start", backgroundColor: palette.brandSoft, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8 },
+  contactButtonText: { color: palette.brand, fontWeight: "800", fontSize: 12 },
   metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   status: { color: palette.brand, fontSize: 11, fontWeight: "900" },
   meta: { color: palette.muted, fontSize: 10 },
