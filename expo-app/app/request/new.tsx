@@ -936,6 +936,26 @@ export default function NewRequest() {
             </Marker>
           ))}
         </MapView>
+        {mapMode === "pickup" && (
+          <TouchableOpacity
+            style={[styles.taxiLocateFloating, { bottom: taxiSheetHeight + 10 }]}
+            onPress={locateMe}
+            disabled={locationLoading}
+            accessibilityRole="button"
+            accessibilityLabel="تحديد موقعي الحالي"
+          >
+            {locationLoading ? (
+              <ActivityIndicator color={palette.brand} size="small" />
+            ) : (
+              <Svg width={19} height={19} viewBox="0 0 24 24">
+                <Path d="M12 2v3m0 14v3M2 12h3m14 0h3" stroke={palette.brand} strokeWidth={2.2} strokeLinecap="round" />
+                <Circle cx={12} cy={12} r={6.5} stroke={palette.brand} strokeWidth={2.2} fill="none" />
+                <Circle cx={12} cy={12} r={2} fill={palette.gold} />
+              </Svg>
+            )}
+            <Text style={styles.taxiLocateFloatingText}>موقعي</Text>
+          </TouchableOpacity>
+        )}
         <View pointerEvents="none" style={[styles.taxiCenterPin, { top: 92 + Math.max(0, window.height - 92 - taxiSheetHeight) / 2 - 36 }]}>
           <MapCenterPin />
         </View>
@@ -955,7 +975,11 @@ export default function NewRequest() {
             accessibilityRole="button"
             accessibilityLabel="رجوع"
           >
-            <Text style={styles.taxiBackText}>‹</Text>
+            <View style={styles.taxiArrowMedallion}>
+              <Svg width={22} height={22} viewBox="0 0 24 24">
+                <Path d="M15 5 8 12l7 7" stroke={palette.brand} strokeWidth={2.7} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              </Svg>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.taxiGovernorateBadge} onPress={() => setGovernoratePickerVisible(true)}>
             <Text style={styles.taxiGovernorateText}>📍 {activeGovernorate?.name ?? "اختر المحافظة"}</Text>
@@ -985,9 +1009,6 @@ export default function NewRequest() {
           </View>
           </View>
           <View style={styles.taxiSearchRow}>
-            <TouchableOpacity style={styles.taxiLocateButton} onPress={locateMe} disabled={locationLoading}>
-              {locationLoading ? <ActivityIndicator color={palette.white} size="small" /> : <Text style={styles.taxiLocateText}>موقعي تلقائياً</Text>}
-            </TouchableOpacity>
             <TextInput style={styles.taxiSearchInput} value={placeQuery} onChangeText={setPlaceQuery} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
           </View>
           {searchingPlaces && <ActivityIndicator style={{ marginTop: 6 }} color={palette.brand} />}
@@ -1043,6 +1064,11 @@ export default function NewRequest() {
                   <Text style={styles.taxiPrimaryButtonText}>
                     {mapMode === "pickup" ? "تأكيد الانطلاق" : routeLoading ? "جارٍ حساب الطريق..." : "تأكيد الوجهة"}
                   </Text>
+                  <View style={styles.taxiPrimaryArrow}>
+                    <Svg width={18} height={18} viewBox="0 0 24 24">
+                      <Path d="M19 12H5m7-7-7 7 7 7" stroke={palette.white} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </Svg>
+                  </View>
                 </TouchableOpacity>
               </>
             ) : (
@@ -1724,7 +1750,10 @@ const styles = StyleSheet.create({
   taxiTopBar: { position: "absolute", top: 42, left: 10, right: 10, zIndex: 10, flexDirection: "column", alignItems: "stretch", gap: 8 },
   taxiTopControls: { flexDirection: "row", alignItems: "center", gap: 7 },
   taxiBackButton: { width: 42, height: 44, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
-  taxiBackText: { color: palette.ink, fontSize: 30, fontFamily: "Tajawal_900Black", fontWeight: "900", lineHeight: 34 },
+  taxiArrowMedallion: { width: 31, height: 31, borderRadius: 12, backgroundColor: palette.goldSoft, borderWidth: 1, borderColor: palette.gold + "66", alignItems: "center", justifyContent: "center" },
+  taxiLocateFloating: { position: "absolute", left: 76, zIndex: 12, minHeight: 42, paddingHorizontal: 12, borderRadius: 22, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, shadowColor: "#0F172A", shadowOpacity: 0.22, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+  taxiLocateFloatingText: { color: palette.brand, fontSize: 11, fontFamily: "Tajawal_900Black", fontWeight: "900" },
+  taxiPrimaryArrow: { width: 30, height: 30, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.16)", borderWidth: 1, borderColor: "rgba(255,255,255,0.32)", alignItems: "center", justifyContent: "center" },
   taxiGovernorateBadge: { minHeight: 44, paddingHorizontal: 11, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
   taxiGovernorateText: { color: palette.ink, fontSize: 11, fontFamily: "Tajawal_900Black", fontWeight: "900" },
   taxiStepTabs: { flex: 1, flexDirection: "row", padding: 4, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, gap: 4 },
@@ -1752,7 +1781,7 @@ const styles = StyleSheet.create({
   taxiGovernorateChipText: { color: palette.ink, fontSize: 11, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800" },
   taxiGovernorateChipTextActive: { color: palette.white },
   taxiFieldLabel: { color: palette.ink, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900", textAlign: "right", marginTop: 5 },
-  taxiPrimaryButton: { minHeight: 54, borderRadius: radius.lg, backgroundColor: palette.brand, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, marginTop: 5 },
+  taxiPrimaryButton: { minHeight: 54, borderRadius: radius.lg, backgroundColor: palette.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 16, marginTop: 5 },
   taxiButtonDisabled: { opacity: 0.45 },
   taxiPrimaryButtonText: { color: palette.white, fontSize: 15, fontFamily: "Tajawal_900Black", fontWeight: "900" },
   taxiErrorText: { color: palette.danger, fontSize: 11, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800", textAlign: "right" },

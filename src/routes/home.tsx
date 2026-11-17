@@ -149,19 +149,22 @@ function HomePage() {
           </div>
         </div>
 
-        <Link
-          to="/coupons"
-          className="mb-4 glass rounded-2xl p-3 flex items-center justify-between border border-amber-500/20"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🎁</span>
-            <div>
-              <div className="font-black text-sm">كوبوناتي والقسائم</div>
-              <div className="text-xs text-muted-foreground">العروض والخصومات المرسلة إلى حسابك</div>
+        {activeRole === "customer" && (
+          <Link
+            to="/coupons"
+            className="mb-4 glass rounded-2xl p-3 flex items-center justify-between border border-amber-500/20"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🎁</span>
+              <div>
+                <div className="font-black text-sm">كوبوناتي والقسائم</div>
+                <div className="text-xs text-muted-foreground">العروض والخصومات المرسلة إلى حسابك</div>
+              </div>
             </div>
-          </div>
-          <span className="text-primary font-bold text-sm">عرض الكل ←</span>
-        </Link>
+            <span className="text-primary font-bold text-sm">عرض الكل ←</span>
+          </Link>
+        )}
+
 
         {(activeRole === "driver" || activeRole === "large_driver") && <ProviderHome type="taxi" largeDriverMode={activeRole === "large_driver"} />}
         {activeRole === "worker" && <ProviderHome type="service" />}
