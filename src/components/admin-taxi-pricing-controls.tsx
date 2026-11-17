@@ -25,6 +25,9 @@ const DEFAULT: TaxiControl = {
 export default function AdminTaxiPricingControls() {
   const [rows, setRows] = useState<TaxiControl[]>([]);
   const [tariffs, setTariffs] = useState<TaxiTariff[]>([]);
+  const [canTariff, setCanTariff] = useState(false);
+  const [canGlobalPeak, setCanGlobalPeak] = useState(false);
+  const [canRegionalPeak, setCanRegionalPeak] = useState(false);
   const [governorateKey, setGovernorateKey] = useState("all");
   const [global, setGlobal] = useState<TaxiControl>(DEFAULT);
   const [regional, setRegional] = useState<TaxiControl>(DEFAULT);
@@ -46,6 +49,15 @@ export default function AdminTaxiPricingControls() {
       setGlobal(list.find((row) => row.governorate_key === "all") ?? DEFAULT);
       setRegional(list.find((row) => row.governorate_key === governorateKey) ?? { ...DEFAULT, governorate_key: governorateKey });
     }
+    const [tariffPermission,globalPeakPermission,regionalPeakPermission] = await Promise.all([
+      (supabase as any).rpc("admin_has_permission",{p_permission_key:"pricing.taxi.edit",p_scope_type:"global",p_scope_governorate:null}),
+      (supabase as any).rpc("admin_has_permission",{p_permission_key:"pricing.peak.edit",p_scope_type:"global",p_scope_governorate:null}),
+      governorateKey==="all" ? Promise.resolve({data:false,error:null}) :
+        (supabase as any).rpc("admin_has_permission",{p_permission_key:"pricing.peak.edit",p_scope_type:"governorate",p_scope_governorate:governorateKey}),
+    ]);
+    setCanTariff(!tariffPermission.error && tariffPermission.data===true);
+    setCanGlobalPeak(!globalPeakPermission.error && globalPeakPermission.data===true);
+    setCanRegionalPeak(!regionalPeakPermission.error && regionalPeakPermission.data===true);
     const { data: tariffRows, error: tariffError } = await (supabase as any)
       .from("pricing_settings")
       .select("id,service_type,is_intercity,base_fare,per_km_rate,per_min_rate,min_fare")
@@ -120,6 +132,7 @@ export default function AdminTaxiPricingControls() {
 
   const inputClass = "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-bold";
   if (loading) return <div className="p-6 text-center text-sm text-muted-foreground">جارٍ تحميل إعدادات التسعير…</div>;
+  if (!canTariff && !canGlobalPeak && !canRegionalPeak) return <div className="rounded-xl border p-4 text-sm text-muted-foreground">ما عندك صلاحية تعديل التعرفة أو الذروة ضمن نطاقك.</div>;
 
   return (
     <section className="mt-6 space-y-4 rounded-2xl border border-border bg-card p-4 md:p-5" dir="rtl">
@@ -142,9 +155,9 @@ export default function AdminTaxiPricingControls() {
           <input className={inputClass} type="number" min="0" max="100" step="1" value={global.urgency_max_percent} onChange={(e) => setGlobal((v) => ({ ...v, urgency_max_percent: Number(e.target.value) }))} />
         </label>
         <button type="button" disabled={saving} onClick={saveGlobal} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4" /> حفظ إعداد الاستعجال</button>
-      </div>
+      </div>}
 
-      <div className="rounded-xl border border-border p-3 space-y-3">
+      {(canGlobalPeak || canRegionalPeak) && <div className="rounded-xl border border-border p-3 space-y-3">
         <div className="flex items-center gap-2 font-black"><ShieldCheck className="h-4 w-4 text-emerald-600" /> الذروة حسب المحافظة</div>
         <label className="block space-y-1 text-sm font-bold">
           <span>المحافظة</span>
@@ -164,8 +177,8 @@ export default function AdminTaxiPricingControls() {
         <p className="text-xs text-muted-foreground">إذا ماكو إعداد خاص لمحافظة، تعتمد إعدادات «كل العراق». الاستعجال ينضاف بعد الذروة ويزيد السعر فوقها.</p>
         <button type="button" disabled={saving} onClick={saveRegional} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4" /> حفظ الذروة</button>
         <button type="button" disabled={saving} onClick={() => void load()} className="mr-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50"><RefreshCw className="ml-2 inline h-4 w-4" /> تحديث</button>
-      </div>
-      <div className="rounded-xl border border-border p-3 space-y-3">
+      </div>}
+      {canTariff && <div className="rounded-xl border border-border p-3 space-y-3">
         <div className="font-black">التعرفة الأساسية للتاكسي</div>
         <p className="text-xs text-muted-foreground">تعديل أجرة الانطلاق والكيلومتر والدقيقة والحد الأدنى. كل حفظ يمر عبر صلاحية التسعير ويسجل القيمة السابقة والجديدة.</p>
         {tariffs.map((row) => <div key={row.id} className="rounded-xl border border-border p-3 space-y-2">
@@ -176,7 +189,7 @@ export default function AdminTaxiPricingControls() {
           <button type="button" disabled={saving} onClick={()=>void saveTariff(row)} className="rounded-xl bg-primary px-4 py-2 text-xs font-black text-primary-foreground disabled:opacity-50">حفظ هذه التعرفة</button>
         </div>)}
         {!tariffs.length && <p className="text-xs text-muted-foreground">لا توجد صفوف تعرفة للعرض.</p>}
-      </div>
+      </div>}
       <p className="text-xs text-muted-foreground">نسب الفئات ثابتة حسب الاتفاق: أقل من 10,000 د.ع: المتميز +20% والفاخر +40%. من 10,000 إلى 50,000: +15% و+25%. أكثر من 50,000: +5% و+10%. التقريب لأقرب 250 دينار.</p>
     </section>
   );
