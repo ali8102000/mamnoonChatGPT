@@ -2,7 +2,7 @@ import "@/lib/background-location";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text, TextInput, View, useColorScheme } from "react-native";
-import Svg, { Defs, Ellipse, RadialGradient, Stop } from "react-native-svg";
+import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useFonts } from "@expo-google-fonts/tajawal/useFonts";
 import { Tajawal_400Regular } from "@expo-google-fonts/tajawal/400Regular";
 import { Tajawal_500Medium } from "@expo-google-fonts/tajawal/500Medium";
@@ -111,21 +111,21 @@ function ApplicationBackdrop() {
       <Svg width="100%" height="100%" viewBox="0 0 390 844" preserveAspectRatio="none" style={{ position: "absolute", top: 0, left: 0 }}>
         <Defs>
           <RadialGradient id="mamnoonPrimaryGlow" cx="75%" cy="0%" rx="90%" ry="65%" gradientUnits="objectBoundingBox">
-            <Stop offset="0%" stopColor={dark ? "#5FA7FF" : "#0065D2"} stopOpacity={dark ? 0.12 : 0.28} />
-            <Stop offset="55%" stopColor={dark ? "#5FA7FF" : "#0065D2"} stopOpacity="0" />
+            <Stop offset="0%" stopColor={palette.brand} stopOpacity={dark ? 0.12 : 0.28} />
+            <Stop offset="55%" stopColor={palette.brand} stopOpacity="0" />
           </RadialGradient>
           <RadialGradient id="mamnoonGoldGlow" cx="15%" cy="100%" rx="80%" ry="60%" gradientUnits="objectBoundingBox">
-            <Stop offset="0%" stopColor="#E9AB2B" stopOpacity={dark ? 0.06 : 0.10} />
-            <Stop offset="50%" stopColor="#E9AB2B" stopOpacity="0" />
+            <Stop offset="0%" stopColor={palette.gold} stopOpacity={dark ? 0.06 : 0.10} />
+            <Stop offset="50%" stopColor={palette.gold} stopOpacity="0" />
           </RadialGradient>
           <RadialGradient id="mamnoonSideGlow" cx="100%" cy="50%" rx="70%" ry="50%" gradientUnits="objectBoundingBox">
-            <Stop offset="0%" stopColor={dark ? "#669CFF" : "#5283FE"} stopOpacity={dark ? 0.05 : 0.08} />
-            <Stop offset="45%" stopColor={dark ? "#669CFF" : "#5283FE"} stopOpacity="0" />
+            <Stop offset="0%" stopColor={palette.brandGlow} stopOpacity={0.08} />
+            <Stop offset="45%" stopColor={palette.brandGlow} stopOpacity="0" />
           </RadialGradient>
         </Defs>
-        <Ellipse cx="195" cy="0" rx="351" ry="548" fill="url(#mamnoonPrimaryGlow)" />
-        <Ellipse cx="58" cy="844" rx="312" ry="506" fill="url(#mamnoonGoldGlow)" />
-        {!dark && <Ellipse cx="390" cy="422" rx="273" ry="422" fill="url(#mamnoonSideGlow)" />}
+        <Rect x="0" y="0" width="390" height="844" fill="url(#mamnoonPrimaryGlow)" />
+        <Rect x="0" y="0" width="390" height="844" fill="url(#mamnoonGoldGlow)" />
+        {!dark && <Rect x="0" y="0" width="390" height="844" fill="url(#mamnoonSideGlow)" />}
       </Svg>
     </View>
   );
