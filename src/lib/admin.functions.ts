@@ -36,6 +36,16 @@ async function requireProviderOps(context: any) {
 async function requireUserModeration(context: any) {
   return requireScopedAccess(context, "has_user_moderation_access", "غير مصرّح: إدارة المستخدمين والبلاغات للمخولين فقط");
 }
+async function requireAdminPermission(context: any, permissionKey: string, legacyRpc = "has_admin_access") {
+  const { supabase, userId } = context;
+  const { data: allowed, error } = await (supabase as any).rpc("admin_has_permission", {
+    p_permission_key: permissionKey, p_scope_type: "global", p_scope_governorate: null,
+  });
+  if (!error && allowed === true) return;
+  const { data: legacyAllowed, error: legacyError } = await (supabase as any).rpc(legacyRpc, { p_user_id: userId });
+  if (legacyError || legacyAllowed !== true) throw new Error("غير مصرّح: " + permissionKey);
+}
+
 async function requireFinance(context: any) {
   return requireScopedAccess(context, "has_finance_access", "غير مصرّح: العمليات المالية للمالية والإدارة فقط");
 }
@@ -694,7 +704,6 @@ export const adminAdjustWallet = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_adjust_wallet", {
       p_user_id: data.user_id,
@@ -712,7 +721,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireFinance(context);
+    await requireAdminPermission(context, "finance.read", "has_finance_access");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: txs, error } = await (supabaseAdmin as any)
       .from("transactions")
@@ -726,7 +735,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
 export const adminListCoupons = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireFinance(context);
+    await requireAdminPermission(context, "promotions.read", "has_finance_access");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: coupons, error } = await (supabaseAdmin as any)
       .from("coupons")
@@ -753,7 +762,6 @@ export const adminSaveCoupon = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_save_coupon", {
       p_id: data.id ?? null,
@@ -775,7 +783,6 @@ export const adminCouponAudienceCount = createServerFn({ method: "GET" })
     target: z.enum(["customers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"]),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { data: count, error } = await (supabase as any).rpc("admin_coupon_audience_count", {
       p_target: data.target,
@@ -794,7 +801,6 @@ export const adminDistributeCoupon = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { data: sent, error } = await (supabase as any).rpc("admin_distribute_coupon", {
       p_coupon_id: data.coupon_id,
@@ -808,7 +814,6 @@ export const adminDistributeCoupon = createServerFn({ method: "POST" })
 export const adminCouponSubsidyReport = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { data, error } = await (supabase as any).rpc("admin_coupon_subsidy_report");
     if (error) throw new Error(error.message);
@@ -819,7 +824,6 @@ export const adminDeleteCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ coupon_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_delete_coupon", {
       p_coupon_id: data.coupon_id,
