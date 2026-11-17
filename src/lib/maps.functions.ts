@@ -72,7 +72,7 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
 
     if (data.action === "details" && data.placeId.startsWith("db:")) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: row, error } = await supabaseAdmin
+      const { data: row, error } = await (supabaseAdmin as any)
         .from("map_place_suggestions")
         .select("name_ar,address,latitude,longitude")
         .eq("id", data.placeId.slice(3))
