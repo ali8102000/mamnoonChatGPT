@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, View, ActivityIndicator } from "react-native";
-import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { palette, radius } from "@/styles/theme";
 import { ActionButton } from "@/components/ui";
