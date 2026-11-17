@@ -120,9 +120,10 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   }, []);
 
   // Car State
-  const [make, setMake] = useState<string>("تويوتا");
+  const [vehicleModels, setVehicleModels] = useState<Array<{id:string;make:string;model:string;category:VehicleCategory;min_year:number}>>([]);
+  const [make, setMake] = useState<string>("Toyota");
   const [customMake, setCustomMake] = useState<string>("");
-  const [modelName, setModelName] = useState<string>("كورولا");
+  const [modelName, setModelName] = useState<string>("Corolla");
   const [category, setCategory] = useState<VehicleCategory>(largeDriverMode ? "large" : "economy");
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | null>(null);
   const [year, setYear] = useState<string>(String(new Date().getFullYear() - 2));
@@ -692,57 +693,10 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       {/* STEP 1: CAR DETAILS */}
       {activeStep === "car" && (
         <div className="space-y-5 animate-in fade-in duration-200">
-          {/* Vehicle Category Card */}
-          <div>
-            <div className="text-xs font-bold text-muted-foreground mb-2">
-              اختر فئة سيارتك في التطبيق
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(Object.keys(CATEGORY_META) as VehicleCategory[]).filter((k) => largeDriverMode ? k === "large" : k !== "large").map((k) => {
-                const c = CATEGORY_META[k];
-                const active = category === k;
-                return (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => { setCategory(k); if (k === "large") { setMake("كيا"); setModelName(vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب"); } }}
-                    className={`p-3 rounded-2xl text-center btn-press transition-all border ${
-                      active
-                        ? "bg-white ring-2 ring-primary border-primary shadow-lg scale-105"
-                        : "bg-white/80 border-border/60 hover:bg-white"
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{c.emoji}</div>
-                    <div className="font-black text-xs leading-tight">{c.label}</div>
-                  </button>
-                );
-              })}
-            </div>
-            {category === "large" && (
-              <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-3 space-y-2">
-                <div className="font-black text-sm">نوع السيارة الكبيرة</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {([{ key: "kia_cargo", label: "كيا حمل", Icon: Truck, tone: "amber" }, { key: "kia_passenger", label: "كيا ركاب", Icon: CarFront, tone: "sky" }] as const).map((item) => {
-                    const active = vehicleType === item.key;
-                    return (
-                      <button key={item.key} type="button" onClick={() => { setVehicleType(item.key); setMake("كيا"); setModelName(item.label); }} className={`rounded-2xl border p-3 font-bold transition-all flex flex-col items-center gap-2 ${active ? "border-orange-500 bg-white ring-2 ring-orange-300 shadow-md" : "border-orange-200 bg-white/80 hover:bg-white"}`}>
-                        <span className={`w-16 h-16 rounded-2xl flex items-center justify-center ${item.tone === "amber" ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"}`}>
-                          <item.Icon size={42} strokeWidth={1.8} />
-                        </span>
-                        <span className="text-sm">{item.label}</span>
-                        {active && <span className="text-[10px] text-orange-700">تم الاختيار ✓</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            <div
-              className={`mt-2.5 rounded-2xl p-3 bg-gradient-to-r ${catMeta.gradient} text-white shadow-sm text-xs`}
-            >
-              <div className="font-black text-sm mb-0.5">{catMeta.label}</div>
-              <div className="text-[11px] opacity-90">{catMeta.desc}</div>
-            </div>
+          <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3">
+            <div className="font-black text-sm">تصنيف المركبة تلقائي</div>
+            <p className="text-[11px] text-muted-foreground leading-5 mt-1">اختار الماركة والموديل أو اكتب اسم السيارة. فئة المركبة تُستخرج من دليل السيارات، ورتبة أدائك تُحسب لاحقاً من الرحلات والتقييمات الفعلية.</p>
+            <div className="text-xs font-bold text-primary mt-2">فئة المركبة الحالية: {CATEGORY_META[category].label}</div>
           </div>
 
           {!largeDriverMode && (
@@ -753,7 +707,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               الشركة المصنعة (الماركة)
             </div>
             <div className="flex flex-wrap gap-2">
-              {POPULAR_MAKES.map((m) => (
+              {[...new Set(vehicleModels.map((item) => item.make))].map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -773,7 +727,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               ))}
             </div>
 
-            {make === "أخرى" && (
+            {false && make === "أخرى" && (
               <input
                 value={customMake}
                 onChange={(e) => setCustomMake(e.target.value)}
