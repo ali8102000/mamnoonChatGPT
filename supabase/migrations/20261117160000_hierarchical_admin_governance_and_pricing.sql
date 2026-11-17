@@ -512,7 +512,7 @@ returns uuid
 language plpgsql security definer
 set search_path = public, pg_temp
 as $function$
-declare v_actor uuid := auth.uid(); v_id uuid; v_actor_scope_type text; v_actor_scope_governorate text;
+declare v_actor uuid := auth.uid(); v_id uuid; v_actor_scope_type text; v_actor_scope_governorate text; v_actor_rank text; v_actor_department text; v_target public.staff_assignments%rowtype;
 begin
   if v_actor is null then raise exception 'unauthorized'; end if;
   if p_delegate_id is null or p_delegate_id=v_actor then raise exception 'invalid_delegate'; end if;
@@ -521,9 +521,8 @@ begin
     or (p_scope_type='governorate' and nullif(trim(p_scope_governorate),'') is null) then
     raise exception 'invalid_scope';
   end if;
-  if not exists(select 1 from public.staff_assignments where user_id=p_delegate_id and active=true) then
-    raise exception 'delegate_must_be_active_staff';
-  end if;
+  select * into v_target from public.staff_assignments where user_id=p_delegate_id and active=true;
+  if not found then raise exception 'delegate_must_be_active_staff'; end if;
   if not exists(select 1 from public.admin_permission_catalog where permission_key=p_permission_key and active) then
     raise exception 'unknown_permission';
   end if;
@@ -532,16 +531,24 @@ begin
        or not public.admin_has_permission(p_permission_key,p_scope_type,p_scope_governorate) then
       raise exception 'delegation_exceeds_actor_permissions';
     end if;
-    if not exists(select 1 from public.staff_assignments where user_id=p_delegate_id and created_by=v_actor) then
-      raise exception 'delegate_not_created_by_actor';
-    end if;
-    select scope_type,scope_governorate into v_actor_scope_type,v_actor_scope_governorate
+    if v_target.created_by is distinct from v_actor then raise exception 'delegate_not_created_by_actor'; end if;
+    select rank,department,scope_type,scope_governorate
+      into v_actor_rank,v_actor_department,v_actor_scope_type,v_actor_scope_governorate
       from public.staff_assignments where user_id=v_actor and active=true;
+    if public.admin_permission_level(v_target.rank)>=public.admin_permission_level(v_actor_rank) then
+      raise exception 'rank_hierarchy_denied';
+    end if;
+    if v_target.department is distinct from v_actor_department then raise exception 'department_scope_denied'; end if;
+    if v_actor_scope_type is null then raise exception 'legacy_staff_scope_requires_owner_review'; end if;
     if v_actor_scope_type='governorate'
-      and (p_scope_type<>'governorate' or p_scope_governorate is distinct from v_actor_scope_governorate) then
+      and (p_scope_type<>'governorate' or p_scope_governorate is distinct from v_actor_scope_governorate
+        or v_target.scope_type<>'governorate' or v_target.scope_governorate is distinct from v_actor_scope_governorate) then
       raise exception 'governorate_scope_denied';
     end if;
-    if v_actor_scope_type is null then raise exception 'legacy_staff_scope_requires_owner_review'; end if;
+    if v_target.scope_type='governorate'
+      and (p_scope_type<>'governorate' or p_scope_governorate is distinct from v_target.scope_governorate) then
+      raise exception 'delegation_exceeds_target_scope';
+    end if;
   end if;
   insert into public.admin_staff_delegations
     (delegator_id,delegate_id,permission_key,scope_type,scope_governorate,expires_at)
