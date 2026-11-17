@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Stack } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -169,7 +169,7 @@ export default function AdminRegionalControlsScreen() {
             {([{value:"top-center",label:"أعلى الوسط"},{value:"top-right",label:"أعلى اليمين"},{value:"top-left",label:"أعلى اليسار"}] as const).map((item) => <TouchableOpacity key={item.value} onPress={() => update({ message_position: item.value })} style={[styles.mode, settings.message_position === item.value && styles.modeActive]}><Text style={[styles.modeText, settings.message_position === item.value && styles.modeTextActive]}>{item.label}</Text></TouchableOpacity>)}
           </View>
         </View>
-        <View style={[styles.preview, { width: `${settings.message_width_percent}%`, height: `${settings.message_height_percent}vh`, alignSelf: settings.message_position === "top-center" ? "center" : settings.message_position === "top-left" ? "flex-start" : "flex-end", marginTop: settings.message_top_offset, overflow: "hidden" }]}>
+        <View style={[styles.preview, { width: `${settings.message_width_percent}%`, height: Math.round(Dimensions.get("window").height * settings.message_height_percent / 100), alignSelf: settings.message_position === "top-center" ? "center" : settings.message_position === "top-left" ? "flex-start" : "flex-end", marginTop: settings.message_top_offset, overflow: "hidden" }]}>
           <View style={styles.previewHead}><Text style={styles.stamp}>✦ الإدارة الرسمية · موثّق ✦</Text><Text style={styles.stamp}>✓</Text></View>
           <Text style={[styles.previewTitle, { fontSize: Math.max(10, settings.message_font_size) }]}>{settings.message_title}</Text>
           <Text style={[styles.previewText, { fontSize: settings.message_font_size }]}>{settings.message_text || "معاينة الرسالة تظهر هنا بعد الكتابة."}</Text><View style={styles.rejectionPreview}><Text style={styles.stamp}>رسالة رفض الطلب · إدارة ممنون الموثّقة</Text><Text style={styles.rejectionPreviewText}>{settings.rejection_message}</Text></View>
