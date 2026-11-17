@@ -225,7 +225,10 @@ returns boolean
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
-declare v_actor uuid := auth.uid();
+declare
+  v_actor uuid := auth.uid();
+  v_staff_scope_type text;
+  v_staff_scope_governorate text;
 begin
   if v_actor is null then return false; end if;
   if public.is_super_admin(v_actor) then return true; end if;
@@ -233,6 +236,14 @@ begin
      or (p_scope_type='global' and p_scope_governorate is not null)
      or (p_scope_type='governorate' and nullif(trim(p_scope_governorate),'') is null)
   then return false; end if;
+
+  select scope_type,scope_governorate into v_staff_scope_type,v_staff_scope_governorate
+    from public.staff_assignments where user_id=v_actor and active=true;
+  if v_staff_scope_type is null then return false; end if;
+  if v_staff_scope_type='governorate'
+     and (p_scope_type<>'governorate' or p_scope_governorate is distinct from v_staff_scope_governorate) then
+    return false;
+  end if;
 
   return exists (
     select 1 from public.admin_staff_permission_grants g
