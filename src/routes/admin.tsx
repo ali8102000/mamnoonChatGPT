@@ -2764,7 +2764,16 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }:
       try {
         const { supabase } = await import("@/integrations/supabase/client");
         const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank,department,display_title,active").eq("user_id", user.id).maybeSingle();
-        if (assignment) { setRank(assignment.rank); setDepartment(assignment.department); setDisplayTitle(assignment.display_title ?? ""); setAssignmentActive(assignment.active); }
+        if (assignment) {
+          if (["general_manager","department_manager","supervisor","employee"].includes(assignment.rank)) {
+            setRank(assignment.rank as "general_manager" | "department_manager" | "supervisor" | "employee");
+          }
+          if (["executive","customer_service","finance","operations","monitoring"].includes(assignment.department)) {
+            setDepartment(assignment.department as "executive" | "customer_service" | "finance" | "operations" | "monitoring");
+          }
+          setDisplayTitle(assignment.display_title ?? "");
+          setAssignmentActive(assignment.active);
+        }
         const { data } = await (supabase as any)
           .from("user_roles")
           .select("role")
