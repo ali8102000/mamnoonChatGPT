@@ -60,7 +60,7 @@ export default function AuthScreen() {
           if (metadataError) throw metadataError;
         }
         await refresh();
-        router.replace("/select-role");
+        router.replace("/home");
       } else {
         const id = identifier.trim();
         if (!id) throw new Error("أدخل رقم الهاتف أو البريد الإلكتروني");
