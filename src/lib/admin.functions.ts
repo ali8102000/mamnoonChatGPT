@@ -36,6 +36,16 @@ async function requireProviderOps(context: any) {
 async function requireUserModeration(context: any) {
   return requireScopedAccess(context, "has_user_moderation_access", "غير مصرّح: إدارة المستخدمين والبلاغات للمخولين فقط");
 }
+async function requireAdminPermission(context: any, permissionKey: string, legacyRpc = "has_admin_access") {
+  const { supabase, userId } = context;
+  const { data: allowed, error } = await (supabase as any).rpc("admin_has_permission", {
+    p_permission_key: permissionKey, p_scope_type: "global", p_scope_governorate: null,
+  });
+  if (!error && allowed === true) return;
+  const { data: legacyAllowed, error: legacyError } = await (supabase as any).rpc(legacyRpc, { p_user_id: userId });
+  if (legacyError || legacyAllowed !== true) throw new Error("غير مصرّح: " + permissionKey);
+}
+
 async function requireFinance(context: any) {
   return requireScopedAccess(context, "has_finance_access", "غير مصرّح: العمليات المالية للمالية والإدارة فقط");
 }
@@ -694,7 +704,6 @@ export const adminAdjustWallet = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_adjust_wallet", {
       p_user_id: data.user_id,
@@ -712,7 +721,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireFinance(context);
+    await requireAdminPermission(context, "finance.read", "has_finance_access");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: txs, error } = await (supabaseAdmin as any)
       .from("transactions")
@@ -726,7 +735,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
 export const adminListCoupons = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireFinance(context);
+    await requireAdminPermission(context, "promotions.read", "has_finance_access");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: coupons, error } = await (supabaseAdmin as any)
       .from("coupons")
@@ -753,7 +762,6 @@ export const adminSaveCoupon = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_save_coupon", {
       p_id: data.id ?? null,
@@ -775,7 +783,6 @@ export const adminCouponAudienceCount = createServerFn({ method: "GET" })
     target: z.enum(["customers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"]),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { data: count, error } = await (supabase as any).rpc("admin_coupon_audience_count", {
       p_target: data.target,
@@ -794,7 +801,6 @@ export const adminDistributeCoupon = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { data: sent, error } = await (supabase as any).rpc("admin_distribute_coupon", {
       p_coupon_id: data.coupon_id,
@@ -808,7 +814,6 @@ export const adminDistributeCoupon = createServerFn({ method: "POST" })
 export const adminCouponSubsidyReport = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { data, error } = await (supabase as any).rpc("admin_coupon_subsidy_report");
     if (error) throw new Error(error.message);
@@ -819,7 +824,6 @@ export const adminDeleteCoupon = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ coupon_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_delete_coupon", {
       p_coupon_id: data.coupon_id,
@@ -1311,4 +1315,130 @@ export const adminUpdateUserProfile = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error("فشل تحديث بيانات المستخدم: " + error.message);
     return profile;
+  });
+
+
+// Central governance RPCs. Authorization and scope checks are enforced in PostgreSQL.
+export const adminGovernanceListStaff = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({}).parse(d))
+  .handler(async ({ context }) => {
+    const { data, error } = await (context.supabase as any).rpc("admin_list_managed_staff");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const adminGovernanceAssignStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(),
+    rank: z.enum(["general_manager", "department_manager", "supervisor", "employee"]),
+    department: z.enum(["executive", "customer_service", "finance", "operations", "monitoring"]),
+    display_title: z.string().max(100).optional(),
+    scope_type: z.enum(["global", "governorate"]),
+    scope_governorate: z.string().max(40).nullable().optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_assign_staff", {
+      p_target_user: data.target_user_id, p_rank: data.rank, p_department: data.department,
+      p_display_title: data.display_title ?? null, p_scope_type: data.scope_type,
+      p_scope_governorate: data.scope_type === "global" ? null : data.scope_governorate ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminGovernanceChangeRank = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(),
+    rank: z.enum(["general_manager", "department_manager", "supervisor", "employee"]),
+    department: z.enum(["executive", "customer_service", "finance", "operations", "monitoring"]).optional(),
+    display_title: z.string().max(100).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_change_staff_rank", {
+      p_target_user: data.target_user_id, p_new_rank: data.rank,
+      p_new_department: data.department ?? null, p_new_display_title: data.display_title ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminGovernanceDeactivateStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(), reason: z.string().min(3).max(500),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_deactivate_staff", {
+      p_target_user: data.target_user_id, p_reason: data.reason,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminGovernanceGrantPermission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(), permission_key: z.string().min(3).max(100),
+    scope_type: z.enum(["global", "governorate"]), scope_governorate: z.string().max(40).nullable().optional(),
+    expires_at: z.string().datetime().nullable().optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await (context.supabase as any).rpc("admin_grant_staff_permission", {
+      p_target_user: data.target_user_id, p_permission_key: data.permission_key,
+      p_scope_type: data.scope_type, p_scope_governorate: data.scope_type === "global" ? null : data.scope_governorate ?? null,
+      p_expires_at: data.expires_at ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { id };
+  });
+
+export const adminGovernanceCreateDelegation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    delegate_id: z.string().uuid(), permission_key: z.string().min(3).max(100),
+    scope_type: z.enum(["global", "governorate"]), scope_governorate: z.string().max(40).nullable().optional(),
+    expires_at: z.string().datetime().nullable().optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await (context.supabase as any).rpc("admin_create_delegation", {
+      p_delegate_id: data.delegate_id, p_permission_key: data.permission_key,
+      p_scope_type: data.scope_type, p_scope_governorate: data.scope_type === "global" ? null : data.scope_governorate ?? null,
+      p_expires_at: data.expires_at ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { id };
+  });
+
+export const adminGovernanceRevokePermission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ grant_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_revoke_staff_permission", { p_grant_id: data.grant_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminGovernanceRevokeDelegation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ delegation_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_revoke_delegation", { p_delegation_id: data.delegation_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminGovernanceReviewApproval = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    request_id: z.string().uuid(), decision: z.enum(["approved", "rejected"]), note: z.string().max(500).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_review_approval", {
+      p_request_id: data.request_id, p_decision: data.decision, p_note: data.note ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

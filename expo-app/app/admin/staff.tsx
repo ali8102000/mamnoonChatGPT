@@ -15,7 +15,7 @@ const ITEMS = [
   { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support", "department_operations", "department_monitoring", "rank:general_manager"] },
   { label: "إدارة الأصدقاء", route: "/admin/friends", roles: ["super_admin", "admin", "moderator", "department_monitoring", "rank:general_manager"] },
   { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager"] },
-  { label: "الصلاحيات وسجل العمليات", route: "/admin/governance", roles: ["super_admin", "admin", "rank:general_manager"] },
+  { label: "الإدارة الهرمية والصلاحيات", route: "/admin/governance", roles: ["super_admin", "admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { label: "التحكم بالمحافظات", route: "/admin/regions", roles: ["super_admin"] },
   { label: "مساعد استيراد البيانات", route: "/admin/import", roles: ["super_admin", "admin"] },
   { label: "محادثات الدعم", route: "/support-chat", roles: ["super_admin", "admin", "support", "moderator", "customer_service", "rank:general_manager"] },
@@ -42,7 +42,7 @@ export default function AdminStaffScreen() {
     void (async () => {
       try {
         const { data, error } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
-        const names = (data ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
+        const names: string[] = (data ?? []).map((entry: any) => typeof entry === "string" ? entry : String(entry.role ?? ""));
         setRoles(names);
         const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,rank,department").eq("user_id", user.id).eq("active", true).maybeSingle();
         setDisplayTitle(assignment?.display_title ?? (names.includes("super_admin") ? "الرئيس المؤسس الأعلى" : null));
@@ -53,6 +53,20 @@ export default function AdminStaffScreen() {
         if (assignment?.department === "finance") setDisplayTitle(assignment.display_title ?? "قسم المالية");
         if (assignment?.department === "operations") setDisplayTitle(assignment.display_title ?? "قسم التشغيل");
         if (assignment?.department === "monitoring") setDisplayTitle(assignment.display_title ?? "قسم المراقبة");
+        const scopeType = assignment?.scope_type ?? "global";
+        const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate : null;
+        const permissionChecks = await Promise.all([
+          "staff.read","staff.assign","staff.manage_created","staff.delegate","staff.approve",
+          "pricing.taxi.edit","pricing.peak.edit","finance.read","promotions.read",
+        ].map(async (permission_key) => {
+          const { data } = await (supabase as any).rpc("admin_has_permission", {
+            p_permission_key: permission_key, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
+          });
+          return data === true;
+        }));
+        if (permissionChecks.some(Boolean)) names.push("governance_access");
+        setRoles([...new Set(names)]);
+
       } catch {
         setAllowed(false);
       } finally {
