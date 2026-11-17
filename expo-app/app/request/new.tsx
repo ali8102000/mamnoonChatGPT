@@ -1072,7 +1072,19 @@ export default function NewRequest() {
           </View>
           {searchingPlaces && <ActivityIndicator style={{ marginTop: 6 }} color={palette.brand} />}
           {!!placeSearchError && <Text style={styles.taxiErrorText}>{placeSearchError}</Text>}
-          {placeSuggestions.length > 0 && <View style={styles.taxiSuggestionList}>{placeSuggestions.map((item) => <TouchableOpacity key={item.id} style={styles.taxiSuggestionItem} onPress={() => choosePlaceSuggestion(item)}><Text style={styles.taxiSuggestionTitle}>{item.text}</Text>{!!item.address && item.address !== item.text && <Text style={styles.taxiSuggestionAddress}>{item.address}</Text>}</TouchableOpacity>)}</View>}
+          {placeSuggestions.length > 0 && (
+            <View style={styles.taxiSuggestionList}>
+              <ScrollView nestedScrollEnabled style={{ maxHeight: 250 }}>
+                {placeSuggestions.map((item) => (
+                  <TouchableOpacity key={item.id} style={styles.taxiSuggestionItem} onPress={() => choosePlaceSuggestion(item)}>
+                    <Text style={styles.taxiSuggestionTitle}>{item.text}</Text>
+                    {!!item.address && item.address !== item.text && <Text style={styles.taxiSuggestionAddress}>{item.address}</Text>}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Text style={styles.taxiHintText}>بيانات الأماكن © OpenStreetMap · {placeSuggestions.length} اقتراح داخل {activeGovernorate?.name}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.taxiBottomSheet} onLayout={(event) => setTaxiSheetHeight(event.nativeEvent.layout.height)}>
