@@ -121,6 +121,22 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
 
   // Car State
   const [vehicleModels, setVehicleModels] = useState<Array<{id:string;make:string;model:string;category:VehicleCategory;min_year:number}>>([]);
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("vehicle_models").select("id,make,model,category,min_year").order("make")
+      .then(({ data, error }: any) => {
+        if (!active) return;
+        if (error) { toast.error("تعذر تحميل دليل السيارات"); return; }
+        const rows = (data ?? []) as Array<{id:string;make:string;model:string;category:VehicleCategory;min_year:number}>;
+        setVehicleModels(rows);
+        if (rows.length && !largeDriverMode) {
+          setMake(rows[0].make);
+          setModelName(rows[0].model);
+        }
+      });
+    return () => { active = false; };
+  }, [largeDriverMode]);
+
   const [make, setMake] = useState<string>("Toyota");
   const [customMake, setCustomMake] = useState<string>("");
   const [modelName, setModelName] = useState<string>("Corolla");
@@ -725,7 +741,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
                   type="button"
                   onClick={() => {
                     setMake(m);
-                    const firstSuggestion = SUGGESTED_MODELS[m]?.[0];
+                    const firstSuggestion = vehicleModels.find((item) => item.make === m)?.model;
                     if (firstSuggestion) setModelName(firstSuggestion);
                   }}
                   className={`px-3 py-2 rounded-xl text-xs font-bold btn-press transition ${
@@ -760,16 +776,16 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               placeholder="مثال: كورولا، النترا، سوناتا، سيراتو..."
               className="w-full bg-white border border-border rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-primary"
             />
-            {SUGGESTED_MODELS[make] && (
+            {vehicleModels.filter((item) => item.make === make).length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {SUGGESTED_MODELS[make].map((s) => (
+                {vehicleModels.filter((item) => item.make === make).map((item) => (
                   <button
-                    key={s}
+                    key={item.id}
                     type="button"
-                    onClick={() => setModelName(s)}
+                    onClick={() => setModelName(item.model)}
                     className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 font-medium text-foreground btn-press"
                   >
-                    {s}
+                    {item.model}
                   </button>
                 ))}
               </div>
