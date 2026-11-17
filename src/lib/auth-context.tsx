@@ -47,6 +47,7 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx | null>(null);
 
 const AUTH_STARTUP_TIMEOUT_MS = 8_000;
+const activeRoleStorageKey = (uid: string) => `mumnun-active-role-v1:${uid}`;
 
 function safeStorageGet(key: string): string | null {
   try { return typeof window === "undefined" ? null : window.localStorage.getItem(key); } catch { return null; }
@@ -54,6 +55,10 @@ function safeStorageGet(key: string): string | null {
 
 function safeStorageSet(key: string, value: string): void {
   try { if (typeof window !== "undefined") window.localStorage.setItem(key, value); } catch { /* App remains usable when browser storage is blocked. */ }
+}
+
+function safeStorageRemove(key: string): void {
+  try { if (typeof window !== "undefined") window.localStorage.removeItem(key); } catch { /* Ignore unavailable storage. */ }
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -71,19 +76,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [banStatus, setBanStatus] = useState<BanStatus | null>(null);
-  const [activeRole, setActiveRoleState] = useState<AppRole | null>(() => {
-    if (typeof window !== "undefined") {
-      return (safeStorageGet("mumnun-active-role") as AppRole | null) || null;
-    }
-    return null;
-  });
+  const [activeRole, setActiveRoleState] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   const setActiveRole = (newRole: AppRole) => {
+    if (!roles.includes(newRole)) return;
     setActiveRoleState(newRole);
-    if (typeof window !== "undefined") {
-      safeStorageSet("mumnun-active-role", newRole);
-    }
+    const uid = session?.user.id;
+    if (uid) safeStorageSet(activeRoleStorageKey(uid), newRole);
   };
 
   const isSuperAdmin = roles.includes("super_admin");
@@ -130,15 +130,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setBanStatus(null);
       }
 
-      setActiveRoleState((current) => {
-        if (current && mappedRoles.includes(current)) return current;
-        const saved =
-          typeof window !== "undefined"
-            ? (safeStorageGet("mumnun-active-role") as AppRole | null)
-            : null;
-        if (saved && mappedRoles.includes(saved)) return saved;
-        return mappedRoles[0] ?? null;
-      });
+      const preferenceKey = activeRoleStorageKey(uid);
+      let saved = safeStorageGet(preferenceKey) as AppRole | null;
+      if (!saved) {
+        saved = safeStorageGet("mumnun-active-role") as AppRole | null;
+        if (saved && mappedRoles.includes(saved)) safeStorageSet(preferenceKey, saved);
+      }
+      safeStorageRemove("mumnun-active-role");
+      const selected = saved && mappedRoles.includes(saved)
+        ? saved
+        : mappedRoles.includes("customer") ? "customer" : mappedRoles[0] ?? null;
+      setActiveRoleState(selected);
+      if (selected) safeStorageSet(preferenceKey, selected);
     } catch {
       setProfile(null);
       setRoles([]);

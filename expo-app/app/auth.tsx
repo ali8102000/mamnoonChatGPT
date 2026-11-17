@@ -122,10 +122,6 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable onPress={() => router.push("/welcome")} style={styles.welcomeLink}>
-            <Text style={styles.welcomeLinkText}>اللغة والترحيب</Text>
-          </Pressable>
-
           <View style={styles.brandTop}>
             <LinearGradient
               colors={[palette.brand, palette.brandGlow]}
