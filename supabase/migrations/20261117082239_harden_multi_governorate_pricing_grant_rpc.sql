@@ -1,0 +1,1 @@
+alter function public.admin_grant_pricing_permissions(uuid,text[],text,text[],timestamptz) security invoker;
