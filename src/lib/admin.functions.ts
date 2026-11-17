@@ -1316,8 +1316,16 @@ export const adminUpdateUserProfile = createServerFn({ method: "POST" })
     avatar_mime: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireUserScopePermission(context, "users.profile.edit", data.user_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existingProfile, error: existingProfileError } = await (supabaseAdmin as any)
+      .from("profiles").select("governorate_key").eq("id", data.user_id).maybeSingle();
+    if (existingProfileError || !existingProfile) throw new Error("المستخدم غير موجود");
+    const oldGovernorate = existingProfile.governorate_key ?? null;
+    await requireAdminPermission(context, "users.profile.edit", oldGovernorate ? "governorate" : "global", oldGovernorate);
+    if (data.governorate_key !== oldGovernorate) {
+      const newGovernorate = data.governorate_key ?? null;
+      await requireAdminPermission(context, "users.profile.edit", newGovernorate ? "governorate" : "global", newGovernorate);
+    }
     const updates: Record<string, unknown> = {
       full_name: data.full_name,
       governorate_key: data.governorate_key,
