@@ -144,7 +144,7 @@ export default function AdminTaxiPricingControls() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border p-3 space-y-3">
+      {canGlobalPeak && <div className="rounded-xl border border-border p-3 space-y-3">
         <div className="flex items-center gap-2 font-black"><Zap className="h-4 w-4 text-amber-500" /> الاستعجال — إعداد عام لكل العراق</div>
         <label className="flex items-center justify-between gap-3 text-sm font-bold">
           <span>السماح للزبون بتفعيل الاستعجال</span>
