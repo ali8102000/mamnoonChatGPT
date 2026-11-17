@@ -104,7 +104,7 @@ create index if not exists pricing_governance_requests_status_idx
 
 create or replace function public.staff_scope_allows(p_actor uuid, p_governorate text)
 returns boolean
-language sql stable security definer
+language sql stable security invoker
 set search_path = public, pg_temp
 as $$
   select p_actor = auth.uid() and (public.is_super_admin(auth.uid())
@@ -118,7 +118,7 @@ $$;
 
 create or replace function public.staff_can_review_requests(p_actor uuid, p_kind text)
 returns boolean
-language sql stable security definer
+language sql stable security invoker
 set search_path = public, pg_temp
 as $$
   select p_actor = auth.uid() and (public.is_super_admin(auth.uid())
