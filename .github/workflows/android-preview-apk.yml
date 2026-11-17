@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/admin-governance-rebased-20261117
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
