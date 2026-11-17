@@ -113,7 +113,13 @@ export async function startProviderPresenceBackgroundLocation(
   const foreground = await Location.requestForegroundPermissionsAsync();
   if (foreground.status !== "granted") throw new Error("foreground_location_denied");
   const background = await Location.requestBackgroundPermissionsAsync();
-  if (background.status !== "granted") throw new Error("background_location_denied");
+  if (background.status !== "granted") {
+    // Foreground presence is still valid while the app is open. Do not block
+    // provider availability solely because Android background access was denied.
+    await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK).catch(() => undefined);
+    await SecureStore.deleteItemAsync(PROVIDER_CONTEXT_KEY);
+    return false;
+  }
 
   await SecureStore.setItemAsync(PROVIDER_CONTEXT_KEY, JSON.stringify(context));
   if (await Location.hasStartedLocationUpdatesAsync(PROVIDER_PRESENCE_TASK)) {
@@ -131,6 +137,7 @@ export async function startProviderPresenceBackgroundLocation(
       notificationColor: "#D4AF37",
     },
   });
+  return true;
 }
 
 export async function stopProviderPresenceBackgroundLocation() {
