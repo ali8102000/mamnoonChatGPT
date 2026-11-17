@@ -339,4 +339,64 @@ begin
 end;
 $function$;
 
+
+-- Replace remaining legacy admin-role gates on SECURITY DEFINER RPCs with
+-- operation-specific permissions and the target record's governorate scope.
+do $granular_rpc_guards$
+declare
+  v_signature text;
+  v_permission_expression text;
+  v_scope_expression text;
+  v_error text;
+  v_definition text;
+  v_new_definition text;
+  v_check text;
+begin
+  for v_signature,v_permission_expression,v_scope_expression,v_error in
+    select * from (values
+      ('public.admin_block_user(uuid,text,timestamp with time zone)',
+        '''users.block''',
+        '(select governorate_key from public.profiles where id=p_user_id)',
+        'missing_users_block_permission'),
+      ('public.admin_unblock_user(uuid)',
+        '''users.unblock''',
+        '(select governorate_key from public.profiles where id=p_user_id)',
+        'missing_users_unblock_permission'),
+      ('public.admin_set_provider_status(uuid,text,text,timestamp with time zone)',
+        'case when p_status=''suspended'' then ''providers.suspend'' else ''providers.verify'' end',
+        '(select governorate_key from public.profiles where id=p_user_id)',
+        'missing_provider_status_permission'),
+      ('public.admin_review_provider_change_request(uuid,text,text)',
+        '''providers.verify''',
+        '(select p.governorate_key from public.profiles p join public.provider_change_requests r on r.user_id=p.id where r.id=_request_id)',
+        'missing_provider_verify_permission'),
+      ('public.admin_cancel_request(uuid,text)',
+        '''orders.cancel''',
+        '(select governorate_key from public.service_requests where id=p_request_id)',
+        'missing_order_cancel_permission'),
+      ('public.admin_reopen_request(uuid)',
+        '''orders.reopen''',
+        '(select governorate_key from public.service_requests where id=p_request_id)',
+        'missing_order_reopen_permission')
+    ) as guards(signature,permission_expression,scope_expression,error_message)
+  loop
+    v_definition := pg_get_functiondef(v_signature::regprocedure);
+    v_check := format(
+      'IF NOT public.admin_has_permission(%s, CASE WHEN (%s) IS NULL THEN ''global'' ELSE ''governorate'' END, (%s)) THEN RAISE EXCEPTION %L; END IF;',
+      v_permission_expression,v_scope_expression,v_scope_expression,v_error
+    );
+    v_new_definition := regexp_replace(
+      v_definition,
+      'perform\s+public\.assert_staff\(''admin''\);',
+      v_check,
+      'gi'
+    );
+    if v_new_definition=v_definition then
+      raise exception 'granular_permission_anchor_missing_for_%',v_signature;
+    end if;
+    execute v_new_definition;
+  end loop;
+end;
+$granular_rpc_guards$;
+
 commit;
