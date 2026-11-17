@@ -40,7 +40,7 @@ export default function AdminRegionalControlsScreen() {
     (async () => {
       try {
         const roles = await getAdminStaffRoles(user.id);
-        const ok = roles.includes("super_admin");
+        const ok = roles.some((role: string) => ["super_admin", "admin"].includes(role));
         if (active) setAllowed(ok);
         if (ok) await load();
       } catch { if (active) setAllowed(false); }

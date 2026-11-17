@@ -5,12 +5,16 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
+import { IRAQ_GOVERNORATES } from "@/lib/governorates";
 
-type Target = "all" | "drivers" | "workers" | "single";
+type Target = "all" | "drivers" | "large_drivers" | "workers" | "customers" | "governorate" | "single";
 const TARGETS: { value: Target; label: string }[] = [
   { value: "all", label: "جميع المستخدمين" },
   { value: "drivers", label: "السائقون" },
   { value: "workers", label: "الفنيون" },
+  { value: "large_drivers", label: "سائقو السيارات الكبيرة" },
+  { value: "customers", label: "الزبائن" },
+  { value: "governorate", label: "محافظة محددة" },
   { value: "single", label: "مستخدم محدد" },
 ];
 
@@ -19,6 +23,7 @@ export default function AdminNotificationsScreen() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [target, setTarget] = useState<Target>("all");
   const [userId, setUserId] = useState("");
+  const [governorateKey, setGovernorateKey] = useState("najaf");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
@@ -27,7 +32,9 @@ export default function AdminNotificationsScreen() {
 
   const sendNotification = useCallback(async () => {
     const { data, error: callError } = await supabase.functions.invoke("admin-users", {
-      body: { action: "broadcast_notification", target, title: title.trim(), body: body.trim(), ...(target === "single" ? { user_id: userId.trim() } : {}) },
+      body: target === "governorate"
+        ? { action: "broadcast_governorate_notification", governorate_key: governorateKey, title: title.trim(), body: body.trim() }
+        : { action: "broadcast_notification", target, title: title.trim(), body: body.trim(), ...(target === "single" ? { user_id: userId.trim() } : {}) },
     });
     if (callError) throw new Error(callError.message || "تعذر الاتصال بخدمة الإشعارات");
     if (data?.error) throw new Error(data.error);
@@ -54,7 +61,7 @@ export default function AdminNotificationsScreen() {
     if (target === "single" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId.trim())) {
       Alert.alert("معرف المستخدم", "أدخل UUID صحيحاً للمستخدم المستهدف."); return;
     }
-    Alert.alert("تأكيد إرسال الإشعار", target === "all" ? "سيصل الإشعار إلى جميع المستخدمين. هل تريد المتابعة؟" : "هل تريد إرسال الإشعار إلى الفئة المحددة؟", [
+    Alert.alert("تأكيد إرسال الإشعار", target === "all" ? "سيصل الإشعار إلى جميع المستخدمين. هل تريد المتابعة؟" : target === "governorate" ? "سيصل الإشعار إلى المستخدمين المسجلين في المحافظة المحددة فقط. هل تريد المتابعة؟" : "هل تريد إرسال الإشعار إلى الفئة المحددة؟", [
       { text: "رجوع", style: "cancel" },
       { text: "إرسال", onPress: async () => {
         setBusy(true); setError("");
@@ -81,6 +88,7 @@ export default function AdminNotificationsScreen() {
         <Text style={s.muted}>اختر الفئة واكتب عنوان الإشعار ونصه. سيظهر للمستخدم داخل التطبيق.</Text>
         <Text style={s.label}>الهدف</Text>
         <View style={s.targets}>{TARGETS.map((item) => <TouchableOpacity key={item.value} onPress={() => setTarget(item.value)} style={[s.target, target === item.value && s.targetActive]}><Text style={[s.targetText, target === item.value && s.targetTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
+        {target === "governorate" && <><Text style={s.label}>المحافظة المستهدفة</Text><View style={s.targets}>{IRAQ_GOVERNORATES.map((gov:any) => <TouchableOpacity key={gov.key} onPress={() => setGovernorateKey(gov.key)} style={[s.target, governorateKey === gov.key && s.targetActive]}><Text style={[s.targetText, governorateKey === gov.key && s.targetTextActive]}>{gov.name}</Text></TouchableOpacity>)}</View></>}
         {target === "single" && <><Text style={s.label}>معرّف المستخدم UUID</Text><TextInput value={userId} onChangeText={setUserId} autoCapitalize="none" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" placeholderTextColor={palette.muted} style={s.input}/></>}
         <Text style={s.label}>عنوان الإشعار</Text>
         <TextInput value={title} onChangeText={setTitle} maxLength={200} placeholder="عنوان واضح ومختصر" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>

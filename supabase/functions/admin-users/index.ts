@@ -521,7 +521,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "chats") {
-      requireRoles(["super_admin", "admin", "support", "moderator", "rank:general_manager"]);
+      requireRoles(["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager"]);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       const { data: chats, error } = await admin.from("chats")
         .select("*, participant1:profiles!chats_customer_id_fkey(full_name,phone), participant2:profiles!chats_provider_id_fkey(full_name,phone)")
@@ -592,7 +592,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "broadcast_notification") {
       requireRoles(["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager"]);
-      const targets = ["all", "drivers", "workers", "single"];
+      const targets = ["all", "drivers", "large_drivers", "workers", "customers", "single"];
       if (!targets.includes(body.target) || typeof body.title !== "string" ||
           body.title.trim().length < 1 || body.title.length > 200 ||
           typeof body.body !== "string" || body.body.trim().length < 1 ||
@@ -606,6 +606,23 @@ Deno.serve(async (req: Request) => {
         p_title: body.title.trim(),
         p_body: body.body.trim(),
         p_single_user_id: body.user_id ?? null,
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ sent: Number(data ?? 0) });
+    }
+
+    if (body.action === "broadcast_governorate_notification") {
+      requireRoles(["super_admin", "admin", "support", "moderator", "rank:general_manager"]);
+      const allowedGovernorates = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
+      if (typeof body.governorate_key !== "string" || !allowedGovernorates.includes(body.governorate_key) ||
+          typeof body.title !== "string" || body.title.trim().length < 1 || body.title.length > 200 ||
+          typeof body.body !== "string" || body.body.trim().length < 1 || body.body.length > 2000) {
+        return json({ error: "invalid_governorate_notification" }, 400);
+      }
+      const { data, error } = await caller.rpc("admin_broadcast_governorate_notification", {
+        p_governorate_key: body.governorate_key,
+        p_title: body.title.trim(),
+        p_body: body.body.trim(),
       });
       if (error) return json({ error: error.message }, 400);
       return json({ sent: Number(data ?? 0) });
