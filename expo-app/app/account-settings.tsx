@@ -70,6 +70,16 @@ export default function AccountSettingsScreen() {
     router.replace("/home");
   }
 
+  function startRegistration(role: "driver" | "large_driver" | "worker") {
+    if (role === "large_driver") {
+      router.push({ pathname: "/onboarding/driver", params: { providerType: "large_driver" } });
+    } else if (role === "driver") {
+      router.push("/onboarding/driver");
+    } else {
+      router.push("/onboarding/worker");
+    }
+  }
+
   async function saveCompanyName() {
     const next = companyName.trim().replace(/\s+/g, " ");
     if (next.length < 2 || next.length > 60) { Alert.alert("تنبيه", "اسم الشركة لازم يكون بين حرفين و60 حرفاً"); return; }
@@ -156,13 +166,12 @@ export default function AccountSettingsScreen() {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.roleSectionTitle}>تبديل الدور</Text>
-        <Text style={styles.roleSectionHint}>اختار المساحة اللي تريد تستخدمها</Text>
+        <Text style={styles.roleSectionHint}>بدّل بين الأدوار المتاحة بحسابك</Text>
       </View>
       <Text style={styles.roleCurrentHint}>الحالي محدد بإطار</Text>
     </View>
-    <Text style={styles.note}>بدّل بين حساب الزبون ومجالات العمل من نفس الحساب. الأدوار الجديدة تحتاج إكمال التوثيق.</Text>
     <View style={styles.roleGrid}>
-      {["customer", "worker", "driver", "large_driver"].map((role) => {
+      {["customer", "worker", "driver", "large_driver"].filter((role) => roles.includes(role as any)).map((role) => {
         const selected = role === "customer"
           ? { title: "الزبون", mark: "ز", backgroundColor: palette.goldSoft, color: palette.brand }
           : role === "worker"
@@ -174,10 +183,37 @@ export default function AccountSettingsScreen() {
           <TouchableOpacity key={role} activeOpacity={0.82} style={[styles.roleCard, { backgroundColor: selected.backgroundColor }, activeRole === role && styles.roleCardActive]} onPress={() => switchRole(role)}>
             <View style={styles.roleMark}><Text style={styles.roleEmoji}>{selected.mark}</Text></View>
             <Text style={[styles.roleTitle, { color: selected.color }]}>{selected.title}</Text>
-            <Text style={[styles.roleHint, { color: selected.color }]}>{activeRole === role ? "المساحة الحالية" : role === "customer" || roles.includes(role as any) ? "التبديل إلى هذا الدور" : "إكمال التسجيل"}</Text>
+            <Text style={[styles.roleHint, { color: selected.color }]}>{activeRole === role ? "المساحة الحالية" : "التبديل إلى هذا الدور"}</Text>
           </TouchableOpacity>
         );
       })}
+    </View>
+    <View style={styles.joinSection}>
+      <View style={styles.roleSectionHeading}>
+        <View style={[styles.roleSwitchIcon, { backgroundColor: palette.gold }]}>
+          <Text style={{ color: palette.brandDeep, fontSize: 22, fontWeight: "900" }}>م</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.roleSectionTitle}>سجّل معنا</Text>
+          <Text style={styles.roleSectionHint}>حسابك يبدأ كزبون، واختار مجال العمل إذا تحب تنضم إلينا</Text>
+        </View>
+      </View>
+      <View style={styles.registrationList}>
+        {([
+          { key: "driver", title: "كابتن تكسي", detail: "بيانات السيارة والهوية", mark: "س" },
+          { key: "large_driver", title: "سائق سيارات كبيرة", detail: "كيا حمل أو كيا ركاب أو باص", mark: "ك" },
+          { key: "worker", title: "فني أو مقدم خدمة", detail: "اختيار المهن والاختصاصات وتوثيق الهوية", mark: "ف" },
+        ] as const).map((item) => (
+          <TouchableOpacity key={item.key} activeOpacity={0.82} style={styles.registrationCard} onPress={() => startRegistration(item.key)}>
+            <View style={styles.registrationMark}><Text style={styles.registrationMarkText}>{item.mark}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.registrationTitle}>{item.title}</Text>
+              <Text style={styles.registrationHint}>{item.detail}</Text>
+            </View>
+            <Text style={styles.registrationAction}>{roles.includes(item.key as any) ? "متابعة / تحديث" : "ابدأ التسجيل"}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
     <Text style={styles.note}>أي تغيير ببيانات الدخول لا يعتمد إلا بعد إكمال التحقق.</Text>
     <Text style={styles.label}>البريد الإلكتروني</Text>
@@ -217,6 +253,14 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: palette.muted, marginBottom: space.xl },
   sectionTitle: { fontSize: 17, fontWeight: "900", color: palette.ink, marginTop: 20, marginBottom: 8 },
   nameSection: { backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.lg, borderWidth: 1, borderColor: palette.line, marginBottom: 12 },
+  joinSection: { marginTop: 8, marginBottom: 12, padding: 14, borderRadius: radius.xl, borderWidth: 1, borderColor: palette.gold + "88", backgroundColor: palette.surface + "CC" },
+  registrationList: { gap: 9, marginTop: 8 },
+  registrationCard: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 76, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+  registrationMark: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: palette.brandSoft },
+  registrationMarkText: { color: palette.brand, fontSize: 19, fontWeight: "900" },
+  registrationTitle: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
+  registrationHint: { color: palette.muted, fontSize: 10, marginTop: 4, textAlign: "right" },
+  registrationAction: { color: palette.brand, fontSize: 10, fontWeight: "900", textAlign: "center" },
   roleSectionHeading: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 20, marginBottom: 8 },
   roleSwitchIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: palette.brand, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: palette.gold + "88", shadowColor: palette.brand, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   roleSectionTitle: { fontSize: 17, fontWeight: "900", color: palette.ink },
