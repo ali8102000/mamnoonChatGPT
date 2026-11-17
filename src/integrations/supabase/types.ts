@@ -570,6 +570,57 @@ export type Database = {
           },
         ]
       }
+      trip_location_points: {
+        Row: {
+          accuracy_m: number | null
+          heading: number | null
+          id: number
+          lat: number
+          lng: number
+          recorded_at: string
+          request_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          accuracy_m?: number | null
+          heading?: number | null
+          id?: number
+          lat: number
+          lng: number
+          recorded_at?: string
+          request_id: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          accuracy_m?: number | null
+          heading?: number | null
+          id?: number
+          lat?: number
+          lng?: number
+          recorded_at?: string
+          request_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_location_points_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "service_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_location_points_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           chat_id: string

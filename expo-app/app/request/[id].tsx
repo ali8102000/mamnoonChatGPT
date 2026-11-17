@@ -214,6 +214,7 @@ export default function RequestDetail() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
+  const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
   const [freshnessClock, setFreshnessClock] = useState(Date.now());
   const lastEtaRequestRef = useRef<{ latitude: number; longitude: number; requestedAt: number } | null>(null);
@@ -527,6 +528,19 @@ export default function RequestDetail() {
           updated_at: coords.updatedAt,
         }, { onConflict: "request_id,user_id" });
         if (error) throw error;
+        if (role === "provider") {
+          const { error: pointError } = await supabase.from("trip_location_points").insert({
+            request_id: id,
+            user_id: currentUserId,
+            role,
+            lat: coords.latitude,
+            lng: coords.longitude,
+            heading: first.coords.heading,
+            accuracy_m: first.coords.accuracy,
+            recorded_at: coords.updatedAt,
+          });
+          if (pointError) console.warn("[Mamnoon] initial route point insert failed:", pointError.message);
+        }
         const { startMamnoonBackgroundLocation } = await import("@/lib/background-location");
         await startMamnoonBackgroundLocation({ requestId: id, userId: currentUserId, role });
       } catch (error: any) {
@@ -600,6 +614,61 @@ export default function RequestDetail() {
     currentCustomerId,
     currentUserId,
   ]);
+
+  useEffect(() => {
+    if (!isActive || !currentUserId) {
+      setProviderRoutePoints([]);
+      return;
+    }
+    let stillCurrent = true;
+    supabase
+      .from("trip_location_points")
+      .select("lat,lng,recorded_at")
+      .eq("request_id", id)
+      .eq("role", "provider")
+      .order("recorded_at", { ascending: true })
+      .limit(1200)
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn("[Mamnoon] route history read failed:", error.message);
+          return;
+        }
+        if (stillCurrent && data) {
+          setProviderRoutePoints(data.map((point) => ({
+            latitude: point.lat,
+            longitude: point.lng,
+          })));
+        }
+      });
+
+    const channel = supabase
+      .channel(`trip-route-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "trip_location_points",
+          filter: `request_id=eq.${id}`,
+        },
+        (payload) => {
+          const point = payload.new as { role?: string; lat?: number; lng?: number };
+          if (stillCurrent && point.role === "provider" &&
+              typeof point.lat === "number" && typeof point.lng === "number") {
+            setProviderRoutePoints((previous) => [
+              ...previous,
+              { latitude: point.lat!, longitude: point.lng! },
+            ].slice(-1200));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      stillCurrent = false;
+      supabase.removeChannel(channel);
+    };
+  }, [id, isActive, currentUserId]);
 
   useEffect(() => {
     if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
@@ -1044,12 +1113,9 @@ export default function RequestDetail() {
                 }}
                 showsUserLocation={request.type !== "taxi"}
               >
-                {myLocation && otherLocation && (
+                {providerRoutePoints.length > 1 && (
                   <Polyline
-                    coordinates={[
-                      { latitude: myLocation.latitude, longitude: myLocation.longitude },
-                      { latitude: otherLocation.latitude, longitude: otherLocation.longitude },
-                    ]}
+                    coordinates={providerRoutePoints}
                     strokeColor="#D6A43B"
                     strokeWidth={5}
                     geodesic

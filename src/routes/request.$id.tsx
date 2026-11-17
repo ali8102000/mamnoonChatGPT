@@ -119,7 +119,7 @@ function RequestDetail() {
   }, []);
   const otherBadges = otherRep?.badges ?? [];
   const trackingActive = !!req && (req.status === "accepted" || req.status === "in_progress");
-  const { me: myLive, other: otherLive } = useLiveTracking({
+  const { me: myLive, other: otherLive, routePoints: providerRoutePoints } = useLiveTracking({
     requestId: req?.id ?? null,
     myUserId,
     otherUserId,
@@ -596,6 +596,7 @@ function RequestDetail() {
             <LiveTrackMap
               me={myLive}
               other={otherLive}
+              routePoints={providerRoutePoints}
               pickupCoords={
                 req.pickup_lat != null && req.pickup_lng != null
                   ? { lat: Number(req.pickup_lat), lng: Number(req.pickup_lng) }

@@ -32,6 +32,7 @@ function bearingDeg(a: Coords, b: Coords) {
 export interface LiveTrackMapProps {
   me: Coords | null;
   other: Coords | null;
+  routePoints?: Coords[];
   pickupCoords?: Coords | null;
   destCoords?: Coords | null;
   status?: string;
@@ -53,6 +54,7 @@ export interface LiveTrackMapProps {
 export function LiveTrackMap({
   me,
   other,
+  routePoints = [],
   pickupCoords,
   destCoords,
   status = "accepted",
@@ -78,6 +80,7 @@ export function LiveTrackMap({
   const renderedDriverPositionRef = useRef<Coords | null>(null);
   const renderedDriverHeadingRef = useRef(0);
   const routeLineRef = useRef<any>(null);
+  const travelledLineRef = useRef<any>(null);
   const readyRef = useRef(false);
   const didInitialFitRef = useRef(false);
   const arrivedNotifiedRef = useRef(false);
@@ -156,11 +159,13 @@ export function LiveTrackMap({
       if (markerRefForCleanup.current) markerRefForCleanup.current.setMap(null);
       if (driverMarkerRef.current) driverMarkerRef.current.setMap(null);
       if (routeLineRef.current) routeLineRef.current.setMap(null);
+      if (travelledLineRef.current) travelledLineRef.current.setMap(null);
       pickupMarkerRef.current = null;
       destMarkerRef.current = null;
       meMarkerRef.current = null;
       driverMarkerRef.current = null;
       routeLineRef.current = null;
+      travelledLineRef.current = null;
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,6 +176,24 @@ export function LiveTrackMap({
     const g = (window as any).google;
     const map = mapRef.current;
     if (!g || !map || !readyRef.current) return;
+
+    // Draw the provider's real GPS breadcrumb from Supabase. This is the road
+    // actually travelled, not a straight line between two live markers.
+    const travelledPath = routePoints.slice(-1200).map((point) => ({ lat: point.lat, lng: point.lng }));
+    if (travelledPath.length > 1) {
+      if (!travelledLineRef.current) {
+        travelledLineRef.current = new g.maps.Polyline({
+          path: travelledPath,
+          map,
+          geodesic: true,
+          strokeColor: "#D6A43B",
+          strokeOpacity: 0.92,
+          strokeWeight: 5,
+        });
+      } else {
+        travelledLineRef.current.setPath(travelledPath);
+      }
+    }
 
     // Taxi screens use a clean map; service requests retain their pickup and destination pins.
     if (serviceType !== "taxi") {
@@ -293,10 +316,10 @@ export function LiveTrackMap({
       const signature = `${status}:${targetPoint.lat.toFixed(5)}:${targetPoint.lng.toFixed(5)}`;
       const previous = lastDirectionsRequestRef.current;
       const moved = !previous ||
-        haversineKm(previous.origin, activeDriverCoord) >= 0.08 ||
-        haversineKm(previous.destination, targetPoint) >= 0.03 ||
+        haversineKm(previous.origin, activeDriverCoord) >= 0.025 ||
+        haversineKm(previous.destination, targetPoint) >= 0.02 ||
         previous.signature !== signature ||
-        Date.now() - previous.requestedAt >= 45000;
+        Date.now() - previous.requestedAt >= 10000;
 
       if (hasRoadRouting && moved) {
         setRouteMode("waiting");
@@ -368,6 +391,9 @@ export function LiveTrackMap({
     activeDriverCoord?.lat,
     activeDriverCoord?.lng,
     activeDriverCoord?.heading,
+    routePoints.length,
+    routePoints[routePoints.length - 1]?.lat,
+    routePoints[routePoints.length - 1]?.lng,
     effectivePickup?.lat,
     effectivePickup?.lng,
     destCoords?.lat,
