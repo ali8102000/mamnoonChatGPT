@@ -4,15 +4,15 @@ begin;
 
 alter table public.staff_assignments
   add column if not exists created_by uuid references auth.users(id) on delete set null,
-  add column if not exists scope_type text not null default 'global'
+  add column if not exists scope_type text
     check (scope_type in ('global','governorate')),
   add column if not exists scope_governorate text,
   add column if not exists can_manage_pricing boolean not null default false,
   add column if not exists can_review_staff_requests boolean not null default false;
 
-update public.staff_assignments
-set created_by = coalesce(created_by, assigned_by)
-where created_by is null;
+-- Existing rows intentionally keep created_by NULL: assigned_by is mutable
+-- (rank changes overwrite it) and is not reliable proof of original creator.
+-- NULL scope is fail-closed until an owner explicitly configures it.
 
 create index if not exists staff_assignments_created_by_idx
   on public.staff_assignments(created_by);
@@ -24,7 +24,8 @@ alter table public.staff_assignments
 alter table public.staff_assignments
   add constraint staff_assignments_scope_governorate_check
   check (
-    (scope_type = 'global' and scope_governorate is null)
+    (scope_type is null and scope_governorate is null)
+    or (scope_type = 'global' and scope_governorate is null)
     or
     (scope_type = 'governorate' and scope_governorate in
       ('baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk',
@@ -106,21 +107,21 @@ returns boolean
 language sql stable security definer
 set search_path = public, pg_temp
 as $$
-  select public.is_super_admin(p_actor)
+  select p_actor = auth.uid() and (public.is_super_admin(auth.uid())
     or exists (
       select 1 from public.staff_assignments a
       where a.user_id = p_actor and a.active = true
         and (a.scope_type = 'global'
           or (a.scope_type = 'governorate' and a.scope_governorate = p_governorate))
-    );
-$$;
+    ));
+$;
 
 create or replace function public.staff_can_review_requests(p_actor uuid, p_kind text)
 returns boolean
 language sql stable security definer
 set search_path = public, pg_temp
 as $$
-  select public.is_super_admin(p_actor)
+  select p_actor = auth.uid() and (public.is_super_admin(auth.uid())
     or exists (
       select 1 from public.staff_governance_delegations d
       where d.owner_id = 'a06c0102-c5c8-488c-9309-8a320b400df1'::uuid
@@ -130,8 +131,8 @@ as $$
           when 'staff' then d.can_review_staff_requests
           when 'pricing' then d.can_review_pricing_requests
           else false end
-    );
-$$;
+    ));
+$;
 
 alter table public.staff_governance_requests enable row level security;
 alter table public.staff_governance_delegations enable row level security;
