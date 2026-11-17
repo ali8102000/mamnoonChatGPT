@@ -42,7 +42,7 @@ export default function AdminStaffScreen() {
     void (async () => {
       try {
         const { data, error } = await supabase.rpc("get_staff_roles", { p_user_id: user.id });
-        const names = (data ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
+        const names: string[] = (data ?? []).map((entry: any) => typeof entry === "string" ? entry : String(entry.role ?? ""));
         setRoles(names);
         const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,rank,department").eq("user_id", user.id).eq("active", true).maybeSingle();
         setDisplayTitle(assignment?.display_title ?? (names.includes("super_admin") ? "الرئيس المؤسس الأعلى" : null));
