@@ -59,7 +59,11 @@ export function RegionalServiceBanner() {
       });
     };
     void load();
-    const channel = supabase.channel("regional-service-controls-web").on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls" }, () => { void load(); }).subscribe();
+    // RealtimeClient reuses channels by topic. A unique topic prevents StrictMode/HMR remounts
+    // from returning an already-subscribed channel and rejecting a new postgres_changes handler.
+    const channel = supabase.channel(`regional-service-controls-web-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls" }, () => { void load(); });
+    channel.subscribe();
     const timer = setInterval(() => void load(), 30000);
     return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
   }, []);
