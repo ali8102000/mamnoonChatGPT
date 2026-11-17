@@ -203,4 +203,269 @@ grant select on public.admin_staff_permission_grants to authenticated;
 grant select on public.admin_staff_delegations to authenticated;
 grant select on public.admin_approval_requests to authenticated;
 
+
+-- Server-side governance primitives. These functions are the only write path
+-- for delegated staff administration; direct table writes remain revoked.
+create or replace function public.admin_permission_level(p_rank text)
+returns integer language sql immutable
+set search_path = ''
+as $
+  select case p_rank
+    when 'owner' then 5 when 'general_manager' then 4
+    when 'department_manager' then 3 when 'supervisor' then 2
+    when 'employee' then 1 else 0 end
+$;
+
+create or replace function public.admin_has_permission(
+  p_permission_key text,
+  p_scope_type text default 'global',
+  p_scope_governorate text default null
+)
+returns boolean
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $
+declare v_actor uuid := auth.uid();
+begin
+  if v_actor is null then return false; end if;
+  if public.is_super_admin(v_actor) then return true; end if;
+  if p_scope_type not in ('global','governorate')
+     or (p_scope_type='global' and p_scope_governorate is not null)
+     or (p_scope_type='governorate' and nullif(trim(p_scope_governorate),'') is null)
+  then return false; end if;
+
+  return exists (
+    select 1 from public.admin_staff_permission_grants g
+    where g.user_id=v_actor and g.permission_key=p_permission_key
+      and g.revoked_at is null and (g.expires_at is null or g.expires_at>now())
+      and (g.scope_type='global'
+        or (p_scope_type='governorate' and g.scope_type='governorate'
+            and g.scope_governorate=p_scope_governorate))
+  ) or exists (
+    select 1 from public.admin_staff_delegations d
+    join public.admin_staff_permission_grants g
+      on g.user_id=d.delegator_id and g.permission_key=d.permission_key
+    where d.delegate_id=v_actor and d.permission_key=p_permission_key
+      and d.revoked_at is null and (d.expires_at is null or d.expires_at>now())
+      and g.revoked_at is null and (g.expires_at is null or g.expires_at>now())
+      and (d.scope_type='global'
+        or (p_scope_type='governorate' and d.scope_type='governorate'
+            and d.scope_governorate=p_scope_governorate))
+      and (g.scope_type='global'
+        or (d.scope_type='governorate' and g.scope_type='governorate'
+            and g.scope_governorate=d.scope_governorate))
+  );
+end;
+$;
+
+create or replace function public.admin_can_manage_staff(p_target_user uuid)
+returns boolean
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $
+declare v_actor uuid := auth.uid(); v_actor_rank text; v_target_rank text;
+begin
+  if v_actor is null or p_target_user is null or p_target_user=v_actor then return false; end if;
+  if public.is_super_admin(v_actor) then return true; end if;
+  if not public.admin_has_permission('staff.manage_created','global',null) then return false; end if;
+  select rank into v_actor_rank from public.staff_assignments
+    where user_id=v_actor and active=true;
+  select rank into v_target_rank from public.staff_assignments
+    where user_id=p_target_user and active=true and created_by=v_actor;
+  return v_target_rank is not null
+    and public.admin_permission_level(v_target_rank) < public.admin_permission_level(v_actor_rank);
+end;
+$;
+
+create or replace function public.admin_assign_staff(
+  p_target_user uuid,
+  p_rank text,
+  p_department text,
+  p_display_title text default null,
+  p_scope_type text default 'global',
+  p_scope_governorate text default null
+)
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $
+declare
+  v_actor uuid := auth.uid();
+  v_actor_rank text;
+  v_actor_department text;
+  v_actor_scope_type text;
+  v_actor_scope_governorate text;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if p_target_user is null or p_target_user=v_actor then raise exception 'invalid_target'; end if;
+  if p_rank not in ('general_manager','department_manager','supervisor','employee') then
+    raise exception 'invalid_rank';
+  end if;
+  if p_department not in ('executive','customer_service','finance','operations','monitoring') then
+    raise exception 'invalid_department';
+  end if;
+  if p_scope_type not in ('global','governorate')
+    or (p_scope_type='global' and p_scope_governorate is not null)
+    or (p_scope_type='governorate' and nullif(trim(p_scope_governorate),'') is null) then
+    raise exception 'invalid_scope';
+  end if;
+  if exists(select 1 from public.user_roles where user_id=p_target_user and role::text='super_admin') then
+    raise exception 'cannot_assign_super_admin';
+  end if;
+  if exists(select 1 from public.staff_assignments where user_id=p_target_user) then
+    raise exception 'staff_assignment_already_exists_owner_review_required';
+  end if;
+
+  if not public.is_super_admin(v_actor) then
+    if not public.admin_has_permission('staff.assign',p_scope_type,p_scope_governorate) then
+      raise exception 'missing_staff_assign_permission';
+    end if;
+    select rank,department,scope_type,scope_governorate
+      into v_actor_rank,v_actor_department,v_actor_scope_type,v_actor_scope_governorate
+      from public.staff_assignments where user_id=v_actor and active=true;
+    if v_actor_rank is null or public.admin_permission_level(p_rank)>=public.admin_permission_level(v_actor_rank) then
+      raise exception 'rank_escalation_denied';
+    end if;
+    if p_department is distinct from v_actor_department then raise exception 'department_scope_denied'; end if;
+    if v_actor_scope_type='governorate'
+      and (p_scope_type<>'governorate' or p_scope_governorate is distinct from v_actor_scope_governorate) then
+      raise exception 'governorate_scope_denied';
+    end if;
+    if v_actor_scope_type is null then raise exception 'legacy_staff_scope_requires_owner_review'; end if;
+  end if;
+
+  insert into public.staff_assignments
+    (user_id,rank,department,display_title,active,assigned_by,created_by,scope_type,scope_governorate,updated_at)
+  values
+    (p_target_user,p_rank,p_department,nullif(trim(p_display_title),''),true,v_actor,v_actor,p_scope_type,
+     case when p_scope_type='global' then null else p_scope_governorate end,now());
+
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'staff.assigned','staff',p_target_user::text,
+    jsonb_build_object('rank',p_rank,'department',p_department,'scope_type',p_scope_type,
+      'scope_governorate',p_scope_governorate,'display_title',p_display_title));
+end;
+$;
+
+create or replace function public.admin_grant_staff_permission(
+  p_target_user uuid,
+  p_permission_key text,
+  p_scope_type text default 'global',
+  p_scope_governorate text default null,
+  p_expires_at timestamptz default null
+)
+returns uuid
+language plpgsql security definer
+set search_path = public, pg_temp
+as $
+declare v_actor uuid := auth.uid(); v_id uuid; v_actor_scope_type text; v_actor_scope_governorate text;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if p_scope_type not in ('global','governorate')
+    or (p_scope_type='global' and p_scope_governorate is not null)
+    or (p_scope_type='governorate' and nullif(trim(p_scope_governorate),'') is null) then
+    raise exception 'invalid_scope';
+  end if;
+  if not exists(select 1 from public.admin_permission_catalog where permission_key=p_permission_key and active) then
+    raise exception 'unknown_permission';
+  end if;
+  if not exists(select 1 from public.staff_assignments where user_id=p_target_user and active=true and created_by=v_actor)
+     and not public.is_super_admin(v_actor) then raise exception 'target_not_created_by_actor'; end if;
+  if p_target_user=v_actor then raise exception 'cannot_grant_permission_to_self'; end if;
+  if not public.is_super_admin(v_actor) then
+    if not public.admin_has_permission('staff.delegate',p_scope_type,p_scope_governorate)
+       or not public.admin_has_permission(p_permission_key,p_scope_type,p_scope_governorate) then
+      raise exception 'delegation_exceeds_actor_permissions';
+    end if;
+    select scope_type,scope_governorate into v_actor_scope_type,v_actor_scope_governorate
+      from public.staff_assignments where user_id=v_actor and active=true;
+    if v_actor_scope_type='governorate'
+      and (p_scope_type<>'governorate' or p_scope_governorate is distinct from v_actor_scope_governorate) then
+      raise exception 'governorate_scope_denied';
+    end if;
+    if v_actor_scope_type is null then raise exception 'legacy_staff_scope_requires_owner_review'; end if;
+  end if;
+  insert into public.admin_staff_permission_grants
+    (user_id,permission_key,scope_type,scope_governorate,granted_by,expires_at)
+  values(p_target_user,p_permission_key,p_scope_type,p_scope_governorate,v_actor,p_expires_at)
+  on conflict do nothing returning id into v_id;
+  if v_id is null then raise exception 'active_grant_already_exists'; end if;
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'staff.permission.granted','staff',p_target_user::text,
+    jsonb_build_object('permission_key',p_permission_key,'scope_type',p_scope_type,
+      'scope_governorate',p_scope_governorate,'expires_at',p_expires_at));
+  return v_id;
+end;
+$;
+
+create or replace function public.admin_revoke_staff_permission(p_grant_id uuid)
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $
+declare v_actor uuid := auth.uid(); v_row public.admin_staff_permission_grants%rowtype;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  select * into v_row from public.admin_staff_permission_grants where id=p_grant_id and revoked_at is null for update;
+  if not found then raise exception 'active_grant_not_found'; end if;
+  if not public.is_super_admin(v_actor) and v_row.granted_by is distinct from v_actor then
+    raise exception 'grant_not_created_by_actor';
+  end if;
+  update public.admin_staff_permission_grants set revoked_at=now(),revoked_by=v_actor where id=p_grant_id;
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'staff.permission.revoked','staff',v_row.user_id::text,
+    jsonb_build_object('grant_id',p_grant_id,'permission_key',v_row.permission_key,
+      'scope_type',v_row.scope_type,'scope_governorate',v_row.scope_governorate));
+end;
+$;
+
+create or replace function public.admin_request_approval(
+  p_request_type text,
+  p_target_user_id uuid,
+  p_scope_type text,
+  p_scope_governorate text,
+  p_payload jsonb
+)
+returns uuid
+language plpgsql security definer
+set search_path = public, pg_temp
+as $
+declare v_actor uuid := auth.uid(); v_id uuid;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if p_request_type not in ('staff_assign','staff_rank_change','staff_permission_change','staff_scope_change',
+    'staff_deactivate','pricing_change','promotion_publish','wallet_adjustment','payment_refund',
+    'provider_action','order_override','platform_setting_change') then raise exception 'invalid_request_type'; end if;
+  if p_scope_type not in ('global','governorate')
+    or (p_scope_type='global' and p_scope_governorate is not null)
+    or (p_scope_type='governorate' and nullif(trim(p_scope_governorate),'') is null) then
+    raise exception 'invalid_scope';
+  end if;
+  if coalesce(p_payload,'{}'::jsonb)='{}'::jsonb then raise exception 'approval_payload_required'; end if;
+  insert into public.admin_approval_requests
+    (requester_id,request_type,target_user_id,scope_type,scope_governorate,payload)
+  values(v_actor,p_request_type,p_target_user_id,p_scope_type,p_scope_governorate,p_payload)
+  returning id into v_id;
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'admin.approval.requested','approval_request',v_id::text,
+    jsonb_build_object('request_type',p_request_type,'target_user_id',p_target_user_id,
+      'scope_type',p_scope_type,'scope_governorate',p_scope_governorate));
+  return v_id;
+end;
+$;
+
+revoke all on function public.admin_permission_level(text) from public, anon;
+revoke all on function public.admin_has_permission(text,text,text) from public, anon;
+revoke all on function public.admin_can_manage_staff(uuid) from public, anon;
+revoke all on function public.admin_assign_staff(uuid,text,text,text,text,text) from public, anon;
+revoke all on function public.admin_grant_staff_permission(uuid,text,text,text,timestamptz) from public, anon;
+revoke all on function public.admin_revoke_staff_permission(uuid) from public, anon;
+revoke all on function public.admin_request_approval(text,uuid,text,text,jsonb) from public, anon;
+grant execute on function public.admin_has_permission(text,text,text) to authenticated;
+grant execute on function public.admin_can_manage_staff(uuid) to authenticated;
+grant execute on function public.admin_assign_staff(uuid,text,text,text,text,text) to authenticated;
+grant execute on function public.admin_grant_staff_permission(uuid,text,text,text,timestamptz) to authenticated;
+grant execute on function public.admin_revoke_staff_permission(uuid) to authenticated;
+grant execute on function public.admin_request_approval(text,uuid,text,text,jsonb) to authenticated;
+
 commit;
