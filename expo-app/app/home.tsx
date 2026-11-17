@@ -175,8 +175,12 @@ export default function HomeScreen() {
   }, [activeRole, user]);
 
   useEffect(() => {
-    if (!user || !verified || !available || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker"))
+    if (!user || !verified || !available || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
+      void stopProviderPresenceBackgroundLocation().catch((stopError) => {
+        console.warn("[Mamnoon] could not stop inactive provider background location:", stopError);
+      });
       return;
+    }
     const userId = user.id;
     let mounted = true;
     let loadedIncoming = false;
