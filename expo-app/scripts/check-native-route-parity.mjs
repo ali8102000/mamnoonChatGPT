@@ -107,17 +107,20 @@ if (!nativeAuthContextSource.includes("mamnoon-history-v1")) {
 
 const nativeIndexSource = await readSource("app/index.tsx");
 const nativeWelcomeSource = await readSource("app/welcome.tsx");
-if (!nativeIndexSource.includes('"/welcome"') ||
+if (!nativeIndexSource.includes('"/auth"') ||
+    !nativeIndexSource.includes('"/home"') ||
     !nativeIndexSource.includes('"/select-governorate"') ||
     !nativeIndexSource.includes("mamnoon_governorate") ||
+    !nativeIndexSource.includes('roles.includes("super_admin")') ||
     !existsSync(resolve(root, "app/select-governorate.tsx"))) {
-  missing.push("Native startup must show the first-launch governorate selector, persist the choice, then continue to welcome.");
+  missing.push("Native startup must show the first-launch governorate selector, persist the choice, then automatically open the signed-in account or sign-in screen.");
 }
-if (!nativeWelcomeSource.includes("!profile || roles.length === 0") ||
-    !nativeWelcomeSource.includes('router.replace("/select-role")') ||
-    !nativeWelcomeSource.includes('router.replace("/home")') ||
-    !nativeWelcomeSource.includes('router.replace("/auth")')) {
-  missing.push("Native welcome continuation must preserve signed-out, incomplete-profile, and signed-in routing.");
+if (!nativeWelcomeSource.includes('router.replace("/home")') ||
+    !nativeWelcomeSource.includes('router.replace("/auth")') ||
+    !nativeWelcomeSource.includes("أهلاً بك في ممنون") ||
+    nativeWelcomeSource.includes("دخول إلى ممنون") ||
+    !nativeWelcomeSource.includes("useEffect")) {
+  missing.push("Native welcome must greet the user and continue automatically without a manual entry button.");
 }
 
 if (!nativeAuthContextSource.includes("mamnoon-auth-profile-v1") ||
@@ -135,8 +138,15 @@ if (!nativeAuthSource.includes('useState<Mode>("signup")')) {
 if (nativeAuthSource.includes("loginMethod") || !nativeAuthSource.includes("رقم الهاتف أو البريد")) {
   missing.push("Native auth must use the web-equivalent combined phone/email sign-in field.");
 }
-if (!nativeAuthSource.includes('router.push("/welcome")')) {
-  missing.push("Native auth must expose the web-equivalent language and welcome link.");
+if (nativeAuthSource.includes('router.push("/welcome")')) {
+  missing.push("Native sign-in must not show the obsolete manual welcome-entry link.");
+}
+if (!nativeAuthContextSource.includes("rolePreferenceKey") ||
+    !nativeAuthContextSource.includes("restoreActiveRole") ||
+    !nativeAuthContextSource.includes("setActiveRole") ||
+    !nativeAuthContextSource.includes("SecureStore.setItemAsync(rolePreferenceKey(uid), role)") ||
+    !nativeAuthSource.includes('useState<Mode>("signup")')) {
+  missing.push("Native account roles must persist the last registered section and restore it on the next app launch.");
 }
 
 const apkWorkflowSource = await readSource("../.github/workflows/android-apk.yml");
