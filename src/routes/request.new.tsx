@@ -220,6 +220,7 @@ function NewRequest() {
   const [routeKm, setRouteKm] = useState<number | null>(null);
   const [routeDurationMin, setRouteDurationMin] = useState<number | null>(null);
   const [serverTaxiFare, setServerTaxiFare] = useState<number | null>(null);
+  const [serverTaxiFares, setServerTaxiFares] = useState<Partial<Record<"economy" | "premium" | "luxury", number>>>({});
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeRetry, setRouteRetry] = useState(0);
   const runLookup = useServerFn(lookupMapPlace);
@@ -324,6 +325,7 @@ function NewRequest() {
     setRouteKm(null);
     setRouteDurationMin(null);
     setServerTaxiFare(null);
+    setServerTaxiFares({});
     setRouteError(null);
     if (type !== "taxi" || vehicle === "large" || !destConfirmed || pickupLat == null || pickupLng == null || destLat == null || destLng == null) return;
     let stale = false;
@@ -338,6 +340,9 @@ function NewRequest() {
         setRouteKm(Number(data.distanceKm));
         setRouteDurationMin(Number(data.durationMin));
         setServerTaxiFare(Number(data.priceEstimate));
+        setServerTaxiFares(data.categoryPrices && typeof data.categoryPrices === "object"
+          ? data.categoryPrices
+          : { [vehicleCategory]: Number(data.priceEstimate) });
       } catch (e) { if (!stale) setRouteError(arabicWarning(e)); }
     }, 350);
     return () => { stale = true; clearTimeout(t); };
@@ -955,7 +960,7 @@ function NewRequest() {
               <div className="space-y-2">
                 {VEHICLE_CATS.filter((item) => item.key !== "large").map((c) => {
                   const active = vehicleCategory === c.key;
-                  const fare = active && routeKm !== null ? serverTaxiFare : null;
+                  const fare = routeKm !== null ? (serverTaxiFares[c.key] ?? (active ? serverTaxiFare : null)) : null;
                   return (
                     <button
                       key={c.key}
