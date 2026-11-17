@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as Linking from "expo-linking";
-import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
@@ -13,7 +12,7 @@ import { useThemePreference, type ThemeMode } from "@/lib/theme-preference";
 import Svg, { Path } from "react-native-svg";
 
 export default function AccountSettingsScreen() {
-  const { user, profile, roles, refresh } = useAuth();
+  const { user, profile, roles, refresh, activeRole, setActiveRole } = useAuth();
   const { mode, setMode } = useThemePreference();
   const actualEmail = (() => { const candidate = String(user?.email ?? "").trim().toLowerCase(); return candidate && !/^phone\d+@mamnoon\.app$/.test(candidate) ? candidate : ""; })();
   const [email, setEmail] = useState(actualEmail);
@@ -22,16 +21,9 @@ export default function AccountSettingsScreen() {
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [companyName, setCompanyName] = useState("شركة ممنون");
-  const [activeRole, setActiveRole] = useState("customer");
   const isCompanyAdmin = user?.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
   useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
-
-  useEffect(() => {
-    let mounted = true;
-    SecureStore.getItemAsync("mamnoon_active_role").then((saved) => { if (mounted && saved) setActiveRole(saved); });
-    return () => { mounted = false; };
-  }, []);
 
   useEffect(() => {
     if (!isCompanyAdmin) return;
@@ -39,34 +31,9 @@ export default function AccountSettingsScreen() {
       .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
   }, [isCompanyAdmin]);
 
-  async function switchRole(role: string) {
-    if (role === "customer") {
-      if (!roles.includes("customer") && user?.id) {
-        const { error } = await (supabase as any).from("user_roles")
-          .upsert({ user_id: user.id, role: "customer" }, { onConflict: "user_id,role" });
-        if (error) { Alert.alert("تعذر التبديل", error.message); return; }
-        await refresh();
-      }
-      await SecureStore.setItemAsync("mamnoon_active_role", "customer");
-      setActiveRole("customer");
-      router.replace("/home");
-      return;
-    }
-    if (role === "driver" && !roles.includes("driver")) {
-      router.push("/onboarding/driver");
-      return;
-    }
-    if (role === "large_driver" && !roles.includes("large_driver")) {
-      router.push({ pathname: "/onboarding/driver", params: { providerType: "large_driver" } });
-      return;
-    }
-    if (role === "worker" && !roles.includes("worker")) {
-      router.push("/onboarding/worker");
-      return;
-    }
-    if (role !== "driver" && role !== "large_driver" && role !== "worker") return;
-    await SecureStore.setItemAsync("mamnoon_active_role", role);
-    setActiveRole(role);
+  function switchRole(role: string) {
+    if (!roles.includes(role as (typeof roles)[number])) return;
+    setActiveRole(role as (typeof roles)[number]);
     router.replace("/home");
   }
 
@@ -158,7 +125,7 @@ export default function AccountSettingsScreen() {
     <Text style={styles.sectionTitle}>مظهر التطبيق</Text>
     <Text style={styles.note}>اختار الوضع اللي يناسبك، وينحفظ على جهازك.</Text>
     <View style={styles.roleGrid}>{([{key:"system",label:"حسب الجهاز"},{key:"light",label:"نهاري"},{key:"dark",label:"ليلي"}] as const).map((item)=><TouchableOpacity key={item.key} onPress={()=>{void setMode(item.key as ThemeMode);}} style={[styles.roleCard,{minHeight:58,backgroundColor:mode===item.key?palette.brandSoft:palette.surface,borderColor:mode===item.key?palette.brand:palette.line}]}><Text style={[styles.roleTitle,{color:palette.ink}]}>{item.label}{mode===item.key?" ✓":""}</Text></TouchableOpacity>)}</View>
-    {roles.some((role) => ["worker", "driver", "large_driver"].includes(role)) && <>
+    {roles.filter((role) => ["customer", "worker", "driver", "large_driver"].includes(role)).length > 1 && <>
       <View style={styles.roleSectionHeading}>
         <View style={styles.roleSwitchIcon}>
           <Svg width={25} height={25} viewBox="0 0 24 24">
