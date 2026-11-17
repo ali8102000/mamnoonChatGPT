@@ -2825,12 +2825,12 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }:
             <div className="glass rounded-xl p-3 mt-4 space-y-3">
               <div className="font-black text-sm">الرتبة والقسم الوظيفي</div>
               <label className="block text-xs font-bold">الرتبة
-                <select value={rank} onChange={(e) => setRank(e.target.value)} className="mt-1 w-full glass rounded-lg p-2">
+                <select value={rank} onChange={(e) => setRank(e.target.value as "general_manager" | "department_manager" | "supervisor" | "employee")} className="mt-1 w-full glass rounded-lg p-2">
                   <option value="general_manager">مدير عام</option><option value="department_manager">مدير قسم</option><option value="supervisor">مشرف</option><option value="employee">موظف</option>
                 </select>
               </label>
               <label className="block text-xs font-bold">القسم
-                <select value={department} onChange={(e) => setDepartment(e.target.value)} className="mt-1 w-full glass rounded-lg p-2">
+                <select value={department} onChange={(e) => setDepartment(e.target.value as "executive" | "customer_service" | "finance" | "operations" | "monitoring")} className="mt-1 w-full glass rounded-lg p-2">
                   <option value="customer_service">خدمة العملاء</option><option value="finance">المالية</option><option value="operations">التشغيل</option><option value="monitoring">المراقبة</option><option value="executive">الإدارة التنفيذية</option>
                 </select>
               </label>
