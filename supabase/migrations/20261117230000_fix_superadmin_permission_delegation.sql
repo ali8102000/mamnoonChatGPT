@@ -65,7 +65,7 @@ begin
           and d.scope_governorate=p_scope_governorate)
       )
       and (
-        public.is_super_admin(d.delegator_id)
+        exists (select 1 from public.user_roles delegator_role where delegator_role.user_id=d.delegator_id and delegator_role.role::text='super_admin')
         or exists (
           select 1
           from public.admin_staff_permission_grants source_grant
@@ -82,7 +82,7 @@ begin
         )
       )
       and (
-        public.is_super_admin(d.delegator_id)
+        exists (select 1 from public.user_roles delegator_role where delegator_role.user_id=d.delegator_id and delegator_role.role::text='super_admin')
         or exists (
           select 1
           from public.staff_assignments delegator_staff
