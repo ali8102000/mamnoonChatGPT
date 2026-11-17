@@ -119,7 +119,7 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
       longitude: coordinate.longitude,
       duration: 1200,
       useNativeDriver: false,
-    }).start();
+    } as any).start();
   }, [coordinate.latitude, coordinate.longitude, animatedCoordinate]);
 
   useEffect(() => {
@@ -153,7 +153,7 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
 
   return (
     <Marker.Animated
-      coordinate={animatedCoordinate}
+      coordinate={animatedCoordinate as any}
       flat
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges
