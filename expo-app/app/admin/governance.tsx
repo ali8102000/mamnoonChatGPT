@@ -376,20 +376,27 @@ function TaxiPricingPanel() {
   const [governorate,setGovernorate]=useState("najaf");
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
-  const [allowed,setAllowed]=useState(false);
+  const [canTariff,setCanTariff]=useState(false);
+  const [canGlobalPeak,setCanGlobalPeak]=useState(false);
+  const [canRegionalPeak,setCanRegionalPeak]=useState(false);
   const [error,setError]=useState("");
   const inputStyle={backgroundColor:palette.canvas,borderWidth:1,borderColor:palette.line,borderRadius:radius.md,padding:10,color:palette.ink,textAlign:"right" as const,flex:1};
   const labelStyle={color:palette.ink,fontSize:11,fontWeight:"800" as const,textAlign:"right" as const};
   const cardStyle={backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:radius.lg,padding:13,gap:9};
   const load=useCallback(async()=>{
     setLoading(true);setError("");
-    const [permission,tariffResult,controlResult]=await Promise.all([
+    const [tariffPermission,globalPeakPermission,regionalPeakPermission,tariffResult,controlResult]=await Promise.all([
       (supabase as any).rpc("admin_has_permission",{p_permission_key:"pricing.taxi.edit",p_scope_type:"global",p_scope_governorate:null}),
+      (supabase as any).rpc("admin_has_permission",{p_permission_key:"pricing.peak.edit",p_scope_type:"global",p_scope_governorate:null}),
+      (supabase as any).rpc("admin_has_permission",{p_permission_key:"pricing.peak.edit",p_scope_type:"governorate",p_scope_governorate:governorate}),
       (supabase as any).from("pricing_settings").select("id,service_type,is_intercity,base_fare,per_km_rate,per_min_rate,min_fare").order("is_intercity").order("service_type"),
       (supabase as any).from("taxi_pricing_controls").select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent"),
     ]);
-    if(permission.error||permission.data!==true){setAllowed(false);setError("ما عندك صلاحية تعديل التعرفة العامة.");setLoading(false);return;}
-    setAllowed(true);
+    const tariffOk=!tariffPermission.error&&tariffPermission.data===true;
+    const globalPeakOk=!globalPeakPermission.error&&globalPeakPermission.data===true;
+    const regionalPeakOk=!regionalPeakPermission.error&&regionalPeakPermission.data===true;
+    setCanTariff(tariffOk);setCanGlobalPeak(globalPeakOk);setCanRegionalPeak(regionalPeakOk);
+    if(!tariffOk&&!globalPeakOk&&!regionalPeakOk){setError("ما عندك صلاحية لتعديل التعرفة أو الذروة ضمن هذا النطاق.");setLoading(false);return;}
     if(tariffResult.error||controlResult.error){setError(tariffResult.error?.message||controlResult.error?.message||"تعذر تحميل الأسعار");}
     else{
       setTariffs((tariffResult.data??[]).map((r:any)=>({...r,base_fare:Number(r.base_fare)||0,per_km_rate:Number(r.per_km_rate)||0,per_min_rate:Number(r.per_min_rate)||0,min_fare:Math.max(1000,Number(r.min_fare)||0)})));
@@ -420,29 +427,30 @@ function TaxiPricingPanel() {
     if(e)Alert.alert("تعذر حفظ إعداد الذروة",e.message);else{Alert.alert("تم","انحفظت الإعدادات.");await load();}
   }
   if(loading)return <View style={cardStyle}><ActivityIndicator color={palette.brand}/><Text style={labelStyle}>تحميل تعرفة التاكسي...</Text></View>;
-  if(!allowed)return <View style={cardStyle}><Text style={labelStyle}>{error||"غير مصرّح"}</Text></View>;
+  if(!canTariff&&!canGlobalPeak&&!canRegionalPeak)return <View style={cardStyle}><Text style={labelStyle}>{error||"غير مصرّح"}</Text></View>;
   return <View style={{gap:12}}>
     <View style={cardStyle}>
-      <Text style={{...labelStyle,fontSize:16}}>تعرفة التاكسي الأساسية</Text>
+      {canTariff&&<><Text style={{...labelStyle,fontSize:16}}>تعرفة التاكسي الأساسية</Text>
       <Text style={labelStyle}>تُحفظ التعرفة عبر إجراء محمي وتُسجّل القيم السابقة والجديدة.</Text>
       {tariffs.map(row=><View key={row.id} style={{borderTopWidth:1,borderTopColor:palette.line,paddingTop:10,gap:8}}>
         <Text style={labelStyle}>{row.service_type==="economy"?"اقتصادي":row.service_type==="premium"?"متميز":"فاخر"} · {row.is_intercity?"بين المحافظات":"داخل المدينة"}</Text>
         {(["base_fare","per_km_rate","per_min_rate","min_fare"] as const).map((key)=> <View key={key} style={{flexDirection:"row",alignItems:"center",gap:8}}><Text style={[labelStyle,{width:104}]}>{key==="base_fare"?"أجرة الانطلاق":key==="per_km_rate"?"سعر الكيلومتر":key==="per_min_rate"?"سعر الدقيقة":"الحد الأدنى"}</Text><TextInput keyboardType="numeric" value={String(row[key])} onChangeText={v=>setTariffs(old=>old.map(t=>t.id===row.id?{...t,[key]:Number(v)||0}:t))} style={inputStyle}/></View>)}
         <TouchableOpacity disabled={saving} onPress={()=>void saveTariff(row)} style={{backgroundColor:palette.brand,padding:10,borderRadius:radius.md,alignItems:"center"}}><Text style={{color:palette.white,fontWeight:"900"}}>حفظ التعرفة</Text></TouchableOpacity>
       </View>)}
+      </>}
     </View>
     <View style={cardStyle}>
-      <Text style={{...labelStyle,fontSize:16}}>الاستعجال والذروة</Text>
-      <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><Text style={labelStyle}>تفعيل الاستعجال لكل العراق</Text><Switch value={!!global.urgency_enabled} onValueChange={v=>setGlobal((x:any)=>({...x,urgency_enabled:v}))}/></View>
+      {(canGlobalPeak||canRegionalPeak)&&<Text style={{...labelStyle,fontSize:16}}>الاستعجال والذروة</Text>}
+      {canGlobalPeak&&<><View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><Text style={labelStyle}>تفعيل الاستعجال لكل العراق</Text><Switch value={!!global.urgency_enabled} onValueChange={v=>setGlobal((x:any)=>({...x,urgency_enabled:v}))}/></View>
       <Text style={labelStyle}>أعلى زيادة للاستعجال (%)</Text><TextInput keyboardType="numeric" value={String(global.urgency_max_percent)} onChangeText={v=>setGlobal((x:any)=>({...x,urgency_max_percent:Number(v)||0}))} style={inputStyle}/>
       <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><Text style={labelStyle}>تفعيل الذروة العامة</Text><Switch value={!!global.peak_enabled} onValueChange={v=>setGlobal((x:any)=>({...x,peak_enabled:v}))}/></View>
       <Text style={labelStyle}>نسبة الذروة العامة (%)</Text><TextInput keyboardType="numeric" value={String(global.peak_percent)} onChangeText={v=>setGlobal((x:any)=>({...x,peak_percent:Number(v)||0}))} style={inputStyle}/>
-      <TouchableOpacity disabled={saving} onPress={()=>void saveControl("all",global)} style={{backgroundColor:palette.brand,padding:10,borderRadius:radius.md,alignItems:"center"}}><Text style={{color:palette.white,fontWeight:"900"}}>حفظ الإعداد العام</Text></TouchableOpacity>
-      <Text style={labelStyle}>ذروة محافظة محددة</Text>
+      <TouchableOpacity disabled={saving} onPress={()=>void saveControl("all",global)} style={{backgroundColor:palette.brand,padding:10,borderRadius:radius.md,alignItems:"center"}}><Text style={{color:palette.white,fontWeight:"900"}}>حفظ الإعداد العام</Text></TouchableOpacity></>}
+      {canRegionalPeak&&<><Text style={labelStyle}>ذروة محافظة محددة</Text>
       <View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{GOVERNORATES.map(g=><TouchableOpacity key={g} onPress={()=>setGovernorate(g)} style={{backgroundColor:governorate===g?palette.brandSoft:palette.canvas,borderWidth:1,borderColor:governorate===g?palette.brand:palette.line,padding:7,borderRadius:radius.pill}}><Text style={labelStyle}>{g}</Text></TouchableOpacity>)}</View>
       <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><Text style={labelStyle}>تفعيل الذروة في {governorate}</Text><Switch value={!!regional.peak_enabled} onValueChange={v=>setRegional((x:any)=>({...x,peak_enabled:v}))}/></View>
       <Text style={labelStyle}>نسبة الذروة (%)</Text><TextInput keyboardType="numeric" value={String(regional.peak_percent)} onChangeText={v=>setRegional((x:any)=>({...x,peak_percent:Number(v)||0}))} style={inputStyle}/>
-      <TouchableOpacity disabled={saving} onPress={()=>void saveControl(governorate,regional)} style={{backgroundColor:palette.brand,padding:10,borderRadius:radius.md,alignItems:"center"}}><Text style={{color:palette.white,fontWeight:"900"}}>حفظ ذروة المحافظة</Text></TouchableOpacity>
+      <TouchableOpacity disabled={saving} onPress={()=>void saveControl(governorate,regional)} style={{backgroundColor:palette.brand,padding:10,borderRadius:radius.md,alignItems:"center"}}><Text style={{color:palette.white,fontWeight:"900"}}>حفظ ذروة المحافظة</Text></TouchableOpacity></>}
       <Text style={labelStyle}>الاستعجال والذروة يطبّقان على سيارات الاقتصاد والمتميز والفاخرة فقط.</Text>
     </View>
   </View>;
