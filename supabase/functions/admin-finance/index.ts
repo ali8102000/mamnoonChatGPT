@@ -80,7 +80,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "adjust_wallet") {
-      await requirePermission("finance.wallet.adjust");
       if (!uuid(body.user_id) || typeof body.amount !== "number" || !Number.isFinite(body.amount) ||
           body.amount <= 0 || body.amount > 1000000000 ||
           !["credit", "debit"].includes(body.type) ||
