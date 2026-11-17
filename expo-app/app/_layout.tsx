@@ -2,7 +2,7 @@ import "@/lib/background-location";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text, TextInput, View, useColorScheme } from "react-native";
-import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useFonts } from "@expo-google-fonts/tajawal/useFonts";
 import { Tajawal_400Regular } from "@expo-google-fonts/tajawal/400Regular";
 import { Tajawal_500Medium } from "@expo-google-fonts/tajawal/500Medium";
@@ -110,6 +110,11 @@ function ApplicationBackdrop() {
     <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: palette.canvasSolid }}>
       <Svg width="100%" height="100%" viewBox="0 0 390 844" preserveAspectRatio="none" style={{ position: "absolute", top: 0, left: 0 }}>
         <Defs>
+          <LinearGradient id="mamnoonFullCanvas" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor={dark ? "#0B1B31" : "#E5F0FF"} />
+            <Stop offset="48%" stopColor={dark ? "#07111F" : "#F6F9FE"} />
+            <Stop offset="100%" stopColor={dark ? "#191A28" : "#FFF5E2"} />
+          </LinearGradient>
           <RadialGradient id="mamnoonPrimaryGlow" cx="75%" cy="0%" rx="90%" ry="65%" gradientUnits="objectBoundingBox">
             <Stop offset="0%" stopColor={palette.brand} stopOpacity={dark ? 0.12 : 0.28} />
             <Stop offset="55%" stopColor={palette.brand} stopOpacity="0" />
@@ -123,6 +128,7 @@ function ApplicationBackdrop() {
             <Stop offset="45%" stopColor={palette.brandGlow} stopOpacity="0" />
           </RadialGradient>
         </Defs>
+        <Rect x="0" y="0" width="390" height="844" fill="url(#mamnoonFullCanvas)" />
         <Rect x="0" y="0" width="390" height="844" fill="url(#mamnoonPrimaryGlow)" />
         <Rect x="0" y="0" width="390" height="844" fill="url(#mamnoonGoldGlow)" />
         {!dark && <Rect x="0" y="0" width="390" height="844" fill="url(#mamnoonSideGlow)" />}
