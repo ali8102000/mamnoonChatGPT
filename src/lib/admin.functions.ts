@@ -1415,6 +1415,36 @@ export const adminGovernanceDeactivateStaff = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminGovernanceGrantPricingPermissions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(),
+    permission_keys: z.array(z.enum(["pricing.taxi.edit", "pricing.peak.edit"])).min(1).max(2),
+    scope_type: z.enum(["global", "governorate"]),
+    scope_governorates: z.array(z.enum(["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"])).max(18).default([]),
+  }).superRefine((value, ctx) => {
+    if (value.scope_type === "global" && value.scope_governorates.length > 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "النطاق العام لا يقبل اختيار محافظات" });
+    }
+    if (value.scope_type === "governorate" && value.scope_governorates.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "اختر محافظة واحدة على الأقل" });
+    }
+    if (new Set(value.scope_governorates).size !== value.scope_governorates.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "لا تكرر المحافظة" });
+    }
+  }))
+  .handler(async ({ data, context }) => {
+    const { data: ids, error } = await (context.supabase as any).rpc("admin_grant_pricing_permissions", {
+      p_target_user: data.target_user_id,
+      p_permission_keys: data.permission_keys,
+      p_scope_type: data.scope_type,
+      p_scope_governorates: data.scope_type === "global" ? [] : data.scope_governorates,
+      p_expires_at: null,
+    });
+    if (error) throw new Error(error.message);
+    return { ids: ids ?? [] };
+  });
+
 export const adminGovernanceGrantPermission = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
