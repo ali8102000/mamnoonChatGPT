@@ -407,6 +407,94 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
     return () => { active = false; };
   }, [popupRequest?.id, popupRequest?.attachment_path]);
 
+  // Web providers must publish fresh GPS presence just like the native app.
+  // Dispatch intentionally ignores stale locations so requests are never routed
+  // to a provider who is no longer at the reported position.
+  useEffect(() => {
+    if (!session || !available) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("هذا المتصفح لا يدعم تحديد الموقع؛ فعّل الاستقبال من تطبيق ممنون.");
+      setAvailable(false);
+      void supabase.from(table).update({ available: false }).eq("user_id", session.user.id);
+      return;
+    }
+
+    let active = true;
+    let watchId: number | null = null;
+    let heartbeatId: number | null = null;
+    let failed = false;
+    const userId = session.user.id;
+    const options: PositionOptions = {
+      enableHighAccuracy: true,
+      maximumAge: 15000,
+      timeout: 20000,
+    };
+
+    const stopAvailability = async (message: string) => {
+      if (!active || failed) return;
+      failed = true;
+      toast.error(message);
+      setAvailable(false);
+      const { error } = await supabase.from(table).update({ available: false }).eq("user_id", userId);
+      if (error) console.error("[provider-presence] Could not disable availability:", error.message);
+    };
+
+    const publishPresence = async (position: GeolocationPosition) => {
+      if (!active || failed) return;
+      const { error } = await supabase.from("provider_presence").upsert({
+        user_id: userId,
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        heading:
+          position.coords.heading != null &&
+          Number.isFinite(position.coords.heading) &&
+          position.coords.heading >= 0 &&
+          position.coords.heading <= 360
+            ? position.coords.heading
+            : null,
+      }, { onConflict: "user_id" });
+      if (error) {
+        console.error("[provider-presence] Presence upsert failed:", error.message);
+        await stopAvailability("تعذّر تحديث موقعك؛ أوقفنا استقبال الطلبات حتى لا تفوتك الطلبات.");
+      }
+    };
+
+    const onLocationError = (error: GeolocationPositionError) => {
+      console.warn("[provider-presence] Geolocation error:", error.code, error.message);
+      if (error.code === error.PERMISSION_DENIED) {
+        void stopAvailability("إذن الموقع مرفوض؛ فعّله من إعدادات المتصفح حتى تستقبل الطلبات.");
+      }
+    };
+
+    watchId = navigator.geolocation.watchPosition(
+      (position) => { void publishPresence(position); },
+      onLocationError,
+      options,
+    );
+    navigator.geolocation.getCurrentPosition(
+      (position) => { void publishPresence(position); },
+      onLocationError,
+      options,
+    );
+
+    // Browser tabs may throttle watchPosition while idle. Refresh the fix
+    // periodically so the database's five-minute freshness rule remains valid.
+    heartbeatId = window.setInterval(() => {
+      if (!active || failed) return;
+      navigator.geolocation.getCurrentPosition(
+        (position) => { void publishPresence(position); },
+        onLocationError,
+        options,
+      );
+    }, 45000);
+
+    return () => {
+      active = false;
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (heartbeatId !== null) window.clearInterval(heartbeatId);
+    };
+  }, [session, available, table]);
+
   useEffect(() => {
     if (!session) return;
     const providerUserId = session.user.id;
@@ -509,17 +597,53 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
 
   async function toggleAvail() {
     playClick("toggle");
-    const prev = available;
-    const next = !prev;
-    setAvailable(next);
+    const next = !available;
+
+    // Never advertise a provider as available before a fresh location is stored.
+    if (next) {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        toast.error("متصفحك لا يدعم الموقع؛ استخدم تطبيق ممنون لتفعيل الاستقبال.");
+        return;
+      }
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            maximumAge: 10000,
+            timeout: 20000,
+          });
+        });
+        const { error: presenceError } = await supabase.from("provider_presence").upsert({
+          user_id: session!.user.id,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          heading:
+            position.coords.heading != null &&
+            Number.isFinite(position.coords.heading) &&
+            position.coords.heading >= 0 &&
+            position.coords.heading <= 360
+              ? position.coords.heading
+              : null,
+        }, { onConflict: "user_id" });
+        if (presenceError) throw presenceError;
+      } catch (error: any) {
+        toast.error(error?.code === 1
+          ? "اسمح لممنون باستخدام موقعك حتى تستقبل الطلبات."
+          : "تعذّر تحديد موقعك الحالي؛ شغّل GPS وحاول مرة ثانية.");
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from(table)
       .update({ available: next })
       .eq("user_id", session!.user.id);
     if (error) {
-      setAvailable(prev);
       toast.error("تعذّر تحديث الحالة");
+      return;
     }
+    setAvailable(next);
+    if (next) toast.success("تم تفعيل الاستقبال ومشاركة موقعك الحي.");
   }
 
   async function sendLargeOffer(id: string) {
