@@ -76,7 +76,7 @@ export function RegionalServiceBanner() {
   const position = row.message_position ?? "top-center";
   const floating = row.message_float_enabled !== false;
   return (
-    <View pointerEvents="box-none" style={[styles.overlay, floating ? { top, width: `${width}%`, left: position === "top-center" ? "50%" : position === "top-left" ? "2%" : undefined, right: position === "top-right" ? "2%" : undefined, transform: position === "top-center" ? [{ translateX: -0.5 * width + 50 }] : undefined, height: `${height}%` } : styles.inline]}>
+    <View pointerEvents="box-none" style={[styles.overlay, floating ? { top, width: `${width}%`, left: position === "top-left" ? "2%" : undefined, right: position === "top-right" ? "2%" : undefined, alignSelf: position === "top-center" ? "center" : "flex-start", height: `${height}%` } : styles.inline]}>
       <LinearGradient colors={["#050505", "#17120A", "#050505"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.card, floating ? { flex: 1 } : undefined]}>
         <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
           <View style={styles.head}><Text style={[styles.title,{fontSize:Math.max(10,fontSize-2)}]}>{row.message_title || "تنويه رسمي من إدارة ممنون"}</Text><View style={styles.stamp}><Text style={styles.stampText}>✓ إدارة ممنون · الحساب الرسمي الموثّق</Text></View></View>
@@ -93,7 +93,7 @@ export function RegionalServiceBanner() {
 
 const styles = StyleSheet.create({
   overlay: { position: "absolute", zIndex: 99999, elevation: 99999, alignSelf: "flex-start" },
-  inline: { position: "relative", width: "auto", height: "auto", marginHorizontal: 18, marginBottom: 12 },
+  inline: { position: "absolute", top: 12, left: "4%", width: "92%", height: "34%" },
   card: { borderRadius: 16, borderWidth: 1, borderColor: "#B8872D", padding: 12, overflow: "hidden", width: "100%", maxHeight: "100%" },
   head: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "#6B4B17", paddingBottom: 8, gap: 8 },
   title: { color: "#F2D58A", fontWeight: "900", flex: 1, textAlign: "right" },
