@@ -9,8 +9,8 @@ import { palette } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
 import { IRAQ_GOVERNORATES } from "@/lib/governorates";
 
-type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; rejection_message: string; message_image_url: string; updated_at?: string };
-const EMPTY = { services_enabled: true, message_enabled: false, message_title: "تنويه رسمي من إدارة ممنون", message_text: "", message_animate: true, rejection_message: "الخدمة متوقفة مؤقتاً في منطقتك. نعتذر عن ذلك، وسيتم إعلامك عند عودة الخدمة.", message_image_url: "" };
+type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; rejection_message: string; message_image_url: string; message_float_enabled: boolean; message_width_percent: number; message_height_percent: number; message_position: 'top-center' | 'top-right' | 'top-left'; message_top_offset: number; message_font_size: number; updated_at?: string };
+const EMPTY = { services_enabled: true, message_enabled: false, message_title: "تنويه رسمي من إدارة ممنون", message_text: "", message_animate: true, rejection_message: "الخدمة متوقفة مؤقتاً في منطقتك. نعتذر عن ذلك، وسيتم إعلامك عند عودة الخدمة.", message_image_url: "", message_float_enabled: true, message_width_percent: 92, message_height_percent: 34, message_position: "top-center" as const, message_top_offset: 12, message_font_size: 14 };
 
 export default function AdminRegionalControlsScreen() {
   const { user, loading: authLoading } = useAuth();
@@ -29,7 +29,7 @@ export default function AdminRegionalControlsScreen() {
     else {
       setRows((data ?? []) as Row[]);
       const global = (data ?? []).find((row: Row) => row.governorate_key === "all");
-      if (global && mode === "all") setSettings({ services_enabled: global.services_enabled, message_enabled: global.message_enabled, message_title: global.message_title, message_text: global.message_text, message_animate: global.message_animate, rejection_message: global.rejection_message || EMPTY.rejection_message, message_image_url: global.message_image_url || "" });
+      if (global && mode === "all") setSettings({ services_enabled: global.services_enabled, message_enabled: global.message_enabled, message_title: global.message_title, message_text: global.message_text, message_animate: global.message_animate, rejection_message: global.rejection_message || EMPTY.rejection_message, message_image_url: global.message_image_url || "", message_float_enabled: global.message_float_enabled ?? true, message_width_percent: global.message_width_percent ?? 92, message_height_percent: global.message_height_percent ?? 34, message_position: global.message_position ?? "top-center", message_top_offset: global.message_top_offset ?? 12, message_font_size: global.message_font_size ?? 14 });
     }
     setLoading(false);
   }, [mode]);
@@ -54,7 +54,7 @@ export default function AdminRegionalControlsScreen() {
     setSelected((current) => current.includes(key) ? current.filter((value) => value !== key) : [...current, key]);
     const row = rows.find((item) => item.governorate_key === key);
     setSettings(row
-      ? { services_enabled: row.services_enabled, message_enabled: row.message_enabled, message_title: row.message_title, message_text: row.message_text, message_animate: row.message_animate, rejection_message: row.rejection_message || EMPTY.rejection_message, message_image_url: row.message_image_url || "" }
+      ? { services_enabled: row.services_enabled, message_enabled: row.message_enabled, message_title: row.message_title, message_text: row.message_text, message_animate: row.message_animate, rejection_message: row.rejection_message || EMPTY.rejection_message, message_image_url: row.message_image_url || "", message_float_enabled: row.message_float_enabled ?? true, message_width_percent: row.message_width_percent ?? 92, message_height_percent: row.message_height_percent ?? 34, message_position: row.message_position ?? "top-center", message_top_offset: row.message_top_offset ?? 12, message_font_size: row.message_font_size ?? 14 }
       : { ...EMPTY });
 
   };
@@ -145,6 +145,29 @@ export default function AdminRegionalControlsScreen() {
           {!!settings.message_image_url && <TouchableOpacity onPress={() => update({ message_image_url: "" })} style={{ alignSelf: "flex-end", paddingVertical: 7 }}><Text style={{ color: "#f87171", fontSize: 11, fontWeight: "800" }}>إزالة الصورة</Text></TouchableOpacity>}
           <TouchableOpacity onPress={() => update({ message_animate: !settings.message_animate })} style={styles.switchRow}><Text style={styles.label}>تحريك الرسالة</Text><Text style={styles.gold}>{settings.message_animate ? "مفعّل ✓" : "متوقف"}</Text></TouchableOpacity>
         </View>
+        <View style={styles.card}>
+          <Text style={styles.section}>إعدادات النافذة العائمة</Text>
+          <TouchableOpacity onPress={() => update({ message_float_enabled: !settings.message_float_enabled })} style={styles.switchRow}><Text style={styles.label}>إظهارها كنافذة عائمة</Text><Text style={styles.gold}>{settings.message_float_enabled ? "مفعّل ✓" : "متوقف"}</Text></TouchableOpacity>
+          {([
+            ["عرض النافذة", "message_width_percent", 60, 100, "%"],
+            ["ارتفاع النافذة", "message_height_percent", 12, 60, "%"],
+            ["حجم الخط", "message_font_size", 11, 22, "px"],
+            ["المسافة من الأعلى", "message_top_offset", 0, 160, "px"],
+          ] as const).map(([label, key, min, max, unit]) => (
+            <View key={key}>
+              <Text style={styles.label}>{label}: {settings[key]}{unit}</Text>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                <TouchableOpacity onPress={() => update({ [key]: Math.max(min, settings[key] - 1) } as any)} style={styles.step}><Text style={styles.gold}>−</Text></TouchableOpacity>
+                <Text style={{ color: palette.ink, flex: 1, textAlign: "center", fontWeight: "900" }}>{settings[key]}{unit}</Text>
+                <TouchableOpacity onPress={() => update({ [key]: Math.min(max, settings[key] + 1) } as any)} style={styles.step}><Text style={styles.gold}>+</Text></TouchableOpacity>
+              </View>
+            </View>
+          ))}
+          <Text style={styles.label}>موقع النافذة</Text>
+          <View style={styles.row}>
+            {([{value:"top-center",label:"أعلى الوسط"},{value:"top-right",label:"أعلى اليمين"},{value:"top-left",label:"أعلى اليسار"}] as const).map((item) => <TouchableOpacity key={item.value} onPress={() => update({ message_position: item.value })} style={[styles.mode, settings.message_position === item.value && styles.modeActive]}><Text style={[styles.modeText, settings.message_position === item.value && styles.modeTextActive]}>{item.label}</Text></TouchableOpacity>)}
+          </View>
+        </View>
         <View style={styles.preview}>
           <View style={styles.previewHead}><Text style={styles.stamp}>✦ الإدارة الرسمية · موثّق ✦</Text><Text style={styles.stamp}>✓</Text></View>
           <Text style={styles.previewTitle}>{settings.message_title}</Text>
@@ -185,6 +208,7 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   gold: { color: palette.gold, fontWeight: "900", fontSize: 12 },
   preview: { backgroundColor: "#080808", borderRadius: 18, borderWidth: 1, borderColor: "#C99A35", padding: 15, marginTop: 14 },
+  step: { width: 38, height: 38, borderRadius: 10, borderWidth: 1, borderColor: palette.gold, alignItems: "center", justifyContent: "center" },
   previewHead: { flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "#6B4B17", paddingBottom: 9 },
   stamp: { color: "#E9C76A", fontWeight: "900", fontSize: 10 },
   previewTitle: { color: "#F4D98C", fontSize: 15, fontWeight: "900", textAlign: "right", marginTop: 12 },
