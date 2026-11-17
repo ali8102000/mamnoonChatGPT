@@ -759,4 +759,97 @@ grant execute on function public.admin_list_managed_staff() to authenticated;
 grant execute on function public.admin_change_staff_rank(uuid,text,text,text) to authenticated;
 grant execute on function public.admin_deactivate_staff(uuid,text) to authenticated;
 
+
+create or replace function public.admin_update_taxi_pricing_control(
+  p_governorate_key text,
+  p_peak_enabled boolean,
+  p_peak_percent numeric,
+  p_urgency_enabled boolean default false,
+  p_urgency_max_percent numeric default 10
+)
+returns public.taxi_pricing_controls
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare v_actor uuid := auth.uid(); v_before public.taxi_pricing_controls%rowtype; v_after public.taxi_pricing_controls%rowtype;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if p_governorate_key not in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk',
+    'najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah') then
+    raise exception 'invalid_governorate';
+  end if;
+  if p_peak_percent is null or p_peak_percent<0 or p_peak_percent>200 then raise exception 'invalid_peak_percent'; end if;
+  if p_urgency_max_percent is null or p_urgency_max_percent<0 or p_urgency_max_percent>100 then
+    raise exception 'invalid_urgency_max_percent';
+  end if;
+  if not public.admin_has_permission('pricing.peak.edit',
+      case when p_governorate_key='all' then 'global' else 'governorate' end,
+      case when p_governorate_key='all' then null else p_governorate_key end) then
+    raise exception 'missing_pricing_permission';
+  end if;
+  select * into v_before from public.taxi_pricing_controls where governorate_key=p_governorate_key for update;
+  insert into public.taxi_pricing_controls
+    (governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent,updated_at)
+  values(p_governorate_key,p_peak_enabled,p_peak_percent,
+    case when p_governorate_key='all' then p_urgency_enabled else false end,
+    case when p_governorate_key='all' then p_urgency_max_percent else 10 end,now())
+  on conflict(governorate_key) do update set
+    peak_enabled=excluded.peak_enabled,peak_percent=excluded.peak_percent,
+    urgency_enabled=case when p_governorate_key='all' then excluded.urgency_enabled else taxi_pricing_controls.urgency_enabled end,
+    urgency_max_percent=case when p_governorate_key='all' then excluded.urgency_max_percent else taxi_pricing_controls.urgency_max_percent end,
+    updated_at=now()
+  returning * into v_after;
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'pricing.taxi.control.updated','taxi_pricing_controls',p_governorate_key,
+    jsonb_build_object('before',case when v_before.governorate_key is null then null else to_jsonb(v_before) end,
+      'after',to_jsonb(v_after)));
+  return v_after;
+end;
+$function$;
+
+create or replace function public.admin_update_taxi_pricing_settings(
+  p_service_type text,
+  p_is_intercity boolean,
+  p_base_fare numeric,
+  p_per_km_rate numeric,
+  p_per_min_rate numeric,
+  p_min_fare numeric
+)
+returns public.pricing_settings
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare v_actor uuid := auth.uid(); v_before public.pricing_settings%rowtype; v_after public.pricing_settings%rowtype;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if p_service_type not in ('economy','premium','luxury') then raise exception 'invalid_taxi_category'; end if;
+  if p_base_fare is null or p_base_fare<0 or p_per_km_rate is null or p_per_km_rate<0
+    or p_per_min_rate is null or p_per_min_rate<0 or p_min_fare is null or p_min_fare<1000 then
+    raise exception 'invalid_taxi_tariff';
+  end if;
+  if not public.admin_has_permission('pricing.taxi.edit','global',null) then
+    raise exception 'missing_pricing_permission';
+  end if;
+  select * into v_before from public.pricing_settings
+    where service_type=p_service_type and is_intercity=p_is_intercity for update;
+  if not found then raise exception 'taxi_pricing_row_not_found'; end if;
+  update public.pricing_settings set base_fare=p_base_fare,per_km_rate=p_per_km_rate,
+    per_min_rate=p_per_min_rate,min_fare=p_min_fare,updated_at=now()
+    where service_type=p_service_type and is_intercity=p_is_intercity
+    returning * into v_after;
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'pricing.taxi.tariff.updated','pricing_settings',v_after.id::text,
+    jsonb_build_object('service_type',p_service_type,'is_intercity',p_is_intercity,
+      'before',to_jsonb(v_before),'after',to_jsonb(v_after)));
+  return v_after;
+end;
+$function$;
+
+revoke insert, update, delete on public.taxi_pricing_controls from anon, authenticated;
+revoke insert, update, delete on public.pricing_settings from anon, authenticated;
+revoke all on function public.admin_update_taxi_pricing_control(text,boolean,numeric,boolean,numeric) from public, anon;
+revoke all on function public.admin_update_taxi_pricing_settings(text,boolean,numeric,numeric,numeric,numeric) from public, anon;
+grant execute on function public.admin_update_taxi_pricing_control(text,boolean,numeric,boolean,numeric) to authenticated;
+grant execute on function public.admin_update_taxi_pricing_settings(text,boolean,numeric,numeric,numeric,numeric) to authenticated;
+
 commit;
