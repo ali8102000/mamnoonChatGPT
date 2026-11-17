@@ -695,8 +695,8 @@ declare v_actor uuid := auth.uid(); v_scope_type text; v_scope_governorate text;
 begin
   if v_actor is null then raise exception 'unauthorized'; end if;
   if length(trim(coalesce(p_query,'')))<2 then raise exception 'search_query_too_short'; end if;
-  select scope_type,scope_governorate into v_scope_type,v_scope_governorate
-    from public.staff_assignments where user_id=v_actor and active=true;
+  select sa.scope_type,sa.scope_governorate into v_scope_type,v_scope_governorate
+    from public.staff_assignments sa where sa.user_id=v_actor and sa.active=true;
   if not public.is_super_admin(v_actor) then
     if v_scope_type is null or not public.admin_has_permission('staff.assign',v_scope_type,
       case when v_scope_type='global' then null else v_scope_governorate end) then
