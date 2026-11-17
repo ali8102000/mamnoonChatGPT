@@ -114,7 +114,7 @@ as $$
         and (a.scope_type = 'global'
           or (a.scope_type = 'governorate' and a.scope_governorate = p_governorate))
     ));
-$;
+$$;
 
 create or replace function public.staff_can_review_requests(p_actor uuid, p_kind text)
 returns boolean
@@ -132,7 +132,7 @@ as $$
           when 'pricing' then d.can_review_pricing_requests
           else false end
     ));
-$;
+$$;
 
 alter table public.staff_governance_requests enable row level security;
 alter table public.staff_governance_delegations enable row level security;
