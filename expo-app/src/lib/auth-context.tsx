@@ -197,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.warn("[offline] Account lookup failed; using the last saved account snapshot.", error);
       setProfile(cached?.profile ?? null);
-      const fallbackRoles = cached?.roles?.length ? cached.roles : ["customer"];
+      const fallbackRoles: AppRole[] = cached?.roles?.length ? cached.roles : ["customer"];
       setRoles(fallbackRoles);
       await restoreActiveRole(uid, fallbackRoles);
     }
