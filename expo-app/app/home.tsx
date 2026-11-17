@@ -624,47 +624,58 @@ function ProviderHome({
 }) {
   return (
     <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
-        accessibilityState={{ disabled: !verified }}
+      <View
         style={[
           styles.availCard,
           available && styles.availCardActive,
           !verified && { opacity: 0.65 },
         ]}
-        onPress={toggleAvailable}
-        activeOpacity={0.88}
-        disabled={!verified}
       >
+        {available && (
+          <LinearGradient
+            pointerEvents="none"
+            colors={["#10B981", "#2DD4BF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        )}
+        {available && <View pointerEvents="none" style={styles.availShine} />}
         <View style={styles.availContent}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.availEyebrow, available && { color: "rgba(255,255,255,0.82)" }]}>
-              حالة الاستقبال
+              حالة التوفر
             </Text>
             <Text style={[styles.availTitle, available && { color: "#fff" }]}>
               {available ? "متاح للعمل" : "غير متاح"}
             </Text>
-            <Text style={[styles.availDesc, available && { color: "rgba(255,255,255,0.88)" }]}>
-              {!verified
-                ? verificationStatus === "rejected"
-                  ? "تم رفض التوثيق — راجع الإدارة"
-                  : verificationStatus === "suspended"
-                    ? "تم تعليق الحساب — راجع الإدارة"
-                    : "بانتظار موافقة " + companyName
-                : available
-                  ? "ستصلك الطلبات الجديدة مباشرة"
-                  : "اضغط هنا حتى تبدأ باستقبال الطلبات"}
-            </Text>
           </View>
-          <View style={[styles.availAction, available && styles.availActionActive]}>
-            <Text style={[styles.availActionGlyph, available && styles.availActionGlyphActive]}>⏻</Text>
-            <Text style={[styles.availActionLabel, available && styles.availActionLabelActive]}>
-              {available ? "إيقاف" : "تشغيل"}
-            </Text>
-          </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
+            accessibilityState={{ disabled: false }}
+            onPress={toggleAvailable}
+            activeOpacity={0.82}
+            style={[styles.availPowerButton, available && styles.availPowerButtonActive]}
+          >
+            <Svg width={24} height={24} viewBox="0 0 24 24">
+              <Path
+                d="M12 2v10"
+                stroke={available ? "#FFFFFF" : palette.muted}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              />
+              <Path
+                d="M18.4 6.6a8 8 0 1 1-12.8 0"
+                stroke={available ? "#FFFFFF" : palette.muted}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                fill="none"
+              />
+            </Svg>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
       <Text style={styles.sectionTitle}>الطلبات الواردة</Text>
       <Text style={styles.sectionSubTitle}>العروض الجديدة تظهر هنا أول ما توصلك</Text>
       {incoming.length === 0 ? (
@@ -743,18 +754,14 @@ const styles = StyleSheet.create({
   tileIconWrap: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center", marginBottom: 12 },
   tileEmoji: { fontSize: 24, fontWeight: "700" },
   tileLabel: { fontSize: 13, fontWeight: "900", color: palette.ink },
-  availCard: { minHeight: 126, borderRadius: radius.xl, paddingHorizontal: 22, paddingVertical: 20, marginBottom: 24, borderWidth: 2, borderColor: palette.gold, backgroundColor: palette.surface, shadowColor: "#08101A", shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  availCardActive: { backgroundColor: "#07966B", borderColor: "#07966B" },
-  availContent: { flex: 1, flexDirection: "row", alignItems: "center", gap: 18 },
-  availEyebrow: { color: palette.muted, fontSize: 13, fontWeight: "800", marginBottom: 3, textAlign: "right" },
-  availTitle: { fontSize: 25, lineHeight: 32, fontWeight: "900", color: palette.ink, textAlign: "right" },
-  availDesc: { fontSize: 14, color: palette.muted, marginTop: 6, lineHeight: 21, textAlign: "right" },
-  availAction: { width: 76, height: 76, borderRadius: 24, backgroundColor: palette.brand, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: palette.brandDeep, shadowColor: "#08101A", shadowOpacity: 0.16, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
-  availActionActive: { backgroundColor: "rgba(255,255,255,0.20)", borderColor: "rgba(255,255,255,0.55)" },
-  availActionGlyph: { color: "#FFFFFF", fontSize: 36, lineHeight: 40, fontWeight: "900" },
-  availActionGlyphActive: { color: "#FFFFFF" },
-  availActionLabel: { color: "#FFFFFF", fontSize: 12, lineHeight: 16, fontWeight: "900", marginTop: 1 },
-  availActionLabelActive: { color: "#FFFFFF" },
+  availCard: { minHeight: 104, borderRadius: 24, padding: 20, marginBottom: 24, overflow: "hidden", backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, shadowColor: "#08101A", shadowOpacity: 0.10, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  availCardActive: { backgroundColor: "transparent", borderColor: "transparent" },
+  availShine: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.08)" },
+  availContent: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
+  availEyebrow: { color: palette.muted, fontSize: 12, lineHeight: 17, fontWeight: "700", textAlign: "right" },
+  availTitle: { fontSize: 18, lineHeight: 25, fontWeight: "900", color: palette.ink, marginTop: 2, textAlign: "right" },
+  availPowerButton: { width: 56, height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: palette.surfaceSoft },
+  availPowerButtonActive: { backgroundColor: "rgba(255,255,255,0.25)" },
   emptyBox: { alignItems: "center", paddingVertical: 36, backgroundColor: palette.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: palette.line },
   emptyText: { fontSize: 15, fontWeight: "800", color: palette.ink },
   emptySubtext: { fontSize: 12, color: palette.muted, marginTop: 6 },
