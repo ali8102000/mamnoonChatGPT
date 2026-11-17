@@ -285,7 +285,7 @@ export default function NewRequest() {
 
   useEffect(() => {
     setCouponPreview(null);
-  }, [customerPrice, pricingMode, routeKm, tripType, extraMinutes, vehicleCat, selectedService, isTaxi, isLargeVehicle, isIntercity]);
+  }, [customerPrice, pricingMode, routeKm, tripType, extraMinutes, vehicleCat, selectedService, isTaxi, isLargeVehicle, isIntercity, urgencyEnabled]);
 
   function moveMap(nextRegion: typeof region) {
     setRegion(nextRegion);
