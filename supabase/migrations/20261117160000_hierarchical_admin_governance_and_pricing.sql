@@ -451,7 +451,7 @@ returns uuid
 language plpgsql security definer
 set search_path = public, pg_temp
 as $function$
-declare v_actor uuid := auth.uid(); v_id uuid;
+declare v_actor uuid := auth.uid(); v_id uuid; v_permission text;
 begin
   if v_actor is null then raise exception 'unauthorized'; end if;
   if p_request_type not in ('staff_assign','staff_rank_change','staff_permission_change','staff_scope_change',
@@ -461,6 +461,20 @@ begin
     or (p_scope_type='global' and p_scope_governorate is not null)
     or (p_scope_type='governorate' and nullif(trim(p_scope_governorate),'') is null) then
     raise exception 'invalid_scope';
+  end if;
+  v_permission := case
+    when p_request_type='staff_assign' then 'staff.assign'
+    when p_request_type in ('staff_rank_change','staff_scope_change','staff_deactivate') then 'staff.manage_created'
+    when p_request_type='staff_permission_change' then 'staff.delegate'
+    when p_request_type='pricing_change' then 'pricing.taxi.edit'
+    when p_request_type='promotion_publish' then 'promotions.manage'
+    when p_request_type='wallet_adjustment' then 'finance.wallet.adjust'
+    when p_request_type='payment_refund' then 'finance.refund'
+    when p_request_type='provider_action' then 'providers.suspend'
+    when p_request_type='order_override' then 'orders.override'
+    else 'settings.manage' end;
+  if not public.admin_has_permission(v_permission,p_scope_type,p_scope_governorate) then
+    raise exception 'missing_request_permission';
   end if;
   if coalesce(p_payload,'{}'::jsonb)='{}'::jsonb then raise exception 'approval_payload_required'; end if;
   insert into public.admin_approval_requests
@@ -571,7 +585,8 @@ begin
     when v_row.request_type like 'staff_%' then 'staff.approve'
     when v_row.request_type='pricing_change' then 'pricing.taxi.edit'
     when v_row.request_type='promotion_publish' then 'promotions.manage'
-    when v_row.request_type in ('wallet_adjustment','payment_refund') then 'finance.refund'
+    when v_row.request_type='wallet_adjustment' then 'finance.wallet.adjust'
+    when v_row.request_type='payment_refund' then 'finance.refund'
     when v_row.request_type='provider_action' then 'providers.suspend'
     when v_row.request_type='order_override' then 'orders.override'
     else 'settings.manage' end;
