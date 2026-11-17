@@ -130,6 +130,18 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("أبيض");
 
+  useEffect(() => {
+    if (largeDriverMode) {
+      setCategory("large");
+      return;
+    }
+    const catalogVehicle = vehicleModels.find((item) =>
+      item.make.toLowerCase() === make.trim().toLowerCase() &&
+      item.model.toLowerCase() === modelName.trim().toLowerCase()
+    );
+    setCategory(catalogVehicle?.category === "premium" || catalogVehicle?.category === "luxury" ? catalogVehicle.category : "economy");
+  }, [make, modelName, vehicleModels, largeDriverMode]);
+
   // Official Identity Verification State
   const [legalName, setLegalName] = useState(profile?.full_name || "");
   const [facePhoto, setFacePhoto] = useState<string | null>(profile?.avatar_url || null);
