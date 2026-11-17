@@ -193,6 +193,10 @@ async function handleRequest(request: Request) {
     });
   }
 
+  if (data.action !== "createTaxiRequest") {
+    return json({ error: "نوع طلب الخرائط غير مدعوم." }, 400);
+  }
+
   const supabaseUrl = process.env["MAMNOON_SUPABASE_URL"] || process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
   const supabasePublishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_ANON_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
   if (!supabaseUrl || !supabasePublishableKey) {
