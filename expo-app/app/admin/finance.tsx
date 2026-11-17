@@ -13,7 +13,8 @@ type Tab = "wallet" | "coupons" | "transactions";
 export default function AdminFinanceScreen() {
   const { user, loading: authLoading } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [canManage, setCanManage] = useState(false);
+  const [canManageWallet, setCanManageWallet] = useState(false);
+  const [canManageCoupons, setCanManageCoupons] = useState(false);
   const [tab, setTab] = useState<Tab>("wallet");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,13 +46,22 @@ export default function AdminFinanceScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const [financeAccess, admin] = await Promise.all([
-        supabase.rpc("has_subscription_admin_access", { p_user_id: user.id }),
-        supabase.rpc("has_admin_access", { p_user_id: user.id }),
+      const [financeRead,promotionsRead,walletManage,couponManage,legacyFinance,legacyAdmin] = await Promise.all([
+        (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.read",p_scope_type:"global",p_scope_governorate:null}),
+        (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.read",p_scope_type:"global",p_scope_governorate:null}),
+        (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.wallet.adjust",p_scope_type:"global",p_scope_governorate:null}),
+        (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.manage",p_scope_type:"global",p_scope_governorate:null}),
+        supabase.rpc("has_subscription_admin_access",{p_user_id:user.id}),
+        supabase.rpc("has_admin_access",{p_user_id:user.id}),
       ]);
-      if (financeAccess.error || financeAccess.data !== true) { setAllowed(false); return; }
+      const legacyFinanceAllowed=!legacyFinance.error&&legacyFinance.data===true;
+      const legacyAdminAllowed=!legacyAdmin.error&&legacyAdmin.data===true;
+      const canReadFinance=(!financeRead.error&&financeRead.data===true)||legacyFinanceAllowed||legacyAdminAllowed;
+      const canReadPromotions=(!promotionsRead.error&&promotionsRead.data===true)||legacyFinanceAllowed||legacyAdminAllowed;
+      if(!canReadFinance||!canReadPromotions){setAllowed(false);return;}
       setAllowed(true);
-      setCanManage(admin.data === true);
+      setCanManageWallet((!walletManage.error&&walletManage.data===true)||legacyAdminAllowed);
+      setCanManageCoupons((!couponManage.error&&couponManage.data===true)||legacyAdminAllowed);
       const data = await invoke({ action: "list" });
       setCoupons(data.coupons ?? []);
       setTransactions(data.transactions ?? []);
@@ -119,7 +129,7 @@ export default function AdminFinanceScreen() {
         <Text style={s.title}>إدارة محفظة المستخدم</Text>
         <Text style={s.muted}>ابحث عن الحساب أولاً، ثم راجع المبلغ قبل تأكيد الإضافة أو الخصم.</Text>
         <TextInput value={query} onChangeText={setQuery} placeholder="الاسم أو رقم الهاتف" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
-        <Action label="بحث عن مستخدم" disabled={busy || !canManage} onPress={() => void searchUsers()}/>
+        <Action label="بحث عن مستخدم" disabled={busy || !canManageWallet} onPress={() => void searchUsers()}/>
         {users.map(u => <TouchableOpacity key={u.id} onPress={() => setSelected(u)} style={[s.card,selected?.id===u.id&&s.selected]}>
           <Text style={s.cardTitle}>{u.full_name || "مستخدم ممنون"}</Text><Text style={s.muted}>{u.phone || u.email || u.id}</Text>
         </TouchableOpacity>)}
@@ -128,13 +138,13 @@ export default function AdminFinanceScreen() {
           <View style={s.row}>{(["credit","debit"] as const).map(k=><TouchableOpacity key={k} onPress={()=>setKind(k)} style={[s.choice,kind===k&&s.active]}><Text style={[s.tabText,kind===k&&s.activeText]}>{k==="credit"?"إضافة رصيد":"خصم رصيد"}</Text></TouchableOpacity>)}</View>
           <TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="المبلغ بالدينار العراقي" placeholderTextColor={palette.muted} style={s.input}/>
           <TextInput value={note} onChangeText={setNote} maxLength={500} placeholder="سبب الحركة (اختياري)" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
-          <Action label={busy?"جاري التنفيذ...":"تأكيد حركة المحفظة"} disabled={busy||!canManage} onPress={() => void adjustWallet()}/>
+          <Action label={busy?"جاري التنفيذ...":"تأكيد حركة المحفظة"} disabled={busy||!canManageWallet} onPress={() => void adjustWallet()}/>
         </>}
-        {!canManage && <Text style={s.muted}>حسابك يملك صلاحية العرض فقط، ولا يملك صلاحية تعديل الأرصدة.</Text>}
+        {!canManageWallet && <Text style={s.muted}>حسابك يملك صلاحية العرض المالي فقط، ولا يملك صلاحية تسوية المحافظ.</Text>}
       </>}
       {tab === "coupons" && <>
         <Text style={s.title}>إدارة الكوبونات</Text>
-        {canManage && <View style={s.card}>
+        {canManageCoupons && <View style={s.card}>
           <Text style={s.cardTitle}>إنشاء كوبون</Text>
           <TextInput value={code} onChangeText={setCode} autoCapitalize="characters" placeholder="رمز الكوبون" placeholderTextColor={palette.muted} style={s.input}/>
           <View style={s.row}>{(["percentage","fixed"] as const).map(k=><TouchableOpacity key={k} onPress={()=>setCouponType(k)} style={[s.choice,couponType===k&&s.active]}><Text style={[s.tabText,couponType===k&&s.activeText]}>{k==="percentage"?"نسبة مئوية":"مبلغ ثابت"}</Text></TouchableOpacity>)}</View>
@@ -146,7 +156,7 @@ export default function AdminFinanceScreen() {
         {coupons.map(c=><View key={c.id} style={s.card}>
           <Text style={s.cardTitle}>{c.code}</Text><Text style={s.muted}>{c.type==="percentage"?c.value+"%":Number(c.value).toLocaleString("ar-IQ")+" د.ع"} · المستخدم {c.used_count ?? 0} من {c.max_uses}</Text>
           <Text style={s.muted}>{c.active?"فعال":"متوقف"}{c.expires_at?" · ينتهي "+new Date(c.expires_at).toLocaleDateString("ar-IQ"):""}</Text>
-          {canManage && <View style={s.row}>
+          {canManageCoupons && <View style={s.row}>
             <TouchableOpacity style={s.small} onPress={()=>distribute(c)}><Text style={s.smallText}>توزيع</Text></TouchableOpacity>
             <TouchableOpacity style={s.smallDanger} onPress={()=>Alert.alert("حذف الكوبون","متأكد من حذف هذا الكوبون؟",[{text:"رجوع",style:"cancel"},{text:"حذف",style:"destructive",onPress:()=>void run({action:"delete_coupon",coupon_id:c.id},"تم حذف الكوبون.")}])}><Text style={s.smallText}>حذف</Text></TouchableOpacity>
           </View>}
