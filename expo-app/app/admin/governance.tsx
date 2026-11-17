@@ -431,10 +431,10 @@ function TaxiPricingPanel() {
   return <View style={{gap:12}}>
     <View style={cardStyle}>
       {canTariff&&<><Text style={{...labelStyle,fontSize:16}}>تعرفة التاكسي الأساسية</Text>
-      <Text style={labelStyle}>تُحفظ التعرفة عبر إجراء محمي وتُسجّل القيم السابقة والجديدة.</Text>
+      <Text style={labelStyle}>تعرفة الاقتصاد هي أساس حساب كل الفئات؛ المتميز والفاخر يطبّق عليهما فرق الفئة المتفق عليه، مع حد أدنى مستقل فقط. كل حفظ موثق بسجل التدقيق.</Text>
       {tariffs.map(row=><View key={row.id} style={{borderTopWidth:1,borderTopColor:palette.line,paddingTop:10,gap:8}}>
         <Text style={labelStyle}>{row.service_type==="economy"?"اقتصادي":row.service_type==="premium"?"متميز":"فاخر"} · {row.is_intercity?"بين المحافظات":"داخل المدينة"}</Text>
-        {(["base_fare","per_km_rate","per_min_rate","min_fare"] as const).map((key)=> <View key={key} style={{flexDirection:"row",alignItems:"center",gap:8}}><Text style={[labelStyle,{width:104}]}>{key==="base_fare"?"أجرة الانطلاق":key==="per_km_rate"?"سعر الكيلومتر":key==="per_min_rate"?"سعر الدقيقة":"الحد الأدنى"}</Text><TextInput keyboardType="numeric" value={String(row[key])} onChangeText={v=>setTariffs(old=>old.map(t=>t.id===row.id?{...t,[key]:Number(v)||0}:t))} style={inputStyle}/></View>)}
+        {(row.service_type==="economy"?["base_fare","per_km_rate","per_min_rate","min_fare"]:["min_fare"]).map((key:string)=> <View key={key} style={{flexDirection:"row",alignItems:"center",gap:8}}><Text style={[labelStyle,{width:104}]}>{key==="base_fare"?"أجرة الانطلاق":key==="per_km_rate"?"سعر الكيلومتر":key==="per_min_rate"?"سعر الدقيقة":"الحد الأدنى للفئة"}</Text><TextInput keyboardType="numeric" value={String(row[key])} onChangeText={v=>setTariffs(old=>old.map(t=>t.id===row.id?{...t,[key]:Number(v)||0}:t))} style={inputStyle}/></View>)}
         <TouchableOpacity disabled={saving} onPress={()=>void saveTariff(row)} style={{backgroundColor:palette.brand,padding:10,borderRadius:radius.md,alignItems:"center"}}><Text style={{color:palette.white,fontWeight:"900"}}>حفظ التعرفة</Text></TouchableOpacity>
       </View>)}
       </>}
