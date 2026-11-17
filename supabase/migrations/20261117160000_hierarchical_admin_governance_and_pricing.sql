@@ -281,10 +281,14 @@ declare
 begin
   if v_actor is null or p_target_user is null or p_target_user=v_actor then return false; end if;
   if public.is_super_admin(v_actor) then return true; end if;
-  if not public.admin_has_permission('staff.manage_created','global',null) then return false; end if;
   select rank,department,scope_type,scope_governorate
     into v_actor_rank,v_actor_department,v_actor_scope_type,v_actor_scope_governorate
     from public.staff_assignments where user_id=v_actor and active=true;
+  if v_actor_scope_type is null
+     or not public.admin_has_permission('staff.manage_created',v_actor_scope_type,
+       case when v_actor_scope_type='global' then null else v_actor_scope_governorate end) then
+    return false;
+  end if;
   select rank,department,scope_type,scope_governorate
     into v_target_rank,v_target_department,v_target_scope_type,v_target_scope_governorate
     from public.staff_assignments
@@ -644,7 +648,7 @@ returns table(
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
-declare v_actor uuid := auth.uid();
+declare v_actor uuid := auth.uid(); v_scope_type text; v_scope_governorate text;
 begin
   if v_actor is null then raise exception 'unauthorized'; end if;
   if public.is_super_admin(v_actor) then
@@ -655,12 +659,18 @@ begin
       order by a.department,public.admin_permission_level(a.rank) desc,p.full_name;
     return;
   end if;
-  if not public.admin_has_permission('staff.read','global',null) then raise exception 'missing_staff_read_permission'; end if;
+  select scope_type,scope_governorate into v_scope_type,v_scope_governorate
+    from public.staff_assignments where user_id=v_actor and active=true;
+  if v_scope_type is null or not public.admin_has_permission('staff.read',v_scope_type,
+      case when v_scope_type='global' then null else v_scope_governorate end) then
+    raise exception 'missing_staff_read_permission';
+  end if;
   return query
     select a.user_id,p.full_name,p.phone,p.email,a.rank,a.department,a.display_title,a.active,
            a.scope_type,a.scope_governorate,a.created_by
     from public.staff_assignments a left join public.profiles p on p.id=a.user_id
     where a.created_by=v_actor
+      and (v_scope_type='global' or (a.scope_type='governorate' and a.scope_governorate=v_scope_governorate))
     order by a.department,public.admin_permission_level(a.rank) desc,p.full_name;
 end;
 $function$;
