@@ -19,7 +19,7 @@ describe("Mamnoon city taxi pricing", () => {
 
   it("applies the 20% and 40% tiers below 10,000 IQD", () => {
     expect(taxiFare("economy", 15)).toBe(6000);
-    expect(taxiFare("premium", 15)).toBe(7000);
+    expect(taxiFare("premium", 15)).toBe(7250);
     expect(taxiFare("luxury", 15)).toBe(8500);
   });
 
@@ -34,10 +34,10 @@ describe("Mamnoon city taxi pricing", () => {
     expect(taxiFare("economy", 10.01, { demandMultiplier: 1.5 })).toBe(4000);
   });
 
-  it("uses 187.5 IQD/km and smaller demand changes for inter-governorate rides", () => {
+  it("uses the current tier percentages for inter-governorate rides", () => {
     expect(taxiFare("economy", 68, { isIntercity: true })).toBe(12750);
-    expect(taxiFare("premium", 68, { isIntercity: true })).toBe(13500);
-    expect(taxiFare("luxury", 68, { isIntercity: true })).toBe(14000);
+    expect(taxiFare("premium", 68, { isIntercity: true })).toBe(14750);
+    expect(taxiFare("luxury", 68, { isIntercity: true })).toBe(16000);
     expect(taxiFare("economy", 68, { isIntercity: true, demandMultiplier: 1.5 })).toBe(12750);
   });
 
@@ -45,7 +45,7 @@ describe("Mamnoon city taxi pricing", () => {
     expect(taxiFare("economy", 5, { tripType: "round_trip" })).toBe(3500);
     expect(taxiFare("economy", 5, { tripType: "second_trip" })).toBe(4000);
     expect(taxiFare("economy", 10, { tripType: "round_trip" })).toBe(7250);
-    expect(taxiFare("premium", 10, { tripType: "round_trip" })).toBe(8000);
+    expect(taxiFare("premium", 10, { tripType: "round_trip" })).toBe(8750);
     expect(taxiFare("economy", 5, { extraMinutes: 5 })).toBe(2500);
     expect(taxiFare("economy", 5, { extraMinutes: 120 })).toBe(14000);
     expect(taxiFare("economy", 5, { tripType: "stop", extraMinutes: 10 })).toBe(3000);
