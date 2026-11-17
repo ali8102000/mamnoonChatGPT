@@ -13,7 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { AnimatedRegion, Marker, Polyline } from "react-native-maps";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -107,37 +107,52 @@ type ChatMessage = {
 
 
 function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; heading?: number | null }) {
-  const markerRef = useRef<any>(null);
-  const initialCoordinate = useRef(coordinate).current;
-  const [iosCoordinate, setIosCoordinate] = useState(coordinate);
+  const animatedCoordinate = useRef(new AnimatedRegion(coordinate)).current;
+  const lastCoordinateRef = useRef(coordinate);
   const rotation = useSharedValue(Number.isFinite(heading) ? Number(heading) : 0);
 
   useEffect(() => {
-    if (Platform.OS === "android" && markerRef.current?.animateMarkerToCoordinate) {
-      markerRef.current.animateMarkerToCoordinate(coordinate, 4500);
-    } else {
-      setIosCoordinate(coordinate);
-    }
-  }, [coordinate.latitude, coordinate.longitude]);
+    // Interpolate every real GPS update on both Android and iOS instead of jumping.
+    animatedCoordinate.timing({
+      latitude: coordinate.latitude,
+      longitude: coordinate.longitude,
+      duration: 1200,
+      useNativeDriver: false,
+    }).start();
+  }, [coordinate.latitude, coordinate.longitude, animatedCoordinate]);
 
   useEffect(() => {
-    if (heading == null || !Number.isFinite(heading)) return;
+    const previous = lastCoordinateRef.current;
+    const movedMeters = Math.hypot(
+      (coordinate.latitude - previous.latitude) * 111320,
+      (coordinate.longitude - previous.longitude) * 111320 * Math.cos(coordinate.latitude * Math.PI / 180),
+    );
+    let nextHeading = heading != null && Number.isFinite(heading) ? Number(heading) : null;
+    if (nextHeading == null && movedMeters > 1.5) {
+      const p1 = previous.latitude * Math.PI / 180;
+      const p2 = coordinate.latitude * Math.PI / 180;
+      const dl = (coordinate.longitude - previous.longitude) * Math.PI / 180;
+      const y = Math.sin(dl) * Math.cos(p2);
+      const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+      nextHeading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+    lastCoordinateRef.current = coordinate;
+    if (nextHeading == null) return;
     const current = rotation.value;
-    const delta = ((heading - current + 540) % 360) - 180;
+    const delta = ((nextHeading - current + 540) % 360) - 180;
     rotation.value = withTiming(current + delta, {
-      duration: 650,
+      duration: 700,
       easing: Easing.out(Easing.cubic),
     });
-  }, [heading, rotation]);
+  }, [coordinate.latitude, coordinate.longitude, heading, rotation]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
 
   return (
-    <Marker
-      ref={markerRef}
-      coordinate={Platform.OS === "android" ? initialCoordinate : iosCoordinate}
+    <Marker.Animated
+      coordinate={animatedCoordinate}
       flat
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges
@@ -145,7 +160,7 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
       <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
         <Image source={{ uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />
       </Animated.View>
-    </Marker>
+    </Marker.Animated>
   );
 }
 
