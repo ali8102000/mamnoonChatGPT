@@ -619,5 +619,17 @@ REVOKE ALL ON FUNCTION public.retry_service_request(uuid, integer) FROM PUBLIC, 
 GRANT EXECUTE ON FUNCTION public.retry_service_request(uuid, integer) TO authenticated;
 
 -- Keep taxi progression close to the exact 60-second offer expiry.
-UPDATE cron.job SET schedule = '5 seconds'
-WHERE jobname = 'mamnoon-taxi-dispatch';
+DO $cron$
+DECLARE
+  v_job_id bigint;
+BEGIN
+  SELECT jobid INTO v_job_id
+  FROM cron.job
+  WHERE jobname = 'mamnoon-taxi-dispatch'
+  LIMIT 1;
+
+  IF v_job_id IS NOT NULL THEN
+    PERFORM cron.alter_job(v_job_id, schedule => '5 seconds');
+  END IF;
+END;
+$cron$;
