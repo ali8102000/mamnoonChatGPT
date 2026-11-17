@@ -81,7 +81,7 @@ BEGIN
   END IF;
 
   v_raw := v_economy_raw * (1 + v_uplift);
-  NEW.price_estimate := round(v_raw / 250) * 250;
+  NEW.price_estimate := GREATEST(COALESCE(v_min_fare,0), round(v_raw / 250) * 250);
   NEW.commission := 0;
   NEW.status := 'searching';
   NEW.searching_started_at := now();
