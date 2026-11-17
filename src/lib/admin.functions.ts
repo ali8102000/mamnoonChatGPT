@@ -62,6 +62,32 @@ async function requireAdmin(context: any, permissionKey: string) {
   return requireAdminPermission(context, permissionKey);
 }
 
+async function requireUserScopePermission(context: any, permissionKey: string, targetUserId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: profile, error } = await (supabaseAdmin as any)
+    .from("profiles").select("governorate_key").eq("id", targetUserId).maybeSingle();
+  if (error || !profile) throw new Error("تعذر تحديد نطاق المستخدم المستهدف");
+  const governorate = profile.governorate_key ?? null;
+  return requireAdminPermission(context, permissionKey, governorate ? "governorate" : "global", governorate);
+}
+
+async function requireRequestScopePermission(context: any, permissionKey: string, requestId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: request, error } = await (supabaseAdmin as any)
+    .from("service_requests").select("governorate_key").eq("id", requestId).maybeSingle();
+  if (error || !request) throw new Error("الطلب غير موجود أو تعذر تحديد محافظته");
+  const governorate = request.governorate_key ?? null;
+  return requireAdminPermission(context, permissionKey, governorate ? "governorate" : "global", governorate);
+}
+
+async function requireProviderChangeScopePermission(context: any, permissionKey: string, requestId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: request, error } = await (supabaseAdmin as any)
+    .from("provider_change_requests").select("user_id").eq("id", requestId).maybeSingle();
+  if (error || !request?.user_id) throw new Error("طلب تحديث الاختصاصات غير موجود");
+  return requireUserScopePermission(context, permissionKey, request.user_id);
+}
+
 async function requireSuperAdmin(context: any) {
   const { supabase, userId } = context;
   const { data } = await (supabase as any).rpc("is_super_admin", { p_user_id: userId });
@@ -278,7 +304,7 @@ export const adminBlockUser = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context, "users.block");
+    await requireUserScopePermission(context, "users.block", data.user_id);
     const { supabase } = context;
     let computedExpiresAt = data.expires_at ?? null;
     if (data.duration) {
@@ -302,7 +328,7 @@ export const adminUnblockUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ user_id: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context, "users.unblock");
+    await requireUserScopePermission(context, "users.unblock", data.user_id);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_unblock_user", {
       p_user_id: data.user_id,
@@ -398,7 +424,7 @@ export const adminUpdateProviderName = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ user_id: z.string().uuid(), full_name: z.string().trim().min(2).max(80) }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context, "providers.profile.edit");
+    await requireUserScopePermission(context, "providers.profile.edit", data.user_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: provider, error: providerError } = await (supabaseAdmin as any)
       .from("driver_profiles").select("user_id").eq("user_id", data.user_id).maybeSingle();
@@ -505,7 +531,7 @@ export const adminReviewProviderChangeRequest = createServerFn({ method: "POST" 
     reason: z.string().max(500).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context, "providers.verify");
+    await requireProviderChangeScopePermission(context, "providers.verify", data.request_id);
     if (data.status === "rejected" && !data.reason?.trim()) {
       throw new Error("اكتب سبب الرفض حتى يصل للمستخدم");
     }
@@ -533,7 +559,7 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdminPermission(context, data.status === "suspended" ? "providers.suspend" : "providers.verify");
+    await requireUserScopePermission(context, data.status === "suspended" ? "providers.suspend" : "providers.verify", data.user_id);
     const { supabase } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const durationMinutes: Record<string, number> = { "30m": 30, "1h": 60, "1w": 10080, "1mo": 43200, "1y": 525600 };
@@ -671,7 +697,7 @@ export const adminCancelRequest = createServerFn({ method: "POST" })
     z.object({ request_id: z.string().uuid(), reason: z.string().max(500).optional() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context, "orders.cancel");
+    await requireRequestScopePermission(context, "orders.cancel", data.request_id);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_cancel_request", {
       p_request_id: data.request_id,
@@ -685,7 +711,7 @@ export const adminReopenRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ request_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context, "orders.reopen");
+    await requireRequestScopePermission(context, "orders.reopen", data.request_id);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_reopen_request", {
       p_request_id: data.request_id,
@@ -1290,7 +1316,7 @@ export const adminUpdateUserProfile = createServerFn({ method: "POST" })
     avatar_mime: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context, "users.profile.edit");
+    await requireUserScopePermission(context, "users.profile.edit", data.user_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const updates: Record<string, unknown> = {
       full_name: data.full_name,
