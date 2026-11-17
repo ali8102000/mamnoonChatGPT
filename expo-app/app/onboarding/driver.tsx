@@ -127,6 +127,17 @@ export default function DriverOnboarding() {
 
   const makes = [...new Set(models.map((m) => m.make))];
 
+  // The model catalogue determines the vehicle/pricing category; the driver cannot choose it.
+  useEffect(() => {
+    if (largeDriverMode) {
+      setCategory("large");
+      return;
+    }
+    if (selectedModel && ["economy", "premium", "luxury"].includes(selectedModel.category)) {
+      setCategory(selectedModel.category as "economy" | "premium" | "luxury");
+    }
+  }, [selectedModel, largeDriverMode]);
+
   async function pickPhoto(kind: "face" | "id" | "id-back" | "vehicle-document", source?: "camera" | "library") {
     try {
       let result: ImagePicker.ImagePickerResult;
@@ -410,20 +421,9 @@ export default function DriverOnboarding() {
       <Text style={styles.note}>{vehicleChangeMode ? "غيّر بيانات المركبة أو اختر مستنداً واحداً أو أكثر لاستبداله. المستندات التي لا تغيّرها تبقى كما هي، والتحديث لا يتفعّل إلا بعد موافقة الإدارة." : largeDriverMode ? "قسم مستقل لكيا الحمل وكيا الركاب والباص. أكمل بيانات المركبة والهوية." : "أكمل بيانات سيارة التكسي والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة."}</Text>
       {!!rejectionReason && <Text style={styles.rejection}>سبب الرفض السابق: {rejectionReason}</Text>}
 
-      <Text style={styles.label}>اختر نوع تسجيلك كسائق</Text>
-      <View style={styles.row}>
-        {CATEGORIES.filter((item) => largeDriverMode ? item.key === "large" : item.key !== "large").map((item) => (
-          <TouchableOpacity key={item.key} style={[styles.category, category === item.key && styles.chipActive]}
-            onPress={() => {
-              setCategory(item.key);
-              if (item.key === "large") {
-                setSelectedMake("Kia");
-                setSelectedModel(null);
-              }
-            }}>
-            <Text style={[styles.chipText, category === item.key && styles.chipTextActive]}>{item.key === "large" ? "🚚 " : "🚗 "}{item.label}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.categoryNotice}>
+        <Text style={styles.categoryNoticeTitle}>تصنيف المركبة تلقائي</Text>
+        <Text style={styles.categoryNoticeText}>اكتب اسم السيارة أو اختر الموديل من القائمة، ويُحدد نوعها تلقائياً من سجل المركبات. رتبة أدائك تُحسب لاحقاً من الرحلات والتقييمات.</Text>
       </View>
 
       {category !== "large" && <>
