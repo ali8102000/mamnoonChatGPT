@@ -595,4 +595,12 @@ grant execute on function public.admin_grant_staff_permission(uuid,text,text,tex
 grant execute on function public.admin_revoke_staff_permission(uuid) to authenticated;
 grant execute on function public.admin_request_approval(text,uuid,text,text,jsonb) to authenticated;
 
+
+revoke all on function public.admin_create_delegation(uuid,text,text,text,timestamptz) from public, anon;
+revoke all on function public.admin_revoke_delegation(uuid) from public, anon;
+revoke all on function public.admin_review_approval(uuid,text,text) from public, anon;
+grant execute on function public.admin_create_delegation(uuid,text,text,text,timestamptz) to authenticated;
+grant execute on function public.admin_revoke_delegation(uuid) to authenticated;
+grant execute on function public.admin_review_approval(uuid,text,text) to authenticated;
+
 commit;
