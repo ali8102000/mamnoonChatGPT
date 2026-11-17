@@ -322,22 +322,25 @@ export default function HomeScreen() {
           <NotificationsBell />
         </View>
       </View>
-      <TouchableOpacity
-        onPress={() => router.push("/coupons")}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel="كوبوناتي والقسائم"
-        style={{ marginHorizontal: 18, marginBottom: 12, borderRadius: 17, padding: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold + "55" }}
-      >
-        <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900" }}>عرض الكل ←</Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <View>
-            <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>كوبوناتي والقسائم</Text>
-            <Text style={{ color: palette.muted, fontSize: 10, marginTop: 2, textAlign: "right" }}>العروض والخصومات المرسلة إلى حسابك</Text>
+      {selectedRole === "customer" && (
+        <TouchableOpacity
+          onPress={() => router.push("/coupons")}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="كوبوناتي والقسائم"
+          style={{ marginHorizontal: 18, marginBottom: 12, borderRadius: 17, padding: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold + "55" }}
+        >
+          <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900" }}>عرض الكل ←</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View>
+              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>كوبوناتي والقسائم</Text>
+              <Text style={{ color: palette.muted, fontSize: 10, marginTop: 2, textAlign: "right" }}>العروض والخصومات المرسلة إلى حسابك</Text>
+            </View>
+            <Text style={{ fontSize: 23 }}>🎁</Text>
           </View>
-          <Text style={{ fontSize: 23 }}>🎁</Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
+
       <ActiveCustomerRequestBanner />
       <ScrollView
         style={{ flex: 1 }}
