@@ -84,21 +84,23 @@ function inferGovernorateKey(point: Point): string {
   return nearest.key;
 }
 
-function economyFare(distanceKm:number,durationMin:number,settings:any,tripType:string,extraMinutes:number) {
+function economyRawFare(distanceKm:number,durationMin:number,settings:any,tripType:string,extraMinutes:number) {
   const base=Number(settings.base_fare)+distanceKm*Number(settings.per_km_rate)+durationMin*Number(settings.per_min_rate);
   const trip=tripType==="round_trip"?1.8:tripType==="second_trip"?2:1;
   const raw=(tripType==="round_trip"?base*2*0.9:base*trip)+Math.ceil(extraMinutes/5)*500;
-  const minimum=Number(settings.min_fare)||0;
-  return Math.max(minimum,Math.round(raw/250)*250);
+  return Math.max(Number(settings.min_fare)||0,raw);
 }
-function fare(category:Category,economyPrice:number) {
-  if(category==="economy") return economyPrice;
-  // The percentage band is selected from the rounded economy fare.
-  const isShortTrip=economyPrice<15000;
+function roundedFare(amount:number) {
+  return Math.round(amount/250)*250;
+}
+function fare(category:Category,economyRaw:number) {
+  if(category==="economy") return roundedFare(economyRaw);
+  // Select the uplift band from the unrounded economy fare, then round each tier independently.
+  const isShortTrip=economyRaw<15000;
   const uplift=category==="premium"
     ? (isShortTrip?0.10:0.05)
     : (isShortTrip?0.25:0.10);
-  return Math.round((economyPrice*(1+uplift))/250)*250;
+  return roundedFare(economyRaw*(1+uplift));
 }
 Deno.serve(async (req) => {
   if(req.method==="OPTIONS") return new Response("ok",{headers:corsHeaders});
@@ -142,11 +144,11 @@ Deno.serve(async (req) => {
     console.error("[auto-taxi-pricing] economy pricing row missing",isIntercity);
     return json({error:"تعذّر قراءة تعريفة الاقتصادي لحساب أسعار الفئات",code:"PRICING_SETTINGS_READ_FAILED"},503);
   }
-  const economyPrice=economyFare(routed.distanceKm,routed.durationMin,{...economySettings,is_intercity:isIntercity},tripType,extraMinutes);
+  const economyRaw=economyRawFare(routed.distanceKm,routed.durationMin,{...economySettings,is_intercity:isIntercity},tripType,extraMinutes);
   const categoryPrices={
-    economy:economyPrice,
-    premium:fare("premium",economyPrice),
-    luxury:fare("luxury",economyPrice)
+    economy:fare("economy",economyRaw),
+    premium:fare("premium",economyRaw),
+    luxury:fare("luxury",economyRaw)
   } satisfies Record<Category,number>;
   const priceEstimate=categoryPrices[category];
   if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category});
