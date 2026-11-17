@@ -74,7 +74,7 @@ import {
   adminGovernanceAssignStaff,
   adminGovernanceChangeRank,
   adminGovernanceDeactivateStaff,
-  adminGovernanceGrantPermission,
+  adminGovernanceGrantPricingPermissions,
   adminGovernanceCreateDelegation,
   adminGovernanceReviewApproval,
   adminGovernanceRevokePermission,
@@ -2886,13 +2886,18 @@ function StaffHierarchySection() {
   const [governorate, setGovernorate] = useState("najaf");
   const [permission, setPermission] = useState("users.read");
   const [delegateId, setDelegateId] = useState("");
+  const [pricingTargetSearch, setPricingTargetSearch] = useState("");
+  const [pricingTargetId, setPricingTargetId] = useState("");
+  const [pricingPermissions, setPricingPermissions] = useState<string[]>(["pricing.taxi.edit", "pricing.peak.edit"]);
+  const [pricingScopeType, setPricingScopeType] = useState<"global" | "governorate">("governorate");
+  const [pricingGovernorates, setPricingGovernorates] = useState<string[]>(["najaf"]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const listStaff = useServerFn(adminGovernanceListStaff);
   const assignStaff = useServerFn(adminGovernanceAssignStaff);
   const changeRank = useServerFn(adminGovernanceChangeRank);
   const deactivateStaff = useServerFn(adminGovernanceDeactivateStaff);
-  const grantPermission = useServerFn(adminGovernanceGrantPermission);
+  const grantPricingPermissions = useServerFn(adminGovernanceGrantPricingPermissions);
   const createDelegation = useServerFn(adminGovernanceCreateDelegation);
   const reviewApproval = useServerFn(adminGovernanceReviewApproval);
   const revokePermission = useServerFn(adminGovernanceRevokePermission);
@@ -2989,14 +2994,57 @@ function StaffHierarchySection() {
       </div>}
     </section>
     <section className="glass rounded-2xl p-4 space-y-3">
-      <h3 className="font-black">منح صلاحية أو تفويض</h3>
-      <p className="text-[11px] text-muted-foreground">اختر موظفاً من القائمة أعلاه وانسخ معرّفه من سجل الموظف عند الحاجة، أو أدخل معرّف حسابه هنا.</p>
-      <input value={delegateId} onChange={e=>setDelegateId(e.target.value)} placeholder="معرّف المستخدم UUID" className="w-full rounded-xl border bg-background px-3 py-2 text-xs" />
-      <select value={permission} onChange={e=>setPermission(e.target.value)} className="w-full rounded-xl border bg-background p-2 text-sm">{permissionOptions.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
-      <div className="grid grid-cols-2 gap-2">
-        <button disabled={busy||!delegateId.trim()} onClick={()=>void runAction(()=>grantPermission({data:{target_user_id:delegateId.trim(),permission_key:permission,scope_type:scopeType,scope_governorate:scopeType==="global"?null:governorate}}),"تم منح الصلاحية")} className="rounded-xl bg-primary/10 text-primary py-2 text-xs font-bold disabled:opacity-40">منح صلاحية</button>
-        <button disabled={busy||!delegateId.trim()} onClick={()=>void runAction(()=>createDelegation({data:{delegate_id:delegateId.trim(),permission_key:permission,scope_type:scopeType,scope_governorate:scopeType==="global"?null:governorate,expires_at:new Date(Date.now()+7*24*60*60*1000).toISOString()}}),"تم إنشاء التفويض")} className="rounded-xl bg-secondary py-2 text-xs font-bold disabled:opacity-40">تفويض 7 أيام</button>
+      <h3 className="font-black">صلاحيات تسعير التاكسي والذروة</h3>
+      <p className="text-[11px] text-muted-foreground">ابحث عن الأدمن بالاسم أو رقم الهاتف، ثم اختر الصلاحيات والمحافظات المسموح له بإدارتها فقط.</p>
+      <input value={pricingTargetSearch} onChange={e=>{setPricingTargetSearch(e.target.value);setPricingTargetId("");}} placeholder="ابحث باسم الأدمن أو رقم هاتفه" className="w-full rounded-xl border bg-background px-3 py-2 text-sm" />
+      {pricingTargetSearch.trim().length>0 && <div className="max-h-48 overflow-y-auto space-y-1">
+        {staff.filter((p:any)=>p.active && [p.full_name,p.phone,p.email,p.user_id].filter(Boolean).join(" ").toLowerCase().includes(pricingTargetSearch.trim().toLowerCase())).slice(0,10).map((p:any)=><button type="button" key={p.user_id} onClick={()=>{setPricingTargetId(p.user_id);setPricingTargetSearch(p.full_name||p.phone||p.email||p.user_id);}} className="w-full text-right rounded-lg border p-2 text-xs hover:bg-muted">
+          <b>{p.full_name||"أدمن بدون اسم"}</b><span className="block text-muted-foreground">{p.phone||p.email||p.user_id}</span>
+        </button>)}
+      </div>}
+      {pricingTargetId && <div className="rounded-lg bg-primary/5 p-2 text-xs">
+        الأدمن المحدد: <b>{staff.find((p:any)=>p.user_id===pricingTargetId)?.full_name||pricingTargetSearch}</b>
+        <span className="block text-muted-foreground">{staff.find((p:any)=>p.user_id===pricingTargetId)?.phone||pricingTargetId}</span>
+        <button type="button" className="mt-1 text-primary underline" onClick={()=>{setPricingTargetId("");setPricingTargetSearch("");}}>تغيير الأدمن</button>
+      </div>}
+      <div className="space-y-2">
+        <div className="text-xs font-bold">الصلاحيات المطلوبة</div>
+        {[
+          ["pricing.taxi.edit","تعديل أجور وتعرفة التاكسي"],
+          ["pricing.peak.edit","تعديل الذروة والاستعجال"],
+        ].map(([key,label])=><label key={key} className="flex items-center gap-2 rounded-lg border p-2 text-xs">
+          <input type="checkbox" checked={pricingPermissions.includes(key)} onChange={e=>setPricingPermissions(current=>e.target.checked?[...current,key]:current.filter(x=>x!==key))}/>
+          <span>{label}</span>
+        </label>)}
       </div>
+      <div className="space-y-2">
+        <div className="text-xs font-bold">نطاق الصلاحية</div>
+        <select value={pricingScopeType} onChange={e=>setPricingScopeType(e.target.value as "global"|"governorate")} className="w-full rounded-xl border bg-background p-2 text-sm">
+          <option value="governorate">محافظة واحدة أو عدة محافظات محددة</option>
+          <option value="global">كل العراق</option>
+        </select>
+        {pricingScopeType==="governorate" && <>
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">حدد المحافظات المسموح بها ({pricingGovernorates.length})</span>
+            <button type="button" className="text-primary font-bold" onClick={()=>setPricingGovernorates(pricingGovernorates.length===governorates.length?[]:[...governorates])}>{pricingGovernorates.length===governorates.length?"إلغاء تحديد الكل":"تحديد كل المحافظات"}</button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {governorates.map((key)=> <label key={key} className="flex items-center gap-2 rounded-lg border p-2 text-xs">
+              <input type="checkbox" checked={pricingGovernorates.includes(key)} onChange={e=>setPricingGovernorates(current=>e.target.checked?[...current,key]:current.filter(x=>x!==key))}/>
+              <span>{({baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"} as Record<string,string>)[key]}</span>
+            </label>)}
+          </div>
+        </>}
+      </div>
+      <button disabled={busy||!pricingTargetId||pricingPermissions.length===0||(pricingScopeType==="governorate"&&pricingGovernorates.length===0)} onClick={()=>void runAction(()=>grantPricingPermissions({data:{target_user_id:pricingTargetId,permission_keys:pricingPermissions as ("pricing.taxi.edit"|"pricing.peak.edit")[],scope_type:pricingScopeType,scope_governorates:pricingScopeType==="global"?[]:pricingGovernorates}}),"تم منح صلاحيات التسعير ضمن النطاق المحدد")} className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-bold disabled:opacity-40">حفظ الصلاحيات المحددة</button>
+      <p className="text-[10px] text-muted-foreground">كل محافظة تُحفظ كمنحة مستقلة، ولا يمكن للأدمن تعديل الأسعار خارج المحافظات المختارة. اختيار «كل العراق» يمنحه نطاقاً عاماً.</p>
+    </section>
+    <section className="glass rounded-2xl p-4 space-y-3">
+      <h3 className="font-black">تفويض صلاحية إدارية لمدة 7 أيام</h3>
+      <p className="text-[11px] text-muted-foreground">هذا التفويض الإداري منفصل عن منح صلاحيات التسعير.</p>
+      <input value={delegateId} onChange={e=>setDelegateId(e.target.value)} placeholder="معرّف الأدمن المفوّض إليه UUID" className="w-full rounded-xl border bg-background px-3 py-2 text-xs" />
+      <select value={permission} onChange={e=>setPermission(e.target.value)} className="w-full rounded-xl border bg-background p-2 text-sm">{permissionOptions.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+      <button disabled={busy||!delegateId.trim()} onClick={()=>void runAction(()=>createDelegation({data:{delegate_id:delegateId.trim(),permission_key:permission,scope_type:scopeType,scope_governorate:scopeType==="global"?null:governorate,expires_at:new Date(Date.now()+7*24*60*60*1000).toISOString()}}),"تم إنشاء التفويض")} className="w-full rounded-xl bg-secondary py-2.5 text-xs font-bold disabled:opacity-40">إنشاء التفويض</button>
     </section>
     <section className="glass rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between"><h3 className="font-black">الصلاحيات الممنوحة</h3><span className="text-xs text-muted-foreground">{grants.length} فعّالة</span></div>
