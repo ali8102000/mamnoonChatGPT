@@ -31,9 +31,9 @@ export default function AccountSettingsScreen() {
       .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
   }, [isCompanyAdmin]);
 
-  function switchRole(role: string) {
+  async function switchRole(role: string) {
     if (!roles.includes(role as (typeof roles)[number])) return;
-    setActiveRole(role as (typeof roles)[number]);
+    await setActiveRole(role as (typeof roles)[number]);
     router.replace("/home");
   }
 
