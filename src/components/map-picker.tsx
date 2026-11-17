@@ -528,20 +528,22 @@ export function MapPicker({
             <div className="text-sm text-muted-foreground flex flex-col items-center gap-2">
               <MapPin className="h-5 w-5" />
               {error}
-              <button
-                type="button"
-                onClick={() => autoLocate()}
-                disabled={locating}
-                className="mt-2 px-5 py-3 rounded-2xl font-bold text-white shadow-lg flex items-center gap-2 disabled:opacity-70"
-                style={{ background: accent }}
-              >
-                {locating ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Crosshair className="h-5 w-5" />
-                )}
-                {sharedOk ? "تمت مشاركة موقعك ✓" : "شارك موقعي الحالي"}
-              </button>
+              {showLocateButton && (
+                <button
+                  type="button"
+                  onClick={() => autoLocate()}
+                  disabled={locating}
+                  className="mt-2 px-5 py-3 rounded-2xl font-bold text-white shadow-lg flex items-center gap-2 disabled:opacity-70"
+                  style={{ background: accent }}
+                >
+                  {locating ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Crosshair className="h-5 w-5" />
+                  )}
+                  {sharedOk ? "تمت مشاركة موقعك ✓" : "شارك موقعي الحالي"}
+                </button>
+              )}
             </div>
           </div>
         )}
