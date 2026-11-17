@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.dispatch_radius_settings (
   provider_type text NOT NULL CHECK (provider_type IN ('technician', 'taxi', 'large_vehicle')),
   zone_no smallint NOT NULL CHECK (zone_no BETWEEN 1 AND 3),
   min_km numeric(7,2) NOT NULL CHECK (min_km >= 0),
-  max_km numeric(7,2) NOT NULL CHECK (max_km > min_km AND max_km <= 100),
+  max_km numeric(7,2) NOT NULL CHECK (max_km > min_km AND max_km <= 55),
   updated_at timestamptz NOT NULL DEFAULT now(),
   updated_by uuid REFERENCES auth.users(id),
   PRIMARY KEY (provider_type, zone_no)
@@ -80,7 +80,7 @@ BEGIN
     IF v_ring.zone_no NOT BETWEEN 1 AND 3
        OR v_ring.min_km < 0
        OR v_ring.max_km <= v_ring.min_km
-       OR v_ring.max_km > 100
+       OR v_ring.max_km > 55
        OR v_ring.min_km <> v_previous_max THEN
       RAISE EXCEPTION 'invalid_or_overlapping_dispatch_rings';
     END IF;
