@@ -161,6 +161,12 @@
   html {
     direction: rtl;
     font-size: 112.5%;
+    min-height: 100%;
+    background: var(--background);
+  }
+  body,
+  #root {
+    min-height: 100vh;
   }
   h1,
   h2,
@@ -176,18 +182,24 @@
     background-image:
       radial-gradient(
         ellipse 90% 65% at 75% 0%,
-        color-mix(in oklab, var(--primary) 28%, transparent) 0%,
-        transparent 55%
+        color-mix(in oklab, var(--primary) 30%, transparent) 0%,
+        transparent 58%
       ),
       radial-gradient(
         ellipse 80% 60% at 15% 100%,
-        color-mix(in oklab, var(--accent) 10%, transparent) 0%,
-        transparent 50%
+        color-mix(in oklab, var(--accent) 13%, transparent) 0%,
+        transparent 54%
       ),
       radial-gradient(
         ellipse 70% 50% at 100% 50%,
-        color-mix(in oklab, var(--primary-glow) 8%, transparent) 0%,
-        transparent 45%
+        color-mix(in oklab, var(--primary-glow) 12%, transparent) 0%,
+        transparent 48%
+      ),
+      linear-gradient(
+        135deg,
+        color-mix(in oklab, var(--primary) 9%, var(--background)) 0%,
+        var(--background) 48%,
+        color-mix(in oklab, var(--accent) 8%, var(--background)) 100%
       );
     background-attachment: fixed;
     color: var(--color-foreground);
