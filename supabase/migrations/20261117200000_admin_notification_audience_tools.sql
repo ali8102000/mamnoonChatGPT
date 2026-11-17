@@ -11,7 +11,19 @@ set search_path = public
 as $$
 declare v_count integer;
 begin
-  perform public.assert_staff('staff');
+  IF auth.uid() IS NULL OR NOT (
+    EXISTS (
+      SELECT 1 FROM public.user_roles
+      WHERE user_id = auth.uid()
+        AND role::text IN ('super_admin','admin','support','finance','moderator')
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.staff_assignments
+      WHERE user_id = auth.uid() AND active = true AND rank = 'general_manager'
+    )
+  ) THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
   if p_target not in ('all','drivers','large_drivers','workers','customers','single') then
     raise exception 'invalid_notification_target';
   end if;
@@ -54,7 +66,19 @@ set search_path = public
 as $$
 declare v_count integer;
 begin
-  perform public.assert_staff('staff');
+  IF auth.uid() IS NULL OR NOT (
+    EXISTS (
+      SELECT 1 FROM public.user_roles
+      WHERE user_id = auth.uid()
+        AND role::text IN ('super_admin','admin','support','moderator')
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.staff_assignments
+      WHERE user_id = auth.uid() AND active = true AND rank = 'general_manager'
+    )
+  ) THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
   if p_governorate_key not in ('baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah') then
     raise exception 'invalid_governorate';
   end if;
