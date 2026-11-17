@@ -17,7 +17,7 @@ export default function SelectGovernorateScreen() {
   async function choose(key: string) {
     try {
       await saveGovernorate(key);
-      router.replace("/welcome");
+      router.replace("/");
     } catch {
       Alert.alert("تعذر حفظ المحافظة", "حاول مرة ثانية.");
     }
