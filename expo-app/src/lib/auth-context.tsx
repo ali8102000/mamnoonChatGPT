@@ -104,14 +104,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const preferenceKey = rolePreferenceKey(uid);
       let saved = await SecureStore.getItemAsync(preferenceKey);
-      if (!saved) {
-        const legacy = await SecureStore.getItemAsync("mamnoon_active_role");
-        if (legacy && availableRoles.includes(legacy as AppRole)) {
-          saved = legacy;
-          await SecureStore.setItemAsync(preferenceKey, legacy);
-        }
-        if (legacy) await SecureStore.deleteItemAsync("mamnoon_active_role");
+      const legacy = await SecureStore.getItemAsync("mamnoon_active_role");
+      if (!saved && legacy && availableRoles.includes(legacy as AppRole)) {
+        saved = legacy;
+        await SecureStore.setItemAsync(preferenceKey, legacy);
       }
+      if (legacy) await SecureStore.deleteItemAsync("mamnoon_active_role");
       const selected = saved && availableRoles.includes(saved as AppRole)
         ? saved as AppRole
         : fallback;
