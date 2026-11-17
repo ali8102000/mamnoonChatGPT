@@ -591,13 +591,13 @@ export function MapPicker({
           </div>
         )}
 
-        {!loading && !error && (
+        {!loading && !error && showLocateButton && (
           <button
             type="button"
             onClick={() => autoLocate()}
             disabled={locating}
-            style={{ bottom: bottomOffset ? `${bottomOffset + 14}px` : undefined }}
-            className={`absolute ${bottomOffset ? "" : full ? "bottom-24" : "bottom-3"} right-3 h-12 w-12 rounded-full bg-white dark:bg-black/90 dark:border dark:border-slate-600 shadow-xl border border-border/40 grid place-items-center btn-press disabled:opacity-70 z-20`}
+            style={{ bottom: bottomOffset ? `${bottomOffset + 8}px` : undefined }}
+            className={`absolute ${isFullScreen ? "left-20" : "right-3"} ${bottomOffset ? "" : full ? "bottom-24" : "bottom-3"} h-11 w-11 rounded-2xl bg-white/95 dark:bg-black/90 dark:border dark:border-slate-600 shadow-xl border border-amber-400/50 grid place-items-center btn-press disabled:opacity-70 z-20`}
             aria-label="موقعي الحالي"
           >
             {locating ? (
