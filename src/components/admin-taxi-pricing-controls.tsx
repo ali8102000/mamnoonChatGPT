@@ -57,10 +57,13 @@ export default function AdminTaxiPricingControls() {
       toast.error("سقف الاستعجال لازم يكون بين 0 و100 بالمئة."); return;
     }
     setSaving(true);
-    const { error } = await (supabase as any).from("taxi_pricing_controls").upsert({
-      ...global, governorate_key: "all", peak_percent: Math.max(0, Math.min(200, Number(global.peak_percent) || 0)),
-      urgency_max_percent: Number(global.urgency_max_percent), updated_at: new Date().toISOString(),
-    }, { onConflict: "governorate_key" });
+    const { error } = await (supabase as any).rpc("admin_update_taxi_pricing_control", {
+      p_governorate_key: "all",
+      p_peak_enabled: global.peak_enabled,
+      p_peak_percent: Math.max(0, Math.min(200, Number(global.peak_percent) || 0)),
+      p_urgency_enabled: global.urgency_enabled,
+      p_urgency_max_percent: Number(global.urgency_max_percent),
+    });
     setSaving(false);
     if (error) { toast.error("تعذّر حفظ الإعدادات العامة: " + error.message); return; }
     toast.success("انحفظت إعدادات الاستعجال العامة.");
@@ -73,14 +76,13 @@ export default function AdminTaxiPricingControls() {
       toast.error("نسبة الذروة لازم تكون بين 0 و200 بالمئة."); return;
     }
     setSaving(true);
-    const { error } = await (supabase as any).from("taxi_pricing_controls").upsert({
-      governorate_key: governorateKey,
-      peak_enabled: regional.peak_enabled,
-      peak_percent: Number(regional.peak_percent),
-      urgency_enabled: true,
-      urgency_max_percent: Number(global.urgency_max_percent),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "governorate_key" });
+    const { error } = await (supabase as any).rpc("admin_update_taxi_pricing_control", {
+      p_governorate_key: governorateKey,
+      p_peak_enabled: regional.peak_enabled,
+      p_peak_percent: Number(regional.peak_percent),
+      p_urgency_enabled: false,
+      p_urgency_max_percent: Number(global.urgency_max_percent),
+    });
     setSaving(false);
     if (error) { toast.error("تعذّر حفظ ذروة المحافظة: " + error.message); return; }
     toast.success("انحفظت إعدادات الذروة للمحافظة.");
