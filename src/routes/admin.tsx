@@ -125,7 +125,8 @@ type Section =
   | "audit"
   | "roles"
   | "staff"
-  | "company";
+  | "company"
+  | "driverTiers";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
   {
@@ -189,6 +190,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   },
   { key: "regions", label: "التحكم بالمحافظات", icon: MapPin, roles: ["super_admin", "admin"] },
   { key: "pricing", label: "التسعير والذروة", icon: Tag, roles: ["super_admin", "admin", "pricing_access"] },
+  { key: "driverTiers", label: "رتب أداء السائقين", icon: Car, roles: ["super_admin", "admin"] },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
@@ -359,6 +361,7 @@ function AdminPage() {
           {section === "notifications" && <NotificationsSection />}
           {section === "regions" && <RegionalControlsSection />}
           {section === "pricing" && <AdminTaxiPricingControls />}
+          {section === "driverTiers" && <DriverPerformanceTierSettings />}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
@@ -3153,4 +3156,52 @@ function EmptyState({ text }: { text: string }) {
       <div className="text-sm text-muted-foreground">{text}</div>
     </div>
   );
+}
+
+
+function DriverPerformanceTierSettings() {
+  const [rules, setRules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const labels: Record<string, string> = { economy: "اقتصادي", premium: "متميز", luxury: "فاخر" };
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    const { data, error: loadError } = await (supabase as any).rpc("admin_list_driver_performance_tier_rules");
+    if (loadError) setError(loadError.message);
+    else setRules((data ?? []).map((r: any) => ({ ...r, min_completed_rides: String(r.min_completed_rides), min_ratings_count: String(r.min_ratings_count), min_avg_rating: String(r.min_avg_rating) })));
+    setLoading(false);
+  };
+  useEffect(() => { void load(); }, []);
+  const update = (tier: string, key: string, value: any) => setRules((current) => current.map((r) => r.tier === tier ? { ...r, [key]: value } : r));
+  const save = async (rule: any) => {
+    setSaving(rule.tier);
+    setError("");
+    const { error: saveError } = await (supabase as any).rpc("admin_update_driver_performance_tier_rule", {
+      p_tier: rule.tier,
+      p_min_completed_rides: Number(rule.min_completed_rides),
+      p_min_ratings_count: Number(rule.min_ratings_count),
+      p_min_avg_rating: Number(rule.min_avg_rating),
+      p_is_active: Boolean(rule.is_active),
+    });
+    setSaving(null);
+    if (saveError) setError(saveError.message);
+    else { toast.success("تم حفظ معيار الرتبة وإعادة احتساب السائقين"); await load(); }
+  };
+  return <div className="space-y-4">
+    <div className="glass rounded-2xl p-4">
+      <h2 className="text-xl font-black">معايير رتب أداء السائقين</h2>
+      <p className="text-xs text-muted-foreground mt-2 leading-6">هذه الرتب مستقلة عن فئة المركبة المستخدمة بالتسعير. يعتمد الاحتساب على الرحلات المكتملة والتقييمات الفعلية المحفوظة في قاعدة البيانات.</p>
+    </div>
+    {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : rules.map((rule) => <div key={rule.tier} className="glass rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between"><h3 className="font-black">{labels[rule.tier] ?? rule.label_ar}</h3><label className="text-xs flex items-center gap-2"><input type="checkbox" checked={!!rule.is_active} onChange={(e) => update(rule.tier, "is_active", e.target.checked)} /> مفعّلة</label></div>
+      <label className="block text-xs font-bold">الحد الأدنى للرحلات المكتملة<input type="number" min="0" value={rule.min_completed_rides} onChange={(e) => update(rule.tier, "min_completed_rides", e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3" /></label>
+      <label className="block text-xs font-bold">الحد الأدنى لعدد التقييمات<input type="number" min="0" value={rule.min_ratings_count} onChange={(e) => update(rule.tier, "min_ratings_count", e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3" /></label>
+      <label className="block text-xs font-bold">أقل متوسط تقييم (من 5)<input type="number" min="0" max="5" step="0.01" value={rule.min_avg_rating} onChange={(e) => update(rule.tier, "min_avg_rating", e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3" /></label>
+      <button disabled={saving === rule.tier} onClick={() => void save(rule)} className="w-full rounded-xl bg-primary text-primary-foreground font-bold py-3 disabled:opacity-50">{saving === rule.tier ? "جارٍ الحفظ..." : "حفظ المعيار وتحديث الرتب"}</button>
+    </div>)}
+    {error && <div role="alert" className="rounded-xl bg-red-50 text-red-700 p-3 text-xs">{error}</div>}
+    <p className="text-[11px] text-muted-foreground">كل تعديل يعيد احتساب رتبة جميع السائقين من سجلات الرحلات والتقييمات. لا يتم تعديل بيانات الرحلات أو التقييمات نفسها.</p>
+  </div>;
 }
