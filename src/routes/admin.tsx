@@ -70,6 +70,13 @@ import {
   adminPromoteStaffOneLevel,
   adminListStaffActivity,
   adminDeactivateStaff,
+  adminGovernanceListStaff,
+  adminGovernanceAssignStaff,
+  adminGovernanceChangeRank,
+  adminGovernanceDeactivateStaff,
+  adminGovernanceGrantPermission,
+  adminGovernanceCreateDelegation,
+  adminGovernanceReviewApproval,
   adminSetProviderStatus,
   adminUpdateProviderName,
   adminUnblockUser,
@@ -2831,34 +2838,123 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }:
 
 function StaffHierarchySection() {
   const [staff, setStaff] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [rank, setRank] = useState("employee");
+  const [department, setDepartment] = useState("customer_service");
+  const [scopeType, setScopeType] = useState("global");
+  const [governorate, setGovernorate] = useState("najaf");
+  const [permission, setPermission] = useState("users.read");
+  const [delegateId, setDelegateId] = useState("");
+  const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [promoting, setPromoting] = useState<string | null>(null);
-  const listStaff = useServerFn(adminListDepartmentStaff);
-  const promote = useServerFn(adminPromoteStaffOneLevel);
+  const listStaff = useServerFn(adminGovernanceListStaff);
+  const assignStaff = useServerFn(adminGovernanceAssignStaff);
+  const changeRank = useServerFn(adminGovernanceChangeRank);
+  const deactivateStaff = useServerFn(adminGovernanceDeactivateStaff);
+  const grantPermission = useServerFn(adminGovernanceGrantPermission);
+  const createDelegation = useServerFn(adminGovernanceCreateDelegation);
+  const reviewApproval = useServerFn(adminGovernanceReviewApproval);
+  const searchUsers = useServerFn(adminSearchUsers);
+  const permissionOptions = [
+    ["dashboard.view","لوحة القيادة"],["users.read","عرض العملاء"],["users.block","حظر العملاء"],
+    ["providers.read","عرض مقدمي الخدمة"],["providers.verify","توثيق مقدمي الخدمة"],["providers.suspend","إيقاف مقدمي الخدمة"],
+    ["orders.read","عرض الطلبات"],["orders.assign","إدارة التعيين"],["orders.override","التدخل بالطلبات"],
+    ["pricing.taxi.read","عرض تعرفة التاكسي"],["pricing.taxi.edit","تعديل تعرفة التاكسي"],
+    ["pricing.peak.edit","الذروة والاستعجال"],["pricing.services.edit","تسعير الخدمات"],
+    ["promotions.read","عرض الخصومات"],["promotions.manage","إدارة الخصومات"],
+    ["finance.read","عرض المالية"],["finance.wallet.adjust","تسوية المحفظة"],["finance.refund","استرداد المدفوعات"],
+    ["subscriptions.manage","الاشتراكات"],["support.manage","الدعم"],["notifications.send","الإشعارات"],
+    ["regions.manage","المحافظات"],["staff.read","عرض الموظفين"],["staff.assign","إضافة موظفين"],
+    ["staff.manage_created","إدارة الموظفين التابعين"],["staff.delegate","تفويض الصلاحيات"],
+    ["staff.approve","مراجعة الموافقات"],["settings.manage","إعدادات المنصة"],["audit.read","سجل التدقيق"],
+    ["reports.export","تصدير التقارير"],
+  ];
+  const ranks: Record<string,string> = { general_manager:"مدير عام",department_manager:"مدير قسم",supervisor:"مشرف",employee:"موظف" };
+  const departments: Record<string,string> = { executive:"الإدارة التنفيذية",customer_service:"خدمة العملاء",finance:"المالية",operations:"التشغيل",monitoring:"المراقبة" };
   const load = useCallback(async () => {
     setLoading(true);
-    try { setStaff(await listStaff({ data: {} })); }
-    catch (e: any) { toast.error(e?.message || "تعذر تحميل موظفي القسم"); }
+    try {
+      const rows = await listStaff({ data: {} });
+      setStaff(rows);
+      const { data, error } = await (supabase as any).from("admin_approval_requests")
+        .select("id,requester_id,request_type,target_user_id,scope_type,scope_governorate,payload,status,created_at")
+        .eq("status","pending").order("created_at",{ascending:false}).limit(50);
+      if (error) throw error;
+      setApprovals(data ?? []);
+    } catch (e: any) { toast.error(e?.message || "تعذر تحميل الإدارة"); }
     finally { setLoading(false); }
   }, [listStaff]);
   useEffect(() => { void load(); }, [load]);
-  const rankLabels: Record<string,string> = { owner: "الرئيس المؤسس الأعلى", general_manager: "مدير عام", department_manager: "مدير قسم", supervisor: "مشرف", employee: "موظف" };
-  const departmentLabels: Record<string,string> = { executive: "الإدارة التنفيذية", customer_service: "خدمة العملاء", finance: "المالية", operations: "التشغيل", monitoring: "المراقبة" };
-  async function promoteOne(id: string) {
-    setPromoting(id);
-    try { const result = await promote({ data: { target_user_id: id } }); toast.success("تمت الترقية إلى " + (rankLabels[result.rank] ?? result.rank)); await load(); }
-    catch (e: any) { toast.error(e?.message || "تعذرت الترقية"); }
-    finally { setPromoting(null); }
+  useEffect(() => {
+    if (search.trim().length < 2) { setUsers([]); return; }
+    let live = true;
+    const timer = setTimeout(async () => {
+      try { const rows = await searchUsers({ data: { query: search.trim(), limit: 8 } }); if (live) setUsers(rows); }
+      catch (e: any) { if (live) toast.error(e?.message || "تعذر البحث عن المستخدم"); }
+    }, 350);
+    return () => { live = false; clearTimeout(timer); };
+  }, [search, searchUsers]);
+  async function runAction(action: () => Promise<any>, success: string) {
+    setBusy(true);
+    try { await action(); toast.success(success); await load(); }
+    catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية"); }
+    finally { setBusy(false); }
   }
-  return <div>
-    <h2 className="text-xl font-black mb-2">موظفو القسم والترقيات</h2>
-    <p className="text-xs text-muted-foreground mb-4">تقدر ترقّي الموظف درجة واحدة فقط، بشرط تبقى رتبته أقل من رتبتك. وكل ترقية تنسجل بسجل العمليات.</p>
-    {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : staff.length === 0 ? <EmptyState text="ماكو موظفين أدنى من رتبتك بهذا القسم حالياً" /> : <div className="space-y-2">
-      {staff.map((person) => <div key={person.user_id} className="glass rounded-2xl p-3 flex items-center justify-between gap-3">
-        <div className="min-w-0"><div className="font-bold text-sm truncate">{person.full_name || person.email || "موظف"}</div><div className="text-[10px] text-muted-foreground">{departmentLabels[person.department] ?? person.department} · {rankLabels[person.rank] ?? person.rank}</div><div className="text-[10px] text-muted-foreground">{person.phone || ""}</div></div>
-        {!["owner", "general_manager"].includes(person.rank) && <button disabled={!!promoting} onClick={() => void promoteOne(person.user_id)} className="shrink-0 rounded-lg bg-primary/10 text-primary px-3 py-2 text-xs font-bold disabled:opacity-50">{promoting === person.user_id ? "..." : "ترقية درجة"}</button>}
+  const governorates = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
+  const requestLabels: Record<string,string> = { staff_assign:"إضافة موظف",staff_rank_change:"تغيير رتبة",staff_permission_change:"تغيير صلاحية",staff_scope_change:"تغيير نطاق",staff_deactivate:"تعطيل موظف",pricing_change:"تعديل تسعير",promotion_publish:"نشر خصم",wallet_adjustment:"تسوية محفظة",payment_refund:"استرداد دفعة",provider_action:"إجراء على مقدم خدمة",order_override:"تدخل بطلب",platform_setting_change:"تغيير إعداد" };
+  return <div className="space-y-5">
+    <div>
+      <h2 className="text-xl font-black mb-1">إدارة الموظفين والصلاحيات</h2>
+      <p className="text-xs text-muted-foreground">الصلاحيات تُفحص من قاعدة البيانات حسب رتبتك ونطاقك، وكل تغيير يُسجل بالتدقيق.</p>
+    </div>
+    <section className="glass rounded-2xl p-4 space-y-3">
+      <h3 className="font-black">إضافة موظف جديد</h3>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث بالاسم أو رقم الهاتف أو البريد" className="w-full rounded-xl border bg-background px-3 py-2 text-sm" />
+      {users.length>0 && <div className="space-y-1">{users.map((u:any)=><button type="button" key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.full_name||u.phone||u.email||u.id);setUsers([]);}} className="w-full text-right rounded-lg border p-2 text-xs hover:bg-muted"><b>{u.full_name||"بدون اسم"}</b><span className="block text-muted-foreground">{u.phone||u.email||u.id}</span></button>)}</div>}
+      {selectedUser && <div className="rounded-lg bg-primary/5 p-2 text-xs">المستخدم المحدد: <b>{selectedUser.full_name||selectedUser.phone||selectedUser.id}</b><button className="mr-2 text-primary underline" onClick={()=>{setSelectedUser(null);setSearch("");}}>تغيير</button></div>}
+      <div className="grid grid-cols-2 gap-2">
+        <select value={rank} onChange={e=>setRank(e.target.value)} className="rounded-xl border bg-background p-2 text-sm">{Object.entries(ranks).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+        <select value={department} onChange={e=>setDepartment(e.target.value)} className="rounded-xl border bg-background p-2 text-sm">{Object.entries(departments).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+        <select value={scopeType} onChange={e=>setScopeType(e.target.value)} className="rounded-xl border bg-background p-2 text-sm"><option value="global">كل المحافظات</option><option value="governorate">محافظة محددة</option></select>
+        {scopeType==="governorate" && <select value={governorate} onChange={e=>setGovernorate(e.target.value)} className="rounded-xl border bg-background p-2 text-sm">{governorates.map(g=><option key={g} value={g}>{g}</option>)}</select>}
+      </div>
+      <button disabled={busy||!selectedUser} onClick={()=>void runAction(()=>assignStaff({data:{target_user_id:selectedUser.id,rank,department,scope_type:scopeType,scope_governorate:scopeType==="global"?null:governorate}}),"تمت إضافة الموظف")} className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-bold disabled:opacity-50">إضافة الموظف</button>
+    </section>
+    <section className="glass rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between"><h3 className="font-black">الموظفون ضمن صلاحيتك</h3><button onClick={()=>void load()} className="text-xs text-primary">تحديث</button></div>
+      {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto"/> : staff.length===0 ? <EmptyState text="لا يوجد موظفون ضمن نطاق إدارتك"/> : <div className="space-y-2">
+        {staff.map((p:any)=><div key={p.user_id} className="rounded-xl border p-3 space-y-2">
+          <div className="flex justify-between gap-2"><div className="min-w-0"><div className="font-bold text-sm truncate">{p.full_name||p.phone||p.email||"موظف"}</div><div className="text-[10px] text-muted-foreground">{departments[p.department]||p.department} · {ranks[p.rank]||p.rank} · {p.scope_type==="global"?"كل المحافظات":p.scope_governorate}</div><div className="text-[10px] text-muted-foreground">{p.phone||""}</div></div><span className={p.active?"text-emerald-600 text-xs":"text-muted-foreground text-xs"}>{p.active?"نشط":"موقوف"}</span></div>
+          {p.active && <div className="flex flex-wrap gap-2">
+            <select aria-label="الرتبة الجديدة" defaultValue={p.rank} onChange={e=>setStaff(old=>old.map(x=>x.user_id===p.user_id?{...x,_rank:e.target.value}:x))} className="rounded-lg border bg-background p-2 text-xs">{Object.entries(ranks).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+            <button disabled={busy||!p._rank||p._rank===p.rank} onClick={()=>void runAction(()=>changeRank({data:{target_user_id:p.user_id,rank:p._rank}}),"تم تحديث رتبة الموظف")} className="rounded-lg bg-primary/10 text-primary px-3 py-2 text-xs font-bold disabled:opacity-40">حفظ الرتبة</button>
+            <button disabled={busy} onClick={()=>{const reason=window.prompt("سبب إيقاف الموظف");if(reason?.trim())void runAction(()=>deactivateStaff({data:{target_user_id:p.user_id,reason}}),"تم إيقاف الموظف");}} className="rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-bold disabled:opacity-40">إيقاف</button>
+          </div>}
+        </div>)}
+      </div>}
+    </section>
+    <section className="glass rounded-2xl p-4 space-y-3">
+      <h3 className="font-black">منح صلاحية أو تفويض</h3>
+      <p className="text-[11px] text-muted-foreground">اختر موظفاً من القائمة أعلاه وانسخ معرّفه من سجل الموظف عند الحاجة، أو أدخل معرّف حسابه هنا.</p>
+      <input value={delegateId} onChange={e=>setDelegateId(e.target.value)} placeholder="معرّف المستخدم UUID" className="w-full rounded-xl border bg-background px-3 py-2 text-xs" />
+      <select value={permission} onChange={e=>setPermission(e.target.value)} className="w-full rounded-xl border bg-background p-2 text-sm">{permissionOptions.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+      <div className="grid grid-cols-2 gap-2">
+        <button disabled={busy||!delegateId.trim()} onClick={()=>void runAction(()=>grantPermission({data:{target_user_id:delegateId.trim(),permission_key:permission,scope_type:scopeType,scope_governorate:scopeType==="global"?null:governorate}}),"تم منح الصلاحية")} className="rounded-xl bg-primary/10 text-primary py-2 text-xs font-bold disabled:opacity-40">منح صلاحية</button>
+        <button disabled={busy||!delegateId.trim()} onClick={()=>void runAction(()=>createDelegation({data:{delegate_id:delegateId.trim(),permission_key:permission,scope_type:scopeType,scope_governorate:scopeType==="global"?null:governorate}}),"تم إنشاء التفويض")} className="rounded-xl bg-secondary py-2 text-xs font-bold disabled:opacity-40">تفويض مؤقت</button>
+      </div>
+    </section>
+    <section className="glass rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between"><h3 className="font-black">طلبات الموافقة</h3><span className="rounded-full bg-amber-500/10 text-amber-600 px-2 py-1 text-xs">{approvals.length} معلّق</span></div>
+      {approvals.length===0 ? <EmptyState text="ماكو طلبات موافقة معلّقة"/> : approvals.map((r:any)=><div key={r.id} className="rounded-xl border p-3 space-y-2">
+        <div className="font-bold text-sm">{requestLabels[r.request_type]||r.request_type}</div>
+        <div className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleString("ar-IQ")} · {r.scope_type==="global"?"عام":r.scope_governorate}</div>
+        <pre className="max-h-28 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-2 text-[10px]">{JSON.stringify(r.payload,null,2)}</pre>
+        <div className="flex gap-2"><button disabled={busy} onClick={()=>void runAction(()=>reviewApproval({data:{request_id:r.id,decision:"approved"}}),"تمت الموافقة (بانتظار تنفيذ العملية المرتبطة)") } className="flex-1 rounded-lg bg-emerald-600/10 text-emerald-700 py-2 text-xs font-bold">موافقة</button><button disabled={busy} onClick={()=>void runAction(()=>reviewApproval({data:{request_id:r.id,decision:"rejected"}}),"تم رفض الطلب")} className="flex-1 rounded-lg bg-destructive/10 text-destructive py-2 text-xs font-bold">رفض</button></div>
       </div>)}
-    </div>}
+    </section>
   </div>;
 }
 
