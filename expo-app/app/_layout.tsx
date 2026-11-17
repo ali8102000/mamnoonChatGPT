@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ThemePreferenceProvider } from "@/lib/theme-preference";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
+import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { NativeBottomNavigation } from "@/components/native-bottom-navigation";
 import { palette } from "@/styles/theme";
 import { isNotificationSoundEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
@@ -170,6 +171,7 @@ export default function RootLayout() {
           </Stack>
           <NativeBottomNavigation />
           <IncomingRequestModal />
+          <RegionalServiceBanner />
         </View>
       </AuthProvider>
     </ThemePreferenceProvider>

@@ -13,6 +13,12 @@ type ControlRow = {
   message_animate: boolean;
   rejection_message: string;
   message_image_url: string;
+  message_float_enabled: boolean;
+  message_width_percent: number;
+  message_height_percent: number;
+  message_position: 'top-center' | 'top-right' | 'top-left';
+  message_top_offset: number;
+  message_font_size: number;
   updated_at?: string;
 };
 
@@ -24,6 +30,12 @@ const EMPTY: Omit<ControlRow, "governorate_key"> = {
   message_animate: true,
   rejection_message: "الخدمة متوقفة مؤقتاً في منطقتك. نعتذر عن ذلك، وسيتم إعلامك عند عودة الخدمة.",
   message_image_url: "",
+  message_float_enabled: true,
+  message_width_percent: 92,
+  message_height_percent: 34,
+  message_position: "top-center" as const,
+  message_top_offset: 12,
+  message_font_size: 14,
 };
 
 export default function RegionalControlsSection() {
@@ -40,7 +52,7 @@ export default function RegionalControlsSection() {
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from("regional_service_controls")
-      .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,rejection_message,message_image_url,updated_at")
+      .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,rejection_message,message_image_url,message_float_enabled,message_width_percent,message_height_percent,message_position,message_top_offset,message_font_size,updated_at")
       .order("governorate_key");
     if (error) {
       toast.error("تعذّر تحميل إعدادات المحافظات: " + error.message);
@@ -56,6 +68,12 @@ export default function RegionalControlsSection() {
         message_animate: global.message_animate,
         rejection_message: global.rejection_message || EMPTY.rejection_message,
         message_image_url: global.message_image_url || "",
+        message_float_enabled: global.message_float_enabled ?? true,
+        message_width_percent: global.message_width_percent ?? 92,
+        message_height_percent: global.message_height_percent ?? 34,
+        message_position: global.message_position ?? "top-center",
+        message_top_offset: global.message_top_offset ?? 12,
+        message_font_size: global.message_font_size ?? 14,
       });
     }
     setLoading(false);
@@ -79,6 +97,12 @@ export default function RegionalControlsSection() {
       message_animate: row.message_animate,
       rejection_message: row.rejection_message || EMPTY.rejection_message,
       message_image_url: row.message_image_url || "",
+      message_float_enabled: row.message_float_enabled ?? true,
+      message_width_percent: row.message_width_percent ?? 92,
+      message_height_percent: row.message_height_percent ?? 34,
+      message_position: row.message_position ?? "top-center",
+      message_top_offset: row.message_top_offset ?? 12,
+      message_font_size: row.message_font_size ?? 14,
     } : { ...EMPTY });
     setSaved(false);
   }
@@ -223,13 +247,28 @@ export default function RegionalControlsSection() {
           <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={settings.message_animate} onChange={(e) => setSettings((s) => ({ ...s, message_animate: e.target.checked }))} /> تحريك الرسالة بشكل مستمر</label>
         </div>
 
-        <div className="rounded-2xl border border-amber-500/40 bg-[#080808] p-4 text-right text-amber-300 overflow-hidden">
+        <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
+          <div className="font-black text-sm">إعدادات النافذة العائمة</div>
+          <label className="flex items-center justify-between gap-3 text-xs font-bold"><span>إظهار التنويه كنافذة عائمة</span><input type="checkbox" checked={settings.message_float_enabled} onChange={(e) => setSettings((s) => ({ ...s, message_float_enabled: e.target.checked }))} /></label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs font-bold">عرض النافذة · {settings.message_width_percent}%<input type="range" min="60" max="100" value={settings.message_width_percent} onChange={(e) => setSettings((s) => ({ ...s, message_width_percent: Number(e.target.value) }))} className="w-full" /></label>
+            <label className="text-xs font-bold">ارتفاع النافذة · {settings.message_height_percent}%<input type="range" min="12" max="60" value={settings.message_height_percent} onChange={(e) => setSettings((s) => ({ ...s, message_height_percent: Number(e.target.value) }))} className="w-full" /></label>
+            <label className="text-xs font-bold">حجم الخط · {settings.message_font_size}px<input type="range" min="11" max="22" value={settings.message_font_size} onChange={(e) => setSettings((s) => ({ ...s, message_font_size: Number(e.target.value) }))} className="w-full" /></label>
+            <label className="text-xs font-bold">المسافة من الأعلى · {settings.message_top_offset}px<input type="range" min="0" max="160" value={settings.message_top_offset} onChange={(e) => setSettings((s) => ({ ...s, message_top_offset: Number(e.target.value) }))} className="w-full" /></label>
+          </div>
+          <label className="block text-xs font-bold">موقع النافذة</label>
+          <select value={settings.message_position} onChange={(e) => setSettings((s) => ({ ...s, message_position: e.target.value as typeof s.message_position }))} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm">
+            <option value="top-center">أعلى الوسط</option><option value="top-right">أعلى اليمين</option><option value="top-left">أعلى اليسار</option>
+          </select>
+          <p className="text-[11px] text-muted-foreground">المعاينة التالية تتغير مباشرة، والحدود تمنع النافذة من تجاوز الشاشة.</p>
+        </div>
+        <div className="rounded-2xl border border-amber-500/40 bg-[#080808] p-4 text-right text-amber-300 overflow-y-auto mx-auto" style={{ width: `${settings.message_width_percent}%`, height: `${settings.message_height_percent}vh`, marginTop: `${settings.message_top_offset}px`, marginLeft: settings.message_position === "top-right" ? "auto" : settings.message_position === "top-left" ? "0" : "auto", marginRight: settings.message_position === "top-left" ? "auto" : settings.message_position === "top-right" ? "0" : "auto", fontSize: `${settings.message_font_size}px` }}>
           <div className="flex items-center justify-between gap-2 border-b border-amber-500/25 pb-2">
             <span className="text-[10px] tracking-wide text-amber-200">✦ ختم الإدارة الرسمي · موثّق ✦</span>
             <ShieldCheck className="h-4 w-4 text-amber-400" />
           </div>
-          <div className="text-sm font-black mt-3 bg-gradient-to-l from-yellow-200 via-amber-400 to-yellow-700 bg-clip-text text-transparent">{settings.message_title || "تنويه رسمي من إدارة ممنون"}</div>
-          <div className="mt-2 text-xs leading-6 text-amber-100 whitespace-pre-wrap">{settings.message_text || "ستظهر رسالتك هنا بعد كتابتها..."}</div><div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3"><div className="text-[10px] font-black text-amber-300">معاينة رسالة رفض الطلب · إدارة ممنون الموثّقة</div><div className="mt-1 text-sm font-black leading-7 text-amber-100">{settings.rejection_message}</div></div>
+          <div className="font-black mt-3 bg-gradient-to-l from-yellow-200 via-amber-400 to-yellow-700 bg-clip-text text-transparent">{settings.message_title || "تنويه رسمي من إدارة ممنون"}</div>
+          <div className="mt-2 leading-6 text-amber-100 whitespace-pre-wrap" style={{ fontSize: `${settings.message_font_size}px` }}>{settings.message_text || "ستظهر رسالتك هنا بعد كتابتها..."}</div><div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3"><div className="text-[10px] font-black text-amber-300">معاينة رسالة رفض الطلب · إدارة ممنون الموثّقة</div><div className="mt-1 text-sm font-black leading-7 text-amber-100">{settings.rejection_message}</div></div>
           {settings.message_image_url && <img src={settings.message_image_url} alt="صورة التنويه" className="mt-3 max-h-44 w-full rounded-xl object-contain" />}
           <div className="mt-3 text-[9px] text-amber-500/80">إدارة ممنون · الحساب الرسمي الموثّق</div>
         </div>

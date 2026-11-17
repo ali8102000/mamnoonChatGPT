@@ -19,7 +19,6 @@ import { startProviderPresenceBackgroundLocation, stopProviderPresenceBackground
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
 import { NotificationsBell } from "@/components/notifications-bell";
-import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { useThemePreference } from "@/lib/theme-preference";
 import { getServiceImage } from "@/lib/service-visuals";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -296,7 +295,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <RegionalServiceBanner />
       {roles.includes("super_admin") && (
         <TouchableOpacity onPress={() => router.push("/admin")} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="لوحة الإدارة">
           <LinearGradient

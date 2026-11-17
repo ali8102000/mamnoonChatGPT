@@ -17,6 +17,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { DriverOfferPopup } from "@/components/driver-offer-popup";
 import { GlobalBackButton } from "@/components/back-button";
 import { ProviderPresence } from "@/components/provider-presence";
+import { RegionalServiceBanner } from "@/components/regional-service-banner";
 
 function NotFoundComponent() {
   return (
@@ -180,6 +181,7 @@ function RootComponent() {
         <GlobalBackButton />
         <DriverOfferPopup />
         <ProviderPresence />
+        <RegionalServiceBanner />
         <Toaster richColors position="top-center" dir="rtl" />
       </AuthProvider>
     </QueryClientProvider>
