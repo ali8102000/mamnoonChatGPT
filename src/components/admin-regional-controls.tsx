@@ -262,13 +262,13 @@ export default function RegionalControlsSection() {
           </select>
           <p className="text-[11px] text-muted-foreground">المعاينة التالية تتغير مباشرة، والحدود تمنع النافذة من تجاوز الشاشة.</p>
         </div>
-        <div className="rounded-2xl border border-amber-500/40 bg-[#080808] p-4 text-right text-amber-300 overflow-hidden">
+        <div className="rounded-2xl border border-amber-500/40 bg-[#080808] p-4 text-right text-amber-300 overflow-y-auto mx-auto" style={{ width: `${settings.message_width_percent}%`, height: `${settings.message_height_percent}vh`, marginTop: `${settings.message_top_offset}px`, marginLeft: settings.message_position === "top-right" ? "auto" : settings.message_position === "top-left" ? "0" : "auto", marginRight: settings.message_position === "top-left" ? "auto" : settings.message_position === "top-right" ? "0" : "auto", fontSize: `${settings.message_font_size}px` }}>
           <div className="flex items-center justify-between gap-2 border-b border-amber-500/25 pb-2">
             <span className="text-[10px] tracking-wide text-amber-200">✦ ختم الإدارة الرسمي · موثّق ✦</span>
             <ShieldCheck className="h-4 w-4 text-amber-400" />
           </div>
-          <div className="text-sm font-black mt-3 bg-gradient-to-l from-yellow-200 via-amber-400 to-yellow-700 bg-clip-text text-transparent">{settings.message_title || "تنويه رسمي من إدارة ممنون"}</div>
-          <div className="mt-2 text-xs leading-6 text-amber-100 whitespace-pre-wrap">{settings.message_text || "ستظهر رسالتك هنا بعد كتابتها..."}</div><div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3"><div className="text-[10px] font-black text-amber-300">معاينة رسالة رفض الطلب · إدارة ممنون الموثّقة</div><div className="mt-1 text-sm font-black leading-7 text-amber-100">{settings.rejection_message}</div></div>
+          <div className="font-black mt-3 bg-gradient-to-l from-yellow-200 via-amber-400 to-yellow-700 bg-clip-text text-transparent">{settings.message_title || "تنويه رسمي من إدارة ممنون"}</div>
+          <div className="mt-2 leading-6 text-amber-100 whitespace-pre-wrap" style={{ fontSize: `${settings.message_font_size}px` }}>{settings.message_text || "ستظهر رسالتك هنا بعد كتابتها..."}</div><div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3"><div className="text-[10px] font-black text-amber-300">معاينة رسالة رفض الطلب · إدارة ممنون الموثّقة</div><div className="mt-1 text-sm font-black leading-7 text-amber-100">{settings.rejection_message}</div></div>
           {settings.message_image_url && <img src={settings.message_image_url} alt="صورة التنويه" className="mt-3 max-h-44 w-full rounded-xl object-contain" />}
           <div className="mt-3 text-[9px] text-amber-500/80">إدارة ممنون · الحساب الرسمي الموثّق</div>
         </div>
