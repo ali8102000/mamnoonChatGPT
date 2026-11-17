@@ -38,18 +38,11 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
-    const requirePermission = async (permissionKey: string, allowLegacyFinance = true, scopeType = "global", scopeGovernorate: string | null = null) => {
+    const requirePermission = async (permissionKey: string, scopeType = "global", scopeGovernorate: string | null = null) => {
       const { data: permission, error: permissionError } = await caller.rpc("admin_has_permission", {
         p_permission_key: permissionKey, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
       });
-      if (!permissionError && permission === true) return;
-      const [adminAccess, financeAccess] = await Promise.all([
-        caller.rpc("has_admin_access", { p_user_id: auth.user.id }),
-        allowLegacyFinance
-          ? caller.rpc("has_subscription_admin_access", { p_user_id: auth.user.id })
-          : Promise.resolve({ data: false, error: null }),
-      ]);
-      if (adminAccess.data !== true && financeAccess.data !== true) throw new Error("permission_required:" + permissionKey);
+      if (permissionError || permission !== true) throw new Error("permission_required:" + permissionKey);
     };
     const rpc = async (name: string, args: Record<string, unknown>) => {
       const { data, error } = await caller.rpc(name, args);
@@ -62,7 +55,7 @@ Deno.serve(async (req: Request) => {
         .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
-      await requirePermission("finance.wallet.adjust", false, scopeType, scopeGovernorate);
+      await requirePermission("finance.wallet.adjust", scopeType, scopeGovernorate);
       const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
       if (query.length < 2) return json({ error: "query_too_short" }, 400);
       const safe = query.replace(/[,%()]/g, " ");
@@ -87,6 +80,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "adjust_wallet") {
+      await requirePermission("finance.wallet.adjust");
       if (!uuid(body.user_id) || typeof body.amount !== "number" || !Number.isFinite(body.amount) ||
           body.amount <= 0 || body.amount > 1000000000 ||
           !["credit", "debit"].includes(body.type) ||
@@ -101,6 +95,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "save_coupon") {
+      await requirePermission(body.id ? "promotions.edit" : "promotions.create");
       if ((body.id !== undefined && !uuid(body.id)) ||
           typeof body.code !== "string" || body.code.trim().length < 2 || body.code.length > 50 ||
           !["percentage", "fixed"].includes(body.type) ||
@@ -129,6 +124,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "distribute_coupon") {
+      await requirePermission("promotions.publish");
       if (!uuid(body.coupon_id) || !targets.includes(body.target) ||
           (body.target === "single" ? !uuid(body.single_user_id) :
             (body.single_user_id !== undefined && !uuid(body.single_user_id)))) {
@@ -150,6 +146,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_coupon") {
+      await requirePermission("promotions.delete");
       if (!uuid(body.coupon_id)) return json({ error: "invalid_coupon_id" }, 400);
       return await rpc("admin_delete_coupon", { p_coupon_id: body.coupon_id });
     }
