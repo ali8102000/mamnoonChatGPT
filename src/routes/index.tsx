@@ -66,7 +66,7 @@ function Index() {
       <main className="min-h-screen grid place-items-center bg-transparent px-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <img src="/icon-192.png" alt="شعار ممنون" className="h-28 w-28 object-contain" />
-          <div className="text-4xl font-black tracking-wide text-[#17324D]">ممنون</div>
+          <div className="text-3xl font-black tracking-wide text-[#17324D]">أهلاً بك في ممنون</div>
           <div className="text-sm font-semibold text-[#758394]">مشوارك وخدماتك… بمكان واحد</div>
           {loading || !ready ? <Loader2 className="mt-5 h-5 w-5 animate-spin text-amber-600" /> : <div className="mt-5 h-5" />}
         </div>
