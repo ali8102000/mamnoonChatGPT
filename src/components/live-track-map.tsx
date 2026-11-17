@@ -74,6 +74,9 @@ export function LiveTrackMap({
   const pickupMarkerRef = useRef<any>(null);
   const destMarkerRef = useRef<any>(null);
   const driverMarkerRef = useRef<any>(null);
+  const driverAnimationFrameRef = useRef<number | null>(null);
+  const renderedDriverPositionRef = useRef<Coords | null>(null);
+  const renderedDriverHeadingRef = useRef(0);
   const routeLineRef = useRef<any>(null);
   const readyRef = useRef(false);
   const didInitialFitRef = useRef(false);
@@ -188,36 +191,44 @@ export function LiveTrackMap({
 
     // 1. Driver marker: a luxury sedan for taxi rides and the original arrow for services.
     if (activeDriverCoord) {
-      const heading =
-        activeDriverCoord.heading ??
-        (effectivePickup ? bearingDeg(activeDriverCoord, effectivePickup) : 0);
+      const previousPosition = renderedDriverPositionRef.current;
+      const movementHeading = previousPosition && haversineKm(previousPosition, activeDriverCoord) > 0.003
+        ? bearingDeg(previousPosition, activeDriverCoord) : null;
+      const heading = activeDriverCoord.heading != null && Number.isFinite(activeDriverCoord.heading)
+        ? activeDriverCoord.heading
+        : movementHeading ?? (effectivePickup ? bearingDeg(activeDriverCoord, effectivePickup) : renderedDriverHeadingRef.current);
+      const carSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><image href="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" x="6" y="14" width="52" height="36" preserveAspectRatio="xMidYMid meet" transform="rotate(' + heading + ' 32 32)"/></svg>';
       const carIcon = serviceType === "taxi"
-        ? {
-            url: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png",
-            scaledSize: new g.maps.Size(52, 36),
-            anchor: new g.maps.Point(26, 18),
-          }
-        : {
-            path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, fillColor: "#16a34a", fillOpacity: 1,
-            strokeColor: "#ffffff", strokeWeight: 2.5, rotation: heading,
-          };
-
-      if (driverMarkerRef.current) {
-        if (animate) {
-          driverMarkerRef.current.setPosition(activeDriverCoord);
-          driverMarkerRef.current.setIcon(carIcon);
-        } else {
-          driverMarkerRef.current.setPosition(activeDriverCoord);
-          driverMarkerRef.current.setIcon(carIcon);
-        }
+        ? { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(carSvg), scaledSize: new g.maps.Size(58, 58), anchor: new g.maps.Point(29, 29) }
+        : { path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, fillColor: "#16a34a", fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 2.5, rotation: heading };
+      if (!driverMarkerRef.current) {
+        driverMarkerRef.current = new g.maps.Marker({ position: activeDriverCoord, map, icon: carIcon, title: serviceType === "taxi" ? "سيارة السائق" : driverName, zIndex: 20, optimized: false });
+        renderedDriverPositionRef.current = { ...activeDriverCoord };
+        renderedDriverHeadingRef.current = heading;
       } else {
-        driverMarkerRef.current = new g.maps.Marker({
-          position: activeDriverCoord,
-          map,
-          icon: carIcon,
-          title: serviceType === "taxi" ? "سيارة السائق" : driverName,
-          zIndex: 20,
-        });
+        driverMarkerRef.current.setIcon(carIcon);
+        if (driverAnimationFrameRef.current !== null) window.cancelAnimationFrame(driverAnimationFrameRef.current);
+        const from = renderedDriverPositionRef.current ?? activeDriverCoord;
+        const to = { lat: activeDriverCoord.lat, lng: activeDriverCoord.lng };
+        const distance = haversineKm(from, to);
+        const duration = animate ? Math.min(1800, Math.max(650, distance * 18000)) : 0;
+        const start = performance.now();
+        if (!duration || distance < 0.001) {
+          driverMarkerRef.current.setPosition(to);
+          renderedDriverPositionRef.current = { ...activeDriverCoord };
+        } else {
+          const frame = (now: number) => {
+            const progress = Math.min(1, (now - start) / duration);
+            const eased = progress * progress * (3 - 2 * progress);
+            const position = { lat: from.lat + (to.lat - from.lat) * eased, lng: from.lng + (to.lng - from.lng) * eased };
+            driverMarkerRef.current?.setPosition(position);
+            renderedDriverPositionRef.current = position;
+            if (progress < 1) driverAnimationFrameRef.current = window.requestAnimationFrame(frame);
+            else { driverAnimationFrameRef.current = null; renderedDriverPositionRef.current = { ...activeDriverCoord }; }
+          };
+          driverAnimationFrameRef.current = window.requestAnimationFrame(frame);
+        }
+        renderedDriverHeadingRef.current = heading;
       }
     }
 
