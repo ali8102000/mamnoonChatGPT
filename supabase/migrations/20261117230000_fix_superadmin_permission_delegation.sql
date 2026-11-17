@@ -368,7 +368,7 @@ begin
         'missing_provider_status_permission'),
       ('public.admin_review_provider_change_request(uuid,text,text)',
         '''providers.verify''',
-        '(select p.governorate_key from public.profiles p join public.provider_change_requests r on r.user_id=p.id where r.id=_request_id)',
+        '(select governorate_key from public.profiles where id=(select user_id from public.provider_change_requests where id=_request_id))',
         'missing_provider_verify_permission'),
       ('public.admin_cancel_request(uuid,text)',
         '''orders.cancel''',
