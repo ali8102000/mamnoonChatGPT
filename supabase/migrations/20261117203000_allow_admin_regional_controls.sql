@@ -4,6 +4,7 @@ drop policy if exists "Super admins insert regional controls" on public.regional
 drop policy if exists "Super admins update regional controls" on public.regional_service_controls;
 drop policy if exists "Super admins delete regional controls" on public.regional_service_controls;
 drop policy if exists "Only super admins manage regional controls" on public.regional_service_controls;
+drop policy if exists "Admins manage regional controls" on public.regional_service_controls;
 
 create policy "Admins manage regional controls"
 on public.regional_service_controls
@@ -13,6 +14,7 @@ using (public.has_admin_access(auth.uid()))
 with check (public.has_admin_access(auth.uid()));
 
 drop policy if exists "Super admins upload regional notice images" on storage.objects;
+drop policy if exists "Admins upload regional notice images" on storage.objects;
 create policy "Admins upload regional notice images"
 on storage.objects
 for insert
