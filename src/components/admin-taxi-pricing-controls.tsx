@@ -166,16 +166,18 @@ export default function AdminTaxiPricingControls() {
             {GOVERNORATES.map((g: any) => <option key={g.key} value={g.key}>{g.name}</option>)}
           </select>
         </label>
-        <label className="flex items-center justify-between gap-3 text-sm font-bold">
-          <span>تفعيل تسعير الذروة لهذه المنطقة</span>
-          <input type="checkbox" checked={governorateKey === "all" ? global.peak_enabled : regional.peak_enabled} onChange={(e) => governorateKey === "all" ? setGlobal((v) => ({ ...v, peak_enabled: e.target.checked })) : setRegional((v) => ({ ...v, peak_enabled: e.target.checked }))} className="h-5 w-5 accent-emerald-600" />
-        </label>
-        <label className="block space-y-1 text-sm font-bold">
-          <span>نسبة زيادة الذروة (%)</span>
-          <input className={inputClass} type="number" min="0" max="200" step="1" value={governorateKey === "all" ? global.peak_percent : regional.peak_percent} onChange={(e) => governorateKey === "all" ? setGlobal((v) => ({ ...v, peak_percent: Number(e.target.value) })) : setRegional((v) => ({ ...v, peak_percent: Number(e.target.value) }))} />
-        </label>
-        <p className="text-xs text-muted-foreground">إذا ماكو إعداد خاص لمحافظة، تعتمد إعدادات «كل العراق». الاستعجال ينضاف بعد الذروة ويزيد السعر فوقها.</p>
-        <button type="button" disabled={saving} onClick={saveRegional} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4" /> حفظ الذروة</button>
+        {canRegionalPeak ? <>
+          <label className="flex items-center justify-between gap-3 text-sm font-bold">
+            <span>تفعيل تسعير الذروة لهذه المنطقة</span>
+            <input type="checkbox" checked={regional.peak_enabled} onChange={(e) => setRegional((v) => ({ ...v, peak_enabled: e.target.checked }))} className="h-5 w-5 accent-emerald-600" />
+          </label>
+          <label className="block space-y-1 text-sm font-bold">
+            <span>نسبة زيادة الذروة (%)</span>
+            <input className={inputClass} type="number" min="0" max="200" step="1" value={regional.peak_percent} onChange={(e) => setRegional((v) => ({ ...v, peak_percent: Number(e.target.value) }))} />
+          </label>
+          <p className="text-xs text-muted-foreground">إذا ماكو إعداد خاص لمحافظة، تعتمد إعدادات «كل العراق».</p>
+          <button type="button" disabled={saving} onClick={saveRegional} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4" /> حفظ الذروة</button>
+        </> : <p className="text-xs text-muted-foreground">اختر محافظة ضمن نطاق صلاحيتك حتى تظهر إعدادات الذروة المتاحة لك.</p>}
         <button type="button" disabled={saving} onClick={() => void load()} className="mr-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50"><RefreshCw className="ml-2 inline h-4 w-4" /> تحديث</button>
       </div>}
       {canTariff && <div className="rounded-xl border border-border p-3 space-y-3">
