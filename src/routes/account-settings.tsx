@@ -111,32 +111,57 @@ function AccountSettingsPage() {
           </span>
           <div className="min-w-0">
             <h2 className="font-black text-sm">تبديل الدور</h2>
-            <p className="text-[10px] text-muted-foreground mt-1">اختار المساحة اللي تريد تستخدمها</p>
+            <p className="text-[10px] text-muted-foreground mt-1">بدّل بين الأدوار المتاحة بحسابك</p>
           </div>
         </div>
         <span className="text-[10px] text-muted-foreground shrink-0">الحالي محدد بإطار</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        {roleItems.map(item => {
+        {roleItems.filter(item => roles.includes(item.role as any)).map(item => {
           const Icon = item.icon;
           const selected = activeRole === item.role;
           return <button key={item.role} type="button" onClick={() => {
-            if (roles.includes(item.role as any)) {
-              setActiveRole(item.role as any);
-              navigate({ to: "/home" });
-              toast.success("تم التبديل إلى دور " + item.title);
-            } else {
-              if (item.role === "large_driver") window.location.href = "/onboarding/driver?provider=large_driver";
-              else navigate({ to: item.role === "driver" ? "/onboarding/driver" : "/onboarding/worker" });
-            }
+            setActiveRole(item.role as any);
+            navigate({ to: "/home" });
+            toast.success("تم التبديل إلى دور " + item.title);
           }} className={`relative min-h-[112px] rounded-3xl border p-4 text-right transition active:scale-[0.98] ${item.style} ${selected ? "ring-2 ring-primary shadow-md" : "opacity-90"}`}>
             {selected && <span className="absolute left-3 top-3 rounded-full bg-primary text-primary-foreground px-2 py-0.5 text-[9px] font-bold">الحالي</span>}
             <span className="h-10 w-10 rounded-2xl bg-white/60 dark:bg-black/10 grid place-items-center mb-3"><Icon className="h-5 w-5" /></span>
             <span className="block text-sm font-black">{item.title}</span>
-            <span className="block text-[10px] opacity-75 mt-1">{item.subtitle}</span>
+            <span className="block text-[10px] opacity-75 mt-1">التبديل إلى هذا الدور</span>
           </button>;
         })}
       </div>
+    </section>
+
+    <section className="mb-6 rounded-3xl border border-amber-500/25 bg-card/75 p-4 shadow-soft">
+      <div className="flex items-center gap-3 mb-3">
+        <span className="h-11 w-11 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md grid place-items-center">
+          <ShieldCheck className="h-5 w-5" />
+        </span>
+        <div>
+          <h2 className="font-black text-sm">سجّل معنا</h2>
+          <p className="text-[10px] text-muted-foreground mt-1">كل الحسابات تبدأ كزبون. اختار مجال العمل إذا تحب تنضم إلى فريق ممنون.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3">
+        {roleItems.filter(item => item.role !== "customer").map(item => {
+          const Icon = item.icon;
+          const alreadyRegistered = roles.includes(item.role as any);
+          return <button key={item.role} type="button" onClick={() => {
+            if (item.role === "large_driver") window.location.href = "/onboarding/driver?provider=large_driver";
+            else navigate({ to: item.role === "driver" ? "/onboarding/driver" : "/onboarding/worker" });
+          }} className="w-full rounded-2xl border border-border/70 bg-background/70 p-4 flex items-center gap-3 text-right transition active:scale-[0.99] hover:border-primary/40">
+            <span className={`h-11 w-11 shrink-0 rounded-2xl grid place-items-center ${item.style}`}><Icon className="h-5 w-5" /></span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-black">{item.title}</span>
+              <span className="block text-[10px] text-muted-foreground mt-1">{item.subtitle}</span>
+            </span>
+            <span className="shrink-0 rounded-xl bg-primary/10 text-primary px-3 py-2 text-[10px] font-black">{alreadyRegistered ? "متابعة / تحديث" : "ابدأ التسجيل"}</span>
+          </button>;
+        })}
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-3">أكمل بياناتك ومستنداتك من هنا، وبعدها تراجع الإدارة طلب الانضمام.</p>
     </section>
 
     {isCompanyAdmin && <section className="mb-6">
