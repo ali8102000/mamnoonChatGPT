@@ -15,6 +15,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import * as Location from "expo-location";
+import { startProviderPresenceBackgroundLocation, stopProviderPresenceBackgroundLocation } from "@/lib/background-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
 import { NotificationsBell } from "@/components/notifications-bell";
@@ -209,16 +210,10 @@ export default function HomeScreen() {
     }
 
     async function startPresence() {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== "granted") {
-        if (mounted) {
-          Alert.alert("إذن الموقع مطلوب", "فعّل الموقع حتى تظهر للسائقين والزبائن القريبين.");
-          setAvailable(false);
-          const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
-          await supabase.from(table).update({ available: false }).eq("user_id", userId);
-        }
-        return;
-      }
+      await startProviderPresenceBackgroundLocation({
+        userId,
+        role: activeRole as "driver" | "large_driver" | "worker",
+      });
       const first = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
@@ -232,9 +227,13 @@ export default function HomeScreen() {
       );
     }
 
-    void startPresence().catch(async () => {
+    void startPresence().catch(async (presenceError) => {
       if (!mounted || !user) return;
-      Alert.alert("تعذر تحديد الموقع", "تم إيقاف التوفر؛ تحقق من GPS وحاول مرة أخرى.");
+      await stopProviderPresenceBackgroundLocation().catch(() => undefined);
+      const message = presenceError instanceof Error && presenceError.message === "background_location_denied"
+        ? "اسمح لممنون بالوصول إلى الموقع دائماً حتى تستقبل الطلبات عند تصغير التطبيق."
+        : "تعذر تشغيل مشاركة الموقع؛ تحقق من GPS وأذونات الموقع وحاول مرة أخرى.";
+      Alert.alert("مشاركة الموقع مطلوبة", message);
       const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
       await supabase.from(table).update({ available: false }).eq("user_id", userId);
       setAvailable(false);
@@ -262,6 +261,11 @@ export default function HomeScreen() {
         Alert.alert("إذن الموقع مطلوب", "اسمح بمشاركة موقعك قبل استقبال الطلبات.");
         return;
       }
+    }
+    if (!next) {
+      await stopProviderPresenceBackgroundLocation().catch((stopError) => {
+        console.warn("[Mamnoon] could not stop provider background location:", stopError);
+      });
     }
     const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
     const { error } = await supabase.from(table).update({ available: next }).eq("user_id", user.id);
