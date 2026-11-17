@@ -74,6 +74,9 @@ export function LiveTrackMap({
   const pickupMarkerRef = useRef<any>(null);
   const destMarkerRef = useRef<any>(null);
   const driverMarkerRef = useRef<any>(null);
+  const driverAnimationFrameRef = useRef<number | null>(null);
+  const renderedDriverPositionRef = useRef<Coords | null>(null);
+  const renderedDriverHeadingRef = useRef(0);
   const routeLineRef = useRef<any>(null);
   const readyRef = useRef(false);
   const didInitialFitRef = useRef(false);
@@ -176,8 +179,14 @@ export function LiveTrackMap({
         else pickupMarkerRef.current = new g.maps.Marker({ position: effectivePickup, map, title: "نقطة الانطلاق", zIndex: 10 });
       }
       if (destCoords) {
-        if (destMarkerRef.current) destMarkerRef.current.setPosition(destCoords);
-        else destMarkerRef.current = new g.maps.Marker({ position: destCoords, map, title: "وجهة الوصول", zIndex: 9 });
+        const destinationSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="52" height="64" viewBox="0 0 52 64"><defs><linearGradient id="destinationFill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F04444"/><stop offset=".55" stop-color="#C62828"/><stop offset="1" stop-color="#671818"/></linearGradient><filter id="destinationShadow" x="-50%" y="-40%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#881337" flood-opacity=".35"/></filter></defs><path d="M26 2C12.7 2 2 12.7 2 26c0 17 24 36 24 36s24-19 24-36C50 12.7 39.3 2 26 2Z" fill="url(#destinationFill)" stroke="#fff" stroke-width="3" filter="url(#destinationShadow)"/><circle cx="26" cy="25" r="13" fill="#fff"/><circle cx="26" cy="25" r="8" fill="#be123c"/><circle cx="26" cy="25" r="3" fill="#fff"/></svg>';
+        const destinationIcon = { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(destinationSvg), scaledSize: new g.maps.Size(44, 54), anchor: new g.maps.Point(22, 53) };
+        if (destMarkerRef.current) {
+          destMarkerRef.current.setPosition(destCoords);
+          destMarkerRef.current.setIcon(destinationIcon);
+        } else {
+          destMarkerRef.current = new g.maps.Marker({ position: destCoords, map, icon: destinationIcon, title: "وجهة الوصول", zIndex: 15, optimized: false });
+        }
       }
     } else {
       if (pickupMarkerRef.current) pickupMarkerRef.current.setMap(null);
@@ -188,36 +197,44 @@ export function LiveTrackMap({
 
     // 1. Driver marker: a luxury sedan for taxi rides and the original arrow for services.
     if (activeDriverCoord) {
-      const heading =
-        activeDriverCoord.heading ??
-        (effectivePickup ? bearingDeg(activeDriverCoord, effectivePickup) : 0);
+      const previousPosition = renderedDriverPositionRef.current;
+      const movementHeading = previousPosition && haversineKm(previousPosition, activeDriverCoord) > 0.003
+        ? bearingDeg(previousPosition, activeDriverCoord) : null;
+      const heading = activeDriverCoord.heading != null && Number.isFinite(activeDriverCoord.heading)
+        ? activeDriverCoord.heading
+        : movementHeading ?? (effectivePickup ? bearingDeg(activeDriverCoord, effectivePickup) : renderedDriverHeadingRef.current);
+      const carSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><image href="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" x="6" y="14" width="52" height="36" preserveAspectRatio="xMidYMid meet" transform="rotate(' + heading + ' 32 32)"/></svg>';
       const carIcon = serviceType === "taxi"
-        ? {
-            url: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png",
-            scaledSize: new g.maps.Size(52, 36),
-            anchor: new g.maps.Point(26, 18),
-          }
-        : {
-            path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, fillColor: "#16a34a", fillOpacity: 1,
-            strokeColor: "#ffffff", strokeWeight: 2.5, rotation: heading,
-          };
-
-      if (driverMarkerRef.current) {
-        if (animate) {
-          driverMarkerRef.current.setPosition(activeDriverCoord);
-          driverMarkerRef.current.setIcon(carIcon);
-        } else {
-          driverMarkerRef.current.setPosition(activeDriverCoord);
-          driverMarkerRef.current.setIcon(carIcon);
-        }
+        ? { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(carSvg), scaledSize: new g.maps.Size(58, 58), anchor: new g.maps.Point(29, 29) }
+        : { path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, fillColor: "#16a34a", fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 2.5, rotation: heading };
+      if (!driverMarkerRef.current) {
+        driverMarkerRef.current = new g.maps.Marker({ position: activeDriverCoord, map, icon: carIcon, title: serviceType === "taxi" ? "سيارة السائق" : driverName, zIndex: 20, optimized: false });
+        renderedDriverPositionRef.current = { ...activeDriverCoord };
+        renderedDriverHeadingRef.current = heading;
       } else {
-        driverMarkerRef.current = new g.maps.Marker({
-          position: activeDriverCoord,
-          map,
-          icon: carIcon,
-          title: serviceType === "taxi" ? "سيارة السائق" : driverName,
-          zIndex: 20,
-        });
+        driverMarkerRef.current.setIcon(carIcon);
+        if (driverAnimationFrameRef.current !== null) window.cancelAnimationFrame(driverAnimationFrameRef.current);
+        const from = renderedDriverPositionRef.current ?? activeDriverCoord;
+        const to = { lat: activeDriverCoord.lat, lng: activeDriverCoord.lng };
+        const distance = haversineKm(from, to);
+        const duration = animate ? Math.min(1800, Math.max(650, distance * 18000)) : 0;
+        const start = performance.now();
+        if (!duration || distance < 0.001) {
+          driverMarkerRef.current.setPosition(to);
+          renderedDriverPositionRef.current = { ...activeDriverCoord };
+        } else {
+          const frame = (now: number) => {
+            const progress = Math.min(1, (now - start) / duration);
+            const eased = progress * progress * (3 - 2 * progress);
+            const position = { lat: from.lat + (to.lat - from.lat) * eased, lng: from.lng + (to.lng - from.lng) * eased };
+            driverMarkerRef.current?.setPosition(position);
+            renderedDriverPositionRef.current = position;
+            if (progress < 1) driverAnimationFrameRef.current = window.requestAnimationFrame(frame);
+            else { driverAnimationFrameRef.current = null; renderedDriverPositionRef.current = { ...activeDriverCoord }; }
+          };
+          driverAnimationFrameRef.current = window.requestAnimationFrame(frame);
+        }
+        renderedDriverHeadingRef.current = heading;
       }
     }
 
@@ -238,9 +255,9 @@ export function LiveTrackMap({
           path: [activeDriverCoord, targetPoint],
           map,
           geodesic: true,
-          strokeColor: "#0284c7",
-          strokeOpacity: 0.9,
-          strokeWeight: 5,
+          strokeColor: "#D6A43B",
+          strokeOpacity: 0.98,
+          strokeWeight: 6,
         });
       }
 

@@ -13,7 +13,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { AnimatedRegion, Marker, Polyline } from "react-native-maps";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -107,37 +108,52 @@ type ChatMessage = {
 
 
 function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; heading?: number | null }) {
-  const markerRef = useRef<any>(null);
-  const initialCoordinate = useRef(coordinate).current;
-  const [iosCoordinate, setIosCoordinate] = useState(coordinate);
+  const animatedCoordinate = useRef(new AnimatedRegion(coordinate)).current;
+  const lastCoordinateRef = useRef(coordinate);
   const rotation = useSharedValue(Number.isFinite(heading) ? Number(heading) : 0);
 
   useEffect(() => {
-    if (Platform.OS === "android" && markerRef.current?.animateMarkerToCoordinate) {
-      markerRef.current.animateMarkerToCoordinate(coordinate, 4500);
-    } else {
-      setIosCoordinate(coordinate);
-    }
-  }, [coordinate.latitude, coordinate.longitude]);
+    // Interpolate every real GPS update on both Android and iOS instead of jumping.
+    animatedCoordinate.timing({
+      latitude: coordinate.latitude,
+      longitude: coordinate.longitude,
+      duration: 1200,
+      useNativeDriver: false,
+    } as any).start();
+  }, [coordinate.latitude, coordinate.longitude, animatedCoordinate]);
 
   useEffect(() => {
-    if (heading == null || !Number.isFinite(heading)) return;
+    const previous = lastCoordinateRef.current;
+    const movedMeters = Math.hypot(
+      (coordinate.latitude - previous.latitude) * 111320,
+      (coordinate.longitude - previous.longitude) * 111320 * Math.cos(coordinate.latitude * Math.PI / 180),
+    );
+    let nextHeading = heading != null && Number.isFinite(heading) ? Number(heading) : null;
+    if (nextHeading == null && movedMeters > 1.5) {
+      const p1 = previous.latitude * Math.PI / 180;
+      const p2 = coordinate.latitude * Math.PI / 180;
+      const dl = (coordinate.longitude - previous.longitude) * Math.PI / 180;
+      const y = Math.sin(dl) * Math.cos(p2);
+      const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+      nextHeading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+    lastCoordinateRef.current = coordinate;
+    if (nextHeading == null) return;
     const current = rotation.value;
-    const delta = ((heading - current + 540) % 360) - 180;
+    const delta = ((nextHeading - current + 540) % 360) - 180;
     rotation.value = withTiming(current + delta, {
-      duration: 650,
+      duration: 700,
       easing: Easing.out(Easing.cubic),
     });
-  }, [heading, rotation]);
+  }, [coordinate.latitude, coordinate.longitude, heading, rotation]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
 
   return (
-    <Marker
-      ref={markerRef}
-      coordinate={Platform.OS === "android" ? initialCoordinate : iosCoordinate}
+    <Marker.Animated
+      coordinate={animatedCoordinate as any}
       flat
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges
@@ -145,6 +161,35 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
       <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
         <Image source={{ uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />
       </Animated.View>
+    </Marker.Animated>
+  );
+}
+
+
+function LocationTargetMarker({ coordinate, title }: { coordinate: Coordinates; title: string }) {
+  return (
+    <Marker coordinate={coordinate} title={title} anchor={{ x: 0.5, y: 1 }}>
+      <View style={styles.endpointPin}>
+        <View style={styles.endpointPinCore}><View style={styles.endpointPinDot} /></View>
+      </View>
+    </Marker>
+  );
+}
+
+function DestinationMarker({ coordinate }: { coordinate: Coordinates }) {
+  return (
+    <Marker coordinate={coordinate} title="وجهة الوصول" anchor={{ x: 0.5, y: 1 }}>
+      <LinearGradient
+        colors={["#F04444", "#C62828", "#671818"]}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0.15, y: 0 }}
+        end={{ x: 0.85, y: 1 }}
+        style={styles.destinationPin}
+      >
+        <View style={styles.destinationPinCore}>
+          <View style={styles.destinationPinDot} />
+        </View>
+      </LinearGradient>
     </Marker>
   );
 }
@@ -999,14 +1044,28 @@ export default function RequestDetail() {
                 }}
                 showsUserLocation={request.type !== "taxi"}
               >
+                {myLocation && otherLocation && (
+                  <Polyline
+                    coordinates={[
+                      { latitude: myLocation.latitude, longitude: myLocation.longitude },
+                      { latitude: otherLocation.latitude, longitude: otherLocation.longitude },
+                    ]}
+                    strokeColor="#D6A43B"
+                    strokeWidth={5}
+                    geodesic
+                  />
+                )}
                 {request.type === "taxi" ? (
-                  (isProvider ? myLocation : otherLocation) && <TaxiCarMarker coordinate={(isProvider ? myLocation : otherLocation)!} heading={(isProvider ? myLocation : otherLocation)?.heading} />
+                  <>
+                    {(isProvider ? myLocation : otherLocation) && <TaxiCarMarker coordinate={(isProvider ? myLocation : otherLocation)!} heading={(isProvider ? myLocation : otherLocation)?.heading} />}
+                    {(isProvider ? otherLocation : myLocation) && <LocationTargetMarker coordinate={(isProvider ? otherLocation : myLocation)!} title={isProvider ? "موقع الزبون" : "موقعك"} />}
+                  </>
                 ) : (
                   <>
                     <Marker coordinate={{ latitude: request.pickup_lat!, longitude: request.pickup_lng! }} title="نقطة الانطلاق" pinColor="#0f766e" />
-                    {request.dest_lat != null && request.dest_lng != null && <Marker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} title="الوجهة" pinColor="#16a34a" />}
-                    {myLocation && <Marker coordinate={myLocation} title="موقعي" pinColor="#7c3aed" />}
-                    {otherLocation && <Marker coordinate={otherLocation} title="الطرف الآخر" pinColor="#f97316" />}
+                    {request.dest_lat != null && request.dest_lng != null && <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />}
+                    {myLocation && <LocationTargetMarker coordinate={myLocation} title="موقعي" />}
+                    {otherLocation && <LocationTargetMarker coordinate={otherLocation} title="موقع مقدم الخدمة" />}
                   </>
                 )}
               </MapView>
@@ -1138,6 +1197,12 @@ const styles = StyleSheet.create({
   trackingTitle: { fontSize: 15, fontWeight: "900", color: palette.ink, marginBottom: 10 },
   trackingMap: { height: 220, borderRadius: radius.md },
   trackingMapTaxi: { height: 340 },
+  endpointPin: { width: 30, height: 38, alignItems: "center", justifyContent: "flex-start", paddingTop: 4, backgroundColor: "#17324D", borderRadius: 16, borderBottomLeftRadius: 4, transform: [{ rotate: "-45deg" }], borderWidth: 2, borderColor: "#FFFFFF", elevation: 7 },
+  endpointPinCore: { width: 14, height: 14, borderRadius: 7, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  endpointPinDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#D6A43B" },
+  destinationPin: { width: 34, height: 42, alignItems: "center", justifyContent: "flex-start", paddingTop: 5, borderRadius: 18, borderBottomLeftRadius: 4, transform: [{ rotate: "-45deg" }], borderWidth: 2.5, borderColor: "#FFFFFF", elevation: 10, shadowColor: "#9F1239", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, overflow: "hidden" },
+  destinationPinCore: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  destinationPinDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#C62828" },
   luxuryCarPhoto: { width: 54, height: 36 },
   luxuryCarMarker: { width: 48, height: 30, borderRadius: 13, backgroundColor: "#B88A24", borderWidth: 2, borderColor: "#172033", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 7 },
   luxuryCarRoof: { position: "absolute", top: 3, width: 25, height: 12, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: "#24364A" },

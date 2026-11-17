@@ -214,7 +214,7 @@ export default function HomeScreen() {
     }
 
     async function startPresence() {
-      await startProviderPresenceBackgroundLocation({
+      const backgroundTrackingEnabled = await startProviderPresenceBackgroundLocation({
         userId,
         role: activeRole as "driver" | "large_driver" | "worker",
       });
@@ -229,6 +229,12 @@ export default function HomeScreen() {
           void publishPresence(location);
         },
       );
+      if (!backgroundTrackingEnabled && mounted) {
+        Alert.alert(
+          "الاستقبال يعمل والتطبيق مفتوح",
+          "حتى تستمر باستقبال الطلبات عند تصغير ممنون، فعّل إذن الموقع في الخلفية من إعدادات التطبيق. تگدر حالياً تستقبل الطلبات ما دام التطبيق مفتوحاً.",
+        );
+      }
     }
 
     void startPresence().catch(async (presenceError) => {

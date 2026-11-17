@@ -498,14 +498,11 @@ export function MapPicker({
 
         {!loading && !error && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center z-[5]">
-            <div className="flex flex-col items-center -translate-y-3">
-              <div
-                className="h-10 w-10 rounded-full grid place-items-center shadow-xl animate-in zoom-in-50 duration-200 border-2 border-white ring-2 ring-black/10"
-                style={{ background: accent }}
-              >
-                <MapPin className="h-5 w-5 text-white" fill="white" />
+            <div className="flex flex-col items-center -translate-y-5">
+              <div className="relative grid h-11 w-11 rotate-45 place-items-center rounded-[55%_55%_55%_8%] border-2 border-white shadow-xl ring-2 ring-black/10 animate-in zoom-in-50 duration-200" style={{ background: accent }}>
+                <div className="h-4 w-4 -rotate-45 rounded-full border-[3px] border-white bg-transparent" />
               </div>
-              <div className="h-2 w-3 rounded-full bg-black/40 -mt-0.5 shadow" />
+              <div className="h-2 w-4 rounded-full bg-black/35 -mt-0.5 shadow" />
             </div>
           </div>
         )}

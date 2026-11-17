@@ -17,6 +17,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import Svg, { Circle, Path } from "react-native-svg";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
@@ -54,6 +55,19 @@ const IRAQ_REGION = {
   latitudeDelta: 9,
   longitudeDelta: 11,
 };
+
+function MapCenterPin() {
+  return (
+    <View style={styles.pinArtwork}>
+      <Svg width={42} height={52} viewBox="0 0 42 52">
+        <Path d="M21 50C17 43 3 29 3 19A18 18 0 1 1 39 19C39 29 25 43 21 50Z" fill="#D6A43B" stroke="#FFFFFF" strokeWidth={2.5} />
+        <Circle cx={21} cy={19} r={7} fill="#FFFFFF" />
+        <Circle cx={21} cy={19} r={3.2} fill="#17324D" />
+      </Svg>
+      <View style={styles.pinShadow} />
+    </View>
+  );
+}
 
 function formatAddress(parts: Location.LocationGeocodedAddress[] | null | undefined) {
   const item = parts?.[0];
@@ -916,7 +930,7 @@ export default function NewRequest() {
           ))}
         </MapView>
         <View pointerEvents="none" style={[styles.taxiCenterPin, { top: 92 + Math.max(0, window.height - 92 - taxiSheetHeight) / 2 - 36 }]}>
-          <Text style={styles.taxiCenterPinText}>{mapMode === "pickup" ? "📍" : "📌"}</Text>
+          <MapCenterPin />
         </View>
 
         <View style={styles.taxiTopBar}>
@@ -964,8 +978,8 @@ export default function NewRequest() {
           </View>
           </View>
           <View style={styles.taxiSearchRow}>
-            <TouchableOpacity style={styles.taxiLocateButton} onPress={mapMode === "pickup" ? locateMe : () => { if (!pickupCoords) { Alert.alert("حدد الانطلاق أولاً", "حدد موقع الانطلاق أولاً."); return; } const center = destinationCoords ?? pickupCoords; moveMap({ ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 }); }} disabled={locationLoading && mapMode === "pickup"}>
-              {locationLoading && mapMode === "pickup" ? <ActivityIndicator color={palette.white} size="small" /> : <Text style={styles.taxiLocateText}>{mapMode === "pickup" ? "موقعي" : "مركز الخريطة"}</Text>}
+            <TouchableOpacity style={styles.taxiLocateButton} onPress={locateMe} disabled={locationLoading}>
+              {locationLoading ? <ActivityIndicator color={palette.white} size="small" /> : <Text style={styles.taxiLocateText}>موقعي تلقائياً</Text>}
             </TouchableOpacity>
             <TextInput style={styles.taxiSearchInput} value={placeQuery} onChangeText={setPlaceQuery} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
           </View>
@@ -1321,7 +1335,7 @@ export default function NewRequest() {
           {locationLoading ? (
             <ActivityIndicator color={palette.white} size="small" />
           ) : (
-            <Text style={styles.locateButtonText}>موقعي</Text>
+            <Text style={styles.locateButtonText}>تحديد موقعي تلقائياً</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -1367,7 +1381,7 @@ export default function NewRequest() {
         >
 
         </MapView>
-        <View pointerEvents="none" style={styles.mapCenterPin}><Text style={styles.mapCenterPinText}>📍</Text></View>
+        <View pointerEvents="none" style={styles.mapCenterPin}><MapCenterPin /></View>
         <Text style={styles.mapHint}>
           {mapMode === "pickup"
             ? "حرّك الخريطة حتى تصبح النقطة تحت الدبوس"
@@ -1697,8 +1711,9 @@ const styles = StyleSheet.create({
   placeSearchTop: { borderWidth: 1.5, borderColor: palette.gold, backgroundColor: palette.surface, minHeight: 52, marginTop: 8 },
   taxiNearbyMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.surface, borderWidth: 2, borderColor: palette.brand, alignItems: "center", justifyContent: "center", elevation: 5 },
   taxiNearbyMarkerText: { fontSize: 19 },
-  taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -17, marginTop: -38, zIndex: 4 },
-  taxiCenterPinText: { fontSize: 36, textShadowColor: "rgba(0,0,0,0.35)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -21, marginTop: -48, zIndex: 4 },
+  pinArtwork: { width: 42, height: 58, alignItems: "center", justifyContent: "flex-start" },
+  pinShadow: { width: 17, height: 5, borderRadius: 10, backgroundColor: "rgba(15,23,42,0.22)", marginTop: -1 },
   taxiTopBar: { position: "absolute", top: 42, left: 10, right: 10, zIndex: 10, flexDirection: "column", alignItems: "stretch", gap: 8 },
   taxiTopControls: { flexDirection: "row", alignItems: "center", gap: 7 },
   taxiBackButton: { width: 42, height: 44, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
@@ -1810,8 +1825,7 @@ const styles = StyleSheet.create({
   locateButtonText: { color: palette.brandDeep, fontWeight: "900", fontSize: 12 },
   mapContainer: { height: 280, borderRadius: radius.xl, overflow: "hidden", marginTop: 8, borderWidth: 1, borderColor: palette.line },
   map: { flex: 1 },
-  mapCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -16, marginTop: -34, zIndex: 5 },
-  mapCenterPinText: { fontSize: 34, textShadowColor: "rgba(0,0,0,0.35)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  mapCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -21, marginTop: -48, zIndex: 5 },
   mapHint: { position: "absolute", bottom: 10, alignSelf: "center", backgroundColor: palette.brandDeep, color: palette.white, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, fontSize: 11, overflow: "hidden" },
   input: { minHeight: 54, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, fontWeight: "600", color: palette.ink, backgroundColor: palette.surface, textAlign: "right" },
   photoUploadButton: { minHeight: 48, borderRadius: radius.md, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: palette.line },

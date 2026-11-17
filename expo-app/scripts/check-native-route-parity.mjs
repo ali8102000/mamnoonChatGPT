@@ -107,8 +107,11 @@ if (!nativeAuthContextSource.includes("mamnoon-history-v1")) {
 
 const nativeIndexSource = await readSource("app/index.tsx");
 const nativeWelcomeSource = await readSource("app/welcome.tsx");
-if (!nativeIndexSource.includes('href="/welcome"')) {
-  missing.push("Native startup must open the welcome screen on every cold launch.");
+if (!nativeIndexSource.includes('"/welcome"') ||
+    !nativeIndexSource.includes('"/select-governorate"') ||
+    !nativeIndexSource.includes("mamnoon_governorate") ||
+    !existsSync(resolve(root, "app/select-governorate.tsx"))) {
+  missing.push("Native startup must show the first-launch governorate selector, persist the choice, then continue to welcome.");
 }
 if (!nativeWelcomeSource.includes("!profile || roles.length === 0") ||
     !nativeWelcomeSource.includes('router.replace("/select-role")') ||
