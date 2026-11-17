@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.taxi_pricing_controls (
 
 ALTER TABLE public.taxi_pricing_controls ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.taxi_pricing_controls FROM anon, authenticated;
-GRANT SELECT ON public.taxi_pricing_controls TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.taxi_pricing_controls TO authenticated;
 DROP POLICY IF EXISTS "Authenticated can read taxi pricing controls" ON public.taxi_pricing_controls;
 CREATE POLICY "Authenticated can read taxi pricing controls"
   ON public.taxi_pricing_controls FOR SELECT TO authenticated USING (true);
