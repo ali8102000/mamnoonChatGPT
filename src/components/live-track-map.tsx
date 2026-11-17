@@ -179,8 +179,14 @@ export function LiveTrackMap({
         else pickupMarkerRef.current = new g.maps.Marker({ position: effectivePickup, map, title: "نقطة الانطلاق", zIndex: 10 });
       }
       if (destCoords) {
-        if (destMarkerRef.current) destMarkerRef.current.setPosition(destCoords);
-        else destMarkerRef.current = new g.maps.Marker({ position: destCoords, map, title: "وجهة الوصول", zIndex: 9 });
+        const destinationSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="52" height="64" viewBox="0 0 52 64"><defs><linearGradient id="destinationFill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fb7185"/><stop offset="1" stop-color="#be123c"/></linearGradient><filter id="destinationShadow" x="-50%" y="-40%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#881337" flood-opacity=".35"/></filter></defs><path d="M26 2C12.7 2 2 12.7 2 26c0 17 24 36 24 36s24-19 24-36C50 12.7 39.3 2 26 2Z" fill="url(#destinationFill)" stroke="#fff" stroke-width="3" filter="url(#destinationShadow)"/><circle cx="26" cy="25" r="13" fill="#fff"/><circle cx="26" cy="25" r="8" fill="#be123c"/><circle cx="26" cy="25" r="3" fill="#fff"/></svg>';
+        const destinationIcon = { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(destinationSvg), scaledSize: new g.maps.Size(44, 54), anchor: new g.maps.Point(22, 53) };
+        if (destMarkerRef.current) {
+          destMarkerRef.current.setPosition(destCoords);
+          destMarkerRef.current.setIcon(destinationIcon);
+        } else {
+          destMarkerRef.current = new g.maps.Marker({ position: destCoords, map, icon: destinationIcon, title: "وجهة الوصول", zIndex: 15, optimized: false });
+        }
       }
     } else {
       if (pickupMarkerRef.current) pickupMarkerRef.current.setMap(null);
