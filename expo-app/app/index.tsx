@@ -1,4 +1,6 @@
 import { Redirect } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { useAuth } from "@/lib/auth-context";
 import brandIcon from "../assets/favicon.png";
 import { useEffect, useState } from "react";
@@ -7,6 +9,7 @@ import { View, ActivityIndicator, Image, Text, StyleSheet } from "react-native";
 export default function Index() {
   const { loading } = useAuth();
   const [splashFinished, setSplashFinished] = useState(false);
+  const [nextRoute, setNextRoute] = useState<"/select-governorate" | "/welcome" | null>(null);
 
   // Show the Mamnoon brand screen on every cold app launch, then continue
   // through the existing welcome/auth flow without changing the session.
@@ -16,7 +19,23 @@ export default function Index() {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  if (loading || !splashFinished) {
+  useEffect(() => {
+    if (loading || !splashFinished || nextRoute) return;
+    let active = true;
+    void (async () => {
+      try {
+        const saved = Platform.OS === "web" && typeof localStorage !== "undefined"
+          ? localStorage.getItem("mamnoon_governorate")
+          : await SecureStore.getItemAsync("mamnoon_governorate");
+        if (active) setNextRoute(saved ? "/welcome" : "/select-governorate");
+      } catch {
+        if (active) setNextRoute("/select-governorate");
+      }
+    })();
+    return () => { active = false; };
+  }, [loading, splashFinished, nextRoute]);
+
+  if (loading || !splashFinished || !nextRoute) {
     return (
       <View style={styles.center}>
         <Image source={brandIcon} style={styles.logo} resizeMode="contain" />
@@ -27,7 +46,7 @@ export default function Index() {
     );
   }
 
-  return <Redirect href="/welcome" />;
+  return <Redirect href={nextRoute} />;
 }
 
 const styles = StyleSheet.create({
