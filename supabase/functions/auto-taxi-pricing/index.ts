@@ -116,10 +116,14 @@ Deno.serve(async (req) => {
   if(!url||!anon||!service) return json({error:"إعدادات خدمة التسعير غير مكتملة"},503);
   const auth=req.headers.get("Authorization")||"";
   if(!auth.startsWith("Bearer ")) return json({error:"سجّل الدخول أولاً"},401);
-  const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});
+  const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}},auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
   const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
-  const {data:{user},error:userError}=await userClient.auth.getUser();
-  if(userError||!user) return json({error:"جلسة الدخول غير صالحة"},401);
+  // Edge Functions have no browser session storage: validate the bearer token explicitly.
+  const {data:{user},error:userError}=await userClient.auth.getUser(auth.slice(7));
+  if(userError||!user) {
+    console.error("[auto-taxi-pricing] bearer validation failed", userError?.code || "no_user", userError?.message || "");
+    return json({error:"انتهت جلسة الدخول أو تعذّر التحقق منها. سجّل الدخول مجدداً وحاول.",code:"AUTH_SESSION_INVALID"},401);
+  }
   const {data:roles,error:rolesError}=await admin.from("user_roles").select("role").eq("user_id",user.id);
   if(rolesError||!roles?.some((r:any)=>r.role==="customer"))
     return json({error:"إنشاء طلبات التاكسي متاح لحسابات الزبائن فقط"},403);
