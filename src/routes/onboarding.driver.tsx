@@ -54,31 +54,6 @@ export const Route = createFileRoute("/onboarding/driver")({
 
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 
-const POPULAR_MAKES = [
-  "تويوتا",
-  "هيونداي",
-  "كيا",
-  "نيسان",
-  "شفروليه",
-  "إم جي (MG)",
-  "شيري",
-  "رينو",
-  "سايبا",
-  "أخرى",
-];
-
-const SUGGESTED_MODELS: Record<string, string[]> = {
-  تويوتا: ["كورولا", "كامري", "يارس", "راف فور (RAV4)", "أفالون"],
-  هيونداي: ["النترا", "أكسنت", "سوناتا", "توسان", "كريتا"],
-  كيا: ["سيراتو", "أوبتيما", "ريو", "سبورتاج", "بيكانتو"],
-  نيسان: ["صني", "سنترا", "ألتيما", "إكس تريل"],
-  شفروليه: ["كروز", "أوبترا", "ماليبو", "تاهو"],
-  "إم جي (MG)": ["MG 5", "MG 6", "MG ZS", "MG GT"],
-  شيري: ["أريزو 5", "تيجو 4", "تيجو 7", "أريزو 6"],
-  رينو: ["لوغان", "داستر", "ميجان"],
-  سايبا: ["سايبا 131", "تيبا", "كويك"],
-};
-
 const CATEGORY_META: Record<
   VehicleCategory,
   { label: string; emoji: string; gradient: string; desc: string }
@@ -138,7 +113,6 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   }, [largeDriverMode]);
 
   const [make, setMake] = useState<string>("Toyota");
-  const [customMake, setCustomMake] = useState<string>("");
   const [modelName, setModelName] = useState<string>("Corolla");
   const [category, setCategory] = useState<VehicleCategory>(largeDriverMode ? "large" : "economy");
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | null>(null);
@@ -755,14 +729,6 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
               ))}
             </div>
 
-            {false && make === "أخرى" && (
-              <input
-                value={customMake}
-                onChange={(e) => setCustomMake(e.target.value)}
-                placeholder="اكتب ماركة سيارتك..."
-                className="mt-2.5 w-full bg-white border border-border rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:border-primary"
-              />
-            )}
           </div>
 
           {/* Model Name with Suggestions */}
