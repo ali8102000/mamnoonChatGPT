@@ -601,6 +601,7 @@ function NewRequest() {
           }
         } catch {}
       }
+      setUrgencyEnabled(false);
       navigate({ to: "/request/$id", params: { id: data.id } });
     } catch (e: any) {
       toast.error(e.message ?? "تعذّر إرسال الطلب");
