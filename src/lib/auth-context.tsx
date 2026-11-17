@@ -135,8 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!saved) {
         saved = safeStorageGet("mumnun-active-role") as AppRole | null;
         if (saved && mappedRoles.includes(saved)) safeStorageSet(preferenceKey, saved);
-        safeStorageRemove("mumnun-active-role");
       }
+      safeStorageRemove("mumnun-active-role");
       const selected = saved && mappedRoles.includes(saved)
         ? saved
         : mappedRoles.includes("customer") ? "customer" : mappedRoles[0] ?? null;
