@@ -34,7 +34,7 @@ function uniqueParts(values: unknown[]) {
 }
 
 async function readSuggestions(governorateKey: string, query: string, limit: number) {
-  const { data, error } = await supabaseAdmin.rpc("search_map_place_suggestions", {
+  const { data, error } = await (supabaseAdmin as any).rpc("search_map_place_suggestions", {
     p_governorate_key: governorateKey,
     p_query: query,
     p_limit: limit,
@@ -149,7 +149,7 @@ export async function searchMapPlaceSuggestions(input: string, governorateKey: s
 
   const normalized = normalizedQuery(query);
   const [cached, initial] = await Promise.all([
-    supabaseAdmin
+    (supabaseAdmin as any)
       .from("map_place_search_cache")
       .select("expires_at")
       .eq("governorate_key", governorateKey)
@@ -166,7 +166,7 @@ export async function searchMapPlaceSuggestions(input: string, governorateKey: s
     try {
       const remoteRows = await fetchPhotonSuggestions(query, governorateKey);
       if (remoteRows.length) {
-        const { error: upsertError } = await supabaseAdmin
+        const { error: upsertError } = await (supabaseAdmin as any)
           .from("map_place_suggestions")
           .upsert(remoteRows, { onConflict: "governorate_key,source_key" });
         if (upsertError) {
@@ -174,7 +174,7 @@ export async function searchMapPlaceSuggestions(input: string, governorateKey: s
           throw new Error("تعذّر حفظ اقتراحات الأماكن في قاعدة البيانات.");
         }
       }
-      await supabaseAdmin
+      await (supabaseAdmin as any)
         .from("map_place_search_cache")
         .upsert({
           governorate_key: governorateKey,
