@@ -86,8 +86,8 @@ function inferGovernorateKey(point: Point): string {
 
 function fare(category:Category,distanceKm:number,durationMin:number,settings:any,tripType:string,extraMinutes:number) {
   const base=Number(settings.base_fare)+distanceKm*Number(settings.per_km_rate)+durationMin*Number(settings.per_min_rate);
-  const transition=Math.min(1,Math.max(0,(base-4500)/1000));
-  const tier=category==="economy"?1:category==="premium"?(settings.is_intercity?1.05:1.10-0.05*transition):(settings.is_intercity?1.10:1.25-0.15*transition);
+  // Fixed category uplift over the economy fare in every governorate.
+  const tier=category==="economy"?1:category==="premium"?1.05:1.10;
   const trip=tripType==="round_trip"?1.8:tripType==="second_trip"?2:1;
   const raw=(tripType==="round_trip"?base*tier*2*0.9:base*tier*trip)+Math.ceil(extraMinutes/5)*500;
   return Math.max(Number(settings.min_fare),Math.ceil(raw/250)*250);
@@ -123,13 +123,23 @@ Deno.serve(async (req) => {
   const isIntercity=fromGovernorate!==toGovernorate;
   // Read through the authenticated customer session: pricing_settings grants
   // SELECT to authenticated only. Keep service-role access for request creation.
-  const {data:settings,error:settingsError}=await userClient.from("pricing_settings").select("*").eq("service_type",category).eq("is_intercity",isIntercity).single();
-  if(settingsError||!settings) {
+  const {data:settingsRows,error:settingsError}=await userClient.from("pricing_settings").select("*")
+    .in("service_type",["economy","premium","luxury"]).eq("is_intercity",isIntercity);
+  if(settingsError||!settingsRows?.length) {
     console.error("[auto-taxi-pricing] pricing settings lookup failed", settingsError?.code || "no_row");
     return json({error:"تعذّر قراءة تعريفة السيارة حالياً",code:"PRICING_SETTINGS_READ_FAILED"},503);
   }
-  const priceEstimate=fare(category,routed.distanceKm,routed.durationMin,{...settings,is_intercity:isIntercity},tripType,extraMinutes);
-  if(body.action==="quote") return json({...routed,priceEstimate,currency:"IQD",vehicleCategory:category});
+  const settings=settingsRows.find((row:any)=>row.service_type===category);
+  if(!settings) {
+    console.error("[auto-taxi-pricing] selected category pricing row missing",category,isIntercity);
+    return json({error:"تعذّر قراءة تعريفة السيارة المختارة",code:"PRICING_SETTINGS_READ_FAILED"},503);
+  }
+  const categoryPrices=Object.fromEntries(settingsRows.map((row:any)=>[
+    row.service_type,
+    fare(row.service_type as Category,routed.distanceKm,routed.durationMin,{...row,is_intercity:isIntercity},tripType,extraMinutes)
+  ])) as Record<Category,number>;
+  const priceEstimate=categoryPrices[category];
+  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
   const governorate=fromGovernorate;
   const couponCode=typeof body.couponCode==="string"&&body.couponCode.trim()?body.couponCode.trim().toUpperCase():null;
