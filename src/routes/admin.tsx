@@ -76,6 +76,7 @@ import {
 import { useServerFn } from "@tanstack/react-start";
 import AdminCompanySettings from "@/components/admin-company-settings";
 import RegionalControlsSection from "@/components/admin-regional-controls";
+import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
 
@@ -329,7 +330,7 @@ function AdminPage() {
           {section === "wallet" && <WalletSection />}
           {section === "map" && <MapSection />}
           {section === "notifications" && <NotificationsSection />}
-          {section === "regions" && <RegionalControlsSection />}
+          {section === "regions" && <><RegionalControlsSection /><AdminTaxiPricingControls /></>}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
