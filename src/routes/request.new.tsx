@@ -711,7 +711,7 @@ function NewRequest() {
                   ? `ابحث عن موقع الانطلاق في ${gov?.name ?? "محافظتك"}...`
                   : `ابحث عن وجهة الوصول في ${getGovernorate(destinationGovernorateKey)?.name ?? gov?.name ?? "المحافظة المختارة"}...`
               }
-              showLocateButton={true}
+              showLocateButton={mapStep === "pickup"}
               isFullScreen={true}
               searchTop={72}
               hideOutsideButtons={true}
@@ -778,7 +778,7 @@ function NewRequest() {
               className="h-11 w-11 rounded-2xl bg-white/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md shadow-lg border border-border/40 grid place-items-center btn-press text-foreground shrink-0"
               aria-label="رجوع"
             >
-              <ArrowRight className="h-5 w-5" />
+              <span className="grid h-8 w-8 place-items-center rounded-xl border border-amber-400/40 bg-gradient-to-br from-primary/10 to-amber-400/20 shadow-inner"><ArrowRight className="h-5 w-5 stroke-[2.8] text-primary" /></span>
             </button>
             <button
               type="button"
@@ -859,7 +859,7 @@ function NewRequest() {
                 className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-lg flex items-center justify-center gap-2 btn-press"
               >
                 <span>تأكيد الانطلاق</span>
-                <ArrowLeft className="h-5 w-5" />
+                <span className="grid h-8 w-8 place-items-center rounded-xl border border-white/30 bg-white/15 shadow-inner"><ArrowLeft className="h-5 w-5 stroke-[2.8] drop-shadow-sm" /></span>
               </button>
             </div>
           </div>
