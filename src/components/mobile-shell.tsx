@@ -23,7 +23,7 @@ export function MobileShell({ children, hideNav }: Props) {
       <main className={cn("flex-1 pb-28 relative", hideNav && "pb-0")}>{children}</main>
       {!hideNav && (
         <nav className="fixed bottom-0 inset-x-0 z-40 px-3 pb-3 pt-1 pointer-events-none">
-          <div className="glass-strong rounded-2xl shadow-card mx-auto max-w-md pointer-events-auto border border-border/50">
+          <div className="glass-strong rounded-3xl shadow-card mx-auto max-w-md pointer-events-auto border border-border/50">
             <ul className="grid grid-cols-4">
               {items.map(({ to, label, icon: Icon }) => {
                 const active = pathname === to || (to !== "/home" && pathname.startsWith(to));
@@ -33,7 +33,7 @@ export function MobileShell({ children, hideNav }: Props) {
                       to={to}
                       onClick={() => playClick("soft")}
                       className={cn(
-                        "flex min-h-[68px] flex-col items-center justify-center gap-1.5 py-4 tap-highlight-none btn-press transition-colors",
+                        "flex min-h-[78px] flex-col items-center justify-center gap-1.5 py-4 tap-highlight-none btn-press transition-colors",
                         active
                           ? "text-primary font-bold"
                           : "text-muted-foreground hover:text-foreground",
@@ -41,11 +41,11 @@ export function MobileShell({ children, hideNav }: Props) {
                     >
                       <Icon
                         className={cn(
-                          "h-6 w-6",
+                          "h-[26px] w-[26px]",
                           active && "drop-shadow-[0_0_8px_var(--color-primary)]",
                         )}
                       />
-                      <span className="text-xs font-extrabold">{label}</span>
+                      <span className="text-[13px] font-extrabold">{label}</span>
                     </Link>
                   </li>
                 );
