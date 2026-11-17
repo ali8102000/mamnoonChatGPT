@@ -1312,3 +1312,111 @@ export const adminUpdateUserProfile = createServerFn({ method: "POST" })
     if (error) throw new Error("فشل تحديث بيانات المستخدم: " + error.message);
     return profile;
   });
+
+
+// Central governance RPCs. Authorization and scope checks are enforced in PostgreSQL.
+export const adminGovernanceListStaff = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({}).parse(d))
+  .handler(async ({ context }) => {
+    const { data, error } = await (context.supabase as any).rpc("admin_list_managed_staff");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const adminGovernanceAssignStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(),
+    rank: z.enum(["general_manager", "department_manager", "supervisor", "employee"]),
+    department: z.enum(["executive", "customer_service", "finance", "operations", "monitoring"]),
+    display_title: z.string().max(100).optional(),
+    scope_type: z.enum(["global", "governorate"]),
+    scope_governorate: z.string().max(40).nullable().optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_assign_staff", {
+      p_target_user: data.target_user_id, p_rank: data.rank, p_department: data.department,
+      p_display_title: data.display_title ?? null, p_scope_type: data.scope_type,
+      p_scope_governorate: data.scope_type === "global" ? null : data.scope_governorate ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminGovernanceChangeRank = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(),
+    rank: z.enum(["general_manager", "department_manager", "supervisor", "employee"]),
+    department: z.enum(["executive", "customer_service", "finance", "operations", "monitoring"]).optional(),
+    display_title: z.string().max(100).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_change_staff_rank", {
+      p_target_user: data.target_user_id, p_new_rank: data.rank,
+      p_new_department: data.department ?? null, p_new_display_title: data.display_title ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminGovernanceDeactivateStaff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(), reason: z.string().min(3).max(500),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_deactivate_staff", {
+      p_target_user: data.target_user_id, p_reason: data.reason,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminGovernanceGrantPermission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    target_user_id: z.string().uuid(), permission_key: z.string().min(3).max(100),
+    scope_type: z.enum(["global", "governorate"]), scope_governorate: z.string().max(40).nullable().optional(),
+    expires_at: z.string().datetime().nullable().optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await (context.supabase as any).rpc("admin_grant_staff_permission", {
+      p_target_user: data.target_user_id, p_permission_key: data.permission_key,
+      p_scope_type: data.scope_type, p_scope_governorate: data.scope_type === "global" ? null : data.scope_governorate ?? null,
+      p_expires_at: data.expires_at ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { id };
+  });
+
+export const adminGovernanceCreateDelegation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    delegate_id: z.string().uuid(), permission_key: z.string().min(3).max(100),
+    scope_type: z.enum(["global", "governorate"]), scope_governorate: z.string().max(40).nullable().optional(),
+    expires_at: z.string().datetime().nullable().optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await (context.supabase as any).rpc("admin_create_delegation", {
+      p_delegate_id: data.delegate_id, p_permission_key: data.permission_key,
+      p_scope_type: data.scope_type, p_scope_governorate: data.scope_type === "global" ? null : data.scope_governorate ?? null,
+      p_expires_at: data.expires_at ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { id };
+  });
+
+export const adminGovernanceReviewApproval = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    request_id: z.string().uuid(), decision: z.enum(["approved", "rejected"]), note: z.string().max(500).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_review_approval", {
+      p_request_id: data.request_id, p_decision: data.decision, p_note: data.note ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
