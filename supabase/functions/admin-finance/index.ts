@@ -35,18 +35,21 @@ Deno.serve(async (req: Request) => {
     });
     const { data: auth, error: authError } = await caller.auth.getUser(token);
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
-    const { data: financeAccess, error: financeAccessError } = await caller.rpc(
-      "has_subscription_admin_access",
-      { p_user_id: auth.user.id },
-    );
-    if (financeAccessError || financeAccess !== true) return json({ error: "forbidden" }, 403);
-
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
-    const requireAdmin = async () => {
-      const { data, error } = await caller.rpc("has_admin_access", { p_user_id: auth.user.id });
-      if (error || data !== true) throw new Error("admin_required");
+    const requirePermission = async (permissionKey: string, allowLegacyFinance = true) => {
+      const { data: permission, error: permissionError } = await caller.rpc("admin_has_permission", {
+        p_permission_key: permissionKey, p_scope_type: "global", p_scope_governorate: null,
+      });
+      if (!permissionError && permission === true) return;
+      const [adminAccess, financeAccess] = await Promise.all([
+        caller.rpc("has_admin_access", { p_user_id: auth.user.id }),
+        allowLegacyFinance
+          ? caller.rpc("has_subscription_admin_access", { p_user_id: auth.user.id })
+          : Promise.resolve({ data: false, error: null }),
+      ]);
+      if (adminAccess.data !== true && financeAccess.data !== true) throw new Error("permission_required:" + permissionKey);
     };
     const rpc = async (name: string, args: Record<string, unknown>) => {
       const { data, error } = await caller.rpc(name, args);
@@ -55,7 +58,7 @@ Deno.serve(async (req: Request) => {
     };
 
     if (body.action === "search_users") {
-      await requireAdmin();
+      await requirePermission("finance.wallet.adjust", false);
       const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
       if (query.length < 2) return json({ error: "query_too_short" }, 400);
       const safe = query.replace(/[,%()]/g, " ");
@@ -68,6 +71,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "list") {
+      await requirePermission("finance.read");
+      await requirePermission("promotions.read");
       const [transactions, coupons] = await Promise.all([
         admin.from("transactions").select("*, profiles!inner(full_name,phone)")
           .order("created_at", { ascending: false }).limit(200),
@@ -78,7 +83,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "adjust_wallet") {
-      await requireAdmin();
       if (!uuid(body.user_id) || typeof body.amount !== "number" || !Number.isFinite(body.amount) ||
           body.amount <= 0 || body.amount > 1000000000 ||
           !["credit", "debit"].includes(body.type) ||
@@ -93,7 +97,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "save_coupon") {
-      await requireAdmin();
       if ((body.id !== undefined && !uuid(body.id)) ||
           typeof body.code !== "string" || body.code.trim().length < 2 || body.code.length > 50 ||
           !["percentage", "fixed"].includes(body.type) ||
@@ -114,7 +117,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "audience_count") {
-      await requireAdmin();
+      await requirePermission("promotions.read");
       if (!targets.includes(body.target)) return json({ error: "invalid_target" }, 400);
       const { data, error } = await caller.rpc("admin_coupon_audience_count", { p_target: body.target });
       if (error) return json({ error: error.message }, 400);
@@ -122,7 +125,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "distribute_coupon") {
-      await requireAdmin();
       if (!uuid(body.coupon_id) || !targets.includes(body.target) ||
           (body.target === "single" ? !uuid(body.single_user_id) :
             (body.single_user_id !== undefined && !uuid(body.single_user_id)))) {
@@ -137,14 +139,13 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "subsidy_report") {
-      await requireAdmin();
+      await requirePermission("promotions.read");
       const { data, error } = await caller.rpc("admin_coupon_subsidy_report");
       if (error) return json({ error: error.message }, 400);
       return json({ report: Array.isArray(data) ? data[0] ?? null : data });
     }
 
     if (body.action === "delete_coupon") {
-      await requireAdmin();
       if (!uuid(body.coupon_id)) return json({ error: "invalid_coupon_id" }, 400);
       return await rpc("admin_delete_coupon", { p_coupon_id: body.coupon_id });
     }
@@ -153,7 +154,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     const message = String(error);
     if (message.includes("missing_")) return json({ error: "server_configuration_incomplete" }, 503);
-    if (message.includes("admin_required")) return json({ error: "admin_required" }, 403);
+    if (message.includes("permission_required:")) return json({ error: "permission_required" }, 403);
     return json({ error: "internal_error" }, 500);
   }
 });
