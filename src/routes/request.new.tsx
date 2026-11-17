@@ -212,9 +212,29 @@ function NewRequest() {
   }
   function confirmDest(c = destCoords) {
     if (!c) return;
-    if (gov && !interCity && !isInGovernorate(c, gov.key)) {
-      toast.error(`الوجهة خارج ${gov.name}. اختر "رحلة لمحافظة أخرى" إذا تريد السفر.`);
+    if (!gov) {
+      toast.error("اختر محافظة الانطلاق أولاً.");
       return;
+    }
+    if (!interCity && !isInGovernorate(c, gov.key)) {
+      setInterCity(true);
+      setDestinationGovernorateKey(null);
+      setDestConfirmed(false);
+      toast.error(`أنت خارج محافظتك (${gov.name})، يرجى تحديد المحافظة المراد التوجه إليها.`);
+      return;
+    }
+    if (interCity) {
+      const target = getGovernorate(destinationGovernorateKey);
+      if (!target) {
+        setDestConfirmed(false);
+        toast.error("أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها أولاً.");
+        return;
+      }
+      if (!isInGovernorate(c, target.key)) {
+        setDestConfirmed(false);
+        toast.error(`الموقع المحدد خارج محافظة ${target.name}. حرّك الخريطة إلى داخلها.`);
+        return;
+      }
     }
     setDestConfirmed(true);
   }
@@ -337,7 +357,7 @@ function NewRequest() {
     const t = setTimeout(async () => {
       try {
         const { data, error } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled },
         });
         if (error) throw error;
         if (stale) return;
@@ -353,7 +373,7 @@ function NewRequest() {
       } catch (e) { if (!stale) setRouteError(arabicWarning(e)); }
     }, 350);
     return () => { stale = true; clearTimeout(t); };
-  }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity, urgencyEnabled, routeRetry]);
+  }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity, destinationGovernorateKey, govKey, urgencyEnabled, routeRetry]);
 
   useEffect(() => {
     if (pickupLat == null || pickupLng == null) return;
@@ -433,7 +453,10 @@ function NewRequest() {
     }
     setMapStep("dest");
     setDestConfirmed(false);
-    if (!destCoords) setDestCoords(pickupCoords);
+    setInterCity(false);
+    setDestinationGovernorateKey(gov?.key ?? governorateOf(pickupCoords).key);
+    setDestCoords(pickupCoords);
+    setDestLabel(pickupLabel || gov?.name || "موقع الانطلاق");
   }
 
   // Submit Request
@@ -445,6 +468,10 @@ function NewRequest() {
     }
     if (type === "taxi" && vehicle !== "large" && !destCoords) {
       toast.error("يرجى تحديد موقع الوجهة على الخريطة لحساب المسافة بدقة");
+      return;
+    }
+    if (type === "taxi" && vehicle !== "large" && interCity && !destinationGovernorateKey) {
+      toast.error("أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها.");
       return;
     }
     if (type === "taxi" && vehicle !== "large" && (!destConfirmed || routeKm === null || routeError)) {
@@ -501,7 +528,7 @@ function NewRequest() {
       let error: any;
       if (type === "taxi" && vehicle !== "large") {
         const { data: secureTaxi, error: secureTaxiError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, urgencyEnabled, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
+          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
         });
         if (secureTaxiError) throw secureTaxiError;
         if (!secureTaxi?.requestId) throw new Error(secureTaxi?.error || "تعذّر إنشاء طلب التاكسي.");
@@ -892,7 +919,13 @@ function NewRequest() {
                 {interCity ? "✓ رحلة لمحافظة أخرى" : "رحلة لمحافظة أخرى؟"}
               </button>
               {interCity && (
-                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                <div className="space-y-2">
+                  {!destinationGovernorateKey && (
+                    <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                      أنت خارج محافظتك، اختر المحافظة المراد التوجه إليها حتى نعرض أماكنها فقط
+                    </p>
+                  )}
+                  <div className="flex gap-1.5 overflow-x-auto pb-1">
                   {GOVERNORATES.filter((g) => g.key !== gov?.key).map((g) => (
                     <button
                       key={g.key}
@@ -909,11 +942,12 @@ function NewRequest() {
                       {destinationGovernorateKey === g.key ? `✓ ${g.name}` : g.name}
                     </button>
                   ))}
+                  </div>
                 </div>
               )}
               <button
                 type="button"
-                disabled={!destCoords}
+                disabled={!destCoords || (interCity && !destinationGovernorateKey)}
                 onClick={() => confirmDest()}
                 className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-lg flex items-center justify-center gap-2 btn-press disabled:opacity-50"
               >
