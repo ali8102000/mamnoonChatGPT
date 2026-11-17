@@ -230,6 +230,9 @@ async function handleRequest(request: Request) {
     ? getGovernorate(data.destinationGovernorateKey)
     : governorateOf(data.to);
   if (!fromGovernorate || !toGovernorate) return json({ error: "تعذّر تحديد المحافظتين." }, 400);
+  if (fromGovernorate.key !== toGovernorate.key && !data.destinationGovernorateKey) {
+    return json({ error: "أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها." }, 400);
+  }
   if (
     !isInGovernorate(data.from, fromGovernorate.key) ||
     !isInGovernorate(data.to, toGovernorate.key)
