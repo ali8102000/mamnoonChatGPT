@@ -75,7 +75,6 @@ DECLARE
   v_min numeric;
   v_zone integer;
   v_count integer := 0;
-  v_dispatch_type text;
 BEGIN
   SELECT * INTO r FROM public.service_requests WHERE id = _request_id FOR UPDATE;
   IF NOT FOUND THEN
@@ -91,10 +90,6 @@ BEGIN
     RETURN 0;
   END IF;
   IF q.next_at > now() THEN RETURN 0; END IF;
-
-  v_dispatch_type := CASE WHEN r.vehicle_category::text = 'large' THEN 'large_driver' ELSE 'taxi' END;
-  SELECT min_km, max_km INTO v_min, v_radius
-  FROM public.get_dispatch_ring(v_dispatch_type, q.stage);
 
   UPDATE public.request_offers
   SET status = 'expired', responded_at = now()
@@ -284,9 +279,6 @@ BEGIN
     RETURN 0;
   END IF;
   IF q.next_at > now() THEN RETURN 0; END IF;
-
-  SELECT min_km, max_km INTO v_min, v_radius
-  FROM public.get_dispatch_ring('technician', q.stage);
 
   UPDATE public.request_offers
   SET status = 'expired', responded_at = now()
