@@ -156,3 +156,11 @@ The governance migration now includes the first server-side RPC layer:
 Verification so far: the full migration (including its functions, policies, grants and indexes) executed successfully inside a database transaction and was rolled back. A follow-up query confirmed that no new tables, columns or RPCs were left in production. This is a SQL syntax/DDL transaction test only, not a live authorization matrix test.
 
 Still not implemented: permission-aware admin navigation and screens, pricing write RPC/Edge Function integration, coupons/campaign controls, and native Android parity. Existing legacy staff RPCs and the direct client upsert in the taxi peak/urgency screen still need to be retired or routed through these controls before release. Do not apply this migration to production yet.
+
+Pricing write-path update on this branch:
+- admin_update_taxi_pricing_control validates the governorate and percentage limits, enforces pricing.peak.edit in global or governorate scope, writes the existing taxi_pricing_controls row, and records before/after values in audit_logs.
+- admin_update_taxi_pricing_settings updates only economy/premium/luxury tariff rows, enforces pricing.taxi.edit, preserves the 1,000 IQD minimum, and records before/after values.
+- Direct authenticated INSERT/UPDATE/DELETE is revoked for taxi_pricing_controls and pricing_settings; authenticated reads remain available for quote rendering.
+- The web peak/urgency component now calls the audited RPC instead of direct upsert.
+
+Important: the migration has only been transaction-tested and rolled back. The web component has not yet been built/tested against the RPCs, and Android admin parity is not addressed in this phase.
