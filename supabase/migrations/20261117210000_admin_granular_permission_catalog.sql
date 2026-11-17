@@ -4,7 +4,7 @@
 begin;
 
 insert into public.admin_permission_catalog
-  (permission_key, domain, label_ar, risk_level, description, active)
+  (permission_key, domain, label_ar, risk_level, description)
 values
   -- Dashboard and analytics
   ('dashboard.view','overview','عرض لوحة القيادة','normal','عرض مؤشرات التشغيل والتنبيهات'),
