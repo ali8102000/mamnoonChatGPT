@@ -1,24 +1,16 @@
--- Mamnoon hierarchical administration, scoped delegation, and pricing governance.
--- Additive migration: preserves existing staff and pricing records.
+-- Mamnoon unified administration governance foundation.
+-- Uses one permission catalog, one grants table, one delegation table,
+-- and one approval queue. Platform-wide changes are audited in audit_logs.
 begin;
 
 alter table public.staff_assignments
   add column if not exists created_by uuid references auth.users(id) on delete set null,
   add column if not exists scope_type text
     check (scope_type in ('global','governorate')),
-  add column if not exists scope_governorate text,
-  add column if not exists can_manage_pricing boolean not null default false,
-  add column if not exists can_review_staff_requests boolean not null default false;
+  add column if not exists scope_governorate text;
 
--- Existing rows intentionally keep created_by NULL: assigned_by is mutable
--- (rank changes overwrite it) and is not reliable proof of original creator.
--- NULL scope is fail-closed until an owner explicitly configures it.
-
-create index if not exists staff_assignments_created_by_idx
-  on public.staff_assignments(created_by);
-create index if not exists staff_assignments_scope_idx
-  on public.staff_assignments(scope_type, scope_governorate);
-
+-- Legacy creator is intentionally NULL: assigned_by is mutable and cannot
+-- prove who originally created an existing staff assignment.
 alter table public.staff_assignments
   drop constraint if exists staff_assignments_scope_governorate_check;
 alter table public.staff_assignments
@@ -26,163 +18,189 @@ alter table public.staff_assignments
   check (
     (scope_type is null and scope_governorate is null)
     or (scope_type = 'global' and scope_governorate is null)
-    or
-    (scope_type = 'governorate' and scope_governorate in
+    or (scope_type = 'governorate' and scope_governorate in
       ('baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk',
        'najaf','karbala','babil','anbar','diyala','saladin','wasit',
        'dhiqar','maysan','muthanna','qadisiyah'))
   );
+create index if not exists staff_assignments_created_by_idx
+  on public.staff_assignments(created_by);
+create index if not exists staff_assignments_scope_idx
+  on public.staff_assignments(scope_type, scope_governorate);
 
-create table if not exists public.staff_governance_requests (
-  id uuid primary key default gen_random_uuid(),
-  requester_id uuid not null references auth.users(id) on delete restrict,
-  target_user_id uuid references auth.users(id) on delete restrict,
-  request_type text not null check (request_type in
-    ('assign_staff','change_rank','deactivate_staff','change_scope','grant_permission','revoke_permission')),
-  payload jsonb not null default '{}'::jsonb,
-  status text not null default 'pending' check (status in ('pending','approved','rejected','cancelled')),
-  reviewed_by uuid references auth.users(id) on delete set null,
-  review_note text,
-  reviewed_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint staff_governance_review_consistency check (
-    (status = 'pending' and reviewed_by is null and reviewed_at is null)
-    or (status <> 'pending')
-  )
-);
-
-create index if not exists staff_governance_requests_status_created_idx
-  on public.staff_governance_requests(status, created_at desc);
-create index if not exists staff_governance_requests_requester_idx
-  on public.staff_governance_requests(requester_id, created_at desc);
-
-create table if not exists public.staff_governance_delegations (
-  id uuid primary key default gen_random_uuid(),
-  owner_id uuid not null references auth.users(id) on delete cascade,
-  delegate_id uuid not null references auth.users(id) on delete cascade,
-  can_review_staff_requests boolean not null default false,
-  can_review_pricing_requests boolean not null default false,
+-- One normalized catalog for every administration capability.
+create table if not exists public.admin_permission_catalog (
+  permission_key text primary key,
+  domain text not null,
+  label_ar text not null,
+  risk_level text not null default 'normal'
+    check (risk_level in ('normal','sensitive','critical')),
+  description text not null default '',
   active boolean not null default true,
-  expires_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique(owner_id, delegate_id),
-  check (owner_id <> delegate_id)
-);
-
-create table if not exists public.pricing_change_audit (
-  id uuid primary key default gen_random_uuid(),
-  pricing_setting_id uuid references public.pricing_settings(id) on delete set null,
-  actor_id uuid not null references auth.users(id) on delete restrict,
-  governorate_key text,
-  before_values jsonb not null default '{}'::jsonb,
-  after_values jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.pricing_governance_requests (
+insert into public.admin_permission_catalog
+  (permission_key, domain, label_ar, risk_level, description)
+values
+ ('dashboard.view','overview','عرض لوحة القيادة','normal','قراءة مؤشرات لوحة القيادة'),
+ ('users.read','users','عرض العملاء','normal','قراءة بيانات العملاء المسموح بها'),
+ ('users.block','users','حظر العملاء','sensitive','حظر أو رفع حظر مستخدم مع سبب'),
+ ('users.profile.edit','users','تعديل بيانات العملاء','sensitive','تعديل بيانات الملف الشخصي المسموح بها'),
+ ('providers.read','providers','عرض مقدمي الخدمة','normal','قراءة ملفات السائقين والفنيين'),
+ ('providers.verify','providers','توثيق مقدمي الخدمة','sensitive','قبول أو رفض التوثيق مع سبب'),
+ ('providers.suspend','providers','إيقاف مقدمي الخدمة','sensitive','إيقاف أو إعادة تفعيل مقدم خدمة'),
+ ('orders.read','orders','عرض الطلبات','normal','قراءة الطلبات ضمن النطاق'),
+ ('orders.assign','orders','إدارة التعيين','sensitive','تعيين أو إعادة توزيع الطلبات'),
+ ('orders.override','orders','التدخل بالطلبات','critical','تعديل حالة أو إلغاء طلب مع تسجيل السبب'),
+ ('pricing.taxi.read','pricing','عرض تعرفة التاكسي','normal','قراءة تعرفة التاكسي'),
+ ('pricing.taxi.edit','pricing','تعديل تعرفة التاكسي','critical','تعديل أجور الانطلاق والكيلومتر والدقيقة والحد الأدنى'),
+ ('pricing.peak.edit','pricing','إدارة الذروة والاستعجال','critical','تفعيل وتعديل الذروة والاستعجال ضمن النطاق'),
+ ('pricing.services.edit','pricing','تسعير الخدمات','critical','تعديل تعرفة الخدمات غير التاكسي'),
+ ('pricing.commission.edit','pricing','إدارة العمولات','critical','تعديل عمولات المنصة ومقدم الخدمة'),
+ ('promotions.read','promotions','عرض الخصومات','normal','قراءة الكوبونات والحملات'),
+ ('promotions.manage','promotions','إدارة الخصومات','sensitive','إنشاء وتعديل وإيقاف الكوبونات والحملات'),
+ ('finance.read','finance','عرض التقارير المالية','sensitive','قراءة السجلات المالية ضمن النطاق'),
+ ('finance.wallet.adjust','finance','تسوية المحفظة','critical','إجراء قيد تسوية مسبب في دفتر الأستاذ'),
+ ('finance.refund','finance','إرجاع المدفوعات','critical','إجراء استرداد مدفوعات'),
+ ('subscriptions.manage','subscriptions','إدارة الاشتراكات','sensitive','إدارة الخطط والاستحقاقات'),
+ ('support.manage','support','إدارة الدعم','normal','إدارة التذاكر والمحادثات المصرح بها'),
+ ('notifications.send','communications','إرسال الإشعارات','sensitive','إنشاء وإرسال حملات الإشعارات'),
+ ('regions.manage','regions','إدارة المحافظات','critical','تفعيل أو إيقاف الخدمات والإعدادات الإقليمية'),
+ ('staff.read','staff','عرض الموظفين','normal','عرض الموظفين ضمن نطاق الإدارة'),
+ ('staff.assign','staff','إضافة الموظفين','critical','إضافة موظف بصلاحيات لا تتجاوز صلاحيات المانح'),
+ ('staff.manage_created','staff','إدارة الموظفين الذين أضافهم','critical','إدارة الموظفين الذين أنشأهم المدير حصراً'),
+ ('staff.delegate','staff','تفويض الصلاحيات','critical','تفويض مجموعة صلاحيات محددة ضمن النطاق'),
+ ('staff.approve','staff','مراجعة طلبات الموظفين','critical','الموافقة أو الرفض وفق صلاحية التفويض'),
+ ('settings.manage','platform','إعدادات المنصة','critical','إدارة الإعدادات التشغيلية غير السرية'),
+ ('audit.read','audit','قراءة سجل التدقيق','sensitive','قراءة سجل العمليات ضمن النطاق'),
+ ('reports.export','reports','تصدير التقارير','sensitive','تصدير البيانات المسموح بها')
+on conflict (permission_key) do update set
+ domain=excluded.domain, label_ar=excluded.label_ar,
+ risk_level=excluded.risk_level, description=excluded.description, active=true;
+
+-- Grants are explicit, scoped, time-bounded and revocable.
+create table if not exists public.admin_staff_permission_grants (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  permission_key text not null references public.admin_permission_catalog(permission_key),
+  scope_type text not null check (scope_type in ('global','governorate')),
+  scope_governorate text,
+  granted_by uuid not null references auth.users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz,
+  revoked_at timestamptz,
+  revoked_by uuid references auth.users(id) on delete set null,
+  check ((scope_type='global' and scope_governorate is null) or
+         (scope_type='governorate' and scope_governorate in
+          ('baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk',
+           'najaf','karbala','babil','anbar','diyala','saladin','wasit',
+           'dhiqar','maysan','muthanna','qadisiyah')))
+);
+create unique index if not exists admin_staff_permission_grants_active_unique
+  on public.admin_staff_permission_grants
+  (user_id, permission_key, scope_type, coalesce(scope_governorate,''))
+  where revoked_at is null;
+create index if not exists admin_staff_permission_grants_user_idx
+  on public.admin_staff_permission_grants(user_id, permission_key)
+  where revoked_at is null;
+
+-- Delegations are permission-by-permission; they cannot widen the delegator's scope.
+create table if not exists public.admin_staff_delegations (
+  id uuid primary key default gen_random_uuid(),
+  delegator_id uuid not null references auth.users(id) on delete restrict,
+  delegate_id uuid not null references auth.users(id) on delete cascade,
+  permission_key text not null references public.admin_permission_catalog(permission_key),
+  scope_type text not null check (scope_type in ('global','governorate')),
+  scope_governorate text,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz,
+  revoked_at timestamptz,
+  revoked_by uuid references auth.users(id) on delete set null,
+  check (delegator_id <> delegate_id),
+  check ((scope_type='global' and scope_governorate is null) or
+         (scope_type='governorate' and scope_governorate in
+          ('baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk',
+           'najaf','karbala','babil','anbar','diyala','saladin','wasit',
+           'dhiqar','maysan','muthanna','qadisiyah')))
+);
+create unique index if not exists admin_staff_delegations_active_unique
+  on public.admin_staff_delegations
+  (delegator_id, delegate_id, permission_key, scope_type, coalesce(scope_governorate,''))
+  where revoked_at is null;
+create index if not exists admin_staff_delegations_delegate_idx
+  on public.admin_staff_delegations(delegate_id, permission_key)
+  where revoked_at is null;
+
+-- One queue for staff, pricing, finance, moderation and configuration approvals.
+create table if not exists public.admin_approval_requests (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid not null references auth.users(id) on delete restrict,
-  governorate_key text,
-  pricing_setting_id uuid references public.pricing_settings(id) on delete set null,
-  proposed_values jsonb not null,
-  status text not null default 'pending' check (status in ('pending','approved','rejected','cancelled')),
+  request_type text not null check (request_type in (
+    'staff_assign','staff_rank_change','staff_permission_change','staff_scope_change',
+    'staff_deactivate','pricing_change','promotion_publish','wallet_adjustment',
+    'payment_refund','provider_action','order_override','platform_setting_change'
+  )),
+  target_user_id uuid references auth.users(id) on delete restrict,
+  scope_type text not null default 'global' check (scope_type in ('global','governorate')),
+  scope_governorate text,
+  payload jsonb not null default '{}'::jsonb,
+  status text not null default 'pending'
+    check (status in ('pending','approved','rejected','cancelled','applied','failed')),
   reviewed_by uuid references auth.users(id) on delete set null,
-  review_note text,
-  reviewed_at timestamptz,
+  decision_note text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  check (governorate_key is null or governorate_key in
-    ('baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk',
-     'najaf','karbala','babil','anbar','diyala','saladin','wasit',
-     'dhiqar','maysan','muthanna','qadisiyah'))
+  reviewed_at timestamptz,
+  applied_at timestamptz,
+  check ((scope_type='global' and scope_governorate is null) or
+         (scope_type='governorate' and scope_governorate in
+          ('baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk',
+           'najaf','karbala','babil','anbar','diyala','saladin','wasit',
+           'dhiqar','maysan','muthanna','qadisiyah')))
 );
+create index if not exists admin_approval_requests_status_idx
+  on public.admin_approval_requests(status, created_at desc);
+create index if not exists admin_approval_requests_requester_idx
+  on public.admin_approval_requests(requester_id, created_at desc);
 
-create index if not exists pricing_governance_requests_status_idx
-  on public.pricing_governance_requests(status, created_at desc);
+-- Existing audit_logs is the canonical platform-wide audit trail.
+-- Pricing before/after, staff changes, approvals and financial actions belong there;
+-- no duplicate pricing-specific or governance-specific audit tables are created.
 
-create or replace function public.staff_scope_allows(p_actor uuid, p_governorate text)
-returns boolean
-language sql stable security invoker
-set search_path = public, pg_temp
-as $$
-  select p_actor = auth.uid() and (public.is_super_admin(auth.uid())
-    or exists (
-      select 1 from public.staff_assignments a
-      where a.user_id = p_actor and a.active = true
-        and (a.scope_type = 'global'
-          or (a.scope_type = 'governorate' and a.scope_governorate = p_governorate))
-    ));
-$$;
+alter table public.admin_permission_catalog enable row level security;
+alter table public.admin_staff_permission_grants enable row level security;
+alter table public.admin_staff_delegations enable row level security;
+alter table public.admin_approval_requests enable row level security;
 
-create or replace function public.staff_can_review_requests(p_actor uuid, p_kind text)
-returns boolean
-language sql stable security invoker
-set search_path = public, pg_temp
-as $$
-  select p_actor = auth.uid() and (public.is_super_admin(auth.uid())
-    or exists (
-      select 1 from public.staff_governance_delegations d
-      where d.owner_id = 'a06c0102-c5c8-488c-9309-8a320b400df1'::uuid
-        and d.delegate_id = p_actor and d.active = true
-        and (d.expires_at is null or d.expires_at > now())
-        and case p_kind
-          when 'staff' then d.can_review_staff_requests
-          when 'pricing' then d.can_review_pricing_requests
-          else false end
-    ));
-$$;
+drop policy if exists admin_permission_catalog_read on public.admin_permission_catalog;
+create policy admin_permission_catalog_read on public.admin_permission_catalog
+for select to authenticated using (active = true);
 
-alter table public.staff_governance_requests enable row level security;
-alter table public.staff_governance_delegations enable row level security;
-alter table public.pricing_change_audit enable row level security;
-alter table public.pricing_governance_requests enable row level security;
-
-drop policy if exists staff_governance_requests_read on public.staff_governance_requests;
-create policy staff_governance_requests_read on public.staff_governance_requests
+drop policy if exists admin_staff_permission_grants_read on public.admin_staff_permission_grants;
+create policy admin_staff_permission_grants_read on public.admin_staff_permission_grants
 for select to authenticated
-using (
-  public.is_super_admin(auth.uid())
-  or requester_id = auth.uid()
-  or public.staff_can_review_requests(auth.uid(),'staff')
-);
+using (user_id = (select auth.uid()) or granted_by = (select auth.uid())
+  or public.is_super_admin((select auth.uid())));
 
-drop policy if exists staff_governance_delegations_owner_read on public.staff_governance_delegations;
-create policy staff_governance_delegations_owner_read on public.staff_governance_delegations
+drop policy if exists admin_staff_delegations_read on public.admin_staff_delegations;
+create policy admin_staff_delegations_read on public.admin_staff_delegations
 for select to authenticated
-using (owner_id = auth.uid() or delegate_id = auth.uid() or public.is_super_admin(auth.uid()));
+using (delegator_id = (select auth.uid()) or delegate_id = (select auth.uid())
+  or public.is_super_admin((select auth.uid())));
 
-drop policy if exists pricing_change_audit_read on public.pricing_change_audit;
-create policy pricing_change_audit_read on public.pricing_change_audit
+drop policy if exists admin_approval_requests_read on public.admin_approval_requests;
+create policy admin_approval_requests_read on public.admin_approval_requests
 for select to authenticated
-using (
-  public.is_super_admin(auth.uid())
-  or actor_id = auth.uid()
-  or (governorate_key is not null and public.staff_scope_allows(auth.uid(),governorate_key))
-);
+using (requester_id = (select auth.uid()) or reviewed_by = (select auth.uid())
+  or public.is_super_admin((select auth.uid())));
 
-drop policy if exists pricing_governance_requests_read on public.pricing_governance_requests;
-create policy pricing_governance_requests_read on public.pricing_governance_requests
-for select to authenticated
-using (
-  public.is_super_admin(auth.uid())
-  or requester_id = auth.uid()
-  or public.staff_can_review_requests(auth.uid(),'pricing')
-);
-
-revoke all on public.staff_governance_requests from anon, authenticated;
-revoke all on public.staff_governance_delegations from anon, authenticated;
-revoke all on public.pricing_change_audit from anon, authenticated;
-revoke all on public.pricing_governance_requests from anon, authenticated;
-grant select on public.staff_governance_requests to authenticated;
-grant select on public.staff_governance_delegations to authenticated;
-grant select on public.pricing_change_audit to authenticated;
-grant select on public.pricing_governance_requests to authenticated;
-
-revoke all on function public.staff_scope_allows(uuid,text) from public, anon;
-revoke all on function public.staff_can_review_requests(uuid,text) from public, anon;
-grant execute on function public.staff_scope_allows(uuid,text) to authenticated;
-grant execute on function public.staff_can_review_requests(uuid,text) to authenticated;
+revoke all on public.admin_permission_catalog from anon, authenticated;
+revoke all on public.admin_staff_permission_grants from anon, authenticated;
+revoke all on public.admin_staff_delegations from anon, authenticated;
+revoke all on public.admin_approval_requests from anon, authenticated;
+grant select on public.admin_permission_catalog to authenticated;
+grant select on public.admin_staff_permission_grants to authenticated;
+grant select on public.admin_staff_delegations to authenticated;
+grant select on public.admin_approval_requests to authenticated;
 
 commit;
