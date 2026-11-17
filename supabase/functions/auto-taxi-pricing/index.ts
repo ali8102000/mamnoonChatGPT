@@ -141,13 +141,16 @@ Deno.serve(async (req) => {
   // Read through the authenticated customer session: pricing_settings grants
   // SELECT to authenticated only. Keep service-role access for request creation.
   const {data:settingsRows,error:settingsError}=await userClient.from("pricing_settings").select("*")
+    .in("governorate_key",["all",fromGovernorate])
     .in("service_type",["economy","premium","luxury"]).eq("is_intercity",isIntercity);
   if(settingsError||!settingsRows?.length) {
     console.error("[auto-taxi-pricing] pricing settings lookup failed", settingsError?.code || "no_row");
     return json({error:"تعذّر قراءة تعريفة السيارة حالياً",code:"PRICING_SETTINGS_READ_FAILED"},503);
   }
-  const settings=settingsRows.find((row:any)=>row.service_type===category);
-  const economySettings=settingsRows.find((row:any)=>row.service_type==="economy");
+  const effectiveSettings=(serviceType:string)=>settingsRows.find((row:any)=>row.service_type===serviceType&&row.governorate_key===fromGovernorate)
+    ||settingsRows.find((row:any)=>row.service_type===serviceType&&row.governorate_key==="all");
+  const settings=effectiveSettings(category);
+  const economySettings=effectiveSettings("economy");
   if(!settings||!economySettings) {
     console.error("[auto-taxi-pricing] category pricing row missing",category,isIntercity);
     return json({error:"تعذّر قراءة تعريفة السيارة المختارة",code:"PRICING_SETTINGS_READ_FAILED"},503);
@@ -167,7 +170,8 @@ Deno.serve(async (req) => {
   const urgencyPercent=urgencyEnabled
     ? Math.max(0,Math.min(100,Number(globalControls?.urgency_max_percent)||0)) : 0;
   const economyRaw=Number(economySettings.base_fare)+routed.distanceKm*Number(economySettings.per_km_rate)+routed.durationMin*Number(economySettings.per_min_rate);
-  const categoryPrices=Object.fromEntries(settingsRows.map((row:any)=>{
+  const effectiveRows=(["economy","premium","luxury"] as Category[]).map((serviceType)=>effectiveSettings(serviceType)).filter(Boolean);
+  const categoryPrices=Object.fromEntries(effectiveRows.map((row:any)=>{
     const selectedUrgency=row.service_type===category?urgencyPercent:0;
     return [row.service_type,fare(row.service_type as Category,economyRaw,{...row,is_intercity:isIntercity},tripType,extraMinutes,peakPercent,selectedUrgency)];
   })) as Record<Category,number>;
