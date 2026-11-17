@@ -209,12 +209,12 @@ grant select on public.admin_approval_requests to authenticated;
 create or replace function public.admin_permission_level(p_rank text)
 returns integer language sql immutable
 set search_path = ''
-as $
+as $function$
   select case p_rank
     when 'owner' then 5 when 'general_manager' then 4
     when 'department_manager' then 3 when 'supervisor' then 2
     when 'employee' then 1 else 0 end
-$;
+$function$;
 
 create or replace function public.admin_has_permission(
   p_permission_key text,
@@ -224,7 +224,7 @@ create or replace function public.admin_has_permission(
 returns boolean
 language plpgsql stable security definer
 set search_path = public, pg_temp
-as $
+as $function$
 declare v_actor uuid := auth.uid();
 begin
   if v_actor is null then return false; end if;
@@ -256,13 +256,13 @@ begin
             and g.scope_governorate=d.scope_governorate))
   );
 end;
-$;
+$function$;
 
 create or replace function public.admin_can_manage_staff(p_target_user uuid)
 returns boolean
 language plpgsql stable security definer
 set search_path = public, pg_temp
-as $
+as $function$
 declare v_actor uuid := auth.uid(); v_actor_rank text; v_target_rank text;
 begin
   if v_actor is null or p_target_user is null or p_target_user=v_actor then return false; end if;
@@ -275,7 +275,7 @@ begin
   return v_target_rank is not null
     and public.admin_permission_level(v_target_rank) < public.admin_permission_level(v_actor_rank);
 end;
-$;
+$function$;
 
 create or replace function public.admin_assign_staff(
   p_target_user uuid,
@@ -288,7 +288,7 @@ create or replace function public.admin_assign_staff(
 returns void
 language plpgsql security definer
 set search_path = public, pg_temp
-as $
+as $function$
 declare
   v_actor uuid := auth.uid();
   v_actor_rank text;
@@ -345,7 +345,7 @@ begin
     jsonb_build_object('rank',p_rank,'department',p_department,'scope_type',p_scope_type,
       'scope_governorate',p_scope_governorate,'display_title',p_display_title));
 end;
-$;
+$function$;
 
 create or replace function public.admin_grant_staff_permission(
   p_target_user uuid,
@@ -357,7 +357,7 @@ create or replace function public.admin_grant_staff_permission(
 returns uuid
 language plpgsql security definer
 set search_path = public, pg_temp
-as $
+as $function$
 declare v_actor uuid := auth.uid(); v_id uuid; v_actor_scope_type text; v_actor_scope_governorate text;
 begin
   if v_actor is null then raise exception 'unauthorized'; end if;
@@ -396,13 +396,13 @@ begin
       'scope_governorate',p_scope_governorate,'expires_at',p_expires_at));
   return v_id;
 end;
-$;
+$function$;
 
 create or replace function public.admin_revoke_staff_permission(p_grant_id uuid)
 returns void
 language plpgsql security definer
 set search_path = public, pg_temp
-as $
+as $function$
 declare v_actor uuid := auth.uid(); v_row public.admin_staff_permission_grants%rowtype;
 begin
   if v_actor is null then raise exception 'unauthorized'; end if;
@@ -417,7 +417,7 @@ begin
     jsonb_build_object('grant_id',p_grant_id,'permission_key',v_row.permission_key,
       'scope_type',v_row.scope_type,'scope_governorate',v_row.scope_governorate));
 end;
-$;
+$function$;
 
 create or replace function public.admin_request_approval(
   p_request_type text,
@@ -429,7 +429,7 @@ create or replace function public.admin_request_approval(
 returns uuid
 language plpgsql security definer
 set search_path = public, pg_temp
-as $
+as $function$
 declare v_actor uuid := auth.uid(); v_id uuid;
 begin
   if v_actor is null then raise exception 'unauthorized'; end if;
@@ -452,7 +452,7 @@ begin
       'scope_type',p_scope_type,'scope_governorate',p_scope_governorate));
   return v_id;
 end;
-$;
+$function$;
 
 revoke all on function public.admin_permission_level(text) from public, anon;
 revoke all on function public.admin_has_permission(text,text,text) from public, anon;
