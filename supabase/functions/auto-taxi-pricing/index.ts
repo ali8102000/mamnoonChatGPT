@@ -90,17 +90,17 @@ function economyRawFare(distanceKm:number,durationMin:number,settings:any,tripTy
   const raw=(tripType==="round_trip"?base*2*0.9:base*trip)+Math.ceil(extraMinutes/5)*500;
   return Math.max(Number(settings.min_fare)||0,raw);
 }
-function roundedFare(amount:number) {
-  return Math.round(amount/250)*250;
+function roundedFare(amount:number,minimum=0) {
+  return Math.max(minimum,Math.round(amount/250)*250);
 }
-function fare(category:Category,economyRaw:number) {
-  if(category==="economy") return roundedFare(economyRaw);
+function fare(category:Category,economyRaw:number,minimum=0) {
+  if(category==="economy") return roundedFare(economyRaw,minimum);
   // Select the uplift band from the unrounded economy fare, then round each tier independently.
   const isShortTrip=economyRaw<15000;
   const uplift=category==="premium"
     ? (isShortTrip?0.10:0.05)
     : (isShortTrip?0.25:0.10);
-  return roundedFare(economyRaw*(1+uplift));
+  return roundedFare(economyRaw*(1+uplift),minimum);
 }
 Deno.serve(async (req) => {
   if(req.method==="OPTIONS") return new Response("ok",{headers:corsHeaders});
@@ -146,9 +146,9 @@ Deno.serve(async (req) => {
   }
   const economyRaw=economyRawFare(routed.distanceKm,routed.durationMin,{...economySettings,is_intercity:isIntercity},tripType,extraMinutes);
   const categoryPrices={
-    economy:fare("economy",economyRaw),
-    premium:fare("premium",economyRaw),
-    luxury:fare("luxury",economyRaw)
+    economy:fare("economy",economyRaw,Number(economySettings.min_fare)||0),
+    premium:fare("premium",economyRaw,Number(economySettings.min_fare)||0),
+    luxury:fare("luxury",economyRaw,Number(economySettings.min_fare)||0)
   } satisfies Record<Category,number>;
   const priceEstimate=categoryPrices[category];
   if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category});
