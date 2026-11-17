@@ -140,7 +140,7 @@ async function handleRequest(request: Request) {
   }
 
   if (data.action === "details" && data.placeId.startsWith("db:")) {
-    const { data: row, error } = await supabaseAdmin
+    const { data: row, error } = await (supabaseAdmin as any)
       .from("map_place_suggestions")
       .select("name_ar,address,latitude,longitude")
       .eq("id", data.placeId.slice(3))
