@@ -46,6 +46,44 @@ async function route(from: Point,to: Point) {
   const distanceKm=Math.max(0.1,haversine(from,to)*1.35);
   return {distanceKm:Number(distanceKm.toFixed(3)),durationMin:Number((distanceKm/32*60+3).toFixed(1)),routeSource:"haversine_fallback"};
 }
+
+const GOVERNORATE_CENTROIDS: Array<{ key: string; lat: number; lng: number }> = [
+  { key: "baghdad", lat: 33.3152, lng: 44.3661 },
+  { key: "basra", lat: 30.5085, lng: 47.7804 },
+  { key: "nineveh", lat: 36.34, lng: 43.13 },
+  { key: "erbil", lat: 36.1911, lng: 44.0092 },
+  { key: "sulaymaniyah", lat: 35.5613, lng: 45.4306 },
+  { key: "duhok", lat: 36.8669, lng: 42.9503 },
+  { key: "kirkuk", lat: 35.4681, lng: 44.3922 },
+  { key: "najaf", lat: 32.0259, lng: 44.3462 },
+  { key: "karbala", lat: 32.616, lng: 44.0249 },
+  { key: "babil", lat: 32.4637, lng: 44.4196 },
+  { key: "anbar", lat: 33.4206, lng: 43.3058 },
+  { key: "diyala", lat: 33.7502, lng: 44.6066 },
+  { key: "saladin", lat: 34.6, lng: 43.68 },
+  { key: "wasit", lat: 32.5128, lng: 45.8182 },
+  { key: "dhiqar", lat: 31.0439, lng: 46.2573 },
+  { key: "maysan", lat: 31.8356, lng: 47.1449 },
+  { key: "muthanna", lat: 31.3099, lng: 45.2803 },
+  { key: "qadisiyah", lat: 31.9929, lng: 44.925 },
+];
+
+function inferGovernorateKey(point: Point): string {
+  const cosine = Math.cos(point.lat * Math.PI / 180);
+  let nearest = GOVERNORATE_CENTROIDS[0];
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const governorate of GOVERNORATE_CENTROIDS) {
+    const distance =
+      (point.lat - governorate.lat) ** 2 +
+      ((point.lng - governorate.lng) * cosine) ** 2;
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = governorate;
+    }
+  }
+  return nearest.key;
+}
+
 function fare(category:Category,distanceKm:number,durationMin:number,settings:any,tripType:string,extraMinutes:number) {
   const base=Number(settings.base_fare)+distanceKm*Number(settings.per_km_rate)+durationMin*Number(settings.per_min_rate);
   const transition=Math.min(1,Math.max(0,(base-4500)/1000));
@@ -80,13 +118,10 @@ Deno.serve(async (req) => {
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
   const routed=await route(body.from,body.to);
-  const [fromGovResult,toGovResult]=await Promise.all([admin.rpc("infer_governorate_key",{p_lat:body.from.lat,p_lng:body.from.lng}),admin.rpc("infer_governorate_key",{p_lat:body.to.lat,p_lng:body.to.lng})]);
-  const fromGovernorate=fromGovResult.data;
-  const toGovernorate=toGovResult.data;
-  if(fromGovResult.error||toGovResult.error||!fromGovernorate||!toGovernorate) {
-    console.error("[auto-taxi-pricing] governorate lookup failed", { fromCode: fromGovResult.error?.code || null, toCode: toGovResult.error?.code || null, fromFound: !!fromGovernorate, toFound: !!toGovernorate });
-    return json({error:"تعذّر التحقق من المحافظتين من إحداثيات الرحلة",code:"GOVERNORATE_LOOKUP_FAILED"},400);
-  }
+  // Match the existing database RPC's nearest-centroid algorithm locally.
+  // This avoids requiring EXECUTE grants on the public RPC from the Edge Function.
+  const fromGovernorate = inferGovernorateKey(body.from);
+  const toGovernorate = inferGovernorateKey(body.to);
   const isIntercity=fromGovernorate!==toGovernorate;
   const {data:settings,error:settingsError}=await admin.from("pricing_settings").select("*").eq("service_type",category).eq("is_intercity",isIntercity).single();
   if(settingsError||!settings) return json({error:"إعدادات التسعير غير متوفرة حالياً"},503);
