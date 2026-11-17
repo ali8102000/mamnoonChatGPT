@@ -30,6 +30,7 @@ export default function DriverOnboarding() {
   const [models, setModels] = useState<VehicleModel[]>([]);
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
+  const [customModelName, setCustomModelName] = useState("");
   const [category, setCategory] = useState<"economy" | "premium" | "luxury" | "large">(largeDriverMode ? "large" : "economy");
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
   const [year, setYear] = useState("");
@@ -282,11 +283,11 @@ export default function DriverOnboarding() {
     const resolvedModel: VehicleModel = catalogModel ?? {
       id: "large-kia-local",
       make: "Kia",
-      model: largeModelName,
-      category: "large",
+      model: category === "large" ? largeModelName : customModelName.trim(),
+      category: category === "large" ? "large" : "economy",
       min_year: 1990,
     };
-    if ((category !== "large" && !selectedModel) || !/^\d{4}$/.test(year.trim()) || !plate.trim()) {
+    if ((category !== "large" && !selectedModel && !customModelName.trim()) || !/^\d{4}$/.test(year.trim()) || !plate.trim()) {
       Alert.alert("بيانات السيارة", category === "large"
         ? "أدخل سنة الصنع ورقم اللوحة."
         : "اختر ماركة وموديل السيارة وأدخل سنة الصنع ورقم اللوحة.");
@@ -442,11 +443,20 @@ export default function DriverOnboarding() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {models.filter((m) => m.make === selectedMake).map((m) => (
               <TouchableOpacity key={m.id} style={[styles.chip, selectedModel?.id === m.id && styles.chipActive]}
-                onPress={() => setSelectedModel(m)}>
+                onPress={() => { setSelectedModel(m); setCustomModelName(""); }}>
                 <Text style={[styles.chipText, selectedModel?.id === m.id && styles.chipTextActive]}>{m.model}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
+          <Text style={styles.label}>أو اكتب اسم الموديل إذا غير موجود بالقائمة</Text>
+          <TextInput
+            value={customModelName}
+            onChangeText={(value) => { setCustomModelName(value); setSelectedModel(null); }}
+            placeholder="اكتب اسم السيارة"
+            placeholderTextColor={palette.muted}
+            style={styles.input}
+            textAlign="right"
+          />
         </>}
       </>}
 
