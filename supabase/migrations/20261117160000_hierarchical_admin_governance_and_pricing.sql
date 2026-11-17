@@ -454,6 +454,133 @@ begin
 end;
 $function$;
 
+
+create or replace function public.admin_create_delegation(
+  p_delegate_id uuid,
+  p_permission_key text,
+  p_scope_type text default 'global',
+  p_scope_governorate text default null,
+  p_expires_at timestamptz default null
+)
+returns uuid
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare v_actor uuid := auth.uid(); v_id uuid; v_actor_scope_type text; v_actor_scope_governorate text;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if p_delegate_id is null or p_delegate_id=v_actor then raise exception 'invalid_delegate'; end if;
+  if p_scope_type not in ('global','governorate')
+    or (p_scope_type='global' and p_scope_governorate is not null)
+    or (p_scope_type='governorate' and nullif(trim(p_scope_governorate),'') is null) then
+    raise exception 'invalid_scope';
+  end if;
+  if not exists(select 1 from public.staff_assignments where user_id=p_delegate_id and active=true) then
+    raise exception 'delegate_must_be_active_staff';
+  end if;
+  if not exists(select 1 from public.admin_permission_catalog where permission_key=p_permission_key and active) then
+    raise exception 'unknown_permission';
+  end if;
+  if not public.is_super_admin(v_actor) then
+    if not public.admin_has_permission('staff.delegate',p_scope_type,p_scope_governorate)
+       or not public.admin_has_permission(p_permission_key,p_scope_type,p_scope_governorate) then
+      raise exception 'delegation_exceeds_actor_permissions';
+    end if;
+    if not exists(select 1 from public.staff_assignments where user_id=p_delegate_id and created_by=v_actor) then
+      raise exception 'delegate_not_created_by_actor';
+    end if;
+    select scope_type,scope_governorate into v_actor_scope_type,v_actor_scope_governorate
+      from public.staff_assignments where user_id=v_actor and active=true;
+    if v_actor_scope_type='governorate'
+      and (p_scope_type<>'governorate' or p_scope_governorate is distinct from v_actor_scope_governorate) then
+      raise exception 'governorate_scope_denied';
+    end if;
+    if v_actor_scope_type is null then raise exception 'legacy_staff_scope_requires_owner_review'; end if;
+  end if;
+  insert into public.admin_staff_delegations
+    (delegator_id,delegate_id,permission_key,scope_type,scope_governorate,expires_at)
+  values(v_actor,p_delegate_id,p_permission_key,p_scope_type,p_scope_governorate,p_expires_at)
+  returning id into v_id;
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'staff.delegation.created','staff',p_delegate_id::text,
+    jsonb_build_object('delegation_id',v_id,'permission_key',p_permission_key,
+      'scope_type',p_scope_type,'scope_governorate',p_scope_governorate,'expires_at',p_expires_at));
+  return v_id;
+end;
+$function$;
+
+create or replace function public.admin_revoke_delegation(p_delegation_id uuid)
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare v_actor uuid := auth.uid(); v_row public.admin_staff_delegations%rowtype;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  select * into v_row from public.admin_staff_delegations
+    where id=p_delegation_id and revoked_at is null for update;
+  if not found then raise exception 'active_delegation_not_found'; end if;
+  if not public.is_super_admin(v_actor) and v_row.delegator_id is distinct from v_actor then
+    raise exception 'delegation_not_created_by_actor';
+  end if;
+  update public.admin_staff_delegations set revoked_at=now(),revoked_by=v_actor where id=p_delegation_id;
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'staff.delegation.revoked','staff',v_row.delegate_id::text,
+    jsonb_build_object('delegation_id',p_delegation_id,'permission_key',v_row.permission_key));
+end;
+$function$;
+
+create or replace function public.admin_review_approval(
+  p_request_id uuid,
+  p_decision text,
+  p_note text default null
+)
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare v_actor uuid := auth.uid(); v_row public.admin_approval_requests%rowtype; v_permission text;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if p_decision not in ('approved','rejected') then raise exception 'invalid_decision'; end if;
+  select * into v_row from public.admin_approval_requests where id=p_request_id and status='pending' for update;
+  if not found then raise exception 'pending_request_not_found'; end if;
+  if v_row.requester_id=v_actor then raise exception 'cannot_approve_own_request'; end if;
+  v_permission := case
+    when v_row.request_type like 'staff_%' then 'staff.approve'
+    when v_row.request_type='pricing_change' then 'pricing.taxi.edit'
+    when v_row.request_type='promotion_publish' then 'promotions.manage'
+    when v_row.request_type in ('wallet_adjustment','payment_refund') then 'finance.refund'
+    when v_row.request_type='provider_action' then 'providers.suspend'
+    when v_row.request_type='order_override' then 'orders.override'
+    else 'settings.manage' end;
+  if not public.admin_has_permission(v_permission,v_row.scope_type,v_row.scope_governorate) then
+    raise exception 'missing_approval_permission';
+  end if;
+  update public.admin_approval_requests
+    set status=p_decision,reviewed_by=v_actor,decision_note=nullif(trim(p_note),''),
+        reviewed_at=now()
+    where id=p_request_id;
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'admin.approval.'||p_decision,'approval_request',p_request_id::text,
+    jsonb_build_object('request_type',v_row.request_type,'requester_id',v_row.requester_id,
+      'target_user_id',v_row.target_user_id,'decision_note',p_note));
+end;
+$function$;
+
+drop policy if exists admin_approval_requests_read on public.admin_approval_requests;
+create policy admin_approval_requests_read on public.admin_approval_requests
+for select to authenticated
+using (requester_id=(select auth.uid()) or reviewed_by=(select auth.uid())
+  or public.is_super_admin((select auth.uid()))
+  or public.admin_has_permission('staff.approve',scope_type,scope_governorate)
+  or public.admin_has_permission('pricing.taxi.edit',scope_type,scope_governorate)
+  or public.admin_has_permission('promotions.manage',scope_type,scope_governorate)
+  or public.admin_has_permission('finance.refund',scope_type,scope_governorate)
+  or public.admin_has_permission('providers.suspend',scope_type,scope_governorate)
+  or public.admin_has_permission('orders.override',scope_type,scope_governorate)
+  or public.admin_has_permission('settings.manage',scope_type,scope_governorate));
+
 revoke all on function public.admin_permission_level(text) from public, anon;
 revoke all on function public.admin_has_permission(text,text,text) from public, anon;
 revoke all on function public.admin_can_manage_staff(uuid) from public, anon;
