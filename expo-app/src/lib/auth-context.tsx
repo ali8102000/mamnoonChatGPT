@@ -27,7 +27,7 @@ interface AuthCtx {
   profile: Profile | null;
   roles: AppRole[];
   activeRole: AppRole | null;
-  setActiveRole: (role: AppRole) => void;
+  setActiveRole: (role: AppRole) => Promise<void>;
   loading: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -98,33 +98,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lastUserId = useRef<string | null>(null);
 
   async function restoreActiveRole(uid: string, availableRoles: AppRole[]) {
-    const preferenceKey = rolePreferenceKey(uid);
-    let saved = await SecureStore.getItemAsync(preferenceKey);
-    if (!saved) {
-      const legacy = await SecureStore.getItemAsync("mamnoon_active_role");
-      if (legacy && availableRoles.includes(legacy as AppRole)) {
-        saved = legacy;
-        await SecureStore.setItemAsync(preferenceKey, legacy);
+    const fallback = availableRoles.includes("customer")
+      ? "customer"
+      : availableRoles[0] ?? null;
+    try {
+      const preferenceKey = rolePreferenceKey(uid);
+      let saved = await SecureStore.getItemAsync(preferenceKey);
+      if (!saved) {
+        const legacy = await SecureStore.getItemAsync("mamnoon_active_role");
+        if (legacy && availableRoles.includes(legacy as AppRole)) {
+          saved = legacy;
+          await SecureStore.setItemAsync(preferenceKey, legacy);
+        }
+        if (legacy) await SecureStore.deleteItemAsync("mamnoon_active_role");
       }
-      if (legacy) await SecureStore.deleteItemAsync("mamnoon_active_role");
+      const selected = saved && availableRoles.includes(saved as AppRole)
+        ? saved as AppRole
+        : fallback;
+      setActiveRoleState(selected);
+      if (selected) await SecureStore.setItemAsync(preferenceKey, selected);
+    } catch (error) {
+      console.warn("[Mamnoon] Could not restore the saved role:", error);
+      setActiveRoleState(fallback);
     }
-    const selected = saved && availableRoles.includes(saved as AppRole)
-      ? saved as AppRole
-      : availableRoles.includes("customer")
-        ? "customer"
-        : availableRoles[0] ?? null;
-    setActiveRoleState(selected);
-    if (selected) await SecureStore.setItemAsync(preferenceKey, selected);
   }
 
-  function setActiveRole(role: AppRole) {
+  async function setActiveRole(role: AppRole) {
     if (!roles.includes(role)) return;
     setActiveRoleState(role);
     const uid = session?.user.id;
     if (uid) {
-      void SecureStore.setItemAsync(rolePreferenceKey(uid), role).catch((error) => {
+      try {
+        await SecureStore.setItemAsync(rolePreferenceKey(uid), role);
+      } catch (error) {
         console.warn("[Mamnoon] Could not persist the selected role:", error);
-      });
+      }
     }
   }
 
