@@ -865,11 +865,12 @@ export default function NewRequest() {
         } catch (photoError) {
           console.warn("[request attachment] upload failed:", photoError);
           Alert.alert("تم إرسال الطلب بدون الصورة", photoError instanceof Error ? photoError.message : "تعذر إرفاق الصورة. تقدر تكمل الطلب بدونها.", [
-            { text: "فتح الطلب", onPress: () => router.replace({ pathname: "/request/[id]", params: { id: requestId } }) },
+            { text: "فتح الطلب", onPress: () => { setUrgencyEnabled(false); router.replace({ pathname: "/request/[id]", params: { id: requestId } }); } },
           ]);
           return;
         }
       }
+      setUrgencyEnabled(false);
       router.replace({ pathname: "/request/[id]", params: { id: requestId } });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
