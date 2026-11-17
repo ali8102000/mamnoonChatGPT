@@ -228,15 +228,17 @@ export default function HomeScreen() {
     }
 
     void startPresence().catch(async (presenceError) => {
-      if (!mounted || !user) return;
+      if (!user) return;
       await stopProviderPresenceBackgroundLocation().catch(() => undefined);
-      const message = presenceError instanceof Error && presenceError.message === "background_location_denied"
-        ? "اسمح لممنون بالوصول إلى الموقع دائماً حتى تستقبل الطلبات عند تصغير التطبيق."
-        : "تعذر تشغيل مشاركة الموقع؛ تحقق من GPS وأذونات الموقع وحاول مرة أخرى.";
-      Alert.alert("مشاركة الموقع مطلوبة", message);
       const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
       await supabase.from(table).update({ available: false }).eq("user_id", userId);
-      setAvailable(false);
+      if (mounted) {
+        const message = presenceError instanceof Error && presenceError.message === "background_location_denied"
+          ? "اسمح لممنون بالوصول إلى الموقع دائماً حتى تستقبل الطلبات عند تصغير التطبيق."
+          : "تعذر تشغيل مشاركة الموقع؛ تحقق من GPS وأذونات الموقع وحاول مرة أخرى.";
+        Alert.alert("مشاركة الموقع مطلوبة", message);
+        setAvailable(false);
+      }
     });
 
     return () => {
@@ -262,16 +264,16 @@ export default function HomeScreen() {
         return;
       }
     }
-    if (!next) {
-      await stopProviderPresenceBackgroundLocation().catch((stopError) => {
-        console.warn("[Mamnoon] could not stop provider background location:", stopError);
-      });
-    }
     const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
     const { error } = await supabase.from(table).update({ available: next }).eq("user_id", user.id);
     if (error) {
       Alert.alert("تعذر تحديث التوفر", error.message);
       return;
+    }
+    if (!next) {
+      await stopProviderPresenceBackgroundLocation().catch((stopError) => {
+        console.warn("[Mamnoon] could not stop provider background location:", stopError);
+      });
     }
     setAvailable(next);
   }
