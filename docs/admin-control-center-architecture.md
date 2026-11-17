@@ -140,3 +140,19 @@ Filterable audit trail, staff activity, financial audit, pricing history, approv
 - No production migration, RLS change, role grant, wallet change, refund, or destructive operation until its migration and negative authorization tests pass and the owner explicitly approves the production change.
 - A green UI build is not proof of secure backend enforcement.
 - Do not claim full admin control or web/native parity until each domain's read/write paths and negative authorization cases have been tested.
+
+
+## Implemented on the working branch (not deployed)
+
+The governance migration now includes the first server-side RPC layer:
+
+- admin_has_permission intersects explicit permission grants/delegations with the caller's active staff assignment scope.
+- admin_assign_staff creates a staff assignment with immutable created_by, rank ceiling, department and governorate-scope checks.
+- admin_grant_staff_permission / admin_revoke_staff_permission manage explicit permission grants and audit each change.
+- admin_create_delegation / admin_revoke_delegation create revocable, expiring, permission-by-permission delegations.
+- admin_list_managed_staff, admin_change_staff_rank, and admin_deactivate_staff implement creator-bound staff visibility and management with hierarchy checks.
+- admin_request_approval and admin_review_approval provide a unified, permission-checked, no-self-approval review queue. Approval currently records a decision; it does not automatically apply the requested business operation.
+
+Verification so far: the full migration (including its functions, policies, grants and indexes) executed successfully inside a database transaction and was rolled back. A follow-up query confirmed that no new tables, columns or RPCs were left in production. This is a SQL syntax/DDL transaction test only, not a live authorization matrix test.
+
+Still not implemented: permission-aware admin navigation and screens, pricing write RPC/Edge Function integration, coupons/campaign controls, and native Android parity. Existing legacy staff RPCs and the direct client upsert in the taxi peak/urgency screen still need to be retired or routed through these controls before release. Do not apply this migration to production yet.
