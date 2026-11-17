@@ -263,17 +263,27 @@ returns boolean
 language plpgsql stable security definer
 set search_path = public, pg_temp
 as $function$
-declare v_actor uuid := auth.uid(); v_actor_rank text; v_target_rank text;
+declare
+  v_actor uuid := auth.uid();
+  v_actor_rank text; v_actor_department text; v_actor_scope_type text; v_actor_scope_governorate text;
+  v_target_rank text; v_target_department text; v_target_scope_type text; v_target_scope_governorate text;
 begin
   if v_actor is null or p_target_user is null or p_target_user=v_actor then return false; end if;
   if public.is_super_admin(v_actor) then return true; end if;
   if not public.admin_has_permission('staff.manage_created','global',null) then return false; end if;
-  select rank into v_actor_rank from public.staff_assignments
-    where user_id=v_actor and active=true;
-  select rank into v_target_rank from public.staff_assignments
+  select rank,department,scope_type,scope_governorate
+    into v_actor_rank,v_actor_department,v_actor_scope_type,v_actor_scope_governorate
+    from public.staff_assignments where user_id=v_actor and active=true;
+  select rank,department,scope_type,scope_governorate
+    into v_target_rank,v_target_department,v_target_scope_type,v_target_scope_governorate
+    from public.staff_assignments
     where user_id=p_target_user and active=true and created_by=v_actor;
   return v_target_rank is not null
-    and public.admin_permission_level(v_target_rank) < public.admin_permission_level(v_actor_rank);
+    and public.admin_permission_level(v_target_rank) < public.admin_permission_level(v_actor_rank)
+    and v_target_department is not distinct from v_actor_department
+    and v_actor_scope_type is not null
+    and (v_actor_scope_type='global'
+      or (v_target_scope_type='governorate' and v_target_scope_governorate is not distinct from v_actor_scope_governorate));
 end;
 $function$;
 
