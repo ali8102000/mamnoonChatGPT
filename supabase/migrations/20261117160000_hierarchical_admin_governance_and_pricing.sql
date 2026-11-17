@@ -581,6 +581,118 @@ using (requester_id=(select auth.uid()) or reviewed_by=(select auth.uid())
   or public.admin_has_permission('orders.override',scope_type,scope_governorate)
   or public.admin_has_permission('settings.manage',scope_type,scope_governorate));
 
+
+create or replace function public.admin_list_managed_staff()
+returns table(
+  user_id uuid, full_name text, phone text, email text, rank text, department text,
+  display_title text, active boolean, scope_type text, scope_governorate text, created_by uuid
+)
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+declare v_actor uuid := auth.uid();
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if public.is_super_admin(v_actor) then
+    return query
+      select a.user_id,p.full_name,p.phone,p.email,a.rank,a.department,a.display_title,a.active,
+             a.scope_type,a.scope_governorate,a.created_by
+      from public.staff_assignments a left join public.profiles p on p.id=a.user_id
+      order by a.department,public.admin_permission_level(a.rank) desc,p.full_name;
+    return;
+  end if;
+  if not public.admin_has_permission('staff.read','global',null) then raise exception 'missing_staff_read_permission'; end if;
+  return query
+    select a.user_id,p.full_name,p.phone,p.email,a.rank,a.department,a.display_title,a.active,
+           a.scope_type,a.scope_governorate,a.created_by
+    from public.staff_assignments a left join public.profiles p on p.id=a.user_id
+    where a.created_by=v_actor
+    order by a.department,public.admin_permission_level(a.rank) desc,p.full_name;
+end;
+$function$;
+
+create or replace function public.admin_change_staff_rank(
+  p_target_user uuid,
+  p_new_rank text,
+  p_new_department text default null,
+  p_new_display_title text default null
+)
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_actor uuid := auth.uid(); v_actor_rank text; v_actor_department text;
+  v_target public.staff_assignments%rowtype; v_department text;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if p_target_user is null or p_target_user=v_actor then raise exception 'cannot_change_own_assignment'; end if;
+  if p_new_rank not in ('general_manager','department_manager','supervisor','employee') then raise exception 'invalid_rank'; end if;
+  select * into v_target from public.staff_assignments where user_id=p_target_user and active=true for update;
+  if not found then raise exception 'active_staff_not_found'; end if;
+  if v_target.rank='owner' or exists(select 1 from public.user_roles where user_id=p_target_user and role::text='super_admin') then
+    raise exception 'protected_staff_account';
+  end if;
+  v_department := coalesce(p_new_department,v_target.department);
+  if v_department not in ('executive','customer_service','finance','operations','monitoring') then raise exception 'invalid_department'; end if;
+
+  if not public.is_super_admin(v_actor) then
+    if not public.admin_can_manage_staff(p_target_user) then raise exception 'staff_not_managed_by_actor'; end if;
+    select rank,department into v_actor_rank,v_actor_department from public.staff_assignments
+      where user_id=v_actor and active=true;
+    if public.admin_permission_level(p_new_rank)>=public.admin_permission_level(v_actor_rank)
+      or public.admin_permission_level(v_target.rank)>=public.admin_permission_level(v_actor_rank) then
+      raise exception 'rank_escalation_denied';
+    end if;
+    if v_department is distinct from v_actor_department then raise exception 'department_scope_denied'; end if;
+  end if;
+
+  update public.staff_assignments set rank=p_new_rank,department=v_department,
+    display_title=nullif(trim(p_new_display_title),''),assigned_by=v_actor,updated_at=now()
+    where user_id=p_target_user;
+  insert into public.staff_activity_log(staff_user_id,actor_user_id,activity,details)
+  values(p_target_user,v_actor,'rank_changed',jsonb_build_object(
+    'old_rank',v_target.rank,'new_rank',p_new_rank,'old_department',v_target.department,
+    'new_department',v_department,'old_display_title',v_target.display_title,
+    'new_display_title',p_new_display_title));
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'staff.rank.changed','staff',p_target_user::text,
+    jsonb_build_object('old_rank',v_target.rank,'new_rank',p_new_rank,
+      'old_department',v_target.department,'new_department',v_department));
+end;
+$function$;
+
+create or replace function public.admin_deactivate_staff(p_target_user uuid,p_reason text)
+returns void
+language plpgsql security definer
+set search_path = public, pg_temp
+as $function$
+declare v_actor uuid := auth.uid(); v_target public.staff_assignments%rowtype; v_actor_rank text;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if p_target_user is null or p_target_user=v_actor then raise exception 'cannot_deactivate_self'; end if;
+  if nullif(trim(p_reason),'') is null then raise exception 'reason_required'; end if;
+  select * into v_target from public.staff_assignments where user_id=p_target_user and active=true for update;
+  if not found then raise exception 'active_staff_not_found'; end if;
+  if v_target.rank='owner' or exists(select 1 from public.user_roles where user_id=p_target_user and role::text='super_admin') then
+    raise exception 'protected_staff_account';
+  end if;
+  if not public.is_super_admin(v_actor) then
+    if not public.admin_can_manage_staff(p_target_user) then raise exception 'staff_not_managed_by_actor'; end if;
+    select rank into v_actor_rank from public.staff_assignments where user_id=v_actor and active=true;
+    if public.admin_permission_level(v_target.rank)>=public.admin_permission_level(v_actor_rank) then
+      raise exception 'rank_hierarchy_denied';
+    end if;
+  end if;
+  update public.staff_assignments set active=false,assigned_by=v_actor,updated_at=now() where user_id=p_target_user;
+  insert into public.staff_activity_log(staff_user_id,actor_user_id,activity,details)
+  values(p_target_user,v_actor,'staff_deactivated',jsonb_build_object('previous_rank',v_target.rank,'reason',trim(p_reason)));
+  insert into public.audit_logs(user_id,action,target_type,target_id,details)
+  values(v_actor,'staff.deactivated','staff',p_target_user::text,
+    jsonb_build_object('previous_rank',v_target.rank,'department',v_target.department,'reason',trim(p_reason)));
+end;
+$function$;
+
 revoke all on function public.admin_permission_level(text) from public, anon;
 revoke all on function public.admin_has_permission(text,text,text) from public, anon;
 revoke all on function public.admin_can_manage_staff(uuid) from public, anon;
@@ -602,5 +714,13 @@ revoke all on function public.admin_review_approval(uuid,text,text) from public,
 grant execute on function public.admin_create_delegation(uuid,text,text,text,timestamptz) to authenticated;
 grant execute on function public.admin_revoke_delegation(uuid) to authenticated;
 grant execute on function public.admin_review_approval(uuid,text,text) to authenticated;
+
+
+revoke all on function public.admin_list_managed_staff() from public, anon;
+revoke all on function public.admin_change_staff_rank(uuid,text,text,text) from public, anon;
+revoke all on function public.admin_deactivate_staff(uuid,text) from public, anon;
+grant execute on function public.admin_list_managed_staff() to authenticated;
+grant execute on function public.admin_change_staff_rank(uuid,text,text,text) to authenticated;
+grant execute on function public.admin_deactivate_staff(uuid,text) to authenticated;
 
 commit;
