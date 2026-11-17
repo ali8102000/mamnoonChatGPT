@@ -234,3 +234,21 @@ export const findNearbyProviderPins = createServerFn({ method: "POST" })
     if (error) throw new Error("تعذّر تحميل مقدمي الخدمة القريبين");
     return (rows ?? []) as ProviderPin[];
   });
+
+/** Customer retries a request that ended only because no provider accepted it. */
+export const retryFailedRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      requestId: z.string().uuid(),
+      priceIncrease: z.number().int().min(0).max(50000).multipleOf(250).default(0),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: count, error } = await (context.supabase as any).rpc(
+      "retry_service_request",
+      { _request_id: data.requestId, _price_increase: data.priceIncrease },
+    );
+    if (error) throw new Error(error.message);
+    return { sent: Number(count ?? 0) };
+  });

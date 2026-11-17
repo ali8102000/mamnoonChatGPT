@@ -92,6 +92,10 @@ type RequestRecord = {
   vehicle_type?: string | null;
   notes?: string | null;
   attachment_path?: string | null;
+  created_at?: string;
+  searching_started_at?: string | null;
+  cancellation_reason?: string | null;
+  distance_km?: number | null;
 };
 type ChatMessage = {
   id: string;
@@ -181,6 +185,10 @@ export default function RequestDetail() {
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
+  const [dispatchClock, setDispatchClock] = useState(Date.now());
+  const [retryPriceIncrease, setRetryPriceIncrease] = useState("0");
+  const [retryingDispatch, setRetryingDispatch] = useState(false);
+  const [activeOffer, setActiveOffer] = useState<any>(null);
   const scrollRef = useRef<ScrollView>(null);
   const weeklyRatingNoticeRef = useRef<string | null>(null);
   const isProvider = request?.provider_id === user?.id;
@@ -243,12 +251,16 @@ export default function RequestDetail() {
     const timer = setInterval(() => setFreshnessClock(Date.now()), 5000);
     return () => clearInterval(timer);
   }, []);
+  useEffect(() => {
+    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const loadRequest = useCallback(async () => {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path",
+        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, cancellation_reason, distance_km",
       )
       .eq("id", id)
       .maybeSingle();
@@ -258,6 +270,19 @@ export default function RequestDetail() {
       return;
     }
     setRequest(data as RequestRecord | null);
+    if (data && user?.id && data.customer_id !== user.id) {
+      const { data: ownOffer } = await (supabase as any)
+        .from("request_offers")
+        .select("id, expires_at, sent_at, distance_km, proposed_price, status")
+        .eq("request_id", id)
+        .eq("provider_id", user.id)
+        .eq("status", "pending")
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      setActiveOffer(ownOffer ?? null);
+    } else {
+      setActiveOffer(null);
+    }
     if (data?.attachment_path) {
       const { data: signedAttachment, error: attachmentError } = await supabase.storage
         .from("request-attachments")
@@ -602,16 +627,24 @@ export default function RequestDetail() {
   }
 
   async function retryDispatch() {
-    const { data, error } = await supabase.rpc("retry_taxi_dispatch", { _request_id: id });
-    if (error) {
-      Alert.alert("تعذر إعادة البحث", "حاول مرة أخرى بعد قليل.");
+    const increase = Number(retryPriceIncrease.replace(/[^0-9]/g, ""));
+    if (!Number.isSafeInteger(increase) || increase < 0 || increase > 50000 || increase % 250 !== 0) {
+      Alert.alert("السعر غير صحيح", "زيادة السعر لازم تكون من مضاعفات 250 دينار وبحد أقصى 50 ألف.");
       return;
     }
-    if (Number(data ?? 0) > 0) {
-      Alert.alert("البحث مستمر", "يوجد عرض حالي للسائقين أو أُرسلت عروض جديدة.");
-    } else {
-      Alert.alert("لا يوجد سائق متاح حالياً", "سيبقى طلبك محفوظاً ويمكنك إعادة المحاولة لاحقاً.");
+    setRetryingDispatch(true);
+    const { data, error } = await (supabase as any).rpc("retry_service_request", {
+      _request_id: id,
+      _price_increase: increase,
+    });
+    setRetryingDispatch(false);
+    if (error) {
+      Alert.alert("تعذر إعادة المحاولة", error.message || "حاول مرة ثانية.");
+      return;
     }
+    setRetryPriceIncrease("0");
+    Alert.alert("تمت إعادة الطلب", increase > 0 ? "أعدنا إرسال نفس الطلب مع رفع السعر." : "أعدنا إرسال طلبك بنفس التفاصيل.");
+    await loadRequest();
   }
 
   async function acceptRequest() {
@@ -847,6 +880,44 @@ export default function RequestDetail() {
             <Text style={styles.infoPrice}>الأجر قابل للتفاوض</Text>
           )}
         </View>
+        {isCustomer && ["pending", "searching"].includes(request.status) && (
+          <View style={{ marginTop: 14, borderRadius: 22, padding: 18, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand + "35", alignItems: "center", gap: 8 }}>
+            <Text style={{ fontSize: 28 }}>{request.type === "taxi" ? "🚕" : "🛠️"}</Text>
+            <Text style={{ color: palette.ink, fontSize: 18, fontWeight: "900" }}>طلبك وصل إلى ممنون</Text>
+            <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", lineHeight: 20 }}>
+              {request.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار عند وصولها." : "نبحث عن أقرب سائق أو فني متاح ومؤهل. أول شخص يقبل الطلب يحصل عليه."}
+            </Text>
+            {(() => {
+              const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
+              const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
+              return <View style={{ width: 104, height: 104, borderRadius: 52, borderWidth: 7, borderColor: palette.gold, alignItems: "center", justifyContent: "center", marginTop: 8, backgroundColor: palette.surface }}>
+                <Text style={{ color: palette.ink, fontSize: 23, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</Text>
+                <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "800" }}>وقت البحث</Text>
+              </View>;
+            })()}
+            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
+          </View>
+        )}
+        {isCustomer && request.status === "cancelled" && request.cancellation_reason === "dispatch_no_provider" && (
+          <View style={{ marginTop: 14, borderRadius: 22, padding: 18, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold }}>
+            <Text style={{ color: palette.ink, fontSize: 17, fontWeight: "900", textAlign: "right" }}>🤍 نعتذر منك، ما حصلنا مزوّد متاح</Text>
+            <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 20, textAlign: "right", marginTop: 6 }}>احتفظنا بكل تفاصيل طلبك. تگدر تعيد المحاولة بنفس الطلب أو ترفع السعر حتى تشجع مزوّدين أكثر.</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "800", textAlign: "right", marginTop: 12 }}>زيادة السعر اختيارياً (دينار عراقي)</Text>
+            <TextInput value={retryPriceIncrease} onChangeText={setRetryPriceIncrease} keyboardType="number-pad" placeholder="0" placeholderTextColor={palette.muted} style={{ marginTop: 7, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.canvas, color: palette.ink, borderRadius: 13, padding: 12, textAlign: "center", fontWeight: "900" }} />
+            <TouchableOpacity disabled={retryingDispatch} onPress={retryDispatch} style={[styles.actionBtn, { marginTop: 10, opacity: retryingDispatch ? 0.5 : 1 }]}>
+              <Text style={styles.actionBtnText}>{retryingDispatch ? "جارٍ إعادة البحث..." : Number(retryPriceIncrease) > 0 ? "إعادة الطلب مع رفع السعر" : "إعادة نفس الطلب"}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {activeOffer && !isCustomer && activeOffer.proposed_price == null && (
+          <View style={{ marginTop: 14, borderRadius: 20, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold, alignItems: "center" }}>
+            <Text style={{ color: palette.ink, fontWeight: "900", fontSize: 14 }}>⏳ عندك دقيقة لقبول الطلب</Text>
+            <Text style={{ color: palette.brand, fontWeight: "900", fontSize: 26, fontVariant: ["tabular-nums"], marginTop: 5 }}>
+              {(() => { const seconds = Math.max(0, Math.ceil((Date.parse(activeOffer.expires_at) - dispatchClock) / 1000)); return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; })()}
+            </Text>
+            {activeOffer.distance_km != null && <Text style={{ color: palette.muted, fontSize: 11, marginTop: 4 }}>المسافة من موقعك: {Number(activeOffer.distance_km).toFixed(1)} كم</Text>}
+          </View>
+        )}
         {isCustomer && ["accepted","in_progress","completed"].includes(request.status) && request.payment_method !== "zaincash" && Number(request.customer_payable ?? request.customer_price ?? request.price_estimate) > 0 && (
           <View style={styles.paymentCompact}><View style={{ flex: 1 }}><Text style={styles.paymentCompactTitle}>الدفع الإلكتروني · زين كاش</Text><Text style={styles.paymentCompactHint}>{paymentGatewayEnabled ? "الدفع متاح" : "غير متاح حالياً"}</Text></View><TouchableOpacity onPress={payRequestWithZainCash} disabled={paymentBusy || !paymentGatewayEnabled} style={[styles.paymentCompactButton, (!paymentGatewayEnabled || paymentBusy) && { opacity: 0.5 }]}><Text style={styles.paymentCompactButtonText}>{paymentBusy ? "..." : "ادفع"}</Text></TouchableOpacity></View>
         )}
@@ -949,14 +1020,6 @@ export default function RequestDetail() {
           </TouchableOpacity>
         )}
         <View style={styles.actionsRow}>
-          {request.type === "taxi" &&
-            request.vehicle_category !== "large" &&
-            isCustomer &&
-            ["pending", "searching"].includes(request.status) && (
-              <TouchableOpacity style={styles.actionBtn} onPress={retryDispatch}>
-                <Text style={styles.actionBtnText}>إعادة البحث عن سائقين</Text>
-              </TouchableOpacity>
-            )}
           {["pending", "searching"].includes(request.status) && canAccept && request.vehicle_category !== "large" && (
             <TouchableOpacity style={styles.actionBtn} onPress={acceptRequest}>
               <Text style={styles.actionBtnText}>قبول الطلب</Text>

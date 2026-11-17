@@ -26,6 +26,7 @@ import {
   cancelRequest,
   providerCancelRequest,
   retryDispatch,
+  retryFailedRequest,
   startRide,
   completeRide,
 } from "@/lib/dispatch.functions";
@@ -87,6 +88,9 @@ function RequestDetail() {
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
+  const [dispatchClock, setDispatchClock] = useState(Date.now());
+  const [retryPriceIncrease, setRetryPriceIncrease] = useState("0");
+  const [retryingRequest, setRetryingRequest] = useState(false);
   const [navModalOpen, setNavModalOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [otherRep, setOtherRep] = useState<ReputationData | null>(null);
@@ -109,6 +113,10 @@ function RequestDetail() {
   const myRole: "customer" | "provider" =
     req && myUserId === req.customer_id ? "customer" : "provider";
   useEffect(() => { setOtherAvatarFailed(false); }, [other?.avatar_url]);
+  useEffect(() => {
+    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const otherBadges = otherRep?.badges ?? [];
   const trackingActive = !!req && (req.status === "accepted" || req.status === "in_progress");
   const { me: myLive, other: otherLive } = useLiveTracking({
@@ -391,6 +399,26 @@ function RequestDetail() {
       toast.success("تم إنهاء الطلب");
     } catch (e: any) {
       toast.error(e.message ?? "تعذّر إنهاء الطلب");
+    }
+  }
+
+  async function retryFailedDispatch() {
+    if (!req || retryingRequest) return;
+    const increase = Number(retryPriceIncrease.replace(/[^0-9]/g, ""));
+    if (!Number.isSafeInteger(increase) || increase < 0 || increase > 50000 || increase % 250 !== 0) {
+      toast.error("زيادة السعر لازم تكون من مضاعفات 250 دينار وبحد أقصى 50 ألف");
+      return;
+    }
+    setRetryingRequest(true);
+    try {
+      await retryFailedRequest({ data: { requestId: id, priceIncrease: increase } });
+      toast.success(increase > 0 ? "تمت إعادة الطلب مع رفع السعر" : "تمت إعادة إرسال نفس الطلب");
+      setRetryPriceIncrease("0");
+      await loadAll();
+    } catch (error: any) {
+      toast.error(error?.message ?? "تعذّرت إعادة المحاولة");
+    } finally {
+      setRetryingRequest(false);
     }
   }
 
@@ -774,21 +802,57 @@ function RequestDetail() {
       )}
 
       {["pending", "searching"].includes(req.status as string) && (
-        <div className="px-5 py-8 text-center text-sm text-muted-foreground flex-1">
-          <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-3" />
-          {req.vehicle_category === "large"
-            ? "بانتظار عروض أصحاب السيارات الكبيرة..."
-            : req.status === "searching"
-              ? "نبحث عن أقرب مزوّد لك..."
-              : "بانتظار قبول الطلب من أحد المزودين..."}
-          {myRole === "customer" && (
-            <button
-              onClick={() => setShowCancel(true)}
-              className="block w-full max-w-sm mx-auto mt-5 min-h-14 px-5 py-3 rounded-2xl border-2 border-destructive/20 bg-destructive text-white font-black text-base shadow-md btn-press"
-            >
-              {req.type === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب"}
-            </button>
+        <div className="mx-5 my-5 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 text-center shadow-sm">
+          {myRole === "customer" ? (
+            <>
+              <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-3xl">{req.type === "taxi" ? "🚕" : "🛠️"}</div>
+              <div className="text-lg font-black text-foreground">طلبك وصل إلى ممنون</div>
+              <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                {req.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار أول ما توصل." : "نبحث عن أقرب مزوّد متاح ومؤهل. أول شخص يقبل الطلب راح يتواصل وياك مباشرة."}
+              </p>
+              {(
+                (() => {
+                  const start = Date.parse(req.searching_started_at || req.created_at || new Date().toISOString());
+                  const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
+                  const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
+                  const ss = String(remaining % 60).padStart(2, "0");
+                  const progress = Math.max(0, Math.min(100, remaining / 360 * 100));
+                  return <div className="mt-5 flex flex-col items-center gap-2">
+                    <div className="grid h-28 w-28 place-items-center rounded-full" style={{ background: `conic-gradient(hsl(var(--primary)) ${progress}%, hsl(var(--muted)) ${progress}% 100%)` }}>
+                      <div className="grid h-24 w-24 place-items-center rounded-full bg-background">
+                        <div className="text-2xl font-black tabular-nums text-foreground">{mm}:{ss}</div>
+                        <div className="text-[10px] font-bold text-muted-foreground">وقت البحث</div>
+                      </div>
+                    </div>
+                    <div className="text-xs font-bold text-muted-foreground">{req.vehicle_category === "large" ? (remaining === 0 ? "انتهت جولات البحث، والعروض التي وصلت تبقى متاحة لاختيارك." : "نعرض الطلب على أصحاب السيارات ضمن ثلاثة نطاقات، ثم نعيد المحاولة مرة ثانية.") : "نجرب ثلاث نطاقات قريبة ثم نعيد المحاولة مرة ثانية"}</div>
+                  </div>;
+                })()
+              )}
+              <div className="mt-5 rounded-2xl bg-background/80 p-3 text-right text-xs leading-6">
+                <div><b>من:</b> {req.pickup_text || "الموقع المحدد"}</div>
+                {req.dest_text && <div><b>إلى:</b> {req.dest_text}</div>}
+                {req.distance_km != null && <div><b>المسافة:</b> {Number(req.distance_km).toFixed(1)} كم</div>}
+                <div><b>السعر:</b> {Number(req.customer_payable ?? req.customer_price ?? req.price_estimate ?? 0).toLocaleString("ar-IQ")} د.ع</div>
+              </div>
+              <button onClick={() => setShowCancel(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
+            </>
+          ) : (
+            <>
+              <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-primary" />
+              <div className="font-black">هذا الطلب قيد التوزيع</div>
+              <div className="mt-2 text-xs text-muted-foreground">إذا وصلك عرض فعّال راح يظهر عداده في شاشة الطلبات الواردة.</div>
+            </>
           )}
+        </div>
+      )}
+      {myRole === "customer" && req.status === "cancelled" && req.cancellation_reason === "dispatch_no_provider" && (
+        <div className="mx-5 my-5 rounded-3xl border border-amber-500/30 bg-amber-500/5 p-5 text-center">
+          <div className="text-3xl">🤍</div>
+          <div className="mt-2 text-lg font-black">نعتذر منك، ما حصلنا مزوّد متاح</div>
+          <p className="mt-2 text-sm leading-7 text-muted-foreground">احتفظنا بكل تفاصيل طلبك. تگدر تعيد المحاولة مباشرة، أو تزيد السعر حتى تشجع مزوّدين أكثر.</p>
+          <label className="mt-4 block text-right text-xs font-bold text-muted-foreground">زيادة السعر اختيارياً (دينار عراقي)</label>
+          <input type="number" min="0" max="50000" step="250" value={retryPriceIncrease} onChange={(e) => setRetryPriceIncrease(e.target.value)} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-center font-black" />
+          <button disabled={retryingRequest} onClick={() => void retryFailedDispatch()} className="mt-3 min-h-12 w-full rounded-2xl bg-primary text-primary-foreground font-black disabled:opacity-50">{retryingRequest ? "جارٍ إعادة البحث..." : Number(retryPriceIncrease) > 0 ? "إعادة الطلب مع رفع السعر" : "إعادة نفس الطلب"}</button>
         </div>
       )}
 

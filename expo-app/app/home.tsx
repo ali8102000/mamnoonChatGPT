@@ -28,8 +28,13 @@ type IncomingRequest = {
   type: string;
   price_estimate: number | null;
   customer_price?: number | null;
+  customer_payable?: number | null;
   vehicle_category?: string | null;
   vehicle_type?: string | null;
+  pickup_text?: string | null;
+  dest_text?: string | null;
+  distance_km?: number | null;
+  my_offer?: { expires_at: string; sent_at: string; distance_km: number | null };
 };
 
 export default function HomeScreen() {
@@ -56,7 +61,13 @@ export default function HomeScreen() {
   const [verified, setVerified] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState("pending");
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
+  const [dispatchClock, setDispatchClock] = useState(Date.now());
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const greeting = (() => {
     const hour = new Date().getHours();
@@ -80,7 +91,7 @@ export default function HomeScreen() {
     const isDriver = activeRole === "driver" || activeRole === "large_driver";
     const { data: offerRows, error: offersError } = await (supabase as any)
       .from("request_offers")
-      .select("request_id")
+      .select("request_id, expires_at, sent_at, distance_km")
       .eq("provider_id", user.id)
       .eq("status", "pending")
       .gt("expires_at", new Date().toISOString());
@@ -96,7 +107,7 @@ export default function HomeScreen() {
     }
     const { data, error } = await supabase
       .from("service_requests")
-      .select("id, type, price_estimate, customer_price, vehicle_category, vehicle_type")
+      .select("id, type, pickup_text, dest_text, distance_km, price_estimate, customer_payable, customer_price, vehicle_category, vehicle_type")
       .in("id", requestIds)
       .eq("type", isDriver ? "taxi" : "service")
       .in("status", ["pending", "searching"])
@@ -107,7 +118,11 @@ export default function HomeScreen() {
       setIncoming([]);
       return;
     }
-    setIncoming((data ?? []) as IncomingRequest[]);
+    const offerByRequest = new Map((offerRows ?? []).map((offer: any) => [offer.request_id, offer]));
+    setIncoming((data ?? []).map((request: any) => ({
+      ...request,
+      my_offer: offerByRequest.get(request.id) ?? null,
+    })) as IncomingRequest[]);
   }, [activeRole, user]);
 
   useEffect(() => {
@@ -336,6 +351,7 @@ export default function HomeScreen() {
             companyName={companyName}
             toggleAvailable={toggleAvailable}
             incoming={incoming}
+            dispatchClock={dispatchClock}
           />
         )}
       </ScrollView>
@@ -580,6 +596,7 @@ function ProviderHome({
   companyName,
   toggleAvailable,
   incoming,
+  dispatchClock,
 }: {
   available: boolean;
   verified: boolean;
@@ -587,6 +604,7 @@ function ProviderHome({
   companyName: string;
   toggleAvailable: () => void;
   incoming: IncomingRequest[];
+  dispatchClock: number;
 }) {
   return (
     <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
@@ -626,25 +644,42 @@ function ProviderHome({
           <Text style={styles.emptySubtext}>سيظهر هنا عند وصول طلب جديد</Text>
         </View>
       ) : (
-        incoming.map((req) => (
-          <TouchableOpacity
-            key={req.id}
-            style={styles.requestCard}
-            onPress={() => router.push({ pathname: "/request/[id]", params: { id: req.id } })}
-            activeOpacity={0.85}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.requestCustomer}>طلب جديد</Text>
-              <Text style={styles.requestType}>
-                {req.vehicle_category === "large" ? `🚚 سيارة كبيرة — ${req.vehicle_type === "kia_passenger" ? "كيا ركاب" : req.vehicle_type === "bus" ? "باص" : "كيا حمل"}` : req.type === "taxi" ? "🚕 طلب سيارة" : `🔧 ${req.type}`}
-              </Text>
-              <Text style={styles.requestPrice}>
-                {(req.customer_price ?? req.price_estimate) != null ? `${Number(req.customer_price ?? req.price_estimate).toLocaleString("en")} د.ع` : req.vehicle_category === "large" ? "بانتظار عروض الأسعار" : "السعر قيد التحديد"}
-              </Text>
-            </View>
-            <Text style={styles.requestArrow}>←</Text>
-          </TouchableOpacity>
-        ))
+        incoming.map((req) => {
+          const remaining = req.my_offer?.expires_at
+            ? Math.max(0, Math.ceil((Date.parse(req.my_offer.expires_at) - dispatchClock) / 1000))
+            : 0;
+          const timeLabel = `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
+          const urgent = remaining <= 10;
+          return (
+            <TouchableOpacity
+              key={req.id}
+              style={styles.requestCard}
+              onPress={() => router.push({ pathname: "/request/[id]", params: { id: req.id } })}
+              activeOpacity={0.85}
+            >
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={styles.requestCustomer}>طلب جديد · {req.type === "taxi" ? "سائق" : "فني"}</Text>
+                <Text style={styles.requestType}>
+                  {req.vehicle_category === "large" ? `🚚 سيارة كبيرة — ${req.vehicle_type === "kia_passenger" ? "كيا ركاب" : req.vehicle_type === "bus" ? "باص" : "كيا حمل"}` : req.type === "taxi" ? "🚕 طلب سيارة" : "🔧 طلب خدمة"}
+                </Text>
+                {!!req.pickup_text && <Text style={{ color: palette.ink, fontSize: 11, textAlign: "right" }}>من: {req.pickup_text}</Text>}
+                {!!req.dest_text && <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>إلى: {req.dest_text}</Text>}
+                {req.my_offer?.distance_km != null && <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>تبعد عنك {Number(req.my_offer.distance_km).toFixed(1)} كم</Text>}
+                <Text style={styles.requestPrice}>
+                  {(req.customer_price ?? req.customer_payable ?? req.price_estimate) != null ? `${Number(req.customer_price ?? req.customer_payable ?? req.price_estimate).toLocaleString("en")} د.ع` : req.vehicle_category === "large" ? "بانتظار عروض الأسعار" : "السعر قيد التحديد"}
+                </Text>
+                <Text style={{ color: urgent ? "#dc2626" : palette.muted, fontSize: 10, fontWeight: "900", textAlign: "right" }}>
+                  {urgent ? "انتبه، ينتهي العرض الآن" : "ينتهي العرض خلال"}
+                </Text>
+              </View>
+              <View style={{ width: 62, height: 62, borderRadius: 31, borderWidth: 5, borderColor: urgent ? "#dc2626" : palette.gold, alignItems: "center", justifyContent: "center", backgroundColor: palette.surface }}>
+                <Text style={{ color: urgent ? "#dc2626" : palette.ink, fontSize: 14, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{timeLabel}</Text>
+                <Text style={{ color: palette.muted, fontSize: 8, fontWeight: "800" }}>قبول</Text>
+              </View>
+              <Text style={styles.requestArrow}>←</Text>
+            </TouchableOpacity>
+          );
+        })
       )}
     </View>
   );
