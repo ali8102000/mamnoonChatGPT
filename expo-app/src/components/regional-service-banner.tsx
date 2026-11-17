@@ -68,13 +68,13 @@ export function RegionalServiceBanner() {
     animation.start();
     return () => animation.stop();
   }, [row?.message_animate, row?.message_enabled, row?.services_enabled, row?.message_text, marqueeWidth, textWidth, translate]);
-  if (!row || (row.services_enabled && !row.message_enabled) || !text) return null;
+  if (!row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled) || !text) return null;
   const width = Math.max(60, Math.min(100, row.message_width_percent ?? 92));
   const height = Math.max(12, Math.min(60, row.message_height_percent ?? 34));
   const top = Math.max(0, Math.min(160, row.message_top_offset ?? 12));
   const fontSize = Math.max(11, Math.min(22, row.message_font_size ?? 14));
   const position = row.message_position ?? "top-center";
-  const floating = row.message_float_enabled !== false;
+  const floating = true;
   return (
     <View pointerEvents="box-none" style={[styles.overlay, floating ? { top, width: `${width}%`, left: position === "top-left" ? "2%" : undefined, right: position === "top-right" ? "2%" : undefined, alignSelf: position === "top-center" ? "center" : "flex-start", height: `${height}%` } : styles.inline]}>
       <LinearGradient colors={["#050505", "#17120A", "#050505"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.card, floating ? { flex: 1 } : undefined]}>
