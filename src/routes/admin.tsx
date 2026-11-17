@@ -3180,13 +3180,20 @@ function DriverPerformanceTierSettings() {
   useEffect(() => { void load(); }, []);
   const update = (tier: string, key: string, value: any) => setRules((current) => current.map((r) => r.tier === tier ? { ...r, [key]: value } : r));
   const save = async (rule: any) => {
+    const rides = Number(rule.min_completed_rides);
+    const ratings = Number(rule.min_ratings_count);
+    const average = Number(rule.min_avg_rating);
+    if (!Number.isInteger(rides) || rides < 0 || !Number.isInteger(ratings) || ratings < 0 || !Number.isFinite(average) || average < 0 || average > 5) {
+      setError("أدخل أعداداً صحيحة غير سالبة للرحلات والتقييمات، ومتوسطاً بين 0 و5.");
+      return;
+    }
     setSaving(rule.tier);
     setError("");
     const { error: saveError } = await (supabase as any).rpc("admin_update_driver_performance_tier_rule", {
       p_tier: rule.tier,
-      p_min_completed_rides: Number(rule.min_completed_rides),
-      p_min_ratings_count: Number(rule.min_ratings_count),
-      p_min_avg_rating: Number(rule.min_avg_rating),
+      p_min_completed_rides: rides,
+      p_min_ratings_count: ratings,
+      p_min_avg_rating: average,
       p_is_active: Boolean(rule.is_active),
     });
     setSaving(null);
