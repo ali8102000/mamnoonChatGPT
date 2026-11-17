@@ -155,6 +155,7 @@ export default function NewRequest() {
   const [busy, setBusy] = useState(false);
   const [routeKm, setRouteKm] = useState<number | null>(null);
   const [serverTaxiFare, setServerTaxiFare] = useState<number | null>(null);
+  const [serverTaxiFares, setServerTaxiFares] = useState<Partial<Record<"economy" | "premium" | "luxury", number>>>({});
   const [routeDurationMin, setRouteDurationMin] = useState<number | null>(null);
   const [routeIsIntercity, setRouteIsIntercity] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -424,6 +425,7 @@ export default function NewRequest() {
     // Never leave a stale route price tappable while the next route is loading.
     setRouteKm(null);
     setServerTaxiFare(null);
+    setServerTaxiFares({});
     setRouteDurationMin(null);
     setRouteError(null);
     setRouteLoading(true);
@@ -451,6 +453,9 @@ export default function NewRequest() {
         setRouteKm(route.distanceKm);
         setRouteDurationMin(route.durationMin);
         setServerTaxiFare(Number(route.priceEstimate));
+        setServerTaxiFares(route.categoryPrices && typeof route.categoryPrices === "object"
+          ? route.categoryPrices
+          : { [vehicleCat]: Number(route.priceEstimate) });
       } catch (error) {
         if (!active) return;
         setRouteKm(null);
@@ -1052,7 +1057,7 @@ export default function NewRequest() {
                     <View style={styles.taxiVehicleList}>
                       {VEHICLE_CATS.filter((category) => category.key !== "large").map((category) => {
                         const active = vehicleCat === category.key;
-                        const fare = active && routeKm !== null ? serverTaxiFare : null;
+                        const fare = routeKm !== null ? (serverTaxiFares[category.key] ?? (active ? serverTaxiFare : null)) : null;
                         return (
                           <TouchableOpacity key={category.key} style={[styles.taxiVehicleCard, active && styles.taxiVehicleCardActive]} onPress={() => setVehicleCat(category.key as Exclude<VehicleCategory, "large">)}>
                             <Text style={styles.taxiVehicleEmoji}>{category.emoji}</Text>
