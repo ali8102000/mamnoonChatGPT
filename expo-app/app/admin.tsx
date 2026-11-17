@@ -274,6 +274,7 @@ export default function AdminScreen() {
         <ActionButton size="default" onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/regions" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>التحكم بالمحافظات والخدمات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/dispatch-ranges" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>نطاقات البحث والتوزيع</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/import")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>مساعد استيراد البيانات</Text></ActionButton>
       </View>
       <View style={styles.companyCard}>
