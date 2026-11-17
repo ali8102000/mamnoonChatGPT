@@ -175,6 +175,18 @@ function LocationTargetMarker({ coordinate, title }: { coordinate: Coordinates; 
   );
 }
 
+function DestinationMarker({ coordinate }: { coordinate: Coordinates }) {
+  return (
+    <Marker coordinate={coordinate} title="وجهة الوصول" anchor={{ x: 0.5, y: 1 }}>
+      <View style={styles.destinationPin}>
+        <View style={styles.destinationPinCore}>
+          <View style={styles.destinationPinDot} />
+        </View>
+      </View>
+    </Marker>
+  );
+}
+
 export default function RequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, roles } = useAuth();
@@ -1044,7 +1056,7 @@ export default function RequestDetail() {
                 ) : (
                   <>
                     <Marker coordinate={{ latitude: request.pickup_lat!, longitude: request.pickup_lng! }} title="نقطة الانطلاق" pinColor="#0f766e" />
-                    {request.dest_lat != null && request.dest_lng != null && <Marker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} title="الوجهة" pinColor="#16a34a" />}
+                    {request.dest_lat != null && request.dest_lng != null && <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />}
                     {myLocation && <LocationTargetMarker coordinate={myLocation} title="موقعي" />}
                     {otherLocation && <LocationTargetMarker coordinate={otherLocation} title="موقع مقدم الخدمة" />}
                   </>
@@ -1181,6 +1193,9 @@ const styles = StyleSheet.create({
   endpointPin: { width: 30, height: 38, alignItems: "center", justifyContent: "flex-start", paddingTop: 4, backgroundColor: "#17324D", borderRadius: 16, borderBottomLeftRadius: 4, transform: [{ rotate: "-45deg" }], borderWidth: 2, borderColor: "#FFFFFF", elevation: 7 },
   endpointPinCore: { width: 14, height: 14, borderRadius: 7, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   endpointPinDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#D6A43B" },
+  destinationPin: { width: 34, height: 42, alignItems: "center", justifyContent: "flex-start", paddingTop: 5, backgroundColor: "#E11D48", borderRadius: 18, borderBottomLeftRadius: 4, transform: [{ rotate: "-45deg" }], borderWidth: 2.5, borderColor: "#FFFFFF", elevation: 10, shadowColor: "#9F1239", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 3 } },
+  destinationPinCore: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  destinationPinDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#BE123C" },
   luxuryCarPhoto: { width: 54, height: 36 },
   luxuryCarMarker: { width: 48, height: 30, borderRadius: 13, backgroundColor: "#B88A24", borderWidth: 2, borderColor: "#172033", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 7 },
   luxuryCarRoof: { position: "absolute", top: 3, width: 25, height: 12, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: "#24364A" },
