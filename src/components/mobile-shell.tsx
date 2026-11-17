@@ -20,10 +20,10 @@ export function MobileShell({ children, hideNav }: Props) {
 
   return (
     <div className="min-h-screen flex flex-col relative">
-      <main className={cn("flex-1 pb-24 relative", hideNav && "pb-0")}>{children}</main>
+      <main className={cn("flex-1 pb-28 relative", hideNav && "pb-0")}>{children}</main>
       {!hideNav && (
         <nav className="fixed bottom-0 inset-x-0 z-40 px-3 pb-3 pt-1 pointer-events-none">
-          <div className="glass-strong rounded-2xl shadow-card mx-auto max-w-md pointer-events-auto border border-border/50">
+          <div className="glass-strong rounded-3xl shadow-card mx-auto max-w-md pointer-events-auto border border-border/60">
             <ul className="grid grid-cols-4">
               {items.map(({ to, label, icon: Icon }) => {
                 const active = pathname === to || (to !== "/home" && pathname.startsWith(to));
@@ -33,7 +33,7 @@ export function MobileShell({ children, hideNav }: Props) {
                       to={to}
                       onClick={() => playClick("soft")}
                       className={cn(
-                        "flex flex-col items-center gap-1 py-3 tap-highlight-none btn-press transition-colors",
+                        "flex min-h-[78px] flex-col items-center justify-center gap-1.5 py-4 tap-highlight-none btn-press transition-colors",
                         active
                           ? "text-primary font-bold"
                           : "text-muted-foreground hover:text-foreground",
@@ -41,11 +41,11 @@ export function MobileShell({ children, hideNav }: Props) {
                     >
                       <Icon
                         className={cn(
-                          "h-5 w-5",
+                          "h-6 w-6",
                           active && "drop-shadow-[0_0_8px_var(--color-primary)]",
                         )}
                       />
-                      <span className="text-[11px] font-bold">{label}</span>
+                      <span className="text-xs font-extrabold">{label}</span>
                     </Link>
                   </li>
                 );
