@@ -238,9 +238,9 @@ export function LiveTrackMap({
           path: [activeDriverCoord, targetPoint],
           map,
           geodesic: true,
-          strokeColor: "#0284c7",
-          strokeOpacity: 0.9,
-          strokeWeight: 5,
+          strokeColor: "#D6A43B",
+          strokeOpacity: 0.98,
+          strokeWeight: 6,
         });
       }
 
