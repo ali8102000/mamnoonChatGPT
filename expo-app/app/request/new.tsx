@@ -17,6 +17,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import Svg, { Circle, Path } from "react-native-svg";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
@@ -54,6 +55,19 @@ const IRAQ_REGION = {
   latitudeDelta: 9,
   longitudeDelta: 11,
 };
+
+function MapCenterPin() {
+  return (
+    <View style={styles.pinArtwork}>
+      <Svg width={42} height={52} viewBox="0 0 42 52">
+        <Path d="M21 50C17 43 3 29 3 19A18 18 0 1 1 39 19C39 29 25 43 21 50Z" fill="#D6A43B" stroke="#FFFFFF" strokeWidth={2.5} />
+        <Circle cx={21} cy={19} r={7} fill="#FFFFFF" />
+        <Circle cx={21} cy={19} r={3.2} fill="#17324D" />
+      </Svg>
+      <View style={styles.pinShadow} />
+    </View>
+  );
+}
 
 function formatAddress(parts: Location.LocationGeocodedAddress[] | null | undefined) {
   const item = parts?.[0];
@@ -916,7 +930,7 @@ export default function NewRequest() {
           ))}
         </MapView>
         <View pointerEvents="none" style={[styles.taxiCenterPin, { top: 92 + Math.max(0, window.height - 92 - taxiSheetHeight) / 2 - 36 }]}>
-          <Text style={styles.taxiCenterPinText}>{mapMode === "pickup" ? "📍" : "📌"}</Text>
+          <MapCenterPin />
         </View>
 
         <View style={styles.taxiTopBar}>
@@ -1321,7 +1335,7 @@ export default function NewRequest() {
           {locationLoading ? (
             <ActivityIndicator color={palette.white} size="small" />
           ) : (
-            <Text style={styles.locateButtonText}>موقعي</Text>
+            <Text style={styles.locateButtonText}>تحديد موقعي تلقائياً</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -1367,7 +1381,7 @@ export default function NewRequest() {
         >
 
         </MapView>
-        <View pointerEvents="none" style={styles.mapCenterPin}><Text style={styles.mapCenterPinText}>📍</Text></View>
+        <View pointerEvents="none" style={styles.mapCenterPin}><MapCenterPin /></View>
         <Text style={styles.mapHint}>
           {mapMode === "pickup"
             ? "حرّك الخريطة حتى تصبح النقطة تحت الدبوس"
