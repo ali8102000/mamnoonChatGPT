@@ -905,8 +905,18 @@ begin
   select * into v_before from public.pricing_settings
     where service_type=p_service_type and is_intercity=p_is_intercity for update;
   if not found then raise exception 'taxi_pricing_row_not_found'; end if;
-  update public.pricing_settings set base_fare=p_base_fare,per_km_rate=p_per_km_rate,
-    per_min_rate=p_per_min_rate,min_fare=p_min_fare,updated_at=now()
+  if p_service_type<>'economy' and (
+    p_base_fare is distinct from v_before.base_fare
+    or p_per_km_rate is distinct from v_before.per_km_rate
+    or p_per_min_rate is distinct from v_before.per_min_rate
+  ) then
+    raise exception 'economy_row_defines_base_tariff_for_all_categories';
+  end if;
+  update public.pricing_settings set
+    base_fare=case when p_service_type='economy' then p_base_fare else base_fare end,
+    per_km_rate=case when p_service_type='economy' then p_per_km_rate else per_km_rate end,
+    per_min_rate=case when p_service_type='economy' then p_per_min_rate else per_min_rate end,
+    min_fare=p_min_fare,updated_at=now()
     where service_type=p_service_type and is_intercity=p_is_intercity
     returning * into v_after;
   insert into public.audit_logs(user_id,action,target_type,target_id,details)
