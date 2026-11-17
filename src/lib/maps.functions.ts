@@ -2,10 +2,10 @@ import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getGovernorate, governorateBounds, isInGovernorate } from "./governorates";
+import { getGovernorate } from "./governorates";
 import { parseDrivingRoute } from "./route-distance";
 
-// Only the referrer-restricted rendering key is intentionally public.
+// The browser key is optional: the map picker falls back to OpenStreetMap tiles.
 export const getMapConfig = createServerFn({ method: "GET" }).handler(async () => ({
   browserKey:
     process.env["GOOGLE_MAPS_BROWSER_KEY"] ||
@@ -21,76 +21,84 @@ const input = z.discriminatedUnion("action", [
     input: z.string().trim().min(2).max(200),
     sessionToken: z.string().uuid(),
     center: coords,
-    governorateKey: z
-      .string()
-      .refine((key) => !!getGovernorate(key))
-      .optional(),
+    governorateKey: z.string().refine((key) => !!getGovernorate(key)).optional(),
   }),
   z.object({
     action: z.literal("details"),
-    placeId: z
-      .string()
-      .regex(/^[A-Za-z0-9_-]+$/)
-      .max(300),
+    placeId: z.string().regex(/^(db:)?[A-Za-z0-9_-]+$/).max(320),
     sessionToken: z.string().uuid(),
   }),
   z.object({ action: z.literal("reverse"), center: coords }),
   z.object({ action: z.literal("route"), from: coords, to: coords }),
 ]);
 
+function approximateRoute(from: z.infer<typeof coords>, to: z.infer<typeof coords>) {
+  const radians = (value: number) => value * Math.PI / 180;
+  const dLat = radians(to.lat - from.lat);
+  const dLng = radians(to.lng - from.lng);
+  const h = Math.sin(dLat / 2) ** 2 +
+    Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.sin(dLng / 2) ** 2;
+  const distanceKm = Math.max(0.1, 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)) * 1.35);
+  return {
+    distanceKm: Number(distanceKm.toFixed(3)),
+    durationMin: Number((distanceKm / 32 * 60 + 3).toFixed(1)),
+    routeSource: "haversine_fallback",
+  };
+}
+
+async function photonReverse(center: z.infer<typeof coords>) {
+  const url = new URL("https://photon.komoot.io/reverse");
+  url.searchParams.set("lat", String(center.lat));
+  url.searchParams.set("lon", String(center.lng));
+  url.searchParams.set("lang", "ar");
+  const response = await fetch(url, {
+    headers: { Accept: "application/geo+json", "User-Agent": "Mamnoon/1.0 (https://mamnoon-theta.vercel.app)" },
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!response.ok) return { address: "" };
+  const result = await response.json() as any;
+  const p = result.features?.[0]?.properties ?? {};
+  return { address: [p.name, p.street, p.district, p.city, p.state, p.country].filter(Boolean).join("، ") };
+}
+
 export const lookupMapPlace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: z.infer<typeof input>) => input.parse(data))
   .handler(async ({ data }) => {
+    if (data.action === "autocomplete") {
+      if (!data.governorateKey) throw new Error("اختر المحافظة أولاً حتى تظهر اقتراحاتها فقط.");
+      const { searchMapPlaceSuggestions } = await import("./map-place-search.server");
+      return searchMapPlaceSuggestions(data.input, data.governorateKey);
+    }
+
+    if (data.action === "details" && data.placeId.startsWith("db:")) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: row, error } = await supabaseAdmin
+        .from("map_place_suggestions")
+        .select("name_ar,address,latitude,longitude")
+        .eq("id", data.placeId.slice(3))
+        .maybeSingle();
+      if (error || !row) throw new Error("لم يتم العثور على المكان المحفوظ.");
+      return {
+        coords: { lat: Number(row.latitude), lng: Number(row.longitude) },
+        address: row.address || row.name_ar,
+      };
+    }
+
     const apiKey = process.env["GOOGLE_MAPS_API_KEY"];
     const lovableKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey || !lovableKey)
-      throw new Error("إعدادات البحث عن الأماكن غير متاحة؛ يمكنك مشاركة موقعك مباشرة.");
+    if (data.action === "reverse" && (!apiKey || !lovableKey)) return photonReverse(data.center);
+    if (data.action === "route" && (!apiKey || !lovableKey)) return approximateRoute(data.from, data.to);
+
     const gateway = "https://connector-gateway.lovable.dev/google_maps";
     const headers: Record<string, string> = {
       Authorization: `Bearer ${lovableKey}`,
-      "X-Connection-Api-Key": apiKey,
+      "X-Connection-Api-Key": apiKey!,
       "Content-Type": "application/json",
     };
     let path: string;
     let body: string | undefined;
-    if (data.action === "autocomplete") {
-      const governorate = getGovernorate(data.governorateKey);
-      if (governorate) {
-        // Restrict Google's candidate search to the selected governorate's
-        // bounding rectangle, then apply the exact administrative polygon below.
-        const bounds = governorateBounds(governorate.key);
-        path = "/places/v1/places:searchText";
-        headers["X-Goog-FieldMask"] =
-          "places.id,places.displayName,places.formattedAddress,places.location";
-        body = JSON.stringify({
-          textQuery: data.input,
-          languageCode: "ar",
-          regionCode: "IQ",
-          pageSize: 20,
-          rankPreference: "DISTANCE",
-          locationRestriction: {
-            rectangle: { low: bounds.low, high: bounds.high },
-          },
-        });
-      } else {
-        path = "/places/v1/places:autocomplete";
-        headers["X-Goog-FieldMask"] =
-          "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text";
-        body = JSON.stringify({
-          input: data.input,
-          sessionToken: data.sessionToken,
-          languageCode: "ar",
-          includedRegionCodes: ["iq"],
-          locationBias: {
-            circle: {
-              center: { latitude: data.center.lat, longitude: data.center.lng },
-              radius: 50000,
-            },
-          },
-        });
-      }
-    } else if (data.action === "details") {
+    if (data.action === "details") {
       path = `/places/v1/places/${encodeURIComponent(data.placeId)}?sessionToken=${data.sessionToken}&languageCode=ar`;
       headers["X-Goog-FieldMask"] = "location,formattedAddress,displayName";
     } else if (data.action === "route") {
@@ -106,118 +114,30 @@ export const lookupMapPlace = createServerFn({ method: "POST" })
     } else {
       path = `/maps/api/geocode/json?latlng=${data.center.lat},${data.center.lng}&language=ar`;
     }
-    let response = await fetch(gateway + path, { method: body ? "POST" : "GET", headers, body });
-    // Try alternative query forms if Google returns no places OR all returned
-    // places fall outside the selected governorate's administrative boundary.
-    if (data.action === "autocomplete" && data.governorateKey && response.ok && body) {
-      const governorate = getGovernorate(data.governorateKey);
-      if (governorate) {
-        const hasLocalResult = (payload: any) =>
-          (payload.places ?? []).some(
-            (p: any) =>
-              p.location &&
-              isInGovernorate(
-                { lat: p.location.latitude, lng: p.location.longitude },
-                governorate.key,
-              ),
-          );
-        let payload = (await response.clone().json()) as any;
-        for (const textQuery of [
-          data.input,
-          `${data.input} ${governorate.name} العراق`,
-        ]) {
-          if (hasLocalResult(payload)) break;
-          const bounds = governorateBounds(governorate.key);
-          body = JSON.stringify({
-            textQuery,
-            languageCode: "ar",
-            regionCode: "IQ",
-            pageSize: 20,
-            locationRestriction: {
-              rectangle: { low: bounds.low, high: bounds.high },
-            },
-          });
-          response = await fetch(gateway + path, { method: "POST", headers, body });
-          if (!response.ok) break;
-          payload = (await response.clone().json()) as any;
-        }
-        console.info("[Mamnoon Places search]", {
-          governorate: governorate.key,
-          rawResults: payload.places?.length ?? 0,
-          localResults: (payload.places ?? []).filter(
-            (p: any) =>
-              p.location &&
-              isInGovernorate(
-                { lat: p.location.latitude, lng: p.location.longitude },
-                governorate.key,
-              ),
-          ).length,
-        });
+
+    try {
+      const response = await fetch(gateway + path, { method: body ? "POST" : "GET", headers, body });
+      if (!response.ok) {
+        const details = await response.text();
+        console.error(`[Maps ${response.status}] ${details.slice(0, 300)}`);
+        if (data.action === "route") return approximateRoute(data.from, data.to);
+        if (data.action === "reverse") return photonReverse(data.center);
+        throw new Error("تعذّر إكمال طلب الخرائط حالياً. حاول مرة ثانية.");
       }
-    }
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`[Maps ${response.status}] ${text}`);
-      if (response.status === 403) {
-        if (text.includes("API_KEY_HTTP_REFERRER_BLOCKED"))
-          throw new Error(
-            "مفتاح Google الخاص بخدمات البحث مقيّد بالمواقع؛ غيّر تقييده إلى None أو IP addresses في Google Cloud.",
-          );
-        if (text.includes("API_KEY_SERVICE_BLOCKED"))
-          throw new Error(
-            "فعّل Places API (New) وGeocoding API وRoutes API ضمن خدمات المفتاح في Google Cloud.",
-          );
-      }
-      throw new Error(`Google Maps [${response.status}]: ${text}`);
-    }
-    const result = (await response.json()) as any;
-    if (data.action === "autocomplete") {
-      if (data.governorateKey)
+      const result = await response.json() as any;
+      if (data.action === "details") {
+        if (!result.location) throw new Error("لا يتوفر موقع لهذا المكان");
         return {
-          suggestions: (result.places ?? [])
-            .filter(
-              (p: any) =>
-                p.location &&
-                isInGovernorate(
-                  { lat: p.location.latitude, lng: p.location.longitude },
-                  data.governorateKey ?? "",
-                ),
-            )
-            .slice(0, 5)
-            .map((p: any) => ({
-              id: p.id,
-              text: p.displayName?.text || p.formattedAddress,
-              address: p.formattedAddress,
-              coords: { lat: p.location.latitude, lng: p.location.longitude },
-            })),
+          coords: { lat: result.location.latitude as number, lng: result.location.longitude as number },
+          address: (result.formattedAddress || result.displayName?.text || "") as string,
         };
-      return {
-        suggestions: (result.suggestions ?? []).slice(0, 5).flatMap((s: any) =>
-          s.placePrediction
-            ? [
-                {
-                  id: s.placePrediction.placeId as string,
-                  text: s.placePrediction.text.text as string,
-                },
-              ]
-            : [],
-        ),
-      };
+      }
+      if (data.action === "route") return parseDrivingRoute(result);
+      if (result.status !== "OK" && result.status !== "ZERO_RESULTS") return photonReverse(data.center);
+      return { address: (result.results?.[0]?.formatted_address || "") as string };
+    } catch (error) {
+      if (data.action === "route") return approximateRoute(data.from, data.to);
+      if (data.action === "reverse") return photonReverse(data.center);
+      throw error;
     }
-    if (data.action === "details") {
-      if (!result.location) throw new Error("لا يتوفر موقع لهذا المكان");
-      return {
-        coords: {
-          lat: result.location.latitude as number,
-          lng: result.location.longitude as number,
-        },
-        address: (result.formattedAddress || result.displayName?.text || "") as string,
-      };
-    }
-    if (data.action === "route") {
-      return parseDrivingRoute(result);
-    }
-    if (result.status !== "OK" && result.status !== "ZERO_RESULTS")
-      throw new Error(`Google Maps: ${result.status}: ${result.error_message || ""}`);
-    return { address: (result.results?.[0]?.formatted_address || "") as string };
   });
