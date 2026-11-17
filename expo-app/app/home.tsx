@@ -330,9 +330,6 @@ export default function HomeScreen() {
           <NotificationsBell />
         </View>
       </View>
-      <TouchableOpacity onPress={() => router.push("/account-settings")} accessibilityRole="button" accessibilityLabel="تبديل الدور" style={styles.roleSettingsLink}>
-        <Text style={styles.roleSettingsText}>⇄  تبديل الدور</Text>
-      </TouchableOpacity>
       <TouchableOpacity
         onPress={() => router.push("/coupons")}
         activeOpacity={0.85}
