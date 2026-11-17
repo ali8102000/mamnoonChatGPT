@@ -53,10 +53,10 @@ export default function DispatchRangesAdminScreen() {
     const rings = group.rings.map((ring) => ({
       zone_no: ring.zone_no, min_km: Number(ring.min_km), max_km: Number(ring.max_km),
     }));
-    if (rings.length !== 3 || rings.some((r) => !Number.isFinite(r.min_km) || !Number.isFinite(r.max_km) || r.min_km < 0 || r.max_km <= r.min_km || r.max_km > 100)
+    if (rings.length !== 3 || rings.some((r) => !Number.isFinite(r.min_km) || !Number.isFinite(r.max_km) || r.min_km < 0 || r.max_km <= r.min_km || r.max_km > 55)
       || rings.some((r, i) => i > 0 && r.min_km !== rings[i - 1].max_km)
       || rings[0].min_km !== 0) {
-      Alert.alert("النطاقات غير صحيحة", "لازم تبدأ من صفر، وتكون متصلة بدون تداخل أو فراغ، والنطاق الثالث لا يتجاوز 100 كم.");
+      Alert.alert("النطاقات غير صحيحة", "لازم تبدأ من صفر، وتكون متصلة بدون تداخل أو فراغ، والنطاق الثالث لا يتجاوز 55 كم.");
       return;
     }
     setSaving(group.provider_type);
