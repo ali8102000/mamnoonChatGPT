@@ -61,7 +61,7 @@ export default function SelectGovernorateScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <Text style={styles.note}>تگدر تغيّر المحافظة لاحقاً من إعدادات الحساب.</Text>
+        <Text style={styles.note}>تگدر تغيّر المحافظة لاحقاً من شاشة تحديد موقع الطلب.</Text>
       </ScrollView>
     </View>
   );
