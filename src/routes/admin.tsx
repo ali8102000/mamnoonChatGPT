@@ -87,6 +87,7 @@ import { useServerFn } from "@tanstack/react-start";
 import AdminCompanySettings from "@/components/admin-company-settings";
 import RegionalControlsSection from "@/components/admin-regional-controls";
 import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
+import AdminDispatchZones from "@/components/admin-dispatch-zones";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
 
@@ -126,7 +127,8 @@ type Section =
   | "roles"
   | "staff"
   | "company"
-  | "driverTiers";
+  | "driverTiers"
+  | "dispatchZones";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
   {
@@ -191,6 +193,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "regions", label: "التحكم بالمحافظات", icon: MapPin, roles: ["super_admin", "admin"] },
   { key: "pricing", label: "التسعير والذروة", icon: Tag, roles: ["super_admin", "admin", "pricing_access"] },
   { key: "driverTiers", label: "رتب أداء السائقين", icon: Car, roles: ["super_admin", "admin"] },
+  { key: "dispatchZones", label: "نطاقات توزيع الطلبات", icon: MapPin, roles: ["super_admin", "admin"] },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
@@ -362,6 +365,7 @@ function AdminPage() {
           {section === "regions" && <RegionalControlsSection />}
           {section === "pricing" && <AdminTaxiPricingControls />}
           {section === "driverTiers" && <DriverPerformanceTierSettings />}
+          {section === "dispatchZones" && <AdminDispatchZones />}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
