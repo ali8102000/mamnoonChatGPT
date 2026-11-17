@@ -26,6 +26,8 @@ interface AuthCtx {
   user: User | null;
   profile: Profile | null;
   roles: AppRole[];
+  activeRole: AppRole | null;
+  setActiveRole: (role: AppRole) => void;
   loading: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -44,6 +46,7 @@ const knownRoles = new Set<AppRole>([
   "super_admin", "support", "finance", "moderator",
 ]);
 const authCacheKey = (uid: string) => `${CACHE_VERSION}:${uid}`;
+const rolePreferenceKey = (uid: string) => `mamnoon-active-role-v1:${uid}`;
 
 async function readCachedAuthProfile(uid: string): Promise<CachedAuthProfile | null> {
   try {
@@ -90,8 +93,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [activeRole, setActiveRoleState] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const lastUserId = useRef<string | null>(null);
+
+  async function restoreActiveRole(uid: string, availableRoles: AppRole[]) {
+    const preferenceKey = rolePreferenceKey(uid);
+    let saved = await SecureStore.getItemAsync(preferenceKey);
+    if (!saved) {
+      const legacy = await SecureStore.getItemAsync("mamnoon_active_role");
+      if (legacy && availableRoles.includes(legacy as AppRole)) {
+        saved = legacy;
+        await SecureStore.setItemAsync(preferenceKey, legacy);
+      }
+      if (legacy) await SecureStore.deleteItemAsync("mamnoon_active_role");
+    }
+    const selected = saved && availableRoles.includes(saved as AppRole)
+      ? saved as AppRole
+      : availableRoles.includes("customer")
+        ? "customer"
+        : availableRoles[0] ?? null;
+    setActiveRoleState(selected);
+    if (selected) await SecureStore.setItemAsync(preferenceKey, selected);
+  }
+
+  function setActiveRole(role: AppRole) {
+    if (!roles.includes(role)) return;
+    setActiveRoleState(role);
+    const uid = session?.user.id;
+    if (uid) {
+      void SecureStore.setItemAsync(rolePreferenceKey(uid), role).catch((error) => {
+        console.warn("[Mamnoon] Could not persist the selected role:", error);
+      });
+    }
+  }
 
   async function loadProfile(uid: string) {
     const cached = await readCachedAuthProfile(uid);
@@ -139,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mappedRoles.includes("customer")) mappedRoles.unshift("customer");
       setProfile(resolvedProfile);
       setRoles(mappedRoles);
+      await restoreActiveRole(uid, mappedRoles);
 
       if (
         !profileResult.error &&
@@ -155,7 +191,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.warn("[offline] Account lookup failed; using the last saved account snapshot.", error);
       setProfile(cached?.profile ?? null);
-      setRoles(cached?.roles?.length ? cached.roles : ["customer"]);
+      const fallbackRoles = cached?.roles?.length ? cached.roles : ["customer"];
+      setRoles(fallbackRoles);
+      await restoreActiveRole(uid, fallbackRoles);
     }
   }
 
@@ -175,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastUserId.current = null;
         setProfile(null);
         setRoles([]);
+        setActiveRoleState(null);
         await clearCachedAuthProfile(previousId);
       }
     } catch (error) {
@@ -197,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastUserId.current = null;
         setProfile(null);
         setRoles([]);
+        setActiveRoleState(null);
         void clearCachedAuthProfile(previousId);
       }
     });
@@ -235,7 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ session, user: session?.user ?? null, profile, roles, loading, refresh, signOut }}
+      value={{ session, user: session?.user ?? null, profile, roles, activeRole, setActiveRole, loading, refresh, signOut }}
     >
       {children}
     </Ctx.Provider>
