@@ -4,6 +4,8 @@ import { GOVERNORATES } from "@/lib/governorates";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/lib/toast";
 
+type TaxiTariff = { id: string; service_type: string; is_intercity: boolean; base_fare: number; per_km_rate: number; per_min_rate: number; min_fare: number };
+
 type TaxiControl = {
   governorate_key: string;
   peak_enabled: boolean;
@@ -22,6 +24,7 @@ const DEFAULT: TaxiControl = {
 
 export default function AdminTaxiPricingControls() {
   const [rows, setRows] = useState<TaxiControl[]>([]);
+  const [tariffs, setTariffs] = useState<TaxiTariff[]>([]);
   const [governorateKey, setGovernorateKey] = useState("all");
   const [global, setGlobal] = useState<TaxiControl>(DEFAULT);
   const [regional, setRegional] = useState<TaxiControl>(DEFAULT);
@@ -43,6 +46,15 @@ export default function AdminTaxiPricingControls() {
       setGlobal(list.find((row) => row.governorate_key === "all") ?? DEFAULT);
       setRegional(list.find((row) => row.governorate_key === governorateKey) ?? { ...DEFAULT, governorate_key: governorateKey });
     }
+    const { data: tariffRows, error: tariffError } = await (supabase as any)
+      .from("pricing_settings")
+      .select("id,service_type,is_intercity,base_fare,per_km_rate,per_min_rate,min_fare")
+      .order("is_intercity").order("service_type");
+    if (tariffError) toast.error("تعذّر تحميل التعرفة الأساسية: " + tariffError.message);
+    else setTariffs((tariffRows ?? []).map((row: any) => ({
+      ...row, base_fare: Number(row.base_fare) || 0, per_km_rate: Number(row.per_km_rate) || 0,
+      per_min_rate: Number(row.per_min_rate) || 0, min_fare: Math.max(1000, Number(row.min_fare) || 0),
+    })));
     setLoading(false);
   }, [governorateKey]);
 
@@ -86,6 +98,23 @@ export default function AdminTaxiPricingControls() {
     setSaving(false);
     if (error) { toast.error("تعذّر حفظ ذروة المحافظة: " + error.message); return; }
     toast.success("انحفظت إعدادات الذروة للمحافظة.");
+    await load();
+  }
+
+  async function saveTariff(row: TaxiTariff) {
+    const values = [row.base_fare,row.per_km_rate,row.per_min_rate,row.min_fare].map(Number);
+    if (values.some((value) => !Number.isFinite(value) || value < 0) || row.min_fare < 1000) {
+      toast.error("تحقق من الأرقام؛ الحد الأدنى للرحلة لا يقل عن 1,000 دينار."); return;
+    }
+    setSaving(true);
+    const { error } = await (supabase as any).rpc("admin_update_taxi_pricing_settings", {
+      p_service_type: row.service_type, p_is_intercity: row.is_intercity,
+      p_base_fare: row.base_fare, p_per_km_rate: row.per_km_rate,
+      p_per_min_rate: row.per_min_rate, p_min_fare: row.min_fare,
+    });
+    setSaving(false);
+    if (error) { toast.error("تعذّر حفظ التعرفة: " + error.message); return; }
+    toast.success("تم حفظ التعرفة وتسجيل التغيير بسجل التدقيق.");
     await load();
   }
 
@@ -135,6 +164,18 @@ export default function AdminTaxiPricingControls() {
         <p className="text-xs text-muted-foreground">إذا ماكو إعداد خاص لمحافظة، تعتمد إعدادات «كل العراق». الاستعجال ينضاف بعد الذروة ويزيد السعر فوقها.</p>
         <button type="button" disabled={saving} onClick={saveRegional} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4" /> حفظ الذروة</button>
         <button type="button" disabled={saving} onClick={() => void load()} className="mr-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50"><RefreshCw className="ml-2 inline h-4 w-4" /> تحديث</button>
+      </div>
+      <div className="rounded-xl border border-border p-3 space-y-3">
+        <div className="font-black">التعرفة الأساسية للتاكسي</div>
+        <p className="text-xs text-muted-foreground">تعديل أجرة الانطلاق والكيلومتر والدقيقة والحد الأدنى. كل حفظ يمر عبر صلاحية التسعير ويسجل القيمة السابقة والجديدة.</p>
+        {tariffs.map((row) => <div key={row.id} className="rounded-xl border border-border p-3 space-y-2">
+          <div className="font-bold text-sm">{row.service_type === "economy" ? "اقتصادي" : row.service_type === "premium" ? "متميز" : "فاخر"} · {row.is_intercity ? "بين المحافظات" : "داخل المدينة"}</div>
+          <div className="grid grid-cols-2 gap-2">
+            {([["base_fare","أجرة الانطلاق"],["per_km_rate","سعر الكيلومتر"],["per_min_rate","سعر الدقيقة"],["min_fare","الحد الأدنى"]] as const).map(([key,label]) => <label key={key} className="block space-y-1 text-xs font-bold"><span>{label} (د.ع)</span><input className={inputClass} type="number" min={key==="min_fare"?1000:0} value={row[key]} onChange={(e)=>setTariffs((current)=>current.map((item)=>item.id===row.id?{...item,[key]:Number(e.target.value)}:item))}/></label>)}
+          </div>
+          <button type="button" disabled={saving} onClick={()=>void saveTariff(row)} className="rounded-xl bg-primary px-4 py-2 text-xs font-black text-primary-foreground disabled:opacity-50">حفظ هذه التعرفة</button>
+        </div>)}
+        {!tariffs.length && <p className="text-xs text-muted-foreground">لا توجد صفوف تعرفة للعرض.</p>}
       </div>
       <p className="text-xs text-muted-foreground">نسب الفئات ثابتة حسب الاتفاق: أقل من 10,000 د.ع: المتميز +20% والفاخر +40%. من 10,000 إلى 50,000: +15% و+25%. أكثر من 50,000: +5% و+10%. التقريب لأقرب 250 دينار.</p>
     </section>
