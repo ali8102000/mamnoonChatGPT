@@ -16,7 +16,7 @@ const DEFAULT: TaxiControl = {
   governorate_key: "all",
   peak_enabled: false,
   peak_percent: 0,
-  urgency_enabled: true,
+  urgency_enabled: false,
   urgency_max_percent: 10,
 };
 
