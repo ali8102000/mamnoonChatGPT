@@ -907,11 +907,13 @@ function NewRequest() {
                 onClick={() => {
                   const next = !interCity;
                   setInterCity(next);
-                  if (!next && gov) {
-                    setDestinationGovernorateKey(null);
+                  setDestinationGovernorateKey(next ? null : gov?.key ?? null);
+                  setDestConfirmed(false);
+                  if (next) {
+                    toast.message("اختر المحافظة التي تريد الوصول إليها حتى تظهر اقتراحاتها فقط.");
+                  } else if (gov) {
                     setDestCoords({ lat: gov.lat, lng: gov.lng });
                     setDestLabel(gov.name);
-                    setDestConfirmed(false);
                   }
                 }}
                 className={`w-full py-2 rounded-xl text-xs font-bold border btn-press ${interCity ? "bg-primary text-primary-foreground border-primary" : "border-border/60 text-muted-foreground"}`}
