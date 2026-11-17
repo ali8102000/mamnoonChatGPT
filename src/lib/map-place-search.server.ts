@@ -33,6 +33,43 @@ function uniqueParts(values: unknown[]) {
   return [...new Set(values.map(textValue).filter(Boolean))];
 }
 
+const PHOTON_CATEGORY_ALIASES: Record<string, string[]> = {
+  "مطعم": ["restaurant"],
+  "مطاعم": ["restaurant"],
+  "كافيه": ["cafe"],
+  "مقهى": ["cafe"],
+  "مقاهي": ["cafe"],
+  "مستشفى": ["hospital"],
+  "مستشفيات": ["hospital"],
+  "صيدلية": ["pharmacy"],
+  "صيدليات": ["pharmacy"],
+  "مدرسة": ["school"],
+  "مدارس": ["school"],
+  "جامعة": ["university"],
+  "جامعات": ["university"],
+  "مسجد": ["mosque"],
+  "مساجد": ["mosque"],
+  "مول": ["mall", "shopping center"],
+  "سوق": ["market"],
+  "أسواق": ["market"],
+  "فندق": ["hotel"],
+  "فنادق": ["hotel"],
+  "عيادة": ["clinic"],
+  "حديقة": ["park"],
+  "شارع": ["street"],
+  "محطة وقود": ["fuel station"],
+  "محطة بنزين": ["fuel station"],
+  "مصرف": ["bank"],
+  "بنك": ["bank"],
+};
+
+function photonAliases(query: string) {
+  const normalized = normalizedQuery(query);
+  const entry = Object.entries(PHOTON_CATEGORY_ALIASES)
+    .find(([label]) => normalizedQuery(label) === normalized);
+  return entry?.[1] ?? [];
+}
+
 async function readSuggestions(governorateKey: string, query: string, limit: number) {
   const { data, error } = await (supabaseAdmin as any).rpc("search_map_place_suggestions", {
     p_governorate_key: governorateKey,
@@ -51,14 +88,15 @@ async function readSuggestions(governorateKey: string, query: string, limit: num
   }));
 }
 
-async function fetchPhotonSuggestions(query: string, governorateKey: string) {
+async function fetchPhotonSuggestions(query: string, governorateKey: string, searchTermsToInclude: string[] = []) {
   const governorate = getGovernorate(governorateKey);
   if (!governorate) throw new Error("المحافظة المختارة غير صحيحة.");
   const bounds = governorateBounds(governorateKey);
   const url = new URL("https://photon.komoot.io/api/");
   url.searchParams.set("q", query);
-  url.searchParams.set("lang", "ar");
-  url.searchParams.set("limit", "30");
+  // The public Photon instance supports only a small language set (en/de/fr).
+  // Omitting lang returns local OSM names, including Arabic names where available.
+  url.searchParams.set("limit", "50");
   url.searchParams.set("countrycode", "IQ");
   url.searchParams.set(
     "bbox",
@@ -95,6 +133,8 @@ async function fetchPhotonSuggestions(query: string, governorateKey: string) {
     if (!isInGovernorate({ lat: latitude, lng: longitude }, governorateKey)) return [];
 
     const name = textValue(properties.name) ||
+      textValue(properties.locality) ||
+      textValue(properties.suburb) ||
       textValue(properties.city) ||
       textValue(properties.district) ||
       textValue(properties.street);
@@ -103,6 +143,7 @@ async function fetchPhotonSuggestions(query: string, governorateKey: string) {
       properties.housenumber && properties.street
         ? `${textValue(properties.housenumber)} ${textValue(properties.street)}`
         : properties.street,
+      properties.locality,
       properties.suburb,
       properties.district,
       properties.city,
@@ -110,10 +151,11 @@ async function fetchPhotonSuggestions(query: string, governorateKey: string) {
       properties.state,
       properties.country,
     ]).join("، ") || name;
-    const searchTerms = uniqueParts([
+    const rawSearchTerms = uniqueParts([
       name,
       properties.name_en,
       properties.street,
+      properties.locality,
       properties.suburb,
       properties.district,
       properties.city,
@@ -122,6 +164,12 @@ async function fetchPhotonSuggestions(query: string, governorateKey: string) {
       properties.country,
       properties.osm_key,
       properties.osm_value,
+    ]).join(" ");
+    const searchTerms = uniqueParts([
+      rawSearchTerms,
+      normalizedQuery(rawSearchTerms),
+      ...searchTermsToInclude,
+      ...searchTermsToInclude.map(normalizedQuery),
     ]).join(" ");
     const osmType = textValue(properties.osm_type) || "P";
     const osmId = textValue(properties.osm_id) || `${latitude.toFixed(6)}:${longitude.toFixed(6)}`;
@@ -162,9 +210,18 @@ export async function searchMapPlaceSuggestions(input: string, governorateKey: s
   }
 
   const cacheFresh = cached.data?.expires_at && new Date(cached.data.expires_at).getTime() > Date.now();
-  if (!cacheFresh && initial.length < 20) {
+  if (!cacheFresh && initial.length < 30) {
     try {
-      const remoteRows = await fetchPhotonSuggestions(query, governorateKey);
+      let remoteRows = await fetchPhotonSuggestions(query, governorateKey, [query, normalized]);
+      if (remoteRows.length < 12) {
+        for (const alias of photonAliases(query)) {
+          const extraRows = await fetchPhotonSuggestions(alias, governorateKey, [query, normalized, alias]);
+          const merged = new Map<string, any>();
+          for (const row of [...remoteRows, ...extraRows]) merged.set(row.source_key, row);
+          remoteRows = [...merged.values()];
+          if (remoteRows.length >= 30) break;
+        }
+      }
       if (remoteRows.length) {
         const { error: upsertError } = await (supabaseAdmin as any)
           .from("map_place_suggestions")
@@ -179,7 +236,7 @@ export async function searchMapPlaceSuggestions(input: string, governorateKey: s
         .upsert({
           governorate_key: governorateKey,
           normalized_query: normalized,
-          expires_at: new Date(Date.now() + (remoteRows.length ? 7 : 0.25) * 24 * 60 * 60 * 1000).toISOString(),
+          expires_at: new Date(Date.now() + (remoteRows.length ? 7 * 24 * 60 * 60 * 1000 : 5 * 60 * 1000)).toISOString(),
           updated_at: new Date().toISOString(),
         }, { onConflict: "governorate_key,normalized_query" });
     } catch (error) {
@@ -188,6 +245,6 @@ export async function searchMapPlaceSuggestions(input: string, governorateKey: s
     }
   }
 
-  const suggestions = await readSuggestions(governorateKey, query, 20);
-  return { suggestions: suggestions.length ? suggestions : initial.slice(0, 20), attribution: "بيانات الأماكن © OpenStreetMap" };
+  const suggestions = await readSuggestions(governorateKey, query, 30);
+  return { suggestions: suggestions.length ? suggestions : initial.slice(0, 30), attribution: "بيانات الأماكن © OpenStreetMap" };
 }

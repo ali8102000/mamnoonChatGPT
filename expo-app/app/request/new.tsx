@@ -503,7 +503,7 @@ export default function NewRequest() {
           center: center ? { lat: center.latitude, lng: center.longitude } : { lat: fallback!.latitude, lng: fallback!.longitude },
           governorateKey: activeGovernorateKey,
         });
-        if (active) setPlaceSuggestions((result.suggestions ?? []).slice(0, 20));
+        if (active) setPlaceSuggestions((result.suggestions ?? []).slice(0, 30));
       } catch (error) {
         if (active) {
           setPlaceSuggestions([]);

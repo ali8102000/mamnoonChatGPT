@@ -321,7 +321,7 @@ export function MapPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Authenticated Google search only; province changes invalidate previous suggestions.
+  // Authenticated Supabase-backed search; province changes invalidate previous suggestions.
   const placeCacheRef = useRef<Map<string, { coords: Coords; address: string }>>(new Map());
   useEffect(() => {
     if (!searchOpen || searchQuery.trim().length < 2) {
