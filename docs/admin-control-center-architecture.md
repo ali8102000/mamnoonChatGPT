@@ -172,3 +172,22 @@ The existing `/admin` staff panel now uses the governance RPCs for staff listing
 Server actions were added in `src/lib/admin.functions.ts`; the interface remains within the existing administration route and does not create a parallel admin app.
 
 Validation status: the complete SQL migration was re-run transactionally and rolled back after the hierarchy/scope hardening. A Vercel preview build could not be started because the connected Hobby team's Vercel API deployment quota has been exhausted for the day. Therefore TypeScript/build verification remains pending. No production deployment or database migration was performed.
+## Granular permission catalog extension (2026-11-17)
+
+A follow-up migration, `20261117210000_admin_granular_permission_catalog.sql`, registers granular capabilities for:
+- customers and identity;
+- providers, technicians, fleet and vehicle categories;
+- orders, dispatch and route policies;
+- taxi, vehicle-class and home-service pricing, peak, commission, preview, publish and rollback;
+- governorates, service zones and restricted zones;
+- promotions and campaign budgets;
+- wallets, refunds, settlement, reconciliation and finance exports;
+- subscriptions;
+- support, moderation and appeals;
+- notifications, audience targeting and in-app content;
+- platform feature switches, maintenance, app-version policy and integration status;
+- staff rank/permission workflows and audit exports.
+
+**Important security property:** this migration only adds permission definitions to the catalog. It grants no new permission to any staff account, changes no owner account, and does not enable any new direct table writes. The owner remains governed by the existing `is_super_admin` check. A permission appears in the catalog before it is wired to a protected server action; do not treat catalog registration alone as enforcement.
+
+Validation: the migration was executed inside an explicit transaction and rolled back successfully after correcting an insert-column mismatch. This confirms the catalog SQL can execute against the current schema without leaving changes behind. It does not prove the new permissions are wired to every existing RPC, Edge Function, web screen or native screen.

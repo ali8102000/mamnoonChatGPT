@@ -936,47 +936,9 @@ grant execute on function public.admin_update_taxi_pricing_settings(text,boolean
 
 -- Move existing finance/coupon RPCs onto the explicit permission model while
 -- preserving the legacy admin role as a compatibility fallback.
-do $permission_hardening$
-declare
-  v_signature text;
-  v_permission text;
-  v_message text;
-  v_definition text;
-  v_new_definition text;
-  v_check text;
-begin
-  for v_signature,v_permission,v_message in
-    select * from (values
-      ('public.admin_adjust_wallet(uuid,numeric,text,text)','finance.wallet.adjust','missing_finance_wallet_permission'),
-      ('public.admin_coupon_audience_count(text)','promotions.read','missing_promotions_read_permission'),
-      ('public.admin_coupon_subsidy_report()','promotions.read','missing_promotions_read_permission'),
-      ('public.admin_delete_coupon(uuid)','promotions.manage','missing_promotions_manage_permission'),
-      ('public.admin_distribute_coupon(uuid,text,uuid)','promotions.manage','missing_promotions_manage_permission'),
-      ('public.admin_save_coupon(uuid,text,text,numeric,integer,timestamp with time zone,boolean,numeric)','promotions.manage','missing_promotions_manage_permission')
-    ) as permissions(signature,permission_key,error_message)
-  loop
-    v_definition := pg_get_functiondef(v_signature::regprocedure);
-    if v_signature='public.admin_adjust_wallet(uuid,numeric,text,text)' then
-      v_definition := replace(v_definition,
-        'DECLARE v_delta numeric; v_bal numeric;',
-        'DECLARE v_delta numeric; v_bal numeric; v_target_governorate text;');
-      v_check := 'SELECT governorate_key INTO v_target_governorate FROM public.profiles WHERE id=p_user_id; '||
-        'IF NOT (public.has_admin_access(auth.uid()) OR public.admin_has_permission(''finance.wallet.adjust'', '||
-        'CASE WHEN v_target_governorate IS NULL THEN ''global'' ELSE ''governorate'' END, v_target_governorate)) '||
-        'THEN RAISE EXCEPTION ''missing_finance_wallet_permission''; END IF;';
-    else
-      v_check := format(
-        'IF NOT (public.has_admin_access(auth.uid()) OR public.admin_has_permission(%L, ''global'', NULL)) THEN RAISE EXCEPTION %L; END IF;',
-        v_permission,v_message
-      );
-    end if;
-    v_new_definition := regexp_replace(v_definition,'perform\s+public\.assert_staff\(''admin''\);',v_check,'gi');
-    if v_new_definition=v_definition then
-      raise exception 'permission_hardening_anchor_missing_for_%',v_signature;
-    end if;
-    execute v_new_definition;
-  end loop;
-end
-$permission_hardening$;
+-- Legacy role-based permission rewrite removed.
+-- Granular authorization for wallet and coupon RPCs is installed by the
+-- following migration: 20261117230000_fix_superadmin_permission_delegation.sql.
+
 
 commit;

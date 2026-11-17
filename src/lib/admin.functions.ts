@@ -36,14 +36,19 @@ async function requireProviderOps(context: any) {
 async function requireUserModeration(context: any) {
   return requireScopedAccess(context, "has_user_moderation_access", "غير مصرّح: إدارة المستخدمين والبلاغات للمخولين فقط");
 }
-async function requireAdminPermission(context: any, permissionKey: string, legacyRpc = "has_admin_access") {
-  const { supabase, userId } = context;
+async function requireAdminPermission(
+  context: any,
+  permissionKey: string,
+  scopeType = "global",
+  scopeGovernorate: string | null = null,
+) {
+  const { supabase } = context;
   const { data: allowed, error } = await (supabase as any).rpc("admin_has_permission", {
-    p_permission_key: permissionKey, p_scope_type: "global", p_scope_governorate: null,
+    p_permission_key: permissionKey,
+    p_scope_type: scopeType,
+    p_scope_governorate: scopeGovernorate,
   });
-  if (!error && allowed === true) return;
-  const { data: legacyAllowed, error: legacyError } = await (supabase as any).rpc(legacyRpc, { p_user_id: userId });
-  if (legacyError || legacyAllowed !== true) throw new Error("غير مصرّح: " + permissionKey);
+  if (error || allowed !== true) throw new Error("غير مصرّح: " + permissionKey);
 }
 
 async function requireFinance(context: any) {
@@ -53,10 +58,34 @@ async function requireFriendAdmin(context: any) {
   return requireScopedAccess(context, "has_friend_admin_access", "غير مصرّح: إدارة الأصدقاء للإدارة والإشراف فقط");
 }
 
-async function requireAdmin(context: any) {
-  const { supabase, userId } = context;
-  const { data } = await (supabase as any).rpc("has_admin_access", { p_user_id: userId });
-  if (!data) throw new Error("غير مصرّح: للمديرين فقط");
+async function requireAdmin(context: any, permissionKey: string) {
+  return requireAdminPermission(context, permissionKey);
+}
+
+async function requireUserScopePermission(context: any, permissionKey: string, targetUserId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: profile, error } = await (supabaseAdmin as any)
+    .from("profiles").select("governorate_key").eq("id", targetUserId).maybeSingle();
+  if (error || !profile) throw new Error("تعذر تحديد نطاق المستخدم المستهدف");
+  const governorate = profile.governorate_key ?? null;
+  return requireAdminPermission(context, permissionKey, governorate ? "governorate" : "global", governorate);
+}
+
+async function requireRequestScopePermission(context: any, permissionKey: string, requestId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: request, error } = await (supabaseAdmin as any)
+    .from("service_requests").select("governorate_key").eq("id", requestId).maybeSingle();
+  if (error || !request) throw new Error("الطلب غير موجود أو تعذر تحديد محافظته");
+  const governorate = request.governorate_key ?? null;
+  return requireAdminPermission(context, permissionKey, governorate ? "governorate" : "global", governorate);
+}
+
+async function requireProviderChangeScopePermission(context: any, permissionKey: string, requestId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: request, error } = await (supabaseAdmin as any)
+    .from("provider_change_requests").select("user_id").eq("id", requestId).maybeSingle();
+  if (error || !request?.user_id) throw new Error("طلب تحديث الاختصاصات غير موجود");
+  return requireUserScopePermission(context, permissionKey, request.user_id);
 }
 
 async function requireSuperAdmin(context: any) {
@@ -275,7 +304,7 @@ export const adminBlockUser = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    await requireUserScopePermission(context, "users.block", data.user_id);
     const { supabase } = context;
     let computedExpiresAt = data.expires_at ?? null;
     if (data.duration) {
@@ -299,7 +328,7 @@ export const adminUnblockUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ user_id: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    await requireUserScopePermission(context, "users.unblock", data.user_id);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_unblock_user", {
       p_user_id: data.user_id,
@@ -395,7 +424,7 @@ export const adminUpdateProviderName = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ user_id: z.string().uuid(), full_name: z.string().trim().min(2).max(80) }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    await requireUserScopePermission(context, "providers.profile.edit", data.user_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: provider, error: providerError } = await (supabaseAdmin as any)
       .from("driver_profiles").select("user_id").eq("user_id", data.user_id).maybeSingle();
@@ -472,7 +501,7 @@ export const adminListProviders = createServerFn({ method: "GET" })
 export const adminListProviderChangeRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdmin(context);
+    await requireAdmin(context, "providers.read");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await (supabaseAdmin as any)
       .from("provider_change_requests")
@@ -502,7 +531,7 @@ export const adminReviewProviderChangeRequest = createServerFn({ method: "POST" 
     reason: z.string().max(500).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    await requireProviderChangeScopePermission(context, "providers.verify", data.request_id);
     if (data.status === "rejected" && !data.reason?.trim()) {
       throw new Error("اكتب سبب الرفض حتى يصل للمستخدم");
     }
@@ -530,7 +559,7 @@ export const adminSetProviderStatus = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    await requireUserScopePermission(context, data.status === "suspended" ? "providers.suspend" : "providers.verify", data.user_id);
     const { supabase } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const durationMinutes: Record<string, number> = { "30m": 30, "1h": 60, "1w": 10080, "1mo": 43200, "1y": 525600 };
@@ -668,7 +697,7 @@ export const adminCancelRequest = createServerFn({ method: "POST" })
     z.object({ request_id: z.string().uuid(), reason: z.string().max(500).optional() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    await requireRequestScopePermission(context, "orders.cancel", data.request_id);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_cancel_request", {
       p_request_id: data.request_id,
@@ -682,7 +711,7 @@ export const adminReopenRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ request_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    await requireRequestScopePermission(context, "orders.reopen", data.request_id);
     const { supabase } = context;
     const { error } = await (supabase as any).rpc("admin_reopen_request", {
       p_request_id: data.request_id,
@@ -721,7 +750,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdminPermission(context, "finance.read", "has_finance_access");
+    await requireAdminPermission(context, "finance.read");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: txs, error } = await (supabaseAdmin as any)
       .from("transactions")
@@ -735,7 +764,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
 export const adminListCoupons = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdminPermission(context, "promotions.read", "has_finance_access");
+    await requireAdminPermission(context, "promotions.read");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: coupons, error } = await (supabaseAdmin as any)
       .from("coupons")
@@ -1070,7 +1099,7 @@ export const adminListAuditLogs = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    await requireAdmin(context, "audit.read");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: logs, error } = await (supabaseAdmin as any)
       .from("audit_logs")
@@ -1253,7 +1282,7 @@ export const adminGetGovernorateUserStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({}).parse(d))
   .handler(async ({ context }) => {
-    await requireAdmin(context);
+    await requireAdmin(context, "analytics.view");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await (supabaseAdmin as any).rpc("admin_governorate_user_stats");
     if (error) throw new Error("تعذر تحميل إحصائيات المحافظات: " + error.message);
@@ -1267,7 +1296,7 @@ export const adminGetCustomerActivityStats = createServerFn({ method: "GET" })
     offset: z.number().int().min(0).default(0),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    await requireAdmin(context, "analytics.view");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: report, error } = await (supabaseAdmin as any).rpc("admin_customer_activity_stats", {
       p_limit: data.limit,
@@ -1287,8 +1316,16 @@ export const adminUpdateUserProfile = createServerFn({ method: "POST" })
     avatar_mime: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existingProfile, error: existingProfileError } = await (supabaseAdmin as any)
+      .from("profiles").select("governorate_key").eq("id", data.user_id).maybeSingle();
+    if (existingProfileError || !existingProfile) throw new Error("المستخدم غير موجود");
+    const oldGovernorate = existingProfile.governorate_key ?? null;
+    await requireAdminPermission(context, "users.profile.edit", oldGovernorate ? "governorate" : "global", oldGovernorate);
+    if (data.governorate_key !== oldGovernorate) {
+      const newGovernorate = data.governorate_key ?? null;
+      await requireAdminPermission(context, "users.profile.edit", newGovernorate ? "governorate" : "global", newGovernorate);
+    }
     const updates: Record<string, unknown> = {
       full_name: data.full_name,
       governorate_key: data.governorate_key,

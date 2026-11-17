@@ -31,14 +31,22 @@ Deno.serve(async (req: Request) => {
     });
     const { data: auth, error: authError } = await caller.auth.getUser(token);
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
-    const { data: staff, error: staffError } = await caller.rpc("has_staff_role", { p_user_id: auth.user.id });
-    if (staffError || staff !== true) return json({ error: "forbidden" }, 403);
+    const { data: assignment } = await caller.from("staff_assignments")
+      .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+    const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+    const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+    const { data: staffAllowed, error: staffPermissionError } = await caller.rpc("admin_has_permission", {
+      p_permission_key: "staff.read", p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
+    });
+    if (staffPermissionError || staffAllowed !== true) return json({ error: "forbidden" }, 403);
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
     const requireAdmin = async () => {
-      const { data, error } = await caller.rpc("has_admin_access", { p_user_id: auth.user.id });
-      if (error || data !== true) throw new Error("admin_required");
+      const { data, error } = await caller.rpc("admin_has_permission", {
+        p_permission_key: "audit.read", p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
+      });
+      if (error || data !== true) throw new Error("permission_required:audit.read");
     };
     const requireSuperAdmin = async () => {
       const { data, error } = await caller.rpc("is_super_admin", { p_user_id: auth.user.id });
@@ -93,7 +101,7 @@ Deno.serve(async (req: Request) => {
     const message = String(error);
     if (message.includes("missing_")) return json({ error: "server_configuration_incomplete" }, 503);
     if (message.includes("super_admin_required")) return json({ error: "super_admin_required" }, 403);
-    if (message.includes("admin_required")) return json({ error: "admin_required" }, 403);
+    if (message.includes("permission_required:")) return json({ error: "permission_required" }, 403);
     return json({ error: "internal_error" }, 500);
   }
 });

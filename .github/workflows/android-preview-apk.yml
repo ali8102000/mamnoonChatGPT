@@ -1,0 +1,64 @@
+name: Mamnoon Android preview APK
+
+on:
+  push:
+    branches:
+      - feat/admin-governance-rebased-20261117
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mamnoon-android-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-preview-apk:
+    name: Build installable Android preview APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: expo-app
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Java for Android Gradle
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install locked app dependencies
+        run: bun install
+
+      - name: Generate native Android project and build debug APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          APP_ENV: production
+          EAS_PROJECT_ID: a6c763c4-3a5c-4725-b370-81967e3c0aab
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::GitHub repository secret EXPO_TOKEN is required to load the production Expo environment."
+            exit 1
+          fi
+          bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && cd android && ./gradlew assembleDebug'
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload installable preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mamnoon-android-preview-apk
+          path: expo-app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
