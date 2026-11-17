@@ -318,16 +318,18 @@ function HierarchicalGovernancePanel() {
       <Text style={muted}>القسم</Text><View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{DEPARTMENTS.map(v=><TouchableOpacity key={v} onPress={()=>setDepartment(v)} style={chip(department===v)}><Text style={muted}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
       <Text style={muted}>نطاق العمل</Text><View style={{flexDirection:"row",gap:6,justifyContent:"flex-end"}}>{(["global","governorate"] as const).map(v=><TouchableOpacity key={v} onPress={()=>setScopeType(v)} style={chip(scopeType===v)}><Text style={muted}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
       {scopeType==="governorate"&&<View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{GOVERNORATES.map(v=><TouchableOpacity key={v} onPress={()=>setGovernorate(v)} style={chip(governorate===v)}><Text style={muted}>{v}</Text></TouchableOpacity>)}</View>}
-      <TouchableOpacity disabled={busy||!selected} onPress={()=>void assign()} style={[button,{opacity:busy||!selected?.user_id?.length?.valueOf()?0.5:1}]}><Text style={s.buttonText}>تعيين الموظف</Text></TouchableOpacity>
+      <TouchableOpacity disabled={busy||!selected} onPress={()=>void assign()} style={[button,{opacity:busy||!selected?0.5:1}]}><Text style={s.buttonText}>تعيين الموظف</Text></TouchableOpacity>
     </View>
     <View style={card}>
       <Text style={title}>الموظفون ضمن صلاحيتك ({staff.length})</Text>
+      <TextInput value={reason} onChangeText={setReason} placeholder="سبب إيقاف الموظف عند الحاجة" placeholderTextColor={palette.muted} style={s.input}/>
       {staff.map(p=><View key={p.user_id} style={{borderTopWidth:1,borderTopColor:palette.line,paddingTop:9,gap:6}}>
         <Text style={title}>{p.full_name||p.phone||"موظف"}</Text><Text style={muted}>{LABELS[p.rank]||p.rank} · {LABELS[p.department]||p.department} · {p.scope_type==="global"?"كل المحافظات":p.scope_governorate||"نطاق قديم"}</Text>
         <Text style={muted}>{p.phone||p.email||p.user_id}</Text>
         {p.active&&<View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>
           <TouchableOpacity onPress={()=>{setSelected(p);setRank(p.rank);setDepartment(p.department);}} style={chip(false)}><Text style={muted}>اختيار للتعديل والصلاحيات</Text></TouchableOpacity>
           <TouchableOpacity disabled={busy} onPress={()=>void updateRank(p)} style={button}><Text style={s.buttonText}>حفظ الرتبة المختارة</Text></TouchableOpacity>
+          <TouchableOpacity disabled={busy||reason.trim().length<3} onPress={()=>void deactivate(p)} style={[button,{backgroundColor:palette.danger,opacity:reason.trim().length<3?0.5:1}]}><Text style={s.buttonText}>إيقاف الموظف</Text></TouchableOpacity>
         </View>}
       </View>)}
       {!staff.length&&!loading&&<Text style={muted}>لا يوجد موظفون ضمن نطاق إدارتك.</Text>}
