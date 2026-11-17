@@ -450,9 +450,10 @@ export default function NewRequest() {
     let active = true;
     const timer = setTimeout(async () => {
       try {
-        const governorates = await resolveRouteGovernorates(pickupCoords, destinationCoords);
+        // One authoritative quote call calculates route, governorates and all category prices.
+        // Avoid four extra detect/validate network round-trips before pricing.
         const { data: route, error: quoteError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: vehicleCat, tripType, extraMinutes, isIntercity: governorates.isIntercity, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: vehicleCat, tripType, extraMinutes, urgencyEnabled },
         });
         if (quoteError) throw quoteError;
         if (!active) return;
@@ -465,9 +466,12 @@ export default function NewRequest() {
         ) {
           throw new Error("تعذّر التحقق من مسافة الطريق. حرّك نقطة الوجهة أو أعد المحاولة.");
         }
-        setPickupGovernorateKey(governorates.fromGovernorateKey);
-        setDestinationGovernorateKey(governorates.toGovernorateKey);
-        setRouteIsIntercity(governorates.isIntercity);
+        if (!route.fromGovernorateKey || !route.toGovernorateKey) {
+          throw new Error("تعذّر تحديد المحافظتين للطريق.");
+        }
+        setPickupGovernorateKey(route.fromGovernorateKey);
+        setDestinationGovernorateKey(route.toGovernorateKey);
+        setRouteIsIntercity(Boolean(route.isIntercity));
         setRouteKm(route.distanceKm);
         setRouteDurationMin(route.durationMin);
         setServerTaxiFare(Number(route.priceEstimate));
