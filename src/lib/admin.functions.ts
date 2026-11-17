@@ -724,7 +724,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdminPermission(context, "finance.read", "has_finance_access");
+    await requireAdminPermission(context, "finance.read");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: txs, error } = await (supabaseAdmin as any)
       .from("transactions")
@@ -738,7 +738,7 @@ export const adminListTransactions = createServerFn({ method: "GET" })
 export const adminListCoupons = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdminPermission(context, "promotions.read", "has_finance_access");
+    await requireAdminPermission(context, "promotions.read");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: coupons, error } = await (supabaseAdmin as any)
       .from("coupons")
