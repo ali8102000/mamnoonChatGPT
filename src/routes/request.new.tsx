@@ -357,7 +357,7 @@ function NewRequest() {
     const t = setTimeout(async () => {
       try {
         const { data, error } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, pickupGovernorateKey: govKey, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled },
         });
         if (error) throw error;
         if (stale) return;
