@@ -421,9 +421,9 @@ export default function DriverOnboarding() {
       <Text style={styles.note}>{vehicleChangeMode ? "غيّر بيانات المركبة أو اختر مستنداً واحداً أو أكثر لاستبداله. المستندات التي لا تغيّرها تبقى كما هي، والتحديث لا يتفعّل إلا بعد موافقة الإدارة." : largeDriverMode ? "قسم مستقل لكيا الحمل وكيا الركاب والباص. أكمل بيانات المركبة والهوية." : "أكمل بيانات سيارة التكسي والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة."}</Text>
       {!!rejectionReason && <Text style={styles.rejection}>سبب الرفض السابق: {rejectionReason}</Text>}
 
-      <View style={styles.categoryNotice}>
-        <Text style={styles.categoryNoticeTitle}>تصنيف المركبة تلقائي</Text>
-        <Text style={styles.categoryNoticeText}>اكتب اسم السيارة أو اختر الموديل من القائمة، ويُحدد نوعها تلقائياً من سجل المركبات. رتبة أدائك تُحسب لاحقاً من الرحلات والتقييمات.</Text>
+      <View style={{ backgroundColor: palette.brandSoft, borderColor: palette.line, borderWidth: 1, borderRadius: radius.lg, padding: 13, marginBottom: 12 }}>
+        <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>تصنيف المركبة تلقائي</Text>
+        <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 19, textAlign: "right", marginTop: 5 }}>اكتب اسم السيارة أو اختر الموديل من القائمة، ويُحدد نوعها تلقائياً من سجل المركبات. رتبة أدائك تُحسب لاحقاً من الرحلات والتقييمات.</Text>
       </View>
 
       {category !== "large" && <>
