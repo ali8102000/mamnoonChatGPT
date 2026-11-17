@@ -38,15 +38,23 @@ export default function AdminGovernanceScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const [staff, admin, root] = await Promise.all([
-        supabase.rpc("has_staff_role", { p_user_id: user.id }),
-        supabase.rpc("has_admin_access", { p_user_id: user.id }),
+      const { data: assignment } = await (supabase as any).from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", user.id).eq("active", true).maybeSingle();
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+      const [staffRead, auditRead, root] = await Promise.all([
+        (supabase as any).rpc("admin_has_permission", {
+          p_permission_key: "staff.read", p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
+        }),
+        (supabase as any).rpc("admin_has_permission", {
+          p_permission_key: "audit.read", p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
+        }),
         supabase.rpc("is_super_admin", { p_user_id: user.id }),
       ]);
-      if (staff.error || staff.data !== true) { setAllowed(false); return; }
+      if (staffRead.error || staffRead.data !== true) { setAllowed(false); return; }
       setAllowed(true);
       setSuperAdmin(root.data === true);
-      if (admin.data === true) {
+      if (auditRead.data === true) {
         const r = await invoke({ action: "audit_logs", limit: 100 });
         setLogs(r.logs ?? []);
       } else setLogs([]);
