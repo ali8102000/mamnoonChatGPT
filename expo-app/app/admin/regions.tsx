@@ -9,8 +9,9 @@ import { palette } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
 import { IRAQ_GOVERNORATES } from "@/lib/governorates";
 
+type Settings = { services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; rejection_message: string; message_image_url: string; message_float_enabled: boolean; message_width_percent: number; message_height_percent: number; message_position: "top-center" | "top-right" | "top-left"; message_top_offset: number; message_font_size: number };
 type Row = { governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string; message_animate: boolean; rejection_message: string; message_image_url: string; message_float_enabled: boolean; message_width_percent: number; message_height_percent: number; message_position: 'top-center' | 'top-right' | 'top-left'; message_top_offset: number; message_font_size: number; updated_at?: string };
-const EMPTY = { services_enabled: true, message_enabled: false, message_title: "تنويه رسمي من إدارة ممنون", message_text: "", message_animate: true, rejection_message: "الخدمة متوقفة مؤقتاً في منطقتك. نعتذر عن ذلك، وسيتم إعلامك عند عودة الخدمة.", message_image_url: "", message_float_enabled: true, message_width_percent: 92, message_height_percent: 34, message_position: "top-center" as const, message_top_offset: 12, message_font_size: 14 };
+const EMPTY: Settings = { services_enabled: true, message_enabled: false, message_title: "تنويه رسمي من إدارة ممنون", message_text: "", message_animate: true, rejection_message: "الخدمة متوقفة مؤقتاً في منطقتك. نعتذر عن ذلك، وسيتم إعلامك عند عودة الخدمة.", message_image_url: "", message_float_enabled: true, message_width_percent: 92, message_height_percent: 34, message_position: "top-center" as const, message_top_offset: 12, message_font_size: 14 };
 
 export default function AdminRegionalControlsScreen() {
   const { user, loading: authLoading } = useAuth();
@@ -49,7 +50,7 @@ export default function AdminRegionalControlsScreen() {
   }, [authLoading, user, load]);
 
   const targetKeys = useMemo(() => mode === "all" ? ["all"] : selected, [mode, selected]);
-  const update = (patch: Partial<typeof EMPTY>) => setSettings((current) => ({ ...current, ...patch }));
+  const update = (patch: Partial<Settings>) => setSettings((current) => ({ ...current, ...patch }));
   const choose = (key: string) => {
     setSelected((current) => current.includes(key) ? current.filter((value) => value !== key) : [...current, key]);
     const row = rows.find((item) => item.governorate_key === key);
@@ -168,10 +169,10 @@ export default function AdminRegionalControlsScreen() {
             {([{value:"top-center",label:"أعلى الوسط"},{value:"top-right",label:"أعلى اليمين"},{value:"top-left",label:"أعلى اليسار"}] as const).map((item) => <TouchableOpacity key={item.value} onPress={() => update({ message_position: item.value })} style={[styles.mode, settings.message_position === item.value && styles.modeActive]}><Text style={[styles.modeText, settings.message_position === item.value && styles.modeTextActive]}>{item.label}</Text></TouchableOpacity>)}
           </View>
         </View>
-        <View style={styles.preview}>
+        <View style={[styles.preview, { width: `${settings.message_width_percent}%`, height: `${settings.message_height_percent}vh`, alignSelf: settings.message_position === "top-center" ? "center" : settings.message_position === "top-left" ? "flex-start" : "flex-end", marginTop: settings.message_top_offset, overflow: "hidden" }]}>
           <View style={styles.previewHead}><Text style={styles.stamp}>✦ الإدارة الرسمية · موثّق ✦</Text><Text style={styles.stamp}>✓</Text></View>
-          <Text style={styles.previewTitle}>{settings.message_title}</Text>
-          <Text style={styles.previewText}>{settings.message_text || "معاينة الرسالة تظهر هنا بعد الكتابة."}</Text><View style={styles.rejectionPreview}><Text style={styles.stamp}>رسالة رفض الطلب · إدارة ممنون الموثّقة</Text><Text style={styles.rejectionPreviewText}>{settings.rejection_message}</Text></View>
+          <Text style={[styles.previewTitle, { fontSize: Math.max(10, settings.message_font_size) }]}>{settings.message_title}</Text>
+          <Text style={[styles.previewText, { fontSize: settings.message_font_size }]}>{settings.message_text || "معاينة الرسالة تظهر هنا بعد الكتابة."}</Text><View style={styles.rejectionPreview}><Text style={styles.stamp}>رسالة رفض الطلب · إدارة ممنون الموثّقة</Text><Text style={styles.rejectionPreviewText}>{settings.rejection_message}</Text></View>
           {!!settings.message_image_url && <Image source={{ uri: settings.message_image_url }} style={styles.previewImage} resizeMode="contain" />}
           <Text style={styles.watermark}>إدارة ممنون · الحساب الرسمي الموثّق</Text>
         </View>
