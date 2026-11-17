@@ -978,8 +978,8 @@ export default function NewRequest() {
           </View>
           </View>
           <View style={styles.taxiSearchRow}>
-            <TouchableOpacity style={styles.taxiLocateButton} onPress={mapMode === "pickup" ? locateMe : () => { if (!pickupCoords) { Alert.alert("حدد الانطلاق أولاً", "حدد موقع الانطلاق أولاً."); return; } const center = destinationCoords ?? pickupCoords; moveMap({ ...center, latitudeDelta: 0.02, longitudeDelta: 0.02 }); }} disabled={locationLoading && mapMode === "pickup"}>
-              {locationLoading && mapMode === "pickup" ? <ActivityIndicator color={palette.white} size="small" /> : <Text style={styles.taxiLocateText}>{mapMode === "pickup" ? "موقعي" : "مركز الخريطة"}</Text>}
+            <TouchableOpacity style={styles.taxiLocateButton} onPress={locateMe} disabled={locationLoading}>
+              {locationLoading ? <ActivityIndicator color={palette.white} size="small" /> : <Text style={styles.taxiLocateText}>موقعي تلقائياً</Text>}
             </TouchableOpacity>
             <TextInput style={styles.taxiSearchInput} value={placeQuery} onChangeText={setPlaceQuery} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
           </View>
@@ -1711,8 +1711,9 @@ const styles = StyleSheet.create({
   placeSearchTop: { borderWidth: 1.5, borderColor: palette.gold, backgroundColor: palette.surface, minHeight: 52, marginTop: 8 },
   taxiNearbyMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.surface, borderWidth: 2, borderColor: palette.brand, alignItems: "center", justifyContent: "center", elevation: 5 },
   taxiNearbyMarkerText: { fontSize: 19 },
-  taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -17, marginTop: -38, zIndex: 4 },
-  taxiCenterPinText: { fontSize: 36, textShadowColor: "rgba(0,0,0,0.35)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -21, marginTop: -48, zIndex: 4 },
+  pinArtwork: { width: 42, height: 58, alignItems: "center", justifyContent: "flex-start" },
+  pinShadow: { width: 17, height: 5, borderRadius: 10, backgroundColor: "rgba(15,23,42,0.22)", marginTop: -1 },
   taxiTopBar: { position: "absolute", top: 42, left: 10, right: 10, zIndex: 10, flexDirection: "column", alignItems: "stretch", gap: 8 },
   taxiTopControls: { flexDirection: "row", alignItems: "center", gap: 7 },
   taxiBackButton: { width: 42, height: 44, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
@@ -1824,8 +1825,7 @@ const styles = StyleSheet.create({
   locateButtonText: { color: palette.brandDeep, fontWeight: "900", fontSize: 12 },
   mapContainer: { height: 280, borderRadius: radius.xl, overflow: "hidden", marginTop: 8, borderWidth: 1, borderColor: palette.line },
   map: { flex: 1 },
-  mapCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -16, marginTop: -34, zIndex: 5 },
-  mapCenterPinText: { fontSize: 34, textShadowColor: "rgba(0,0,0,0.35)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  mapCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -21, marginTop: -48, zIndex: 5 },
   mapHint: { position: "absolute", bottom: 10, alignSelf: "center", backgroundColor: palette.brandDeep, color: palette.white, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, fontSize: 11, overflow: "hidden" },
   input: { minHeight: 54, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, fontWeight: "600", color: palette.ink, backgroundColor: palette.surface, textAlign: "right" },
   photoUploadButton: { minHeight: 48, borderRadius: radius.md, backgroundColor: palette.brandSoft, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: palette.line },
