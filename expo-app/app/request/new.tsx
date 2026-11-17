@@ -666,24 +666,41 @@ export default function NewRequest() {
     }
   }
 
-  function choosePlaceSuggestion(item: { text: string; address?: string; coords?: { lat: number; lng: number } }) {
-    if (!item.coords) {
-      Alert.alert("الموقع غير متوفر", "اختر اقتراحاً آخر يحتوي على إحداثيات دقيقة.");
-      return;
+  async function choosePlaceSuggestion(item: { id: string; text: string; address?: string; coords?: { lat: number; lng: number } }) {
+    try {
+      setSearchingPlaces(true);
+      let point = item.coords;
+      let label = item.address || item.text;
+      // Autocomplete predictions may contain only a place ID. Resolve exact coordinates
+      // before moving the native map so every suggestion is genuinely selectable.
+      if (!point) {
+        const details = await callMamnoonMapsApi<{ coords: { lat: number; lng: number }; address?: string }>({
+          action: "details",
+          placeId: item.id,
+        });
+        point = details.coords;
+        label = details.address || label;
+      }
+      if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+        throw new Error("لم تتوفر إحداثيات دقيقة لهذا المكان.");
+      }
+      const coords = { latitude: point.lat, longitude: point.lng };
+      setDestinationConfirmed(false);
+      if (mapMode === "pickup") {
+        setPickupCoords(coords);
+        setPickup(label);
+      } else {
+        setDestinationCoords(coords);
+        setDestination(label);
+      }
+      moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+      setPlaceQuery("");
+      setPlaceSuggestions([]);
+    } catch (error) {
+      Alert.alert("تعذر تحديد المكان", error instanceof Error ? error.message : "حاول اختيار اقتراح آخر.");
+    } finally {
+      setSearchingPlaces(false);
     }
-    const coords = { latitude: item.coords.lat, longitude: item.coords.lng };
-    const label = item.address || item.text;
-    setDestinationConfirmed(false);
-    if (mapMode === "pickup") {
-      setPickupCoords(coords);
-      setPickup(label);
-    } else {
-      setDestinationCoords(coords);
-      setDestination(label);
-    }
-    moveMap({ ...coords, latitudeDelta: 0.018, longitudeDelta: 0.018 });
-    setPlaceQuery("");
-    setPlaceSuggestions([]);
   }
 
   async function confirmPickupStep() {
