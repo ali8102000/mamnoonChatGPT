@@ -260,7 +260,7 @@ export default function NewRequest() {
   const isLargeVehicle = vehicle === "large";
   const isIntercity = routeIsIntercity;
   const showRequestPhoto = !isTaxi || isLargeVehicle;
-  const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle ? serverTaxiFare : null;
+  const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle ? (serverTaxiFares[vehicleCat as Exclude<VehicleCategory, "large">] ?? serverTaxiFare) : null;
 
   function getCouponBaseAmount() {
     if (!isTaxi || isLargeVehicle) return null;
@@ -303,7 +303,7 @@ export default function NewRequest() {
 
   function moveMap(nextRegion: typeof region) {
     setRegion(nextRegion);
-    mapRef.current?.animateToRegion(nextRegion, 350);
+    mapRef.current?.animateToRegion(nextRegion, 180);
   }
 
   useEffect(() => {
@@ -488,12 +488,12 @@ export default function NewRequest() {
       } finally {
         if (active) setRouteLoading(false);
       }
-    }, 350);
+    }, 180);
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, urgencyEnabled, routeRetry]);
+  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
   useEffect(() => {
     const query = placeQuery.trim();
@@ -525,7 +525,7 @@ export default function NewRequest() {
       } finally {
         if (active) setSearchingPlaces(false);
       }
-    }, 450);
+    }, 250);
     return () => {
       active = false;
       clearTimeout(timer);
