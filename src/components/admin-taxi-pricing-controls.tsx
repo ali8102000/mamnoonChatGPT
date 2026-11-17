@@ -182,11 +182,11 @@ export default function AdminTaxiPricingControls() {
       </div>}
       {canTariff && <div className="rounded-xl border border-border p-3 space-y-3">
         <div className="font-black">التعرفة الأساسية للتاكسي</div>
-        <p className="text-xs text-muted-foreground">تعديل أجرة الانطلاق والكيلومتر والدقيقة والحد الأدنى. كل حفظ يمر عبر صلاحية التسعير ويسجل القيمة السابقة والجديدة.</p>
+        <p className="text-xs text-muted-foreground">تعرفة الاقتصاد هي أساس حساب كل الفئات؛ المتميز والفاخر يطبّق عليهما فرق الفئة المتفق عليه، مع حد أدنى مستقل فقط. كل حفظ موثق بسجل التدقيق.</p>
         {tariffs.map((row) => <div key={row.id} className="rounded-xl border border-border p-3 space-y-2">
           <div className="font-bold text-sm">{row.service_type === "economy" ? "اقتصادي" : row.service_type === "premium" ? "متميز" : "فاخر"} · {row.is_intercity ? "بين المحافظات" : "داخل المدينة"}</div>
           <div className="grid grid-cols-2 gap-2">
-            {([["base_fare","أجرة الانطلاق"],["per_km_rate","سعر الكيلومتر"],["per_min_rate","سعر الدقيقة"],["min_fare","الحد الأدنى"]] as const).map(([key,label]) => <label key={key} className="block space-y-1 text-xs font-bold"><span>{label} (د.ع)</span><input className={inputClass} type="number" min={key==="min_fare"?1000:0} value={row[key]} onChange={(e)=>setTariffs((current)=>current.map((item)=>item.id===row.id?{...item,[key]:Number(e.target.value)}:item))}/></label>)}
+            {(row.service_type === "economy" ? [["base_fare","أجرة الانطلاق"],["per_km_rate","سعر الكيلومتر"],["per_min_rate","سعر الدقيقة"],["min_fare","الحد الأدنى"]] : [["min_fare","الحد الأدنى للفئة"]]).map(([key,label]) => <label key={key} className="block space-y-1 text-xs font-bold"><span>{label} (د.ع)</span><input className={inputClass} type="number" min={key==="min_fare"?1000:0} value={row[key as keyof TaxiTariff] as number} onChange={(e)=>setTariffs((current)=>current.map((item)=>item.id===row.id?{...item,[key]:Number(e.target.value)}:item))}/></label>)}
           </div>
           <button type="button" disabled={saving} onClick={()=>void saveTariff(row)} className="rounded-xl bg-primary px-4 py-2 text-xs font-black text-primary-foreground disabled:opacity-50">حفظ هذه التعرفة</button>
         </div>)}
