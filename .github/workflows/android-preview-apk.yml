@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/admin-governance-rebased-20261117
+      - feat/mamnoon-3-role-switch-settings
   pull_request:
     branches:
       - main
@@ -13,8 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: mamnoon-android-preview-${{ github.ref }}
-  cancel-in-progress: true
+  group: mamnoon-android-preview-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   build-preview-apk:

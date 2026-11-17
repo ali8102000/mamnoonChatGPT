@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
 import { palette, radius, space } from "@/styles/theme";
 import { useThemePreference, type ThemeMode } from "@/lib/theme-preference";
+import Svg, { Path } from "react-native-svg";
 
 export default function AccountSettingsScreen() {
   const { user, profile, roles, refresh } = useAuth();
@@ -147,7 +148,18 @@ export default function AccountSettingsScreen() {
     <Text style={styles.sectionTitle}>مظهر التطبيق</Text>
     <Text style={styles.note}>اختار الوضع اللي يناسبك، وينحفظ على جهازك.</Text>
     <View style={styles.roleGrid}>{([{key:"system",label:"حسب الجهاز"},{key:"light",label:"نهاري"},{key:"dark",label:"ليلي"}] as const).map((item)=><TouchableOpacity key={item.key} onPress={()=>{void setMode(item.key as ThemeMode);}} style={[styles.roleCard,{minHeight:58,backgroundColor:mode===item.key?palette.brandSoft:palette.surface,borderColor:mode===item.key?palette.brand:palette.line}]}><Text style={[styles.roleTitle,{color:palette.ink}]}>{item.label}{mode===item.key?" ✓":""}</Text></TouchableOpacity>)}</View>
-    <Text style={styles.sectionTitle}>مساحاتك في ممنون</Text>
+    <View style={styles.roleSectionHeading}>
+      <View style={styles.roleSwitchIcon}>
+        <Svg width={25} height={25} viewBox="0 0 24 24">
+          <Path d="M7 7h9a3 3 0 0 1 3 3v1m0 0-3-3m3 3 3-3M17 17H8a3 3 0 0 1-3-3v-1m0 0 3 3m-3-3-3 3" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        </Svg>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.roleSectionTitle}>تبديل الدور</Text>
+        <Text style={styles.roleSectionHint}>اختار المساحة اللي تريد تستخدمها</Text>
+      </View>
+      <Text style={styles.roleCurrentHint}>الحالي محدد بإطار</Text>
+    </View>
     <Text style={styles.note}>بدّل بين حساب الزبون ومجالات العمل من نفس الحساب. الأدوار الجديدة تحتاج إكمال التوثيق.</Text>
     <View style={styles.roleGrid}>
       {["customer", "worker", "driver", "large_driver"].map((role) => {
@@ -205,6 +217,11 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: palette.muted, marginBottom: space.xl },
   sectionTitle: { fontSize: 17, fontWeight: "900", color: palette.ink, marginTop: 20, marginBottom: 8 },
   nameSection: { backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.lg, borderWidth: 1, borderColor: palette.line, marginBottom: 12 },
+  roleSectionHeading: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 20, marginBottom: 8 },
+  roleSwitchIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: palette.brand, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: palette.gold + "88", shadowColor: palette.brand, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  roleSectionTitle: { fontSize: 17, fontWeight: "900", color: palette.ink },
+  roleSectionHint: { fontSize: 10, color: palette.muted, marginTop: 3 },
+  roleCurrentHint: { fontSize: 9, color: palette.muted, fontWeight: "700" },
   roleGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 18 },
   roleCard: { width: "48%", minHeight: 124, borderRadius: radius.lg, padding: 14, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "transparent" },
   roleCardActive: { borderColor: palette.gold },

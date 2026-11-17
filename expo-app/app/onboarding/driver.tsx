@@ -30,6 +30,7 @@ export default function DriverOnboarding() {
   const [models, setModels] = useState<VehicleModel[]>([]);
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
+  const [customModelName, setCustomModelName] = useState("");
   const [category, setCategory] = useState<"economy" | "premium" | "luxury" | "large">(largeDriverMode ? "large" : "economy");
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
   const [year, setYear] = useState("");
@@ -126,6 +127,19 @@ export default function DriverOnboarding() {
   }, [models, selectedMake, savedModelName, selectedModel]);
 
   const makes = [...new Set(models.map((m) => m.make))];
+
+  // The model catalogue determines the vehicle/pricing category; the driver cannot choose it.
+  useEffect(() => {
+    if (largeDriverMode) {
+      setCategory("large");
+      return;
+    }
+    if (selectedModel && ["economy", "premium", "luxury"].includes(selectedModel.category)) {
+      setCategory(selectedModel.category as "economy" | "premium" | "luxury");
+    } else {
+      setCategory("economy");
+    }
+  }, [selectedModel, largeDriverMode]);
 
   async function pickPhoto(kind: "face" | "id" | "id-back" | "vehicle-document", source?: "camera" | "library") {
     try {
@@ -270,12 +284,12 @@ export default function DriverOnboarding() {
     const catalogModel = category === "large" ? models.find((m) => m.make === "Kia" && m.model === largeModelName) : selectedModel;
     const resolvedModel: VehicleModel = catalogModel ?? {
       id: "large-kia-local",
-      make: "Kia",
-      model: largeModelName,
-      category: "large",
+      make: category === "large" ? "Kia" : selectedMake,
+      model: category === "large" ? largeModelName : customModelName.trim(),
+      category: category === "large" ? "large" : "economy",
       min_year: 1990,
     };
-    if ((category !== "large" && !selectedModel) || !/^\d{4}$/.test(year.trim()) || !plate.trim()) {
+    if ((category !== "large" && !selectedModel && !customModelName.trim()) || !/^\d{4}$/.test(year.trim()) || !plate.trim()) {
       Alert.alert("بيانات السيارة", category === "large"
         ? "أدخل سنة الصنع ورقم اللوحة."
         : "اختر ماركة وموديل السيارة وأدخل سنة الصنع ورقم اللوحة.");
@@ -410,20 +424,9 @@ export default function DriverOnboarding() {
       <Text style={styles.note}>{vehicleChangeMode ? "غيّر بيانات المركبة أو اختر مستنداً واحداً أو أكثر لاستبداله. المستندات التي لا تغيّرها تبقى كما هي، والتحديث لا يتفعّل إلا بعد موافقة الإدارة." : largeDriverMode ? "قسم مستقل لكيا الحمل وكيا الركاب والباص. أكمل بيانات المركبة والهوية." : "أكمل بيانات سيارة التكسي والهوية. حسابك يبقى معلّقاً لحين موافقة الإدارة."}</Text>
       {!!rejectionReason && <Text style={styles.rejection}>سبب الرفض السابق: {rejectionReason}</Text>}
 
-      <Text style={styles.label}>اختر نوع تسجيلك كسائق</Text>
-      <View style={styles.row}>
-        {CATEGORIES.filter((item) => largeDriverMode ? item.key === "large" : item.key !== "large").map((item) => (
-          <TouchableOpacity key={item.key} style={[styles.category, category === item.key && styles.chipActive]}
-            onPress={() => {
-              setCategory(item.key);
-              if (item.key === "large") {
-                setSelectedMake("Kia");
-                setSelectedModel(null);
-              }
-            }}>
-            <Text style={[styles.chipText, category === item.key && styles.chipTextActive]}>{item.key === "large" ? "🚚 " : "🚗 "}{item.label}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={{ backgroundColor: palette.brandSoft, borderColor: palette.line, borderWidth: 1, borderRadius: radius.lg, padding: 13, marginBottom: 12 }}>
+        <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>تصنيف المركبة تلقائي</Text>
+        <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 19, textAlign: "right", marginTop: 5 }}>اكتب اسم السيارة أو اختر الموديل من القائمة، ويُحدد نوعها تلقائياً من سجل المركبات. رتبة أدائك تُحسب لاحقاً من الرحلات والتقييمات.</Text>
       </View>
 
       {category !== "large" && <>
@@ -442,11 +445,20 @@ export default function DriverOnboarding() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {models.filter((m) => m.make === selectedMake).map((m) => (
               <TouchableOpacity key={m.id} style={[styles.chip, selectedModel?.id === m.id && styles.chipActive]}
-                onPress={() => setSelectedModel(m)}>
+                onPress={() => { setSelectedModel(m); setCustomModelName(""); }}>
                 <Text style={[styles.chipText, selectedModel?.id === m.id && styles.chipTextActive]}>{m.model}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
+          <Text style={styles.label}>أو اكتب اسم الموديل إذا غير موجود بالقائمة</Text>
+          <TextInput
+            value={customModelName}
+            onChangeText={(value) => { setCustomModelName(value); setSelectedModel(null); }}
+            placeholder="اكتب اسم السيارة"
+            placeholderTextColor={palette.muted}
+            style={styles.input}
+            textAlign="right"
+          />
         </>}
       </>}
 

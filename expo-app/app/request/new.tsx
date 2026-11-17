@@ -28,7 +28,6 @@ import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
 import { ServiceArtwork, hasServiceArtwork } from "@/components/service-artwork";
 import { palette, radius } from "@/styles/theme";
-import { calculateMobileTaxiFare } from "@/lib/taxi-fares";
 
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
@@ -92,19 +91,6 @@ async function resolveGovernorate(coords: Coordinates): Promise<string> {
   if (!validation.valid) throw new Error("الموقع المحدد خارج حدود المحافظات العراقية.");
   return detected.key;
 }
-
-async function resolveRouteGovernorates(from: Coordinates, to: Coordinates) {
-  const [fromGovernorateKey, toGovernorateKey] = await Promise.all([
-    resolveGovernorate(from),
-    resolveGovernorate(to),
-  ]);
-  return {
-    fromGovernorateKey,
-    toGovernorateKey,
-    isIntercity: fromGovernorateKey !== toGovernorateKey,
-  };
-}
-
 
 
 function GovernoratePickerModal({ visible, selectedKey, onClose, onSelect }: { visible: boolean; selectedKey: string | null; onClose: () => void; onSelect: (key: string) => void }) {
@@ -260,7 +246,7 @@ export default function NewRequest() {
   const isLargeVehicle = vehicle === "large";
   const isIntercity = routeIsIntercity;
   const showRequestPhoto = !isTaxi || isLargeVehicle;
-  const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle ? serverTaxiFare : null;
+  const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle ? (serverTaxiFares[vehicleCat as Exclude<VehicleCategory, "large">] ?? serverTaxiFare) : null;
 
   function getCouponBaseAmount() {
     if (!isTaxi || isLargeVehicle) return null;
@@ -303,7 +289,7 @@ export default function NewRequest() {
 
   function moveMap(nextRegion: typeof region) {
     setRegion(nextRegion);
-    mapRef.current?.animateToRegion(nextRegion, 350);
+    mapRef.current?.animateToRegion(nextRegion, 180);
   }
 
   useEffect(() => {
@@ -450,9 +436,10 @@ export default function NewRequest() {
     let active = true;
     const timer = setTimeout(async () => {
       try {
-        const governorates = await resolveRouteGovernorates(pickupCoords, destinationCoords);
+        // One authoritative quote call calculates route, governorates and all category prices.
+        // Avoid four extra detect/validate network round-trips before pricing.
         const { data: route, error: quoteError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: vehicleCat, tripType, extraMinutes, isIntercity: governorates.isIntercity, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: "economy", tripType, extraMinutes, urgencyEnabled },
         });
         if (quoteError) throw quoteError;
         if (!active) return;
@@ -465,9 +452,12 @@ export default function NewRequest() {
         ) {
           throw new Error("تعذّر التحقق من مسافة الطريق. حرّك نقطة الوجهة أو أعد المحاولة.");
         }
-        setPickupGovernorateKey(governorates.fromGovernorateKey);
-        setDestinationGovernorateKey(governorates.toGovernorateKey);
-        setRouteIsIntercity(governorates.isIntercity);
+        if (!route.fromGovernorateKey || !route.toGovernorateKey) {
+          throw new Error("تعذّر تحديد المحافظتين للطريق.");
+        }
+        setPickupGovernorateKey(route.fromGovernorateKey);
+        setDestinationGovernorateKey(route.toGovernorateKey);
+        setRouteIsIntercity(Boolean(route.isIntercity));
         setRouteKm(route.distanceKm);
         setRouteDurationMin(route.durationMin);
         setServerTaxiFare(Number(route.priceEstimate));
@@ -484,12 +474,12 @@ export default function NewRequest() {
       } finally {
         if (active) setRouteLoading(false);
       }
-    }, 350);
+    }, 180);
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, urgencyEnabled, routeRetry]);
+  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
   useEffect(() => {
     const query = placeQuery.trim();
@@ -521,7 +511,7 @@ export default function NewRequest() {
       } finally {
         if (active) setSearchingPlaces(false);
       }
-    }, 450);
+    }, 250);
     return () => {
       active = false;
       clearTimeout(timer);
@@ -666,24 +656,41 @@ export default function NewRequest() {
     }
   }
 
-  function choosePlaceSuggestion(item: { text: string; address?: string; coords?: { lat: number; lng: number } }) {
-    if (!item.coords) {
-      Alert.alert("الموقع غير متوفر", "اختر اقتراحاً آخر يحتوي على إحداثيات دقيقة.");
-      return;
+  async function choosePlaceSuggestion(item: { id: string; text: string; address?: string; coords?: { lat: number; lng: number } }) {
+    try {
+      setSearchingPlaces(true);
+      let point = item.coords;
+      let label = item.address || item.text;
+      // Autocomplete predictions may contain only a place ID. Resolve exact coordinates
+      // before moving the native map so every suggestion is genuinely selectable.
+      if (!point) {
+        const details = await callMamnoonMapsApi<{ coords: { lat: number; lng: number }; address?: string }>({
+          action: "details",
+          placeId: item.id,
+        });
+        point = details.coords;
+        label = details.address || label;
+      }
+      if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+        throw new Error("لم تتوفر إحداثيات دقيقة لهذا المكان.");
+      }
+      const coords = { latitude: point.lat, longitude: point.lng };
+      setDestinationConfirmed(false);
+      if (mapMode === "pickup") {
+        setPickupCoords(coords);
+        setPickup(label);
+      } else {
+        setDestinationCoords(coords);
+        setDestination(label);
+      }
+      moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+      setPlaceQuery("");
+      setPlaceSuggestions([]);
+    } catch (error) {
+      Alert.alert("تعذر تحديد المكان", error instanceof Error ? error.message : "حاول اختيار اقتراح آخر.");
+    } finally {
+      setSearchingPlaces(false);
     }
-    const coords = { latitude: item.coords.lat, longitude: item.coords.lng };
-    const label = item.address || item.text;
-    setDestinationConfirmed(false);
-    if (mapMode === "pickup") {
-      setPickupCoords(coords);
-      setPickup(label);
-    } else {
-      setDestinationCoords(coords);
-      setDestination(label);
-    }
-    moveMap({ ...coords, latitudeDelta: 0.018, longitudeDelta: 0.018 });
-    setPlaceQuery("");
-    setPlaceSuggestions([]);
   }
 
   async function confirmPickupStep() {
