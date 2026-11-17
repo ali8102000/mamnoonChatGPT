@@ -10,7 +10,8 @@ export default function WelcomeScreen() {
   useEffect(() => {
     if (loading) return;
     if (session) {
-      router.replace(roles.includes("super_admin") ? "/admin/bootstrap" : "/home");
+      if (roles.includes("super_admin")) router.replace("/admin/bootstrap");
+      else router.replace("/home");
     } else {
       router.replace("/auth");
     }
