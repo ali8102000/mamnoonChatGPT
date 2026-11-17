@@ -512,7 +512,7 @@ export default function NewRequest() {
       } finally {
         if (active) setSearchingPlaces(false);
       }
-    }, 250);
+    }, 500);
     return () => {
       active = false;
       clearTimeout(timer);
