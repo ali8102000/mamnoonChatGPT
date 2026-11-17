@@ -20,7 +20,10 @@ declare
   v_staff_scope_governorate text;
 begin
   if v_actor is null then return false; end if;
-  if p_scope_type not in ('global','governorate')
+  -- Reject NULL explicitly: PL/pgSQL IF treats a NULL condition as not true,
+  -- which could otherwise skip scope validation for a regional staff caller.
+  if p_scope_type is null
+     or p_scope_type not in ('global','governorate')
      or (p_scope_type='global' and p_scope_governorate is not null)
      or (p_scope_type='governorate' and nullif(trim(p_scope_governorate),'') is null)
   then return false; end if;
