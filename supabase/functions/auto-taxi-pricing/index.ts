@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
     return [row.service_type,fare(row.service_type as Category,economyRaw,{...row,is_intercity:isIntercity},tripType,extraMinutes,peakPercent,selectedUrgency)];
   })) as Record<Category,number>;
   const priceEstimate=categoryPrices[category];
-  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,urgencyEnabled:urgencyPercent>0,urgencyPercent,governorateKey:fromGovernorate});
+  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,urgencyEnabled:urgencyPercent>0,urgencyAllowed:Boolean(globalControls?.urgency_enabled && Number(globalControls?.urgency_max_percent)>0),urgencyPercent,governorateKey:fromGovernorate});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
   const governorate=fromGovernorate;
   const couponCode=typeof body.couponCode==="string"&&body.couponCode.trim()?body.couponCode.trim().toUpperCase():null;
