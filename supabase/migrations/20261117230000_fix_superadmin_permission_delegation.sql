@@ -129,7 +129,7 @@ begin
   if p_amount is null or p_amount<=0 or p_amount>1000000000 then
     raise exception 'invalid_amount';
   end if;
-  if p_type not in ('credit','debit') then raise exception 'invalid_adjustment_type'; end if;
+  if p_type is null or p_type not in ('credit','debit') then raise exception 'invalid_adjustment_type'; end if;
   if p_note is not null and length(p_note)>500 then raise exception 'note_too_long'; end if;
 
   v_delta := case when p_type='debit' then -p_amount else p_amount end;
@@ -165,7 +165,7 @@ begin
     raise exception 'missing_coupon_permission';
   end if;
   if length(v_code)<2 or length(v_code)>50 then raise exception 'invalid_coupon_code'; end if;
-  if p_type not in ('percentage','fixed') then raise exception 'invalid_coupon_type'; end if;
+  if p_type is null or p_type not in ('percentage','fixed') then raise exception 'invalid_coupon_type'; end if;
   if p_value is null or p_value<=0 or (p_type='percentage' and p_value>100) then
     raise exception 'invalid_coupon_value';
   end if;
@@ -228,7 +228,7 @@ begin
   if not public.admin_has_permission('promotions.publish','global',null) then
     raise exception 'missing_coupon_publish_permission';
   end if;
-  if p_target not in ('customers','single','customers_1','customers_2','customers_3','customers_4','customers_5') then
+  if p_target is null or p_target not in ('customers','single','customers_1','customers_2','customers_3','customers_4','customers_5') then
     raise exception 'invalid_coupon_target';
   end if;
   if p_target='single' and p_single_user_id is null then raise exception 'single_customer_required'; end if;
