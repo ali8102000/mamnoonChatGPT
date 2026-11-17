@@ -87,6 +87,11 @@ Deno.serve(async (req: Request) => {
           (body.note !== undefined && (typeof body.note !== "string" || body.note.length > 500))) {
         return json({ error: "invalid_request" }, 400);
       }
+      const { data: walletTarget, error: walletTargetError } = await admin.from("profiles")
+        .select("governorate_key").eq("id", body.user_id).maybeSingle();
+      if (walletTargetError || !walletTarget) return json({ error: "target_user_not_found" }, 404);
+      const walletScopeType = walletTarget.governorate_key ? "governorate" : "global";
+      await requirePermission("finance.wallet.adjust", walletScopeType, walletTarget.governorate_key ?? null);
       return await rpc("admin_adjust_wallet", {
         p_user_id: body.user_id, p_amount: body.amount,
         p_note: typeof body.note === "string" ? body.note.trim() || null : null,
