@@ -77,6 +77,8 @@ import {
   adminGovernanceGrantPermission,
   adminGovernanceCreateDelegation,
   adminGovernanceReviewApproval,
+  adminGovernanceRevokePermission,
+  adminGovernanceRevokeDelegation,
   adminSetProviderStatus,
   adminUpdateProviderName,
   adminUnblockUser,
@@ -2852,6 +2854,8 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }:
 function StaffHierarchySection() {
   const [staff, setStaff] = useState<any[]>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
+  const [grants, setGrants] = useState<any[]>([]);
+  const [delegations, setDelegations] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -2870,6 +2874,8 @@ function StaffHierarchySection() {
   const grantPermission = useServerFn(adminGovernanceGrantPermission);
   const createDelegation = useServerFn(adminGovernanceCreateDelegation);
   const reviewApproval = useServerFn(adminGovernanceReviewApproval);
+  const revokePermission = useServerFn(adminGovernanceRevokePermission);
+  const revokeDelegation = useServerFn(adminGovernanceRevokeDelegation);
   const searchUsers = useServerFn(adminSearchUsers);
   const permissionOptions = [
     ["dashboard.view","لوحة القيادة"],["users.read","عرض العملاء"],["users.block","حظر العملاء"],
@@ -2897,6 +2903,18 @@ function StaffHierarchySection() {
         .eq("status","pending").order("created_at",{ascending:false}).limit(50);
       if (error) throw error;
       setApprovals(data ?? []);
+      const [grantResult, delegationResult] = await Promise.all([
+        (supabase as any).from("admin_staff_permission_grants")
+          .select("id,user_id,permission_key,scope_type,scope_governorate,granted_by,created_at,expires_at")
+          .is("revoked_at", null).order("created_at", { ascending: false }).limit(100),
+        (supabase as any).from("admin_staff_delegations")
+          .select("id,delegate_id,permission_key,scope_type,scope_governorate,delegator_id,created_at,expires_at")
+          .is("revoked_at", null).order("created_at", { ascending: false }).limit(100),
+      ]);
+      if (grantResult.error) throw grantResult.error;
+      if (delegationResult.error) throw delegationResult.error;
+      setGrants(grantResult.data ?? []);
+      setDelegations(delegationResult.data ?? []);
     } catch (e: any) { toast.error(e?.message || "تعذر تحميل الإدارة"); }
     finally { setLoading(false); }
   }, [listStaff]);
@@ -2958,6 +2976,20 @@ function StaffHierarchySection() {
         <button disabled={busy||!delegateId.trim()} onClick={()=>void runAction(()=>grantPermission({data:{target_user_id:delegateId.trim(),permission_key:permission,scope_type:scopeType,scope_governorate:scopeType==="global"?null:governorate}}),"تم منح الصلاحية")} className="rounded-xl bg-primary/10 text-primary py-2 text-xs font-bold disabled:opacity-40">منح صلاحية</button>
         <button disabled={busy||!delegateId.trim()} onClick={()=>void runAction(()=>createDelegation({data:{delegate_id:delegateId.trim(),permission_key:permission,scope_type:scopeType,scope_governorate:scopeType==="global"?null:governorate,expires_at:new Date(Date.now()+7*24*60*60*1000).toISOString()}}),"تم إنشاء التفويض")} className="rounded-xl bg-secondary py-2 text-xs font-bold disabled:opacity-40">تفويض 7 أيام</button>
       </div>
+    </section>
+    <section className="glass rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between"><h3 className="font-black">الصلاحيات الممنوحة</h3><span className="text-xs text-muted-foreground">{grants.length} فعّالة</span></div>
+      {grants.length===0 ? <EmptyState text="لا توجد صلاحيات ممنوحة ضمن نطاق العرض"/> : grants.map((g:any)=><div key={g.id} className="rounded-xl border p-3 flex items-center justify-between gap-2">
+        <div className="min-w-0"><div className="font-bold text-xs">{permissionOptions.find(([key])=>key===g.permission_key)?.[1]||g.permission_key}</div><div className="text-[10px] text-muted-foreground break-all">{g.user_id} · {g.scope_type==="global"?"كل المحافظات":g.scope_governorate}</div><div className="text-[10px] text-muted-foreground">{g.expires_at?("ينتهي "+new Date(g.expires_at).toLocaleString("ar-IQ")):"دون تاريخ انتهاء"}</div></div>
+        <button disabled={busy} onClick={()=>void runAction(()=>revokePermission({data:{grant_id:g.id}}),"تم سحب الصلاحية")} className="shrink-0 rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-bold">سحب</button>
+      </div>)}
+    </section>
+    <section className="glass rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between"><h3 className="font-black">التفويضات الفعّالة</h3><span className="text-xs text-muted-foreground">{delegations.length} فعّال</span></div>
+      {delegations.length===0 ? <EmptyState text="لا توجد تفويضات فعّالة ضمن نطاق العرض"/> : delegations.map((d:any)=><div key={d.id} className="rounded-xl border p-3 flex items-center justify-between gap-2">
+        <div className="min-w-0"><div className="font-bold text-xs">{permissionOptions.find(([key])=>key===d.permission_key)?.[1]||d.permission_key}</div><div className="text-[10px] text-muted-foreground break-all">إلى: {d.delegate_id}</div><div className="text-[10px] text-muted-foreground">{d.scope_type==="global"?"كل المحافظات":d.scope_governorate} · {d.expires_at?new Date(d.expires_at).toLocaleString("ar-IQ"):"دون تاريخ انتهاء"}</div></div>
+        <button disabled={busy} onClick={()=>void runAction(()=>revokeDelegation({data:{delegation_id:d.id}}),"تم إلغاء التفويض")} className="shrink-0 rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-bold">إلغاء</button>
+      </div>)}
     </section>
     <section className="glass rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between"><h3 className="font-black">طلبات الموافقة</h3><span className="rounded-full bg-amber-500/10 text-amber-600 px-2 py-1 text-xs">{approvals.length} معلّق</span></div>
