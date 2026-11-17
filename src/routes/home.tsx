@@ -150,14 +150,6 @@ function HomePage() {
         </div>
 
         <Link
-          to="/account-settings"
-          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-bold text-primary"
-        >
-          <span>⇄</span>
-          <span>تبديل الدور</span>
-        </Link>
-
-        <Link
           to="/coupons"
           className="mb-4 glass rounded-2xl p-3 flex items-center justify-between border border-amber-500/20"
         >
