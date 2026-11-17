@@ -968,7 +968,7 @@ function NewRequest() {
               <div className="space-y-2">
                 {VEHICLE_CATS.filter((item) => item.key !== "large").map((c) => {
                   const active = vehicleCategory === c.key;
-                  const fare = routeKm !== null ? (serverTaxiFares[c.key] ?? (active ? serverTaxiFare : null)) : null;
+                  const fare = routeKm !== null ? (serverTaxiFares[c.key as Exclude<VehicleCategory, "large">] ?? (active ? serverTaxiFare : null)) : null;
                   return (
                     <button
                       key={c.key}
