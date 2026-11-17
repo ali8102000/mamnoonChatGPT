@@ -1408,6 +1408,24 @@ export const adminGovernanceCreateDelegation = createServerFn({ method: "POST" }
     return { id };
   });
 
+export const adminGovernanceRevokePermission = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ grant_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_revoke_staff_permission", { p_grant_id: data.grant_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminGovernanceRevokeDelegation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ delegation_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await (context.supabase as any).rpc("admin_revoke_delegation", { p_delegation_id: data.delegation_id });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const adminGovernanceReviewApproval = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
