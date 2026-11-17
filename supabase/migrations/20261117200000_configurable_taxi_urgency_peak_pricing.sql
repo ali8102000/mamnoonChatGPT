@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.taxi_pricing_controls (
   )),
   peak_enabled boolean NOT NULL DEFAULT false,
   peak_percent numeric(5,2) NOT NULL DEFAULT 0 CHECK (peak_percent BETWEEN 0 AND 200),
-  urgency_enabled boolean NOT NULL DEFAULT true,
+  urgency_enabled boolean NOT NULL DEFAULT false,
   urgency_max_percent numeric(5,2) NOT NULL DEFAULT 10 CHECK (urgency_max_percent BETWEEN 0 AND 100),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
