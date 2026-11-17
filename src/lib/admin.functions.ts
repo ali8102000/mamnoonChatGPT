@@ -1432,7 +1432,7 @@ export const adminGovernanceGrantPricingPermissions = createServerFn({ method: "
     if (new Set(value.scope_governorates).size !== value.scope_governorates.length) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "لا تكرر المحافظة" });
     }
-  }))
+  }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: ids, error } = await (context.supabase as any).rpc("admin_grant_pricing_permissions", {
       p_target_user: data.target_user_id,
