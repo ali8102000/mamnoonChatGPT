@@ -180,7 +180,7 @@ function DestinationMarker({ coordinate }: { coordinate: Coordinates }) {
   return (
     <Marker coordinate={coordinate} title="وجهة الوصول" anchor={{ x: 0.5, y: 1 }}>
       <LinearGradient
-        colors={["#FB7185", "#E11D48", "#BE123C"]}
+        colors={["#F04444", "#C62828", "#671818"]}
         locations={[0, 0.55, 1]}
         start={{ x: 0.15, y: 0 }}
         end={{ x: 0.85, y: 1 }}
@@ -1202,7 +1202,7 @@ const styles = StyleSheet.create({
   endpointPinDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#D6A43B" },
   destinationPin: { width: 34, height: 42, alignItems: "center", justifyContent: "flex-start", paddingTop: 5, borderRadius: 18, borderBottomLeftRadius: 4, transform: [{ rotate: "-45deg" }], borderWidth: 2.5, borderColor: "#FFFFFF", elevation: 10, shadowColor: "#9F1239", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, overflow: "hidden" },
   destinationPinCore: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
-  destinationPinDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#BE123C" },
+  destinationPinDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#C62828" },
   luxuryCarPhoto: { width: 54, height: 36 },
   luxuryCarMarker: { width: 48, height: 30, borderRadius: 13, backgroundColor: "#B88A24", borderWidth: 2, borderColor: "#172033", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 7 },
   luxuryCarRoof: { position: "absolute", top: 3, width: 25, height: 12, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: "#24364A" },
