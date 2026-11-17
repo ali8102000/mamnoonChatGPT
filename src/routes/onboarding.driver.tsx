@@ -263,7 +263,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
 
-  const finalMake = category === "large" ? "كيا" : make === "أخرى" ? customMake.trim() : make;
+  const finalMake = category === "large" ? "كيا" : make;
   const identityName = (largeDriverMode ? (profile?.full_name || session?.user?.user_metadata?.full_name || legalName) : legalName).trim();
 
   // Handle Photo Uploads
