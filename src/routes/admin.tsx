@@ -121,6 +121,7 @@ type Section =
   | "map"
   | "notifications"
   | "regions"
+  | "pricing"
   | "audit"
   | "roles"
   | "staff"
@@ -187,6 +188,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
   { key: "regions", label: "التحكم بالمحافظات", icon: MapPin, roles: ["super_admin", "admin"] },
+  { key: "pricing", label: "التسعير والذروة", icon: Tag, roles: ["super_admin", "admin", "pricing_access"] },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
@@ -234,6 +236,16 @@ function AdminPage() {
           return Boolean(data);
         }));
         if (governanceChecks.some(Boolean)) parsedRoles.push("governance_access");
+        const pricingChecks = await Promise.all([
+          ["pricing.taxi.edit","global",null],
+          ["pricing.peak.edit",permissionScopeType,permissionScopeGovernorate],
+        ].map(async ([permission_key, scope_type, scope_governorate]) => {
+          const { data } = await (supabase as any).rpc("admin_has_permission", {
+            p_permission_key: permission_key, p_scope_type: scope_type, p_scope_governorate: scope_governorate,
+          });
+          return Boolean(data);
+        }));
+        if (pricingChecks.some(Boolean)) parsedRoles.push("pricing_access");
         setStaffRoles([...parsedRoles]);
         const hasLegacyAdminRole = parsedRoles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
         if (assignment?.rank && ["general_manager","department_manager","supervisor"].includes(assignment.rank) && !hasLegacyAdminRole) setSection("staff");
