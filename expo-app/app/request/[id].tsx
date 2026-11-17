@@ -13,7 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, Polyline } from "react-native-maps";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -145,6 +145,17 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
       <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
         <Image source={{ uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />
       </Animated.View>
+    </Marker>
+  );
+}
+
+
+function LocationTargetMarker({ coordinate, title }: { coordinate: Coordinates; title: string }) {
+  return (
+    <Marker coordinate={coordinate} title={title} anchor={{ x: 0.5, y: 1 }}>
+      <View style={styles.endpointPin}>
+        <View style={styles.endpointPinCore}><View style={styles.endpointPinDot} /></View>
+      </View>
     </Marker>
   );
 }
@@ -999,14 +1010,28 @@ export default function RequestDetail() {
                 }}
                 showsUserLocation={request.type !== "taxi"}
               >
+                {myLocation && otherLocation && (
+                  <Polyline
+                    coordinates={[
+                      { latitude: myLocation.latitude, longitude: myLocation.longitude },
+                      { latitude: otherLocation.latitude, longitude: otherLocation.longitude },
+                    ]}
+                    strokeColor="#D6A43B"
+                    strokeWidth={5}
+                    geodesic
+                  />
+                )}
                 {request.type === "taxi" ? (
-                  (isProvider ? myLocation : otherLocation) && <TaxiCarMarker coordinate={(isProvider ? myLocation : otherLocation)!} heading={(isProvider ? myLocation : otherLocation)?.heading} />
+                  <>
+                    {(isProvider ? myLocation : otherLocation) && <TaxiCarMarker coordinate={(isProvider ? myLocation : otherLocation)!} heading={(isProvider ? myLocation : otherLocation)?.heading} />}
+                    {(isProvider ? otherLocation : myLocation) && <LocationTargetMarker coordinate={(isProvider ? otherLocation : myLocation)!} title={isProvider ? "موقع الزبون" : "موقعك"} />}
+                  </>
                 ) : (
                   <>
                     <Marker coordinate={{ latitude: request.pickup_lat!, longitude: request.pickup_lng! }} title="نقطة الانطلاق" pinColor="#0f766e" />
                     {request.dest_lat != null && request.dest_lng != null && <Marker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} title="الوجهة" pinColor="#16a34a" />}
-                    {myLocation && <Marker coordinate={myLocation} title="موقعي" pinColor="#7c3aed" />}
-                    {otherLocation && <Marker coordinate={otherLocation} title="الطرف الآخر" pinColor="#f97316" />}
+                    {myLocation && <LocationTargetMarker coordinate={myLocation} title="موقعي" />}
+                    {otherLocation && <LocationTargetMarker coordinate={otherLocation} title="موقع مقدم الخدمة" />}
                   </>
                 )}
               </MapView>
