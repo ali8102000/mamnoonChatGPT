@@ -164,3 +164,11 @@ Pricing write-path update on this branch:
 - The web peak/urgency component now calls the audited RPC instead of direct upsert.
 
 Important: the migration has only been transaction-tested and rolled back. The web component has not yet been built/tested against the RPCs, and Android admin parity is not addressed in this phase.
+
+## Admin web interface phase
+
+The existing `/admin` staff panel now uses the governance RPCs for staff listing, staff assignment, rank changes, deactivation, explicit permission grants, seven-day permission delegations, and the pending approval inbox. Staff navigation is also exposed to users with at least one scoped governance permission, rather than only legacy hard-coded ranks.
+
+Server actions were added in `src/lib/admin.functions.ts`; the interface remains within the existing administration route and does not create a parallel admin app.
+
+Validation status: the complete SQL migration was re-run transactionally and rolled back after the hierarchy/scope hardening. A Vercel preview build could not be started because the connected Hobby team's Vercel API deployment quota has been exhausted for the day. Therefore TypeScript/build verification remains pending. No production deployment or database migration was performed.
