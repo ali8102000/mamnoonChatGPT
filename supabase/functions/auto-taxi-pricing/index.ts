@@ -118,13 +118,16 @@ Deno.serve(async (req) => {
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
   const routed=await route(body.from,body.to);
-  // Match the existing database RPC's nearest-centroid algorithm locally.
-  // This avoids requiring EXECUTE grants on the public RPC from the Edge Function.
   const fromGovernorate = inferGovernorateKey(body.from);
   const toGovernorate = inferGovernorateKey(body.to);
   const isIntercity=fromGovernorate!==toGovernorate;
-  const {data:settings,error:settingsError}=await admin.from("pricing_settings").select("*").eq("service_type",category).eq("is_intercity",isIntercity).single();
-  if(settingsError||!settings) return json({error:"إعدادات التسعير غير متوفرة حالياً"},503);
+  // Read through the authenticated customer session: pricing_settings grants
+  // SELECT to authenticated only. Keep service-role access for request creation.
+  const {data:settings,error:settingsError}=await userClient.from("pricing_settings").select("*").eq("service_type",category).eq("is_intercity",isIntercity).single();
+  if(settingsError||!settings) {
+    console.error("[auto-taxi-pricing] pricing settings lookup failed", settingsError?.code || "no_row");
+    return json({error:"تعذّر قراءة تعريفة السيارة حالياً",code:"PRICING_SETTINGS_READ_FAILED"},503);
+  }
   const priceEstimate=fare(category,routed.distanceKm,routed.durationMin,{...settings,is_intercity:isIntercity},tripType,extraMinutes);
   if(body.action==="quote") return json({...routed,priceEstimate,currency:"IQD",vehicleCategory:category});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
