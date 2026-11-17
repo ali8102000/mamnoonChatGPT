@@ -238,7 +238,7 @@ export default function ProfileScreen() {
       <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/privacy")}><Text style={styles.menuItemText}>سياسة الخصوصية</Text><Text style={styles.menuArrow}>←</Text></TouchableOpacity>
       <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/terms")}><Text style={styles.menuItemText}>الشروط والأحكام</Text><Text style={styles.menuArrow}>←</Text></TouchableOpacity>
       <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/account-settings")}>
-        <Text style={styles.menuItemText}>تبديل الدور وإعدادات الحساب</Text>
+        <Text style={styles.menuItemText}>الإعدادات وسجّل معنا</Text>
         <Text style={styles.menuArrow}>←</Text>
       </TouchableOpacity>
       {(roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)) || hasStaffRank) && (
@@ -250,24 +250,6 @@ export default function ProfileScreen() {
       {isGeneralManager && (
         <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/support-chat" as any)}>
           <Text style={styles.menuItemText}>متابعة الشكاوى ومراسلات ممنون</Text>
-          <Text style={styles.menuArrow}>←</Text>
-        </TouchableOpacity>
-      )}
-      {!roles.includes("driver") && !roles.includes("large_driver") && (
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/onboarding/driver")}>
-          <Text style={styles.menuItemText}>التسجيل ككابتن تكسي</Text>
-          <Text style={styles.menuArrow}>←</Text>
-        </TouchableOpacity>
-      )}
-      {!roles.includes("large_driver") && (
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push({ pathname: "/onboarding/driver", params: { providerType: "large_driver" } })}>
-          <Text style={styles.menuItemText}>التسجيل كسائق سيارات كبيرة</Text>
-          <Text style={styles.menuArrow}>←</Text>
-        </TouchableOpacity>
-      )}
-      {!roles.includes("worker") && (
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/onboarding/worker")}>
-          <Text style={styles.menuItemText}>التسجيل كفني</Text>
           <Text style={styles.menuArrow}>←</Text>
         </TouchableOpacity>
       )}

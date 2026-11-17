@@ -105,7 +105,7 @@ function AuthPage() {
           navigate({ to: "/admin/bootstrap" });
         } else {
           toast.success(t("تم إنشاء الحساب", "Account created"));
-          navigate({ to: "/select-role" });
+          navigate({ to: "/home" });
         }
       } else {
         const id = identifier.trim();

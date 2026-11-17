@@ -14,10 +14,10 @@ const tabs: Tab[] = [
 
 function NavigationIcon({ name, color }: { name: Tab["icon"]; color: string }) {
   const common = { stroke: color, strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" as const };
-  if (name === "home") return <Svg width={20} height={20} viewBox="0 0 24 24"><Path {...common} d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-6h6v6" /></Svg>;
-  if (name === "clipboard") return <Svg width={20} height={20} viewBox="0 0 24 24"><Rect {...common} x="5" y="4" width="14" height="18" rx="2" /><Path {...common} d="M9 4.5V3h6v1.5M9 10h6M9 14h6M9 18h4" /></Svg>;
-  if (name === "message") return <Svg width={20} height={20} viewBox="0 0 24 24"><Path {...common} d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z" /></Svg>;
-  return <Svg width={20} height={20} viewBox="0 0 24 24"><Circle {...common} cx="12" cy="8" r="4" /><Path {...common} d="M4 21a8 8 0 0 1 16 0" /></Svg>;
+  if (name === "home") return <Svg width={25} height={25} viewBox="0 0 24 24"><Path {...common} d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-6h6v6" /></Svg>;
+  if (name === "clipboard") return <Svg width={25} height={25} viewBox="0 0 24 24"><Rect {...common} x="5" y="4" width="14" height="18" rx="2" /><Path {...common} d="M9 4.5V3h6v1.5M9 10h6M9 14h6M9 18h4" /></Svg>;
+  if (name === "message") return <Svg width={25} height={25} viewBox="0 0 24 24"><Path {...common} d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z" /></Svg>;
+  return <Svg width={25} height={25} viewBox="0 0 24 24"><Circle {...common} cx="12" cy="8" r="4" /><Path {...common} d="M4 21a8 8 0 0 1 16 0" /></Svg>;
 }
 
 export function NativeBottomNavigation() {
@@ -66,8 +66,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 7,
   },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 10 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 5, minHeight: 70, paddingVertical: 14 },
   pressed: { opacity: 0.72 },
-  label: { fontSize: 11, lineHeight: 14, fontFamily: "Tajawal_700Bold", fontWeight: "700" },
+  label: { fontSize: 12, lineHeight: 16, fontFamily: "Tajawal_700Bold", fontWeight: "700" },
   activeLabel: { fontFamily: "Tajawal_800ExtraBold", fontWeight: "800" },
 });

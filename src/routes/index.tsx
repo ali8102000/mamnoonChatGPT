@@ -63,7 +63,7 @@ function Index() {
 
   if (loading || !ready || !governorateReady || !splashFinished) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#F7F8F5] px-6">
+      <main className="min-h-screen grid place-items-center bg-transparent px-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <img src="/icon-192.png" alt="شعار ممنون" className="h-28 w-28 object-contain" />
           <div className="text-4xl font-black tracking-wide text-[#17324D]">ممنون</div>
@@ -76,7 +76,7 @@ function Index() {
 
   if (!governorate) {
     return (
-      <main dir="rtl" className="min-h-screen bg-[#F7F8F5] px-4 py-10 text-[#17324D]">
+      <main dir="rtl" className="min-h-screen bg-transparent px-4 py-10 text-[#17324D]">
         <section className="mx-auto flex min-h-[80vh] w-full max-w-xl flex-col items-center justify-center">
           <div className="grid h-20 w-20 place-items-center rounded-[26px] bg-[#17324D] text-4xl font-black text-white shadow-xl">م</div>
           <h1 className="mt-4 text-3xl font-black">بأي محافظة أنت؟</h1>

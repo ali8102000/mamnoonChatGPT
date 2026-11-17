@@ -86,10 +86,10 @@ function AccountSettingsPage() {
   }
 
   const roleItems = [
-    { role: "customer", title: "زبون", subtitle: "طلب الخدمات والتكسي", icon: UserRound, style: "bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-300" },
-    { role: "driver", title: "سائق تكسي", subtitle: "استقبال طلبات التوصيل", icon: CarFront, style: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300" },
+    { role: "customer", title: "زبون", subtitle: "اطلب التكسي والخدمات المنزلية", icon: UserRound, style: "bg-sky-500/10 border-sky-500/20 text-sky-700 dark:text-sky-300" },
+    { role: "driver", title: "سائق تكسي", subtitle: "التسجيل لاستقبال طلبات الرحلات", icon: CarFront, style: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300" },
     { role: "large_driver", title: "سائق سيارات كبيرة", subtitle: "كيا حمل أو كيا ركاب أو باص", icon: Truck, style: "bg-orange-500/10 border-orange-500/20 text-orange-700 dark:text-orange-300" },
-    { role: "worker", title: "فني", subtitle: "تقديم الخدمات للعملاء", icon: Wrench, style: "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300" },
+    { role: "worker", title: "فني", subtitle: "التسجيل لتقديم الخدمات للعملاء", icon: Wrench, style: "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300" },
   ];
 
   return <main dir="rtl" className="min-h-screen max-w-lg mx-auto px-4 pt-5 pb-10">
@@ -110,11 +110,11 @@ function AccountSettingsPage() {
             <ArrowLeftRight className="h-5 w-5" strokeWidth={2.4} />
           </span>
           <div className="min-w-0">
-            <h2 className="font-black text-sm">تبديل الدور</h2>
-            <p className="text-[10px] text-muted-foreground mt-1">اختار المساحة اللي تريد تستخدمها</p>
+            <h2 className="font-black text-sm">سجّل معنا</h2>
+            <p className="text-[10px] text-muted-foreground mt-1">حسابك يبدأ كزبون وتكدر تنضم كسائق أو فني من هنا</p>
           </div>
         </div>
-        <span className="text-[10px] text-muted-foreground shrink-0">الحالي محدد بإطار</span>
+        <span className="text-[10px] text-muted-foreground shrink-0">التسجيل أو التبديل من هنا</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {roleItems.map(item => {
@@ -134,6 +134,7 @@ function AccountSettingsPage() {
             <span className="h-10 w-10 rounded-2xl bg-white/60 dark:bg-black/10 grid place-items-center mb-3"><Icon className="h-5 w-5" /></span>
             <span className="block text-sm font-black">{item.title}</span>
             <span className="block text-[10px] opacity-75 mt-1">{item.subtitle}</span>
+            <span className="block text-[10px] font-black mt-2">{roles.includes(item.role as any) ? (selected ? "المساحة الحالية" : "التبديل إلى هذا الدور") : "سجّل معنا"}</span>
           </button>;
         })}
       </div>

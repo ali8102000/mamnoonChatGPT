@@ -50,7 +50,7 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F7F8F5", padding: 24 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "transparent", padding: 24 },
   logo: { width: 112, height: 112, marginBottom: 14 },
   brand: { color: "#17324D", fontSize: 34, fontWeight: "900", letterSpacing: 0.3 },
   tagline: { color: "#758394", fontSize: 13, fontWeight: "600", marginTop: 8 },

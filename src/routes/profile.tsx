@@ -333,15 +333,8 @@ function ProfilePage() {
             className="w-full glass rounded-2xl p-4 flex items-center gap-3 btn-press text-right"
           >
             <Settings className="h-5 w-5 text-primary" />
-            <span className="flex-1 font-bold text-sm">تبديل الدور وإعدادات الحساب</span>
+            <span className="flex-1 font-bold text-sm">الإعدادات وسجّل معنا</span>
           </Link>
-          <button
-            onClick={() => navigate({ to: "/select-role" })}
-            className="w-full glass rounded-2xl p-4 flex items-center gap-3 btn-press text-right"
-          >
-            <Settings className="h-5 w-5 text-primary" />
-            <span className="flex-1 font-bold text-sm">التسجيل في دور جديد</span>
-          </button>
           <button
             onClick={async () => {
               await signOut();
