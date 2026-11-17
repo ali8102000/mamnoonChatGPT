@@ -622,34 +622,59 @@ function ProviderHome({
 }) {
   return (
     <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
-      <TouchableOpacity
+      <View
         style={[
           styles.availCard,
           available && styles.availCardActive,
           !verified && { opacity: 0.65 },
         ]}
-        onPress={toggleAvailable}
-        activeOpacity={0.85}
-        disabled={!verified}
       >
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.availTitle, available && { color: "#fff" }]}>
-            {available ? "متاح للعمل" : "غير متاح"}
-          </Text>
-          <Text style={[styles.availDesc, available && { color: "rgba(255,255,255,0.8)" }]}>
-            {!verified
-              ? verificationStatus === "rejected"
-                ? "تم رفض التوثيق — راجع الإدارة"
-                : verificationStatus === "suspended"
-                  ? "تم تعليق الحساب — راجع الإدارة"
-                  : "بانتظار موافقة " + companyName
-              : available
-                ? "ستصلك الطلبات الجديدة"
-                : "اضغط لتفعيل الاستقبال"}
-          </Text>
+        {available && (
+          <LinearGradient
+            pointerEvents="none"
+            colors={["#10B981", "#2DD4BF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        )}
+        {available && <View pointerEvents="none" style={styles.availShine} />}
+        <View style={styles.availContent}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.availEyebrow, available && { color: "rgba(255,255,255,0.82)" }]}>
+              حالة التوفر
+            </Text>
+            <Text style={[styles.availTitle, available && { color: "#fff" }]}>
+              {available ? "متاح للعمل" : "غير متاح"}
+            </Text>
+          </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
+            accessibilityState={{ disabled: !verified }}
+            disabled={!verified}
+            onPress={toggleAvailable}
+            activeOpacity={0.82}
+            style={[styles.availPowerButton, available && styles.availPowerButtonActive]}
+          >
+            <Svg width={24} height={24} viewBox="0 0 24 24">
+              <Path
+                d="M12 2v10"
+                stroke={available ? "#FFFFFF" : palette.muted}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              />
+              <Path
+                d="M18.4 6.6a8 8 0 1 1-12.8 0"
+                stroke={available ? "#FFFFFF" : palette.muted}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                fill="none"
+              />
+            </Svg>
+          </TouchableOpacity>
         </View>
-        <View style={[styles.availDot, available && styles.availDotActive]} />
-      </TouchableOpacity>
+      </View>
       <Text style={styles.sectionTitle}>الطلبات الواردة</Text>
       <Text style={styles.sectionSubTitle}>العروض الجديدة تظهر هنا أول ما توصلك</Text>
       {incoming.length === 0 ? (
@@ -728,12 +753,14 @@ const styles = StyleSheet.create({
   tileIconWrap: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center", marginBottom: 12 },
   tileEmoji: { fontSize: 24, fontWeight: "700" },
   tileLabel: { fontSize: 13, fontWeight: "900", color: palette.ink },
-  availCard: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.xl, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: palette.line },
-  availCardActive: { backgroundColor: palette.brand, borderColor: palette.brand },
-  availTitle: { fontSize: 18, fontWeight: "900", color: palette.ink },
-  availDesc: { fontSize: 12, color: palette.muted, marginTop: 5, lineHeight: 19 },
-  availDot: { width: 13, height: 13, borderRadius: 7, backgroundColor: palette.line },
-  availDotActive: { backgroundColor: palette.gold },
+  availCard: { minHeight: 104, borderRadius: 24, padding: 20, marginBottom: 24, overflow: "hidden", backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, shadowColor: "#08101A", shadowOpacity: 0.10, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  availCardActive: { backgroundColor: "transparent", borderColor: "transparent" },
+  availShine: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.08)" },
+  availContent: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
+  availEyebrow: { color: palette.muted, fontSize: 12, lineHeight: 17, fontWeight: "700", textAlign: "right" },
+  availTitle: { fontSize: 18, lineHeight: 25, fontWeight: "900", color: palette.ink, marginTop: 2, textAlign: "right" },
+  availPowerButton: { width: 56, height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: palette.surfaceSoft },
+  availPowerButtonActive: { backgroundColor: "rgba(255,255,255,0.25)" },
   emptyBox: { alignItems: "center", paddingVertical: 36, backgroundColor: palette.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: palette.line },
   emptyText: { fontSize: 15, fontWeight: "800", color: palette.ink },
   emptySubtext: { fontSize: 12, color: palette.muted, marginTop: 6 },
