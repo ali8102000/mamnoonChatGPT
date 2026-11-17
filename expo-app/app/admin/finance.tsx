@@ -46,10 +46,14 @@ export default function AdminFinanceScreen() {
     if (!user?.id) return;
     setError("");
     try {
+      const {data:assignment}=await (supabase as any).from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id",user.id).eq("active",true).maybeSingle();
+      const scopeType=assignment?.scope_type==="governorate"?"governorate":"global";
+      const scopeGovernorate=scopeType==="governorate"?assignment?.scope_governorate??null:null;
       const [financeRead,promotionsRead,walletManage,couponManage,legacyFinance,legacyAdmin] = await Promise.all([
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.read",p_scope_type:"global",p_scope_governorate:null}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.read",p_scope_type:"global",p_scope_governorate:null}),
-        (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.wallet.adjust",p_scope_type:"global",p_scope_governorate:null}),
+        (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.wallet.adjust",p_scope_type:scopeType,p_scope_governorate:scopeGovernorate}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.manage",p_scope_type:"global",p_scope_governorate:null}),
         supabase.rpc("has_subscription_admin_access",{p_user_id:user.id}),
         supabase.rpc("has_admin_access",{p_user_id:user.id}),
