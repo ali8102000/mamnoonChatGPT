@@ -63,7 +63,7 @@ export function RegionalServiceBanner() {
     const timer = setInterval(() => void load(), 30000);
     return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
   }, []);
-  if (!mounted || !row || (row.services_enabled && !row.message_enabled)) return null;
+  if (!mounted || !row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled)) return null;
   const message = row.message_text || (row.services_enabled ? "" : "الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون.");
   if (!message) return null;
   const width = Math.max(60, Math.min(100, row.message_width_percent ?? 92));
@@ -71,7 +71,7 @@ export function RegionalServiceBanner() {
   const top = Math.max(0, Math.min(160, row.message_top_offset ?? 12));
   const fontSize = Math.max(11, Math.min(22, row.message_font_size ?? 14));
   const position = row.message_position ?? "top-center";
-  const floating = row.message_float_enabled !== false;
+  const floating = true;
   const card = (
     <div dir="rtl" className="rounded-2xl border border-amber-400/60 bg-[#080808] px-4 py-3 text-right text-amber-100 shadow-[0_8px_30px_rgba(0,0,0,.38)] overflow-y-auto"
       style={floating ? { position: "fixed", zIndex: 99999, top: `max(env(safe-area-inset-top), ${top}px)`, width: `min(${width}vw, calc(100vw - 16px))`, height: `min(${height}vh, calc(100vh - ${top + 16}px))`, left: position === "top-center" ? "50%" : position === "top-left" ? "8px" : "auto", right: position === "top-right" ? "8px" : "auto", transform: position === "top-center" ? "translateX(-50%)" : "none" } : { position: "relative", margin: "0 16px 12px" }}>
