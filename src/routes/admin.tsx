@@ -186,7 +186,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   },
   { key: "regions", label: "التحكم بالمحافظات", icon: MapPin, roles: ["super_admin", "admin"] },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
-  { key: "staff", label: "موظفو القسم والترقيات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor"] },
+  { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
@@ -216,9 +216,22 @@ function AdminPage() {
         });
         const parsedRoles = (roles ?? []).map((r: any) => r);
         setStaffRoles(parsedRoles);
-        const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,department,rank").eq("user_id", session.user.id).eq("active", true).maybeSingle();
+        const { data: assignment } = await (supabase as any).from("staff_assignments").select("display_title,department,rank,scope_type,scope_governorate").eq("user_id", session.user.id).eq("active", true).maybeSingle();
         setStaffDisplayTitle(assignment?.display_title ?? (parsedRoles.includes("super_admin") ? "الرئيس المؤسس الأعلى" : null));
         if (assignment?.rank) parsedRoles.push(`rank:${assignment.rank}`);
+        const permissionScopeType = assignment?.scope_type ?? "global";
+        const permissionScopeGovernorate = permissionScopeType === "governorate" ? assignment?.scope_governorate : null;
+        const governanceChecks = await Promise.all([
+          "staff.read", "staff.assign", "staff.manage_created", "staff.delegate", "staff.approve"
+        ].map(async (permission_key) => {
+          const { data } = await (supabase as any).rpc("admin_has_permission", {
+            p_permission_key: permission_key,
+            p_scope_type: permissionScopeType,
+            p_scope_governorate: permissionScopeGovernorate,
+          });
+          return Boolean(data);
+        }));
+        if (governanceChecks.some(Boolean)) parsedRoles.push("governance_access");
         setStaffRoles([...parsedRoles]);
         const hasLegacyAdminRole = parsedRoles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
         if (assignment?.rank && ["general_manager","department_manager","supervisor"].includes(assignment.rank) && !hasLegacyAdminRole) setSection("staff");
