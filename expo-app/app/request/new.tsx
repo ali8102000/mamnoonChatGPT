@@ -1064,7 +1064,7 @@ export default function NewRequest() {
                     <View style={styles.taxiVehicleList}>
                       {VEHICLE_CATS.filter((category) => category.key !== "large").map((category) => {
                         const active = vehicleCat === category.key;
-                        const fare = routeKm !== null ? (serverTaxiFares[category.key] ?? (active ? serverTaxiFare : null)) : null;
+                        const fare = routeKm !== null ? (serverTaxiFares[category.key as Exclude<VehicleCategory, "large">] ?? (active ? serverTaxiFare : null)) : null;
                         return (
                           <TouchableOpacity key={category.key} style={[styles.taxiVehicleCard, active && styles.taxiVehicleCardActive]} onPress={() => setVehicleCat(category.key as Exclude<VehicleCategory, "large">)}>
                             <Text style={styles.taxiVehicleEmoji}>{category.emoji}</Text>
