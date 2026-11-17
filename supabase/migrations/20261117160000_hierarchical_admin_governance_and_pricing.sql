@@ -670,8 +670,8 @@ begin
       order by a.department,public.admin_permission_level(a.rank) desc,p.full_name;
     return;
   end if;
-  select scope_type,scope_governorate into v_scope_type,v_scope_governorate
-    from public.staff_assignments where user_id=v_actor and active=true;
+  select sa.scope_type,sa.scope_governorate into v_scope_type,v_scope_governorate
+    from public.staff_assignments sa where sa.user_id=v_actor and sa.active=true;
   if v_scope_type is null or not public.admin_has_permission('staff.read',v_scope_type,
       case when v_scope_type='global' then null else v_scope_governorate end) then
     raise exception 'missing_staff_read_permission';
