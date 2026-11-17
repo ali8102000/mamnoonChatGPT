@@ -281,4 +281,62 @@ begin
 end;
 $function$;
 
+
+create or replace function public.admin_coupon_audience_count(p_target text)
+returns integer
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+declare v_count integer;
+begin
+  if auth.uid() is null or not public.admin_has_permission('promotions.read','global',null) then
+    raise exception 'missing_promotions_read_permission';
+  end if;
+  if p_target not in ('customers','single','customers_1','customers_2','customers_3','customers_4','customers_5') then
+    raise exception 'invalid_coupon_audience';
+  end if;
+  if p_target='single' then return 1; end if;
+  if p_target in ('customers_1','customers_2','customers_3','customers_4','customers_5') then
+    select count(*) into v_count from public.profiles p
+    where exists(select 1 from public.user_roles r where r.user_id=p.id and r.role='customer')
+      and not exists(select 1 from public.user_roles r where r.user_id=p.id and r.role in ('driver','worker'))
+      and case when p_target='customers_5' then
+        (select count(*) from public.service_requests sr where sr.customer_id=p.id
+          and sr.created_at>=now()-interval '7 days' and sr.status::text<>'cancelled')>=5
+      else
+        (select count(*) from public.service_requests sr where sr.customer_id=p.id
+          and sr.created_at>=now()-interval '7 days' and sr.status::text<>'cancelled')=
+        case p_target when 'customers_1' then 1 when 'customers_2' then 2
+          when 'customers_3' then 3 else 4 end
+      end;
+  else
+    select count(*) into v_count from public.profiles p
+    where exists(select 1 from public.user_roles r where r.user_id=p.id and r.role='customer')
+      and not exists(select 1 from public.user_roles r where r.user_id=p.id and r.role in ('driver','worker'));
+  end if;
+  return coalesce(v_count,0);
+end;
+$function$;
+
+create or replace function public.admin_coupon_subsidy_report()
+returns table(payable_count bigint,payable_total numeric,pending_count bigint,pending_total numeric,void_count bigint)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+begin
+  if auth.uid() is null or not public.admin_has_permission('promotions.read','global',null) then
+    raise exception 'missing_promotions_read_permission';
+  end if;
+  return query
+  select count(*) filter(where l.status='payable'),
+    coalesce(sum(l.discount_amount) filter(where l.status='payable'),0),
+    count(*) filter(where l.status='pending_completion'),
+    coalesce(sum(l.discount_amount) filter(where l.status='pending_completion'),0),
+    count(*) filter(where l.status='void')
+  from public.coupon_subsidy_ledger l;
+end;
+$function$;
+
 commit;
