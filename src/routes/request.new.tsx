@@ -281,6 +281,8 @@ function NewRequest() {
     }
   }
 
+  useEffect(() => { setCouponPreview(null); setCouponError(""); }, [serverTaxiFare, urgencyEnabled]);
+
   const couponPanel = (
     <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-3 space-y-2" dir="rtl">
       <div className="font-black text-sm text-foreground">🎁 عندك كوبون خصم؟</div>
