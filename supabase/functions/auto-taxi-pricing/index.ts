@@ -84,13 +84,23 @@ function inferGovernorateKey(point: Point): string {
   return nearest.key;
 }
 
-function fare(category:Category,distanceKm:number,durationMin:number,settings:any,tripType:string,extraMinutes:number) {
+function economyRawFare(distanceKm:number,durationMin:number,settings:any,tripType:string,extraMinutes:number) {
   const base=Number(settings.base_fare)+distanceKm*Number(settings.per_km_rate)+durationMin*Number(settings.per_min_rate);
-  // Fixed category uplift over the economy fare in every governorate.
-  const tier=category==="economy"?1:category==="premium"?1.05:1.10;
   const trip=tripType==="round_trip"?1.8:tripType==="second_trip"?2:1;
-  const raw=(tripType==="round_trip"?base*tier*2*0.9:base*tier*trip)+Math.ceil(extraMinutes/5)*500;
-  return Math.max(Number(settings.min_fare),Math.ceil(raw/250)*250);
+  const raw=(tripType==="round_trip"?base*2*0.9:base*trip)+Math.ceil(extraMinutes/5)*500;
+  return Math.max(Number(settings.min_fare)||0,raw);
+}
+function roundedFare(amount:number) {
+  return Math.round(amount/250)*250;
+}
+function fare(category:Category,economyRaw:number) {
+  if(category==="economy") return roundedFare(economyRaw);
+  // Select the uplift band from the unrounded economy fare, then round each tier independently.
+  const isShortTrip=economyRaw<15000;
+  const uplift=category==="premium"
+    ? (isShortTrip?0.10:0.05)
+    : (isShortTrip?0.25:0.10);
+  return roundedFare(economyRaw*(1+uplift));
 }
 Deno.serve(async (req) => {
   if(req.method==="OPTIONS") return new Response("ok",{headers:corsHeaders});
@@ -129,15 +139,17 @@ Deno.serve(async (req) => {
     console.error("[auto-taxi-pricing] pricing settings lookup failed", settingsError?.code || "no_row");
     return json({error:"تعذّر قراءة تعريفة السيارة حالياً",code:"PRICING_SETTINGS_READ_FAILED"},503);
   }
-  const settings=settingsRows.find((row:any)=>row.service_type===category);
-  if(!settings) {
-    console.error("[auto-taxi-pricing] selected category pricing row missing",category,isIntercity);
-    return json({error:"تعذّر قراءة تعريفة السيارة المختارة",code:"PRICING_SETTINGS_READ_FAILED"},503);
+  const economySettings=settingsRows.find((row:any)=>row.service_type==="economy");
+  if(!economySettings) {
+    console.error("[auto-taxi-pricing] economy pricing row missing",isIntercity);
+    return json({error:"تعذّر قراءة تعريفة الاقتصادي لحساب أسعار الفئات",code:"PRICING_SETTINGS_READ_FAILED"},503);
   }
-  const categoryPrices=Object.fromEntries(settingsRows.map((row:any)=>[
-    row.service_type,
-    fare(row.service_type as Category,routed.distanceKm,routed.durationMin,{...row,is_intercity:isIntercity},tripType,extraMinutes)
-  ])) as Record<Category,number>;
+  const economyRaw=economyRawFare(routed.distanceKm,routed.durationMin,{...economySettings,is_intercity:isIntercity},tripType,extraMinutes);
+  const categoryPrices={
+    economy:fare("economy",economyRaw),
+    premium:fare("premium",economyRaw),
+    luxury:fare("luxury",economyRaw)
+  } satisfies Record<Category,number>;
   const priceEstimate=categoryPrices[category];
   if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
