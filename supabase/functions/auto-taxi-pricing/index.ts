@@ -139,9 +139,26 @@ Deno.serve(async (req) => {
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
   const routed=await route(body.from,body.to);
-  const fromGovernorate = inferGovernorateKey(body.from);
-  const toGovernorate = inferGovernorateKey(body.to);
-  const isIntercity=fromGovernorate!==toGovernorate;
+  const governorateKeys = new Set(GOVERNORATE_CENTROIDS.map((item) => item.key));
+  const suppliedPickupKey = typeof body.pickupGovernorateKey === "string"
+    ? body.pickupGovernorateKey
+    : typeof body.governorateKey === "string" ? body.governorateKey : null;
+  const suppliedDestinationKey = typeof body.destinationGovernorateKey === "string"
+    ? body.destinationGovernorateKey
+    : null;
+  if ((suppliedPickupKey && !governorateKeys.has(suppliedPickupKey)) ||
+      (suppliedDestinationKey && !governorateKeys.has(suppliedDestinationKey))) {
+    return json({error:"المحافظة المختارة غير صحيحة. أعد تحديد المحافظة وحاول مرة ثانية."},400);
+  }
+  const fromGovernorate = suppliedPickupKey || inferGovernorateKey(body.from);
+  const toGovernorate = suppliedDestinationKey || inferGovernorateKey(body.to);
+  const isIntercity = fromGovernorate !== toGovernorate;
+  if (isIntercity && !suppliedDestinationKey) {
+    return json({error:"أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها."},400);
+  }
+  if (typeof body.isIntercity === "boolean" && body.isIntercity !== isIntercity) {
+    return json({error:"المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد."},400);
+  }
   // Read through the authenticated customer session: pricing_settings grants
   // SELECT to authenticated only. Keep service-role access for request creation.
   const {data:settingsRows,error:settingsError}=await userClient.from("pricing_settings").select("*")

@@ -372,7 +372,7 @@ export function MapPicker({
           setGeoError(arabicWarning(e));
         }
       }
-    }, 250);
+    }, 500);
     return () => {
       stale = true;
       clearTimeout(timer);
@@ -491,6 +491,9 @@ export function MapPicker({
                     </div>
                   </button>
                 ))}
+                <div className="px-3 py-2 text-[10px] text-muted-foreground text-center border-t border-border/40">
+                  بيانات الأماكن © OpenStreetMap · {suggestions.length} اقتراح
+                </div>
               </div>
             )}
           </div>

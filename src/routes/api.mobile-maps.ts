@@ -18,7 +18,7 @@ const requestSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("details"),
-    placeId: z.string().regex(/^[A-Za-z0-9_-]+$/).max(300),
+    placeId: z.string().regex(/^(db:)?[A-Za-z0-9_-]+$/).max(320),
   }),
   z.object({ action: z.literal("reverse"), center: coords }),
   z.object({ action: z.literal("validateGovernorate"), center: coords, governorateKey: z.string().min(2).max(40) }),
@@ -89,20 +89,33 @@ async function googleRequest(path: string, body?: unknown, fieldMask?: string) {
 }
 
 async function drivingRoute(from: z.infer<typeof coords>, to: z.infer<typeof coords>) {
-  const result = await googleRequest(
-    "/routes/directions/v2:computeRoutes",
-    {
-      origin: { location: { latLng: { latitude: from.lat, longitude: from.lng } } },
-      destination: { location: { latLng: { latitude: to.lat, longitude: to.lng } } },
-      travelMode: "DRIVE",
-      routingPreference: "TRAFFIC_UNAWARE",
-      computeAlternativeRoutes: true,
-    },
-    "routes.distanceMeters,routes.duration",
-  );
-  const route = parseDrivingRoute(result);
-  if (route.distanceKm <= 0) throw new Error("لم يتم العثور على طريق صالح بين الموقعين.");
-  return route;
+  const radians = (value: number) => value * Math.PI / 180;
+  const dLat = radians(to.lat - from.lat);
+  const dLng = radians(to.lng - from.lng);
+  const h = Math.sin(dLat / 2) ** 2 +
+    Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.sin(dLng / 2) ** 2;
+  const fallback = () => {
+    const distanceKm = Math.max(0.1, 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)) * 1.35);
+    return { distanceKm: Number(distanceKm.toFixed(3)), durationMin: Number((distanceKm / 32 * 60 + 3).toFixed(1)), routeSource: "haversine_fallback" };
+  };
+  if (!process.env["GOOGLE_MAPS_API_KEY"] || !process.env["LOVABLE_API_KEY"]) return fallback();
+  try {
+    const result = await googleRequest(
+      "/routes/directions/v2:computeRoutes",
+      {
+        origin: { location: { latLng: { latitude: from.lat, longitude: from.lng } } },
+        destination: { location: { latLng: { latitude: to.lat, longitude: to.lng } } },
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_UNAWARE",
+        computeAlternativeRoutes: true,
+      },
+      "routes.distanceMeters,routes.duration",
+    );
+    const route = parseDrivingRoute(result);
+    return route.distanceKm > 0 ? { ...route, routeSource: "google_routes" } : fallback();
+  } catch {
+    return fallback();
+  }
 }
 
 async function handleRequest(request: Request) {
@@ -121,85 +134,21 @@ async function handleRequest(request: Request) {
 
   if (data.action === "autocomplete") {
     const governorate = data.governorateKey ? getGovernorate(data.governorateKey) : null;
-    if (data.governorateKey && !governorate) return json({ error: "المحافظة المختارة غير صحيحة." }, 400);
-
-    if (governorate) {
-      const bounds = governorateBounds(governorate.key);
-      const runSearch = (textQuery: string) =>
-        googleRequest(
-          "/places/v1/places:searchText",
-          {
-            textQuery,
-            languageCode: "ar",
-            regionCode: "IQ",
-            pageSize: 20,
-            rankPreference: "DISTANCE",
-            locationRestriction: { rectangle: { low: bounds.low, high: bounds.high } },
-          },
-          "places.id,places.displayName,places.formattedAddress,places.location",
-        );
-      let result = await runSearch(data.input);
-      let local = (result.places ?? []).filter((place: any) =>
-        place.location &&
-        isInGovernorate(
-          { lat: place.location.latitude, lng: place.location.longitude },
-          governorate.key,
-        ),
-      );
-      if (!local.length) {
-        result = await runSearch(`${data.input} ${governorate.name} العراق`);
-        local = (result.places ?? []).filter((place: any) =>
-          place.location &&
-          isInGovernorate(
-            { lat: place.location.latitude, lng: place.location.longitude },
-            governorate.key,
-          ),
-        );
-      }
-      return json({
-        suggestions: local.slice(0, 7).map((place: any) => ({
-          id: place.id,
-          text: place.displayName?.text || place.formattedAddress || "",
-          address: place.formattedAddress || place.displayName?.text || "",
-          coords: { lat: place.location.latitude, lng: place.location.longitude },
-        })),
-      });
-    }
-
-    const result = await googleRequest(
-      "/places/v1/places:autocomplete",
-      {
-        input: data.input,
-        languageCode: "ar",
-        includedRegionCodes: ["iq"],
-        locationBias: {
-          circle: {
-            center: { latitude: data.center.lat, longitude: data.center.lng },
-            radius: 50000,
-          },
-        },
-      },
-      "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text",
-    );
-    return json({
-      suggestions: (result.suggestions ?? []).flatMap((item: any) =>
-        item.placePrediction
-          ? [{ id: item.placePrediction.placeId, text: item.placePrediction.text.text }]
-          : [],
-      ).slice(0, 7),
-    });
+    if (!governorate) return json({ error: "اختر المحافظة أولاً حتى تظهر اقتراحاتها فقط." }, 400);
+    const { searchMapPlaceSuggestions } = await import("@/lib/map-place-search.server");
+    return json(await searchMapPlaceSuggestions(data.input, governorate.key));
   }
 
-  if (data.action === "details") {
-    const result = await googleRequest(
-      `/places/v1/places/${encodeURIComponent(data.placeId)}?languageCode=ar`,
-      undefined,
-      "location,formattedAddress,displayName",
-    );
-    if (!result.location) return json({ error: "لم يتوفر موقع لهذا المكان." }, 404);
+  if (data.action === "details" && data.placeId.startsWith("db:")) {
+    const { data: row, error } = await (supabaseAdmin as any)
+      .from("map_place_suggestions")
+      .select("name_ar,address,latitude,longitude")
+      .eq("id", data.placeId.slice(3))
+      .maybeSingle();
+    if (error || !row) return json({ error: "لم يتم العثور على المكان المحفوظ." }, 404);
     return json({
-      coords: { lat: result.location.latitude, lng: result.location.longitude },
-      address: result.formattedAddress || result.displayName?.text || "",
+      coords: { lat: Number(row.latitude), lng: Number(row.longitude) },
+      address: row.address || row.name_ar,
     });
   }
 
@@ -215,13 +164,18 @@ async function handleRequest(request: Request) {
   }
 
   if (data.action === "reverse") {
-    const result = await googleRequest(
-      `/maps/api/geocode/json?latlng=${data.center.lat},${data.center.lng}&language=ar`,
-    );
-    if (result.status !== "OK" && result.status !== "ZERO_RESULTS") {
-      return json({ error: "تعذّر قراءة عنوان الموقع المحدد." }, 502);
-    }
-    return json({ address: result.results?.[0]?.formatted_address || "" });
+    const url = new URL("https://photon.komoot.io/reverse");
+    url.searchParams.set("lat", String(data.center.lat));
+    url.searchParams.set("lon", String(data.center.lng));
+    url.searchParams.set("lang", "ar");
+    const response = await fetch(url, {
+      headers: { Accept: "application/geo+json", "User-Agent": "Mamnoon/1.0 (https://mamnoon-theta.vercel.app)" },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!response.ok) return json({ address: "" });
+    const result = await response.json() as any;
+    const p = result.features?.[0]?.properties ?? {};
+    return json({ address: [p.name, p.street, p.district, p.city, p.state, p.country].filter(Boolean).join("، ") });
   }
 
   if (data.action === "route") {
@@ -237,6 +191,10 @@ async function handleRequest(request: Request) {
       toGovernorateKey: toGovernorate.key,
       isIntercity: fromGovernorate.key !== toGovernorate.key,
     });
+  }
+
+  if (data.action !== "createTaxiRequest") {
+    return json({ error: "نوع طلب الخرائط غير مدعوم." }, 400);
   }
 
   const supabaseUrl = process.env["MAMNOON_SUPABASE_URL"] || process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
@@ -276,6 +234,9 @@ async function handleRequest(request: Request) {
     ? getGovernorate(data.destinationGovernorateKey)
     : governorateOf(data.to);
   if (!fromGovernorate || !toGovernorate) return json({ error: "تعذّر تحديد المحافظتين." }, 400);
+  if (fromGovernorate.key !== toGovernorate.key && !data.destinationGovernorateKey) {
+    return json({ error: "أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها." }, 400);
+  }
   if (
     !isInGovernorate(data.from, fromGovernorate.key) ||
     !isInGovernorate(data.to, toGovernorate.key)

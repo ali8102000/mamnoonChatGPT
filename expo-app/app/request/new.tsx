@@ -129,9 +129,10 @@ export default function NewRequest() {
   const [destinationConfirmed, setDestinationConfirmed] = useState(false);
   const [pickupGovernorateKey, setPickupGovernorateKey] = useState<string | null>(null);
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
-  const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey;
+  const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey ?? pickupGovernorateKey;
   const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
   const [governoratePickerVisible, setGovernoratePickerVisible] = useState(false);
+  const outsideGovernoratePromptShownRef = useRef(false);
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
@@ -439,7 +440,7 @@ export default function NewRequest() {
         // One authoritative quote call calculates route, governorates and all category prices.
         // Avoid four extra detect/validate network round-trips before pricing.
         const { data: route, error: quoteError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: "economy", tripType, extraMinutes, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: "economy", tripType, extraMinutes, pickupGovernorateKey, destinationGovernorateKey: destinationGovernorateKey ?? pickupGovernorateKey, urgencyEnabled },
         });
         if (quoteError) throw quoteError;
         if (!active) return;
@@ -479,7 +480,7 @@ export default function NewRequest() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
+  }, [pickupCoords, destinationCoords, pickupGovernorateKey, destinationGovernorateKey, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
   useEffect(() => {
     const query = placeQuery.trim();
@@ -502,7 +503,7 @@ export default function NewRequest() {
           center: center ? { lat: center.latitude, lng: center.longitude } : { lat: fallback!.latitude, lng: fallback!.longitude },
           governorateKey: activeGovernorateKey,
         });
-        if (active) setPlaceSuggestions(result.suggestions ?? []);
+        if (active) setPlaceSuggestions((result.suggestions ?? []).slice(0, 20));
       } catch (error) {
         if (active) {
           setPlaceSuggestions([]);
@@ -511,7 +512,7 @@ export default function NewRequest() {
       } finally {
         if (active) setSearchingPlaces(false);
       }
-    }, 250);
+    }, 500);
     return () => {
       active = false;
       clearTimeout(timer);
@@ -568,7 +569,20 @@ export default function NewRequest() {
             center: { lat: coords.latitude, lng: coords.longitude },
             governorateKey: activeGovernorateKey,
           });
-          if (!validation.valid) return;
+          if (!validation.valid) {
+            if (mapMode === "destination" && !outsideGovernoratePromptShownRef.current) {
+              outsideGovernoratePromptShownRef.current = true;
+              Alert.alert(
+                "أنت خارج محافظتك",
+                "يرجى تحديد المحافظة المراد التوجه إليها حتى نعرض لك اقتراحاتها فقط.",
+                [
+                  { text: "تحديد المحافظة", onPress: () => setGovernoratePickerVisible(true) },
+                  { text: "إلغاء", style: "cancel" },
+                ],
+              );
+            }
+            return;
+          }
         } catch {
           return;
         }
@@ -591,6 +605,7 @@ export default function NewRequest() {
     setDestinationConfirmed(false);
     if (mapMode === "pickup") setPickupGovernorateKey(key);
     else setDestinationGovernorateKey(key);
+    outsideGovernoratePromptShownRef.current = false;
     setPlaceQuery("");
     setPlaceSuggestions([]);
     setPlaceSearchError(null);
@@ -674,6 +689,25 @@ export default function NewRequest() {
       if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
         throw new Error("لم تتوفر إحداثيات دقيقة لهذا المكان.");
       }
+      if (activeGovernorateKey) {
+        const validation = await callMamnoonMapsApi<{ valid: boolean }>({
+          action: "validateGovernorate",
+          center: { lat: point.lat, lng: point.lng },
+          governorateKey: activeGovernorateKey,
+        });
+        if (!validation.valid) {
+          if (mapMode === "destination") {
+            outsideGovernoratePromptShownRef.current = false;
+            Alert.alert("أنت خارج محافظتك", "يرجى تحديد المحافظة المراد التوجه إليها.", [
+              { text: "تحديد المحافظة", onPress: () => setGovernoratePickerVisible(true) },
+              { text: "إلغاء", style: "cancel" },
+            ]);
+          } else {
+            Alert.alert("موقع غير صحيح", `اختر مكاناً داخل ${activeGovernorate?.name ?? "المحافظة المحددة"}.`);
+          }
+          return;
+        }
+      }
       const coords = { latitude: point.lat, longitude: point.lng };
       setDestinationConfirmed(false);
       if (mapMode === "pickup") {
@@ -709,7 +743,8 @@ export default function NewRequest() {
       setDestinationConfirmed(false);
       setDestinationCoords(null);
       setDestination("");
-      setDestinationGovernorateKey(null);
+      setDestinationGovernorateKey(governorateKey);
+      outsideGovernoratePromptShownRef.current = false;
       setRouteKm(null);
       setRouteDurationMin(null);
       setRouteError(null);
@@ -718,9 +753,31 @@ export default function NewRequest() {
     }
   }
 
-  function confirmDestinationStep() {
+  async function confirmDestinationStep() {
     if (!destinationCoords) {
       Alert.alert("حدد الوجهة", "حرّك الخريطة إلى مكان الوصول أو ابحث عن الوجهة.");
+      return;
+    }
+    const targetGovernorateKey = destinationGovernorateKey ?? pickupGovernorateKey;
+    if (!targetGovernorateKey) {
+      Alert.alert("حدد المحافظة", "اختر محافظة الانطلاق أولاً.");
+      return;
+    }
+    try {
+      const validation = await callMamnoonMapsApi<{ valid: boolean }>({
+        action: "validateGovernorate",
+        center: { lat: destinationCoords.latitude, lng: destinationCoords.longitude },
+        governorateKey: targetGovernorateKey,
+      });
+      if (!validation.valid) {
+        Alert.alert("أنت خارج محافظتك", "يرجى تحديد المحافظة المراد التوجه إليها.", [
+          { text: "تحديد المحافظة", onPress: () => setGovernoratePickerVisible(true) },
+          { text: "إلغاء", style: "cancel" },
+        ]);
+        return;
+      }
+    } catch (error) {
+      Alert.alert("تعذر التحقق من المحافظة", error instanceof Error ? error.message : "حاول مرة ثانية.");
       return;
     }
     if (routeLoading || routeKm === null || routeError || !pickupGovernorateKey || !destinationGovernorateKey) {
@@ -836,6 +893,8 @@ export default function NewRequest() {
             to: { lat: destinationCoords!.latitude, lng: destinationCoords!.longitude },
             pickupText: pickup, destinationText: destination,
             governorateKey: effectivePickupGovernorateKey,
+            pickupGovernorateKey: effectivePickupGovernorateKey,
+            destinationGovernorateKey: destinationGovernorateKey ?? effectivePickupGovernorateKey,
             vehicleCategory: vehicleCat, urgencyEnabled, notes,
           },
         });
@@ -1013,7 +1072,19 @@ export default function NewRequest() {
           </View>
           {searchingPlaces && <ActivityIndicator style={{ marginTop: 6 }} color={palette.brand} />}
           {!!placeSearchError && <Text style={styles.taxiErrorText}>{placeSearchError}</Text>}
-          {placeSuggestions.length > 0 && <View style={styles.taxiSuggestionList}>{placeSuggestions.map((item) => <TouchableOpacity key={item.id} style={styles.taxiSuggestionItem} onPress={() => choosePlaceSuggestion(item)}><Text style={styles.taxiSuggestionTitle}>{item.text}</Text>{!!item.address && item.address !== item.text && <Text style={styles.taxiSuggestionAddress}>{item.address}</Text>}</TouchableOpacity>)}</View>}
+          {placeSuggestions.length > 0 && (
+            <View style={styles.taxiSuggestionList}>
+              <ScrollView nestedScrollEnabled style={{ maxHeight: 250 }}>
+                {placeSuggestions.map((item) => (
+                  <TouchableOpacity key={item.id} style={styles.taxiSuggestionItem} onPress={() => choosePlaceSuggestion(item)}>
+                    <Text style={styles.taxiSuggestionTitle}>{item.text}</Text>
+                    {!!item.address && item.address !== item.text && <Text style={styles.taxiSuggestionAddress}>{item.address}</Text>}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Text style={styles.taxiHintText}>بيانات الأماكن © OpenStreetMap · {placeSuggestions.length} اقتراح داخل {activeGovernorate?.name}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.taxiBottomSheet} onLayout={(event) => setTaxiSheetHeight(event.nativeEvent.layout.height)}>
