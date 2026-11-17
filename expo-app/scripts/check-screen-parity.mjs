@@ -124,15 +124,15 @@ for (const variant of ["default", "destructive", "outline", "secondary", "ghost"
 for (const variant of ["primary", "danger", "secondary", "outline", "ghost", "link"]) {
   check("Android button variant " + variant, nativeButton.includes('"' + variant + '"'));
 }
-for (const [label, token] of [["default 40dp", "minHeight: 40"], ["small 36dp", "minHeight: 36"], ["large 45dp", "minHeight: 45"], ["icon 40dp", "width: 40"]]) {
+for (const [label, token] of [["default 50dp", "minHeight: 50"], ["small 44dp", "minHeight: 44"], ["large 58dp", "minHeight: 58"], ["icon 50dp", "width: 50"]]) {
   check("Android button size " + label, nativeButton.includes(token));
 }
-check("Android button web-matched typography", nativeButton.includes("fontSize: 15.75") && nativeButton.includes("lineHeight: 20"));
+check("Android button web-matched typography", nativeButton.includes("fontSize: 17") && nativeButton.includes("lineHeight: 23"));
 check("Android button web-matched radius", nativeButton.includes("borderRadius: 16"));
 check("Android button pressed and disabled states", nativeButton.includes("pressed ? 0.86 : 1") && nativeButton.includes("disabled || loading ? 0.5"));
 
 
-check("Android shared action button uses web size scale", nativeButton.includes("export function ActionButton") && nativeButton.includes("actionDefault: { minHeight: 40") && nativeButton.includes("actionSmall: { minHeight: 36") && nativeButton.includes("actionLarge: { minHeight: 45"));
+check("Android shared action button uses web size scale", nativeButton.includes("export function ActionButton") && nativeButton.includes("actionDefault: { minHeight: 50") && nativeButton.includes("actionSmall: { minHeight: 44") && nativeButton.includes("actionLarge: { minHeight: 58"));
 check("Android admin primary actions use shared minimum height", nativeAdmin.includes("supportButton: { minHeight: 40") && nativeAdmin.includes("reportAction: { minHeight: 36") && nativeAdmin.includes("inboxOpen: { minHeight: 36"));
 check("Android request actions use consistent heights", nativeRequestDetail.includes("actionBtn: { flex: 1, minHeight: 40") && nativeRequestDetail.includes("navigationButton: { minHeight: 45") && nativeRequestDetail.includes("personQuickButton: { minHeight: 36"));
 
