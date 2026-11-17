@@ -137,6 +137,8 @@ export default function NewRequest() {
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
+  const [urgencyEnabled, setUrgencyEnabled] = useState(false);
+  const [urgencyAllowed, setUrgencyAllowed] = useState(false);
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
   const [workerLevel, setWorkerLevel] = useState<"fani" | "khabir">("fani");
   const [extraWorkers, setExtraWorkers] = useState(0);
@@ -212,6 +214,8 @@ export default function NewRequest() {
     setSelectedService((current) => current === requestedType ? current : requestedType);
     // The same Expo Router screen can be reused when moving between service
     // and taxi requests. Clear technician-only form state on route changes.
+    setUrgencyEnabled(false);
+    setUrgencyAllowed(false);
     if (requestedType === "taxi" || requestedType === "service") {
       setWorkerLevel("fani");
       setExtraWorkers(0);
@@ -434,7 +438,7 @@ export default function NewRequest() {
       try {
         const governorates = await resolveRouteGovernorates(pickupCoords, destinationCoords);
         const { data: route, error: quoteError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: vehicleCat, tripType, extraMinutes, isIntercity: governorates.isIntercity },
+          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: vehicleCat, tripType, extraMinutes, isIntercity: governorates.isIntercity, urgencyEnabled },
         });
         if (quoteError) throw quoteError;
         if (!active) return;
@@ -453,6 +457,8 @@ export default function NewRequest() {
         setRouteKm(route.distanceKm);
         setRouteDurationMin(route.durationMin);
         setServerTaxiFare(Number(route.priceEstimate));
+        setUrgencyAllowed(Boolean(route.urgencyAllowed));
+        if (!route.urgencyAllowed) setUrgencyEnabled(false);
         setServerTaxiFares(route.categoryPrices && typeof route.categoryPrices === "object"
           ? route.categoryPrices
           : { [vehicleCat]: Number(route.priceEstimate) });
@@ -469,7 +475,7 @@ export default function NewRequest() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, routeRetry]);
+  }, [pickupCoords, destinationCoords, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
   useEffect(() => {
     const query = placeQuery.trim();
@@ -809,7 +815,7 @@ export default function NewRequest() {
             to: { lat: destinationCoords!.latitude, lng: destinationCoords!.longitude },
             pickupText: pickup, destinationText: destination,
             governorateKey: effectivePickupGovernorateKey,
-            vehicleCategory: vehicleCat, notes,
+            vehicleCategory: vehicleCat, urgencyEnabled, notes,
           },
         });
         if (taxiError) throw taxiError;
@@ -1066,6 +1072,15 @@ export default function NewRequest() {
                           </TouchableOpacity>
                         );
                       })}
+                    </View>
+                    <View style={{ marginTop: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>⚡ تفعيل الاستعجال</Text>
+                        <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 3 }}>{urgencyAllowed ? "زيادة إضافية على سعر السيارة المحددة حتى مع الذروة" : "الاستعجال غير متاح حالياً حسب إعدادات الإدارة"}</Text>
+                      </View>
+                      <TouchableOpacity disabled={!urgencyAllowed || routeKm === null} onPress={() => setUrgencyEnabled((v) => !v)} style={{ width: 52, height: 30, borderRadius: 18, padding: 3, backgroundColor: urgencyEnabled ? palette.brand : palette.line, justifyContent: "center", alignItems: urgencyEnabled ? "flex-start" : "flex-end", opacity: urgencyAllowed && routeKm !== null ? 1 : 0.45 }}>
+                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff" }} />
+                      </TouchableOpacity>
                     </View>
                   </>
                 )}
