@@ -357,7 +357,8 @@ function AdminPage() {
           {section === "wallet" && <WalletSection />}
           {section === "map" && <MapSection />}
           {section === "notifications" && <NotificationsSection />}
-          {section === "regions" && <><RegionalControlsSection /><AdminTaxiPricingControls /></>}
+          {section === "regions" && <RegionalControlsSection />}
+          {section === "pricing" && <AdminTaxiPricingControls />}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
