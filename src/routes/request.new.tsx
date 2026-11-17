@@ -155,6 +155,8 @@ function NewRequest() {
 
   // Taxi State
   const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
+  const [urgencyEnabled, setUrgencyEnabled] = useState(false);
+  const [urgencyAllowed, setUrgencyAllowed] = useState(false);
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
   const [weatherCondition, setWeatherCondition] = useState<WeatherCondition>(() =>
     seasonalWeatherFallback(),
@@ -179,6 +181,7 @@ function NewRequest() {
   const [govPickerOpen, setGovPickerOpen] = useState(false);
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const [interCity, setInterCity] = useState(false);
+  useEffect(() => { setUrgencyEnabled(false); setUrgencyAllowed(false); }, [type, vehicle]);
   useEffect(() => {
     const restoreGovernorate = () => {
       const selected = getGovernorate(localStorage.getItem(GOV_STORAGE_KEY));
@@ -278,6 +281,8 @@ function NewRequest() {
     }
   }
 
+  useEffect(() => { setCouponPreview(null); setCouponError(""); }, [serverTaxiFare, urgencyEnabled]);
+
   const couponPanel = (
     <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-3 space-y-2" dir="rtl">
       <div className="font-black text-sm text-foreground">🎁 عندك كوبون خصم؟</div>
@@ -332,7 +337,7 @@ function NewRequest() {
     const t = setTimeout(async () => {
       try {
         const { data, error } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity },
+          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, urgencyEnabled },
         });
         if (error) throw error;
         if (stale) return;
@@ -340,13 +345,15 @@ function NewRequest() {
         setRouteKm(Number(data.distanceKm));
         setRouteDurationMin(Number(data.durationMin));
         setServerTaxiFare(Number(data.priceEstimate));
+        setUrgencyAllowed(Boolean(data.urgencyAllowed));
+        if (!data.urgencyAllowed) setUrgencyEnabled(false);
         setServerTaxiFares(data.categoryPrices && typeof data.categoryPrices === "object"
           ? data.categoryPrices
           : { [vehicleCategory]: Number(data.priceEstimate) });
       } catch (e) { if (!stale) setRouteError(arabicWarning(e)); }
     }, 350);
     return () => { stale = true; clearTimeout(t); };
-  }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity, routeRetry]);
+  }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity, urgencyEnabled, routeRetry]);
 
   useEffect(() => {
     if (pickupLat == null || pickupLng == null) return;
@@ -494,7 +501,7 @@ function NewRequest() {
       let error: any;
       if (type === "taxi" && vehicle !== "large") {
         const { data: secureTaxi, error: secureTaxiError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
+          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, urgencyEnabled, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
         });
         if (secureTaxiError) throw secureTaxiError;
         if (!secureTaxi?.requestId) throw new Error(secureTaxi?.error || "تعذّر إنشاء طلب التاكسي.");
@@ -594,6 +601,7 @@ function NewRequest() {
           }
         } catch {}
       }
+      setUrgencyEnabled(false);
       navigate({ to: "/request/$id", params: { id: data.id } });
     } catch (e: any) {
       toast.error(e.message ?? "تعذّر إرسال الطلب");
@@ -960,7 +968,7 @@ function NewRequest() {
               <div className="space-y-2">
                 {VEHICLE_CATS.filter((item) => item.key !== "large").map((c) => {
                   const active = vehicleCategory === c.key;
-                  const fare = routeKm !== null ? (serverTaxiFares[c.key] ?? (active ? serverTaxiFare : null)) : null;
+                  const fare = routeKm !== null ? (serverTaxiFares[c.key as Exclude<VehicleCategory, "large">] ?? (active ? serverTaxiFare : null)) : null;
                   return (
                     <button
                       key={c.key}
@@ -982,6 +990,17 @@ function NewRequest() {
                     </button>
                   );
                 })}
+              </div>
+            )}
+            {vehicle !== "large" && (
+              <div className="rounded-2xl border border-amber-300/50 bg-card p-3 space-y-2">
+                <label className={`flex items-center justify-between gap-3 ${urgencyAllowed ? "cursor-pointer" : "opacity-60"}`}>
+                  <span>
+                    <span className="block text-sm font-black text-foreground">⚡ تفعيل الاستعجال</span>
+                    <span className="block text-xs text-muted-foreground">{urgencyAllowed ? "زيادة إضافية على سعر السيارة المحددة، حتى إذا الذروة مفعّلة" : "الاستعجال غير متاح حالياً حسب إعدادات الإدارة"}</span>
+                  </span>
+                  <input type="checkbox" checked={urgencyEnabled} disabled={!urgencyAllowed || routeKm === null} onChange={(e) => setUrgencyEnabled(e.target.checked)} className="h-5 w-5 accent-amber-500" />
+                </label>
               </div>
             )}
             {vehicle !== "large" && (

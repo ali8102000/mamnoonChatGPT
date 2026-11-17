@@ -84,13 +84,27 @@ function inferGovernorateKey(point: Point): string {
   return nearest.key;
 }
 
-function fare(category:Category,distanceKm:number,durationMin:number,settings:any,tripType:string,extraMinutes:number) {
-  const base=Number(settings.base_fare)+distanceKm*Number(settings.per_km_rate)+durationMin*Number(settings.per_min_rate);
-  // Fixed category uplift over the economy fare in every governorate.
-  const tier=category==="economy"?1:category==="premium"?1.05:1.10;
-  const trip=tripType==="round_trip"?1.8:tripType==="second_trip"?2:1;
-  const raw=(tripType==="round_trip"?base*tier*2*0.9:base*tier*trip)+Math.ceil(extraMinutes/5)*500;
-  return Math.max(Number(settings.min_fare),Math.ceil(raw/250)*250);
+function fare(
+  category: Category,
+  economyRaw: number,
+  settings: any,
+  tripType: string,
+  extraMinutes: number,
+  peakPercent: number,
+  urgencyPercent: number,
+) {
+  const tierPercent = category === "economy"
+    ? 0
+    : category === "premium"
+      ? (economyRaw < 10000 ? 20 : economyRaw <= 50000 ? 15 : 5)
+      : (economyRaw < 10000 ? 40 : economyRaw <= 50000 ? 25 : 10);
+  const tripMultiplier = tripType === "round_trip" ? 1.8 : tripType === "second_trip" ? 2 : 1;
+  const extraFare = Math.ceil(extraMinutes / 5) * 500;
+  let raw = economyRaw * (1 + tierPercent / 100) * tripMultiplier + extraFare;
+  if (tripType === "round_trip") raw = economyRaw * (1 + tierPercent / 100) * 2 * 0.9 + extraFare;
+  raw *= 1 + peakPercent / 100;
+  raw *= 1 + urgencyPercent / 100;
+  return Math.max(Number(settings.min_fare), Math.round(raw / 250) * 250);
 }
 Deno.serve(async (req) => {
   if(req.method==="OPTIONS") return new Response("ok",{headers:corsHeaders});
@@ -130,16 +144,32 @@ Deno.serve(async (req) => {
     return json({error:"تعذّر قراءة تعريفة السيارة حالياً",code:"PRICING_SETTINGS_READ_FAILED"},503);
   }
   const settings=settingsRows.find((row:any)=>row.service_type===category);
-  if(!settings) {
-    console.error("[auto-taxi-pricing] selected category pricing row missing",category,isIntercity);
+  const economySettings=settingsRows.find((row:any)=>row.service_type==="economy");
+  if(!settings||!economySettings) {
+    console.error("[auto-taxi-pricing] category pricing row missing",category,isIntercity);
     return json({error:"تعذّر قراءة تعريفة السيارة المختارة",code:"PRICING_SETTINGS_READ_FAILED"},503);
   }
-  const categoryPrices=Object.fromEntries(settingsRows.map((row:any)=>[
-    row.service_type,
-    fare(row.service_type as Category,routed.distanceKm,routed.durationMin,{...row,is_intercity:isIntercity},tripType,extraMinutes)
-  ])) as Record<Category,number>;
+  const {data:controlRows,error:controlError}=await userClient.from("taxi_pricing_controls")
+    .select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent")
+    .in("governorate_key",["all",fromGovernorate]);
+  if(controlError) {
+    console.error("[auto-taxi-pricing] controls lookup failed",controlError.code||"unknown");
+    return json({error:"تعذّر قراءة إعدادات الذروة والاستعجال",code:"TAXI_CONTROLS_READ_FAILED"},503);
+  }
+  const globalControls=controlRows?.find((r:any)=>r.governorate_key==="all");
+  const regionalControls=controlRows?.find((r:any)=>r.governorate_key===fromGovernorate)||globalControls;
+  const peakPercent=regionalControls?.peak_enabled
+    ? Math.max(0,Math.min(200,Number(regionalControls.peak_percent)||0)) : 0;
+  const urgencyEnabled=body.urgencyEnabled===true && globalControls?.urgency_enabled===true;
+  const urgencyPercent=urgencyEnabled
+    ? Math.max(0,Math.min(100,Number(globalControls?.urgency_max_percent)||0)) : 0;
+  const economyRaw=Number(economySettings.base_fare)+routed.distanceKm*Number(economySettings.per_km_rate)+routed.durationMin*Number(economySettings.per_min_rate);
+  const categoryPrices=Object.fromEntries(settingsRows.map((row:any)=>{
+    const selectedUrgency=row.service_type===category?urgencyPercent:0;
+    return [row.service_type,fare(row.service_type as Category,economyRaw,{...row,is_intercity:isIntercity},tripType,extraMinutes,peakPercent,selectedUrgency)];
+  })) as Record<Category,number>;
   const priceEstimate=categoryPrices[category];
-  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category});
+  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,urgencyEnabled:urgencyPercent>0,urgencyAllowed:Boolean(globalControls?.urgency_enabled && Number(globalControls?.urgency_max_percent)>0),urgencyPercent,governorateKey:fromGovernorate});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
   const governorate=fromGovernorate;
   const couponCode=typeof body.couponCode==="string"&&body.couponCode.trim()?body.couponCode.trim().toUpperCase():null;
@@ -158,7 +188,8 @@ Deno.serve(async (req) => {
     dest_lat:body.to.lat,dest_lng:body.to.lng,
     notes:typeof body.notes==="string"?body.notes.slice(0,2000):null,
     distance_km:routed.distanceKm,duration_min:routed.durationMin,
-    price_estimate:priceEstimate,is_intercity:isIntercity,trip_type:tripType,extra_minutes:extraMinutes
+    price_estimate:priceEstimate,is_intercity:isIntercity,trip_type:tripType,extra_minutes:extraMinutes,
+    taxi_urgency_enabled:urgencyPercent>0,taxi_urgency_percent:urgencyPercent,taxi_peak_percent:peakPercent
   };
   const {data:created,error:createError}=await admin.from("service_requests").insert(insert).select("id,coupon_discount,customer_payable,price_estimate,distance_km,duration_min").single();
   if(createError||!created){console.error("[auto-taxi-pricing] request insert failed:",createError?.code||"unknown");return json({error:"تعذّر إنشاء الطلب. تحقق من البيانات وحاول مرة أخرى."},400);}
