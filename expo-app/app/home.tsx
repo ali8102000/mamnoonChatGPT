@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import * as SecureStore from "expo-secure-store";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import {
@@ -38,9 +37,11 @@ type IncomingRequest = {
 };
 
 export default function HomeScreen() {
-  const { user, profile, roles } = useAuth();
+  const { user, profile, roles, activeRole } = useAuth();
+  const selectedRole = activeRole && roles.includes(activeRole)
+    ? activeRole
+    : roles.includes("customer") ? "customer" : roles[0] || "customer";
   const { resolved: resolvedTheme, setMode } = useThemePreference();
-  const [activeRole, setActiveRole] = useState<string>(roles.includes("customer") ? "customer" : roles[0] || "customer");
   const [companyName, setCompanyName] = useState("شركة ممنون");
 
   useEffect(() => {
@@ -48,15 +49,6 @@ export default function HomeScreen() {
       .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-    SecureStore.getItemAsync("mamnoon_active_role").then((savedRole) => {
-      if (mounted && savedRole && roles.includes(savedRole as (typeof roles)[number])) {
-        setActiveRole(savedRole);
-      }
-    });
-    return () => { mounted = false; };
-  }, [roles]);
   const [available, setAvailable] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState("pending");
@@ -75,20 +67,20 @@ export default function HomeScreen() {
     if (hour < 12) return "صباح الخير";
     return "نهارك سعيد";
   })();
-  const roleTitle = activeRole === "large_driver"
+  const roleTitle = selectedRole === "large_driver"
     ? "سائق سيارات كبيرة 🚚"
-    : activeRole === "driver"
+    : selectedRole === "driver"
       ? "كابتن تكسي 🚗"
-      : activeRole === "worker"
+      : selectedRole === "worker"
         ? "فني خدمات 🛠️"
         : "زبون 👤";
 
   const loadIncoming = useCallback(async () => {
-    if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
+    if (!user || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) {
       setIncoming([]);
       return;
     }
-    const isDriver = activeRole === "driver" || activeRole === "large_driver";
+    const isDriver = selectedRole === "driver" || selectedRole === "large_driver";
     const { data: offerRows, error: offersError } = await (supabase as any)
       .from("request_offers")
       .select("request_id, expires_at, sent_at, distance_km")
@@ -123,7 +115,7 @@ export default function HomeScreen() {
       ...request,
       my_offer: offerByRequest.get(request.id) ?? null,
     })) as IncomingRequest[]);
-  }, [activeRole, user]);
+  }, [selectedRole, user]);
 
   useEffect(() => {
     void loadIncoming();
@@ -149,13 +141,13 @@ export default function HomeScreen() {
   }, [loadIncoming, user?.id]);
 
   useEffect(() => {
-    if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
+    if (!user || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) {
       setAvailable(false);
       setVerified(false);
       setVerificationStatus("pending");
       return;
     }
-    const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
+    const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
     supabase
       .from(table)
       .select("available, status")
@@ -171,10 +163,10 @@ export default function HomeScreen() {
         setVerified(status === "approved");
         setVerificationStatus(status);
       });
-  }, [activeRole, user]);
+  }, [selectedRole, user]);
 
   useEffect(() => {
-    if (!user || !verified || !available || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) {
+    if (!user || !verified || !available || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) {
       void stopProviderPresenceBackgroundLocation().catch((stopError) => {
         console.warn("[Mamnoon] could not stop inactive provider background location:", stopError);
       });
@@ -203,7 +195,7 @@ export default function HomeScreen() {
       );
       if (error && mounted) {
         Alert.alert("تعذر مشاركة الموقع", "تم إيقاف التوفر حتى لا تستقبل طلبات دون موقع صحيح.");
-        const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
+        const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
         await supabase.from(table).update({ available: false }).eq("user_id", userId);
         setAvailable(false);
       } else if (mounted && !loadedIncoming) {
@@ -215,7 +207,7 @@ export default function HomeScreen() {
     async function startPresence() {
       const backgroundTrackingEnabled = await startProviderPresenceBackgroundLocation({
         userId,
-        role: activeRole as "driver" | "large_driver" | "worker",
+        role: selectedRole as "driver" | "large_driver" | "worker",
       });
       const first = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
@@ -239,7 +231,7 @@ export default function HomeScreen() {
     void startPresence().catch(async (presenceError) => {
       if (!user) return;
       await stopProviderPresenceBackgroundLocation().catch(() => undefined);
-      const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
+      const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
       await supabase.from(table).update({ available: false }).eq("user_id", userId);
       if (mounted) {
         const message = presenceError instanceof Error && presenceError.message === "background_location_denied"
@@ -254,10 +246,10 @@ export default function HomeScreen() {
       mounted = false;
       subscription?.remove();
     };
-  }, [activeRole, available, verified, user, loadIncoming]);
+  }, [selectedRole, available, verified, user, loadIncoming]);
 
   async function toggleAvailable() {
-    if (!user || (activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker")) return;
+    if (!user || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) return;
     if (!verified) {
       Alert.alert(
         "الحساب بانتظار التوثيق",
@@ -273,7 +265,7 @@ export default function HomeScreen() {
         return;
       }
     }
-    const table = (activeRole === "driver" || activeRole === "large_driver") ? "driver_profiles" : "worker_profiles";
+    const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
     const { error } = await supabase.from(table).update({ available: next }).eq("user_id", user.id);
     if (error) {
       Alert.alert("تعذر تحديث التوفر", error.message);
@@ -352,7 +344,7 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {activeRole === "customer" ? (
+        {selectedRole === "customer" ? (
           <CustomerHome />
         ) : (
           <ProviderHome
