@@ -47,6 +47,20 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
         updated_at: new Date(location.timestamp).toISOString(),
       }, { onConflict: "request_id,user_id" });
       if (writeError) console.warn("[Mamnoon background location] update failed:", writeError.message);
+
+      if (context.role === "provider") {
+        const { error: pointError } = await supabase.from("trip_location_points").insert({
+          request_id: context.requestId,
+          user_id: context.userId,
+          role: context.role,
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+          heading: location.coords.heading,
+          accuracy_m: location.coords.accuracy,
+          recorded_at: new Date(location.timestamp).toISOString(),
+        });
+        if (pointError) console.warn("[Mamnoon background location] route point insert failed:", pointError.message);
+      }
     }
   } catch (taskError) {
     console.warn("[Mamnoon background location] task failed:", taskError);

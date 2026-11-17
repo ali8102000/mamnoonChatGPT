@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-type Coords = { lat: number; lng: number; heading?: number | null; updatedAt?: string; accuracy?: number };
+type Coords = { id?: number; lat: number; lng: number; heading?: number | null; updatedAt?: string; accuracy?: number };
 
 const MIN_DISTANCE_M = 15;
 const MAX_INTERVAL_MS = 4000;
@@ -26,6 +26,7 @@ export function useLiveTracking(opts: {
   const { requestId, myUserId, otherUserId, myRole, active } = opts;
   const [me, setMe] = useState<Coords | null>(null);
   const [other, setOther] = useState<Coords | null>(null);
+  const [routePoints, setRoutePoints] = useState<Coords[]>([]);
   const watchRef = useRef<number | null>(null);
   const lastPushRef = useRef<Coords | null>(null);
   const lastPushTimeRef = useRef<number>(0);
@@ -34,6 +35,7 @@ export function useLiveTracking(opts: {
   useEffect(() => {
     setMe(null);
     setOther(null);
+    setRoutePoints([]);
     lastPushRef.current = null;
     lastPushTimeRef.current = 0;
   }, [requestId, myUserId, otherUserId]);
@@ -67,6 +69,21 @@ export function useLiveTracking(opts: {
       .then(({ error }: any) => {
         if (error) console.warn("[live-tracking] upsert error:", error.message);
       });
+
+    if (myRole === "provider") {
+      void supabase.from("trip_location_points").insert({
+        request_id: requestId,
+        user_id: myUserId,
+        role: myRole,
+        lat,
+        lng,
+        heading,
+        accuracy_m: accuracy,
+        recorded_at: coords.updatedAt,
+      } as any).then(({ error }: any) => {
+        if (error) console.warn("[live-tracking] route point insert error:", error.message);
+      });
+    }
   }, [requestId, myUserId, myRole]);
 
   useEffect(() => {
@@ -120,8 +137,57 @@ export function useLiveTracking(opts: {
           }
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "trip_location_points",
+          filter: `request_id=eq.${requestId}`,
+        },
+        (payload: any) => {
+          const row = payload.new;
+          if (stillCurrent && row?.role === "provider") {
+            setRoutePoints((previous) => {
+              if (previous.some((point) => point.id === row.id)) return previous;
+              return [...previous, {
+                id: row.id,
+                lat: row.lat,
+                lng: row.lng,
+                heading: row.heading,
+                accuracy: row.accuracy_m,
+                updatedAt: row.recorded_at,
+              }].sort((a, b) => Date.parse(a.updatedAt || "") - Date.parse(b.updatedAt || "")).slice(-1200);
+            });
+          }
+        },
+      )
       .subscribe((status) => {
         if (status === "CHANNEL_ERROR") console.warn("[live-tracking] channel error");
+      });
+
+    supabase
+      .from("trip_location_points")
+      .select("id,lat,lng,heading,accuracy_m,recorded_at")
+      .eq("request_id", requestId)
+      .eq("role", "provider")
+      .order("recorded_at", { ascending: true })
+      .limit(1200)
+      .then(({ data, error }: any) => {
+        if (error) {
+          console.warn("[live-tracking] route history read error:", error.message);
+          return;
+        }
+        if (stillCurrent && data) {
+          setRoutePoints(data.map((row: any) => ({
+            id: row.id,
+            lat: row.lat,
+            lng: row.lng,
+            heading: row.heading,
+            accuracy: row.accuracy_m,
+            updatedAt: row.recorded_at,
+          })));
+        }
       });
 
     supabase
@@ -140,5 +206,5 @@ export function useLiveTracking(opts: {
     };
   }, [active, requestId, otherUserId]);
 
-  return { me, other };
+  return { me, other, routePoints };
 }
