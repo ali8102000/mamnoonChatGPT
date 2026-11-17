@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, UserRound, CarFront, Wrench, Mail, Phone, ShieldCheck, Truck } from "lucide-react";
+import { ArrowRight, ArrowLeftRight, UserRound, CarFront, Wrench, Mail, Phone, ShieldCheck, Truck } from "lucide-react";
 
 export const Route = createFileRoute("/account-settings")({ ssr: false, component: AccountSettingsPage });
 
@@ -104,9 +104,17 @@ function AccountSettingsPage() {
     </header>
 
     <section className="mb-6">
-      <div className="flex items-center justify-between mb-3 px-1">
-        <h2 className="font-black text-sm">طريقة استخدام ممنون</h2>
-        <span className="text-[10px] text-muted-foreground">الدور الحالي محدد بإطار</span>
+      <div className="flex items-center justify-between mb-3 px-1 gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="h-11 w-11 shrink-0 rounded-2xl bg-gradient-to-br from-primary via-primary to-amber-500 text-white shadow-lg shadow-primary/20 grid place-items-center ring-1 ring-white/30">
+            <ArrowLeftRight className="h-5 w-5" strokeWidth={2.4} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-black text-sm">تبديل الدور</h2>
+            <p className="text-[10px] text-muted-foreground mt-1">اختار المساحة اللي تريد تستخدمها</p>
+          </div>
+        </div>
+        <span className="text-[10px] text-muted-foreground shrink-0">الحالي محدد بإطار</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {roleItems.map(item => {
