@@ -53,6 +53,93 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   }
 });
 
+
+const PROVIDER_PRESENCE_TASK = "mamnoon-provider-presence-background";
+const PROVIDER_CONTEXT_KEY = "mamnoon-provider-presence-context";
+
+type ProviderPresenceContext = {
+  userId: string;
+  role: "driver" | "large_driver" | "worker";
+};
+
+TaskManager.defineTask(PROVIDER_PRESENCE_TASK, async ({ data, error }) => {
+  if (error || !data) {
+    if (error) console.warn("[Mamnoon provider presence]", error.message);
+    return;
+  }
+  try {
+    const raw = await SecureStore.getItemAsync(PROVIDER_CONTEXT_KEY);
+    if (!raw) {
+      await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK).catch(() => undefined);
+      return;
+    }
+    const context = JSON.parse(raw) as ProviderPresenceContext;
+    const table = context.role === "worker" ? "worker_profiles" : "driver_profiles";
+    const { data: profile, error: profileError } = await supabase
+      .from(table)
+      .select("available, status")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (profileError || !profile?.available || profile.status !== "approved") {
+      await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK).catch(() => undefined);
+      await SecureStore.deleteItemAsync(PROVIDER_CONTEXT_KEY);
+      return;
+    }
+    const locations = (data as { locations?: Location.LocationObject[] }).locations ?? [];
+    for (const location of locations) {
+      const { error: writeError } = await supabase.from("provider_presence").upsert({
+        user_id: context.userId,
+        lat: location.coords.latitude,
+        lng: location.coords.longitude,
+        heading:
+          location.coords.heading != null &&
+          Number.isFinite(location.coords.heading) &&
+          location.coords.heading >= 0 &&
+          location.coords.heading <= 360
+            ? location.coords.heading
+            : null,
+        updated_at: new Date(location.timestamp).toISOString(),
+      }, { onConflict: "user_id" });
+      if (writeError) console.warn("[Mamnoon provider presence] update failed:", writeError.message);
+    }
+  } catch (taskError) {
+    console.warn("[Mamnoon provider presence] task failed:", taskError);
+  }
+});
+
+export async function startProviderPresenceBackgroundLocation(
+  context: ProviderPresenceContext,
+) {
+  const foreground = await Location.requestForegroundPermissionsAsync();
+  if (foreground.status !== "granted") throw new Error("foreground_location_denied");
+  const background = await Location.requestBackgroundPermissionsAsync();
+  if (background.status !== "granted") throw new Error("background_location_denied");
+
+  await SecureStore.setItemAsync(PROVIDER_CONTEXT_KEY, JSON.stringify(context));
+  if (await Location.hasStartedLocationUpdatesAsync(PROVIDER_PRESENCE_TASK)) {
+    await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK);
+  }
+  await Location.startLocationUpdatesAsync(PROVIDER_PRESENCE_TASK, {
+    accuracy: Location.Accuracy.Balanced,
+    timeInterval: 30_000,
+    distanceInterval: 25,
+    pausesUpdatesAutomatically: false,
+    showsBackgroundLocationIndicator: true,
+    foregroundService: {
+      notificationTitle: "ممنون يستقبل الطلبات",
+      notificationBody: "موقعك يتحدث حتى تصلك طلبات قريبة أثناء استخدام تطبيقات أخرى.",
+      notificationColor: "#D4AF37",
+    },
+  });
+}
+
+export async function stopProviderPresenceBackgroundLocation() {
+  if (await Location.hasStartedLocationUpdatesAsync(PROVIDER_PRESENCE_TASK)) {
+    await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK);
+  }
+  await SecureStore.deleteItemAsync(PROVIDER_CONTEXT_KEY);
+}
+
 export async function startMamnoonBackgroundLocation(context: TrackingContext) {
   const foreground = await Location.requestForegroundPermissionsAsync();
   if (foreground.status !== "granted") throw new Error("foreground_location_denied");
