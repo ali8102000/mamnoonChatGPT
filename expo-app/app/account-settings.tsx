@@ -155,14 +155,14 @@ export default function AccountSettingsScreen() {
         </Svg>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.roleSectionTitle}>تبديل الدور</Text>
-        <Text style={styles.roleSectionHint}>اختار المساحة اللي تريد تستخدمها</Text>
+        <Text style={styles.roleSectionTitle}>سجّل معنا</Text>
+        <Text style={styles.roleSectionHint}>حسابك يبدأ كزبون، ومن هنا تنضم كسائق أو فني</Text>
       </View>
       <Text style={styles.roleCurrentHint}>الحالي محدد بإطار</Text>
     </View>
-    <Text style={styles.note}>بدّل بين حساب الزبون ومجالات العمل من نفس الحساب. الأدوار الجديدة تحتاج إكمال التوثيق.</Text>
+    <Text style={styles.note}>كل خيارات التسجيل مجمّعة هنا. تگدر تبقى زبون أو تقدم طلب انضمام كسائق تكسي أو سائق سيارات كبيرة أو فني، وبعد إكمال التوثيق تگدر تبدّل بين أدوارك.</Text>
     <View style={styles.roleGrid}>
-      {["customer", "worker", "driver", "large_driver"].map((role) => {
+      {["customer", "driver", "large_driver", "worker"].map((role) => {
         const selected = role === "customer"
           ? { title: "الزبون", mark: "ز", backgroundColor: palette.goldSoft, color: palette.brand }
           : role === "worker"
