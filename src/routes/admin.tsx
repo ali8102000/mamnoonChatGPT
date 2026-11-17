@@ -348,7 +348,33 @@ function AdminPage() {
           <div className="w-9" />
         </div>
         <div className="p-4 lg:p-8 max-w-5xl mx-auto">
-          {section === "overview" && <OverviewSection />}
+          {section === "overview" && (
+            <>
+              <OverviewSection />
+              {(staffRoles.includes("super_admin") || staffRoles.includes("admin")) && (
+                <section className="mt-6 space-y-3" dir="rtl">
+                  <div>
+                    <h2 className="text-lg font-black">التحكمات الإدارية المباشرة</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">اختصارات واضحة لإعدادات المحافظات والتوزيع ورتب السائقين.</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <button onClick={() => setSection("regions")} className="glass flex items-center gap-3 rounded-2xl border border-border p-4 text-right transition-colors hover:border-primary/60 hover:bg-surface-2">
+                      <MapPin className="h-6 w-6 shrink-0 text-primary" />
+                      <span><span className="block text-sm font-black">التحكم بالمحافظات</span><span className="mt-1 block text-[11px] text-muted-foreground">إيقاف وتشغيل الخدمات والتنويهات لكل محافظة</span></span>
+                    </button>
+                    <button onClick={() => setSection("dispatchZones")} className="glass flex items-center gap-3 rounded-2xl border border-border p-4 text-right transition-colors hover:border-primary/60 hover:bg-surface-2">
+                      <Map className="h-6 w-6 shrink-0 text-primary" />
+                      <span><span className="block text-sm font-black">نطاقات توزيع الطلبات</span><span className="mt-1 block text-[11px] text-muted-foreground">تحديد مسافات وصول الطلبات للسائقين والفنيين</span></span>
+                    </button>
+                    <button onClick={() => setSection("driverTiers")} className="glass flex items-center gap-3 rounded-2xl border border-border p-4 text-right transition-colors hover:border-primary/60 hover:bg-surface-2">
+                      <Car className="h-6 w-6 shrink-0 text-primary" />
+                      <span><span className="block text-sm font-black">رتب أداء السائقين</span><span className="mt-1 block text-[11px] text-muted-foreground">تعديل معايير الرتب حسب الرحلات والتقييمات</span></span>
+                    </button>
+                  </div>
+                </section>
+              )}
+            </>
+          )}
           {section === "stats" && <StatsSection />}
           {section === "governorateStats" && <GovernorateUserStatsSection />}
           {section === "users" && <UsersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
