@@ -38,9 +38,9 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
-    const requirePermission = async (permissionKey: string, allowLegacyFinance = true) => {
+    const requirePermission = async (permissionKey: string, allowLegacyFinance = true, scopeType = "global", scopeGovernorate: string | null = null) => {
       const { data: permission, error: permissionError } = await caller.rpc("admin_has_permission", {
-        p_permission_key: permissionKey, p_scope_type: "global", p_scope_governorate: null,
+        p_permission_key: permissionKey, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
       });
       if (!permissionError && permission === true) return;
       const [adminAccess, financeAccess] = await Promise.all([
@@ -58,14 +58,18 @@ Deno.serve(async (req: Request) => {
     };
 
     if (body.action === "search_users") {
-      await requirePermission("finance.wallet.adjust", false);
+      const { data: assignment } = await caller.from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+      await requirePermission("finance.wallet.adjust", false, scopeType, scopeGovernorate);
       const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
       if (query.length < 2) return json({ error: "query_too_short" }, 400);
       const safe = query.replace(/[,%()]/g, " ");
-      const { data, error } = await admin.from("profiles")
-        .select("id,full_name,phone,email")
-        .or(`full_name.ilike.%${safe}%,phone.ilike.%${safe}%,email.ilike.%${safe}%`)
-        .order("created_at", { ascending: false }).limit(30);
+      let search = admin.from("profiles").select("id,full_name,phone,email")
+        .or(`full_name.ilike.%${safe}%,phone.ilike.%${safe}%,email.ilike.%${safe}%`);
+      if (scopeType === "governorate" && scopeGovernorate) search = search.eq("governorate_key", scopeGovernorate);
+      const { data, error } = await search.order("created_at", { ascending: false }).limit(30);
       if (error) return json({ error: "user_search_failed" }, 500);
       return json({ users: data ?? [] });
     }
