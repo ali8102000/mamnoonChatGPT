@@ -28,7 +28,6 @@ import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
 import { ServiceArtwork, hasServiceArtwork } from "@/components/service-artwork";
 import { palette, radius } from "@/styles/theme";
-import { calculateMobileTaxiFare } from "@/lib/taxi-fares";
 
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
@@ -92,19 +91,6 @@ async function resolveGovernorate(coords: Coordinates): Promise<string> {
   if (!validation.valid) throw new Error("الموقع المحدد خارج حدود المحافظات العراقية.");
   return detected.key;
 }
-
-async function resolveRouteGovernorates(from: Coordinates, to: Coordinates) {
-  const [fromGovernorateKey, toGovernorateKey] = await Promise.all([
-    resolveGovernorate(from),
-    resolveGovernorate(to),
-  ]);
-  return {
-    fromGovernorateKey,
-    toGovernorateKey,
-    isIntercity: fromGovernorateKey !== toGovernorateKey,
-  };
-}
-
 
 
 function GovernoratePickerModal({ visible, selectedKey, onClose, onSelect }: { visible: boolean; selectedKey: string | null; onClose: () => void; onSelect: (key: string) => void }) {
