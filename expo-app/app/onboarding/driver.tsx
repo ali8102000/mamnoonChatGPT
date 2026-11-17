@@ -136,6 +136,8 @@ export default function DriverOnboarding() {
     }
     if (selectedModel && ["economy", "premium", "luxury"].includes(selectedModel.category)) {
       setCategory(selectedModel.category as "economy" | "premium" | "luxury");
+    } else {
+      setCategory("economy");
     }
   }, [selectedModel, largeDriverMode]);
 
@@ -282,7 +284,7 @@ export default function DriverOnboarding() {
     const catalogModel = category === "large" ? models.find((m) => m.make === "Kia" && m.model === largeModelName) : selectedModel;
     const resolvedModel: VehicleModel = catalogModel ?? {
       id: "large-kia-local",
-      make: "Kia",
+      make: category === "large" ? "Kia" : selectedMake,
       model: category === "large" ? largeModelName : customModelName.trim(),
       category: category === "large" ? "large" : "economy",
       min_year: 1990,
