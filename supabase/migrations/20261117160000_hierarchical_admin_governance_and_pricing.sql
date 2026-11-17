@@ -970,7 +970,7 @@ begin
         v_permission,v_message
       );
     end if;
-    v_new_definition := replace(v_definition,'PERFORM public.assert_staff(''admin'');',v_check);
+    v_new_definition := regexp_replace(v_definition,'perform\\s+public\\.assert_staff\\(''admin''\\);',v_check,'gi');
     if v_new_definition=v_definition then
       raise exception 'permission_hardening_anchor_missing_for_%',v_signature;
     end if;
