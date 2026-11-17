@@ -12,22 +12,20 @@ describe("Mamnoon city taxi pricing", () => {
     expect(taxiFare("large", 10)).toBe(4000);
   });
 
-  it("adds 10% to premium and 25% to luxury below 5000 IQD", () => {
-    expect(taxiFare("premium", 10)).toBe(4500);
-    expect(taxiFare("luxury", 10)).toBe(5000);
+  it("applies 20% premium and 40% luxury below 10,000 IQD", () => {
+    expect(taxiFare("premium", 10)).toBe(4750);
+    expect(taxiFare("luxury", 10)).toBe(5500);
   });
 
-  it("adds 5% to premium and 10% to luxury from 5000 IQD upward", () => {
+  it("applies the 20% and 40% tiers below 10,000 IQD", () => {
     expect(taxiFare("economy", 15)).toBe(6000);
-    expect(taxiFare("premium", 15)).toBe(6250);
-    expect(taxiFare("luxury", 15)).toBe(6500);
+    expect(taxiFare("premium", 15)).toBe(7000);
+    expect(taxiFare("luxury", 15)).toBe(8500);
   });
 
-  it("smoothly transitions premium and luxury multipliers around the 5000 IQD boundary", () => {
-    const before = taxiFare("luxury", 12.49);
-    const after = taxiFare("luxury", 12.5);
-    expect(after).toBeGreaterThanOrEqual(before);
-    expect(after - before).toBeLessThanOrEqual(250);
+  it("applies the middle tier from 10,000 through 50,000 IQD", () => {
+    expect(taxiFare("premium", 25)).toBe(11500);
+    expect(taxiFare("luxury", 25)).toBe(12500);
   });
 
   it("ignores geographic demand multipliers so nearby pin movement cannot multiply fares", () => {
@@ -64,9 +62,12 @@ describe("Mamnoon city taxi pricing", () => {
     expect(fare.trafficAllowance).toBe(0);
   });
 
-  it("keeps zero distance free and rejects invalid distances", () => {
-    expect(taxiFare("economy", 0)).toBe(0);
-    expect(taxiFare("economy", 0.625)).toBe(250);
+  it("enforces the 1,000 IQD minimum for ordinary taxi categories and rejects invalid distances", () => {
+    expect(taxiFare("economy", 0)).toBe(1000);
+    expect(taxiFare("premium", 0)).toBe(1250);
+    expect(taxiFare("luxury", 0)).toBe(1500);
+    expect(taxiFare("economy", 0.625)).toBe(1000);
+    expect(taxiFare("large", 0)).toBe(0);
     expect(() => taxiFare("economy", NaN)).toThrow();
   });
 });
