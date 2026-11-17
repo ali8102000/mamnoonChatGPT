@@ -2750,8 +2750,8 @@ function RolesSection() {
 
 function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }: any) {
   const [roles, setRoles] = useState<string[]>([]);
-  const [rank, setRank] = useState("employee");
-  const [department, setDepartment] = useState("customer_service");
+  const [rank, setRank] = useState<"general_manager" | "department_manager" | "supervisor" | "employee">("employee");
+  const [department, setDepartment] = useState<"executive" | "customer_service" | "finance" | "operations" | "monitoring">("customer_service");
   const [displayTitle, setDisplayTitle] = useState("موظف خدمة العملاء");
   const [assignmentSaving, setAssignmentSaving] = useState(false);
   const [assignmentActive, setAssignmentActive] = useState(false);
@@ -2857,7 +2857,7 @@ function StaffHierarchySection() {
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [rank, setRank] = useState("employee");
   const [department, setDepartment] = useState("customer_service");
-  const [scopeType, setScopeType] = useState("global");
+  const [scopeType, setScopeType] = useState<"global" | "governorate">("global");
   const [governorate, setGovernorate] = useState("najaf");
   const [permission, setPermission] = useState("users.read");
   const [delegateId, setDelegateId] = useState("");
@@ -2929,9 +2929,9 @@ function StaffHierarchySection() {
       {users.length>0 && <div className="space-y-1">{users.map((u:any)=><button type="button" key={u.id} onClick={()=>{setSelectedUser(u);setSearch(u.full_name||u.phone||u.email||u.id);setUsers([]);}} className="w-full text-right rounded-lg border p-2 text-xs hover:bg-muted"><b>{u.full_name||"بدون اسم"}</b><span className="block text-muted-foreground">{u.phone||u.email||u.id}</span></button>)}</div>}
       {selectedUser && <div className="rounded-lg bg-primary/5 p-2 text-xs">المستخدم المحدد: <b>{selectedUser.full_name||selectedUser.phone||selectedUser.id}</b><button className="mr-2 text-primary underline" onClick={()=>{setSelectedUser(null);setSearch("");}}>تغيير</button></div>}
       <div className="grid grid-cols-2 gap-2">
-        <select value={rank} onChange={e=>setRank(e.target.value)} className="rounded-xl border bg-background p-2 text-sm">{Object.entries(ranks).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
-        <select value={department} onChange={e=>setDepartment(e.target.value)} className="rounded-xl border bg-background p-2 text-sm">{Object.entries(departments).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
-        <select value={scopeType} onChange={e=>setScopeType(e.target.value)} className="rounded-xl border bg-background p-2 text-sm"><option value="global">كل المحافظات</option><option value="governorate">محافظة محددة</option></select>
+        <select value={rank} onChange={e=>setRank(e.target.value as typeof rank)} className="rounded-xl border bg-background p-2 text-sm">{Object.entries(ranks).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+        <select value={department} onChange={e=>setDepartment(e.target.value as typeof department)} className="rounded-xl border bg-background p-2 text-sm">{Object.entries(departments).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+        <select value={scopeType} onChange={e=>setScopeType(e.target.value as typeof scopeType)} className="rounded-xl border bg-background p-2 text-sm"><option value="global">كل المحافظات</option><option value="governorate">محافظة محددة</option></select>
         {scopeType==="governorate" && <select value={governorate} onChange={e=>setGovernorate(e.target.value)} className="rounded-xl border bg-background p-2 text-sm">{governorates.map(g=><option key={g} value={g}>{g}</option>)}</select>}
       </div>
       <button disabled={busy||!selectedUser} onClick={()=>void runAction(()=>assignStaff({data:{target_user_id:selectedUser.id,rank,department,scope_type:scopeType,scope_governorate:scopeType==="global"?null:governorate}}),"تمت إضافة الموظف")} className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-bold disabled:opacity-50">إضافة الموظف</button>
