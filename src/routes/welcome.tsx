@@ -28,7 +28,7 @@ export const Route = createFileRoute("/welcome")({
 const copy = {
   ar: {
     brand: "ممنون",
-    greeting: "أهلاً بيك في ممنون",
+    greeting: "أهلاً بك في ممنون",
     tagline: "مشاويرك وخدمات بيتك، بمكان واحد.",
     skip: "تخطي",
     next: "التالي",
