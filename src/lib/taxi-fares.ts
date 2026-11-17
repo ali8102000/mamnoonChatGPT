@@ -51,7 +51,7 @@ export const ROAD_RATES: Record<RoadCondition, { extra: number; label: string; i
   congested: { extra: 750, label: "طريق مزدحم وساعات ذروة", icon: "🟡" },
 };
 
-export const MIN_TAXI_FARE = 0;
+export const MIN_TAXI_FARE = 1000;
 
 export function roundTo250(n: number): number {
   return Math.round(n / 250) * 250;
@@ -73,13 +73,13 @@ export function calculateFareBreakdown(
   const demandMultiplier = 1;
 
   const economyFare = subtotal * demandMultiplier;
-  const categoryTransition = Math.min(1, Math.max(0, (economyFare - 4500) / 1000));
-  const tierMultiplier =
-    category === "economy" || category === "large"
-      ? 1
-      : category === "premium"
-        ? (isIntercity ? 1.05 : 1.10 - 0.05 * categoryTransition)
-        : (isIntercity ? 1.10 : 1.25 - 0.15 * categoryTransition);
+  const pricingEconomyBase = category === "large" ? economyFare : Math.max(MIN_TAXI_FARE, economyFare);
+  const tierPercent = category === "economy" || category === "large"
+    ? 0
+    : category === "premium"
+      ? (economyFare < 10000 ? 20 : economyFare <= 50000 ? 15 : 5)
+      : (economyFare < 10000 ? 40 : economyFare <= 50000 ? 25 : 10);
+  const tierMultiplier = 1 + tierPercent / 100;
 
   const weather = options?.weather ?? "heat";
   const roadCondition = options?.roadCondition ?? "normal";
@@ -92,10 +92,10 @@ export function calculateFareBreakdown(
   }
   const extraTimeFare = Math.ceil(extraMinutes / 5) * 500;
   const finalTotal = Math.max(
-    MIN_TAXI_FARE,
+    category === "large" ? 0 : MIN_TAXI_FARE,
     options?.tripType === "round_trip"
-      ? roundTo250(economyFare * tierMultiplier * 2 * 0.9 + extraTimeFare)
-      : roundTo250(economyFare * tierMultiplier * tripMultiplier + extraTimeFare),
+      ? roundTo250(pricingEconomyBase * tierMultiplier * 2 * 0.9 + extraTimeFare)
+      : roundTo250(pricingEconomyBase * tierMultiplier * tripMultiplier + extraTimeFare),
   );
 
   return {

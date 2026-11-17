@@ -100,11 +100,14 @@ function fare(
       : (economyRaw < 10000 ? 40 : economyRaw <= 50000 ? 25 : 10);
   const tripMultiplier = tripType === "round_trip" ? 1.8 : tripType === "second_trip" ? 2 : 1;
   const extraFare = Math.ceil(extraMinutes / 5) * 500;
-  let raw = economyRaw * (1 + tierPercent / 100) * tripMultiplier + extraFare;
-  if (tripType === "round_trip") raw = economyRaw * (1 + tierPercent / 100) * 2 * 0.9 + extraFare;
+  // The 1,000 IQD minimum is a floor, not a surcharge. When the raw
+  // economy calculation is below it, category percentages start from 1,000.
+  const pricingEconomyBase = Math.max(1000, economyRaw);
+  let raw = pricingEconomyBase * (1 + tierPercent / 100) * tripMultiplier + extraFare;
+  if (tripType === "round_trip") raw = pricingEconomyBase * (1 + tierPercent / 100) * 2 * 0.9 + extraFare;
   raw *= 1 + peakPercent / 100;
   raw *= 1 + urgencyPercent / 100;
-  return Math.max(Number(settings.min_fare), Math.round(raw / 250) * 250);
+  return Math.max(1000, Number(settings.min_fare) || 0, Math.round(raw / 250) * 250);
 }
 Deno.serve(async (req) => {
   if(req.method==="OPTIONS") return new Response("ok",{headers:corsHeaders});
