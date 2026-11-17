@@ -262,9 +262,20 @@ begin
       and (d.scope_type='global'
         or (p_scope_type='governorate' and d.scope_type='governorate'
             and d.scope_governorate=p_scope_governorate))
-      and (g.scope_type='global'
-        or (d.scope_type='governorate' and g.scope_type='governorate'
-            and g.scope_governorate=d.scope_governorate))
+      and (
+        public.is_super_admin(d.delegator_id)
+        or exists (
+          select 1 from public.admin_staff_permission_grants source_grant
+          where source_grant.user_id=d.delegator_id
+            and source_grant.permission_key=d.permission_key
+            and source_grant.revoked_at is null
+            and (source_grant.expires_at is null or source_grant.expires_at>now())
+            and (source_grant.scope_type='global'
+              or (d.scope_type='governorate'
+                and source_grant.scope_type='governorate'
+                and source_grant.scope_governorate=d.scope_governorate))
+        )
+      )
   );
 end;
 $function$;
@@ -675,6 +686,37 @@ begin
 end;
 $function$;
 
+create or replace function public.admin_search_staff_candidates(p_query text)
+returns table(user_id uuid,full_name text,phone text,email text,governorate_key text)
+language plpgsql stable security definer
+set search_path = public, pg_temp
+as $function$
+declare v_actor uuid := auth.uid(); v_scope_type text; v_scope_governorate text;
+begin
+  if v_actor is null then raise exception 'unauthorized'; end if;
+  if length(trim(coalesce(p_query,'')))<2 then raise exception 'search_query_too_short'; end if;
+  select scope_type,scope_governorate into v_scope_type,v_scope_governorate
+    from public.staff_assignments where user_id=v_actor and active=true;
+  if not public.is_super_admin(v_actor) then
+    if v_scope_type is null or not public.admin_has_permission('staff.assign',v_scope_type,
+      case when v_scope_type='global' then null else v_scope_governorate end) then
+      raise exception 'missing_staff_assign_permission';
+    end if;
+  end if;
+  return query
+    select p.id,p.full_name,p.phone,p.email,p.governorate_key
+    from public.profiles p
+    where (coalesce(p.full_name,'') ilike '%'||trim(p_query)||'%'
+      or coalesce(p.phone,'') ilike '%'||trim(p_query)||'%'
+      or coalesce(p.email,'') ilike '%'||trim(p_query)||'%')
+      and not exists(select 1 from public.staff_assignments a where a.user_id=p.id)
+      and not exists(select 1 from public.user_roles r where r.user_id=p.id and r.role::text='super_admin')
+      and (public.is_super_admin(v_actor) or v_scope_type='global'
+        or p.governorate_key=v_scope_governorate)
+    order by p.created_at desc limit 20;
+end;
+$function$;
+
 create or replace function public.admin_change_staff_rank(
   p_target_user uuid,
   p_new_rank text,
@@ -783,6 +825,8 @@ grant execute on function public.admin_review_approval(uuid,text,text) to authen
 revoke all on function public.admin_list_managed_staff() from public, anon;
 revoke all on function public.admin_change_staff_rank(uuid,text,text,text) from public, anon;
 revoke all on function public.admin_deactivate_staff(uuid,text) from public, anon;
+revoke all on function public.admin_search_staff_candidates(text) from public, anon;
+grant execute on function public.admin_search_staff_candidates(text) to authenticated;
 grant execute on function public.admin_list_managed_staff() to authenticated;
 grant execute on function public.admin_change_staff_rank(uuid,text,text,text) to authenticated;
 grant execute on function public.admin_deactivate_staff(uuid,text) to authenticated;
