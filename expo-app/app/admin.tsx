@@ -64,9 +64,21 @@ export default function AdminScreen() {
       const { data: assignment } = await (supabase as any)
         .from("staff_assignments").select("rank,department").eq("user_id", user?.id).eq("active", true).maybeSingle();
       const roleNames = (staffRoles ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
+      const scopeType = assignment?.scope_type ?? "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate : null;
+      const permissionChecks = await Promise.all([
+        "staff.read","staff.assign","staff.manage_created","staff.delegate","staff.approve",
+        "pricing.taxi.edit","pricing.peak.edit","finance.read","promotions.read",
+      ].map(async (permission_key) => {
+        const { data } = await (supabase as any).rpc("admin_has_permission", {
+          p_permission_key: permission_key, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
+        });
+        return data === true;
+      }));
       const hasStaffAccess = !staffRolesError && (
         roleNames.some((role: string) => ["admin", "support", "finance", "moderator", "customer_service", "department_finance", "department_operations", "department_monitoring"].includes(role)) ||
-        ["general_manager", "department_manager", "supervisor"].includes(assignment?.rank)
+        ["general_manager", "department_manager", "supervisor", "employee"].includes(assignment?.rank) ||
+        permissionChecks.some(Boolean)
       );
       if (hasStaffAccess) {
         router.replace("/admin/staff");
