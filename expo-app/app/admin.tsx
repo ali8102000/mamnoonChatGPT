@@ -251,7 +251,7 @@ export default function AdminScreen() {
   };
   const reviewPartnerApplication = async (applicationId: string, status: "approved" | "rejected") => {
     const { error } = await (supabase as any).from("partner_applications").update({
-      status, reviewed_by: user?.id, reviewed_at: new Date().toISOString(),
+      status, reviewed_by: user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       admin_note: status === "rejected" ? "يرجى مراجعة البيانات وإعادة التقديم" : null,
     }).eq("id", applicationId);
     if (error) { Alert.alert("تعذر تحديث طلب الشراكة", error.message); return; }
@@ -318,7 +318,7 @@ export default function AdminScreen() {
           <Text style={styles.reportDetails}>{item.address}</Text>
           {!!item.description && <Text style={styles.reportDetails}>{item.description}</Text>}
           <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-            <ActionButton size="sm" onPress={() => void reviewPartnerApplication(item.id, "approved")} style={{ flex: 1, backgroundColor: "#15803d" }}><Text style={{ color: "#fff", fontWeight: "900", fontSize: 11 }}>موافقة وتفعيل</Text></ActionButton>
+            <ActionButton size="sm" onPress={() => void reviewPartnerApplication(item.id, "approved")} style={{ flex: 1, backgroundColor: "#15803d" }}><Text style={{ color: "#fff", fontWeight: "900", fontSize: 11 }}>موافقة وإتاحة اللوحة</Text></ActionButton>
             <ActionButton size="sm" onPress={() => Alert.alert("رفض طلب الشراكة", "تأكد من رفض طلب هذه المنشأة؟", [{ text: "رجوع", style: "cancel" }, { text: "رفض", style: "destructive", onPress: () => void reviewPartnerApplication(item.id, "rejected") }])} style={{ flex: 1, backgroundColor: "#b91c1c" }}><Text style={{ color: "#fff", fontWeight: "900", fontSize: 11 }}>رفض الطلب</Text></ActionButton>
           </View>
         </View>
