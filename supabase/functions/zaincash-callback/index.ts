@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabaseSecretKey } from "../_shared/api-keys.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 const b64url=(s:string)=>s.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(s.length/4)*4,"=");
 function decodePart(s:string){return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64url(s)),c=>c.charCodeAt(0))));}
@@ -26,7 +27,7 @@ Deno.serve(async(req:Request)=>{
   const u=new URL(req.url); const signedToken=u.searchParams.get("token"); let finalStatus="pending";
   if(!signedToken) throw new Error("missing_token");
   const apiKey=Deno.env.get("ZAINCASH_API_KEY"); const clientId=Deno.env.get("ZAINCASH_CLIENT_ID"); const clientSecret=Deno.env.get("ZAINCASH_CLIENT_SECRET");
-  const url=Deno.env.get("SUPABASE_URL"); const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url=Deno.env.get("SUPABASE_URL"); const serviceKey=getSupabaseSecretKey();
   const base=(Deno.env.get("ZAINCASH_BASE_URL")||"https://pg-api-uat.zaincash.iq").replace(/\/$/,"");
   if(!apiKey||!clientId||!clientSecret||!url||!serviceKey) throw new Error("configuration_incomplete");
   const claims=await verifyHs256(signedToken,apiKey);
