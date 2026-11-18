@@ -101,6 +101,13 @@ Deno.serve(async (req: Request) => {
       if (error || data !== true) throw new Error("admin_required");
     };
     const requirePermission = async (permissionKey: string, scopeType = "global", scopeGovernorate: string | null = null) => {
+      // Preserve the established full-access contract for platform admins.
+      // Scoped permission grants apply to delegated staff accounts; the
+      // existing admin role must not be locked out when it has no staff row.
+      const { data: hasAdminAccess, error: adminAccessError } = await caller.rpc("has_admin_access", {
+        p_user_id: auth.user.id,
+      });
+      if (!adminAccessError && hasAdminAccess === true) return;
       const { data, error } = await caller.rpc("admin_has_permission", {
         p_permission_key: permissionKey,
         p_scope_type: scopeType,
