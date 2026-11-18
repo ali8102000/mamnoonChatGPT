@@ -136,7 +136,7 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
       upsert: true,
       cacheControl: "3600",
     });
-    if (error) throw new Error(`تعذر حفظ ${kind === "face" ? "صورة الوجه" : kind === "id-card" ? "صورة الهوية" : "صورة سنوية السيارة أو الوكالة"}: ${error.message}`);
+    if (error) throw new Error(`تعذر حفظ ${kind === "face" ? "صورة الوجه" : kind === "id-card" ? "صورة الهوية" : "المستند الرسمي للسيارة"}: ${error.message}`);
     return path;
   };
 
