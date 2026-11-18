@@ -69,6 +69,9 @@ function ProfilePage() {
         setWallet(data?.wallet ?? null);
         setTxs(Array.isArray(data?.transactions) ? data.transactions : []);
       });
+    } else {
+      setWallet(null);
+      setTxs([]);
     }
     (supabase as any)
       .rpc("has_admin_access", { p_user_id: uid })
