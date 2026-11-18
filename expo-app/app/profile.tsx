@@ -11,8 +11,8 @@ type DriverWallet = { balance: number; total_earned: number; total_commission: n
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
 
 export default function ProfileScreen() {
-  const { user, profile, roles, signOut, refresh } = useAuth();
-  const isProvider = roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver");
+  const { user, profile, roles, activeRole, signOut, refresh } = useAuth();
+  const isProvider = activeRole !== "customer" && (roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver"));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [wallet, setWallet] = useState<DriverWallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -192,14 +192,14 @@ export default function ProfileScreen() {
           </View>
         ))}
       </View>
-      {wallet && (
+      {isProvider && wallet && (
         <View style={styles.walletCard}>
           {walletOffline && (
             <View style={styles.walletOfflineNotice}>
               <Text style={styles.walletOfflineText}>بيانات محفوظة من آخر اتصال وقد لا تكون محدثة.</Text>
             </View>
           )}
-          <Text style={styles.walletTitle}>أرباحي</Text>
+          <Text style={styles.walletTitle}>محفظتي</Text>
           <Text style={styles.walletBalance}>{(wallet.balance || 0).toLocaleString("en")} د.ع</Text>
           <TouchableOpacity style={styles.walletDetailsButton} onPress={() => setShowWalletDetails((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showWalletDetails }}>
             <Text style={styles.walletDetailsButtonText}>{showWalletDetails ? "إخفاء التفاصيل" : "تفاصيل المحفظة"}</Text>
