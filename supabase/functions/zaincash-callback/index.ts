@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getSupabaseSecretKey } from "../_shared/api-keys.ts";
+import { getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 const b64url=(s:string)=>s.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(s.length/4)*4,"=");
@@ -33,7 +33,7 @@ Deno.serve(async(req:Request)=>{
   const claims=await verifyHs256(signedToken,apiKey);
   const data=claims.data||{}; const transactionId=data.transactionId; const reference=data.merchantReferenceId;
   if(typeof transactionId!=="string"||typeof reference!=="string") throw new Error("invalid_callback_claims");
-  const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const admin=createClient(url,serviceKey,{global:{fetch:createSupabaseFetch(serviceKey)},auth:{persistSession:false,autoRefreshToken:false}});
   const {data:payment,error}=await admin.from("payment_transactions").select("id,amount,currency,external_reference_id,status,gateway_transaction_id,metadata").eq("external_reference_id",reference).maybeSingle();
   if(error||!payment) throw new Error("payment_not_found");
   if(payment.status==="paid") finalStatus="success";
