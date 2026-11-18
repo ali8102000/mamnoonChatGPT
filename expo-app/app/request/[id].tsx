@@ -231,7 +231,12 @@ export default function RequestDetail() {
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
-  const [dispatchClock, setDispatchClock] = useState(Date.now());\n  const [urgencyAllowed, setUrgencyAllowed] = useState(false);\n  const [urgencyAdminPercent, setUrgencyAdminPercent] = useState(0);\n  const [urgencyBusy, setUrgencyBusy] = useState(false);\n  const countdownNotificationIdRef = useRef<string | null>(null);\n  const acceptedAlertRequestRef = useRef<string | null>(null);
+  const [dispatchClock, setDispatchClock] = useState(Date.now());
+  const [urgencyAllowed, setUrgencyAllowed] = useState(false);
+  const [urgencyAdminPercent, setUrgencyAdminPercent] = useState(0);
+  const [urgencyBusy, setUrgencyBusy] = useState(false);
+  const countdownNotificationIdRef = useRef<string | null>(null);
+  const acceptedAlertRequestRef = useRef<string | null>(null);
   const [retryPriceIncrease, setRetryPriceIncrease] = useState("0");
   const [retryingDispatch, setRetryingDispatch] = useState(false);
   const [activeOffer, setActiveOffer] = useState<any>(null);
@@ -292,7 +297,8 @@ export default function RequestDetail() {
     ]);
   }, [openTaxiNavigation]);
 
-  useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);\n  useEffect(() => {
+  useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);
+  useEffect(() => {
     let active = true;
     void (async () => {
       const { data, error } = await (supabase as any).from("taxi_pricing_controls")
@@ -1076,7 +1082,8 @@ export default function RequestDetail() {
         </View>
         {isCustomer && ["pending", "searching"].includes(request.status) && (
           <View style={{ marginTop: 14, borderRadius: 22, padding: 18, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand + "35", alignItems: "center", gap: 8 }}>
-            {request.type === "taxi" ? <Text style={{ fontSize: 28 }}>🚕</Text> : request.services?.slug && SERVICE_IMAGES[request.services.slug] ? <Image source={SERVICE_IMAGES[request.services.slug]} style={{ width: 76, height: 76, borderRadius: 18 }} resizeMode="cover" /> : <Text style={{ fontSize: 28 }}>🛠️</Text>}\n            {request.type === "service" && request.services?.name_ar && <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900" }}>{request.services.name_ar}</Text>}
+            {request.type === "taxi" ? <Text style={{ fontSize: 28 }}>🚕</Text> : request.services?.slug && SERVICE_IMAGES[request.services.slug] ? <Image source={SERVICE_IMAGES[request.services.slug]} style={{ width: 76, height: 76, borderRadius: 18 }} resizeMode="cover" /> : <Text style={{ fontSize: 28 }}>🛠️</Text>}
+            {request.type === "service" && request.services?.name_ar && <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900" }}>{request.services.name_ar}</Text>}
             <Text style={{ color: palette.ink, fontSize: 18, fontWeight: "900" }}>طلبك وصل إلى ممنون</Text>
             <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", lineHeight: 20 }}>
               {request.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار عند وصولها." : "نبحث عن أقرب سائق أو فني متاح ومؤهل. أول شخص يقبل الطلب يحصل عليه."}
@@ -1089,7 +1096,16 @@ export default function RequestDetail() {
                 <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "800" }}>وقت البحث</Text>
               </View>;
             })()}
-            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>\n            {urgencyAllowed && Number(request.customer_price ?? request.price_estimate ?? 0) > 0 && <View style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>\n              <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>⚡ وضع الاستعجال</Text>\n              <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>نسبة الزيادة الأساسية من الإدارة: {urgencyAdminPercent}٪. اختر ×2 أو ×3 لرفع الأجر وتشجيع المزوّدين على قبول الطلب.</Text>\n              <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>\n                <TouchableOpacity disabled={urgencyBusy} onPress={() => void applyRequestUrgency(2)} style={{ flex: 1, borderRadius: 12, padding: 12, alignItems: "center", backgroundColor: palette.gold, opacity: urgencyBusy ? 0.5 : 1 }}><Text style={{ color: palette.brandDeep, fontWeight: "900" }}>×2 استعجال</Text></TouchableOpacity>\n                <TouchableOpacity disabled={urgencyBusy} onPress={() => void applyRequestUrgency(3)} style={{ flex: 1, borderRadius: 12, padding: 12, alignItems: "center", backgroundColor: palette.brand, opacity: urgencyBusy ? 0.5 : 1 }}><Text style={{ color: palette.white, fontWeight: "900" }}>×3 أقصى استعجال</Text></TouchableOpacity>\n              </View>\n              {Number(request.urgency_multiplier ?? 1) > 1 && <Text style={{ color: palette.success, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>مفعّل حالياً ×{request.urgency_multiplier} · زيادة {Number(request.urgency_percent ?? 0)}٪</Text>}\n            </View>}
+            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
+            {urgencyAllowed && Number(request.customer_price ?? request.price_estimate ?? 0) > 0 && <View style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
+              <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>⚡ وضع الاستعجال</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>نسبة الزيادة الأساسية من الإدارة: {urgencyAdminPercent}٪. اختر ×2 أو ×3 لرفع الأجر وتشجيع المزوّدين على قبول الطلب.</Text>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                <TouchableOpacity disabled={urgencyBusy} onPress={() => void applyRequestUrgency(2)} style={{ flex: 1, borderRadius: 12, padding: 12, alignItems: "center", backgroundColor: palette.gold, opacity: urgencyBusy ? 0.5 : 1 }}><Text style={{ color: palette.brandDeep, fontWeight: "900" }}>×2 استعجال</Text></TouchableOpacity>
+                <TouchableOpacity disabled={urgencyBusy} onPress={() => void applyRequestUrgency(3)} style={{ flex: 1, borderRadius: 12, padding: 12, alignItems: "center", backgroundColor: palette.brand, opacity: urgencyBusy ? 0.5 : 1 }}><Text style={{ color: palette.white, fontWeight: "900" }}>×3 أقصى استعجال</Text></TouchableOpacity>
+              </View>
+              {Number(request.urgency_multiplier ?? 1) > 1 && <Text style={{ color: palette.success, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>مفعّل حالياً ×{request.urgency_multiplier} · زيادة {Number(request.urgency_percent ?? 0)}٪</Text>}
+            </View>}
           </View>
         )}
         {isCustomer && request.status === "cancelled" && request.cancellation_reason === "dispatch_no_provider" && (
