@@ -957,7 +957,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
                     ["صورة الوجه", v.face_photo_url],
                     ["الهوية الأمامية", v.id_card_photo_url],
                     ["الهوية الخلفية", v.id_card_back_photo_url],
-                    ["مستند المركبة", v.vehicle_document_url],
+                    ["مستند رسمي للسيارة", v.vehicle_document_url],
                     ["فيديو السيارة", v.vehicle_video_url],
                   ].map(([label, url]: any) => url
                     ? <a key={label} href={url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary underline">عرض {label}</a>
