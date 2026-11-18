@@ -159,8 +159,8 @@ export default function AdminHomeBannersScreen() {
       }
       setAsset(null);
       setBadge("");
-      setMessage("تم نشر البانر، وسيظهر في الصفحة الرئيسية على الويب والأندرويد.");
       await load();
+      setMessage("تم نشر البانر، وسيظهر في الصفحة الرئيسية على الويب والأندرويد.");
     } catch {
       if (uploaded) {
         await supabase.storage.from("app-visuals").remove([path]);
@@ -180,8 +180,8 @@ export default function AdminHomeBannersScreen() {
     if (error) {
       Alert.alert("تعذر تحديث البانر", "تحقق من صلاحيتك واتصالك ثم حاول مرة ثانية.");
     } else {
-      setMessage(banner.is_active ? "تم إيقاف البانر." : "تم تفعيل البانر.");
       await load();
+      setMessage(banner.is_active ? "تم إيقاف البانر." : "تم تفعيل البانر.");
     }
     setBusy(false);
   };
