@@ -219,7 +219,7 @@ function AdminQuickAccess({
   items: { key: Section; label: string; icon: any; roles: string[] }[];
   onSelect: (key: Section) => void;
 }) {
-  const itemsByKey = new Map(items.map((item) => [item.key, item]));
+  const itemsByKey = new globalThis.Map(items.map((item) => [item.key, item]));
   return (
     <section className="mt-7 space-y-5" dir="rtl">
       <header>
