@@ -18,6 +18,7 @@ export default function AdminAnalyticsScreen() {
   const { user } = useAuth();
   const [rows,setRows] = useState<Row[]>([]);
   const [activity,setActivity] = useState<any>(null);
+  const [dashboard,setDashboard] = useState<any>(null);
   const [loading,setLoading] = useState(true);
   const [refreshing,setRefreshing] = useState(false);
   const [error,setError] = useState("");
@@ -27,14 +28,20 @@ export default function AdminAnalyticsScreen() {
     try {
       const roles = await getAdminStaffRoles(user.id);
       if (!roles.includes("super_admin") && !roles.includes("admin")) throw new Error("هذه الإحصائيات متاحة للمدير الأعلى والإدارة فقط");
-      const { data, error: invokeError } = await supabase.functions.invoke("admin-users",{body:{action:"governorate_stats"}});
-      if (invokeError) throw new Error(invokeError.message);
-      if (data?.error) throw new Error(data.error);
-      setRows(Array.isArray(data?.rows) ? data.rows : []);
-      const { data: detail, error: detailError } = await supabase.functions.invoke("admin-users",{body:{action:"customer_activity_stats",limit:200,offset:0}});
-      if (detailError) throw new Error(detailError.message);
-      if (detail?.error) throw new Error(detail.error);
-      setActivity(detail?.report ?? null);
+      const [regionalResult, activityResult, dashboardResult] = await Promise.all([
+        supabase.functions.invoke("admin-users",{body:{action:"governorate_stats"}}),
+        supabase.functions.invoke("admin-users",{body:{action:"customer_activity_stats",limit:200,offset:0}}),
+        supabase.functions.invoke("admin-users",{body:{action:"dashboard_stats"}}),
+      ]);
+      if (regionalResult.error) throw new Error(regionalResult.error.message);
+      if (regionalResult.data?.error) throw new Error(regionalResult.data.error);
+      if (activityResult.error) throw new Error(activityResult.error.message);
+      if (activityResult.data?.error) throw new Error(activityResult.data.error);
+      if (dashboardResult.error) throw new Error(dashboardResult.error.message);
+      if (dashboardResult.data?.error) throw new Error(dashboardResult.data.error);
+      setRows(Array.isArray(regionalResult.data?.rows) ? regionalResult.data.rows : []);
+      setActivity(activityResult.data?.report ?? null);
+      setDashboard(dashboardResult.data ?? null);
     } catch (e:any) { setError(e?.message || "تعذر تحميل الإحصائيات"); }
     finally { setLoading(false); setRefreshing(false); }
   },[user?.id]);
@@ -43,13 +50,38 @@ export default function AdminAnalyticsScreen() {
   const regions=Object.keys(LABELS).filter(key=>key!=="unknown").map(key=>rows.find(r=>r.governorate_key===key) ?? ({governorate_key:key,workers:0,large_drivers:0,taxi_drivers:0,customers:0,total_users:0})).concat(rows.filter(r=>r.governorate_key==="unknown")).sort((a,b)=>Number(b.total_users)-Number(a.total_users));
   const fmt=(v:any)=>Number(v||0).toLocaleString("ar-IQ");
   return <View style={s.page}>
-    <Stack.Screen options={{title:"إحصائيات المستخدمين حسب المحافظة"}}/>
+    <Stack.Screen options={{title:"الإحصائيات الشاملة"}}/>
     <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>{setRefreshing(true);void load();}}/>}>
-      <Text style={s.title}>إحصائيات المستخدمين حسب المحافظة</Text>
-      <Text style={s.muted}>أعداد حقيقية من قاعدة البيانات حسب المحافظة المعتمدة أو آخر نشاط مسجل</Text>
+      <Text style={s.title}>الإحصائيات الشاملة</Text>
+      <Text style={s.muted}>مؤشرات المنصة والمحافظات وأدوار المستخدمين ونشاط الزبائن في مكان واحد</Text>
       {loading ? <ActivityIndicator size="large" color={palette.brand}/> : error ? <View style={s.error}><Text style={s.errorText}>{error}</Text><TouchableOpacity onPress={()=>void load()}><Text style={s.link}>إعادة المحاولة</Text></TouchableOpacity></View> : <>
         <View style={s.totalCard}>
-          <Text style={s.muted}>إجمالي الحسابات المسجلة</Text>
+          <Text style={s.sectionTitle}>مؤشرات المنصة</Text>
+          <Text style={s.note}>إجماليات الحسابات والطلبات وحالة التشغيل والعمولات من بيانات المنصة</Text>
+          <View style={s.metrics}>
+            {([
+              ["كل المستخدمين",dashboard?.totalUsers],
+              ["السائقون",dashboard?.totalDrivers],
+              ["الفنيون",dashboard?.totalWorkers],
+              ["سائقون متاحون",dashboard?.activeDrivers],
+              ["فنيون متاحون",dashboard?.activeWorkers],
+              ["كل الطلبات",dashboard?.totalRequests],
+              ["طلبات نشطة",dashboard?.activeRequests],
+              ["مكتملة",dashboard?.completedRequests],
+              ["ملغاة",dashboard?.cancelledRequests],
+            ] as [string,number|undefined][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
+          </View>
+          <Text style={s.sectionTitle}>عمولات المنصة</Text>
+          <View style={s.metrics}>
+            {([
+              ["اليوم",dashboard?.dailyRevenue],
+              ["هذا الشهر",dashboard?.monthlyRevenue],
+              ["هذه السنة",dashboard?.yearlyRevenue],
+            ] as [string,number|undefined][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label} · د.ع</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
+          </View>
+        </View>
+        <View style={s.totalCard}>
+          <Text style={s.muted}>إجمالي الحسابات المسجلة حسب المحافظة</Text>
           <Text style={s.total}>{fmt(total?.total_users)}</Text>
           <View style={s.metrics}>
             {([["الفنيون",total?.workers],["سائقو السيارات الكبيرة",total?.large_drivers],["كباتن التكسي",total?.taxi_drivers],["الزبائن",total?.customers]] as [string,number|undefined][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
@@ -62,7 +94,7 @@ export default function AdminAnalyticsScreen() {
           </View>
         </View>)}
         <View style={s.totalCard}>
-          <Text style={s.sectionTitle}>إحصائية الحسابات والأدوار والطلبات</Text>
+          <Text style={s.sectionTitle}>الحسابات والأدوار والطلبات</Text>
           <Text style={s.note}>كل دور يُحتسب بصورة مستقلة؛ الحساب الذي يحمل أكثر من دور يظهر في كل دور، ولا نمنع التكرار بين الأدوار.</Text>
           <View style={s.metrics}>
             {([
