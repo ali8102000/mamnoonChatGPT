@@ -18,7 +18,7 @@
 
 ## متطلبات الربط التي ستُستكمل بعد استلام بيانات التاجر
 - `ZAINCASH_ENABLED=false` يبقى مغلقاً إلى حين نجاح UAT؛ اجعله `true` كآخر خطوة فقط. الويب وAndroid يكتشفان جاهزية الأسرار تلقائياً عبر `zaincash-config-status`.
-- `MAMNOON_PUBLIC_URL=https://existing-project-onrampadminbootstrap.lovable.app` يحدد وجهة العودة إلى التطبيق.
+- `MAMNOON_PUBLIC_URL` يحدد عنوان الويب الإنتاجي المعتمد في Vercel، ويجب ضبطه على النطاق النهائي الفعلي قبل اختبار UAT.
 تُضاف القيم كـ Supabase Edge Function Secrets فقط، ولا تُحفظ في GitHub أو متغيرات الواجهة:
 - `ZAINCASH_CLIENT_ID`
 - `ZAINCASH_CLIENT_SECRET`
