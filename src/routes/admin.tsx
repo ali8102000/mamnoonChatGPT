@@ -201,6 +201,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
   { key: "visualBuilder", label: "محرر الواجهة والمحتوى", icon: Eye, roles: ["super_admin"] },
   { key: "homeBanners", label: "بانرات المطاعم والفنادق والمتاجر", icon: ImagePlus, roles: ["super_admin"] },
+  { key: "homeBanners", label: "بانرات الصفحة الرئيسية", icon: ImagePlus, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
 
@@ -419,6 +420,7 @@ function AdminPage() {
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
           {section === "visualBuilder" && <AdminVisualBuilder />}
+          {section === "homeBanners" && <AdminHomeBanners />}
           {section === "audit" && <AuditSection />}
         </div>
       </main>
@@ -429,51 +431,39 @@ function AdminPage() {
 function OverviewSection() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const getStats = adminGetDashboardStats;
-  useEffect(() => {
-    (async () => {
-      try {
-        setStats(await getStats());
-      } catch (e) {
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setStats(await getStats());
+    } catch (e: any) {
+      setError(e?.message || "تعذّر تحميل مؤشرات لوحة الإدارة");
+    } finally {
+      setLoading(false);
+    }
   }, [getStats]);
-  if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
-  if (!stats) return <div className="text-sm text-muted-foreground">تعذّر تحميل البيانات</div>;
+  useEffect(() => { void load(); }, [load]);
+  if (loading && !stats) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
+  if (error && !stats) return <div role="alert" className="glass rounded-xl p-4 text-sm text-red-600">{error}<button onClick={() => void load()} className="mr-3 text-primary font-bold">إعادة المحاولة</button></div>;
+  if (!stats) return <div className="text-sm text-muted-foreground">لا توجد مؤشرات متاحة حالياً.</div>;
   return (
-    <div>
-      <h2 className="text-xl font-black mb-4">نظرة عامة</h2>
+    <div dir="rtl">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="text-xl font-black">نظرة عامة</h2>
+        <button onClick={() => void load()} disabled={loading} className="px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold disabled:opacity-50">{loading ? "جارٍ التحديث..." : "تحديث"}</button>
+      </div>
+      {error && <div role="status" className="mb-3 text-xs text-amber-700">{error} · الأرقام المعروضة هي آخر بيانات تم تحميلها</div>}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatCard icon={Users} label="المستخدمون" value={stats.totalUsers} />
         <StatCard icon={Car} label="السائقون" value={stats.totalDrivers} />
         <StatCard icon={Activity} label="الفنيون" value={stats.totalWorkers} />
         <StatCard icon={ListChecks} label="الطلبات" value={stats.totalRequests} />
-        <StatCard
-          icon={Activity}
-          label="طلبات نشطة"
-          value={stats.activeRequests}
-          accent="text-amber-500"
-        />
-        <StatCard
-          icon={ListChecks}
-          label="مكتملة"
-          value={stats.completedRequests}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={Wallet}
-          label="أرباح اليوم"
-          value={`${stats.dailyRevenue?.toLocaleString() ?? 0}`}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={Wallet}
-          label="أرباح الشهر"
-          value={`${stats.monthlyRevenue?.toLocaleString() ?? 0}`}
-          accent="text-emerald-600"
-        />
+        <StatCard icon={Activity} label="طلبات نشطة" value={stats.activeRequests} accent="text-amber-500" />
+        <StatCard icon={ListChecks} label="مكتملة" value={stats.completedRequests} accent="text-emerald-600" />
+        <StatCard icon={Wallet} label="أرباح اليوم" value={stats.dailyRevenue?.toLocaleString("ar-IQ") ?? 0} accent="text-emerald-600" />
+        <StatCard icon={Wallet} label="أرباح الشهر" value={stats.monthlyRevenue?.toLocaleString("ar-IQ") ?? 0} accent="text-emerald-600" />
       </div>
     </div>
   );
