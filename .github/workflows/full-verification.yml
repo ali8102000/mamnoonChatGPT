@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - chore/decouple-lovable-backend
+      - feature/admin-control-center-unified-analytics
 
 permissions:
   contents: read
