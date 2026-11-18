@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 
 type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; is_active: boolean; scroll_speed: number; badge_text: string | null };
 const width = Dimensions.get("window").width - 40;
-const height = width / 1.13;
+const height = width * 9 / 16;
 const messages: Record<Banner["target_category"], string> = {
   restaurant: "أنت صاحب مطعم؟ سجل ويانه وانتظر طلباتك",
   hotel: "أنت صاحب فندق؟ سجل ويانه وخليك ويانه",
