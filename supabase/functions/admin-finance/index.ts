@@ -82,6 +82,19 @@ Deno.serve(async (req: Request) => {
       return json({ users: data ?? [] });
     }
 
+    // Keep the combined payload consumed by the native admin finance screen.
+    if (body.action === "list") {
+      await requirePermission("finance.read");
+      await requirePermission("promotions.read");
+      const [transactions, coupons] = await Promise.all([
+        admin.from("transactions").select("*, profiles!inner(full_name,phone)")
+          .order("created_at", { ascending: false }).limit(200),
+        admin.from("coupons").select("*").order("created_at", { ascending: false }).limit(200),
+      ]);
+      if (transactions.error || coupons.error) return json({ error: "finance_data_load_failed" }, 500);
+      return json({ transactions: transactions.data ?? [], coupons: coupons.data ?? [] });
+    }
+
     if (body.action === "list_transactions") {
       await requireStrictPermission("finance.read");
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
