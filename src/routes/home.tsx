@@ -240,6 +240,8 @@ function CustomerHome() {
         />
       </div>
 
+      <HomeCustomContent />
+
       <div className="grid grid-cols-2 gap-2.5 animate-pop-in" style={{ animationDelay: "0.15s" }}>
         <MiniStat icon={<Clock className="h-4 w-4" />} label="أقل من" value="٣ د" />
         <MiniStat icon={<ShieldCheck className="h-4 w-4" />} label="مزودون" value="موثق" />
@@ -265,6 +267,109 @@ function CustomerHome() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+
+function HomeCustomContent() {
+  const { session } = useAuth();
+  const [sections, setSections] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [responses, setResponses] = useState<Record<string, string>>({});
+  const [results, setResults] = useState<Record<string, any[]>>({});
+  const [voting, setVoting] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const [sectionResult, campaignResult] = await Promise.all([
+      (supabase as any).from("app_content_sections_public").select("id,title,section_type,placement_key,sort_order,published_config").eq("placement_key", "home.customer.content").order("sort_order"),
+      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", "home.customer.content").order("created_at", { ascending: false }),
+    ]);
+    if (!sectionResult.error) setSections(sectionResult.data ?? []);
+    if (!campaignResult.error) {
+      const now = Date.now();
+      const active = (campaignResult.data ?? []).filter((item: any) =>
+        (!item.starts_at || new Date(item.starts_at).getTime() <= now) &&
+        (!item.ends_at || new Date(item.ends_at).getTime() > now)
+      );
+      setCampaigns(active);
+      if (session?.user?.id && active.length) {
+        const ids = active.map((item: any) => item.id);
+        const { data: own } = await (supabase as any).from("app_campaign_responses").select("campaign_id,option_id").in("campaign_id", ids);
+        const ownMap: Record<string, string> = {};
+        for (const row of own ?? []) ownMap[row.campaign_id] = row.option_id;
+        setResponses(ownMap);
+        const resultPairs = await Promise.all(active.map(async (item: any) => {
+          const { data } = await (supabase as any).rpc("get_app_campaign_results", { p_campaign_id: item.id });
+          return [item.id, data ?? []] as const;
+        }));
+        setResults(Object.fromEntries(resultPairs));
+      }
+    }
+  }, [session?.user?.id]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const vote = async (campaign: any, optionId: string) => {
+    const userId = session?.user?.id;
+    if (!userId || responses[campaign.id] || voting) return;
+    setVoting(campaign.id);
+    const { error } = await (supabase as any).from("app_campaign_responses").insert({
+      campaign_id: campaign.id, option_id: optionId, user_id: userId,
+    });
+    if (error) toast.error(error.code === "23505" ? "سبق وشاركت بهذا الاستطلاع." : error.message);
+    else {
+      setResponses((current) => ({ ...current, [campaign.id]: optionId }));
+      const { data } = await (supabase as any).rpc("get_app_campaign_results", { p_campaign_id: campaign.id });
+      setResults((current) => ({ ...current, [campaign.id]: data ?? [] }));
+      toast.success("تم تسجيل مشاركتك");
+    }
+    setVoting(null);
+  };
+
+  if (!sections.length && !campaigns.length) return null;
+  return (
+    <div className="space-y-3">
+      {sections.map((section) => {
+        const config = section.published_config ?? {};
+        if (section.section_type === "table") {
+          const columns = Array.isArray(config.columns) ? config.columns : [];
+          const rows = Array.isArray(config.rows) ? config.rows : [];
+          return <section key={section.id} className="rounded-2xl border border-border bg-card p-3">
+            <h3 className="mb-2 text-sm font-black">{section.title}</h3>
+            <div className="overflow-x-auto"><table className="w-full min-w-max text-right text-xs">
+              {columns.length > 0 && <thead><tr>{columns.map((column: any, index: number) => <th key={index} className="border-b border-border bg-muted px-3 py-2 font-black">{String(column)}</th>)}</tr></thead>}
+              <tbody>{rows.map((row: any, rowIndex: number) => <tr key={rowIndex}>{(Array.isArray(row) ? row : []).map((cell: any, cellIndex: number) => <td key={cellIndex} className="border-b border-border/60 px-3 py-2">{String(cell ?? "")}</td>)}</tr>)}</tbody>
+            </table></div>
+          </section>;
+        }
+        return <section key={section.id} className="rounded-2xl border border-border bg-card p-4">
+          <h3 className="text-sm font-black">{config.title || section.title}</h3>
+          {config.description && <p className="mt-1 text-xs text-muted-foreground">{config.description}</p>}
+          {config.image_url && <img src={config.image_url} alt="" className="mt-3 max-h-40 w-full rounded-xl object-cover" />}
+        </section>;
+      })}
+      {campaigns.map((campaign) => {
+        const options = [...(campaign.app_campaign_options ?? [])].sort((a: any, b: any) => a.sort_order - b.sort_order);
+        const selected = responses[campaign.id];
+        const counts = results[campaign.id] ?? [];
+        const total = counts.reduce((sum: number, row: any) => sum + Number(row.vote_count ?? 0), 0);
+        return <section key={campaign.id} className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between"><span className="text-[10px] font-black text-primary">{campaign.campaign_type === "contest" ? "مسابقة" : "استطلاع رأي"}</span><span className="text-[10px] text-muted-foreground">{total} مشاركة</span></div>
+          <h3 className="mt-1 text-base font-black">{campaign.title}</h3>
+          {campaign.description && <p className="mt-1 text-xs text-muted-foreground">{campaign.description}</p>}
+          <div className="mt-3 space-y-2">{options.map((option: any) => {
+            const count = Number(counts.find((row: any) => row.option_id === option.id)?.vote_count ?? 0);
+            const percent = total > 0 ? Math.round(count / total * 100) : 0;
+            return <button key={option.id} type="button" disabled={!session?.user?.id || !!selected || voting === campaign.id} onClick={() => void vote(campaign, option.id)} className={`w-full rounded-xl border p-3 text-right text-sm transition ${selected === option.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
+              <span className="flex items-center justify-between gap-2"><span>{option.label}</span>{selected && <b className="text-xs text-primary">{percent}% · {count}</b>}</span>
+              {selected && <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: percent + "%" }} /></span>}
+            </button>;
+          })}</div>
+          {!session?.user?.id && <p className="mt-2 text-[11px] text-muted-foreground">سجّل الدخول حتى تشارك.</p>}
+          {selected && <p className="mt-2 text-xs font-bold text-primary">تم تسجيل مشاركتك.</p>}
+        </section>;
+      })}
     </div>
   );
 }
