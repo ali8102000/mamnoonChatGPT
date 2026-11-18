@@ -54,7 +54,25 @@ BEGIN
     v_phone,
     COALESCE(NULLIF(trim(NEW.raw_user_meta_data->>'full_name'), ''), ''),
     CASE
-      WHEN NEW.email LIKE '%@mamnoon.app' THEN NULL
+      WHEN NEW.email LIKE '%@mamnoon.app' THEN
+        CASE
+          WHEN lower(trim(COALESCE(NEW.raw_user_meta_data->>'contact_email', ''))) ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+
+  )
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (NEW.id, 'customer')
+  ON CONFLICT DO NOTHING;
+
+  RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+
+            THEN lower(trim(NEW.raw_user_meta_data->>'contact_email'))
+          ELSE NULL
+        END
       ELSE lower(NEW.email)
     END
   )
