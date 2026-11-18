@@ -1243,7 +1243,7 @@ export default function RequestDetail() {
               <Text style={styles.actionBtnText}>إنهاء</Text>
             </TouchableOpacity>
           )}
-          {(isCustomer || isProvider) &&
+          {(isCustomer || (isProvider && request.type !== "taxi")) &&
             request.status !== "cancelled" &&
             request.status !== "completed" &&
             request.status !== "in_progress" && (
