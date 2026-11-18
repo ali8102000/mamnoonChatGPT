@@ -284,6 +284,7 @@ export default function AccountSettingsScreen() {
           <Button title={partnerBusy ? "جارٍ إرسال الطلب..." : "إرسال طلب الشراكة"} onPress={submitPartnerApplication} loading={partnerBusy} />
         </View>}
         {partnerApplications.length>0 && <View style={{marginTop:12,gap:8}}><Text style={styles.partnerLabel}>طلبات الشراكة السابقة</Text>{partnerApplications.map(item=><View key={item.id} style={styles.partnerApplicationCard}><Text style={styles.partnerApplicationName}>{item.business_name}</Text><Text style={styles.partnerApplicationStatus}>{item.status==="approved"?"تمت الموافقة":item.status==="rejected"?"مرفوض":"قيد المراجعة"} · {({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]}</Text>{item.admin_note?<Text style={styles.note}>ملاحظة الإدارة: {item.admin_note}</Text>:null}</View>)}</View>}
+        {partnerApplications.some(item=>item.status==="approved") && <TouchableOpacity activeOpacity={0.85} onPress={()=>router.push("/partner/dashboard")} style={styles.partnerJoinButton}><Text style={styles.partnerJoinButtonText}>فتح لوحة الشريك</Text></TouchableOpacity>}
       </View>
       <Text style={styles.note}>كل خيارات الانضمام مجمّعة هنا. بعد إكمال بياناتك ومستنداتك تراجع الإدارة طلبك.</Text>
     </View>
