@@ -300,7 +300,7 @@ function HomeCustomContent() {
         for (const row of own ?? []) ownMap[row.campaign_id] = row.option_id;
         setResponses(ownMap);
         const resultPairs = await Promise.all(active.map(async (item: any) => {
-          const { data } = await (supabase as any).rpc("get_app_campaign_results", { p_campaign_id: item.id });
+          const { data } = await (supabase as any).from("app_campaign_option_results").select("option_id,vote_count").eq("campaign_id", item.id);
           return [item.id, data ?? []] as const;
         }));
         setResults(Object.fromEntries(resultPairs));
@@ -320,7 +320,7 @@ function HomeCustomContent() {
     if (error) toast.error(error.code === "23505" ? "سبق وشاركت بهذا الاستطلاع." : error.message);
     else {
       setResponses((current) => ({ ...current, [campaign.id]: optionId }));
-      const { data } = await (supabase as any).rpc("get_app_campaign_results", { p_campaign_id: campaign.id });
+      const { data } = await (supabase as any).from("app_campaign_option_results").select("option_id,vote_count").eq("campaign_id", campaign.id);
       setResults((current) => ({ ...current, [campaign.id]: data ?? [] }));
       toast.success("تم تسجيل مشاركتك");
     }
