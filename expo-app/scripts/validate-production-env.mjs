@@ -1,10 +1,18 @@
-const required = [
-  "EXPO_PUBLIC_SUPABASE_URL",
-  "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-  "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY",
-];
+import publicBackend from "../../config/public-backend.json" with { type: "json" };
+
+const required = ["EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"];
 
 const easProjectId = process.env.EAS_PROJECT_ID || process.env.EAS_BUILD_PROJECT_ID;
+const supabaseUrl = publicBackend.VITE_SUPABASE_URL.trim();
+const publishableKey = publicBackend.VITE_SUPABASE_PUBLISHABLE_KEY.trim();
+const staleEasUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
+const staleEasKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+if (staleEasUrl && staleEasUrl !== supabaseUrl) {
+  console.warn("Ignoring stale EAS Supabase URL; Android uses the verified shared backend config.");
+}
+if (staleEasKey && staleEasKey !== publishableKey) {
+  console.warn("Ignoring stale EAS Supabase publishable key; Android uses the verified shared backend config.");
+}
 const missing = required.filter((name) => !process.env[name]?.trim());
 if (!easProjectId?.trim()) missing.push("EAS_PROJECT_ID (or EAS_BUILD_PROJECT_ID)");
 if (missing.length) {
@@ -16,7 +24,7 @@ if (missing.length) {
 
 let supabaseHost;
 try {
-  const parsed = new URL(process.env.EXPO_PUBLIC_SUPABASE_URL);
+  const parsed = new URL(supabaseUrl);
   if (parsed.protocol !== "https:") throw new Error("protocol");
   supabaseHost = parsed.hostname;
 } catch {
@@ -37,7 +45,6 @@ if (supabaseHost.split(".")[0] !== expectedSupabaseProjectRef) {
   process.exit(1);
 }
 
-const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.trim();
 if (process.env.MAMNOON_CI_CONFIG_ONLY === "true") {
   // CI uses a deliberately fake placeholder: validate the shape/project wiring
   // without sending that placeholder to the live Supabase Auth endpoint.
@@ -56,7 +63,7 @@ if (process.env.MAMNOON_CI_CONFIG_ONLY === "true") {
   console.log("Supabase Production publishable key accepted by the project.");
 }
 
-if (process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
+if (publishableKey.startsWith("sb_secret_")) {
   console.error("لا يجوز وضع Supabase secret key داخل تطبيق الهاتف؛ استخدم Publishable key.");
   process.exit(1);
 }
