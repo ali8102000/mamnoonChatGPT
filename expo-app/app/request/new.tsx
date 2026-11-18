@@ -168,6 +168,7 @@ export default function NewRequest() {
     setDestinationCoords(coords); setDestination(place.address || place.label);
     setMapMode("destination"); setDestinationConfirmed(false);
     setRouteKm(null); setRouteError(null); setShowFavoriteNameInput(false);
+    setPlaceQuery(""); setPlaceSuggestions([]); setPlaceSearchError(null);
     moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
   }
 
