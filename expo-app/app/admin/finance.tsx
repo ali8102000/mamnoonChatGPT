@@ -77,7 +77,8 @@ export default function AdminFinanceScreen() {
         .select("scope_type,scope_governorate").eq("user_id",user.id).eq("active",true).maybeSingle();
       const scopeType=assignment?.scope_type==="governorate"?"governorate":"global";
       const scopeGovernorate=scopeType==="governorate"?assignment?.scope_governorate??null:null;
-      const [financeRead,promotionsRead,walletManage,couponCreate,couponPublish,couponDelete] = await Promise.all([
+      const [adminAccess,financeRead,promotionsRead,walletManage,couponCreate,couponPublish,couponDelete] = await Promise.all([
+        (supabase as any).rpc("has_admin_access",{p_user_id:user.id}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.read",p_scope_type:"global",p_scope_governorate:null}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.read",p_scope_type:"global",p_scope_governorate:null}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.wallet.adjust",p_scope_type:scopeType,p_scope_governorate:scopeGovernorate}),
@@ -85,14 +86,15 @@ export default function AdminFinanceScreen() {
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.publish",p_scope_type:"global",p_scope_governorate:null}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.delete",p_scope_type:"global",p_scope_governorate:null}),
       ]);
-      const canReadFinance=!financeRead.error&&financeRead.data===true;
-      const canReadPromotions=!promotionsRead.error&&promotionsRead.data===true;
+      const isPlatformAdmin=!adminAccess.error&&adminAccess.data===true;
+      const canReadFinance=isPlatformAdmin||(!financeRead.error&&financeRead.data===true);
+      const canReadPromotions=isPlatformAdmin||(!promotionsRead.error&&promotionsRead.data===true);
       if(!canReadFinance||!canReadPromotions){setAllowed(false);return;}
       setAllowed(true);
-      setCanManageWallet(!walletManage.error&&walletManage.data===true);
-      setCanManageCoupons(!couponCreate.error&&couponCreate.data===true);
-      setCanPublishCoupons(!couponPublish.error&&couponPublish.data===true);
-      setCanDeleteCoupons(!couponDelete.error&&couponDelete.data===true);
+      setCanManageWallet(isPlatformAdmin||(!walletManage.error&&walletManage.data===true));
+      setCanManageCoupons(isPlatformAdmin||(!couponCreate.error&&couponCreate.data===true));
+      setCanPublishCoupons(isPlatformAdmin||(!couponPublish.error&&couponPublish.data===true));
+      setCanDeleteCoupons(isPlatformAdmin||(!couponDelete.error&&couponDelete.data===true));
       const data = await invoke({ action: "list" });
       setCoupons(data.coupons ?? []);
       setTransactions(data.transactions ?? []);
