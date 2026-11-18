@@ -201,9 +201,9 @@ values
   ('home_customer_taxi','زر اطلب سيارة','home','home.customer.actions','image_button','request.taxi','طلب سيارة','خلال دقائق',44,44,10,true,'{"default_image":"car-luxury.png"}'::jsonb),
   ('home_customer_service','زر اطلب فني','home','home.customer.actions','image_button','request.service','طلب فني','خدمات منزلية',64,64,20,true,'{"default_image":"service-build.jpg"}'::jsonb),
   ('home_customer_large_vehicle','زر السيارات الكبيرة','home','home.customer.actions','image_button','request.large_vehicle','طلب سيارة كبيرة','كيا حمل أو كيا ركاب أو باص',44,44,30,true,'{"default_image":"service-kia-driver.png"}'::jsonb),
-  ('vehicle_economy','أيقونة السيارة الاقتصادية','request.new','request.taxi.vehicle_types','vehicle','vehicle.economy','اقتصادي',null,64,64,10,true,'{}'::jsonb),
-  ('vehicle_premium','أيقونة السيارة المتميزة','request.new','request.taxi.vehicle_types','vehicle','vehicle.premium','متميز',null,64,64,20,true,'{}'::jsonb),
-  ('vehicle_luxury','أيقونة السيارة الفاخرة','request.new','request.taxi.vehicle_types','vehicle','vehicle.luxury','فاخر',null,64,64,30,true,'{}'::jsonb),
+  ('vehicle_economy','أيقونة السيارة الاقتصادية','request.new','request.taxi.vehicle_types','vehicle','vehicle.economy','ممنون اقتصادي',null,64,64,10,true,'{}'::jsonb),
+  ('vehicle_premium','أيقونة السيارة المتميزة','request.new','request.taxi.vehicle_types','vehicle','vehicle.premium','ممنون المتميز',null,64,64,20,true,'{}'::jsonb),
+  ('vehicle_luxury','أيقونة السيارة الفاخرة','request.new','request.taxi.vehicle_types','vehicle','vehicle.luxury','ممنون فاخر',null,64,64,30,true,'{}'::jsonb),
   ('vehicle_kia_cargo','أيقونة كيا حمل','request.new','request.large_vehicle.types','vehicle','vehicle.kia_cargo','كيا حمل',null,64,64,40,true,'{}'::jsonb),
   ('vehicle_kia_passenger','أيقونة كيا ركاب','request.new','request.large_vehicle.types','vehicle','vehicle.kia_passenger','كيا ركاب',null,64,64,50,true,'{}'::jsonb),
   ('vehicle_bus','أيقونة الباص','request.new','request.large_vehicle.types','vehicle','vehicle.bus','باص',null,64,64,60,true,'{}'::jsonb)
