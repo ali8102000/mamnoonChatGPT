@@ -289,7 +289,7 @@ export default function AdminVisualBuilder() {
             <h3 className="font-black">إنشاء قسم أو جدول جديد</h3>
             <input className={inputClass} placeholder="اسم القسم" value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} />
             <select className={inputClass} value={sectionType} onChange={(e) => setSectionType(e.target.value as any)}><option value="table">جدول بيانات</option><option value="banner">بطاقة / إعلان</option></select>
-            <input className={inputClass} value={sectionPlacement} onChange={(e) => setSectionPlacement(e.target.value)} placeholder="مكان العرض، مثال home.customer.content" />
+            <select className={inputClass} value={sectionPlacement} onChange={(e) => setSectionPlacement(e.target.value)}><option value="home.customer.top">أعلى الصفحة الرئيسية</option><option value="home.customer.content">بعد أزرار الطلب</option><option value="home.customer.after_stats">أسفل الإحصائيات</option></select>
             <label className="text-xs font-bold">أسماء الأعمدة (افصل بينها بعلامة |)</label>
             <input className={inputClass} value={sectionColumns} onChange={(e) => setSectionColumns(e.target.value)} placeholder="العنوان | السعر | التفاصيل" />
             <label className="text-xs font-bold">صفوف الجدول (كل صف بسطر، وافصل الخانات بعلامة |)</label>
@@ -317,7 +317,7 @@ export default function AdminVisualBuilder() {
             <textarea className={inputClass} placeholder="وصف مختصر" value={campaignDescription} onChange={(e) => setCampaignDescription(e.target.value)} />
             <label className="text-xs font-bold">الخيارات (كل خيار بسطر)</label>
             <textarea className={inputClass + " min-h-28"} value={campaignOptions} onChange={(e) => setCampaignOptions(e.target.value)} />
-            <input className={inputClass} value={campaignPlacement} onChange={(e) => setCampaignPlacement(e.target.value)} placeholder="مكان العرض" />
+            <select className={inputClass} value={campaignPlacement} onChange={(e) => setCampaignPlacement(e.target.value)}><option value="home.customer.top">أعلى الصفحة الرئيسية</option><option value="home.customer.content">بعد أزرار الطلب</option><option value="home.customer.after_stats">أسفل الإحصائيات</option></select>
             <div className="grid grid-cols-2 gap-2"><div><label className="text-xs">بداية النشر</label><input type="datetime-local" className={inputClass} value={campaignStarts} onChange={(e) => setCampaignStarts(e.target.value)} /></div><div><label className="text-xs">نهاية المشاركة</label><input type="datetime-local" className={inputClass} value={campaignEnds} onChange={(e) => setCampaignEnds(e.target.value)} /></div></div>
             <button disabled={saving} onClick={() => void createCampaign()} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Plus className="h-4 w-4" />إنشاء كمسودة</button>
           </section>
