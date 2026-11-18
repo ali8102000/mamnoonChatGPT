@@ -57,6 +57,10 @@ type Offer = {
     pricing_mode: string | null;
     work_hours: number | null;
     workers_count: number | null;
+    service_urgency_enabled?: boolean;
+    large_vehicle_urgency_enabled?: boolean;
+    taxi_urgency_enabled?: boolean;
+    taxi_urgency_percent?: number;
     service_id: string | null;
     services: { name_ar: string; slug: string; icon: string } | null;
   };
@@ -111,7 +115,7 @@ export function IncomingRequestModal() {
     }
     const { data, error } = await (supabase as any)
       .from("request_offers")
-      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, vehicle_type, pickup_text, dest_text, notes, attachment_path, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_id, services(name_ar, slug, icon))")
+      .select("id, request_id, distance_km, expires_at, service_requests!inner(id, type, status, vehicle_category, vehicle_type, pickup_text, dest_text, notes, attachment_path, work_description, price_estimate, customer_price, pricing_mode, work_hours, workers_count, service_urgency_enabled, large_vehicle_urgency_enabled, taxi_urgency_enabled, taxi_urgency_percent, service_id, services(name_ar, slug, icon))")
       .eq("provider_id", user.id)
       .eq("status", "pending")
       .is("proposed_price", null)
@@ -219,6 +223,39 @@ export function IncomingRequestModal() {
     return () => clearInterval(timer);
   }, [offer?.id, offer?.expires_at]);
 
+  useEffect(() => {
+    if (!offer?.id || !offer.expires_at || !visible) return;
+    const secondsLeft = Math.ceil((Date.parse(offer.expires_at) - Date.now()) / 1000);
+    if (secondsLeft <= 10) return;
+
+    let cancelled = false;
+    let notificationId: string | null = null;
+    void (async () => {
+      const preferences = await loadNotificationPreferences();
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "ممنون · تبقّت 10 ثوانٍ",
+          body: "أسرع بالرد على الطلب قبل انتهاء مهلة القبول.",
+          sound: preferences.soundEnabled ? "default" : false,
+          vibrate: preferences.vibrationEnabled ? [0, 250, 180, 250] : [],
+          data: { request_id: offer.request_id, type: "offer_expiring" },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: Math.max(1, secondsLeft - 10),
+          channelId: getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled),
+        },
+      });
+      if (cancelled) await Notifications.cancelScheduledNotificationAsync(id);
+      else notificationId = id;
+    })().catch((error) => console.warn("[incoming-offer] Expiry warning could not be scheduled:", error));
+
+    return () => {
+      cancelled = true;
+      if (notificationId) void Notifications.cancelScheduledNotificationAsync(notificationId);
+    };
+  }, [offer?.id, offer?.expires_at, offer?.request_id, visible]);
+
   const request = offer?.service_requests;
   const serviceSlug = request?.services?.slug ?? "";
   const imageSource = useMemo(() => SERVICE_IMAGES[serviceSlug], [serviceSlug]);
@@ -303,9 +340,9 @@ export function IncomingRequestModal() {
             <Text style={styles.code}>#{code}</Text>
           </View>
 
-          <View style={[styles.countdown, remainingSeconds <= 10 && styles.countdownUrgent]}>
+          <View style={[styles.countdown, remainingSeconds <= 10 && remainingSeconds % 2 === 0 && styles.countdownUrgent]}>
             <Text style={styles.countdownCaption}>الوقت المتبقي لقبول الطلب</Text>
-            <Text style={[styles.countdownValue, remainingSeconds <= 10 && styles.countdownValueUrgent]}>
+            <Text style={[styles.countdownValue, remainingSeconds <= 10 && remainingSeconds % 2 === 0 && styles.countdownValueUrgent]}>
               {`${String(Math.floor(remainingSeconds / 60)).padStart(2, "0")}:${String(remainingSeconds % 60).padStart(2, "0")}`}
             </Text>
             <Text style={styles.countdownFoot}>{remainingSeconds > 0 ? "لا تفوّت الفرصة" : "انتهت مهلة هذا العرض"}</Text>
@@ -327,6 +364,7 @@ export function IncomingRequestModal() {
                 {offer?.distance_km != null ? `يبعد عنك ${Number(offer.distance_km).toFixed(1)} كم` : "طلب قريب منك"}
               </Text>
               {request?.type === "taxi" && <Text style={styles.distance}>نوع المركبة: {request.vehicle_category === "large" ? "سيارة كبيرة" : request.vehicle_category === "luxury" ? "فاخر" : request.vehicle_category === "premium" ? "متميز" : "اقتصادي"}</Text>}
+              {(request?.service_urgency_enabled || request?.large_vehicle_urgency_enabled || request?.taxi_urgency_enabled) && <Text style={{ color: "#D97706", fontSize: 12, fontWeight: "900", textAlign: "right", marginTop: 5 }}>⚡ طلب مستعجل — أولوية عاجلة</Text>}
             </View>
           </View>
 

@@ -308,6 +308,9 @@ export default function NewRequest() {
   const isIntercity = routeIsIntercity;
   const showRequestPhoto = !isTaxi || isLargeVehicle;
   const estimatedTaxiFare = routeKm !== null && isTaxi && !isLargeVehicle ? (serverTaxiFares[vehicleCat as Exclude<VehicleCategory, "large">] ?? serverTaxiFare) : null;
+  // The selected amount is per ordinary technician; an expert costs two technician rates.
+  const servicePriceMultiplier = extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0);
+  const serviceTotalPrice = Number(customerPrice || 0) * servicePriceMultiplier;
 
   function getCouponBaseAmount() {
     if (!isTaxi || isLargeVehicle) return null;
@@ -939,6 +942,7 @@ export default function NewRequest() {
             price_estimate: null,
             customer_price: proposedPrice,
             pricing_mode: proposedPrice === null ? "negotiable" : "fixed",
+            large_vehicle_urgency_enabled: urgencyEnabled,
             notes: [
               "نوع السيارة: " + (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص"),
               vehicleType === "kia_cargo" && cargoLoadDescription.trim() ? "تفاصيل الحمولة: " + cargoLoadDescription.trim() : "",
@@ -993,6 +997,7 @@ export default function NewRequest() {
             dest_lng: destinationCoords?.longitude ?? null,
             level_required: workerLevel,
             workers_count: extraWorkers + 1,
+            service_urgency_enabled: urgencyEnabled,
             pricing_mode: pricingMode,
             customer_price: pricingMode === "negotiable" ? null : proposedPrice,
             work_hours: pricingMode === "hourly" ? hours : null,
@@ -1061,7 +1066,7 @@ export default function NewRequest() {
             </Marker>
           ))}
         </MapView>
-        {mapMode === "pickup" && (
+        {(
           <TouchableOpacity
             style={[styles.taxiLocateFloating, { bottom: taxiSheetHeight + 10 }]}
             onPress={locateMe}
@@ -1308,6 +1313,13 @@ export default function NewRequest() {
                     </View>
                     <TextInput style={styles.taxiSearchInputFull} value={customerPrice} onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))} placeholder="أو اكتب أي سعر بالدينار" placeholderTextColor={palette.muted} keyboardType="numeric" />
                     <Text style={styles.taxiHintText}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب.</Text>
+                    <TouchableOpacity onPress={() => setUrgencyEnabled((value) => !value)} style={{ marginTop: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: urgencyEnabled ? palette.brand : palette.line, backgroundColor: urgencyEnabled ? palette.brandSoft : palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: palette.ink, fontWeight: "900", textAlign: "right" }}>⚡ وضع الاستعجال</Text>
+                        <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>يظهر للمزودين ضمن نتائج البحث عن السيارة</Text>
+                      </View>
+                      <Text style={{ color: urgencyEnabled ? palette.brand : palette.muted, fontWeight: "900" }}>{urgencyEnabled ? "مفعّل" : "متوقف"}</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -1734,6 +1746,13 @@ export default function NewRequest() {
 
       {!isTaxi && (
         <>
+          <TouchableOpacity onPress={() => setUrgencyEnabled((value) => !value)} style={{ marginTop: 12, marginBottom: 12, padding: 13, borderRadius: 14, borderWidth: 1, borderColor: urgencyEnabled ? palette.brand : palette.line, backgroundColor: urgencyEnabled ? palette.brandSoft : palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: palette.ink, fontWeight: "900", textAlign: "right" }}>⚡ وضع الاستعجال</Text>
+              <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>يظهر طلبك للمزودين كطلب مستعجل أثناء البحث</Text>
+            </View>
+            <Text style={{ color: urgencyEnabled ? palette.brand : palette.muted, fontWeight: "900" }}>{urgencyEnabled ? "مفعّل" : "متوقف"}</Text>
+          </TouchableOpacity>
           <Text style={styles.label}>{["washer_repair", "stove_repair", "fridge_repair", "ac_repair", "electric_street", "plumbing", "phone_repair", "electronics_repair", "computer_repair"].includes(selectedService) ? "وصف العطل" : "وصف العمل المطلوب"}</Text>
           <TextInput
             style={[styles.input, { height: 90 }]}
@@ -1780,18 +1799,18 @@ export default function NewRequest() {
                 style={styles.input}
                 value={customerPrice}
                 onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
-                placeholder="مثلاً 25000"
+                placeholder="أجر الفني الواحد بالدينار"
                 placeholderTextColor="#94a3b8"
                 keyboardType="numeric"
               />
+              {Number(customerPrice) > 0 && (
+                <View style={{ padding: 12, borderRadius: 14, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand }}>
+                  <Text style={{ color: palette.ink, textAlign: "right", fontSize: 12, fontWeight: "800" }}>المبلغ الإجمالي للطلب</Text>
+                  <Text style={{ color: palette.brand, textAlign: "right", fontSize: 20, fontWeight: "900", marginTop: 4 }}>{serviceTotalPrice.toLocaleString("ar-IQ")} د.ع</Text>
+                  <Text style={{ color: palette.muted, textAlign: "right", fontSize: 10, marginTop: 3 }}>سعر الفرد × {servicePriceMultiplier} وحدات أجرة · أجرة الخبير ضعف أجرة الفني العادي{pricingMode === "hourly" ? " لكل ساعة" : ""}</Text>
+                </View>
+              )}
             </>
-          )}
-          {pricingMode !== "negotiable" && Number(customerPrice) > 0 && (
-            <View style={{ marginTop: 8, padding: 12, borderRadius: 14, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.gold }}>
-              <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>الإجمالي التقديري لجميع أفراد الطاقم</Text>
-              <Text style={{ color: palette.brand, fontSize: 20, fontWeight: "900", textAlign: "right", marginTop: 4 }}>{(Number(customerPrice) * (extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0))).toLocaleString("ar-IQ")} د.ع</Text>
-              <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>سعر الفرد × {extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0)} وحدات أجرة · أجرة الخبير ضعف أجرة الفني العادي</Text>
-            </View>
           )}
           {pricingMode === "hourly" && (
             <>

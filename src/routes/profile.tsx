@@ -316,7 +316,6 @@ function ProfilePage() {
           </button>
         </div>
         <div className="mt-6 text-center text-[11px] text-muted-foreground">ممنون · v2.0</div>
-      </div>
     </MobileShell>
   );
 }
