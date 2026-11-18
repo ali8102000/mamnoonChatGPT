@@ -147,7 +147,7 @@ export default function AdminVisualBuilder() {
   const createSection = async () => {
     if (!sectionTitle.trim()) { setMessage("اكتب اسم القسم أولاً."); return; }
     const columns = sectionColumns.split("|").map((value) => value.trim()).filter(Boolean);
-    const rows = sectionRows.split("\\n").map((line) => line.split("|").map((value) => value.trim())).filter((row) => row.some(Boolean));
+    const rows = sectionRows.split(String.fromCharCode(10)).map((line) => line.split("|").map((value) => value.trim())).filter((row) => row.some(Boolean));
     if (sectionType === "table" && columns.length < 1) { setMessage("اكتب اسم عمود واحد على الأقل."); return; }
     const config: Record<string, any> = sectionType === "table" ? { columns, rows } : { description: sectionRows.trim() };
     const { error } = await (supabase as any).from("app_content_sections").insert({
@@ -156,7 +156,7 @@ export default function AdminVisualBuilder() {
       is_enabled: true, is_published: false,
     });
     if (error) setMessage("تعذر إنشاء القسم: " + error.message);
-    else { setSectionTitle(""); setMessage("انضاف القسم كمسودة. تگدر تراجعه وتنشره."); await load(); }
+    else { setSectionTitle(""); setSectionSortOrder(0); setMessage("انضاف القسم كمسودة. تگدر تراجعه وتنشره."); await load(); }
   };
 
   const publishSection = async (section: ContentSection) => {
@@ -177,6 +177,7 @@ export default function AdminVisualBuilder() {
       description: campaignDescription.trim() || null, placement_key: campaignPlacement,
       starts_at: campaignStarts ? new Date(campaignStarts).toISOString() : null,
       ends_at: campaignEnds ? new Date(campaignEnds).toISOString() : null,
+      sort_order: Number(campaignSortOrder) || 0,
       status: "draft", result_visibility: "public",
     }).select("id").single();
     if (error || !data?.id) setMessage("تعذر إنشاء الاستطلاع: " + (error?.message ?? "خطأ غير معروف"));
@@ -194,7 +195,20 @@ export default function AdminVisualBuilder() {
     setSaving(false);
   };
 
-  const moveSection = async (section: ContentSection, delta: number) => {\n    const { error } = await (supabase as any).from("app_content_sections").update({ sort_order: section.sort_order + delta }).eq("id", section.id);\n    if (error) setMessage("تعذر تغيير ترتيب القسم: " + error.message); else await load();\n  };\n\n  const moveCampaign = async (campaign: Campaign, delta: number) => {\n    const { error } = await (supabase as any).from("app_campaigns").update({ sort_order: campaign.sort_order + delta }).eq("id", campaign.id);\n    if (error) setMessage("تعذر تغيير ترتيب الحملة: " + error.message); else await load();\n  };\n\n  const publishCampaign = async (campaign: Campaign) => {
+  const moveSection = async (section: ContentSection, delta: number) => {
+    const { error } = await (supabase as any).from("app_content_sections")
+      .update({ sort_order: section.sort_order + delta }).eq("id", section.id);
+    if (error) setMessage("تعذر تغيير ترتيب القسم: " + error.message);
+    else await load();
+  };
+
+  const moveCampaign = async (campaign: Campaign, delta: number) => {
+    const { error } = await (supabase as any).from("app_campaigns")
+      .update({ sort_order: campaign.sort_order + delta }).eq("id", campaign.id);
+    if (error) setMessage("تعذر تغيير ترتيب الحملة: " + error.message);
+    else await load();
+  };
+  const publishCampaign = async (campaign: Campaign) => {
     const { error } = await (supabase as any).from("app_campaigns")
       .update({ status: "published", updated_at: new Date().toISOString() }).eq("id", campaign.id);
     setMessage(error ? "تعذر نشر الحملة: " + error.message : "تم نشر الحملة.");
@@ -302,6 +316,7 @@ export default function AdminVisualBuilder() {
             <h3 className="font-black">الأقسام المنشأة</h3>
             {sections.length === 0 && <p className="text-sm text-muted-foreground">ماكو أقسام مضافة بعد.</p>}
             {sections.map((section) => <div key={section.id} className="flex items-center justify-between gap-3 rounded-xl border border-border p-3">
+              <div className="flex gap-1"><button className={buttonClass + " border border-border px-2"} onClick={() => void moveSection(section, -1)}><ChevronUp className="h-4 w-4" /></button><button className={buttonClass + " border border-border px-2"} onClick={() => void moveSection(section, 1)}><ChevronDown className="h-4 w-4" /></button></div>
               <div><b className="text-sm">{section.title}</b><p className="text-xs text-muted-foreground">{section.section_type} · {section.placement_key} · الترتيب {section.sort_order}</p></div>
               <div className="flex gap-2"><button className={buttonClass + " border border-border"} onClick={() => setMessage(JSON.stringify(section.config, null, 2))}><Eye className="h-4 w-4" />معاينة البيانات</button>
                 {!section.is_published && <button className={buttonClass + " bg-primary text-primary-foreground"} onClick={() => void publishSection(section)}>نشر</button>}</div>
@@ -320,6 +335,7 @@ export default function AdminVisualBuilder() {
             <label className="text-xs font-bold">الخيارات (كل خيار بسطر)</label>
             <textarea className={inputClass + " min-h-28"} value={campaignOptions} onChange={(e) => setCampaignOptions(e.target.value)} />
             <select className={inputClass} value={campaignPlacement} onChange={(e) => setCampaignPlacement(e.target.value)}><option value="home.customer.top">أعلى الصفحة الرئيسية</option><option value="home.customer.content">بعد أزرار الطلب</option><option value="home.customer.after_stats">أسفل الإحصائيات</option></select>
+            <label className="text-xs font-bold">ترتيب الاستطلاع أو المسابقة</label><input type="number" className={inputClass} value={campaignSortOrder} onChange={(e) => setCampaignSortOrder(Number(e.target.value))} />
             <div className="grid grid-cols-2 gap-2"><div><label className="text-xs">بداية النشر</label><input type="datetime-local" className={inputClass} value={campaignStarts} onChange={(e) => setCampaignStarts(e.target.value)} /></div><div><label className="text-xs">نهاية المشاركة</label><input type="datetime-local" className={inputClass} value={campaignEnds} onChange={(e) => setCampaignEnds(e.target.value)} /></div></div>
             <button disabled={saving} onClick={() => void createCampaign()} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Plus className="h-4 w-4" />إنشاء كمسودة</button>
           </section>
@@ -327,7 +343,7 @@ export default function AdminVisualBuilder() {
             <h3 className="font-black">إدارة النتائج والنشر</h3>
             {campaigns.length === 0 && <p className="text-sm text-muted-foreground">ماكو استطلاعات أو مسابقات حالياً.</p>}
             {campaigns.map((campaign) => <div key={campaign.id} className="space-y-2 rounded-xl border border-border p-3">
-              <div className="flex items-center justify-between gap-2"><b className="text-sm">{campaign.title}</b><span className="rounded-full bg-muted px-2 py-1 text-[10px]">{campaign.status === "published" ? "منشور" : campaign.status}</span></div>
+              <div className="flex items-center justify-between gap-2"><div className="flex gap-1"><button className={buttonClass + " border border-border px-2"} onClick={() => void moveCampaign(campaign, -1)}><ChevronUp className="h-4 w-4" /></button><button className={buttonClass + " border border-border px-2"} onClick={() => void moveCampaign(campaign, 1)}><ChevronDown className="h-4 w-4" /></button></div><b className="text-sm">{campaign.title}</b><span className="rounded-full bg-muted px-2 py-1 text-[10px]">{campaign.status === "published" ? "منشور" : campaign.status}</span></div>
               <p className="text-xs text-muted-foreground">{campaign.campaign_type === "poll" ? "استطلاع" : "مسابقة"} · {campaign.placement_key}</p>
               <div className="flex flex-wrap gap-2">{campaign.status === "draft" && <button className={buttonClass + " bg-primary text-primary-foreground"} onClick={() => void publishCampaign(campaign)}>نشر الآن</button>}
                 <button className={buttonClass + " border border-border"} onClick={() => void loadResults(campaign)}><Vote className="h-4 w-4" />عرض النتائج</button></div>
