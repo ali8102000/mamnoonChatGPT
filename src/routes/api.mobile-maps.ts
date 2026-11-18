@@ -15,7 +15,7 @@ function json(body: unknown, status = 200) {
 
 // Temporary compatibility bridge for previously installed Android clients.
 // All validation, authentication, governorate checks, place lookup and routing
-// now execute in Supabase's maps-proxy Edge Function. No Lovable or service-role
+// now execute in Supabase's maps-proxy Edge Function. No service-role
 // credentials are used by this Vercel route.
 async function forward(request: Request) {
   const authorization = request.headers.get("authorization") || "";
