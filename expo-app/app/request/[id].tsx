@@ -1165,7 +1165,8 @@ export default function RequestDetail() {
           )}
           {(isCustomer || isProvider) &&
             request.status !== "cancelled" &&
-            request.status !== "completed" && (
+            request.status !== "completed" &&
+            request.status !== "in_progress" && (
               <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: palette.danger }]}
                 onPress={cancelRequest}
