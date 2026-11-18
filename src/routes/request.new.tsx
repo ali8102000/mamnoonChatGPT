@@ -1337,9 +1337,12 @@ function NewRequest() {
                 </button>
               ))}
             </div>
-            <div className="text-[11px] text-muted-foreground">
-              المبلغ يكون من مضاعفات 250 دينار.
+            <div className="rounded-xl bg-primary/10 px-3 py-3 text-right">
+              <div className="text-xs text-muted-foreground">الإجمالي التقديري لجميع أفراد الطاقم</div>
+              <div className="mt-1 text-lg font-black text-primary">{serviceTotalPrice.toLocaleString("ar-IQ")} د.ع</div>
+              <div className="text-[10px] text-muted-foreground">سعر الفرد × {servicePriceMultiplier} وحدات أجرة · أجرة الخبير تعادل أجرتَي فني عادي</div>
             </div>
+            <div className="text-[11px] text-muted-foreground">اختر الأجر للفرد، ويُحسب الإجمالي تلقائياً حسب عدد الفنيين ومستواهم.</div>
           </>
         )}
       </div>
