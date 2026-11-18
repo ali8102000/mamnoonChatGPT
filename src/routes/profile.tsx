@@ -59,22 +59,15 @@ function ProfilePage() {
   useEffect(() => {
     if (!uid) return;
     if (activeRole === "customer") {
-      Promise.all([
-        (supabase as any).from("driver_wallets").select("balance,currency").eq("user_id", uid).maybeSingle(),
-        (supabase as any).from("transactions").select("id,type,amount,balance_after,note,created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(30),
-      ]).then(([walletResult, transactionResult]: any[]) => {
-        if (walletResult.error) {
-          console.warn("[wallet] balance unavailable:", walletResult.error.message);
+      (supabase as any).rpc("get_my_customer_wallet").then(({ data, error }: any) => {
+        if (error) {
+          console.warn("[wallet] customer wallet unavailable:", error.message);
           setWallet(null);
-        } else {
-          setWallet(walletResult.data ?? null);
-        }
-        if (transactionResult.error) {
-          console.warn("[wallet] transactions unavailable:", transactionResult.error.message);
           setTxs([]);
           return;
         }
-        setTxs(transactionResult.data ?? []);
+        setWallet(data?.wallet ?? null);
+        setTxs(Array.isArray(data?.transactions) ? data.transactions : []);
       });
     }
     (supabase as any)
