@@ -17,6 +17,7 @@ type Row = { governorate_key:string; workers:number; large_drivers:number; taxi_
 export default function AdminAnalyticsScreen() {
   const { user } = useAuth();
   const [rows,setRows] = useState<Row[]>([]);
+  const [platformStats,setPlatformStats] = useState<any>(null);
   const [activity,setActivity] = useState<any>(null);
   const [loading,setLoading] = useState(true);
   const [refreshing,setRefreshing] = useState(false);
@@ -27,6 +28,33 @@ export default function AdminAnalyticsScreen() {
     try {
       const roles = await getAdminStaffRoles(user.id);
       if (!roles.includes("super_admin") && !roles.includes("admin")) throw new Error("هذه الإحصائيات متاحة للمدير الأعلى والإدارة فقط");
+      const now = new Date();
+      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
+      const [users,drivers,workers,activeDrivers,activeWorkers,requests,activeRequests,completed,cancelled,todayTx,monthTx,yearTx] = await Promise.all([
+        supabase.from("profiles").select("id",{count:"exact",head:true}),
+        supabase.from("driver_profiles").select("id",{count:"exact",head:true}),
+        supabase.from("worker_profiles").select("id",{count:"exact",head:true}),
+        supabase.from("driver_profiles").select("id",{count:"exact",head:true}).eq("available",true),
+        supabase.from("worker_profiles").select("id",{count:"exact",head:true}).eq("available",true),
+        supabase.from("service_requests").select("id",{count:"exact",head:true}),
+        supabase.from("service_requests").select("id",{count:"exact",head:true}).in("status",["pending","searching","accepted","in_progress"]),
+        supabase.from("service_requests").select("id",{count:"exact",head:true}).eq("status","completed"),
+        supabase.from("service_requests").select("id",{count:"exact",head:true}).eq("status","cancelled"),
+        (supabase as any).from("transactions").select("amount,type").gte("created_at",dayStart),
+        (supabase as any).from("transactions").select("amount,type").gte("created_at",monthStart),
+        (supabase as any).from("transactions").select("amount,type").gte("created_at",yearStart),
+      ]);
+      const commission = (result:any) => (result?.data ?? []).filter((row:any)=>row.type==="commission").reduce((sum:number,row:any)=>sum+Math.abs(Number(row.amount)||0),0);
+      setPlatformStats({
+        totalUsers:users.count ?? 0,totalDrivers:drivers.count ?? 0,totalWorkers:workers.count ?? 0,
+        activeDrivers:activeDrivers.count ?? 0,activeWorkers:activeWorkers.count ?? 0,totalRequests:requests.count ?? 0,
+        activeRequests:activeRequests.count ?? 0,completedRequests:completed.count ?? 0,cancelledRequests:cancelled.count ?? 0,
+        dailyRevenue:commission(todayTx),monthlyRevenue:commission(monthTx),yearlyRevenue:commission(yearTx),
+      });
+      const metricErrors=[users,drivers,workers,activeDrivers,activeWorkers,requests,activeRequests,completed,cancelled,todayTx,monthTx,yearTx].filter((result:any)=>!!result?.error).length;
+      if(metricErrors) throw new Error(`تعذر تحميل ${metricErrors} من مؤشرات المنصة`);
       const { data, error: invokeError } = await supabase.functions.invoke("admin-users",{body:{action:"governorate_stats"}});
       if (invokeError) throw new Error(invokeError.message);
       if (data?.error) throw new Error(data.error);
@@ -43,12 +71,27 @@ export default function AdminAnalyticsScreen() {
   const regions=Object.keys(LABELS).filter(key=>key!=="unknown").map(key=>rows.find(r=>r.governorate_key===key) ?? ({governorate_key:key,workers:0,large_drivers:0,taxi_drivers:0,customers:0,total_users:0})).concat(rows.filter(r=>r.governorate_key==="unknown")).sort((a,b)=>Number(b.total_users)-Number(a.total_users));
   const fmt=(v:any)=>Number(v||0).toLocaleString("ar-IQ");
   return <View style={s.page}>
-    <Stack.Screen options={{title:"إحصائيات المستخدمين حسب المحافظة"}}/>
+    <Stack.Screen options={{title:"الإحصائيات الشاملة"}}/>
     <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>{setRefreshing(true);void load();}}/>}>
-      <Text style={s.title}>إحصائيات المستخدمين حسب المحافظة</Text>
-      <Text style={s.muted}>أعداد حقيقية من قاعدة البيانات حسب المحافظة المعتمدة أو آخر نشاط مسجل</Text>
+      <Text style={s.title}>الإحصائيات الشاملة</Text>
+      <Text style={s.muted}>مؤشرات المنصة والإيرادات وتوزيع المستخدمين والطلبات حسب المحافظة</Text>
       {loading ? <ActivityIndicator size="large" color={palette.brand}/> : error ? <View style={s.error}><Text style={s.errorText}>{error}</Text><TouchableOpacity onPress={()=>void load()}><Text style={s.link}>إعادة المحاولة</Text></TouchableOpacity></View> : <>
         <View style={s.totalCard}>
+          <Text style={s.sectionTitle}>مؤشرات المنصة العامة</Text>
+          <View style={s.metrics}>
+            {([
+              ["المستخدمون",platformStats?.totalUsers],["السائقون",platformStats?.totalDrivers],
+              ["الفنيون",platformStats?.totalWorkers],["السائقون المتاحون",platformStats?.activeDrivers],
+              ["الفنيون المتاحون",platformStats?.activeWorkers],["إجمالي الطلبات",platformStats?.totalRequests],
+              ["الطلبات النشطة",platformStats?.activeRequests],["المكتملة",platformStats?.completedRequests],
+              ["الملغاة",platformStats?.cancelledRequests],["إيرادات اليوم",platformStats?.dailyRevenue],
+              ["إيرادات الشهر",platformStats?.monthlyRevenue],["إيرادات السنة",platformStats?.yearlyRevenue],
+            ] as [string,number|undefined][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}{label.includes("إيرادات") ? " د.ع" : ""}</Text></View>)}
+          </View>
+        </View>
+        <View style={s.totalCard}>
+          <Text style={s.sectionTitle}>توزيع المستخدمين حسب المحافظة</Text>
+          <Text style={s.muted}>أعداد حقيقية من قاعدة البيانات حسب المحافظة المعتمدة أو آخر نشاط مسجل</Text>
           <Text style={s.muted}>إجمالي الحسابات المسجلة</Text>
           <Text style={s.total}>{fmt(total?.total_users)}</Text>
           <View style={s.metrics}>
