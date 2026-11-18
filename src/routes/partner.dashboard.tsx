@@ -25,9 +25,14 @@ function PartnerDashboardPage() {
   const load = useCallback(async () => {
     if (!session?.user.id) return;
     setBusy(true); setError("");
+    const { data: approved, error: approvalError } = await (supabase as any).from("partner_applications")
+      .select("id").eq("user_id", session.user.id).eq("status", "approved");
+    if (approvalError) { setError(approvalError.message); setProfiles([]); setBusy(false); return; }
+    const ids = (approved ?? []).map((row:any)=>row.id);
+    if (!ids.length) { setProfiles([]); setBusy(false); return; }
     const { data, error } = await (supabase as any).from("partner_business_profiles")
       .select("id,application_id,partner_type,business_name,phone,email,city,address,description,is_published")
-      .eq("user_id", session.user.id).order("created_at", { ascending: false });
+      .eq("user_id", session.user.id).in("application_id", ids).order("created_at", { ascending: false });
     if (error) setError(error.message);
     setProfiles(data ?? []);
     setBusy(false);
