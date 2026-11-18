@@ -211,7 +211,7 @@ export default function DriverOnboarding() {
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0] as any;
       if (typeof asset.fileSize === "number" && asset.fileSize > 50 * 1024 * 1024) {
-        Alert.alert("حجم الفيديو كبير", "الحد الأعلى للفيديو 50 ميغابايت. اختَر فيديو أقصر أو أقل حجماً."); return;
+        Alert.alert("حجم الفيديو كبير", "الحد الأعلى للفيديو 50 ميغابايت. اختَر فيديو أقل حجماً."); return;
       }
       setVehicleVideo({ uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName, fileSize: asset.fileSize, duration: asset.duration });
       setVehicleVideoPath(null);
