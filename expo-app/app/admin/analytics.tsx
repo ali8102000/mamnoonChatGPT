@@ -17,9 +17,8 @@ type Row = { governorate_key:string; workers:number; large_drivers:number; taxi_
 export default function AdminAnalyticsScreen() {
   const { user } = useAuth();
   const [rows,setRows] = useState<Row[]>([]);
-  const [platformStats,setPlatformStats] = useState<any>(null);
-  const [platformStatsWarning,setPlatformStatsWarning] = useState("");
   const [activity,setActivity] = useState<any>(null);
+  const [dashboard,setDashboard] = useState<any>(null);
   const [loading,setLoading] = useState(true);
   const [refreshing,setRefreshing] = useState(false);
   const [error,setError] = useState("");
@@ -29,41 +28,20 @@ export default function AdminAnalyticsScreen() {
     try {
       const roles = await getAdminStaffRoles(user.id);
       if (!roles.includes("super_admin") && !roles.includes("admin")) throw new Error("هذه الإحصائيات متاحة للمدير الأعلى والإدارة فقط");
-      const now = new Date();
-      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
-      const [users,drivers,workers,activeDrivers,activeWorkers,requests,activeRequests,completed,cancelled,todayTx,monthTx,yearTx] = await Promise.all([
-        supabase.from("profiles").select("id",{count:"exact",head:true}),
-        supabase.from("driver_profiles").select("id",{count:"exact",head:true}),
-        supabase.from("worker_profiles").select("id",{count:"exact",head:true}),
-        supabase.from("driver_profiles").select("id",{count:"exact",head:true}).eq("available",true),
-        supabase.from("worker_profiles").select("id",{count:"exact",head:true}).eq("available",true),
-        supabase.from("service_requests").select("id",{count:"exact",head:true}),
-        supabase.from("service_requests").select("id",{count:"exact",head:true}).in("status",["pending","searching","accepted","in_progress"]),
-        supabase.from("service_requests").select("id",{count:"exact",head:true}).eq("status","completed"),
-        supabase.from("service_requests").select("id",{count:"exact",head:true}).eq("status","cancelled"),
-        (supabase as any).from("transactions").select("amount,type").gte("created_at",dayStart),
-        (supabase as any).from("transactions").select("amount,type").gte("created_at",monthStart),
-        (supabase as any).from("transactions").select("amount,type").gte("created_at",yearStart),
+      const [regionalResult, activityResult, dashboardResult] = await Promise.all([
+        supabase.functions.invoke("admin-users",{body:{action:"governorate_stats"}}),
+        supabase.functions.invoke("admin-users",{body:{action:"customer_activity_stats",limit:200,offset:0}}),
+        supabase.functions.invoke("admin-users",{body:{action:"dashboard_stats"}}),
       ]);
-      const commission = (result:any) => (result?.data ?? []).filter((row:any)=>row.type==="commission").reduce((sum:number,row:any)=>sum+Math.abs(Number(row.amount)||0),0);
-      setPlatformStats({
-        totalUsers:users.count ?? 0,totalDrivers:drivers.count ?? 0,totalWorkers:workers.count ?? 0,
-        activeDrivers:activeDrivers.count ?? 0,activeWorkers:activeWorkers.count ?? 0,totalRequests:requests.count ?? 0,
-        activeRequests:activeRequests.count ?? 0,completedRequests:completed.count ?? 0,cancelledRequests:cancelled.count ?? 0,
-        dailyRevenue:commission(todayTx),monthlyRevenue:commission(monthTx),yearlyRevenue:commission(yearTx),
-      });
-      const metricErrors=[users,drivers,workers,activeDrivers,activeWorkers,requests,activeRequests,completed,cancelled,todayTx,monthTx,yearTx].filter((result:any)=>!!result?.error).length;
-      setPlatformStatsWarning(metricErrors ? `تعذر تحميل ${metricErrors} من مؤشرات المنصة؛ قد تكون بعض الأرقام غير مكتملة.` : "");
-      const { data, error: invokeError } = await supabase.functions.invoke("admin-users",{body:{action:"governorate_stats"}});
-      if (invokeError) throw new Error(invokeError.message);
-      if (data?.error) throw new Error(data.error);
-      setRows(Array.isArray(data?.rows) ? data.rows : []);
-      const { data: detail, error: detailError } = await supabase.functions.invoke("admin-users",{body:{action:"customer_activity_stats",limit:200,offset:0}});
-      if (detailError) throw new Error(detailError.message);
-      if (detail?.error) throw new Error(detail.error);
-      setActivity(detail?.report ?? null);
+      if (regionalResult.error) throw new Error(regionalResult.error.message);
+      if (regionalResult.data?.error) throw new Error(regionalResult.data.error);
+      if (activityResult.error) throw new Error(activityResult.error.message);
+      if (activityResult.data?.error) throw new Error(activityResult.data.error);
+      if (dashboardResult.error) throw new Error(dashboardResult.error.message);
+      if (dashboardResult.data?.error) throw new Error(dashboardResult.data.error);
+      setRows(Array.isArray(regionalResult.data?.rows) ? regionalResult.data.rows : []);
+      setActivity(activityResult.data?.report ?? null);
+      setDashboard(dashboardResult.data ?? null);
     } catch (e:any) { setError(e?.message || "تعذر تحميل الإحصائيات"); }
     finally { setLoading(false); setRefreshing(false); }
   },[user?.id]);
@@ -75,26 +53,35 @@ export default function AdminAnalyticsScreen() {
     <Stack.Screen options={{title:"الإحصائيات الشاملة"}}/>
     <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>{setRefreshing(true);void load();}}/>}>
       <Text style={s.title}>الإحصائيات الشاملة</Text>
-      <Text style={s.muted}>مؤشرات المنصة والإيرادات وتوزيع المستخدمين والطلبات حسب المحافظة</Text>
+      <Text style={s.muted}>مؤشرات المنصة والمحافظات وأدوار المستخدمين ونشاط الزبائن في مكان واحد</Text>
       {loading ? <ActivityIndicator size="large" color={palette.brand}/> : error ? <View style={s.error}><Text style={s.errorText}>{error}</Text><TouchableOpacity onPress={()=>void load()}><Text style={s.link}>إعادة المحاولة</Text></TouchableOpacity></View> : <>
-        {!!platformStatsWarning && <View style={s.error}><Text style={s.errorText}>{platformStatsWarning}</Text></View>}
         <View style={s.totalCard}>
-          <Text style={s.sectionTitle}>مؤشرات المنصة العامة</Text>
+          <Text style={s.sectionTitle}>مؤشرات المنصة</Text>
+          <Text style={s.note}>إجماليات الحسابات والطلبات وحالة التشغيل والعمولات من بيانات المنصة</Text>
           <View style={s.metrics}>
             {([
-              ["المستخدمون",platformStats?.totalUsers],["السائقون",platformStats?.totalDrivers],
-              ["الفنيون",platformStats?.totalWorkers],["السائقون المتاحون",platformStats?.activeDrivers],
-              ["الفنيون المتاحون",platformStats?.activeWorkers],["إجمالي الطلبات",platformStats?.totalRequests],
-              ["الطلبات النشطة",platformStats?.activeRequests],["المكتملة",platformStats?.completedRequests],
-              ["الملغاة",platformStats?.cancelledRequests],["إيرادات اليوم",platformStats?.dailyRevenue],
-              ["إيرادات الشهر",platformStats?.monthlyRevenue],["إيرادات السنة",platformStats?.yearlyRevenue],
-            ] as [string,number|undefined][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}{label.includes("إيرادات") ? " د.ع" : ""}</Text></View>)}
+              ["كل المستخدمين",dashboard?.totalUsers],
+              ["السائقون",dashboard?.totalDrivers],
+              ["الفنيون",dashboard?.totalWorkers],
+              ["سائقون متاحون",dashboard?.activeDrivers],
+              ["فنيون متاحون",dashboard?.activeWorkers],
+              ["كل الطلبات",dashboard?.totalRequests],
+              ["طلبات نشطة",dashboard?.activeRequests],
+              ["مكتملة",dashboard?.completedRequests],
+              ["ملغاة",dashboard?.cancelledRequests],
+            ] as [string,number|undefined][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
+          </View>
+          <Text style={s.sectionTitle}>عمولات المنصة</Text>
+          <View style={s.metrics}>
+            {([
+              ["اليوم",dashboard?.dailyRevenue],
+              ["هذا الشهر",dashboard?.monthlyRevenue],
+              ["هذه السنة",dashboard?.yearlyRevenue],
+            ] as [string,number|undefined][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label} · د.ع</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
           </View>
         </View>
         <View style={s.totalCard}>
-          <Text style={s.sectionTitle}>توزيع المستخدمين حسب المحافظة</Text>
-          <Text style={s.muted}>أعداد حقيقية من قاعدة البيانات حسب المحافظة المعتمدة أو آخر نشاط مسجل</Text>
-          <Text style={s.muted}>إجمالي الحسابات المسجلة</Text>
+          <Text style={s.muted}>إجمالي الحسابات المسجلة حسب المحافظة</Text>
           <Text style={s.total}>{fmt(total?.total_users)}</Text>
           <View style={s.metrics}>
             {([["الفنيون",total?.workers],["سائقو السيارات الكبيرة",total?.large_drivers],["كباتن التكسي",total?.taxi_drivers],["الزبائن",total?.customers]] as [string,number|undefined][]).map(([label,value])=><View key={label} style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{fmt(value)}</Text></View>)}
@@ -107,7 +94,7 @@ export default function AdminAnalyticsScreen() {
           </View>
         </View>)}
         <View style={s.totalCard}>
-          <Text style={s.sectionTitle}>إحصائية الحسابات والأدوار والطلبات</Text>
+          <Text style={s.sectionTitle}>الحسابات والأدوار والطلبات</Text>
           <Text style={s.note}>كل دور يُحتسب بصورة مستقلة؛ الحساب الذي يحمل أكثر من دور يظهر في كل دور، ولا نمنع التكرار بين الأدوار.</Text>
           <View style={s.metrics}>
             {([

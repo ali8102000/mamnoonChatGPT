@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/json" };
 const json = (body: unknown, status=200) => new Response(JSON.stringify(body), { status, headers: cors });
@@ -20,8 +21,8 @@ Deno.serve(async (req: Request) => {
     const enabled = Deno.env.get("ZAINCASH_ENABLED")==="true";
     if(!enabled) return json({error:"zaincash_not_enabled"},503);
     const supabaseUrl=required("SUPABASE_URL");
-    const anonKey=required("SUPABASE_ANON_KEY");
-    const serviceKey=required("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey=getSupabasePublishableKey();
+    const serviceKey=getSupabaseSecretKey();
     const clientId=required("ZAINCASH_CLIENT_ID");
     const clientSecret=required("ZAINCASH_CLIENT_SECRET");
     const apiKey=required("ZAINCASH_API_KEY");
@@ -32,10 +33,10 @@ Deno.serve(async (req: Request) => {
     const authHeader=req.headers.get("Authorization") || "";
     const bearer=authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
     if(!bearer) return json({error:"unauthorized"},401);
-    const userClient=createClient(supabaseUrl,anonKey,{global:{headers:{Authorization:"Bearer "+bearer}},auth:{persistSession:false,autoRefreshToken:false}});
+    const userClient=createClient(supabaseUrl,anonKey,{global:{fetch:createSupabaseFetch(anonKey),headers:{Authorization:"Bearer "+bearer}},auth:{persistSession:false,autoRefreshToken:false}});
     const {data:{user},error:userError}=await userClient.auth.getUser(bearer);
     if(userError || !user) return json({error:"unauthorized"},401);
-    const admin=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+    const admin=createClient(supabaseUrl,serviceKey,{global:{fetch:createSupabaseFetch(serviceKey)},auth:{persistSession:false,autoRefreshToken:false}});
     const {data:gatewaySettings}=await admin.from("subscription_settings").select("payment_gateway_enabled,subscription_enabled").eq("id",1).maybeSingle();
     if(!gatewaySettings?.payment_gateway_enabled) return json({error:"payments_temporarily_disabled"},503);
     const body=await req.json().catch(()=>null);

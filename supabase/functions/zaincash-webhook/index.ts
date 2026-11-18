@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json"}});
 const b64url=(s:string)=>s.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(s.length/4)*4,"=");
@@ -25,7 +26,7 @@ Deno.serve(async(req:Request)=>{
  if(req.method!=="POST") return json({error:"method_not_allowed"},405);
  try{
   const apiKey=Deno.env.get("ZAINCASH_API_KEY"); const clientId=Deno.env.get("ZAINCASH_CLIENT_ID"); const clientSecret=Deno.env.get("ZAINCASH_CLIENT_SECRET");
-  const url=Deno.env.get("SUPABASE_URL"); const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url=Deno.env.get("SUPABASE_URL"); const serviceKey=getSupabaseSecretKey();
   const base=(Deno.env.get("ZAINCASH_BASE_URL")||"https://pg-api-uat.zaincash.iq").replace(/\/$/,"");
   if(!apiKey||!clientId||!clientSecret||!url||!serviceKey) return json({error:"payment_configuration_incomplete"},503);
   const body=await req.json().catch(()=>null); if(typeof body?.webhook_token!=="string") return json({error:"missing_webhook_token"},400);
@@ -33,7 +34,7 @@ Deno.serve(async(req:Request)=>{
   const data=claims.data||{};
   const eventId=claims.eventId; const transactionId=data.transactionId; const reference=data.merchantReferenceId;
   if(typeof eventId!=="string"||typeof transactionId!=="string"||typeof reference!=="string") return json({error:"invalid_webhook_claims"},400);
-  const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const admin=createClient(url,serviceKey,{global:{fetch:createSupabaseFetch(serviceKey)},auth:{persistSession:false,autoRefreshToken:false}});
   const {data:payment,error:paymentError}=await admin.from("payment_transactions").select("id,amount,currency,external_reference_id,status,gateway_transaction_id").eq("external_reference_id",reference).maybeSingle();
   if(paymentError||!payment) return json({error:"payment_not_found"},404);
   if(payment.gateway_transaction_id && payment.gateway_transaction_id!==transactionId) return json({error:"transaction_mismatch"},409);

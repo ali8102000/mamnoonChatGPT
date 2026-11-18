@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,15 +31,15 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = getSupabasePublishableKey();
+    const serviceRoleKey = getSupabaseSecretKey();
     const authorization = req.headers.get("Authorization");
     if (!supabaseUrl || !anonKey || !serviceRoleKey || !authorization) {
       return json({ error: "إعدادات الخادم غير مكتملة" }, 500);
     }
 
     const authClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authorization } },
+      global: { fetch: createSupabaseFetch(anonKey), headers: { Authorization: authorization } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: authData, error: authError } = await authClient.auth.getUser();
@@ -48,6 +49,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
+      global: { fetch: createSupabaseFetch(serviceRoleKey) },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: ownerRole, error: ownerRoleError } = await admin

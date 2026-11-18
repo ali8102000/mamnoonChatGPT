@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
+import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -57,14 +58,14 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = required("SUPABASE_URL");
-    const anonKey = required("SUPABASE_ANON_KEY");
-    const serviceKey = required("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = getSupabasePublishableKey();
+    const serviceKey = getSupabaseSecretKey();
     const authHeader = req.headers.get("Authorization") || "";
     const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
     if (!bearer) return json({ error: "unauthorized" }, 401);
 
     const caller = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: "Bearer " + bearer } },
+      global: { fetch: createSupabaseFetch(anonKey), headers: { Authorization: "Bearer " + bearer } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: authData, error: authError } = await caller.auth.getUser(bearer);
@@ -78,6 +79,7 @@ Deno.serve(async (req: Request) => {
     if (viewError || canView !== true) return json({ error: "forbidden" }, 403);
 
     const admin = createClient(supabaseUrl, serviceKey, {
+      global: { fetch: createSupabaseFetch(serviceKey) },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const body = await req.json().catch(() => null);
