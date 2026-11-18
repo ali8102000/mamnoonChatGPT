@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.119.0";
-import { getSupabasePublishableKey, getSupabaseSecretKey } from "../_shared/api-keys.ts";
+import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 import boundaries from "./iraq-governorate-boundaries.json" with { type: "json" };
 
 const corsHeaders = {
@@ -212,8 +212,8 @@ Deno.serve(async (req:Request)=>{
   if(!url||!anon||!service) return json({error:"إعدادات خدمة الخرائط غير مكتملة"},503);
   const auth=req.headers.get("Authorization")||"",token=auth.match(/^Bearer\s+(.+)$/i)?.[1];
   if(!token) return json({error:"سجّل الدخول أولاً."},401);
-  const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}},auth:{persistSession:false,autoRefreshToken:false}});
-  const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
+  const userClient=createClient(url,anon,{global:{fetch:createSupabaseFetch(anon),headers:{Authorization:auth}},auth:{persistSession:false,autoRefreshToken:false}});
+  const admin=createClient(url,service,{global:{fetch:createSupabaseFetch(service)},auth:{persistSession:false,autoRefreshToken:false}});
   const {data:{user},error:userError}=await userClient.auth.getUser(token);
   if(userError||!user) return json({error:"انتهت جلسة الدخول. سجّل الدخول مرة ثانية."},401);
   const body=await req.json().catch(()=>null);
