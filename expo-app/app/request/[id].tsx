@@ -236,7 +236,6 @@ export default function RequestDetail() {
   const [urgencyAdminPercent, setUrgencyAdminPercent] = useState(0);
   const [urgencyBusy, setUrgencyBusy] = useState(false);
   const countdownNotificationIdRef = useRef<string | null>(null);
-  const acceptedAlertRequestRef = useRef<string | null>(null);
   const [retryPriceIncrease, setRetryPriceIncrease] = useState("0");
   const [retryingDispatch, setRetryingDispatch] = useState(false);
   const [activeOffer, setActiveOffer] = useState<any>(null);
@@ -342,23 +341,7 @@ export default function RequestDetail() {
       if (notificationId) void Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => {});
     };
   }, [request?.id, request?.status, request?.searching_started_at, request?.created_at, isCustomer]);
-  useEffect(() => {
-    if (!request || !isCustomer || request.status !== "accepted" || acceptedAlertRequestRef.current === request.id) return;
-    acceptedAlertRequestRef.current = request.id;
-    void (async () => {
-      const preferences = await loadNotificationPreferences();
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: request.type === "taxi" ? "تم قبول طلب التكسي" : "تم قبول طلب الخدمة",
-          body: "قبل أحد المزوّدين طلبك. افتح ممنون لمتابعة التفاصيل.",
-          sound: preferences.soundEnabled ? "default" : false,
-          vibrate: preferences.vibrationEnabled ? [0, 250, 180, 250] : [],
-          data: { request_id: request.id, type: "request_accepted" },
-        },
-        trigger: null,
-      });
-    })().catch((error) => console.warn("[request-accepted] notification failed:", error));
-  }, [request?.id, request?.status, request?.type, isCustomer]);
+
 
   useEffect(() => {
     const timer = setInterval(() => setFreshnessClock(Date.now()), 5000);
