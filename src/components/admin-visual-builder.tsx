@@ -309,7 +309,8 @@ export default function AdminVisualBuilder() {
             <label className="text-xs font-bold">أسماء الأعمدة (افصل بينها بعلامة |)</label>
             <input className={inputClass} value={sectionColumns} onChange={(e) => setSectionColumns(e.target.value)} placeholder="العنوان | السعر | التفاصيل" />
             <label className="text-xs font-bold">صفوف الجدول (كل صف بسطر، وافصل الخانات بعلامة |)</label>
-            <textarea className={inputClass + " min-h-28"} value={sectionRows} onChange={(e) => setSectionRows(e.target.value)} placeholder={"مثال | 5000 | تفاصيل\nمثال آخر | 7000 | تفاصيل"} />\n            <label className="text-xs font-bold">ترتيب القسم</label><input type="number" className={inputClass} value={sectionSortOrder} onChange={(e) => setSectionSortOrder(Number(e.target.value))} />
+            <textarea className={inputClass + " min-h-28"} value={sectionRows} onChange={(e) => setSectionRows(e.target.value)} placeholder={"مثال | 5000 | تفاصيل\nمثال آخر | 7000 | تفاصيل"} />
+            <label className="text-xs font-bold">ترتيب القسم</label><input type="number" className={inputClass} value={sectionSortOrder} onChange={(e) => setSectionSortOrder(Number(e.target.value))} />
             <button onClick={() => void createSection()} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Plus className="h-4 w-4" />إنشاء كمسودة</button>
           </section>
           <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
