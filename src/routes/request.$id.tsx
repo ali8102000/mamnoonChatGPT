@@ -728,7 +728,7 @@ function RequestDetail() {
                     {req.type === "taxi" ? "تأكيد إكمال الرحلة" : "تأكيد إكمال الطلب"}
                   </button>
                 )}
-                {["pending", "searching", "accepted"].includes(req.status as string) && (
+                {["pending", "searching", "accepted"].includes(req.status as string) && (myRole !== "provider" || req.type !== "taxi") && (
                   <button
                     onClick={() => setShowCancel(true)}
                     className="w-full min-h-14 rounded-2xl border-2 border-destructive/25 bg-destructive/10 text-destructive font-black text-base active:scale-[0.99] transition"
