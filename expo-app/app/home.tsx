@@ -658,7 +658,8 @@ function HomeCustomContent({ userId, placementKey }: { userId: string | null; pl
 
   const vote = async (campaign: any, optionId: string) => {
     const now = Date.now();
-    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);\n    if (!votingOpen) return;
+    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);
+    if (!votingOpen) return;
     if (!userId || responses[campaign.id] || voting) return;
     setVoting(campaign.id);
     const { error } = await (supabase as any).from("app_campaign_responses").insert({
@@ -706,6 +707,8 @@ function HomeCustomContent({ userId, placementKey }: { userId: string | null; pl
         const options = [...(campaign.app_campaign_options ?? [])].sort((a: any, b: any) => a.sort_order - b.sort_order);
         const selected = responses[campaign.id];
         const counts = results[campaign.id] ?? [];
+        const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= Date.now()) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > Date.now());
+        const showResults = campaign.result_visibility === "public" || (campaign.result_visibility === "after_end" && !!campaign.ends_at && new Date(campaign.ends_at).getTime() <= Date.now());
         const total = counts.reduce((sum: number, row: any) => sum + Number(row.vote_count ?? 0), 0);
         return (
           <View key={campaign.id} style={{ borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
