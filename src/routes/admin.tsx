@@ -2916,6 +2916,7 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }:
 function StaffHierarchySection() {
   const [staff, setStaff] = useState<any[]>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
+  const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [grants, setGrants] = useState<any[]>([]);
   const [delegations, setDelegations] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -2982,6 +2983,11 @@ function StaffHierarchySection() {
       if (delegationResult.error) throw delegationResult.error;
       setGrants(grantResult.data ?? []);
       setDelegations(delegationResult.data ?? []);
+      const { data: partnerRows, error: partnerError } = await (supabase as any).from("partner_applications")
+        .select("id,user_id,partner_type,business_name,contact_name,phone,email,governorate_key,city,address,description,mall_unit_type,status,admin_note,created_at")
+        .order("created_at", { ascending: false }).limit(100);
+      if (partnerError) throw partnerError;
+      setPartnerApplications(partnerRows ?? []);
     } catch (e: any) { toast.error(e?.message || "تعذر تحميل الإدارة"); }
     finally { setLoading(false); }
   }, [listStaff]);
@@ -3008,6 +3014,17 @@ function StaffHierarchySection() {
       <h2 className="text-xl font-black mb-1">إدارة الموظفين والصلاحيات</h2>
       <p className="text-xs text-muted-foreground">الصلاحيات تُفحص من قاعدة البيانات حسب رتبتك ونطاقك، وكل تغيير يُسجل بالتدقيق.</p>
     </div>
+    <section className="glass rounded-2xl p-4 space-y-3 border border-amber-500/30">
+      <div className="flex items-center justify-between gap-2"><div><h3 className="font-black">طلبات الشراكة</h3><p className="text-[10px] text-muted-foreground mt-1">طلبات الفنادق والمطاعم والمحلات والمولات الواردة من إعدادات الحساب.</p></div><span className="rounded-full bg-amber-500/10 text-amber-700 px-2 py-1 text-xs font-bold">{partnerApplications.filter((item:any)=>item.status==="pending").length} معلّق</span></div>
+      {partnerApplications.length===0 ? <EmptyState text="لا توجد طلبات شراكة حالياً"/> : <div className="space-y-2">
+        {partnerApplications.map((item:any)=><div key={item.id} className="rounded-xl border border-border p-3 space-y-2">
+          <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="font-black text-sm">{item.business_name}</div><div className="text-[10px] text-muted-foreground mt-1">{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {item.city} · {item.governorate_key}</div></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${item.status==="approved"?"bg-emerald-500/10 text-emerald-700":item.status==="rejected"?"bg-red-500/10 text-red-700":"bg-amber-500/10 text-amber-700"}`}>{item.status==="approved"?"موافق عليه":item.status==="rejected"?"مرفوض":"قيد المراجعة"}</span></div>
+          <div className="text-xs leading-6 text-muted-foreground">المسؤول: {item.contact_name} · الهاتف: <b dir="ltr">{item.phone}</b>{item.email? " · "+item.email:""}<br/>العنوان: {item.address}</div>
+          {item.description&&<p className="text-xs text-muted-foreground">{item.description}</p>}
+          {item.status==="pending"&&<div className="flex gap-2"><button disabled={busy} onClick={()=>void runAction(async()=>{const {data:{user}}=await supabase.auth.getUser();const {error}=await (supabase as any).from("partner_applications").update({status:"approved",reviewed_by:user?.id,reviewed_at:new Date().toISOString(),admin_note:null}).eq("id",item.id);if(error)throw error;},"تمت الموافقة على طلب الشراكة")} className="flex-1 rounded-lg bg-emerald-600 text-white py-2 text-xs font-bold disabled:opacity-50">موافقة وتفعيل</button><button disabled={busy} onClick={()=>void runAction(async()=>{const {data:{user}}=await supabase.auth.getUser();const {error}=await (supabase as any).from("partner_applications").update({status:"rejected",reviewed_by:user?.id,reviewed_at:new Date().toISOString(),admin_note:"يرجى مراجعة البيانات وإعادة التقديم"}).eq("id",item.id);if(error)throw error;},"تم رفض طلب الشراكة")} className="flex-1 rounded-lg bg-red-600 text-white py-2 text-xs font-bold disabled:opacity-50">رفض الطلب</button></div>}
+        </div>)}
+      </div>}
+    </section>
     <section className="glass rounded-2xl p-4 space-y-3">
       <h3 className="font-black">إضافة موظف جديد</h3>
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث بالاسم أو رقم الهاتف أو البريد" className="w-full rounded-xl border bg-background px-3 py-2 text-sm" />
