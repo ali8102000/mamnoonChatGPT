@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native";
 import { supabase } from "@/lib/supabase";
 
-type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; scroll_speed: number; badge_text: string | null };
+type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; is_active: boolean; scroll_speed: number; badge_text: string | null };
 const width = Dimensions.get("window").width - 40;
 const height = width / 1.13;
 const messages: Record<Banner["target_category"], string> = {
@@ -18,8 +18,8 @@ export function HomeCategoryCarousel() {
   const resumeAt = useRef(0);
   const refresh = useCallback(async () => {
     const { data, error } = await (supabase as any).from("home_carousel_banners")
-      .select("id,image_url,target_category,scroll_speed,badge_text,display_order")
-      .eq("is_active", true).order("display_order").order("created_at");
+      .select("id,image_url,target_category,is_active,scroll_speed,badge_text,display_order")
+      .order("display_order").order("created_at");
     if (!error) { setBanners(data ?? []); setIndex(0); }
   }, []);
   useEffect(() => {
@@ -61,9 +61,9 @@ export function HomeCategoryCarousel() {
         onTouchEnd={() => { resumeAt.current = Date.now() + 5000; }}
         onMomentumScrollEnd={() => { resumeAt.current = Date.now() + 5000; }}
         renderItem={({ item }) => (
-          <Pressable onPress={() => Alert.alert("قريباً", messages[item.target_category], [{ text: "حسناً" }])} style={{ width, height, position: "relative" }}>
-            <Image source={{ uri: item.image_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-            {!!item.badge_text && <View style={{ position: "absolute", top: 12, right: 12, backgroundColor: "#0009", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
+          <Pressable onPress={() => Alert.alert(item.is_active ? "قريباً" : "سيتوفر قريباً", item.is_active ? messages[item.target_category] : "أنت شريك؟ سجل ويانه وانتظر طلباتك", [{ text: "حسناً" }])} style={{ width, height, position: "relative" }}>
+            {item.is_active && <Image source={{ uri: item.image_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />}
+            {item.is_active && !!item.badge_text && <View style={{ position: "absolute", top: 12, right: 12, backgroundColor: "#0009", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
               <Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{item.badge_text}</Text>
             </View>}
           </Pressable>
