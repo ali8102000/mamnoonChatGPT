@@ -122,16 +122,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function setActiveRole(role: AppRole) {
-    if (!roles.includes(role)) return;
-    setActiveRoleState(role);
-    const uid = session?.user.id;
-    if (uid) {
-      try {
-        await SecureStore.setItemAsync(rolePreferenceKey(uid), role);
-      } catch (error) {
-        console.warn("[Mamnoon] Could not persist the selected role:", error);
-      }
+    if (!roles.includes(role)) {
+      throw new Error("هذا الدور غير مرتبط بحسابك.");
     }
+
+    const uid = session?.user.id;
+    if (!uid) {
+      throw new Error("جلسة الدخول غير موجودة. سجّل الدخول من جديد.");
+    }
+
+    // Persist the preference before updating UI or navigating. A failed
+    // SecureStore write must not leave the app in a half-switched state.
+    await SecureStore.setItemAsync(rolePreferenceKey(uid), role);
+    setActiveRoleState(role);
   }
 
   async function loadProfile(uid: string) {
