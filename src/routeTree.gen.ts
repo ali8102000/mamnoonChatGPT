@@ -233,6 +233,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
+  '/partner/dashboard': typeof PartnerDashboardRoute
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/admin': typeof AdminRouteWithChildren
@@ -265,6 +266,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
+  '/partner/dashboard': typeof PartnerDashboardRoute
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
@@ -459,6 +461,13 @@ declare module '@tanstack/react-router' {
       path: '/account-settings'
       fullPath: '/account-settings'
       preLoaderRoute: typeof AccountSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner/dashboard': {
+      id: '/partner/dashboard'
+      path: '/partner/dashboard'
+      fullPath: '/partner/dashboard'
+      preLoaderRoute: typeof PartnerDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
