@@ -28,7 +28,8 @@ import {
   saveProviderVerification,
   getProviderVerification,
   saveProviderVerificationRemote,
-  uploadProviderChangeDocuments,\n  uploadProviderVehicleVideo,
+  uploadProviderChangeDocuments,
+  uploadProviderVehicleVideo,
 } from "@/lib/verification";
 
 export const Route = createFileRoute("/onboarding/driver")({
@@ -137,7 +138,9 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [facePhoto, setFacePhoto] = useState<string | null>(profile?.avatar_url || null);
   const [idCardPhoto, setIdCardPhoto] = useState<string | null>(null);
   const [idCardBackPhoto, setIdCardBackPhoto] = useState<string | null>(null);
-  const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<string | null>(null);\n  const [vehicleVideoFile, setVehicleVideoFile] = useState<File | null>(null);\n  const [vehicleVideoPath, setVehicleVideoPath] = useState<string | null>(null);
+  const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<string | null>(null);
+  const [vehicleVideoFile, setVehicleVideoFile] = useState<File | null>(null);
+  const [vehicleVideoPath, setVehicleVideoPath] = useState<string | null>(null);
   const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
   const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: largeDriverMode ? "كيا" : "تويوتا", model: largeDriverMode ? "" : "كورولا", year: String(new Date().getFullYear() - 2), plate: "", color: "أبيض", category: largeDriverMode ? "large" : "economy", vehicleType: null });
   const [documentType, setDocumentType] = useState<"national_id" | "driver_license">("national_id");
@@ -151,7 +154,8 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const idCardInputRef = useRef<HTMLInputElement>(null);
   const idCardBackInputRef = useRef<HTMLInputElement>(null);
   const vehicleDocumentInputRef = useRef<HTMLInputElement>(null);
-  const vehicleDocumentCameraInputRef = useRef<HTMLInputElement>(null);\n  const vehicleVideoInputRef = useRef<HTMLInputElement>(null);
+  const vehicleDocumentCameraInputRef = useRef<HTMLInputElement>(null);
+  const vehicleVideoInputRef = useRef<HTMLInputElement>(null);
 
   const [existingDoc, setExistingDoc] = useState<any>(null);
   const [editingMode, setEditingMode] = useState(false);
@@ -168,7 +172,8 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         if (existing.facePhotoUrl) setFacePhoto(existing.facePhotoUrl);
         if (existing.idCardPhotoUrl) setIdCardPhoto(existing.idCardPhotoUrl);
         if (existing.idCardBackPhotoUrl) setIdCardBackPhoto(existing.idCardBackPhotoUrl);
-        if (existing.vehicleDocumentPhotoUrl) setVehicleDocumentPhoto(existing.vehicleDocumentPhotoUrl);\n        if (existing.vehicleVideoPath) setVehicleVideoPath(existing.vehicleVideoPath);
+        if (existing.vehicleDocumentPhotoUrl) setVehicleDocumentPhoto(existing.vehicleDocumentPhotoUrl);
+        if (existing.vehicleVideoPath) setVehicleVideoPath(existing.vehicleVideoPath);
         if (existing.idNumber) setIdNumber(existing.idNumber);
         if (existing.vehicleMake) setMake(existing.vehicleMake);
         if (existing.vehicleModel) setModelName(existing.vehicleModel);
@@ -319,7 +324,18 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     }
   }
 
-  async function handleVehicleVideoChange(e: React.ChangeEvent<HTMLInputElement>) {\n    const file = e.target.files?.[0];\n    if (!file) return;\n    if (!["video/mp4", "video/quicktime", "video/webm"].includes(file.type)) { toast.error("صيغة الفيديو غير مدعومة. استخدم MP4 أو MOV أو WEBM."); e.target.value = ""; return; }\n    if (file.size > 50 * 1024 * 1024) { toast.error("حجم فيديو السيارة يجب ألا يتجاوز 50 ميغابايت."); e.target.value = ""; return; }\n    setVehicleVideoFile(file);\n    setVehicleVideoPath(null);\n    setChangedDocuments((current) => ({ ...current, vehicle_video: true }));\n    toast.success("تم إرفاق فيديو السيارة ✓");\n  }\n\n  async function submit() {
+  async function handleVehicleVideoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["video/mp4", "video/quicktime", "video/webm"].includes(file.type)) { toast.error("صيغة الفيديو غير مدعومة. استخدم MP4 أو MOV أو WEBM."); e.target.value = ""; return; }
+    if (file.size > 50 * 1024 * 1024) { toast.error("حجم فيديو السيارة يجب ألا يتجاوز 50 ميغابايت."); e.target.value = ""; return; }
+    setVehicleVideoFile(file);
+    setVehicleVideoPath(null);
+    setChangedDocuments((current) => ({ ...current, vehicle_video: true }));
+    toast.success("تم إرفاق فيديو السيارة ✓");
+  }
+
+  async function submit() {
     if (vehicleChangeMode && existingDoc?.status === "approved") {
       setBusy(true);
       try {
@@ -431,7 +447,12 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       return;
     }
     if (!vehicleDocumentPhoto) {
-      toast.error("يرجى إرفاق صورة سنوية السيارة أو الوكالة التي يظهر فيها رقم المركبة");
+      toast.error("يرجى إرفاق صورة المستند الرسمي للسيارة الذي يظهر بيانات المركبة ورقم اللوحة");
+      setActiveStep("car");
+      return;
+    }
+    if (!vehicleVideoFile && !vehicleVideoPath) {
+      toast.error("يرجى إرفاق فيديو تظهر فيه السيارة كاملة ورقم لوحتها بوضوح");
       setActiveStep("car");
       return;
     }
@@ -473,7 +494,10 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       }
 
       // 3. Persist identity documents only after the driver profile exists.
-      const uploadedVehicleVideoPath = vehicleVideoFile\n        ? await uploadProviderVehicleVideo(uid, providerRole, vehicleVideoFile)\n        : vehicleVideoPath ?? undefined;\n      const verificationDoc: VerificationDocument = {
+      const uploadedVehicleVideoPath = vehicleVideoFile
+        ? await uploadProviderVehicleVideo(uid, providerRole, vehicleVideoFile)
+        : vehicleVideoPath ?? undefined;
+      const verificationDoc: VerificationDocument = {
         userId: uid,
         role: providerRole,
         legalName: identityName,
@@ -482,7 +506,8 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         facePhotoUrl: facePhoto,
         idCardPhotoUrl: idCardPhoto,
         ...(idCardBackPhoto ? { idCardBackPhotoUrl: idCardBackPhoto } : {}),
-        vehicleDocumentPhotoUrl: vehicleDocumentPhoto,\n        vehicleVideoPath: uploadedVehicleVideoPath,
+        vehicleDocumentPhotoUrl: vehicleDocumentPhoto,
+        vehicleVideoPath: uploadedVehicleVideoPath,
         idNumber: idNumber.trim() || undefined,
         documentType,
         verifiedAt: new Date().toISOString(),
