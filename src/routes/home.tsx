@@ -322,7 +322,8 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
 
   const vote = async (campaign: any, optionId: string) => {
     const now = Date.now();
-    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);\n    if (!votingOpen) return;
+    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);
+    if (!votingOpen) return;
     const userId = session?.user?.id;
     if (!userId || responses[campaign.id] || voting) return;
     setVoting(campaign.id);
@@ -365,6 +366,8 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
         const options = [...(campaign.app_campaign_options ?? [])].sort((a: any, b: any) => a.sort_order - b.sort_order);
         const selected = responses[campaign.id];
         const counts = results[campaign.id] ?? [];
+        const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= Date.now()) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > Date.now());
+        const showResults = campaign.result_visibility === "public" || (campaign.result_visibility === "after_end" && !!campaign.ends_at && new Date(campaign.ends_at).getTime() <= Date.now());
         const total = counts.reduce((sum: number, row: any) => sum + Number(row.vote_count ?? 0), 0);
         return <section key={campaign.id} className="rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center justify-between"><span className="text-[10px] font-black text-primary">{campaign.campaign_type === "contest" ? "مسابقة" : "استطلاع رأي"}</span><span className="text-[10px] text-muted-foreground">{total} مشاركة</span></div>
