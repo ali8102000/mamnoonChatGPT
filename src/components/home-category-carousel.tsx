@@ -13,6 +13,7 @@ export function HomeCategoryCarousel() {
   const [index, setIndex] = useState(0);
   const [popup, setPopup] = useState<Banner["target_category"] | null>(null);
   const resumeAt = useRef(0);
+  const touchStartX = useRef<number | null>(null);
   const refresh = useCallback(async () => {
     const { data, error } = await (supabase as any).from("home_carousel_banners")
       .select("id,image_url,target_category,scroll_speed,badge_text,display_order")
@@ -40,7 +41,9 @@ export function HomeCategoryCarousel() {
   return (
     <>
       <div className="relative w-full aspect-[1.13/1] overflow-hidden rounded-[24px] border border-border bg-transparent shadow-sm"
-        onPointerDown={pause} onTouchStart={pause} onMouseEnter={pause}>
+        onPointerDown={(event) => { pause(); touchStartX.current = event.clientX; }}
+        onPointerUp={(event) => { if (touchStartX.current !== null) { const delta = event.clientX - touchStartX.current; if (Math.abs(delta) > 35 && banners.length > 1) setIndex((current) => (current + (delta < 0 ? 1 : -1) + banners.length) % banners.length); } touchStartX.current = null; pause(); }}
+        onTouchStart={pause} onTouchEnd={pause} onMouseEnter={pause}>
         <button type="button" aria-label="عرض الإعلان" onClick={() => setPopup(current.target_category)}
           className="absolute inset-0 h-full w-full touch-pan-y">
           <img src={current.image_url} alt="" draggable={false} className="h-full w-full object-cover" />
@@ -49,8 +52,6 @@ export function HomeCategoryCarousel() {
         {banners.length > 1 && <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
           {banners.map((item, i) => <span key={item.id} className={`h-1.5 rounded-full ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/60"}`} />)}
         </div>}
-        {banners.length > 1 && <div className="absolute inset-y-0 left-0 w-1/4" onTouchStart={pause} onClick={() => { pause(); setIndex((index - 1 + banners.length) % banners.length); }} />}
-        {banners.length > 1 && <div className="absolute inset-y-0 right-0 w-1/4" onTouchStart={pause} onClick={() => { pause(); setIndex((index + 1) % banners.length); }} />}
       </div>
       {popup && <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] grid place-items-center bg-black/55 p-5" onClick={() => setPopup(null)}>
         <div className="w-full max-w-sm rounded-3xl bg-card p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
