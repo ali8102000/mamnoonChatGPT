@@ -912,7 +912,7 @@ export default function NewRequest() {
             governorateKey: effectivePickupGovernorateKey,
             pickupGovernorateKey: effectivePickupGovernorateKey,
             destinationGovernorateKey: destinationGovernorateKey ?? effectivePickupGovernorateKey,
-            vehicleCategory: vehicleCat, urgencyEnabled, notes,
+            vehicleCategory: vehicleCat, urgencyEnabled: false, notes,
           },
         });
         if (taxiError) throw taxiError;
@@ -1208,15 +1208,6 @@ export default function NewRequest() {
                           </TouchableOpacity>
                         );
                       })}
-                    </View>
-                    <View style={{ marginTop: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>⚡ تفعيل الاستعجال</Text>
-                        <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 3 }}>{urgencyAllowed ? "زيادة إضافية على سعر السيارة المحددة حتى مع الذروة" : "الاستعجال غير متاح حالياً حسب إعدادات الإدارة"}</Text>
-                      </View>
-                      <TouchableOpacity disabled={!urgencyAllowed || routeKm === null} onPress={() => setUrgencyEnabled((v) => !v)} style={{ width: 52, height: 30, borderRadius: 18, padding: 3, backgroundColor: urgencyEnabled ? palette.brand : palette.line, justifyContent: "center", alignItems: urgencyEnabled ? "flex-start" : "flex-end", opacity: urgencyAllowed && routeKm !== null ? 1 : 0.45 }}>
-                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff" }} />
-                      </TouchableOpacity>
                     </View>
                   </>
                 )}
