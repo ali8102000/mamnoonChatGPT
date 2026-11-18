@@ -46,3 +46,27 @@ export function getSupabaseSecretKey(): string {
   }
   return key;
 }
+
+/**
+ * Keeps modern opaque API keys in the apikey header. A caller's real user JWT
+ * remains in Authorization unchanged; only a duplicate Bearer API-key value
+ * is removed.
+ */
+export function createSupabaseFetch(apiKey: string): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(
+      typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
+    );
+    if (init?.headers) {
+      new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+    }
+    if (
+      (apiKey.startsWith("sb_publishable_") || apiKey.startsWith("sb_secret_")) &&
+      headers.get("Authorization") === `Bearer ${apiKey}`
+    ) {
+      headers.delete("Authorization");
+    }
+    headers.set("apikey", apiKey);
+    return fetch(input, { ...init, headers });
+  };
+}
