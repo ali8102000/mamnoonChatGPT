@@ -32,6 +32,7 @@ type Provider = {
     id_card_photo_url?: string | null;
     id_card_back_photo_url?: string | null;
     vehicle_document_url?: string | null;
+    vehicle_video_url?: string | null;
   } | null;
 };
 
@@ -228,6 +229,7 @@ export default function AdminProvidersScreen() {
               <Doc label="الهوية الأمامية" url={provider.verification?.id_card_photo_url} onPress={openDocument}/>
               <Doc label="الهوية الخلفية" url={provider.verification?.id_card_back_photo_url} onPress={openDocument}/>
               <Doc label="مستند المركبة" url={provider.verification?.vehicle_document_url} onPress={openDocument}/>
+              <Doc label="فيديو السيارة" url={provider.verification?.vehicle_video_url} onPress={openDocument}/>
             </View>
             {canManage && <View style={s.actions}>
               <TouchableOpacity disabled={busyId === provider.user_id} onPress={() => approveProvider(provider)} style={s.approveButton}><Text style={s.actionText}>اعتماد</Text></TouchableOpacity>
