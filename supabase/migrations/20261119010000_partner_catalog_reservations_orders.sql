@@ -25,7 +25,9 @@ create index if not exists idx_partner_catalog_business_type_active
 
 alter table public.partner_catalog_items enable row level security;
 grant select on public.partner_catalog_items to anon, authenticated;
-grant insert, update, delete on public.partner_catalog_items to authenticated;
+grant insert, delete on public.partner_catalog_items to authenticated;
+grant update (item_type, name, description, price_amount, currency, quantity_available, image_urls, attributes, is_active, sort_order, updated_at)
+  on public.partner_catalog_items to authenticated;
 drop policy if exists partner_catalog_public_read on public.partner_catalog_items;
 create policy partner_catalog_public_read on public.partner_catalog_items
   for select to anon, authenticated
@@ -54,8 +56,10 @@ create policy partner_catalog_owner_insert on public.partner_catalog_items
       join public.partner_applications a on a.id = p.application_id
       where p.id = business_profile_id
         and p.user_id = (select auth.uid())
-        and p.is_published = true
         and a.status = 'approved'
+        and ((p.partner_type = 'hotel' and item_type = 'room')
+          or (p.partner_type = 'restaurant' and item_type = 'menu_item')
+          or (p.partner_type in ('store','mall') and item_type = 'product'))
     )
   );
 drop policy if exists partner_catalog_owner_update on public.partner_catalog_items;
@@ -115,7 +119,9 @@ create index if not exists idx_partner_hotel_reservations_business_status
 create index if not exists idx_partner_hotel_reservations_customer
   on public.partner_hotel_reservations(customer_id, created_at desc);
 alter table public.partner_hotel_reservations enable row level security;
-grant select, insert, update on public.partner_hotel_reservations to authenticated;
+grant select, insert on public.partner_hotel_reservations to authenticated;
+grant update (status, partner_note, quoted_total, currency, updated_at)
+  on public.partner_hotel_reservations to authenticated;
 drop policy if exists partner_hotel_reservations_read_parties on public.partner_hotel_reservations;
 create policy partner_hotel_reservations_read_parties on public.partner_hotel_reservations
   for select to authenticated
@@ -182,7 +188,9 @@ create index if not exists idx_partner_customer_orders_business_status
 create index if not exists idx_partner_customer_orders_customer
   on public.partner_customer_orders(customer_id, created_at desc);
 alter table public.partner_customer_orders enable row level security;
-grant select, insert, update on public.partner_customer_orders to authenticated;
+grant select, insert on public.partner_customer_orders to authenticated;
+grant update (status, partner_note, partner_total, currency, updated_at)
+  on public.partner_customer_orders to authenticated;
 drop policy if exists partner_customer_orders_read_parties on public.partner_customer_orders;
 create policy partner_customer_orders_read_parties on public.partner_customer_orders
   for select to authenticated
