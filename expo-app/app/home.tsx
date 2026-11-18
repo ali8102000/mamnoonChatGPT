@@ -21,6 +21,7 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import { useThemePreference } from "@/lib/theme-preference";
 import { getServiceImage } from "@/lib/service-visuals";
 import Svg, { Circle, Path } from "react-native-svg";
+import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 
 type IncomingRequest = {
   id: string;
@@ -575,6 +576,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
           </TouchableOpacity>
         ))}
       </View>
+
+      <HomeCategoryCarousel />
 
       <HomeCustomContent userId={userId} placementKey="home.customer.content" />
 
