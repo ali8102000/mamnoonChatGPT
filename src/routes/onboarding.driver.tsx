@@ -387,6 +387,10 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           ...(changedDocuments.id_card_back && idCardBackPhoto ? { id_card_back: idCardBackPhoto } : {}),
           ...(changedDocuments.vehicle_document && vehicleDocumentPhoto ? { vehicle_document: vehicleDocumentPhoto } : {}),
         });
+        if (changedDocuments.vehicle_video && vehicleVideoFile) {
+          documents.vehicle_video = await uploadProviderVehicleVideo(uid, providerRole, vehicleVideoFile);
+          setVehicleVideoPath(documents.vehicle_video);
+        }
         if (!Object.keys(changedVehicle).length && !Object.keys(documents).length) {
           toast.error("ماكو تغييرات جديدة لإرسالها");
           return;
@@ -851,6 +855,22 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
                 </div>
                 {vehicleDocumentPhoto && <p className="text-[11px] font-bold text-emerald-600 mt-2">تم إرفاق المستند ✓</p>}
               </div>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
+            <div className="font-black text-sm">فيديو السيارة *</div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              أرفق فيديو مدته دقيقة أو أقل. صوّر السيارة من الخارج بحيث تظهر كاملة من الأمام والخلف والجوانب، ويكون رقم اللوحة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.
+            </p>
+            <input ref={vehicleVideoInputRef} type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={handleVehicleVideoChange} />
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0 text-xs text-muted-foreground">
+                {vehicleVideoFile?.name || (vehicleVideoPath ? "يوجد فيديو محفوظ مرفق سابقاً ✓" : "لم يتم إرفاق فيديو السيارة بعد")}
+              </div>
+              <button type="button" onClick={() => vehicleVideoInputRef.current?.click()} className="px-4 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold btn-press">
+                {vehicleVideoFile || vehicleVideoPath ? "تغيير الفيديو" : "إرفاق فيديو"}
+              </button>
             </div>
           </div>
 
