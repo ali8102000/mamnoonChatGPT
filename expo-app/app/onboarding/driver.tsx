@@ -204,7 +204,7 @@ export default function DriverOnboarding() {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) { Alert.alert("إذن الفيديوهات", "اسمح لممنون بالوصول إلى الفيديوهات لاختيار فيديو السيارة."); return; }
       }
-      const options = { mediaTypes: ["videos"] as any, videoMaxDuration: 60, allowsEditing: false };
+      const options = { mediaTypes: ["videos"] as any, allowsEditing: false };
       const result = source === "camera"
         ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync(options);
@@ -212,9 +212,6 @@ export default function DriverOnboarding() {
       const asset = result.assets[0] as any;
       if (typeof asset.fileSize === "number" && asset.fileSize > 50 * 1024 * 1024) {
         Alert.alert("حجم الفيديو كبير", "الحد الأعلى للفيديو 50 ميغابايت. اختَر فيديو أقصر أو أقل حجماً."); return;
-      }
-      if (typeof asset.duration === "number" && asset.duration > 60_000) {
-        Alert.alert("الفيديو طويل", "لازم يكون الفيديو دقيقة واحدة أو أقل."); return;
       }
       setVehicleVideo({ uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName, fileSize: asset.fileSize, duration: asset.duration });
       setVehicleVideoPath(null);
@@ -592,7 +589,7 @@ export default function DriverOnboarding() {
       </TouchableOpacity>
 
       <Text style={styles.label}>فيديو السيارة *</Text>
-      <Text style={styles.note}>أرفق فيديو مدته دقيقة أو أقل. صوّر السيارة من الخارج بحيث تظهر السيارة كاملة من الأمام والخلف والجوانب، ويكون رقم لوحة السيارة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.</Text>
+      <Text style={styles.note}>أرفق فيديو واضحاً للسيارة من الخارج بحيث تظهر السيارة كاملة من الأمام والخلف والجوانب، ويكون رقم لوحة السيارة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.</Text>
       <View style={styles.photoButton}>
         <Text style={styles.photoText}>{vehicleVideo ? (vehicleVideo.fileName || "تم اختيار فيديو السيارة") : vehicleVideoPath ? "يوجد فيديو محفوظ مرفق سابقاً ✓" : "لم يتم إرفاق فيديو السيارة بعد"}</Text>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
