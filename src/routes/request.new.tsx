@@ -61,6 +61,8 @@ export const Route = createFileRoute("/request/new")({
   component: NewRequest,
 });
 
+type FavoritePlace = { id: string; label: string; address: string; latitude: number; longitude: number; governorate_key: string | null };
+
 type Service = { id: string; slug: string; name_ar: string };
 
 const EXPERT_ONLY_SERVICE_SLUGS = new Set([
@@ -175,11 +177,57 @@ function NewRequest() {
   const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destLabel, setDestLabel] = useState("");
   const [mapStep, setMapStep] = useState<"pickup" | "dest">("pickup");
+  const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
+  const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
+  const [favoriteName, setFavoriteName] = useState("");
+  const [showFavoriteNameInput, setShowFavoriteNameInput] = useState(false);
   const [destConfirmed, setDestConfirmed] = useState(false);
   const goBack = useGoBack();
   const [govKey, setGovKey] = useState<string | null>(null);
   const [govReady, setGovReady] = useState(false);
   const [govPickerOpen, setGovPickerOpen] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (!session?.user?.id) { setFavoritePlaces([]); return; }
+    setFavoritePlacesLoading(true);
+    (supabase as any).from("customer_favorite_places")
+      .select("id,label,address,latitude,longitude,governorate_key")
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }: any) => {
+        if (!active) return;
+        if (!error) setFavoritePlaces((data ?? []) as FavoritePlace[]);
+        setFavoritePlacesLoading(false);
+      });
+    return () => { active = false; };
+  }, [session?.user?.id]);
+
+  async function saveFavoritePlace() {
+    const label = favoriteName.trim();
+    if (!session?.user?.id || !destCoords || !label) { toast.error("اكتب اسماً للمكان وحدد الوجهة أولاً."); return; }
+    const row = { user_id: session.user.id, label, address: destLabel || label, latitude: destCoords.lat, longitude: destCoords.lng, governorate_key: destinationGovernorateKey ?? gov?.key ?? null };
+    const { data, error } = await (supabase as any).from("customer_favorite_places").insert(row).select("id,label,address,latitude,longitude,governorate_key").single();
+    if (error) { toast.error(error.code === "23505" ? "عندك مكان محفوظ بنفس الاسم." : "تعذّر حفظ المكان."); return; }
+    setFavoritePlaces((items) => [data as FavoritePlace, ...items]);
+    setFavoriteName(""); setShowFavoriteNameInput(false);
+    toast.message("انحفظ المكان ضمن المفضلة.");
+  }
+
+  function chooseFavoritePlace(place: FavoritePlace) {
+    const coords = { lat: Number(place.latitude), lng: Number(place.longitude) };
+    const outside = !!gov && !!place.governorate_key && place.governorate_key !== gov.key;
+    setInterCity(outside);
+    setDestinationGovernorateKey(place.governorate_key ?? gov?.key ?? null);
+    setDestCoords(coords); setDestLabel(place.address || place.label);
+    setMapStep("dest"); setDestConfirmed(true); setRouteError(null);
+    setShowFavoriteNameInput(false);
+  }
+
+  async function deleteFavoritePlace(id: string) {
+    const { error } = await (supabase as any).from("customer_favorite_places").delete().eq("id", id);
+    if (error) { toast.error("تعذّر حذف المكان."); return; }
+    setFavoritePlaces((items) => items.filter((item) => item.id !== id));
+  }
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const [interCity, setInterCity] = useState(false);
   useEffect(() => { setUrgencyEnabled(false); setUrgencyAllowed(false); }, [type, vehicle]);
@@ -914,6 +962,15 @@ function NewRequest() {
                 <div className="text-sm font-black text-foreground truncate">
                   {destLabel || "حرّك الخريطة إلى وجهتك"}
                 </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-black text-foreground">أماكني المفضلة</span>
+                  {favoritePlacesLoading && <span className="text-[10px] text-muted-foreground">جارٍ التحميل...</span>}
+                </div>
+                {favoritePlaces.length > 0 ? <div className="flex gap-2 overflow-x-auto pb-1">{favoritePlaces.map((place) => <div key={place.id} className="flex shrink-0 items-center rounded-xl border border-amber-300/70 bg-amber-50/80 dark:bg-amber-950/30"><button type="button" onClick={() => chooseFavoritePlace(place)} className="px-3 py-2 text-xs font-black text-foreground">📍 {place.label}</button><button type="button" onClick={() => deleteFavoritePlace(place.id)} aria-label={"حذف " + place.label} className="px-2 text-xs text-red-600">×</button></div>)}</div> : <p className="text-[11px] text-muted-foreground">احفظ بيتك أو عملك حتى تختاره بضغطة واحدة.</p>}
+                {destCoords && !showSaveFavoriteNameInput && <button type="button" onClick={() => setShowSaveFavoriteNameInput(true)} className="w-full rounded-xl border border-dashed border-primary/50 py-2 text-xs font-black text-primary">＋ حفظ هذه الوجهة بالمفضلة</button>}
+                {showSaveFavoriteNameInput && <div className="flex gap-2"><input value={favoriteName} onChange={(e) => setFavoriteName(e.target.value)} maxLength={60} placeholder="مثلاً: البيت أو العمل" className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button type="button" onClick={saveFavoritePlace} className="rounded-xl bg-primary px-3 py-2 text-xs font-black text-primary-foreground">حفظ</button><button type="button" onClick={() => { setShowFavoriteNameInput(false); setFavoriteName(""); }} className="rounded-xl border px-3 py-2 text-xs">إلغاء</button></div>}
               </div>
               <button
                 type="button"
