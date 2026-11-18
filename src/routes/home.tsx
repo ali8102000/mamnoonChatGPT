@@ -658,12 +658,12 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         const requestIds: string[] = [...new Set<string>((offerRows ?? []).map((offer: any) => String(offer.request_id)))];
         const { data } = await supabase
           .from("service_requests")
-          .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type")
+          .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, urgency_multiplier")
           .in("id", requestIds)
           .eq("type", "taxi")
           .eq("vehicle_category", "large")
           .in("status", ["pending", "searching"])
-          .order("created_at", { ascending: false });
+          .order("urgency_multiplier", { ascending: false }).order("created_at", { ascending: false });
         const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
         const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
         setRequests(mappedRequests);
@@ -687,12 +687,12 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       const requestIds: string[] = [...new Set<string>(offerRows.map((offer: any) => String(offer.request_id)))];
       let query = supabase
         .from("service_requests")
-        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km")
+        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km, urgency_multiplier")
         .in("id", requestIds)
         .in("status", ["pending", "searching"])
         .eq("type", type);
       if (type === "taxi") query = query.neq("vehicle_category", "large");
-      const { data } = await query.order("created_at", { ascending: false }).limit(50);
+      const { data } = await query.order("urgency_multiplier", { ascending: false }).order("created_at", { ascending: false }).limit(50);
       const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
       const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
       setRequests(mappedRequests);
