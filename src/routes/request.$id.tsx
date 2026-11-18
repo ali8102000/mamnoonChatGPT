@@ -741,20 +741,40 @@ function RequestDetail() {
             </div>
             {["accepted", "in_progress"].includes(req.status as string) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {req.status === "accepted" && myRole === "provider" && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await runStartRide({ data: { requestId: id } });
-                        toast.success(req.type === "taxi" ? "تم تسجيل ركوب الزبون وبدأت الرحلة" : "بدأ تنفيذ الخدمة");
-                      } catch (e: any) {
-                        toast.error(e.message ?? "تعذّر بدء التنفيذ");
-                      }
-                    }}
-                    className="w-full min-h-14 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-md active:scale-[0.99] transition"
-                  >
-                    {req.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}
-                  </button>
+                {req.status === "accepted" && myRole === "provider" &&
+                  (req.type !== "taxi" || req.vehicle_category === "large") &&
+                  !req.provider_arrived_at && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { error } = await (supabase as any).rpc("mark_service_request_arrived", { _request_id: id });
+                          if (error) throw error;
+                          toast.success("تم تسجيل وصولك إلى موقع الزبون");
+                          await loadAll();
+                        } catch (e: any) {
+                          toast.error(e.message ?? "تعذّر تأكيد الوصول");
+                        }
+                      }}
+                      className="w-full min-h-14 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-md active:scale-[0.99] transition"
+                    >
+                      {req.vehicle_category === "large" ? "وصلت للزبون" : "وصلت للموقع"}
+                    </button>
+                )}
+                {req.status === "accepted" && myRole === "provider" &&
+                  ((req.type === "taxi" && req.vehicle_category !== "large") || !!req.provider_arrived_at) && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await runStartRide({ data: { requestId: id } });
+                          toast.success(req.type === "taxi" ? "تم تسجيل ركوب الزبون وبدأت الرحلة" : "بدأ تنفيذ الخدمة");
+                        } catch (e: any) {
+                          toast.error(e.message ?? "تعذّر بدء التنفيذ");
+                        }
+                      }}
+                      className="w-full min-h-14 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-md active:scale-[0.99] transition"
+                    >
+                      {req.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}
+                    </button>
                 )}
                 {req.status === "in_progress" && myRole === "provider" && (
                   <button
@@ -764,7 +784,8 @@ function RequestDetail() {
                     {req.type === "taxi" ? "تأكيد إكمال الرحلة" : "تأكيد إكمال الطلب"}
                   </button>
                 )}
-                {["pending", "searching", "accepted"].includes(req.status as string) && (
+                {["pending", "searching", "accepted"].includes(req.status as string) &&
+                  !req.provider_arrived_at && (
                   <button
                     onClick={() => setShowCancel(true)}
                     className="w-full min-h-14 rounded-2xl border-2 border-destructive/25 bg-destructive/10 text-destructive font-black text-base active:scale-[0.99] transition"
