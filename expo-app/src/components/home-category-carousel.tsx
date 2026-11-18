@@ -3,8 +3,8 @@ import { Alert, Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticE
 import { supabase } from "@/lib/supabase";
 
 type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; is_active: boolean; scroll_speed: number; badge_text: string | null };
-const width = Dimensions.get("window").width - 40;
-const height = width * 9 / 16;
+const width = (Dimensions.get("window").width - 40) * 0.65;
+const height = width * 0.88;
 const messages: Record<Banner["target_category"], string> = {
   restaurant: "أنت صاحب مطعم؟ سجل ويانه وانتظر طلباتك",
   hotel: "أنت صاحب فندق؟ سجل ويانه وخليك ويانه",
