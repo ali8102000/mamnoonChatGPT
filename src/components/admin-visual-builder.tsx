@@ -82,12 +82,12 @@ export default function AdminVisualBuilder() {
   };
   const openEditor = (element: UiElement) => {
     setSelected(element);
-    setDraft({ ...(element.config ?? {}), title: element.title ?? "", subtitle: element.subtitle ?? "",
-      image_url: element.image_url ?? element.config?.image_url ?? "",
-      icon_name: element.icon_name ?? element.config?.icon_name ?? "",
-      width_px: element.width_px ?? element.config?.width_px ?? 64,
-      height_px: element.height_px ?? element.config?.height_px ?? 64,
-      sort_order: element.sort_order ?? 0,
+    setDraft({ ...(element.config ?? {}), title: element.config?.title ?? element.title ?? "", subtitle: element.config?.subtitle ?? element.subtitle ?? "",
+      image_url: element.config?.image_url ?? element.image_url ?? "",
+      icon_name: element.config?.icon_name ?? element.icon_name ?? "",
+      width_px: element.config?.width_px ?? element.width_px ?? 64,
+      height_px: element.config?.height_px ?? element.height_px ?? 64,
+      sort_order: element.config?.sort_order ?? element.sort_order ?? 0,
     });
     setMessage("");
   };
@@ -115,7 +115,7 @@ export default function AdminVisualBuilder() {
       image_url: draft.image_url || null, icon_name: draft.icon_name || null,
       width_px: Number(draft.width_px) || 64, height_px: Number(draft.height_px) || 64,
       sort_order: Number(draft.sort_order) || 0, is_enabled: true, is_published: true,
-      published_config: published, updated_at: new Date().toISOString(),
+      config: published, published_config: published, updated_at: new Date().toISOString(),
     }).eq("element_key", selected.element_key);
     if (error) setMessage("تعذر نشر التغيير: " + error.message);
     else {
