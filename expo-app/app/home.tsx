@@ -33,7 +33,8 @@ type IncomingRequest = {
   pickup_text?: string | null;
   dest_text?: string | null;
   distance_km?: number | null;
-  urgency_multiplier?: number | null;\n  my_offer?: { expires_at: string; sent_at: string; distance_km: number | null };
+  urgency_multiplier?: number | null;
+  my_offer?: { expires_at: string; sent_at: string; distance_km: number | null };
 };
 
 export default function HomeScreen() {
