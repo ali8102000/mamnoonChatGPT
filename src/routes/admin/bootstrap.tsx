@@ -24,6 +24,7 @@ export const Route = createFileRoute("/admin/bootstrap")({
 function BootstrapPage() {
   const { session, loading } = useAuth();
   const [exists, setExists] = useState<boolean | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
   const [bootstrapping, setBootstrapping] = useState(false);
   const [secret, setSecret] = useState("");
   const checkExists = useServerFn(checkSuperAdminExists);
@@ -35,13 +36,27 @@ function BootstrapPage() {
       try {
         const result = await checkExists();
         setExists(result.exists);
+        setCheckError(null);
       } catch (e) {
-        setExists(false);
+        // A failed status check must never be treated as "no super admin".
+        setExists(null);
+        setCheckError("تعذر التحقق من وجود المدير الأعلى. لم نسمح بإنشاء مدير جديد حفاظاً على أمان الحسابات.");
       }
     })();
   }, [session, checkExists]);
 
   if (loading || !session) return <Navigate to="/auth" />;
+  if (checkError)
+    return (
+      <div className="min-h-screen grid place-items-center px-5">
+        <div className="text-center max-w-md space-y-4">
+          <AlertCircle className="h-10 w-10 text-amber-500 mx-auto" />
+          <p className="text-sm text-muted-foreground">{checkError}</p>
+          <button onClick={() => { setCheckError(null); setExists(null); void checkExists().then((result) => setExists(result.exists)).catch(() => setCheckError("تعذر التحقق من وجود المدير الأعلى. حاول لاحقاً.")); }} className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold">إعادة المحاولة</button>
+        </div>
+      </div>
+    );
+
   if (exists === null)
     return (
       <div className="min-h-screen grid place-items-center">

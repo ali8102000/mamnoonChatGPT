@@ -1,169 +1,69 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createClientFn } from "@/lib/client-server-fn";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabase } from "@/integrations/supabase/client";
 
-async function requireStaff(context: any) {
-  const { supabase, userId } = context;
-  const { data: roles, error } = await (supabase as any).rpc("get_staff_roles", { p_user_id: userId });
-  const allowed = ["super_admin", "admin", "support", "finance", "moderator"];
-  if (error || !(roles ?? []).some((role: string) => allowed.includes(role))) {
-    throw new Error("غير مصرّح: هذه الصلاحية غير متاحة لهذا القسم الوظيفي");
-  }
-}
-
-
-async function requireScopedAccess(context: any, rpcName: string, message: string) {
-  const { supabase, userId } = context;
-  const { data, error } = await (supabase as any).rpc(rpcName, { p_user_id: userId });
-  if (error || !data) throw new Error(message);
-}
-async function requireChatModeration(context: any) {
-  return requireScopedAccess(context, "has_chat_moderation_access", "غير مصرّح: إدارة المحادثات للمخولين فقط");
-}
-async function requireFullChatModeration(context: any) {
-  await requireChatModeration(context);
-  const { supabase, userId } = context;
-  const { data, error } = await (supabase as any).rpc("is_customer_service_staff", { p_user_id: userId });
-  if (!error && data) throw new Error("غير مصرّح: موظف خدمة العملاء لا يملك صلاحية محادثات المستخدمين الخاصة");
+async function assertSuperAdmin() {
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  if (authError || !auth.user) throw new Error("سجّل الدخول أولاً");
+  const { data, error } = await (supabase as any).rpc("is_super_admin", { p_user_id: auth.user.id });
+  if (error || data !== true) throw new Error("غير مصرّح: للمدير الأعلى فقط");
+  return auth.user.id;
 }
 
-async function requireLiveOps(context: any) {
-  return requireScopedAccess(context, "has_live_ops_access", "غير مصرّح: متابعة المواقع للدعم والإدارة فقط");
-}
-async function requireProviderOps(context: any) {
-  return requireScopedAccess(context, "has_provider_ops_access", "غير مصرّح: إدارة الطلبات والمزودين للدعم والإدارة فقط");
-}
-async function requireUserModeration(context: any) {
-  return requireScopedAccess(context, "has_user_moderation_access", "غير مصرّح: إدارة المستخدمين والبلاغات للمخولين فقط");
-}
-async function requireAdminPermission(
-  context: any,
-  permissionKey: string,
-  scopeType = "global",
-  scopeGovernorate: string | null = null,
-) {
-  const { supabase } = context;
-  const { data: allowed, error } = await (supabase as any).rpc("admin_has_permission", {
-    p_permission_key: permissionKey,
-    p_scope_type: scopeType,
-    p_scope_governorate: scopeGovernorate,
-  });
-  if (error || allowed !== true) throw new Error("غير مصرّح: " + permissionKey);
-}
+const governorateKeySchema = z.enum([
+  "baghdad", "basra", "nineveh", "erbil", "sulaymaniyah", "duhok", "kirkuk",
+  "najaf", "karbala", "babil", "anbar", "diyala", "saladin", "wasit",
+  "dhiqar", "maysan", "muthanna", "qadisiyah",
+]);
 
-async function requireFinance(context: any) {
-  return requireScopedAccess(context, "has_finance_access", "غير مصرّح: العمليات المالية للمالية والإدارة فقط");
-}
-async function requireFriendAdmin(context: any) {
-  return requireScopedAccess(context, "has_friend_admin_access", "غير مصرّح: إدارة الأصدقاء للإدارة والإشراف فقط");
-}
 
-async function requireAdmin(context: any, permissionKey: string) {
-  return requireAdminPermission(context, permissionKey);
-}
 
-async function requireUserScopePermission(context: any, permissionKey: string, targetUserId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: profile, error } = await (supabaseAdmin as any)
-    .from("profiles").select("governorate_key").eq("id", targetUserId).maybeSingle();
-  if (error || !profile) throw new Error("تعذر تحديد نطاق المستخدم المستهدف");
-  const governorate = profile.governorate_key ?? null;
-  return requireAdminPermission(context, permissionKey, governorate ? "governorate" : "global", governorate);
-}
 
-async function requireRequestScopePermission(context: any, permissionKey: string, requestId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: request, error } = await (supabaseAdmin as any)
-    .from("service_requests").select("governorate_key").eq("id", requestId).maybeSingle();
-  if (error || !request) throw new Error("الطلب غير موجود أو تعذر تحديد محافظته");
-  const governorate = request.governorate_key ?? null;
-  return requireAdminPermission(context, permissionKey, governorate ? "governorate" : "global", governorate);
-}
-
-async function requireProviderChangeScopePermission(context: any, permissionKey: string, requestId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: request, error } = await (supabaseAdmin as any)
-    .from("provider_change_requests").select("user_id").eq("id", requestId).maybeSingle();
-  if (error || !request?.user_id) throw new Error("طلب تحديث الاختصاصات غير موجود");
-  return requireUserScopePermission(context, permissionKey, request.user_id);
-}
-
-async function requireSuperAdmin(context: any) {
-  const { supabase, userId } = context;
-  const { data } = await (supabase as any).rpc("is_super_admin", { p_user_id: userId });
-  if (!data) throw new Error("غير مصرّح: للمدير الأعلى فقط");
-}
-
-export const checkSuperAdminExists = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+export const checkSuperAdminExists = createClientFn({ method: "GET" })
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { count } = await (supabaseAdmin as any)
-      .from("user_roles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "super_admin");
-    return { exists: (count ?? 0) > 0 };
+    const { data: result, error } = await (context.supabase as any).functions.invoke("bootstrap-admin", {
+      body: { action: "check" },
+    });
+    if (error || result?.error) throw new Error("تعذر التحقق من حالة المدير الأعلى");
+    return { exists: result?.exists === true };
   });
 
-export const bootstrapSuperAdmin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+
+export const bootstrapSuperAdmin = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({ secret: z.string().min(32).max(256) }).parse(d))
   .handler(async ({ data, context }) => {
-    const expectedEmail = process.env.MAMNOON_BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
-    const expectedSecret = process.env.MAMNOON_BOOTSTRAP_SECRET;
-
-    if (!expectedEmail || !expectedSecret || expectedSecret.length < 32) {
-      throw new Error("إعداد التهيئة الآمنة غير مكتمل على الخادم");
-    }
-    if (String(context.claims.email ?? "").toLowerCase() !== expectedEmail) {
-      throw new Error("هذا الحساب غير مخوّل لإعداد المدير الأعلى");
-    }
-    if (data.secret !== expectedSecret) {
-      throw new Error("رمز التهيئة غير صحيح");
-    }
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: created, error } = await (supabaseAdmin as any).rpc(
-      "bootstrap_first_super_admin",
-      { p_user_id: context.userId },
-    );
-    if (error) throw new Error("فشل إنشاء المدير الأعلى: " + error.message);
-    if (!created) throw new Error("يوجد مدير أعلى بالفعل");
-    return { ok: true };
-  });
-
-export const adminGrantRole = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ target_user_id: z.string().uuid(), role: z.string() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await requireSuperAdmin(context);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_grant_role", {
-      p_target_user: data.target_user_id,
-      p_role: data.role,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("bootstrap-admin", {
+      body: { action: "bootstrap", secret: data.secret },
     });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminRevokeRole = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ target_user_id: z.string().uuid(), role: z.string() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await requireSuperAdmin(context);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_revoke_role", {
-      p_target_user: data.target_user_id,
-      p_role: data.role,
-    });
-    if (error) throw new Error(error.message);
+    if (error || result?.error) throw new Error("فشل إنشاء المدير الأعلى");
+    if (!result?.ok) throw new Error("يوجد مدير أعلى بالفعل");
     return { ok: true };
   });
 
 
+export const adminGrantRole = async ({ data }: { data: { target_user_id: string; role: string } }) => {
+  const input = z.object({ target_user_id: z.string().uuid(), role: z.string().min(1).max(80) }).parse(data);
+  await assertSuperAdmin();
+  const { error } = await (supabase as any).rpc("admin_grant_role", {
+    p_target_user: input.target_user_id, p_role: input.role,
+  });
+  if (error) throw new Error(error.message);
+  return { ok: true };
+};
 
-export const adminListDepartmentStaff = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminRevokeRole = async ({ data }: { data: { target_user_id: string; role: string } }) => {
+  const input = z.object({ target_user_id: z.string().uuid(), role: z.string().min(1).max(80) }).parse(data);
+  await assertSuperAdmin();
+  const { error } = await (supabase as any).rpc("admin_revoke_role", {
+    p_target_user: input.target_user_id, p_role: input.role,
+  });
+  if (error) throw new Error(error.message);
+  return { ok: true };
+};
+
+
+export const adminListDepartmentStaff = createClientFn({ method: "GET" })
   .inputValidator((d) => z.object({}).parse(d))
   .handler(async ({ context }) => {
     const { supabase } = context;
@@ -172,8 +72,7 @@ export const adminListDepartmentStaff = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
-export const adminPromoteStaffOneLevel = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminPromoteStaffOneLevel = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({ target_user_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -185,261 +84,143 @@ export const adminPromoteStaffOneLevel = createServerFn({ method: "POST" })
   });
 
 
-export const adminDeactivateStaff = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ target_user_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await requireSuperAdmin(context);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("staff_deactivate", { p_target_user: data.target_user_id });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
+export const adminDeactivateStaff = async ({ data }: { data: { target_user_id: string } }) => {
+  const input = z.object({ target_user_id: z.string().uuid() }).parse(data);
+  await assertSuperAdmin();
+  const { error } = await (supabase as any).rpc("staff_deactivate", { p_target_user: input.target_user_id });
+  if (error) throw new Error(error.message);
+  return { ok: true };
+};
 
-export const adminSetStaffRank = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
+
+export const adminSetStaffRank = async ({ data }: { data: {
+  target_user_id: string;
+  rank: "owner" | "general_manager" | "department_manager" | "supervisor" | "employee";
+  department: "executive" | "customer_service" | "finance" | "operations" | "monitoring";
+  display_title?: string;
+} }) => {
+  const input = z.object({
     target_user_id: z.string().uuid(),
     rank: z.enum(["owner", "general_manager", "department_manager", "supervisor", "employee"]),
     department: z.enum(["executive", "customer_service", "finance", "operations", "monitoring"]),
     display_title: z.string().max(100).optional(),
+  }).parse(data);
+  await assertSuperAdmin();
+  const { error } = await (supabase as any).rpc("staff_set_rank", {
+    p_target_user: input.target_user_id,
+    p_new_rank: input.rank,
+    p_department: input.department,
+    p_display_title: input.display_title ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return { ok: true };
+};
+
+
+export const getStaffRoles = async ({ data }: { data?: { user_id?: string } }) => {
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  if (authError || !auth.user) throw new Error("سجّل الدخول أولاً");
+  const targetId = data?.user_id ?? auth.user.id;
+  if (targetId === auth.user.id) {
+    const { data: roles, error } = await (supabase as any).rpc("get_staff_roles", { p_user_id: auth.user.id });
+    const allowed = ["super_admin", "admin", "support", "finance", "moderator"];
+    if (error || !(roles ?? []).some((role: string) => allowed.includes(role))) {
+      throw new Error("غير مصرّح: هذه الصلاحية غير متاحة لهذا القسم الوظيفي");
+    }
+    return roles ?? [];
+  }
+  await assertSuperAdmin();
+  const { data: roles, error } = await (supabase as any).rpc("get_staff_roles", { p_user_id: targetId });
+  if (error) throw new Error(error.message);
+  return roles ?? [];
+};
+
+
+export const adminSearchUsers = createClientFn({ method: "POST" })
+  .inputValidator((d) =>
+    z.object({
+      query: z.string().min(1).max(100),
+      limit: z.number().int().min(1).max(100).default(50),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "search", query: data.query, limit: data.limit },
+    });
+    if (error || result?.error) throw new Error("فشل البحث");
+    return result?.users ?? [];
+  });
+
+
+export const adminListUsers = createClientFn({ method: "GET" })
+  .inputValidator((d) =>
+    z.object({
+      page: z.number().int().min(1).default(1),
+      limit: z.number().int().min(1).max(100).default(50),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "list", page: data.page, limit: data.limit },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل المستخدمين");
+    return { users: result?.users ?? [], total: result?.total ?? 0 };
+  });
+
+
+export const adminBlockUser = createClientFn({ method: "POST" })
+  .inputValidator((d) => z.object({
+    user_id: z.string().uuid(),
+    reason: z.string().max(500).optional(),
+    expires_at: z.string().optional().nullable(),
+    duration: z.enum(["1_hour", "1_day", "1_week", "1_month", "permanent"]).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireSuperAdmin(context);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("staff_set_rank", {
-      p_target_user: data.target_user_id,
-      p_new_rank: data.rank,
-      p_department: data.department,
-      p_display_title: data.display_title ?? null,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "block", ...data },
     });
-    if (error) throw new Error(error.message);
+    if (error || result?.error) throw new Error("فشل حظر المستخدم");
+    return result;
+  });
+
+
+export const adminUnblockUser = createClientFn({ method: "POST" })
+  .inputValidator((d) => z.object({ user_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "unblock", ...data },
+    });
+    if (error || result?.error) throw new Error("فشل إلغاء حظر المستخدم");
     return { ok: true };
   });
 
-export const getStaffRoles = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ user_id: z.string().uuid().optional() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const targetId = data?.user_id ?? context.userId;
-    if (targetId === context.userId) await requireStaff(context);
-    else await requireSuperAdmin(context);
-    const { supabase } = context;
-    const { data: roles, error } = await (supabase as any).rpc("get_staff_roles", {
-      p_user_id: targetId,
-    });
-    if (error) throw new Error(error.message);
-    return roles ?? [];
-  });
 
-export const adminSearchUsers = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z
-      .object({
-        query: z.string().min(1).max(100),
-        limit: z.number().int().min(1).max(100).default(50),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireUserModeration(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: users, error } = await (supabaseAdmin as any)
-      .from("profiles")
-      .select("id, phone, full_name, email, created_at, avatar_url")
-      .or(`phone.ilike.%${data.query}%,full_name.ilike.%${data.query}%,email.ilike.%${data.query}%`)
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
-    if (error) throw new Error("فشل البحث");
-    return users ?? [];
-  });
-
-export const adminListUsers = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z
-      .object({
-        page: z.number().int().min(1).default(1),
-        limit: z.number().int().min(1).max(100).default(50),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireUserModeration(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const offset = (data.page - 1) * data.limit;
-    const [usersRes, blocksRes] = await Promise.all([
-      (supabaseAdmin as any)
-        .from("profiles")
-        .select("id, phone, full_name, email, created_at, avatar_url", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(offset, offset + data.limit - 1),
-      (supabaseAdmin as any).from("user_blocks").select("user_id, reason, expires_at, blocked_at"),
-    ]);
-    if (usersRes.error) throw new Error("فشل تحميل المستخدمين");
-    const blockedMap = new Map<string, any>();
-    for (const b of blocksRes.data ?? []) blockedMap.set(b.user_id, b);
-    return {
-      users: (usersRes.data ?? []).map((u: any) => ({
-        ...u,
-        blocked: blockedMap.get(u.id) ?? null,
-      })),
-      total: usersRes.count ?? 0,
-    };
-  });
-
-export const adminBlockUser = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z
-      .object({
-        user_id: z.string().min(1),
-        reason: z.string().max(500).optional(),
-        expires_at: z.string().optional().nullable(),
-        duration: z
-          .enum(["1_hour", "1_day", "1_week", "1_month", "permanent"])
-          .optional(),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireUserScopePermission(context, "users.block", data.user_id);
-    const { supabase } = context;
-    let computedExpiresAt = data.expires_at ?? null;
-    if (data.duration) {
-      const now = Date.now();
-      if (data.duration === "1_hour") computedExpiresAt = new Date(now + 3600 * 1000).toISOString();
-      else if (data.duration === "1_day") computedExpiresAt = new Date(now + 86400 * 1000).toISOString();
-      else if (data.duration === "1_week") computedExpiresAt = new Date(now + 7 * 86400 * 1000).toISOString();
-      else if (data.duration === "1_month") computedExpiresAt = new Date(now + 30 * 86400 * 1000).toISOString();
-      else if (data.duration === "permanent") computedExpiresAt = null;
-    }
-    const { error } = await (supabase as any).rpc("admin_block_user", {
-      p_user_id: data.user_id,
-      p_reason: data.reason ?? null,
-      p_expires_at: computedExpiresAt,
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true, expires_at: computedExpiresAt };
-  });
-
-export const adminUnblockUser = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGetUserDetail = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({ user_id: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireUserScopePermission(context, "users.unblock", data.user_id);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_unblock_user", {
-      p_user_id: data.user_id,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "detail", user_id: data.user_id },
     });
-    if (error) throw new Error(error.message);
-    return { ok: true };
+    if (error || result?.error) throw new Error("فشل تحميل تفاصيل المستخدم");
+    return result;
   });
 
-export const adminGetUserDetail = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ user_id: z.string().min(1) }).parse(d))
+
+export const adminUpdateProviderName = createClientFn({ method: "POST" })
+  .inputValidator((d) => z.object({
+    user_id: z.string().uuid(),
+    full_name: z.string().trim().min(2).max(80),
+  }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireUserModeration(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [profileRes, rolesRes, blocksRes, driverRes, workerRes, txRes, reqRes, ratingsRes, verificationsRes] =
-      await Promise.all([
-        (supabaseAdmin as any).from("profiles").select("*").eq("id", data.user_id).maybeSingle(),
-        (supabaseAdmin as any)
-          .from("user_roles")
-          .select("role, created_at")
-          .eq("user_id", data.user_id),
-        (supabaseAdmin as any)
-          .from("user_blocks")
-          .select("*")
-          .eq("user_id", data.user_id)
-          .maybeSingle(),
-        (supabaseAdmin as any)
-          .from("driver_profiles")
-          .select("*")
-          .eq("user_id", data.user_id)
-          .maybeSingle(),
-        (supabaseAdmin as any)
-          .from("worker_profiles")
-          .select("*")
-          .eq("user_id", data.user_id)
-          .maybeSingle(),
-        (supabaseAdmin as any)
-          .from("transactions")
-          .select("*")
-          .eq("user_id", data.user_id)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        (supabaseAdmin as any)
-          .from("service_requests")
-          .select("id, type, status, created_at, price_estimate")
-          .or(`customer_id.eq.${data.user_id},provider_id.eq.${data.user_id}`)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        (supabaseAdmin as any)
-          .from("ratings")
-          .select("id, stars, professionalism, punctuality, quality, comment, created_at, rater:profiles!ratings_rater_id_fkey(full_name, avatar_url)")
-          .eq("ratee_id", data.user_id)
-          .order("created_at", { ascending: false })
-          .limit(100),
-        (supabaseAdmin as any)
-          .from("provider_verifications")
-          .select("provider_type,legal_name,phone,email,document_type,id_number,status,rejection_reason,metadata,face_photo_path,id_card_photo_path,id_card_back_photo_path,vehicle_document_path,submitted_at,reviewed_at,updated_at")
-          .eq("user_id", data.user_id),
-      ]);
-    const signedVerifications = await Promise.all((verificationsRes.data ?? []).map(async (row: any) => {
-      const sign = async (path: string | null) => {
-        if (!path) return null;
-        const { data: signed, error } = await (supabaseAdmin as any).storage.from("provider-verification").createSignedUrl(path, 600);
-        return error ? null : signed?.signedUrl ?? null;
-      };
-      const [face, front, back, vehicle, vehicleVideo] = await Promise.all([
-        sign(row.face_photo_path), sign(row.id_card_photo_path),
-        sign(row.id_card_back_photo_path), sign(row.vehicle_document_path), sign(row.metadata?.vehicleVideoPath ?? null),
-      ]);
-      return {
-        provider_type: row.provider_type, legal_name: row.legal_name, phone: row.phone, email: row.email,
-        document_type: row.document_type, id_number: row.id_number, status: row.status,
-        rejection_reason: row.rejection_reason, metadata: row.metadata,
-        face_photo_url: face, id_card_photo_url: front, id_card_back_photo_url: back,
-        vehicle_document_url: vehicle, vehicle_video_url: vehicleVideo, submitted_at: row.submitted_at,
-        reviewed_at: row.reviewed_at, updated_at: row.updated_at,
-      };
-    }));
-    return {
-      profile: profileRes.data,
-      roles: rolesRes.data ?? [],
-      block: blocksRes.data,
-      driverProfile: driverRes.data,
-      workerProfile: workerRes.data,
-      transactions: txRes.data ?? [],
-      requests: reqRes.data ?? [],
-      ratings: ratingsRes.error ? [] : ratingsRes.data ?? [],
-      verifications: verificationsRes.error ? [] : signedVerifications,
-    };
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "update_provider_name", ...data },
+    });
+    if (error || result?.error) throw new Error("فشل تحديث اسم مقدم الخدمة");
+    return result;
   });
 
-export const adminUpdateProviderName = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ user_id: z.string().uuid(), full_name: z.string().trim().min(2).max(80) }).parse(d))
-  .handler(async ({ data, context }) => {
-    await requireUserScopePermission(context, "providers.profile.edit", data.user_id);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: provider, error: providerError } = await (supabaseAdmin as any)
-      .from("driver_profiles").select("user_id").eq("user_id", data.user_id).maybeSingle();
-    const { data: worker, error: workerError } = await (supabaseAdmin as any)
-      .from("worker_profiles").select("user_id").eq("user_id", data.user_id).maybeSingle();
-    if (providerError || workerError) throw new Error("تعذر التحقق من حساب مقدم الخدمة");
-    if (!provider && !worker) throw new Error("تعديل الاسم متاح للسائقين والفنيين فقط");
-    const { error } = await (supabaseAdmin as any)
-      .from("profiles").update({ full_name: data.full_name }).eq("id", data.user_id);
-    if (error) throw new Error("فشل تحديث الاسم: " + error.message);
-    return { ok: true, full_name: data.full_name };
-  });
 
-export const adminListProviders = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+export const adminListProviders = createClientFn({ method: "GET" })
   .inputValidator((d) =>
     z.object({
       type: z.enum(["driver", "large_driver", "worker"]).default("driver"),
@@ -448,284 +229,99 @@ export const adminListProviders = createServerFn({ method: "GET" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireProviderOps(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const table = data.type === "worker" ? "worker_profiles" : "driver_profiles";
-    let providerQuery = (supabaseAdmin as any)
-      .from(table)
-      .select("*, profiles!inner(full_name, phone, email, avatar_url)");
-    if (data.status !== "all") providerQuery = providerQuery.eq("status", data.status);
-    if (data.type !== "worker" && data.category !== "all") providerQuery = providerQuery.eq("vehicle_category", data.category);
-    if (data.type === "worker" && data.category !== "all") providerQuery = providerQuery.eq("level", data.category);
-    const { data: providers, error } = await providerQuery
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (error) throw new Error(`فشل تحميل المزودين: ${error.message}`);
-
-    const userIds = (providers ?? []).map((p: any) => p.user_id);
-    if (!userIds.length) return [];
-    const { data: verifications, error: verificationError } = await (supabaseAdmin as any)
-      .from("provider_verifications")
-      .select("*")
-      .eq("provider_type", data.type)
-      .in("user_id", userIds);
-    if (verificationError) throw new Error(`تعذر تحميل مستمسكات المزودين: ${verificationError.message}`);
-
-    const verificationByUser = new Map((verifications ?? []).map((v: any) => [v.user_id, v]));
-    return await Promise.all((providers ?? []).map(async (provider: any) => {
-      const verification: any = verificationByUser.get(provider.user_id);
-      if (!verification) return { ...provider, verification: null };
-      const [face, identity, identityBack, vehicleDocument, vehicleVideo] = await Promise.all([
-        supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.face_photo_path, 600),
-        supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.id_card_photo_path, 600),
-        verification.id_card_back_photo_path
-          ? supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.id_card_back_photo_path, 600)
-          : Promise.resolve({ data: null, error: null }),
-        verification.vehicle_document_path
-          ? supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.vehicle_document_path, 600)
-          : Promise.resolve({ data: null, error: null }),
-        verification.metadata?.vehicleVideoPath
-          ? supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.metadata.vehicleVideoPath, 600)
-          : Promise.resolve({ data: null, error: null }),
-      ]);
-      return {
-        ...provider,
-        verification: {
-          ...verification,
-          face_photo_url: face.error ? null : face.data?.signedUrl ?? null,
-          id_card_photo_url: identity.error ? null : identity.data?.signedUrl ?? null,
-          id_card_back_photo_url: identityBack.error ? null : identityBack.data?.signedUrl ?? null,
-          vehicle_document_url: vehicleDocument.error ? null : vehicleDocument.data?.signedUrl ?? null,
-          vehicle_video_url: vehicleVideo.error ? null : vehicleVideo.data?.signedUrl ?? null,
-        },
-      };
-    }));
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "providers", ...data },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل المزودين");
+    return result?.providers ?? [];
   });
 
-export const adminListProviderChangeRequests = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminListProviderChangeRequests = createClientFn({ method: "GET" })
   .handler(async ({ context }) => {
-    await requireAdmin(context, "providers.read");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await (supabaseAdmin as any)
-      .from("provider_change_requests")
-      .select("*, profiles!provider_change_requests_user_id_fkey(full_name, phone)")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
-    if (error) throw new Error(`تعذر تحميل طلبات تحديث الاختصاصات: ${error.message}`);
-    const serviceIds = [...new Set((data ?? []).flatMap((row: any) =>
-      row.provider_type === "worker" && Array.isArray(row.requested_data?.service_ids)
-        ? row.requested_data.service_ids : [],
-    ))];
-    const { data: services } = serviceIds.length
-      ? await (supabaseAdmin as any).from("services").select("id,name_ar").in("id", serviceIds)
-      : { data: [] };
-    const serviceNames = new Map((services ?? []).map((service: any) => [service.id, service.name_ar]));
-    return (data ?? []).map((row: any) => ({
-      ...row,
-      requested_service_names: (row.requested_data?.service_ids ?? []).map((id: string) => serviceNames.get(id) ?? "اختصاص غير معروف"),
-    }));
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "provider_change_requests" },
+    });
+    if (error || result?.error) throw new Error("تعذر تحميل طلبات تحديث الاختصاصات");
+    return result?.requests ?? [];
   });
 
-export const adminReviewProviderChangeRequest = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+
+export const adminReviewProviderChangeRequest = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     request_id: z.string().uuid(),
     status: z.enum(["approved", "rejected"]),
     reason: z.string().max(500).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireProviderChangeScopePermission(context, "providers.verify", data.request_id);
-    if (data.status === "rejected" && !data.reason?.trim()) {
-      throw new Error("اكتب سبب الرفض حتى يصل للمستخدم");
-    }
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_review_provider_change_request", {
-      _request_id: data.request_id,
-      _status: data.status,
-      _reason: data.reason?.trim() || null,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "review_provider_change_request", ...data },
     });
-    if (error) throw new Error(error.message);
+    if (error || result?.error) throw new Error("فشل مراجعة طلب تحديث الاختصاصات");
     return { ok: true };
   });
 
-export const adminSetProviderStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+
+export const adminSetProviderStatus = createClientFn({ method: "POST" })
   .inputValidator((d) =>
-    z
-      .object({
-        user_id: z.string().min(1),
-        type: z.enum(["driver", "large_driver", "worker"]),
-        status: z.enum(["approved", "suspended", "rejected", "pending"]),
-        reason: z.string().max(500).optional(),
-        suspension_duration: z.enum(["30m", "1h", "1w", "1mo", "1y", "permanent"]).optional(),
-      })
-      .parse(d),
+    z.object({
+      user_id: z.string().min(1),
+      type: z.enum(["driver", "large_driver", "worker"]),
+      status: z.enum(["approved", "suspended", "rejected", "pending"]),
+      reason: z.string().max(500).optional(),
+      suspension_duration: z.enum(["30m", "1h", "1w", "1mo", "1y", "permanent"]).optional(),
+    }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireUserScopePermission(context, data.status === "suspended" ? "providers.suspend" : "providers.verify", data.user_id);
-    const { supabase } = context;
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const durationMinutes: Record<string, number> = { "30m": 30, "1h": 60, "1w": 10080, "1mo": 43200, "1y": 525600 };
-    const suspendedUntil = data.status === "suspended" && data.suspension_duration && data.suspension_duration !== "permanent"
-      ? new Date(Date.now() + durationMinutes[data.suspension_duration] * 60_000).toISOString()
-      : null;
-    if (data.status === "rejected" && !data.reason?.trim()) {
-      throw new Error("اكتب سبب الرفض حتى يصل للمستخدم بشكل واضح");
-    }
-
-    const { error } = await (supabase as any).rpc("admin_set_provider_status", {
-      p_user_id: data.user_id,
-      p_type: data.type,
-      p_status: data.status,
-      p_suspended_until: suspendedUntil,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "set_provider_status", ...data },
     });
-    if (error) throw new Error(error.message);
-
-    if (data.status === "approved" || data.status === "rejected") {
-      const { error: verificationUpdateError } = await (supabaseAdmin as any)
-        .from("provider_verifications")
-        .update({
-          status: data.status,
-          rejection_reason: data.status === "rejected" ? data.reason!.trim() : null,
-          reviewed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", data.user_id)
-        .eq("provider_type", data.type);
-      if (verificationUpdateError) {
-        throw new Error(`تم تحديث حالة الحساب لكن تعذر تحديث سجل المستمسكات: ${verificationUpdateError.message}`);
-      }
-    }
-
-    const role = data.type === "driver" ? "driver" : data.type === "large_driver" ? "large_driver" : "worker";
-    if (data.status === "approved") {
-      const { data: granted, error: verifyError } = await (supabaseAdmin as any)
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user_id)
-        .eq("role", role)
-        .maybeSingle();
-      if (verifyError) throw new Error(`تعذر التحقق من الدور بعد الموافقة: ${verifyError.message}`);
-      if (!granted) throw new Error("لم يُضف دور مقدم الخدمة إلى الحساب؛ لم يتم تأكيد التفعيل");
-    }
-
-    let notificationSent = false;
-    let pushSent = 0;
-    if (data.status === "approved" || data.status === "rejected" || data.status === "suspended") {
-      const { data: profileRow } = await (supabaseAdmin as any)
-        .from("profiles").select("full_name").eq("id", data.user_id).maybeSingle();
-      const personName = String(profileRow?.full_name ?? "").trim();
-      const providerLabel = data.type === "driver" ? "سائق تكسي" : data.type === "large_driver" ? "سائق سيارات كبيرة" : "فني";
-      const { data: companySettings } = await (supabaseAdmin as any)
-        .from("company_settings").select("company_name").eq("id", 1).maybeSingle();
-      const companyName = String(companySettings?.company_name ?? "شركة ممنون");
-      const durationLabels: Record<string, string> = {
-        "30m": "نصف ساعة", "1h": "ساعة", "1w": "أسبوع", "1mo": "شهر", "1y": "سنة", permanent: "بشكل دائم",
-      };
-      const title = data.status === "approved"
-        ? "تهانينا! تم تفعيل حسابك في ممنون 🎉"
-        : data.status === "rejected"
-          ? "بخصوص طلب انضمامك إلى ممنون"
-          : "تنبيه: تم تعليق حسابك في ممنون";
-      const body = data.status === "approved"
-        ? `أهلاً ${personName || "بك"}، نبارك لك! تم تفعيل حسابك كـ${providerLabel} بعد مراجعة الإدارة. نتمنى لك التوفيق والنجاح، ونرحب بك ضمن أسرة ${companyName} الموثّقة. 💛`
-        : data.status === "rejected"
-          ? `أهلاً ${personName || "بك"}، نعتذر عن عدم قبول طلبك حالياً. سبب الرفض: ${data.reason!.trim()}. يرجى معالجة الملاحظة وإعادة المحاولة، ونتمنى لك التوفيق. ${companyName} الموثّقة.`
-          : `أهلاً ${personName || "بك"}، نود إعلامك بأنه تم تعليق حسابك كـ${providerLabel} ${data.suspension_duration === "permanent" ? "بشكل دائم" : `لمدة ${durationLabels[data.suspension_duration ?? ""] ?? "محددة"}`}${suspendedUntil ? `، وينتهي التعليق بتاريخ ${new Date(suspendedUntil).toLocaleString("ar-IQ")}` : ""}.${data.reason?.trim() ? ` السبب: ${data.reason.trim()}.` : ""} للاستفسار يرجى مراسلة إدارة ${companyName}.`;
-      const notificationType = data.status === "approved" ? "provider_approved" : data.status === "rejected" ? "provider_rejected" : "provider_suspended";
-      const { error: notificationError } = await (supabaseAdmin as any).from("notifications").insert({
-        user_id: data.user_id, type: notificationType, title, body, link: "/home",
-        data: { provider_type: data.type, status: data.status, suspended_until: suspendedUntil, company: companyName },
-      });
-      if (notificationError) throw new Error(`تم تحديث حالة الحساب لكن تعذر إرسال الإشعار داخل التطبيق: ${notificationError.message}`);
-      notificationSent = true;
-
-      const { data: pushRows } = await (supabaseAdmin as any)
-        .from("user_push_tokens").select("expo_push_token").eq("user_id", data.user_id);
-      const tokens = (pushRows ?? []).map((row: any) => row.expo_push_token)
-        .filter((token: string) => typeof token === "string" && token.startsWith("ExponentPushToken["));
-      for (let i = 0; i < tokens.length; i += 100) {
-        const messages = tokens.slice(i, i + 100).map((to: string) => ({
-          to, sound: "default", title, body,
-          data: { type: "provider_verification", provider_type: data.type, status: data.status },
-          channelId: "default",
-        }));
-        try {
-          const response = await fetch("https://exp.host/--/api/v2/push/send", {
-            method: "POST",
-            headers: { Accept: "application/json", "Content-Type": "application/json" },
-            body: JSON.stringify(messages),
-          });
-          if (response.ok) {
-            const payload = await response.json() as { data?: Array<{ status?: string }> };
-            pushSent += (payload.data ?? []).filter((ticket) => ticket.status === "ok").length;
-          }
-        } catch (pushError) {
-          console.warn("[provider-notification] Expo push delivery failed", pushError);
-        }
-      }
-    }
-    return { ok: true, role: data.status === "approved" ? role : null, notification_sent: notificationSent, push_sent: pushSent };
+    if (error || result?.error) throw new Error("تعذر تحديث حالة مقدم الخدمة");
+    return result;
   });
 
-export const adminListRequests = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminListRequests = createClientFn({ method: "GET" })
   .inputValidator((d) =>
-    z
-      .object({
-        status: z.string().optional(),
-        limit: z.number().int().min(1).max(200).default(50),
-      })
-      .parse(d),
+    z.object({
+      status: z.string().optional(),
+      limit: z.number().int().min(1).max(200).default(50),
+    }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireProviderOps(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    let query = (supabaseAdmin as any)
-      .from("service_requests")
-      .select(
-        "id, type, status, price_estimate, created_at, pickup_text, dest_text, customer_id, provider_id",
-      )
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
-    if (data.status && data.status !== "all") query = query.eq("status", data.status);
-    const { data: requests, error } = await query;
-    if (error) throw new Error("فشل تحميل الطلبات");
-    return requests ?? [];
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "requests", ...data },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل الطلبات");
+    return result?.requests ?? [];
   });
 
-export const adminCancelRequest = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z.object({ request_id: z.string().uuid(), reason: z.string().max(500).optional() }).parse(d),
-  )
+
+export const adminCancelRequest = createClientFn({ method: "POST" })
+  .inputValidator((d) => z.object({
+    request_id: z.string().uuid(), reason: z.string().max(500).optional(),
+  }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireRequestScopePermission(context, "orders.cancel", data.request_id);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_cancel_request", {
-      p_request_id: data.request_id,
-      p_reason: data.reason ?? null,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "cancel_request", ...data },
     });
-    if (error) throw new Error(error.message);
+    if (error || result?.error) throw new Error("فشل إلغاء الطلب");
     return { ok: true };
   });
 
-export const adminReopenRequest = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+
+export const adminReopenRequest = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({ request_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireRequestScopePermission(context, "orders.reopen", data.request_id);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_reopen_request", {
-      p_request_id: data.request_id,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "reopen_request", ...data },
     });
-    if (error) throw new Error(error.message);
+    if (error || result?.error) throw new Error("فشل إعادة فتح الطلب");
     return { ok: true };
   });
 
-export const adminAdjustWallet = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+
+export const adminAdjustWallet = createClientFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
@@ -748,38 +344,30 @@ export const adminAdjustWallet = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminListTransactions = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+export const adminListTransactions = createClientFn({ method: "GET" })
   .inputValidator((d) =>
     z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdminPermission(context, "finance.read");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: txs, error } = await (supabaseAdmin as any)
-      .from("transactions")
-      .select("*, profiles!inner(full_name, phone)")
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
-    if (error) throw new Error("فشل تحميل المعاملات");
-    return txs ?? [];
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-finance", {
+      body: { action: "list_transactions", limit: data.limit },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل المعاملات");
+    return result?.transactions ?? [];
   });
 
-export const adminListCoupons = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminListCoupons = createClientFn({ method: "GET" })
   .handler(async ({ context }) => {
-    await requireAdminPermission(context, "promotions.read");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: coupons, error } = await (supabaseAdmin as any)
-      .from("coupons")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw new Error("فشل تحميل الكوبونات");
-    return coupons ?? [];
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-finance", {
+      body: { action: "list_coupons" },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل الكوبونات");
+    return result?.coupons ?? [];
   });
 
-export const adminSaveCoupon = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+
+export const adminSaveCoupon = createClientFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
@@ -810,8 +398,7 @@ export const adminSaveCoupon = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminCouponAudienceCount = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+export const adminCouponAudienceCount = createClientFn({ method: "GET" })
   .inputValidator((d) => z.object({
     target: z.enum(["customers", "single", "customers_1", "customers_2", "customers_3", "customers_4", "customers_5"]),
   }).parse(d))
@@ -824,8 +411,7 @@ export const adminCouponAudienceCount = createServerFn({ method: "GET" })
     return { count: Number(count ?? 0) };
   });
 
-export const adminDistributeCoupon = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminDistributeCoupon = createClientFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({
       coupon_id: z.string().uuid(),
@@ -844,8 +430,7 @@ export const adminDistributeCoupon = createServerFn({ method: "POST" })
     return { sent: Number(sent ?? 0) };
   });
 
-export const adminCouponSubsidyReport = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+export const adminCouponSubsidyReport = createClientFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase } = context;
     const { data, error } = await (supabase as any).rpc("admin_coupon_subsidy_report");
@@ -853,8 +438,7 @@ export const adminCouponSubsidyReport = createServerFn({ method: "GET" })
     return Array.isArray(data) ? data[0] ?? null : data;
   });
 
-export const adminDeleteCoupon = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminDeleteCoupon = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({ coupon_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -865,453 +449,240 @@ export const adminDeleteCoupon = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminListReports = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+export const adminListReports = createClientFn({ method: "GET" })
   .inputValidator((d) =>
-    z
-      .object({
-        status: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(50),
-      })
-      .parse(d),
+    z.object({
+      status: z.string().optional(),
+      limit: z.number().int().min(1).max(100).default(50),
+    }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireUserModeration(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    let query = (supabaseAdmin as any)
-      .from("user_reports")
-      .select(
-        "*, reporter:profiles!user_reports_reporter_id_fkey(full_name, phone), reported:profiles!user_reports_reported_id_fkey(full_name, phone)",
-      )
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
-    if (data.status && data.status !== "all") query = query.eq("status", data.status);
-    const { data: reports, error } = await query;
-    if (error) throw new Error("فشل تحميل البلاغات");
-    return reports ?? [];
-  });
-
-export const adminResolveReport = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z
-      .object({
-        report_id: z.string().uuid(),
-        status: z.enum(["resolved", "closed", "dismissed"]),
-        note: z.string().max(500).optional(),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireUserModeration(context);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_resolve_report", {
-      p_report_id: data.report_id,
-      p_status: data.status,
-      p_note: data.note ?? null,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "reports", ...data },
     });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminListFriends = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireFriendAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: friends, error } = await (supabaseAdmin as any)
-      .from("friends")
-      .select(
-        "*, user:profiles!friends_user_id_fkey(full_name, phone), friend:profiles!friends_friend_id_fkey(full_name, phone)",
-      )
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
-    if (error) throw new Error("فشل تحميل الأصدقاء");
-    return friends ?? [];
-  });
-
-export const adminListFriendRequests = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireFriendAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: reqs, error } = await (supabaseAdmin as any)
-      .from("friend_requests")
-      .select(
-        "*, sender:profiles!friend_requests_sender_id_fkey(full_name, phone), receiver:profiles!friend_requests_receiver_id_fkey(full_name, phone)",
-      )
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
-    if (error) throw new Error("فشل تحميل طلبات الصداقة");
-    return reqs ?? [];
-  });
-
-export const adminDeleteFriendship = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z.object({ user1_id: z.string().uuid(), user2_id: z.string().uuid() }).parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireFriendAdmin(context);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_delete_friendship", {
-      p_user1_id: data.user1_id,
-      p_user2_id: data.user2_id,
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminDeleteFriendRequest = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ request_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await requireFriendAdmin(context);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_delete_friend_request", {
-      p_request_id: data.request_id,
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminListMessages = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z
-      .object({
-        chat_id: z.string().uuid().optional(),
-        limit: z.number().int().min(1).max(200).default(100),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireFullChatModeration(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    let query = (supabaseAdmin as any)
-      .from("messages")
-      .select("*, sender:profiles!messages_sender_id_fkey(full_name, phone), chat:chats(id)")
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
-    if (data.chat_id) query = query.eq("chat_id", data.chat_id);
-    const { data: messages, error } = await query;
-    if (error) throw new Error("فشل تحميل الرسائل");
-    return messages ?? [];
-  });
-
-export const adminDeleteMessage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ message_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    await requireFullChatModeration(context);
-    const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_delete_message", {
-      p_message_id: data.message_id,
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const adminListChats = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireFullChatModeration(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: chats, error } = await (supabaseAdmin as any)
-      .from("chats")
-      .select(
-        "*, participant1:profiles!chats_customer_id_fkey(full_name, phone), participant2:profiles!chats_provider_id_fkey(full_name, phone)",
-      )
-      .order("updated_at", { ascending: false })
-      .limit(data.limit);
-    if (error) throw new Error("فشل تحميل المحادثات");
-    return chats ?? [];
-  });
-
-export const adminBroadcastNotification = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
-    z
-      .object({
-        target: z.enum(["all", "drivers", "large_drivers", "workers", "customers", "single"]),
-        title: z.string().min(1).max(200),
-        body: z.string().min(1).max(2000),
-        user_id: z.string().uuid().optional(),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await requireStaff(context);
-    const { supabase } = context;
-    const { data: count, error } = await (supabase as any).rpc("admin_broadcast_notification", {
-      p_target: data.target,
-      p_title: data.title,
-      p_body: data.body,
-      p_single_user_id: data.user_id ?? null,
-    });
-    if (error) throw new Error(error.message);
-    return { sent: count ?? 0 };
+    if (error || result?.error) throw new Error("فشل تحميل البلاغات");
+    return result?.reports ?? [];
   });
 
 
-export const adminBroadcastGovernorateNotification = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminResolveReport = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
-    governorate_key: z.enum(["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"]),
-    title: z.string().trim().min(1).max(200),
-    body: z.string().trim().min(1).max(2000),
+    report_id: z.string().uuid(),
+    status: z.enum(["resolved", "closed", "dismissed"]),
+    note: z.string().max(500).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireStaff(context);
-    const { supabase } = context;
-    const { data: count, error } = await (supabase as any).rpc("admin_broadcast_governorate_notification", {
-      p_governorate_key: data.governorate_key,
-      p_title: data.title,
-      p_body: data.body,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "resolve_report", ...data },
     });
-    if (error) throw new Error(error.message);
-    return { sent: Number(count ?? 0) };
+    if (error || result?.error) throw new Error("فشل تحديث البلاغ");
+    return { ok: true };
   });
 
-export const adminListStaffActivity = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminListFriends = createClientFn({ method: "GET" })
   .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireSuperAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await (supabaseAdmin as any).from("staff_activity_log")
-      .select("*").order("created_at", { ascending: false }).limit(data.limit);
-    if (error) throw new Error(error.message);
-    const ids = [...new Set((rows ?? []).flatMap((r: any) => [r.staff_user_id, r.actor_user_id]))];
-    const { data: profiles } = ids.length ? await (supabaseAdmin as any).from("profiles").select("id,full_name,email").in("id", ids) : { data: [] };
-    const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
-    return (rows ?? []).map((r: any) => ({ ...r, staff: byId.get(r.staff_user_id), actor: byId.get(r.actor_user_id) }));
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "friends", limit: data.limit },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل الأصدقاء");
+    return result?.friends ?? [];
   });
 
-export const adminListAuditLogs = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminListFriendRequests = createClientFn({ method: "GET" })
+  .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "friend_requests", limit: data.limit },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل طلبات الصداقة");
+    return result?.requests ?? [];
+  });
+
+
+export const adminDeleteFriendship = async ({ data }: { data: { user1_id: string; user2_id: string } }) => {
+  const input = z.object({ user1_id: z.string().uuid(), user2_id: z.string().uuid() }).parse(data);
+  const { data: result, error } = await supabase.functions.invoke("admin-users", {
+    body: { action: "delete_friendship", ...input },
+  });
+  if (error || result?.error) throw new Error("فشل حذف الصداقة");
+  return { ok: true };
+};
+
+
+export const adminDeleteFriendRequest = async ({ data }: { data: { request_id: string } }) => {
+  const input = z.object({ request_id: z.string().uuid() }).parse(data);
+  const { data: result, error } = await supabase.functions.invoke("admin-users", {
+    body: { action: "delete_friend_request", ...input },
+  });
+  if (error || result?.error) throw new Error("فشل حذف طلب الصداقة");
+  return { ok: true };
+};
+
+
+export const adminListMessages = createClientFn({ method: "GET" })
   .inputValidator((d) =>
-    z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d),
+    z.object({
+      chat_id: z.string().uuid().optional(),
+      limit: z.number().int().min(1).max(200).default(100),
+    }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireAdmin(context, "audit.read");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: logs, error } = await (supabaseAdmin as any)
-      .from("audit_logs")
-      .select("*, admin:profiles!audit_logs_user_id_fkey(full_name, phone)")
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
-    if (error) throw new Error("فشل تحميل السجل");
-    return logs ?? [];
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "messages", ...data },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل الرسائل");
+    return result?.messages ?? [];
   });
 
-export const adminGetDashboardStats = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminDeleteMessage = createClientFn({ method: "POST" })
+  .inputValidator((d) => z.object({ message_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "delete_message", ...data },
+    });
+    if (error || result?.error) throw new Error("فشل حذف الرسالة");
+    return { ok: true };
+  });
+
+
+export const adminListChats = createClientFn({ method: "GET" })
+  .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "chats", limit: data.limit },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل المحادثات");
+    return result?.chats ?? [];
+  });
+
+
+export const adminBroadcastNotification = async ({ data }: { data: {
+  target: "all" | "drivers" | "large_drivers" | "workers" | "customers" | "single";
+  title: string; body: string; user_id?: string;
+} }) => {
+  const input = z.object({
+    target: z.enum(["all", "drivers", "large_drivers", "workers", "customers", "single"]),
+    title: z.string().min(1).max(200),
+    body: z.string().min(1).max(2000),
+    user_id: z.string().uuid().optional(),
+  }).parse(data);
+  const { data: result, error } = await supabase.functions.invoke("admin-users", {
+    body: { action: "broadcast_notification", ...input },
+  });
+  if (error || result?.error) throw new Error("فشل إرسال الإشعار");
+  return { sent: result?.sent ?? 0 };
+};
+
+
+export const adminBroadcastGovernorateNotification = async ({ data }: { data: {
+  governorate_key: "baghdad" | "basra" | "nineveh" | "erbil" | "sulaymaniyah" | "duhok" | "kirkuk" | "najaf" | "karbala" | "babil" | "anbar" | "diyala" | "saladin" | "wasit" | "dhiqar" | "maysan" | "muthanna" | "qadisiyah";
+  title: string; body: string;
+} }) => {
+  const input = z.object({
+    governorate_key: governorateKeySchema,
+    title: z.string().trim().min(1).max(200),
+    body: z.string().trim().min(1).max(2000),
+  }).parse(data);
+  const { data: result, error } = await supabase.functions.invoke("admin-users", {
+    body: { action: "broadcast_governorate_notification", ...input },
+  });
+  if (error || result?.error) throw new Error("فشل إرسال الإشعار للمحافظة");
+  return { sent: Number(result?.sent ?? 0) };
+};
+
+
+export const adminListStaffActivity = createClientFn({ method: "GET" })
+  .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-governance", {
+      body: { action: "staff_activity", limit: data.limit },
+    });
+    if (error || result?.error) throw new Error("تعذر تحميل سجل نشاط الموظفين");
+    return result?.rows ?? [];
+  });
+
+
+export const adminListAuditLogs = createClientFn({ method: "GET" })
+  .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(100) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-governance", {
+      body: { action: "audit_logs", limit: data.limit },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل السجل");
+    return result?.logs ?? [];
+  });
+
+
+export const adminGetDashboardStats = createClientFn({ method: "GET" })
   .handler(async ({ context }) => {
-    await requireStaff(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [
-      usersRes,
-      driversRes,
-      workersRes,
-      activeDriversRes,
-      activeWorkersRes,
-      reqAllRes,
-      reqActiveRes,
-      reqDoneRes,
-      reqCancelledRes,
-      todayTxRes,
-      monthTxRes,
-      yearTxRes,
-    ] = await Promise.all([
-      (supabaseAdmin as any).from("profiles").select("id", { count: "exact", head: true }),
-      (supabaseAdmin as any).from("driver_profiles").select("id", { count: "exact", head: true }),
-      (supabaseAdmin as any).from("worker_profiles").select("id", { count: "exact", head: true }),
-      (supabaseAdmin as any)
-        .from("driver_profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("available", true),
-      (supabaseAdmin as any)
-        .from("worker_profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("available", true),
-      (supabaseAdmin as any).from("service_requests").select("id", { count: "exact", head: true }),
-      (supabaseAdmin as any)
-        .from("service_requests")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "searching", "accepted", "in_progress"]),
-      (supabaseAdmin as any)
-        .from("service_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "completed"),
-      (supabaseAdmin as any)
-        .from("service_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "cancelled"),
-      (supabaseAdmin as any)
-        .from("transactions")
-        .select("amount, type")
-        .gte("created_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
-      (supabaseAdmin as any)
-        .from("transactions")
-        .select("amount, type")
-        .gte(
-          "created_at",
-          new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
-        ),
-      (supabaseAdmin as any)
-        .from("transactions")
-        .select("amount, type")
-        .gte("created_at", new Date(new Date().getFullYear(), 0, 1).toISOString()),
-    ]);
-    function sumCredit(rows: any[]) {
-      return (rows ?? [])
-        .filter((r) => r.type === "commission")
-        .reduce((s, r) => s + Math.abs(Number(r.amount)), 0);
-    }
-    return {
-      totalUsers: usersRes.count ?? 0,
-      totalDrivers: driversRes.count ?? 0,
-      totalWorkers: workersRes.count ?? 0,
-      activeDrivers: activeDriversRes.count ?? 0,
-      activeWorkers: activeWorkersRes.count ?? 0,
-      totalRequests: reqAllRes.count ?? 0,
-      activeRequests: reqActiveRes.count ?? 0,
-      completedRequests: reqDoneRes.count ?? 0,
-      cancelledRequests: reqCancelledRes.count ?? 0,
-      dailyRevenue: sumCredit(todayTxRes.data),
-      monthlyRevenue: sumCredit(monthTxRes.data),
-      yearlyRevenue: sumCredit(yearTxRes.data),
-    };
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "dashboard_stats" },
+    });
+    if (error || result?.error) throw new Error("تعذر تحميل إحصائيات لوحة الإدارة");
+    return result;
   });
 
-export const adminGetLiveLocations = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminGetLiveLocations = createClientFn({ method: "GET" })
   .handler(async ({ context }) => {
-    await requireLiveOps(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: locations, error } = await (supabaseAdmin as any)
-      .from("live_locations")
-      .select("*, profile:profiles!live_locations_user_id_fkey(full_name, phone)")
-      .order("updated_at", { ascending: false })
-      .limit(500);
-    if (error) throw new Error("فشل تحميل المواقع");
-    return locations ?? [];
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "live_map" },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل المواقع");
+    return result?.locations ?? [];
   });
 
-export const adminGetLiveRequests = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminGetLiveRequests = createClientFn({ method: "GET" })
   .handler(async ({ context }) => {
-    await requireLiveOps(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: requests, error } = await (supabaseAdmin as any)
-      .from("service_requests")
-      .select(
-        "id, type, status, pickup_lat, pickup_lng, dest_lat, dest_lng, pickup_text, dest_text, created_at",
-      )
-      .in("status", ["pending", "searching", "accepted", "in_progress"])
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (error) throw new Error("فشل تحميل الطلبات");
-    return requests ?? [];
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "live_map" },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل الطلبات");
+    return result?.requests ?? [];
   });
 
-export const adminGetMonitoringData = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminGetMonitoringData = createClientFn({ method: "GET" })
   .handler(async ({ context }) => {
-    await requireStaff(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [users, drivers, workers, activeReq, pendingRep, blk, tck] = await Promise.all([
-      (supabaseAdmin as any).from("profiles").select("id", { count: "exact", head: true }),
-      (supabaseAdmin as any)
-        .from("driver_profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("available", true),
-      (supabaseAdmin as any)
-        .from("worker_profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("available", true),
-      (supabaseAdmin as any)
-        .from("service_requests")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "searching", "accepted", "in_progress"]),
-      (supabaseAdmin as any)
-        .from("user_reports")
-        .select("*")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(20),
-      (supabaseAdmin as any)
-        .from("user_blocks")
-        .select("*, profiles!user_blocks_user_id_fkey(full_name)")
-        .order("blocked_at", { ascending: false })
-        .limit(20),
-      (supabaseAdmin as any)
-        .from("support_tickets")
-        .select("*")
-        .eq("status", "open")
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
-    return {
-      stats: {
-        totalUsers: users.count ?? 0,
-        activeDrivers: drivers.count ?? 0,
-        activeWorkers: workers.count ?? 0,
-        activeRequests: activeReq.count ?? 0,
-      },
-      reports: (pendingRep.data ?? []) as any[],
-      blocks: (blk.data ?? []) as any[],
-      tickets: (tck.data ?? []) as any[],
-    };
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "monitoring" },
+    });
+    if (error || result?.error) throw new Error("فشل تحميل بيانات المراقبة");
+    return result;
   });
 
 
-const governorateKeySchema = z.enum([
-  "baghdad", "basra", "nineveh", "erbil", "sulaymaniyah", "duhok", "kirkuk",
-  "najaf", "karbala", "babil", "anbar", "diyala", "saladin", "wasit",
-  "dhiqar", "maysan", "muthanna", "qadisiyah",
-]);
-
-export const adminGetGovernorateUserStats = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+export const adminGetGovernorateUserStats = createClientFn({ method: "GET" })
   .inputValidator((d) => z.object({}).parse(d))
   .handler(async ({ context }) => {
-    await requireAdmin(context, "analytics.view");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await (supabaseAdmin as any).rpc("admin_governorate_user_stats");
-    if (error) throw new Error("تعذر تحميل إحصائيات المحافظات: " + error.message);
-    return data ?? [];
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "governorate_stats" },
+    });
+    if (error || result?.error) throw new Error("تعذر تحميل إحصائيات المحافظات");
+    return result?.rows ?? [];
   });
 
-export const adminGetCustomerActivityStats = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+
+export const adminGetCustomerActivityStats = createClientFn({ method: "GET" })
   .inputValidator((d) => z.object({
     limit: z.number().int().min(1).max(500).default(200),
     offset: z.number().int().min(0).default(0),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context, "analytics.view");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: report, error } = await (supabaseAdmin as any).rpc("admin_customer_activity_stats", {
-      p_limit: data.limit,
-      p_offset: data.offset,
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "customer_activity_stats", ...data },
     });
-    if (error) throw new Error("تعذر تحميل إحصائيات الزبائن: " + error.message);
-    return report ?? {};
+    if (error || result?.error) throw new Error("تعذر تحميل إحصائيات الزبائن");
+    return result?.report ?? {};
   });
 
-export const adminUpdateUserProfile = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+
+export const adminUpdateUserProfile = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     user_id: z.string().uuid(),
     full_name: z.string().trim().min(2).max(100),
@@ -1320,48 +691,15 @@ export const adminUpdateUserProfile = createServerFn({ method: "POST" })
     avatar_mime: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: existingProfile, error: existingProfileError } = await (supabaseAdmin as any)
-      .from("profiles").select("governorate_key").eq("id", data.user_id).maybeSingle();
-    if (existingProfileError || !existingProfile) throw new Error("المستخدم غير موجود");
-    const oldGovernorate = existingProfile.governorate_key ?? null;
-    await requireAdminPermission(context, "users.profile.edit", oldGovernorate ? "governorate" : "global", oldGovernorate);
-    if (data.governorate_key !== oldGovernorate) {
-      const newGovernorate = data.governorate_key ?? null;
-      await requireAdminPermission(context, "users.profile.edit", newGovernorate ? "governorate" : "global", newGovernorate);
-    }
-    const updates: Record<string, unknown> = {
-      full_name: data.full_name,
-      governorate_key: data.governorate_key,
-      updated_at: new Date().toISOString(),
-    };
-    if (data.avatar_base64) {
-      if (!data.avatar_mime) throw new Error("نوع الصورة غير صالح");
-      const extension = data.avatar_mime === "image/png" ? "png" : data.avatar_mime === "image/webp" ? "webp" : "jpg";
-      const bytes = Uint8Array.from(atob(data.avatar_base64), (char) => char.charCodeAt(0));
-      const path = `${data.user_id}/admin-${Date.now()}.${extension}`;
-      const { error: uploadError } = await supabaseAdmin.storage.from("avatars").upload(path, bytes, {
-        contentType: data.avatar_mime,
-        cacheControl: "3600",
-        upsert: false,
-      });
-      if (uploadError) throw new Error("فشل رفع الصورة: " + uploadError.message);
-      const { data: publicUrl } = supabaseAdmin.storage.from("avatars").getPublicUrl(path);
-      updates.avatar_url = publicUrl.publicUrl;
-    }
-    const { data: profile, error } = await (supabaseAdmin as any)
-      .from("profiles").update(updates)
-      .eq("id", data.user_id)
-      .select("id,full_name,avatar_url,governorate_key")
-      .single();
-    if (error) throw new Error("فشل تحديث بيانات المستخدم: " + error.message);
-    return profile;
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "update_profile", ...data },
+    });
+    if (error || result?.error) throw new Error("فشل تحديث بيانات المستخدم");
+    return result?.profile ?? null;
   });
 
 
-// Central governance RPCs. Authorization and scope checks are enforced in PostgreSQL.
-export const adminGovernanceListStaff = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceListStaff = createClientFn({ method: "GET" })
   .inputValidator((d) => z.object({}).parse(d))
   .handler(async ({ context }) => {
     const { data, error } = await (context.supabase as any).rpc("admin_list_managed_staff");
@@ -1369,8 +707,7 @@ export const adminGovernanceListStaff = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
-export const adminGovernanceAssignStaff = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceAssignStaff = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     target_user_id: z.string().uuid(),
     rank: z.enum(["general_manager", "department_manager", "supervisor", "employee"]),
@@ -1389,8 +726,7 @@ export const adminGovernanceAssignStaff = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminGovernanceChangeRank = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceChangeRank = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     target_user_id: z.string().uuid(),
     rank: z.enum(["general_manager", "department_manager", "supervisor", "employee"]),
@@ -1406,8 +742,7 @@ export const adminGovernanceChangeRank = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminGovernanceDeactivateStaff = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceDeactivateStaff = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     target_user_id: z.string().uuid(), reason: z.string().min(3).max(500),
   }).parse(d))
@@ -1419,8 +754,7 @@ export const adminGovernanceDeactivateStaff = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminGovernanceGrantPricingPermissions = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceGrantPricingPermissions = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     target_user_id: z.string().uuid(),
     permission_keys: z.array(z.enum(["pricing.taxi.edit", "pricing.peak.edit"])).min(1).max(2),
@@ -1449,8 +783,7 @@ export const adminGovernanceGrantPricingPermissions = createServerFn({ method: "
     return { ids: ids ?? [] };
   });
 
-export const adminGovernanceGrantPermission = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceGrantPermission = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     target_user_id: z.string().uuid(), permission_key: z.string().min(3).max(100),
     scope_type: z.enum(["global", "governorate"]), scope_governorate: z.string().max(40).nullable().optional(),
@@ -1466,8 +799,7 @@ export const adminGovernanceGrantPermission = createServerFn({ method: "POST" })
     return { id };
   });
 
-export const adminGovernanceCreateDelegation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceCreateDelegation = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     delegate_id: z.string().uuid(), permission_key: z.string().min(3).max(100),
     scope_type: z.enum(["global", "governorate"]), scope_governorate: z.string().max(40).nullable().optional(),
@@ -1483,8 +815,7 @@ export const adminGovernanceCreateDelegation = createServerFn({ method: "POST" }
     return { id };
   });
 
-export const adminGovernanceRevokePermission = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceRevokePermission = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({ grant_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await (context.supabase as any).rpc("admin_revoke_staff_permission", { p_grant_id: data.grant_id });
@@ -1492,8 +823,7 @@ export const adminGovernanceRevokePermission = createServerFn({ method: "POST" }
     return { ok: true };
   });
 
-export const adminGovernanceRevokeDelegation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceRevokeDelegation = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({ delegation_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await (context.supabase as any).rpc("admin_revoke_delegation", { p_delegation_id: data.delegation_id });
@@ -1501,8 +831,7 @@ export const adminGovernanceRevokeDelegation = createServerFn({ method: "POST" }
     return { ok: true };
   });
 
-export const adminGovernanceReviewApproval = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const adminGovernanceReviewApproval = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     request_id: z.string().uuid(), decision: z.enum(["approved", "rejected"]), note: z.string().max(500).optional(),
   }).parse(d))

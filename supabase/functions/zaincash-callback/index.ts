@@ -21,7 +21,7 @@ async function getToken(base:string,id:string,secret:string){
 }
 Deno.serve(async(req:Request)=>{
  if(req.method!=="GET") return new Response("Method not allowed",{status:405});
- const fallback=Deno.env.get("MAMNOON_PUBLIC_URL")||"https://existing-project-onrampadminbootstrap.lovable.app";
+ const fallback="https://mamnoon-theta.vercel.app";
  try{
   const u=new URL(req.url); const signedToken=u.searchParams.get("token"); let finalStatus="pending";
   if(!signedToken) throw new Error("missing_token");

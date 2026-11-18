@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
 import { Button } from "@/components/ui/button";
 import { signupSchema } from "@/lib/signup-validation";
+import { checkSuperAdminExists } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -157,8 +158,20 @@ function AuthPage() {
 
         if (isSuper || authenticatedEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
           await refresh();
-          toast.success("أهلاً بعودتك. أكمل التحقق من إعداد المدير الأعلى.");
-          navigate({ to: "/admin/bootstrap" });
+          // Existing super admins go to the protected admin area; bootstrap is
+          // only for the one-time first-admin setup when no super admin exists.
+          try {
+            const status = await checkSuperAdminExists();
+            if (status.exists) {
+              toast.success("أهلاً بعودتك");
+              navigate({ to: "/admin" });
+            } else {
+              toast.success("أكمل إعداد المدير الأعلى برمز التهيئة الآمن.");
+              navigate({ to: "/admin/bootstrap" });
+            }
+          } catch {
+            toast.error("تعذر التحقق من حالة المدير الأعلى. لم يتم فتح التهيئة حفاظاً على الأمان.");
+          }
           return;
         }
 

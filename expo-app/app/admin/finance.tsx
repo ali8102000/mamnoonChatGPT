@@ -8,6 +8,7 @@ import { palette, radius, space } from "@/styles/theme";
 type UserRow = { id: string; full_name: string | null; phone: string | null; email: string | null };
 type Coupon = { id: string; code: string; type: string; value: number; max_uses: number; used_count?: number; active: boolean; expires_at?: string | null; min_amount?: number };
 type Tx = { id: string; user_id: string; amount: number; type: string; status: string; created_at: string; profiles?: { full_name?: string; phone?: string } };
+type SubsidyReport = { payable_count?: number; payable_total?: number; pending_count?: number; pending_total?: number; void_count?: number };
 type Tab = "wallet" | "coupons" | "transactions";
 
 export default function AdminFinanceScreen() {
@@ -29,6 +30,10 @@ export default function AdminFinanceScreen() {
   const [kind, setKind] = useState<"credit" | "debit">("credit");
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [transactions, setTransactions] = useState<Tx[]>([]);
+  const [subsidyReport, setSubsidyReport] = useState<SubsidyReport | null>(null);
+  const [audienceCount, setAudienceCount] = useState<number | null>(null);
+  const [metricsError, setMetricsError] = useState("");
+  const [metricsLoading, setMetricsLoading] = useState(false);
   const [code, setCode] = useState("");
   const [couponType, setCouponType] = useState<"percentage" | "fixed">("percentage");
   const [value, setValue] = useState("");
@@ -43,6 +48,26 @@ export default function AdminFinanceScreen() {
     if (data?.error) throw new Error(data.error);
     return data;
   }, []);
+
+  const loadCouponMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    setMetricsError("");
+    const [reportResult, audienceResult] = await Promise.allSettled([
+      invoke({ action: "subsidy_report" }),
+      invoke({ action: "audience_count", target: "customers" }),
+    ]);
+    if (reportResult.status === "fulfilled") {
+      setSubsidyReport(reportResult.value.report ?? null);
+    } else {
+      setMetricsError("تعذر تحميل الحساب المالي لخصومات الكوبونات.");
+    }
+    if (audienceResult.status === "fulfilled") {
+      setAudienceCount(Number(audienceResult.value.count ?? 0));
+    } else {
+      setMetricsError((current) => current ? current + " تعذر حساب عدد الزبائن المؤهلين." : "تعذر حساب عدد الزبائن المؤهلين.");
+    }
+    setMetricsLoading(false);
+  }, [invoke]);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -71,10 +96,11 @@ export default function AdminFinanceScreen() {
       const data = await invoke({ action: "list" });
       setCoupons(data.coupons ?? []);
       setTransactions(data.transactions ?? []);
+      void loadCouponMetrics();
     } catch (e: any) {
       setError(String(e?.message || "تعذر تحميل البيانات"));
     } finally { setLoading(false); }
-  }, [user?.id, invoke]);
+  }, [user?.id, invoke, loadCouponMetrics]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -150,6 +176,33 @@ export default function AdminFinanceScreen() {
       </>}
       {tab === "coupons" && <>
         <Text style={s.title}>إدارة الكوبونات</Text>
+        <View style={s.card}>
+          <View style={s.row}>
+            <Text style={[s.cardTitle, { flex: 1 }]}>الحساب المالي لخصومات الكوبونات</Text>
+            <TouchableOpacity disabled={metricsLoading} onPress={() => void loadCouponMetrics()} style={s.small}>
+              <Text style={s.smallText}>{metricsLoading ? "جاري التحديث..." : "تحديث"}</Text>
+            </TouchableOpacity>
+          </View>
+          {!!metricsError && <Text style={s.errorText}>{metricsError}</Text>}
+          {subsidyReport ? <>
+            <View style={s.row}>
+              <View style={[s.choice, { minWidth: "45%" }]}>
+                <Text style={s.muted}>مبالغ مستحقة على المنصة</Text>
+                <Text style={s.cardTitle}>{Number(subsidyReport.payable_total ?? 0).toLocaleString("ar-IQ")} د.ع</Text>
+                <Text style={s.muted}>{Number(subsidyReport.payable_count ?? 0).toLocaleString("ar-IQ")} طلب مكتمل</Text>
+              </View>
+              <View style={[s.choice, { minWidth: "45%" }]}>
+                <Text style={s.muted}>خصومات بطلبات قيد التنفيذ</Text>
+                <Text style={s.cardTitle}>{Number(subsidyReport.pending_total ?? 0).toLocaleString("ar-IQ")} د.ع</Text>
+                <Text style={s.muted}>{Number(subsidyReport.pending_count ?? 0).toLocaleString("ar-IQ")} طلب</Text>
+              </View>
+            </View>
+            <Text style={s.muted}>خصومات ملغاة: {Number(subsidyReport.void_count ?? 0).toLocaleString("ar-IQ")}</Text>
+            <Text style={s.muted}>المبالغ المستحقة سجل محاسبي للمطابقة والتسوية، وليست إثباتاً على تحويل نقدي.</Text>
+          </> : metricsLoading ? <Text style={s.muted}>جارٍ تحميل الحساب المالي...</Text> : null}
+          <Text style={s.muted}>عدد الزبائن المؤهلين للتوزيع: {audienceCount === null ? "—" : audienceCount.toLocaleString("ar-IQ")}</Text>
+          <Text style={s.muted}>الكوبون مخصص لطلبات التكسي الاعتيادي فقط، ولا يشمل الفنيين أو مركبات الكيا الكبيرة.</Text>
+        </View>
         {canManageCoupons && <View style={s.card}>
           <Text style={s.cardTitle}>إنشاء كوبون</Text>
           <TextInput value={code} onChangeText={setCode} autoCapitalize="characters" placeholder="رمز الكوبون" placeholderTextColor={palette.muted} style={s.input}/>

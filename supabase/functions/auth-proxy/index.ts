@@ -1,5 +1,3 @@
-// Snapshot synchronized from active Supabase auth-proxy v4 on 2026-11-18.
-// Repository source only: this commit does not deploy or modify the hosted function.
 import { withSupabase } from "npm:@supabase/server@1.6.1";
 
 const corsHeaders = {

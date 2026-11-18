@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
     if(userError || !user) return json({error:"unauthorized"},401);
     const admin=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
     const {data:gatewaySettings}=await admin.from("subscription_settings").select("payment_gateway_enabled,subscription_enabled").eq("id",1).maybeSingle();
-    if(Deno.env.get("ZAINCASH_ENABLED")!=="true") return json({error:"payments_temporarily_disabled"},503);
+    if(!gatewaySettings?.payment_gateway_enabled) return json({error:"payments_temporarily_disabled"},503);
     const body=await req.json().catch(()=>null);
     if(!body || !["subscription","service_request"].includes(body.purpose)) return json({error:"invalid_request"},400);
     let amount:number, planId:string|null=null, requestId:string|null=null;
@@ -73,7 +73,7 @@ Deno.serve(async (req: Request) => {
       const initResponse=await fetch(baseUrl+"/api/v2/payment-gateway/transaction/init",{
         method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
         body:JSON.stringify({
-          language:"ar",externalReferenceId:payment.external_reference_id,orderId:payment.id,
+          language:"Ar",externalReferenceId:payment.external_reference_id,orderId:payment.id,
           serviceType:body.purpose==="subscription"?"MamnoonSubscription":"MamnoonService",
           amount:{value:String(amount),currency:"IQD"},
           redirectUrls:{successUrl:success,failureUrl:failure}

@@ -12,7 +12,6 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/lib/auth-context";
 import { DriverOfferPopup } from "@/components/driver-offer-popup";
 import { GlobalBackButton } from "@/components/back-button";
@@ -44,15 +43,14 @@ function ErrorComponent({ error }: ErrorComponentProps) {
   const rawMessage = String((error as any)?.message ?? error ?? "Unknown error");
   // Keep the on-screen diagnostic useful without exposing credentials or personal data.
   const diagnostic = rawMessage
-    .replace(/Bearer\\s+[A-Za-z0-9._~-]+/gi, "Bearer [hidden]")
+    .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, "Bearer [hidden]")
     .replace(/(?:sb_(?:publishable|secret)_)[A-Za-z0-9_-]+/gi, "[hidden key]")
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, "[hidden email]")
-    .replace(/\\+?\\d[\\d\\s()-]{7,}\\d/g, "[hidden number]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[hidden email]")
+    .replace(/\+?\d[\d\s()-]{7,}\d/g, "[hidden number]")
     .slice(0, 240);
   const errorName = String((error as any)?.name ?? "Error").slice(0, 60);
 
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component", errorName, diagnostic });
     // Retry stale deployment chunks once; storage can be disabled in private browsers.
     if (/dynamically imported module|Importing a module script failed|Loading chunk|Failed to fetch/i.test(rawMessage)) {
       try {

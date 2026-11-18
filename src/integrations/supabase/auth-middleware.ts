@@ -60,8 +60,8 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' })
     return next({ headers: { Authorization: `Bearer ${session.access_token}` } });
   })
   .server(async ({ next }) => {
-    // Lovable reserves SUPABASE_* names; prefer Mamnoon-specific secrets,
-    // then the public Vite config already used by the browser client.
+    // Prefer explicit Mamnoon server variables, then standard Supabase names.
+    // Public Vite variables are a last-resort URL/key fallback only.
     const SUPABASE_URL =
       process.env['MAMNOON_SUPABASE_URL'] ||
       process.env['SUPABASE_URL'] ||
@@ -76,7 +76,7 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' })
         ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
         ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
       ];
-      const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
+      const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Configure Supabase URL and publishable key in the deployment environment.`;
       console.error(`[Supabase] ${message}`);
       throw new Error(message);
     }

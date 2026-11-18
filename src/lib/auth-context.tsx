@@ -38,6 +38,7 @@ interface AuthCtx {
   activeRole: AppRole | null;
   setActiveRole: (role: AppRole) => void;
   isSuperAdmin: boolean;
+  isAdmin: boolean;
   banStatus: BanStatus | null;
   loading: boolean;
   refresh: () => Promise<void>;
@@ -87,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const isSuperAdmin = roles.includes("super_admin");
+  const isAdmin = roles.includes("admin") || isSuperAdmin;
 
   const loadProfile = useCallback(async (uid: string) => {
     try {
@@ -113,8 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(prof ?? null);
       setRoles(mappedRoles);
 
-      // Check Ban (Super Admin cannot be banned)
-      if (!mappedRoles.includes("super_admin") && blockRow) {
+      // Platform admins are exempt from user-level account blocks.
+      if (!mappedRoles.includes("admin") && !mappedRoles.includes("super_admin") && blockRow) {
         const isExpired = blockRow.expires_at && new Date(blockRow.expires_at) < new Date();
         if (!isExpired) {
           setBanStatus({
@@ -246,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         activeRole,
         setActiveRole,
         isSuperAdmin,
+        isAdmin,
         banStatus,
         loading,
         refresh,

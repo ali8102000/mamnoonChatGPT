@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ShieldCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GOV_STORAGE_KEY } from "@/lib/governorates";
+import { useAuth } from "@/lib/auth-context";
 
 type Row = {
   governorate_key: string; services_enabled: boolean; message_enabled: boolean;
@@ -13,10 +14,13 @@ type Row = {
 };
 
 export function RegionalServiceBanner() {
+  const { isAdmin, loading } = useAuth();
   const [row, setRow] = useState<Row | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   useEffect(() => {
+    if (loading) return;
+    if (isAdmin) { setRow(null); return; }
     let active = true;
     const load = async () => {
       let key = "";
@@ -66,8 +70,8 @@ export function RegionalServiceBanner() {
     channel.subscribe();
     const timer = setInterval(() => void load(), 30000);
     return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
-  }, []);
-  if (!mounted || !row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled)) return null;
+  }, [isAdmin, loading]);
+  if (loading || isAdmin || !mounted || !row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled)) return null;
   const message = row.message_text || (row.services_enabled ? "" : "الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون.");
   if (!message) return null;
   const width = Math.max(60, Math.min(100, row.message_width_percent ?? 92));

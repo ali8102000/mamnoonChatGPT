@@ -3,9 +3,9 @@ import { AlertOctagon, Mail, LogOut, Clock, ShieldAlert } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export function BanOverlay() {
-  const { banStatus, signOut, session } = useAuth();
+  const { banStatus, signOut, session, isAdmin } = useAuth();
 
-  if (!session || !banStatus?.isBanned) return null;
+  if (isAdmin || !session || !banStatus?.isBanned) return null;
 
   const expiresText = banStatus.expiresAt
     ? `حظر مؤقت ينتهي في: ${new Date(banStatus.expiresAt).toLocaleString("ar-IQ", {

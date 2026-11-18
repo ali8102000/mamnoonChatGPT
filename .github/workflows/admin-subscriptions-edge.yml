@@ -1,4 +1,4 @@
-name: Mamnoon admin Edge Function checks
+name: Mamnoon Supabase Edge Function checks
 
 on:
   pull_request:
@@ -7,14 +7,28 @@ on:
       - "supabase/functions/admin-users/**"
       - "supabase/functions/admin-finance/**"
       - "supabase/functions/admin-governance/**"
+      - "supabase/functions/maps-proxy/**"
+      - "supabase/functions/increment-request-count/**"
+      - "supabase/functions/bootstrap-admin/**"
+      - "supabase/functions/friends-proxy/**"
+      - "supabase/functions/auth-proxy/**"
+      - "supabase/functions/reputation-proxy/**"
+      - "supabase/functions/import-assist/**"
       - ".github/workflows/admin-subscriptions-edge.yml"
   push:
-    branches:
-      - main
     paths:
       - "supabase/functions/admin-subscriptions/**"
       - "supabase/functions/admin-users/**"
       - "supabase/functions/admin-finance/**"
+      - "supabase/functions/admin-governance/**"
+      - "supabase/functions/maps-proxy/**"
+      - "supabase/functions/increment-request-count/**"
+      - "supabase/functions/bootstrap-admin/**"
+      - "supabase/functions/friends-proxy/**"
+      - "supabase/functions/auth-proxy/**"
+      - "supabase/functions/reputation-proxy/**"
+      - "supabase/functions/import-assist/**"
+      - ".github/workflows/admin-subscriptions-edge.yml"
 
 permissions:
   contents: read
@@ -27,9 +41,13 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Type-check authenticated admin Edge Functions
+      - name: Type-check Supabase Edge Functions in isolated Deno workspace
         run: |
-          deno check supabase/functions/admin-subscriptions/index.ts
-          deno check supabase/functions/admin-users/index.ts
-          deno check supabase/functions/admin-finance/index.ts
-          deno check supabase/functions/admin-governance/index.ts
+          # Keep Deno outside the web app's package.json dependency tree.
+          mkdir -p /tmp/mamnoon-supabase
+          cp -R supabase/. /tmp/mamnoon-supabase/
+          cd /tmp/mamnoon-supabase
+          for file in functions/*/index.ts; do
+            echo "Checking $file"
+            deno check --node-modules-dir=none "$file"
+          done

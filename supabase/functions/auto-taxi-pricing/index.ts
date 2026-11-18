@@ -13,38 +13,75 @@ function validPoint(p: any): p is Point {
   return p && Number.isFinite(p.lat) && Number.isFinite(p.lng) &&
     p.lat >= -90 && p.lat <= 90 && p.lng >= -180 && p.lng <= 180;
 }
-function haversine(a: Point,b: Point) {
-  const rad=(v:number)=>v*Math.PI/180, dLat=rad(b.lat-a.lat), dLng=rad(b.lng-a.lng);
-  const h=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;
-  return 6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
-}
-async function route(from: Point,to: Point) {
-  const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
-  if (key) {
-    try {
-      const res=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
-        method:"POST",
-        headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
-          "X-Goog-FieldMask":"routes.distanceMeters,routes.duration"},
-        body:JSON.stringify({
-          origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
-          destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
-          travelMode:"DRIVE",routingPreference:"TRAFFIC_AWARE",
-          computeAlternativeRoutes:false,languageCode:"ar",units:"METRIC"
-        }),
-        signal:AbortSignal.timeout(9000)
-      });
-      if (res.ok) {
-        const data=await res.json(), r=data.routes?.[0];
-        const distanceKm=Number(r?.distanceMeters)/1000;
-        const durationMin=Number.parseFloat(String(r?.duration||"").replace("s",""))/60;
-        if (Number.isFinite(distanceKm)&&distanceKm>0&&Number.isFinite(durationMin)&&durationMin>=0)
-          return {distanceKm,durationMin,routeSource:"google_routes"};
-      }
-    } catch (e) { console.warn("[auto-taxi-pricing] Google Routes unavailable; using Haversine fallback"); }
+async function route(from:Point,to:Point,admin:any) {
+  const osrmBase=Deno.env.get("OSRM_ROUTING_URL")?.trim().replace(/\/+$/,"")||"";
+  const cacheScope=osrmBase?new URL(osrmBase).host:"google-routes";
+  const cacheInput=["mamnoon-driving-route-v1",cacheScope,from.lat.toFixed(6),from.lng.toFixed(6),to.lat.toFixed(6),to.lng.toFixed(6)].join("|");
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(cacheInput));
+  const routeKey=Array.from(new Uint8Array(digest)).map((b)=>b.toString(16).padStart(2,"0")).join("");
+  const now=new Date().toISOString();
+  const {data:cached,error:cacheReadError}=await admin.from("route_distance_cache")
+    .select("distance_meters,duration_seconds,route_source")
+    .eq("route_key",routeKey).gt("expires_at",now).maybeSingle();
+  if(!cacheReadError&&cached&&Number(cached.distance_meters)>0&&Number(cached.duration_seconds)>0) {
+    return {distanceKm:Number(cached.distance_meters)/1000,durationMin:Number(cached.duration_seconds)/60,
+      routeSource:String(cached.route_source),cacheHit:true};
   }
-  const distanceKm=Math.max(0.1,haversine(from,to)*1.35);
-  return {distanceKm:Number(distanceKm.toFixed(3)),durationMin:Number((distanceKm/32*60+3).toFixed(1)),routeSource:"haversine_fallback"};
+  if(cacheReadError) console.warn("[route] cache read unavailable",cacheReadError.code||"unknown");
+
+  let routed:{distanceKm:number;durationMin:number;routeSource:string}|null=null;
+  if(osrmBase) {
+    try {
+      const url=new URL(osrmBase+"/route/v1/driving/"+from.lng+","+from.lat+";"+to.lng+","+to.lat);
+      url.searchParams.set("overview","false");
+      url.searchParams.set("alternatives","true");
+      url.searchParams.set("steps","false");
+      const response=await fetch(url,{headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000)});
+      if(!response.ok) throw new Error("OSRM HTTP "+response.status);
+      const result=await response.json() as any;
+      const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distance)&&r.distance>0&&Number.isFinite(r.duration)&&r.duration>0);
+      if(result.code!=="Ok"||!routes.length) throw new Error("OSRM returned no valid driving route");
+      const selected=routes.reduce((a:any,b:any)=>b.distance<a.distance?b:a);
+      routed={distanceKm:selected.distance/1000,durationMin:selected.duration/60,routeSource:"osrm"};
+    } catch(error) {
+      console.warn("[route] configured OSRM unavailable; trying Google Routes",error instanceof Error?error.message:"unknown");
+    }
+  }
+
+  if(!routed) {
+    const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
+    if(!key) throw new Error("تعذّر حساب مسافة الطريق الفعلية حالياً. أعد المحاولة لاحقاً.");
+    const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
+        "X-Goog-FieldMask":"routes.distanceMeters,routes.duration"},
+      body:JSON.stringify({
+        origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
+        destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
+        travelMode:"DRIVE",routingPreference:"TRAFFIC_UNAWARE",computeAlternativeRoutes:true,
+        languageCode:"ar",units:"METRIC"
+      }),
+      signal:AbortSignal.timeout(9000)
+    });
+    if(!response.ok) throw new Error("تعذّر حساب مسافة الطريق الفعلية من خدمة الخرائط. أعد المحاولة.");
+    const result=await response.json() as any;
+    const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distanceMeters)&&r.distanceMeters>0&&
+      typeof r.duration==="string"&&/^\d+(\.\d+)?s$/.test(r.duration)&&parseFloat(r.duration)>0);
+    if(!routes.length) throw new Error("لم يتم العثور على طريق سيارة صالح بين النقطتين.");
+    const selected=routes.reduce((a:any,b:any)=>b.distanceMeters<a.distanceMeters?b:a);
+    routed={distanceKm:selected.distanceMeters/1000,durationMin:parseFloat(selected.duration)/60,routeSource:"google_routes"};
+  }
+
+  if(!Number.isFinite(routed.distanceKm)||routed.distanceKm<=0||
+     !Number.isFinite(routed.durationMin)||routed.durationMin<=0) {
+    throw new Error("خدمة الطرق أعادت مسافة أو مدة غير صالحة. أعد المحاولة.");
+  }
+  const {error:cacheWriteError}=await admin.from("route_distance_cache").upsert({
+    route_key:routeKey,distance_meters:routed.distanceKm*1000,duration_seconds:routed.durationMin*60,
+    route_source:routed.routeSource,expires_at:new Date(Date.now()+24*60*60*1000).toISOString()
+  },{onConflict:"route_key"});
+  if(cacheWriteError) console.warn("[route] cache write unavailable",cacheWriteError.code||"unknown");
+  return {...routed,cacheHit:false};
 }
 
 const GOVERNORATE_CENTROIDS: Array<{ key: string; lat: number; lng: number }> = [
@@ -138,7 +175,6 @@ Deno.serve(async (req) => {
   const tripType=["one_way","round_trip","second_trip","stop"].includes(body.tripType)?body.tripType:"one_way";
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
-  const routed=await route(body.from,body.to);
   const governorateKeys = new Set(GOVERNORATE_CENTROIDS.map((item) => item.key));
   const suppliedPickupKey = typeof body.pickupGovernorateKey === "string"
     ? body.pickupGovernorateKey
@@ -158,6 +194,14 @@ Deno.serve(async (req) => {
   }
   if (typeof body.isIntercity === "boolean" && body.isIntercity !== isIntercity) {
     return json({error:"المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد."},400);
+  }
+  let routed;
+  try {
+    routed=await route(body.from,body.to,admin);
+  } catch(error) {
+    const message=error instanceof Error?error.message:"تعذّر حساب مسافة الطريق الفعلية. أعد المحاولة لاحقاً.";
+    console.error("[auto-taxi-pricing] driving route unavailable",message);
+    return json({error:message,code:"DRIVING_ROUTE_UNAVAILABLE"},503);
   }
   // Read through the authenticated customer session: pricing_settings grants
   // SELECT to authenticated only. Keep service-role access for request creation.
