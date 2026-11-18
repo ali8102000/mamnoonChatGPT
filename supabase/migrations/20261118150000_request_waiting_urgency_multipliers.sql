@@ -12,7 +12,7 @@ CREATE OR REPLACE FUNCTION public.guard_customer_request_update()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path = ''
 AS $function$
 BEGIN
   IF current_setting('mamnoon.allow_request_urgency', true) = 'true'
@@ -103,7 +103,7 @@ CREATE OR REPLACE FUNCTION public.prevent_request_coupon_tampering()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path = ''
 AS $function$
 BEGIN
   IF NEW.coupon_code IS DISTINCT FROM OLD.coupon_code
@@ -234,3 +234,38 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.apply_request_urgency(uuid,smallint) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.apply_request_urgency(uuid,smallint) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.enqueue_notification_push()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+BEGIN
+  IF NEW.type = 'request_offer' THEN
+    RETURN NEW;
+  END IF;
+
+  INSERT INTO public.push_delivery_outbox(notification_id,request_id,provider_id,expo_push_token,payload)
+  SELECT NEW.id,
+    CASE WHEN (NEW.data->>'request_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN (NEW.data->>'request_id')::uuid ELSE NULL END,
+    NEW.user_id,t.expo_push_token,
+    jsonb_build_object(
+      'to',t.expo_push_token,
+      'title',NEW.title,
+      'body',NEW.body,
+      'sound',CASE WHEN coalesce(t.sound_enabled,true) THEN 'default' ELSE NULL END,
+      'priority',CASE WHEN NEW.type IN ('urgent_request','request_accepted') OR NEW.data->>'plan'='gold' THEN 'high' ELSE 'normal' END,
+      'channelId',CASE WHEN coalesce(t.sound_enabled,true) THEN 'default' ELSE 'silent' END,
+      'data',jsonb_build_object('type',NEW.type,'notification_id',NEW.id,'request_id',NEW.data->>'request_id','url',COALESCE(NEW.link,'/profile'))
+    )
+  FROM public.user_push_tokens t
+  WHERE t.user_id=NEW.user_id
+    AND (t.expo_push_token LIKE 'ExpoPushToken[%' OR t.expo_push_token LIKE 'ExponentPushToken[%')
+  ON CONFLICT (notification_id,expo_push_token) WHERE notification_id IS NOT NULL DO NOTHING;
+
+  PERFORM public.process_mamnoon_push_outbox();
+  RETURN NEW;
+END;
+$function$;
