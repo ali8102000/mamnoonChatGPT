@@ -540,7 +540,7 @@ function NewRequest() {
       let error: any;
       if (type === "taxi" && vehicle !== "large") {
         const { data: secureTaxi, error: secureTaxiError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
+          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled: false, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
         });
         if (secureTaxiError) throw secureTaxiError;
         if (!secureTaxi?.requestId) throw new Error(secureTaxi?.error || "تعذّر إنشاء طلب التاكسي.");
@@ -1038,17 +1038,6 @@ function NewRequest() {
                     </button>
                   );
                 })}
-              </div>
-            )}
-            {vehicle !== "large" && (
-              <div className="rounded-2xl border border-amber-300/50 bg-card p-3 space-y-2">
-                <label className={`flex items-center justify-between gap-3 ${urgencyAllowed ? "cursor-pointer" : "opacity-60"}`}>
-                  <span>
-                    <span className="block text-sm font-black text-foreground">⚡ تفعيل الاستعجال</span>
-                    <span className="block text-xs text-muted-foreground">{urgencyAllowed ? "زيادة إضافية على سعر السيارة المحددة، حتى إذا الذروة مفعّلة" : "الاستعجال غير متاح حالياً حسب إعدادات الإدارة"}</span>
-                  </span>
-                  <input type="checkbox" checked={urgencyEnabled} disabled={!urgencyAllowed || routeKm === null} onChange={(e) => setUrgencyEnabled(e.target.checked)} className="h-5 w-5 accent-amber-500" />
-                </label>
               </div>
             )}
             {vehicle !== "large" && (
