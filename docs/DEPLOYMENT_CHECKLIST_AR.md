@@ -19,14 +19,12 @@
 
 ### Android / EAS Production
 
-المتغيرات المطلوبة والمتحقق منها في فحص الإنتاج:
+المتغيرات المطلوبة في EAS Production:
 
-- `EXPO_PUBLIC_SUPABASE_URL`
-- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`
 - `EAS_PROJECT_ID`
 
-تم التحقق آلياً من أن عنوان Supabase يشير إلى مشروع `enteiolvirenbhkyskgb` وأن المفتاح العام صالح للمشروع. لا تضع مفاتيح الخدمة السرية داخل تطبيق Android.
+عنوان Supabase ومفتاح النشر لا يُداران في EAS بعد الآن؛ يقرأهما تطبيق Android مباشرة من `config/public-backend.json` نفسه الذي يستخدمه الويب. أي قيم قديمة لـ`EXPO_PUBLIC_SUPABASE_URL` أو `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` في EAS يتم تجاهلها حتى لا يعود التطبيق إلى مشروع قديم. يفحص سكربت ما قبل البناء أن ملف الإعداد يشير إلى `enteiolvirenbhkyskgb` وأن المفتاح العام مقبول من المشروع. لا تضع مفاتيح الخدمة السرية داخل تطبيق Android.
 
 ### خادم الويب ووظائف Supabase
 
