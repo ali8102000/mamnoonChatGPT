@@ -120,7 +120,6 @@ type Section =
   | "coupons"
   | "wallet"
   | "stats"
-  | "governorateStats"
   | "map"
   | "notifications"
   | "regions"
@@ -142,7 +141,6 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
   { key: "stats", label: "الإحصائيات", icon: Activity, roles: ["super_admin", "admin", "finance"] },
-  { key: "governorateStats", label: "إحصائيات المستخدمين حسب المحافظة", icon: MapPin, roles: ["super_admin", "admin"] },
   {
     key: "users",
     label: "المستخدمون",
@@ -381,8 +379,7 @@ function AdminPage() {
               )}
             </>
           )}
-          {section === "stats" && <StatsSection />}
-          {section === "governorateStats" && <GovernorateUserStatsSection />}
+          {section === "stats" && <StatsSection canViewGovernorates={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "users" && <UsersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "providers" && <ProvidersSection />}
           {section === "requests" && <RequestsSection />}
@@ -603,84 +600,79 @@ function GovernorateUserStatsSection() {
   );
 }
 
-function StatsSection() {
+function StatsSection({ canViewGovernorates = false }: { canViewGovernorates?: boolean }) {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const getStats = adminGetDashboardStats;
-  useEffect(() => {
-    (async () => {
-      try {
-        setStats(await getStats());
-      } catch (e) {
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setStats(await getStats());
+    } catch (e: any) {
+      setError(e?.message || "تعذّر تحميل إحصائيات المنصة");
+    } finally {
+      setLoading(false);
+    }
   }, [getStats]);
-  if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
-  if (!stats) return <div className="text-sm text-muted-foreground">تعذّر تحميل البيانات</div>;
+  useEffect(() => { void load(); }, [load]);
+
   return (
-    <div>
-      <h2 className="text-xl font-black mb-4">الإحصائيات</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-        <StatCard icon={Users} label="إجمالي المستخدمين" value={stats.totalUsers} />
-        <StatCard icon={Car} label="إجمالي السائقين" value={stats.totalDrivers} />
-        <StatCard icon={Activity} label="إجمالي الفنيين" value={stats.totalWorkers} />
-        <StatCard
-          icon={Car}
-          label="سائقون عاملون"
-          value={stats.activeDrivers}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={Activity}
-          label="فنيون عاملون"
-          value={stats.activeWorkers}
-          accent="text-emerald-600"
-        />
-        <StatCard icon={ListChecks} label="إجمالي الطلبات" value={stats.totalRequests} />
-        <StatCard
-          icon={Activity}
-          label="طلبات نشطة"
-          value={stats.activeRequests}
-          accent="text-amber-500"
-        />
-        <StatCard
-          icon={ListChecks}
-          label="طلبات مكتملة"
-          value={stats.completedRequests}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={AlertCircle}
-          label="طلبات ملغاة"
-          value={stats.cancelledRequests}
-          accent="text-red-500"
-        />
+    <div dir="rtl" className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-black">الإحصائيات الشاملة</h2>
+          <p className="mt-1 text-xs text-muted-foreground">مركز واحد لمؤشرات المنصة والإيرادات وتوزيع الحسابات حسب المحافظة.</p>
+        </div>
+        <button onClick={() => void load()} disabled={loading} className="px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold disabled:opacity-50">
+          {loading ? "جارٍ التحديث..." : "تحديث الإحصائيات"}
+        </button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="glass rounded-2xl p-5">
-          <Wallet className="h-5 w-5 text-emerald-600 mb-2" />
-          <div className="text-2xl font-black text-emerald-600">
-            {stats.dailyRevenue?.toLocaleString() ?? 0} د.ع
-          </div>
-          <div className="text-xs text-muted-foreground font-bold">أرباح اليوم</div>
-        </div>
-        <div className="glass rounded-2xl p-5">
-          <Wallet className="h-5 w-5 text-amber-600 mb-2" />
-          <div className="text-2xl font-black text-amber-600">
-            {stats.monthlyRevenue?.toLocaleString() ?? 0} د.ع
-          </div>
-          <div className="text-xs text-muted-foreground font-bold">أرباح الشهر</div>
-        </div>
-        <div className="glass rounded-2xl p-5">
-          <Wallet className="h-5 w-5 text-primary mb-2" />
-          <div className="text-2xl font-black text-primary">
-            {stats.yearlyRevenue?.toLocaleString() ?? 0} د.ع
-          </div>
-          <div className="text-xs text-muted-foreground font-bold">أرباح السنة</div>
-        </div>
-      </div>
+      {loading && !stats ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : error ? (
+        <div role="alert" className="glass rounded-xl p-4 text-sm text-red-600">{error}</div>
+      ) : stats ? (
+        <>
+          <section className="glass rounded-2xl p-4">
+            <h3 className="font-black mb-3">مؤشرات المنصة</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+              <StatCard icon={Users} label="إجمالي المستخدمين" value={stats.totalUsers} />
+              <StatCard icon={Car} label="إجمالي السائقين" value={stats.totalDrivers} />
+              <StatCard icon={Activity} label="إجمالي الفنيين" value={stats.totalWorkers} />
+              <StatCard icon={Car} label="سائقون عاملون" value={stats.activeDrivers} accent="text-emerald-600" />
+              <StatCard icon={Activity} label="فنيون عاملون" value={stats.activeWorkers} accent="text-emerald-600" />
+              <StatCard icon={ListChecks} label="إجمالي الطلبات" value={stats.totalRequests} />
+              <StatCard icon={Activity} label="طلبات نشطة" value={stats.activeRequests} accent="text-amber-500" />
+              <StatCard icon={ListChecks} label="طلبات مكتملة" value={stats.completedRequests} accent="text-emerald-600" />
+              <StatCard icon={AlertCircle} label="طلبات ملغاة" value={stats.cancelledRequests} accent="text-red-500" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-2xl bg-surface-2 p-4">
+                <Wallet className="h-5 w-5 text-emerald-600 mb-2" />
+                <div className="text-2xl font-black text-emerald-600">{stats.dailyRevenue?.toLocaleString("ar-IQ") ?? 0} د.ع</div>
+                <div className="text-xs text-muted-foreground font-bold">إيرادات اليوم</div>
+              </div>
+              <div className="rounded-2xl bg-surface-2 p-4">
+                <Wallet className="h-5 w-5 text-amber-600 mb-2" />
+                <div className="text-2xl font-black text-amber-600">{stats.monthlyRevenue?.toLocaleString("ar-IQ") ?? 0} د.ع</div>
+                <div className="text-xs text-muted-foreground font-bold">إيرادات الشهر</div>
+              </div>
+              <div className="rounded-2xl bg-surface-2 p-4">
+                <Wallet className="h-5 w-5 text-primary mb-2" />
+                <div className="text-2xl font-black text-primary">{stats.yearlyRevenue?.toLocaleString("ar-IQ") ?? 0} د.ع</div>
+                <div className="text-xs text-muted-foreground font-bold">إيرادات السنة</div>
+              </div>
+            </div>
+          </section>
+          {canViewGovernorates && (
+            <section className="glass rounded-2xl p-4">
+              <GovernorateUserStatsSection />
+            </section>
+          )}
+        </>
+      ) : (
+        <div className="glass rounded-xl p-4 text-sm text-muted-foreground">لا توجد بيانات إحصائية متاحة حالياً.</div>
+      )}
     </div>
   );
 }
