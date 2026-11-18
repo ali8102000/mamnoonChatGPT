@@ -97,8 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRoleState] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const lastUserId = useRef<string | null>(null);
-  // Prevent a delayed profile restore from overwriting a role the user just selected.
+  // A revision invalidates restores as soon as the user requests a role switch.
   const roleRevision = useRef(0);
+  // Serialize SecureStore writes so an older switch cannot finish after a newer one.
+  const roleWriteQueue = useRef<Promise<void>>(Promise.resolve());
 
   async function restoreActiveRole(uid: string, availableRoles: AppRole[]) {
     const revisionAtStart = roleRevision.current;
@@ -106,23 +108,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ? "customer"
       : availableRoles[0] ?? null;
     try {
+      // Wait for any role switch already requested before reading the preference.
+      await roleWriteQueue.current.catch(() => undefined);
+      if (roleRevision.current !== revisionAtStart) return;
+
       const preferenceKey = rolePreferenceKey(uid);
-      let saved = await SecureStore.getItemAsync(preferenceKey);
-      const legacy = await SecureStore.getItemAsync("mamnoon_active_role");
-      if (!saved && legacy && availableRoles.includes(legacy as AppRole)) {
-        saved = legacy;
-        await SecureStore.setItemAsync(preferenceKey, legacy);
-      }
-      if (legacy) await SecureStore.deleteItemAsync("mamnoon_active_role");
+      const saved = await SecureStore.getItemAsync(preferenceKey);
+      const legacy = saved ? null : await SecureStore.getItemAsync("mamnoon_active_role");
       const selected = saved && availableRoles.includes(saved as AppRole)
         ? saved as AppRole
-        : fallback;
+        : legacy && availableRoles.includes(legacy as AppRole)
+          ? legacy as AppRole
+          : fallback;
 
       // A profile refresh can finish after a manual role switch. Never let
       // that older restore operation replace the user's latest selection.
       if (roleRevision.current !== revisionAtStart) return;
       setActiveRoleState(selected);
-      if (selected) await SecureStore.setItemAsync(preferenceKey, selected);
     } catch (error) {
       console.warn("[Mamnoon] Could not restore the saved role:", error);
       if (roleRevision.current === revisionAtStart) setActiveRoleState(fallback);
@@ -139,10 +141,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("جلسة الدخول غير موجودة. سجّل الدخول من جديد.");
     }
 
-    // Persist the preference before updating UI or navigating. A failed
-    // SecureStore write must not leave the app in a half-switched state.
-    await SecureStore.setItemAsync(rolePreferenceKey(uid), role);
-    roleRevision.current += 1;
+    // Invalidate an in-flight restore immediately, then serialize writes.
+    const revision = ++roleRevision.current;
+    const write = roleWriteQueue.current
+      .catch(() => undefined)
+      .then(() => SecureStore.setItemAsync(rolePreferenceKey(uid), role));
+    roleWriteQueue.current = write;
+    await write;
+
+    // If a newer role was requested while this write was pending, its queued
+    // write will become the persisted value and only it may update the UI.
+    if (roleRevision.current !== revision) return;
     setActiveRoleState(role);
   }
 
