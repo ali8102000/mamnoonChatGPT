@@ -63,8 +63,9 @@ Deno.serve(async (req: Request) => {
     if (expectedSecret.length < 32 || expectedSecret.length > 256) {
       return json({ error: "bootstrap_configuration_invalid" }, 503);
     }
-    const contactEmail = String(auth.user.user_metadata?.contact_email ?? "").trim().toLowerCase();
-    if (contactEmail !== expectedEmail) {
+    // Authorization must use the verified Auth email, never user-editable user_metadata.
+    const authEmail = String(auth.user.email ?? "").trim().toLowerCase();
+    if (authEmail !== expectedEmail) {
       return json({ error: "bootstrap_email_not_authorized" }, 403);
     }
     if (typeof body.secret !== "string" || body.secret.length < 32 ||
