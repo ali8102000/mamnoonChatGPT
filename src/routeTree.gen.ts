@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AccountSettingsRouteImport } from './routes/account-settings'
+import { Route as PartnerDashboardRouteImport } from './routes/partner.dashboard'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as HistoryRouteImport } from './routes/history'
@@ -63,6 +64,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 const AccountSettingsRoute = AccountSettingsRouteImport.update({
   id: '/account-settings',
   path: '/account-settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnerDashboardRoute = PartnerDashboardRouteImport.update({
+  id: '/partner/dashboard',
+  path: '/partner/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -198,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
+  '/partner/dashboard': typeof PartnerDashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/friends': typeof FriendsRoute
   '/history': typeof HistoryRoute
@@ -296,6 +303,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/auth/callback'
     | '/account-settings'
+    | '/partner/dashboard'
     | '/forgot-password'
     | '/friends'
     | '/history'
@@ -392,6 +400,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AccountSettingsRoute: typeof AccountSettingsRoute
+  PartnerDashboardRoute: typeof PartnerDashboardRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   FriendsRoute: typeof FriendsRoute
   HistoryRoute: typeof HistoryRoute
@@ -651,6 +660,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AccountSettingsRoute: AccountSettingsRoute,
+  PartnerDashboardRoute: PartnerDashboardRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   FriendsRoute: FriendsRoute,
   HistoryRoute: HistoryRoute,
