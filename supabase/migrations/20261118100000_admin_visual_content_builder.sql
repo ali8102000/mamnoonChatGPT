@@ -17,6 +17,7 @@ create table if not exists public.app_ui_elements (
   is_enabled boolean not null default true,
   is_published boolean not null default false,
   config jsonb not null default '{}'::jsonb,
+  published_config jsonb not null default '{}'::jsonb,
   updated_by uuid references auth.users(id) on delete set null,
   updated_at timestamptz not null default now()
 );
@@ -30,6 +31,7 @@ create table if not exists public.app_content_sections (
   is_enabled boolean not null default true,
   is_published boolean not null default false,
   config jsonb not null default '{}'::jsonb,
+  published_config jsonb not null default '{}'::jsonb,
   created_by uuid references auth.users(id) on delete set null,
   updated_at timestamptz not null default now()
 );
@@ -132,7 +134,7 @@ create policy "Users respond once to active campaigns" on public.app_campaign_re
     and exists (
       select 1 from public.app_campaigns c
       join public.app_campaign_options o on o.campaign_id = c.id
-      where c.id = campaign_id and o.id = option_id
+      where c.id = public.app_campaign_responses.campaign_id and o.id = public.app_campaign_responses.option_id
         and c.status = 'published'
         and (c.starts_at is null or c.starts_at <= now())
         and (c.ends_at is null or c.ends_at > now())
@@ -171,6 +173,23 @@ as $function$
 $function$;
 revoke all on function public.get_app_campaign_results(uuid) from public;
 grant execute on function public.get_app_campaign_results(uuid) to anon, authenticated;
+
+
+-- Public views expose only the published visual payload, never editor drafts.
+create or replace view public.app_ui_elements_public with (security_invoker = true) as
+  select element_key,label,screen_key,placement_key,element_type,action_key,title,subtitle,
+         sort_order,is_enabled,published_config,updated_at
+  from public.app_ui_elements where is_published = true and is_enabled = true;
+create or replace view public.app_content_sections_public with (security_invoker = true) as
+  select id,title,section_type,placement_key,sort_order,published_config,updated_at
+  from public.app_content_sections where is_published = true and is_enabled = true;
+grant select on public.app_ui_elements_public to anon, authenticated;
+grant select on public.app_content_sections_public to anon, authenticated;
+grant select, insert, update, delete on public.app_ui_elements, public.app_content_sections,
+  public.app_campaigns, public.app_campaign_options to authenticated;
+grant select, insert, update on public.app_campaign_responses to authenticated;
+revoke all on public.app_ui_elements, public.app_content_sections from anon;
+revoke all on public.app_campaign_responses from anon;
 
 insert into public.app_ui_elements
   (element_key,label,screen_key,placement_key,element_type,action_key,title,subtitle,width_px,height_px,sort_order,is_published,config)
