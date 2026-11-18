@@ -169,6 +169,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from("worker_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
       ]);
 
+      // Ignore stale lookups when a different account signed in while these
+      // parallel Supabase requests were still running.
+      if (lastUserId.current !== uid) return;
+
       const resolvedProfile = profileResult.error
         ? cached?.profile ?? null
         : profileResult.data ?? null;
@@ -216,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (error) {
+      if (lastUserId.current !== uid) return;
       console.warn("[offline] Account lookup failed; using the last saved account snapshot.", error);
       setProfile(cached?.profile ?? null);
       const fallbackRoles: AppRole[] = cached?.roles?.length ? cached.roles : ["customer"];
