@@ -16,10 +16,10 @@ create index if not exists home_carousel_banners_active_order_idx
   on public.home_carousel_banners (is_active, display_order, created_at);
 
 alter table public.home_carousel_banners enable row level security;
-drop policy if exists "Active home banners are publicly readable" on public.home_carousel_banners;
+drop policy if exists "Home banner display settings are publicly readable" on public.home_carousel_banners;
 create policy "Active home banners are publicly readable"
   on public.home_carousel_banners for select to anon, authenticated
-  using (is_active = true);
+  using (true);
 drop policy if exists "Super admins manage home banners" on public.home_carousel_banners;
 create policy "Super admins manage home banners"
   on public.home_carousel_banners for all to authenticated
