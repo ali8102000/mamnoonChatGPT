@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Eye, ImagePlus, LayoutTemplate, Plus, Save, Smartphone, Table2, Trophy, Vote, X, Check } from "lucide-react";
+import { Eye, ImagePlus, LayoutTemplate, Plus, Save, Smartphone, Table2, Trophy, Vote, X, Check, ChevronUp, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type UiElement = {
@@ -17,7 +17,7 @@ type ContentSection = {
 type Campaign = {
   id: string; campaign_type: "poll" | "contest"; title: string; description: string | null;
   placement_key: string; starts_at: string | null; ends_at: string | null; status: string;
-  result_visibility: string; app_campaign_options?: { id: string; label: string; sort_order: number }[];
+  result_visibility: string; sort_order: number; app_campaign_options?: { id: string; label: string; sort_order: number }[];
 };
 
 const inputClass = "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary";
@@ -44,6 +44,7 @@ export default function AdminVisualBuilder() {
   const [sectionPlacement, setSectionPlacement] = useState("home.customer.content");
   const [sectionColumns, setSectionColumns] = useState("العنوان | التفاصيل");
   const [sectionRows, setSectionRows] = useState("مثال | محتوى تجريبي");
+  const [sectionSortOrder, setSectionSortOrder] = useState(0);
   const [campaignTitle, setCampaignTitle] = useState("");
   const [campaignDescription, setCampaignDescription] = useState("");
   const [campaignType, setCampaignType] = useState<"poll" | "contest">("poll");
@@ -51,6 +52,7 @@ export default function AdminVisualBuilder() {
   const [campaignPlacement, setCampaignPlacement] = useState("home.customer.content");
   const [campaignStarts, setCampaignStarts] = useState("");
   const [campaignEnds, setCampaignEnds] = useState("");
+  const [campaignSortOrder, setCampaignSortOrder] = useState(0);
   const [resultRows, setResultRows] = useState<Record<string, any[]>>({});
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -59,7 +61,7 @@ export default function AdminVisualBuilder() {
     const [ui, content, campaign] = await Promise.all([
       (supabase as any).from("app_ui_elements").select("*").order("sort_order"),
       (supabase as any).from("app_content_sections").select("*").order("sort_order"),
-      (supabase as any).from("app_campaigns").select("*, app_campaign_options(id,label,sort_order)").order("created_at", { ascending: false }),
+      (supabase as any).from("app_campaigns").select("*, app_campaign_options(id,label,sort_order)").order("sort_order").order("created_at", { ascending: false }),
     ]);
     if (ui.error) setMessage("تعذر تحميل عناصر الواجهة: " + ui.error.message);
     else setElements((ui.data ?? []) as UiElement[]);
@@ -150,7 +152,7 @@ export default function AdminVisualBuilder() {
     const config: Record<string, any> = sectionType === "table" ? { columns, rows } : { description: sectionRows.trim() };
     const { error } = await (supabase as any).from("app_content_sections").insert({
       title: sectionTitle.trim(), section_type: sectionType, placement_key: sectionPlacement,
-      config, published_config: config, sort_order: sections.length + 1,
+      config, published_config: config, sort_order: Number(sectionSortOrder) || sections.length + 1,
       is_enabled: true, is_published: false,
     });
     if (error) setMessage("تعذر إنشاء القسم: " + error.message);
@@ -184,7 +186,7 @@ export default function AdminVisualBuilder() {
       );
       if (optionError) setMessage("تم إنشاء الحملة لكن تعذر حفظ الخيارات: " + optionError.message);
       else {
-        setCampaignTitle(""); setCampaignDescription("");
+        setCampaignTitle(""); setCampaignDescription(""); setCampaignSortOrder(0);
         setMessage("انحفظت كمسودة. راجعها ثم انشرها.");
       }
       await load();
@@ -192,7 +194,7 @@ export default function AdminVisualBuilder() {
     setSaving(false);
   };
 
-  const publishCampaign = async (campaign: Campaign) => {
+  const moveSection = async (section: ContentSection, delta: number) => {\n    const { error } = await (supabase as any).from("app_content_sections").update({ sort_order: section.sort_order + delta }).eq("id", section.id);\n    if (error) setMessage("تعذر تغيير ترتيب القسم: " + error.message); else await load();\n  };\n\n  const moveCampaign = async (campaign: Campaign, delta: number) => {\n    const { error } = await (supabase as any).from("app_campaigns").update({ sort_order: campaign.sort_order + delta }).eq("id", campaign.id);\n    if (error) setMessage("تعذر تغيير ترتيب الحملة: " + error.message); else await load();\n  };\n\n  const publishCampaign = async (campaign: Campaign) => {
     const { error } = await (supabase as any).from("app_campaigns")
       .update({ status: "published", updated_at: new Date().toISOString() }).eq("id", campaign.id);
     setMessage(error ? "تعذر نشر الحملة: " + error.message : "تم نشر الحملة.");
@@ -293,7 +295,7 @@ export default function AdminVisualBuilder() {
             <label className="text-xs font-bold">أسماء الأعمدة (افصل بينها بعلامة |)</label>
             <input className={inputClass} value={sectionColumns} onChange={(e) => setSectionColumns(e.target.value)} placeholder="العنوان | السعر | التفاصيل" />
             <label className="text-xs font-bold">صفوف الجدول (كل صف بسطر، وافصل الخانات بعلامة |)</label>
-            <textarea className={inputClass + " min-h-28"} value={sectionRows} onChange={(e) => setSectionRows(e.target.value)} placeholder={"مثال | 5000 | تفاصيل\nمثال آخر | 7000 | تفاصيل"} />
+            <textarea className={inputClass + " min-h-28"} value={sectionRows} onChange={(e) => setSectionRows(e.target.value)} placeholder={"مثال | 5000 | تفاصيل\nمثال آخر | 7000 | تفاصيل"} />\n            <label className="text-xs font-bold">ترتيب القسم</label><input type="number" className={inputClass} value={sectionSortOrder} onChange={(e) => setSectionSortOrder(Number(e.target.value))} />
             <button onClick={() => void createSection()} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Plus className="h-4 w-4" />إنشاء كمسودة</button>
           </section>
           <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
