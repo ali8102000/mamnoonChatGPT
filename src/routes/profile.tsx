@@ -34,7 +34,7 @@ export const Route = createFileRoute("/profile")({
 });
 
 function ProfilePage() {
-  const { session, profile, roles, loading, signOut, refresh } = useAuth();
+  const { session, profile, roles, activeRole, loading, signOut, refresh } = useAuth();
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<any>(null);
   const [txs, setTxs] = useState<any[]>([]);
@@ -51,47 +51,27 @@ function ProfilePage() {
   const uid = session?.user.id;
   const isDriver = roles.includes("driver") || roles.includes("large_driver");
   const isWorker = roles.includes("worker");
-  const isProvider = isDriver || isWorker;
+  const isProvider = (isDriver || isWorker) && activeRole !== "customer";
 
   const getRepFn = useServerFn(getReputation);
   const getReviewsFn = useServerFn(getProviderReviews);
 
   useEffect(() => {
     if (!uid) return;
-    if (isProvider) {
-      (supabase as any)
-        .from("driver_wallets")
-        .select("*")
-        .eq("user_id", uid)
-        .maybeSingle()
-        .then(({ data }: any) => setWallet(data));
-
-      const now = new Date();
-      const todayStart = new Date(now);
-      todayStart.setHours(0, 0, 0, 0);
-      const weekStart = new Date(todayStart);
-      weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const last24Hours = new Date(now.getTime() - 86400000);
-
-      (supabase as any)
-        .from("transactions")
-        .select("*")
-        .eq("user_id", uid)
-        .gte("created_at", monthStart.toISOString())
-        .order("created_at", { ascending: false })
-        .then(({ data, error }: any) => {
-          if (error) {
-            console.warn("[earnings] transaction summary unavailable:", error.message);
-            return;
-          }
-          const rows = data ?? [];
-          const earningRows = rows.filter((t: any) => t.type === "earning");
-          const sumSince = (start: Date) => earningRows.reduce((total: number, t: any) =>
-            new Date(t.created_at) >= start ? total + Number(t.amount || 0) : total, 0);
-          setEarnings({ today: sumSince(todayStart), week: sumSince(weekStart), month: sumSince(monthStart) });
-          setTxs(rows.filter((t: any) => new Date(t.created_at).getTime() >= last24Hours.getTime()));
-        });
+    if (activeRole === "customer") {
+      (supabase as any).rpc("get_my_customer_wallet").then(({ data, error }: any) => {
+        if (error) {
+          console.warn("[wallet] customer wallet unavailable:", error.message);
+          setWallet(null);
+          setTxs([]);
+          return;
+        }
+        setWallet(data?.wallet ?? null);
+        setTxs(Array.isArray(data?.transactions) ? data.transactions : []);
+      });
+    } else {
+      setWallet(null);
+      setTxs([]);
     }
     (supabase as any)
       .rpc("has_admin_access", { p_user_id: uid })
@@ -101,7 +81,7 @@ function ProfilePage() {
         .then((rep) => setReputation(rep))
         .catch(() => {});
     }
-  }, [uid, isProvider, getRepFn]);
+  }, [uid, activeRole, isProvider, getRepFn]);
 
   async function uploadAvatar(file?: File) {
     if (!file || !uid || avatarUploading) return;
@@ -286,38 +266,27 @@ function ProfilePage() {
             )}
           </div>
         )}
-        {isProvider && (
+        {activeRole === "customer" && (
           <div className="mt-5 rounded-3xl p-5 bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant">
-            <div className="flex items-center gap-2 mb-3 opacity-90"><TrendingUp className="h-4 w-4" /><span className="text-sm font-black">أرباحي</span></div>
-            <div className="text-xs opacity-80 mb-1">أرباح اليوم</div>
-            <div className="text-3xl font-black tabular-nums">{earnings.today.toLocaleString("ar-IQ")} <span className="text-base font-bold opacity-80">د.ع</span></div>
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-white/15 px-3 py-3">
-              <div><div className="text-[11px] opacity-80">الرصيد المتاح</div><div className="text-lg font-black tabular-nums">{Number(wallet?.balance ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
-              <button type="button" onClick={() => setShowEarningsDetails((value) => !value)} aria-expanded={showEarningsDetails} className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-primary active:scale-95 transition">{showEarningsDetails ? "إخفاء التفاصيل" : "تفاصيل الأرباح"}</button>
-            </div>
-            {showEarningsDetails && <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
-              <div className="bg-white/15 rounded-2xl p-3"><div className="opacity-80">أرباح هذا الأسبوع</div><div className="font-black text-lg mt-1 tabular-nums">{earnings.week.toLocaleString("ar-IQ")} د.ع</div></div>
-              <div className="bg-white/15 rounded-2xl p-3"><div className="opacity-80">أرباح هذا الشهر</div><div className="font-black text-lg mt-1 tabular-nums">{earnings.month.toLocaleString("ar-IQ")} د.ع</div></div>
-              <div className="bg-white/10 rounded-2xl p-3"><div className="opacity-80">إجمالي الأرباح</div><div className="font-black mt-1">{Number(wallet?.total_earned ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
-              <div className="bg-white/10 rounded-2xl p-3"><div className="opacity-80">إجمالي العمولة</div><div className="font-black mt-1">{Number(wallet?.total_commission ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
-              <div className="col-span-2 border-t border-white/15 pt-3">
-                <button type="button" onClick={() => setShowRecentTransactions((v) => !v)} aria-expanded={showRecentTransactions} className="w-full flex items-center justify-between rounded-xl bg-white/15 px-3 py-3 text-xs font-black">
-                  <span className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> آخر الحركات · آخر ٢٤ ساعة</span>
-                  <ChevronLeft className={`h-4 w-4 transition-transform ${showRecentTransactions ? "-rotate-90" : ""}`} />
-                </button>
-                {showRecentTransactions && <ul className="mt-3 space-y-2">
-                  {txs.length === 0 ? <li className="rounded-xl bg-white/10 p-3 text-center text-xs opacity-80">ماكو حركات مالية خلال آخر ٢٤ ساعة</li> : txs.map((t) => (
-                    <li key={t.id} className="rounded-xl bg-white/10 p-3 flex items-center justify-between gap-3">
-                      <div><div className="text-xs font-bold">{t.note ?? t.type}</div><div className="text-[10px] opacity-75">{new Date(t.created_at).toLocaleString("ar-IQ")}</div></div>
-                      <div className={`text-sm font-black whitespace-nowrap ${Number(t.amount) >= 0 ? "text-emerald-200" : "text-red-200"}`}>{Number(t.amount) >= 0 ? "+" : ""}{Number(t.amount).toLocaleString("ar-IQ")} د.ع</div>
-                    </li>
-                  ))}
-                </ul>}
-              </div>
-            </div>}
+            <div className="flex items-center gap-2 mb-3"><TrendingUp className="h-4 w-4" /><span className="text-sm font-black">محفظتي</span></div>
+            <div className="text-xs opacity-80 mb-1">رصيدك المتاح</div>
+            <div className="text-3xl font-black tabular-nums">{Number(wallet?.balance ?? 0).toLocaleString("ar-IQ")} <span className="text-base font-bold opacity-80">د.ع</span></div>
+            <div className="mt-3 rounded-2xl bg-white/15 p-3 text-xs leading-6">رصيد المحفظة وحركاتها محفوظة في حسابك. شحن الرصيد والسحب عبر زين كاش سيتفعّلان بعد ربط مفاتيح التاجر الرسمية.</div>
+            <button type="button" onClick={() => setShowRecentTransactions((v) => !v)} aria-expanded={showRecentTransactions} className="mt-3 w-full flex items-center justify-between rounded-xl bg-white/15 px-3 py-3 text-xs font-black">
+              <span className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> سجل حركات المحفظة</span>
+              <ChevronLeft className={`h-4 w-4 transition-transform ${showRecentTransactions ? "-rotate-90" : ""}`} />
+            </button>
+            {showRecentTransactions && <ul className="mt-3 space-y-2">
+              {txs.length === 0 ? <li className="rounded-xl bg-white/10 p-3 text-center text-xs opacity-80">لا توجد حركات مسجلة في المحفظة حالياً</li> : txs.map((t) => (
+                <li key={t.id} className="rounded-xl bg-white/10 p-3 flex items-center justify-between gap-3">
+                  <div><div className="text-xs font-bold">{t.note ?? (t.type === "deposit" ? "إيداع رصيد" : t.type === "withdrawal" ? "سحب" : t.type === "payment" ? "دفع من المحفظة" : t.type === "refund" ? "استرجاع مبلغ" : t.type === "adjustment" ? "تسوية رصيد" : t.type)}</div><div className="text-[10px] opacity-75">{new Date(t.created_at).toLocaleString("ar-IQ")}</div></div>
+                  <div className={`text-sm font-black whitespace-nowrap ${Number(t.amount) >= 0 ? "text-emerald-200" : "text-red-200"}`}>{Number(t.amount) >= 0 ? "+" : ""}{Number(t.amount).toLocaleString("ar-IQ")} د.ع</div>
+                </li>
+              ))}
+            </ul>}
           </div>
         )}
-        <div className="mt-5 space-y-2">
+
           {isAdmin && (
             <Link
               to="/admin"

@@ -32,6 +32,7 @@ import { palette, radius } from "@/styles/theme";
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 
+type FavoritePlace = { id: string; label: string; address: string; latitude: number; longitude: number; governorate_key: string | null };
 type CatalogService = { id: string; slug: string; name_ar: string };
 
 const EXPERT_ONLY_SERVICE_SLUGS = new Set([
@@ -126,10 +127,56 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
+  const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
+  const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
+  const [favoriteName, setFavoriteName] = useState("");
+  const [showFavoriteNameInput, setShowFavoriteNameInput] = useState(false);
   const [destinationConfirmed, setDestinationConfirmed] = useState(false);
   const [pickupGovernorateKey, setPickupGovernorateKey] = useState<string | null>(null);
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey ?? pickupGovernorateKey;
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) { setFavoritePlaces([]); return; }
+    setFavoritePlacesLoading(true);
+    (supabase as any).from("customer_favorite_places")
+      .select("id,label,address,latitude,longitude,governorate_key")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }: any) => {
+        if (!active) return;
+        if (!error) setFavoritePlaces((data ?? []) as FavoritePlace[]);
+        setFavoritePlacesLoading(false);
+      });
+    return () => { active = false; };
+  }, [user?.id]);
+
+  async function saveFavoritePlace() {
+    const label = favoriteName.trim();
+    if (!user?.id || !destinationCoords || !label) { Alert.alert("بيانات ناقصة", "اكتب اسماً للمكان وحدد الوجهة أولاً."); return; }
+    const row = { user_id: user.id, label, address: destination || label, latitude: destinationCoords.latitude, longitude: destinationCoords.longitude, governorate_key: destinationGovernorateKey ?? pickupGovernorateKey };
+    const { data, error } = await (supabase as any).from("customer_favorite_places").insert(row).select("id,label,address,latitude,longitude,governorate_key").single();
+    if (error) { Alert.alert("تعذر الحفظ", error.code === "23505" ? "عندك مكان محفوظ بنفس الاسم." : "حاول مرة ثانية."); return; }
+    setFavoritePlaces((items) => [data as FavoritePlace, ...items]);
+    setFavoriteName(""); setShowFavoriteNameInput(false);
+    Alert.alert("تم الحفظ", "انضاف المكان إلى أماكنك المفضلة.");
+  }
+
+  function chooseFavoritePlace(place: FavoritePlace) {
+    const coords = { latitude: Number(place.latitude), longitude: Number(place.longitude) };
+    setDestinationGovernorateKey(place.governorate_key ?? pickupGovernorateKey);
+    setDestinationCoords(coords); setDestination(place.address || place.label);
+    setMapMode("destination"); setDestinationConfirmed(false);
+    setRouteKm(null); setRouteError(null); setShowFavoriteNameInput(false);
+    setPlaceQuery(""); setPlaceSuggestions([]); setPlaceSearchError(null);
+    moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+  }
+
+  async function deleteFavoritePlace(id: string) {
+    const { error } = await (supabase as any).from("customer_favorite_places").delete().eq("id", id);
+    if (error) { Alert.alert("تعذر الحذف", "حاول مرة ثانية."); return; }
+    setFavoritePlaces((items) => items.filter((item) => item.id !== id));
+  }
   const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
   const [governoratePickerVisible, setGovernoratePickerVisible] = useState(false);
   const outsideGovernoratePromptShownRef = useRef(false);
@@ -548,17 +595,21 @@ export default function NewRequest() {
         longitude: position.coords.longitude,
       };
       setDestinationConfirmed(false);
-      setMapMode("pickup");
-      setPickupCoords(coords);
-      setPickupGovernorateKey(nearestGovernorateKey(coords));
-      void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
-        .then((result) => setPickupGovernorateKey(result.key))
-        .catch(() => {});
       moveMap({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
       const address = formatAddress(await Location.reverseGeocodeAsync(coords));
-      setPickup(address || "موقع محدد على الخريطة");
-      setMapMode("pickup");
-      setDestinationConfirmed(false);
+      if (mapMode === "destination") {
+        const detectedGovernorate = await callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } });
+        setDestinationCoords(coords);
+        setDestinationGovernorateKey(detectedGovernorate.key);
+        setDestination(address || "موقع محدد على الخريطة");
+      } else {
+        setPickupCoords(coords);
+        setPickupGovernorateKey(nearestGovernorateKey(coords));
+        void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
+          .then((result) => setPickupGovernorateKey(result.key))
+          .catch(() => {});
+        setPickup(address || "موقع محدد على الخريطة");
+      }
       setPlaceQuery("");
       setPlaceSuggestions([]);
     } catch {
@@ -830,12 +881,14 @@ export default function NewRequest() {
       return;
     }
 
-    const proposedPrice = customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;
+    const proposedUnitPrice = customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;
+    const servicePriceMultiplier = extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0);
+    const proposedPrice = proposedUnitPrice === null ? null : (isTaxi ? proposedUnitPrice : proposedUnitPrice * servicePriceMultiplier);
     if (isLargeVehicle && customerPrice.trim() && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice > 50000 || proposedPrice % 250 !== 0)) {
       Alert.alert("السعر غير صحيح", "السعر المقترح يجب أن يكون من 250 إلى 50000 دينار ومن مضاعفات 250.");
       return;
     }
-    if (!isTaxi && pricingMode !== "negotiable" && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
+    if (!isTaxi && pricingMode !== "negotiable" && (proposedUnitPrice === null || !Number.isSafeInteger(proposedUnitPrice) || proposedUnitPrice < 250 || proposedUnitPrice % 250 !== 0)) {
       Alert.alert("الأجر غير صحيح", "اكتب أجراً صحيحاً لا يقل عن 250 ديناراً ويكون من مضاعفات 250.");
       return;
     }
@@ -908,7 +961,7 @@ export default function NewRequest() {
             governorateKey: effectivePickupGovernorateKey,
             pickupGovernorateKey: effectivePickupGovernorateKey,
             destinationGovernorateKey: destinationGovernorateKey ?? effectivePickupGovernorateKey,
-            vehicleCategory: vehicleCat, urgencyEnabled, notes,
+            vehicleCategory: vehicleCat, urgencyEnabled: false, notes,
           },
         });
         if (taxiError) throw taxiError;
@@ -1110,6 +1163,41 @@ export default function NewRequest() {
                     ? pickup || "حرّك الخريطة حتى تصبح نقطة الانطلاق تحت الدبوس"
                     : destination || "حرّك الخريطة حتى تصبح وجهتك تحت الدبوس"}
                 </Text>
+                {mapMode === "destination" && (
+                  <View style={{ gap: 9, marginTop: 4 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900" }}>أماكني المفضلة</Text>
+                      {favoritePlacesLoading && <ActivityIndicator size="small" color={palette.brand} />}
+                    </View>
+                    {favoritePlaces.length > 0 ? (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        {favoritePlaces.map((place) => (
+                          <View key={place.id} style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.surfaceSoft, borderRadius: 13, overflow: "hidden" }}>
+                            <TouchableOpacity onPress={() => chooseFavoritePlace(place)} style={{ paddingHorizontal: 12, paddingVertical: 9 }}>
+                              <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900" }}>📍 {place.label}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => deleteFavoritePlace(place.id)} style={{ paddingHorizontal: 9, paddingVertical: 9 }}>
+                              <Text style={{ color: "#DC2626", fontWeight: "900" }}>×</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    ) : <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>احفظ بيتك أو عملك حتى تختاره بضغطة واحدة.</Text>}
+                    {destinationCoords && !showFavoriteNameInput && (
+                      <TouchableOpacity onPress={() => setShowFavoriteNameInput(true)} style={{ borderWidth: 1, borderStyle: "dashed", borderColor: palette.gold, borderRadius: 12, paddingVertical: 10, alignItems: "center" }}>
+                        <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900" }}>＋ حفظ هذه الوجهة بالمفضلة</Text>
+                      </TouchableOpacity>
+                    )}
+                    {showFavoriteNameInput && (
+                      <View style={{ flexDirection: "row", gap: 7 }}>
+                        <TextInput value={favoriteName} onChangeText={setFavoriteName} maxLength={60} placeholder="مثلاً: البيت أو العمل" placeholderTextColor={palette.muted} style={{ flex: 1, minWidth: 0, borderWidth: 1, borderColor: palette.line, borderRadius: 11, paddingHorizontal: 10, paddingVertical: 8, color: palette.ink, textAlign: "right" }} />
+                        <TouchableOpacity onPress={saveFavoritePlace} style={{ backgroundColor: palette.brand, borderRadius: 11, paddingHorizontal: 13, justifyContent: "center" }}><Text style={{ color: palette.white, fontWeight: "900", fontSize: 12 }}>حفظ</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => { setShowFavoriteNameInput(false); setFavoriteName(""); }} style={{ borderWidth: 1, borderColor: palette.line, borderRadius: 11, paddingHorizontal: 10, justifyContent: "center" }}><Text style={{ color: palette.ink, fontWeight: "800", fontSize: 12 }}>إلغاء</Text></TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+
 
                 {isLargeVehicle && mapMode === "pickup" && (
                   <View style={styles.taxiLargeTypePanel}>
@@ -1204,15 +1292,6 @@ export default function NewRequest() {
                           </TouchableOpacity>
                         );
                       })}
-                    </View>
-                    <View style={{ marginTop: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>⚡ تفعيل الاستعجال</Text>
-                        <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 3 }}>{urgencyAllowed ? "زيادة إضافية على سعر السيارة المحددة حتى مع الذروة" : "الاستعجال غير متاح حالياً حسب إعدادات الإدارة"}</Text>
-                      </View>
-                      <TouchableOpacity disabled={!urgencyAllowed || routeKm === null} onPress={() => setUrgencyEnabled((v) => !v)} style={{ width: 52, height: 30, borderRadius: 18, padding: 3, backgroundColor: urgencyEnabled ? palette.brand : palette.line, justifyContent: "center", alignItems: urgencyEnabled ? "flex-start" : "flex-end", opacity: urgencyAllowed && routeKm !== null ? 1 : 0.45 }}>
-                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff" }} />
-                      </TouchableOpacity>
                     </View>
                   </>
                 )}
@@ -1689,7 +1768,14 @@ export default function NewRequest() {
           </View>
           {pricingMode !== "negotiable" && (
             <>
-              <Text style={styles.label}>{pricingMode === "hourly" ? "الأجر لكل ساعة بالدينار" : "الأجر المقترح بالدينار"}</Text>
+              <Text style={styles.label}>{pricingMode === "hourly" ? "الأجر لكل ساعة لكل فني" : "الأجر لكل فني بالدينار"}</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 8 }}>
+                {[15000, 25000, 30000, 50000].map((amount) => (
+                  <TouchableOpacity key={amount} onPress={() => setCustomerPrice(String(amount))} style={{ paddingHorizontal: 13, paddingVertical: 10, borderRadius: 12, backgroundColor: customerPrice === String(amount) ? palette.brand : palette.surface, borderWidth: 1, borderColor: customerPrice === String(amount) ? palette.gold : palette.line }}>
+                    <Text style={{ color: customerPrice === String(amount) ? palette.white : palette.ink, fontSize: 12, fontWeight: "900" }}>{(amount / 1000).toLocaleString("ar-IQ")} ألف</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
               <TextInput
                 style={styles.input}
                 value={customerPrice}
@@ -1699,6 +1785,13 @@ export default function NewRequest() {
                 keyboardType="numeric"
               />
             </>
+          )}
+          {pricingMode !== "negotiable" && Number(customerPrice) > 0 && (
+            <View style={{ marginTop: 8, padding: 12, borderRadius: 14, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.gold }}>
+              <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>الإجمالي التقديري لجميع أفراد الطاقم</Text>
+              <Text style={{ color: palette.brand, fontSize: 20, fontWeight: "900", textAlign: "right", marginTop: 4 }}>{(Number(customerPrice) * (extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0))).toLocaleString("ar-IQ")} د.ع</Text>
+              <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>سعر الفرد × {extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0)} وحدات أجرة · أجرة الخبير ضعف أجرة الفني العادي</Text>
+            </View>
           )}
           {pricingMode === "hourly" && (
             <>

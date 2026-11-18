@@ -7,14 +7,14 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
-type DriverWallet = { balance: number; total_earned: number; total_commission: number };
+type CustomerWallet = { balance: number; currency?: string };
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
 
 export default function ProfileScreen() {
-  const { user, profile, roles, signOut, refresh } = useAuth();
-  const isProvider = roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver");
+  const { user, profile, roles, activeRole, signOut, refresh } = useAuth();
+  const isProvider = activeRole !== "customer" && (roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver"));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [wallet, setWallet] = useState<DriverWallet | null>(null);
+  const [wallet, setWallet] = useState<CustomerWallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
@@ -45,33 +45,18 @@ export default function ProfileScreen() {
   useEffect(() => {
     let active = true;
     async function load() {
-      if (!user?.id || !(roles.includes("driver") || roles.includes("large_driver"))) {
+      if (!user?.id || activeRole !== "customer") {
         setWallet(null);
         setTransactions([]);
         setWalletOffline(false);
         return;
       }
-      const cacheKey = `mamnoon-wallet-v1:${user.id}`;
+      const cacheKey = `mamnoon-customer-wallet-v2:${user.id}`;
       try {
-        const since24Hours = new Date(Date.now() - 86400000).toISOString();
-        const [walletResult, transactionResult] = await Promise.all([
-          supabase
-            .from("driver_wallets")
-            .select("balance,total_earned,total_commission")
-            .eq("user_id", user.id)
-            .maybeSingle(),
-          supabase
-            .from("transactions")
-            .select("id,type,created_at,amount")
-            .eq("user_id", user.id)
-            .gte("created_at", since24Hours)
-            .order("created_at", { ascending: false })
-            .limit(30),
-        ]);
-        if (walletResult.error) throw walletResult.error;
-        if (transactionResult.error) throw transactionResult.error;
-        const nextWallet = walletResult.data as DriverWallet | null;
-        const nextTransactions = (transactionResult.data || []) as WalletTransaction[];
+        const { data, error } = await (supabase as any).rpc("get_my_customer_wallet");
+        if (error) throw error;
+        const nextWallet = (data?.wallet ?? null) as CustomerWallet | null;
+        const nextTransactions = (Array.isArray(data?.transactions) ? data.transactions : []) as WalletTransaction[];
         if (!active) return;
         setWallet(nextWallet);
         setTransactions(nextTransactions);
@@ -103,7 +88,7 @@ export default function ProfileScreen() {
     }
     void load();
     return () => { active = false; };
-  }, [user?.id, roles]);
+  }, [user?.id, activeRole]);
 
   async function chooseAndUploadAvatar() {
     if (!user?.id || uploadingAvatar) return;
@@ -192,39 +177,28 @@ export default function ProfileScreen() {
           </View>
         ))}
       </View>
-      {wallet && (
+      {activeRole === "customer" && (
         <View style={styles.walletCard}>
           {walletOffline && (
             <View style={styles.walletOfflineNotice}>
               <Text style={styles.walletOfflineText}>بيانات محفوظة من آخر اتصال وقد لا تكون محدثة.</Text>
             </View>
           )}
-          <Text style={styles.walletTitle}>أرباحي</Text>
-          <Text style={styles.walletBalance}>{(wallet.balance || 0).toLocaleString("en")} د.ع</Text>
+          <Text style={styles.walletTitle}>محفظتي</Text>
+          <Text style={styles.walletBalance}>{(wallet?.balance || 0).toLocaleString("en")} د.ع</Text>
+          <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 18, textAlign: "center", marginTop: 8 }}>شحن الرصيد والسحب عبر زين كاش سيتفعّلان بعد ربط مفاتيح التاجر الرسمية.</Text>
           <TouchableOpacity style={styles.walletDetailsButton} onPress={() => setShowWalletDetails((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showWalletDetails }}>
-            <Text style={styles.walletDetailsButtonText}>{showWalletDetails ? "إخفاء التفاصيل" : "تفاصيل المحفظة"}</Text>
+            <Text style={styles.walletDetailsButtonText}>{showWalletDetails ? "إخفاء التفاصيل" : "سجل حركات المحفظة"}</Text>
             <Text style={styles.walletDetailsArrow}>{showWalletDetails ? "⌄" : "←"}</Text>
           </TouchableOpacity>
           {showWalletDetails && (
             <View style={styles.walletDetails}>
-              <View style={styles.walletStats}>
-                <View style={{ flex: 1 }}><Text style={styles.walletStatLabel}>إجمالي الأرباح</Text><Text style={styles.walletStatValue}>{(wallet.total_earned || 0).toLocaleString("en")} د.ع</Text></View>
-                <View style={{ flex: 1 }}><Text style={styles.walletStatLabel}>العمولة</Text><Text style={styles.walletStatValue}>{(wallet.total_commission || 0).toLocaleString("en")} د.ع</Text></View>
-              </View>
-              <TouchableOpacity style={styles.recentTransactionsButton} onPress={() => setShowRecentTransactions((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showRecentTransactions }}>
-                <Text style={styles.recentTransactionsText}>آخر الحركات · آخر ٢٤ ساعة</Text>
-                <Text style={styles.walletDetailsArrow}>{showRecentTransactions ? "⌄" : "←"}</Text>
-              </TouchableOpacity>
-              {showRecentTransactions && (
-                <View style={styles.recentTransactionsList}>
-                  {transactions.length === 0 ? <Text style={styles.emptyTransactions}>ماكو حركات مالية خلال آخر ٢٤ ساعة</Text> : transactions.map((txn) => (
-                    <View key={txn.id} style={styles.txnCard}>
-                      <View style={{ flex: 1 }}><Text style={styles.txnType}>{txn.type === "earning" ? "أرباح" : txn.type === "commission" ? "عمولة" : txn.type === "withdrawal" ? "سحب" : txn.type === "refund" ? "استرجاع" : "تسوية"}</Text><Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text></View>
-                      <Text style={[styles.txnAmount, { color: txn.amount >= 0 ? "#16a34a" : "#dc2626" }]}>{txn.amount >= 0 ? "+" : "-"}{Math.abs(txn.amount || 0).toLocaleString("en")} د.ع</Text>
-                    </View>
-                  ))}
+              {transactions.length === 0 ? <Text style={styles.emptyTransactions}>لا توجد حركات مسجلة في المحفظة حالياً</Text> : transactions.map((txn) => (
+                <View key={txn.id} style={styles.txnCard}>
+                  <View style={{ flex: 1 }}><Text style={styles.txnType}>{txn.type === "deposit" ? "إيداع رصيد" : txn.type === "withdrawal" ? "سحب" : txn.type === "payment" ? "دفع من المحفظة" : txn.type === "refund" ? "استرجاع مبلغ" : txn.type === "adjustment" ? "تسوية رصيد" : txn.type}</Text><Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text></View>
+                  <Text style={[styles.txnAmount, { color: txn.amount >= 0 ? "#16a34a" : "#dc2626" }]}>{txn.amount >= 0 ? "+" : "-"}{Math.abs(txn.amount || 0).toLocaleString("en")} د.ع</Text>
                 </View>
-              )}
+              ))}
             </View>
           )}
         </View>

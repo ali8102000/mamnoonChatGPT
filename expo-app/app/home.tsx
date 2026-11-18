@@ -33,6 +33,7 @@ type IncomingRequest = {
   pickup_text?: string | null;
   dest_text?: string | null;
   distance_km?: number | null;
+  urgency_multiplier?: number | null;
   my_offer?: { expires_at: string; sent_at: string; distance_km: number | null };
 };
 
@@ -99,7 +100,7 @@ export default function HomeScreen() {
     }
     const { data, error } = await supabase
       .from("service_requests")
-      .select("id, type, pickup_text, dest_text, distance_km, price_estimate, customer_payable, customer_price, vehicle_category, vehicle_type")
+      .select("id, type, pickup_text, dest_text, distance_km, price_estimate, customer_payable, customer_price, vehicle_category, vehicle_type, urgency_multiplier")
       .in("id", requestIds)
       .eq("type", isDriver ? "taxi" : "service")
       .in("status", ["pending", "searching"])
@@ -837,6 +838,7 @@ function ProviderHome({
             >
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={styles.requestCustomer}>طلب جديد · {req.type === "taxi" ? "سائق" : "فني"}</Text>
+                {Number(req.urgency_multiplier ?? 1) > 1 && <Text style={{ color: "#B45309", fontSize: 11, fontWeight: "900", textAlign: "right" }}>⚡ طلب عاجل ×{req.urgency_multiplier}</Text>}
                 <Text style={styles.requestType}>
                   {req.vehicle_category === "large" ? `🚚 سيارة كبيرة — ${req.vehicle_type === "kia_passenger" ? "كيا ركاب" : req.vehicle_type === "bus" ? "باص" : "كيا حمل"}` : req.type === "taxi" ? "🚕 طلب سيارة" : "🔧 طلب خدمة"}
                 </Text>

@@ -157,7 +157,7 @@ export default function AdminTaxiPricingControls() {
         <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-500/15 text-amber-600"><TrendingUp className="h-5 w-5" /></div>
         <div>
           <h3 className="text-lg font-black">التحكم بالأسعار والاستعجال والذروة</h3>
-          <p className="text-xs text-muted-foreground">تُطبّق الإعدادات على تسعير سيارات الاقتصاد والمتميز والفاخرة فقط.</p>
+          <p className="text-xs text-muted-foreground">تحدد الإدارة نسبة الزيادة الأساسية لكل العراق. الزبون يختار ×2 أو ×3 من شاشة انتظار الطلب، وتشمل التكسي والسيارات الكبيرة والخدمات الفنية.</p>
         </div>
       </div>
 
@@ -179,7 +179,7 @@ export default function AdminTaxiPricingControls() {
           <input type="checkbox" checked={global.urgency_enabled} onChange={(e) => setGlobal((v) => ({ ...v, urgency_enabled: e.target.checked }))} className="h-5 w-5 accent-amber-500" />
         </label>
         <label className="block space-y-1 text-sm font-bold">
-          <span>أعلى زيادة للاستعجال (%)</span>
+          <span>نسبة الزيادة الأساسية للاستعجال (%)</span>
           <input className={inputClass} type="number" min="0" max="100" step="1" value={global.urgency_max_percent} onChange={(e) => setGlobal((v) => ({ ...v, urgency_max_percent: Number(e.target.value) }))} />
         </label>
         <button type="button" disabled={saving} onClick={saveGlobal} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4" /> حفظ إعداد الاستعجال</button>

@@ -61,6 +61,8 @@ export const Route = createFileRoute("/request/new")({
   component: NewRequest,
 });
 
+type FavoritePlace = { id: string; label: string; address: string; latitude: number; longitude: number; governorate_key: string | null };
+
 type Service = { id: string; slug: string; name_ar: string };
 
 const EXPERT_ONLY_SERVICE_SLUGS = new Set([
@@ -175,11 +177,57 @@ function NewRequest() {
   const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destLabel, setDestLabel] = useState("");
   const [mapStep, setMapStep] = useState<"pickup" | "dest">("pickup");
+  const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
+  const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
+  const [favoriteName, setFavoriteName] = useState("");
+  const [showFavoriteNameInput, setShowFavoriteNameInput] = useState(false);
   const [destConfirmed, setDestConfirmed] = useState(false);
   const goBack = useGoBack();
   const [govKey, setGovKey] = useState<string | null>(null);
   const [govReady, setGovReady] = useState(false);
   const [govPickerOpen, setGovPickerOpen] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (!session?.user?.id) { setFavoritePlaces([]); return; }
+    setFavoritePlacesLoading(true);
+    (supabase as any).from("customer_favorite_places")
+      .select("id,label,address,latitude,longitude,governorate_key")
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }: any) => {
+        if (!active) return;
+        if (!error) setFavoritePlaces((data ?? []) as FavoritePlace[]);
+        setFavoritePlacesLoading(false);
+      });
+    return () => { active = false; };
+  }, [session?.user?.id]);
+
+  async function saveFavoritePlace() {
+    const label = favoriteName.trim();
+    if (!session?.user?.id || !destCoords || !label) { toast.error("اكتب اسماً للمكان وحدد الوجهة أولاً."); return; }
+    const row = { user_id: session.user.id, label, address: destLabel || label, latitude: destCoords.lat, longitude: destCoords.lng, governorate_key: destinationGovernorateKey ?? gov?.key ?? null };
+    const { data, error } = await (supabase as any).from("customer_favorite_places").insert(row).select("id,label,address,latitude,longitude,governorate_key").single();
+    if (error) { toast.error(error.code === "23505" ? "عندك مكان محفوظ بنفس الاسم." : "تعذّر حفظ المكان."); return; }
+    setFavoritePlaces((items) => [data as FavoritePlace, ...items]);
+    setFavoriteName(""); setShowFavoriteNameInput(false);
+    toast.message("انحفظ المكان ضمن المفضلة.");
+  }
+
+  function chooseFavoritePlace(place: FavoritePlace) {
+    const coords = { lat: Number(place.latitude), lng: Number(place.longitude) };
+    const outside = !!gov && !!place.governorate_key && place.governorate_key !== gov.key;
+    setInterCity(outside);
+    setDestinationGovernorateKey(place.governorate_key ?? gov?.key ?? null);
+    setDestCoords(coords); setDestLabel(place.address || place.label);
+    setMapStep("dest"); setDestConfirmed(true); setRouteError(null);
+    setShowFavoriteNameInput(false);
+  }
+
+  async function deleteFavoritePlace(id: string) {
+    const { error } = await (supabase as any).from("customer_favorite_places").delete().eq("id", id);
+    if (error) { toast.error("تعذّر حذف المكان."); return; }
+    setFavoritePlaces((items) => items.filter((item) => item.id !== id));
+  }
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const [interCity, setInterCity] = useState(false);
   useEffect(() => { setUrgencyEnabled(false); setUrgencyAllowed(false); }, [type, vehicle]);
@@ -505,16 +553,17 @@ function NewRequest() {
     let verifiedRouteKm = routeKm;
     let priceEstimate: number | null = null;
 
-    const priceNum = parseInt(customerPrice.replace(/[^0-9]/g, ""), 10);
+    const unitPriceNum = parseInt(customerPrice.replace(/[^0-9]/g, ""), 10);
+    const priceNum = type === "service" && Number.isFinite(unitPriceNum) ? unitPriceNum * (finalWorkers + (level === "khabir" ? 1 : 0)) : unitPriceNum;
     if (vehicle === "large" && customerPrice.trim() && (!Number.isSafeInteger(priceNum) || priceNum < 250 || priceNum > 50000 || priceNum % 250 !== 0)) {
       toast.error("السعر المقترح يجب أن يكون من 250 إلى 50000 دينار ومن مضاعفات 250");
       return;
     }
-    if (type === "service" && pricingMode !== "negotiable" && !(priceNum > 0)) {
+    if (type === "service" && pricingMode !== "negotiable" && !(unitPriceNum > 0)) {
       toast.error("اكتب المبلغ اللي تريد تدفعه");
       return;
     }
-    if (type === "service" && pricingMode !== "negotiable" && priceNum % 250 !== 0) {
+    if (type === "service" && pricingMode !== "negotiable" && unitPriceNum % 250 !== 0) {
       toast.error("المبلغ لازم يكون من مضاعفات 250 دينار");
       return;
     }
@@ -540,7 +589,7 @@ function NewRequest() {
       let error: any;
       if (type === "taxi" && vehicle !== "large") {
         const { data: secureTaxi, error: secureTaxiError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
+          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled: false, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
         });
         if (secureTaxiError) throw secureTaxiError;
         if (!secureTaxi?.requestId) throw new Error(secureTaxi?.error || "تعذّر إنشاء طلب التاكسي.");
@@ -750,7 +799,7 @@ function NewRequest() {
                   ? `ابحث عن موقع الانطلاق في ${gov?.name ?? "محافظتك"}...`
                   : `ابحث عن وجهة الوصول في ${getGovernorate(destinationGovernorateKey)?.name ?? gov?.name ?? "المحافظة المختارة"}...`
               }
-              showLocateButton={mapStep === "pickup"}
+              showLocateButton={true}
               isFullScreen={true}
               searchTop={72}
               hideOutsideButtons={true}
@@ -914,6 +963,15 @@ function NewRequest() {
                   {destLabel || "حرّك الخريطة إلى وجهتك"}
                 </div>
               </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-black text-foreground">أماكني المفضلة</span>
+                  {favoritePlacesLoading && <span className="text-[10px] text-muted-foreground">جارٍ التحميل...</span>}
+                </div>
+                {favoritePlaces.length > 0 ? <div className="flex gap-2 overflow-x-auto pb-1">{favoritePlaces.map((place) => <div key={place.id} className="flex shrink-0 items-center rounded-xl border border-amber-300/70 bg-amber-50/80 dark:bg-amber-950/30"><button type="button" onClick={() => chooseFavoritePlace(place)} className="px-3 py-2 text-xs font-black text-foreground">📍 {place.label}</button><button type="button" onClick={() => deleteFavoritePlace(place.id)} aria-label={"حذف " + place.label} className="px-2 text-xs text-red-600">×</button></div>)}</div> : <p className="text-[11px] text-muted-foreground">احفظ بيتك أو عملك حتى تختاره بضغطة واحدة.</p>}
+                {destCoords && !showFavoriteNameInput && <button type="button" onClick={() => setShowFavoriteNameInput(true)} className="w-full rounded-xl border border-dashed border-primary/50 py-2 text-xs font-black text-primary">＋ حفظ هذه الوجهة بالمفضلة</button>}
+                {showFavoriteNameInput && <div className="flex gap-2"><input value={favoriteName} onChange={(e) => setFavoriteName(e.target.value)} maxLength={60} placeholder="مثلاً: البيت أو العمل" className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button type="button" onClick={saveFavoritePlace} className="rounded-xl bg-primary px-3 py-2 text-xs font-black text-primary-foreground">حفظ</button><button type="button" onClick={() => { setShowFavoriteNameInput(false); setFavoriteName(""); }} className="rounded-xl border px-3 py-2 text-xs">إلغاء</button></div>}
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -1041,17 +1099,6 @@ function NewRequest() {
               </div>
             )}
             {vehicle !== "large" && (
-              <div className="rounded-2xl border border-amber-300/50 bg-card p-3 space-y-2">
-                <label className={`flex items-center justify-between gap-3 ${urgencyAllowed ? "cursor-pointer" : "opacity-60"}`}>
-                  <span>
-                    <span className="block text-sm font-black text-foreground">⚡ تفعيل الاستعجال</span>
-                    <span className="block text-xs text-muted-foreground">{urgencyAllowed ? "زيادة إضافية على سعر السيارة المحددة، حتى إذا الذروة مفعّلة" : "الاستعجال غير متاح حالياً حسب إعدادات الإدارة"}</span>
-                  </span>
-                  <input type="checkbox" checked={urgencyEnabled} disabled={!urgencyAllowed || routeKm === null} onChange={(e) => setUrgencyEnabled(e.target.checked)} className="h-5 w-5 accent-amber-500" />
-                </label>
-              </div>
-            )}
-            {vehicle !== "large" && (
               <div className="rounded-2xl border border-amber-300/50 bg-card p-3 space-y-3">
                 <button type="button" onClick={() => setTripOptionsExpanded((value) => !value)} className="w-full flex items-center justify-between text-sm font-black">
                   <span>خيارات الرحلة الاختيارية</span>
@@ -1118,6 +1165,9 @@ function NewRequest() {
      2. HOME SERVICE VIEW: CLASSIC CLEAN SERVICE FORM
      ========================================================================= */
   const selectedService = services.find((s) => s.id === serviceId);
+  const serviceProviderCount = level === "khabir" ? (khabirMode === "alone" ? 1 : 1 + workersCount) : workersCount;
+  const servicePriceMultiplier = serviceProviderCount + (level === "khabir" ? 1 : 0);
+  const serviceTotalPrice = (Number(customerPrice.replace(/[^0-9]/g, "")) || 0) * servicePriceMultiplier;
 
   return (
     <div className="min-h-screen px-5 pt-10 pb-36">
@@ -1133,6 +1183,7 @@ function NewRequest() {
         طلب خدمة منزلية
       </h1>
       <p className="text-sm text-muted-foreground mt-1">اختر الحرفة وحدد موقع العمل بسهولة</p>
+      {selectedService && <div className="mt-4 mb-4 flex items-center gap-3 rounded-2xl border border-border bg-card p-3"><img src={serviceIcon(selectedService.slug)} alt={selectedService.name_ar} className="h-16 w-16 rounded-xl object-cover" /><div className="text-right"><div className="text-xs text-muted-foreground">الخدمة المختارة</div><div className="font-black">{selectedService.name_ar}</div></div></div>}
 
       {/* Technician choices are shown on the previous dedicated screen. */}
       {/* Level Selection */}
@@ -1326,13 +1377,13 @@ function NewRequest() {
               onChange={(e) => setCustomerPrice(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder={
                 pricingMode === "hourly"
-                  ? "المبلغ الكلي (د.ع) مثلاً 25000"
-                  : "مبلغ الإنجاز التام (د.ع) مثلاً 50000"
+                  ? "الأجر لكل ساعة ولكل فني"
+                  : "الأجر لكل فني بالدينار"
               }
               className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:border-ring"
             />
             <div className="flex flex-wrap gap-2">
-              {[10000, 25000, 50000, 100000].map((v) => (
+              {[15000, 25000, 30000, 50000].map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -1343,9 +1394,12 @@ function NewRequest() {
                 </button>
               ))}
             </div>
-            <div className="text-[11px] text-muted-foreground">
-              المبلغ يكون من مضاعفات 250 دينار.
+            <div className="rounded-xl bg-primary/10 px-3 py-3 text-right">
+              <div className="text-xs text-muted-foreground">الإجمالي التقديري لجميع أفراد الطاقم</div>
+              <div className="mt-1 text-lg font-black text-primary">{serviceTotalPrice.toLocaleString("ar-IQ")} د.ع</div>
+              <div className="text-[10px] text-muted-foreground">سعر الفرد × {servicePriceMultiplier} وحدات أجرة · أجرة الخبير تعادل أجرتَي فني عادي</div>
             </div>
+            <div className="text-[11px] text-muted-foreground">اختر الأجر للفرد، ويُحسب الإجمالي تلقائياً حسب عدد الفنيين ومستواهم.</div>
           </>
         )}
       </div>

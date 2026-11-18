@@ -658,12 +658,12 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         const requestIds: string[] = [...new Set<string>((offerRows ?? []).map((offer: any) => String(offer.request_id)))];
         const { data } = await supabase
           .from("service_requests")
-          .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type")
+          .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, urgency_multiplier")
           .in("id", requestIds)
           .eq("type", "taxi")
           .eq("vehicle_category", "large")
           .in("status", ["pending", "searching"])
-          .order("created_at", { ascending: false });
+          .order("urgency_multiplier", { ascending: false }).order("created_at", { ascending: false });
         const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
         const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
         setRequests(mappedRequests);
@@ -687,12 +687,12 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       const requestIds: string[] = [...new Set<string>(offerRows.map((offer: any) => String(offer.request_id)))];
       let query = supabase
         .from("service_requests")
-        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km")
+        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km, urgency_multiplier")
         .in("id", requestIds)
         .in("status", ["pending", "searching"])
         .eq("type", type);
       if (type === "taxi") query = query.neq("vehicle_category", "large");
-      const { data } = await query.order("created_at", { ascending: false }).limit(50);
+      const { data } = await query.order("urgency_multiplier", { ascending: false }).order("created_at", { ascending: false }).limit(50);
       const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
       const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
       setRequests(mappedRequests);
@@ -813,6 +813,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
           <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl border border-primary/40 bg-background p-5 shadow-2xl">
             <div className="mb-3 text-xs font-black text-primary">🔔 طلب جديد موجّه إلك</div>
             <div className="text-lg font-black text-foreground">{type === "taxi" ? (largeDriverMode ? "طلب سيارة كبيرة جديد" : "طلب رحلة جديد") : "طلب خدمة جديد"}</div>
+            {Number(popupRequest.urgency_multiplier ?? 1) > 1 && <div className="mt-2 inline-flex rounded-full bg-amber-500/15 px-3 py-1 text-xs font-black text-amber-700">⚡ طلب عاجل ×{popupRequest.urgency_multiplier}</div>}
             {popupRequest.my_offer?.expires_at && (() => {
               const remaining = Math.max(0, Math.ceil((Date.parse(popupRequest.my_offer.expires_at) - dispatchClock) / 1000));
               const progress = Math.max(0, Math.min(100, remaining / 60 * 100));
