@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.customer_wallets (
 
 CREATE TABLE IF NOT EXISTS public.customer_wallet_transactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES public.customer_wallets(user_id) ON DELETE RESTRICT,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   transaction_type text NOT NULL CHECK (transaction_type IN ('deposit','withdrawal','payment','refund','adjustment')),
   amount numeric(14,2) NOT NULL CHECK (amount <> 0),
   balance_after numeric(14,2) NOT NULL CHECK (balance_after >= 0),
