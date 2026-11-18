@@ -658,7 +658,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         const requestIds: string[] = [...new Set<string>((offerRows ?? []).map((offer: any) => String(offer.request_id)))];
         const { data } = await supabase
           .from("service_requests")
-          .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, urgency_multiplier")
+          .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, urgency_multiplier, service_urgency_enabled, large_vehicle_urgency_enabled, taxi_urgency_enabled, taxi_urgency_percent")
           .in("id", requestIds)
           .eq("type", "taxi")
           .eq("vehicle_category", "large")
@@ -687,7 +687,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       const requestIds: string[] = [...new Set<string>(offerRows.map((offer: any) => String(offer.request_id)))];
       let query = supabase
         .from("service_requests")
-        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km, urgency_multiplier")
+        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km, urgency_multiplier, service_urgency_enabled, large_vehicle_urgency_enabled, taxi_urgency_enabled, taxi_urgency_percent")
         .in("id", requestIds)
         .in("status", ["pending", "searching"])
         .eq("type", type);
@@ -813,18 +813,19 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
           <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl border border-primary/40 bg-background p-5 shadow-2xl">
             <div className="mb-3 text-xs font-black text-primary">🔔 طلب جديد موجّه إلك</div>
             <div className="text-lg font-black text-foreground">{type === "taxi" ? (largeDriverMode ? "طلب سيارة كبيرة جديد" : "طلب رحلة جديد") : "طلب خدمة جديد"}</div>
-            {Number(popupRequest.urgency_multiplier ?? 1) > 1 && <div className="mt-2 inline-flex rounded-full bg-amber-500/15 px-3 py-1 text-xs font-black text-amber-700">⚡ طلب عاجل ×{popupRequest.urgency_multiplier}</div>}
+            {(popupRequest.service_urgency_enabled || popupRequest.large_vehicle_urgency_enabled || popupRequest.taxi_urgency_enabled || Number(popupRequest.urgency_multiplier ?? 1) > 1) && <div className="mt-2 inline-flex rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-600">⚡ طلب مستعجل{Number(popupRequest.urgency_multiplier ?? 1) > 1 ? ` ×${popupRequest.urgency_multiplier}` : ""}</div>}
             {popupRequest.my_offer?.expires_at && (() => {
               const remaining = Math.max(0, Math.ceil((Date.parse(popupRequest.my_offer.expires_at) - dispatchClock) / 1000));
               const progress = Math.max(0, Math.min(100, remaining / 60 * 100));
+              const urgentFlash = remaining <= 10 && remaining % 2 === 0;
               return <div className="my-4 flex items-center justify-center gap-3">
-                <div className="grid h-20 w-20 place-items-center rounded-full" style={{ background: `conic-gradient(#d69e36 ${progress}%, #e5e7eb ${progress}% 100%)` }}>
+                <div className="grid h-20 w-20 place-items-center rounded-full" style={{ background: `conic-gradient(${urgentFlash ? "#dc2626" : "#d69e36"} ${progress}%, #e5e7eb ${progress}% 100%)` }}>
                   <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-background text-center">
-                    <span className="text-xl font-black tabular-nums">{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</span>
+                    <span className={`text-xl font-black tabular-nums ${urgentFlash ? "text-red-600" : ""}`}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</span>
                     <span className="text-[9px] text-muted-foreground">للقبول</span>
                   </div>
                 </div>
-                <div className="max-w-[210px] text-xs leading-6 text-muted-foreground">{remaining <= 10 ? "انتبه، راح ينتهي العرض خلال ثوانٍ!" : "أول مزوّد يقبل الطلب يحصل عليه، وبعد انتهاء الدقيقة ينتقل البحث للنطاق التالي."}</div>
+                <div className={`max-w-[210px] text-xs leading-6 ${remaining <= 10 ? "font-black text-red-600" : "text-muted-foreground"}`}>{remaining <= 10 ? "انتبه، راح ينتهي العرض خلال ثوانٍ!" : "أول مزوّد يقبل الطلب يحصل عليه، وبعد انتهاء الدقيقة ينتقل البحث للنطاق التالي."}</div>
               </div>;
             })()}
             <div className="mt-2 rounded-2xl bg-muted/60 p-3 text-sm font-bold text-foreground">📍 {popupRequest.pickup_text || "موقع الزبون"}</div>
@@ -910,6 +911,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
                   <div className="text-sm font-bold truncate">
                     📍 {r.pickup_text || "بدون عنوان"}
                   </div>
+                  {(r.service_urgency_enabled || r.large_vehicle_urgency_enabled || r.taxi_urgency_enabled) && <div className="mt-1 text-xs font-black text-amber-600">⚡ طلب مستعجل</div>
                   {r.dest_text && (
                     <div className="text-xs text-muted-foreground mt-1 truncate">
                       🎯 {r.dest_text}

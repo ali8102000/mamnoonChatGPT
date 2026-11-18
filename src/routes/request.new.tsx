@@ -308,6 +308,9 @@ function NewRequest() {
   const [routeRetry, setRouteRetry] = useState(0);
   const runLookup = useServerFn(lookupMapPlace);
   const [busy, setBusy] = useState(false);
+  const serviceWorkerCount = type === "service" ? (level === "khabir" ? (khabirMode === "alone" ? 1 : 1 + workersCount) : workersCount) : 1;
+  const servicePriceMultiplier = serviceWorkerCount + (level === "khabir" ? 1 : 0);
+  const serviceTotalPrice = Number(customerPrice || 0) * servicePriceMultiplier;
   const getCouponBaseAmount = () => {
     if (type === "taxi") {
       if (vehicle === "large") return customerPrice.trim() ? Number(customerPrice) : null;
@@ -609,7 +612,8 @@ function NewRequest() {
           vehicle_category: type === "taxi" ? vehicleCategory : null,
           vehicle_type: type === "taxi" && vehicleCategory === "large" ? vehicleType : null,
           price_estimate: vehicle === "large" ? null : priceEstimate,
-          ...(vehicle === "large" ? { pricing_mode: customerPrice.trim() ? "fixed" : "negotiable", customer_price: customerPrice.trim() ? priceNum : null } : {}),
+          ...(vehicle === "large" ? { pricing_mode: customerPrice.trim() ? "fixed" : "negotiable", customer_price: customerPrice.trim() ? priceNum : null, large_vehicle_urgency_enabled: urgencyEnabled } : {}),
+          service_urgency_enabled: type === "service" ? urgencyEnabled : false,
           pickup_text: pickupLabel || "موقع محدد على الخريطة",
           pickup_lat: pickupCoords?.lat ?? null,
           pickup_lng: pickupCoords?.lng ?? null,
@@ -629,7 +633,7 @@ function NewRequest() {
           ...(type === "service"
             ? {
                 pricing_mode: pricingMode,
-                customer_price: pricingMode === "negotiable" ? null : priceNum,
+                customer_price: pricingMode === "negotiable" ? null : finalServicePrice,
                 work_hours: pricingMode === "hourly" && workHours ? Number(workHours) : null,
                 work_description: [
                   workDescription.trim(),
@@ -1069,6 +1073,10 @@ function NewRequest() {
                   placeholder="أو اكتب أي سعر بالدينار"
                   className="w-full bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 border border-orange-200 rounded-xl px-4 py-3 text-sm font-bold outline-none"
                 />
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-orange-300/60 bg-white/70 dark:bg-black/40 p-3">
+                  <span className="text-right"><span className="block text-sm font-black">⚡ وضع الاستعجال</span><span className="block text-[11px] text-muted-foreground">يظهر طلب السيارة للمزودين كطلب مستعجل</span></span>
+                  <input type="checkbox" checked={urgencyEnabled} onChange={(e) => setUrgencyEnabled(e.target.checked)} className="h-5 w-5 accent-orange-500" />
+                </label>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1098,6 +1106,7 @@ function NewRequest() {
                 })}
               </div>
             )}
+            {vehicle !== "large" && <div className="text-[11px] text-muted-foreground">خيار الاستعجال يظهر بعد إرسال الطلب أثناء البحث عن أقرب سائق.</div>}
             {vehicle !== "large" && (
               <div className="rounded-2xl border border-amber-300/50 bg-card p-3 space-y-3">
                 <button type="button" onClick={() => setTripOptionsExpanded((value) => !value)} className="w-full flex items-center justify-between text-sm font-black">
@@ -1388,9 +1397,9 @@ function NewRequest() {
                   key={v}
                   type="button"
                   onClick={() => setCustomerPrice(String(v))}
-                  className="px-3 py-1.5 rounded-full bg-surface-2 text-xs font-bold btn-press"
+                  className={`px-3 py-2 rounded-xl border text-xs font-black btn-press ${customerPrice === String(v) ? "border-primary bg-primary/10 text-primary" : "border-border bg-surface-2"}`}
                 >
-                  {v.toLocaleString()} د.ع
+                  {(v / 1000).toLocaleString("ar-IQ")} ألف
                 </button>
               ))}
             </div>
@@ -1402,6 +1411,10 @@ function NewRequest() {
             <div className="text-[11px] text-muted-foreground">اختر الأجر للفرد، ويُحسب الإجمالي تلقائياً حسب عدد الفنيين ومستواهم.</div>
           </>
         )}
+        <label className="flex items-center justify-between gap-3 rounded-xl border border-amber-300/50 bg-amber-50/60 dark:bg-amber-950/20 p-3">
+          <span className="text-right"><span className="block text-sm font-black text-foreground">⚡ وضع الاستعجال</span><span className="block text-[11px] text-muted-foreground">يظهر طلبك للمزودين كطلب مستعجل أثناء البحث</span></span>
+          <input type="checkbox" checked={urgencyEnabled} onChange={(e) => setUrgencyEnabled(e.target.checked)} className="h-5 w-5 accent-amber-500" />
+        </label>
       </div>
 
 

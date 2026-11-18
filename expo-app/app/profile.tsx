@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   walletOfflineNotice: { padding: 9, borderRadius: 10, backgroundColor: palette.goldSoft, marginBottom: 10 },
   walletOfflineText: { color: palette.ink, fontSize: 10, fontWeight: "700", textAlign: "right" },
   walletCard: { backgroundColor: palette.brand, borderRadius: radius.xl, padding: 22, marginBottom: 22, borderWidth: 1, borderColor: palette.gold },
-  walletTitle: { fontSize: 13, color: "rgba(255,255,255,0.78)", fontWeight: "800" },
+  walletTitle: { fontSize: 11, color: "rgba(255,255,255,0.78)", fontWeight: "800" },
   walletBalance: { fontSize: 32, fontWeight: "900", color: palette.white, marginTop: 6 },
   walletStats: { flexDirection: "row", gap: 16, marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.18)" },
   walletDetailsButton: { marginTop: 18, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: "rgba(255,255,255,0.14)", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

@@ -89,6 +89,7 @@ function RequestDetail() {
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
+  const [taxiUrgencyBusy, setTaxiUrgencyBusy] = useState(false);
   const [dispatchClock, setDispatchClock] = useState(Date.now());
   const [urgencyAllowed, setUrgencyAllowed] = useState(false);
   const [urgencyAdminPercent, setUrgencyAdminPercent] = useState(0);
@@ -440,10 +441,20 @@ function RequestDetail() {
       toast.error("زيادة السعر لازم تكون من مضاعفات 250 دينار وبحد أقصى 50 ألف");
       return;
     }
+    const activeSearch = req && ["pending", "searching"].includes(req.status);
+    if (activeSearch && increase <= 0) {
+      toast.error("اكتب مقدار الزيادة أولاً حتى نعيد إرسال الطلب بالسعر الجديد");
+      return;
+    }
     setRetryingRequest(true);
     try {
-      await retryFailedRequest({ data: { requestId: id, priceIncrease: increase } });
-      toast.success(increase > 0 ? "تمت إعادة الطلب مع رفع السعر" : "تمت إعادة إرسال نفس الطلب");
+      if (activeSearch) {
+        const { error } = await supabase.rpc("raise_request_price", { _request_id: id, _price_increase: increase });
+        if (error) throw error;
+      } else {
+        await retryFailedRequest({ data: { requestId: id, priceIncrease: increase } });
+      }
+      toast.success(activeSearch ? "تم رفع السعر وإعادة إرسال الطلب للمزودين" : increase > 0 ? "تمت إعادة الطلب مع رفع السعر" : "تمت إعادة إرسال نفس الطلب");
       setRetryPriceIncrease("0");
       await loadAll();
     } catch (error: any) {
@@ -466,6 +477,21 @@ function RequestDetail() {
       toast.error(error?.message ?? "تعذر تفعيل وضع الاستعجال");
     } finally {
       setUrgencyBusy(false);
+    }
+  }
+
+  async function enableTaxiUrgency() {
+    if (!req || taxiUrgencyBusy) return;
+    setTaxiUrgencyBusy(true);
+    try {
+      const { error } = await supabase.rpc("enable_taxi_request_urgency", { _request_id: id });
+      if (error) throw error;
+      toast.success("تم تفعيل الاستعجال وتحديث الأجرة وإعادة إرسال الطلب للسائقين");
+      await loadAll();
+    } catch (error: any) {
+      toast.error(error?.message?.includes("taxi_urgency_not_available") ? "وضع الاستعجال غير متاح حالياً حسب إعدادات ممنون" : error?.message ?? "تعذّر تفعيل الاستعجال");
+    } finally {
+      setTaxiUrgencyBusy(false);
     }
   }
 
@@ -548,6 +574,16 @@ function RequestDetail() {
           </div>
         )}
 
+        {req.type === "service" && (
+          <div className="glass rounded-2xl p-3 flex items-center gap-3" dir="rtl">
+            <img src={serviceIcon(req.services?.slug ?? "")} alt={req.services?.name_ar ?? "الخدمة"} className="h-16 w-16 rounded-xl object-cover border border-border" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] text-muted-foreground">الخدمة المطلوبة</div>
+              <div className="font-black text-base">{req.services?.name_ar ?? "خدمة منزلية"}</div>
+              <div className="text-[11px] text-muted-foreground">{req.level_required === "khabir" ? "خبير" : "فني"} · عدد الفريق {req.workers_count ?? 1}</div>
+            </div>
+          </div>
+        )}
         {req.type === "service" && ((req as any).pricing_mode || (req as any).work_description) && (
           <div className="glass rounded-2xl p-3 space-y-1">
             <div className="text-[11px] text-muted-foreground">السعر والشغل</div>
@@ -884,6 +920,26 @@ function RequestDetail() {
                 <div><b>السعر:</b> {Number(req.customer_payable ?? req.customer_price ?? req.price_estimate ?? 0).toLocaleString("ar-IQ")} د.ع</div>
               </div>
               {urgencyAllowed && Number(req.customer_price ?? req.price_estimate ?? 0) > 0 && <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-right"><div className="font-black text-sm">⚡ وضع الاستعجال</div><div className="mt-1 text-xs text-muted-foreground">نسبة الزيادة الأساسية من الإدارة: {urgencyAdminPercent}٪. اختر ×2 أو ×3 لزيادة أجر الطلب وتشجيع المزوّدين على قبوله.</div><div className="mt-3 grid grid-cols-2 gap-2"><button disabled={urgencyBusy} onClick={() => void applyRequestUrgency(2)} className="rounded-xl bg-amber-500 px-3 py-3 text-sm font-black text-white disabled:opacity-50">×2 زيادة الاستعجال</button><button disabled={urgencyBusy} onClick={() => void applyRequestUrgency(3)} className="rounded-xl bg-primary px-3 py-3 text-sm font-black text-primary-foreground disabled:opacity-50">×3 أقصى استعجال</button></div>{Number(req.urgency_multiplier ?? 1) > 1 && <div className="mt-2 text-xs font-bold text-emerald-700">مفعّل حالياً ×{req.urgency_multiplier} · زيادة {Number(req.urgency_percent ?? 0)}٪</div>}</div>}
+              {myRole === "customer" && req.type === "taxi" && req.vehicle_category !== "large" && (
+                <div className="mt-3 rounded-2xl border border-amber-300/50 bg-background/80 p-3 text-right">
+                  {(req as any).taxi_urgency_enabled ? (
+                    <div className="text-sm font-black text-amber-600">⚡ وضع الاستعجال مفعّل — {Number((req as any).taxi_urgency_percent || 0)}٪</div>
+                  ) : (
+                    <button type="button" disabled={taxiUrgencyBusy} onClick={() => void enableTaxiUrgency()} className="w-full text-right text-sm font-black text-amber-600 disabled:opacity-50">
+                      {taxiUrgencyBusy ? "جارٍ تفعيل الاستعجال..." : "⚡ تفعيل وضع الاستعجال أثناء البحث"}
+                      <span className="mt-1 block text-[11px] font-medium text-muted-foreground">تُضاف الزيادة المحددة من الإدارة إلى الأجرة ويُعاد إرسال الطلب للسائقين</span>
+                    </button>
+                  )}
+                </div>
+              )}
+              {myRole === "customer" && ["pending", "searching"].includes(req.status as string) && (
+                <div className="mt-3 rounded-2xl border border-border bg-background/80 p-3 text-right">
+                  <div className="text-xs font-black">تأخر القبول؟ تگدر ترفع السعر حتى تشجع مزودين أكثر</div>
+                  <input type="number" min="250" max="50000" step="250" value={retryPriceIncrease} onChange={(e) => setRetryPriceIncrease(e.target.value)} placeholder="مقدار الزيادة بالدينار" className="mt-2 w-full rounded-xl border border-border bg-card px-3 py-3 text-center font-black" />
+                  <button disabled={retryingRequest} onClick={() => void retryFailedDispatch()} className="mt-2 min-h-11 w-full rounded-xl bg-primary text-primary-foreground font-black disabled:opacity-50">{retryingRequest ? "جارٍ تحديث السعر..." : "رفع السعر وإعادة البحث"}</button>
+                </div>
+              )}
+
               <button onClick={() => setShowCancel(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
             </>
           ) : (

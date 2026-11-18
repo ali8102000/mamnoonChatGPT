@@ -97,6 +97,8 @@ type RequestRecord = {
   searching_started_at?: string | null;
   cancellation_reason?: string | null;
   distance_km?: number | null;
+  taxi_urgency_enabled?: boolean;
+  taxi_urgency_percent?: number | null;
 };
 type ChatMessage = {
   id: string;
@@ -238,6 +240,7 @@ export default function RequestDetail() {
   const countdownNotificationIdRef = useRef<string | null>(null);
   const [retryPriceIncrease, setRetryPriceIncrease] = useState("0");
   const [retryingDispatch, setRetryingDispatch] = useState(false);
+  const [taxiUrgencyBusy, setTaxiUrgencyBusy] = useState(false);
   const [activeOffer, setActiveOffer] = useState<any>(null);
   const scrollRef = useRef<ScrollView>(null);
   const weeklyRatingNoticeRef = useRef<string | null>(null);
@@ -256,6 +259,10 @@ export default function RequestDetail() {
   const currentRequestType = request?.type;
   const currentProviderId = request?.provider_id;
   const currentCustomerId = request?.customer_id;
+  const activeOfferSeconds = activeOffer?.expires_at
+    ? Math.max(0, Math.ceil((Date.parse(activeOffer.expires_at) - dispatchClock) / 1000))
+    : null;
+  const urgentOfferFlash = activeOfferSeconds !== null && activeOfferSeconds <= 10 && activeOfferSeconds % 2 === 0;
 
   const openTaxiNavigation = useCallback((app: "google" | "waze" | "darbuna") => {
     if (!request || request.type !== "taxi" || request.pickup_lat == null || request.pickup_lng == null) {
@@ -356,7 +363,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
+        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
       )
       .eq("id", id)
       .maybeSingle();
@@ -796,18 +803,36 @@ export default function RequestDetail() {
       Alert.alert("السعر غير صحيح", "زيادة السعر لازم تكون من مضاعفات 250 دينار وبحد أقصى 50 ألف.");
       return;
     }
+    const activeSearch = request && ["pending", "searching"].includes(request.status);
+    if (activeSearch && increase <= 0) {
+      Alert.alert("اكتب مقدار الزيادة", "أدخل مبلغاً موجباً حتى نرفع السعر ونعيد إرسال الطلب للمزودين.");
+      return;
+    }
     setRetryingDispatch(true);
-    const { data, error } = await (supabase as any).rpc("retry_service_request", {
+    const { data, error } = await (supabase as any).rpc(activeSearch ? "raise_request_price" : "retry_service_request", {
       _request_id: id,
       _price_increase: increase,
     });
     setRetryingDispatch(false);
     if (error) {
-      Alert.alert("تعذر إعادة المحاولة", error.message || "حاول مرة ثانية.");
+      Alert.alert("تعذر تحديث السعر", error.message || "حاول مرة ثانية.");
       return;
     }
     setRetryPriceIncrease("0");
-    Alert.alert("تمت إعادة الطلب", increase > 0 ? "أعدنا إرسال نفس الطلب مع رفع السعر." : "أعدنا إرسال طلبك بنفس التفاصيل.");
+    Alert.alert(activeSearch ? "تم رفع السعر" : "تمت إعادة الطلب", activeSearch ? "تم تحديث المبلغ وإعادة إرسال الطلب للمزودين القريبين." : increase > 0 ? "أعدنا إرسال نفس الطلب مع رفع السعر." : "أعدنا إرسال طلبك بنفس التفاصيل.");
+    await loadRequest();
+  }
+
+  async function enableTaxiUrgency() {
+    if (!request || taxiUrgencyBusy) return;
+    setTaxiUrgencyBusy(true);
+    const { error } = await (supabase as any).rpc("enable_taxi_request_urgency", { _request_id: id });
+    setTaxiUrgencyBusy(false);
+    if (error) {
+      Alert.alert("تعذر تفعيل الاستعجال", error.message?.includes("taxi_urgency_not_available") ? "وضع الاستعجال غير متاح حالياً حسب إعدادات ممنون." : error.message || "حاول مرة ثانية.");
+      return;
+    }
+    Alert.alert("تم تفعيل الاستعجال", "تم تحديث الأجرة وإعادة إرسال طلبك للسائقين القريبين.");
     await loadRequest();
   }
 
@@ -1089,6 +1114,27 @@ export default function RequestDetail() {
               </View>
               {Number(request.urgency_multiplier ?? 1) > 1 && <Text style={{ color: palette.success, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>مفعّل حالياً ×{request.urgency_multiplier} · زيادة {Number(request.urgency_percent ?? 0)}٪</Text>}
             </View>}
+            {isCustomer && request.type === "taxi" && request.vehicle_category !== "large" && (
+              <View style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.surface }}>
+                {request.taxi_urgency_enabled ? (
+                  <Text style={{ color: palette.brand, textAlign: "right", fontWeight: "900" }}>⚡ وضع الاستعجال مفعّل — {Number(request.taxi_urgency_percent || 0)}٪</Text>
+                ) : (
+                  <TouchableOpacity onPress={enableTaxiUrgency} disabled={taxiUrgencyBusy} style={{ paddingVertical: 7, opacity: taxiUrgencyBusy ? 0.5 : 1 }}>
+                    <Text style={{ color: palette.brand, textAlign: "right", fontWeight: "900" }}>{taxiUrgencyBusy ? "جارٍ تفعيل الاستعجال..." : "⚡ تفعيل وضع الاستعجال أثناء البحث"}</Text>
+                    <Text style={{ color: palette.muted, textAlign: "right", fontSize: 10, marginTop: 3 }}>تُضاف الزيادة المحددة من الإدارة إلى الأجرة ويُعاد إرسال الطلب للسائقين</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            {isCustomer && ["pending", "searching"].includes(request.status) && (
+              <View style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
+                <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900", textAlign: "right" }}>تأخر القبول؟ تگدر ترفع السعر حتى تشجع مزودين أكثر</Text>
+                <TextInput value={retryPriceIncrease} onChangeText={setRetryPriceIncrease} keyboardType="number-pad" placeholder="مقدار الزيادة بالدينار" placeholderTextColor={palette.muted} style={{ marginTop: 8, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.canvas, color: palette.ink, borderRadius: 12, padding: 11, textAlign: "center", fontWeight: "900" }} />
+                <TouchableOpacity disabled={retryingDispatch} onPress={retryDispatch} style={[styles.actionBtn, { marginTop: 8, opacity: retryingDispatch ? 0.5 : 1 }]}>
+                  <Text style={styles.actionBtnText}>{retryingDispatch ? "جارٍ تحديث السعر..." : "رفع السعر وإعادة البحث"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
         {isCustomer && request.status === "cancelled" && request.cancellation_reason === "dispatch_no_provider" && (
@@ -1103,10 +1149,10 @@ export default function RequestDetail() {
           </View>
         )}
         {activeOffer && !isCustomer && activeOffer.proposed_price == null && (
-          <View style={{ marginTop: 14, borderRadius: 20, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold, alignItems: "center" }}>
-            <Text style={{ color: palette.ink, fontWeight: "900", fontSize: 14 }}>⏳ عندك دقيقة لقبول الطلب</Text>
-            <Text style={{ color: palette.brand, fontWeight: "900", fontSize: 26, fontVariant: ["tabular-nums"], marginTop: 5 }}>
-              {(() => { const seconds = Math.max(0, Math.ceil((Date.parse(activeOffer.expires_at) - dispatchClock) / 1000)); return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; })()}
+          <View style={{ marginTop: 14, borderRadius: 20, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: urgentOfferFlash ? palette.danger : palette.gold, alignItems: "center" }}>
+            <Text style={{ color: urgentOfferFlash ? palette.danger : palette.ink, fontWeight: "900", fontSize: 14 }}>{activeOfferSeconds !== null && activeOfferSeconds <= 10 ? "🚨 انتبه، قرب ينتهي الطلب" : "⏳ عندك دقيقة لقبول الطلب"}</Text>
+            <Text style={{ color: urgentOfferFlash ? palette.danger : palette.brand, fontWeight: "900", fontSize: 26, fontVariant: ["tabular-nums"], marginTop: 5 }}>
+              {(() => { const seconds = activeOfferSeconds ?? 0; return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; })()}
             </Text>
             {activeOffer.distance_km != null && <Text style={{ color: palette.muted, fontSize: 11, marginTop: 4 }}>المسافة من موقعك: {Number(activeOffer.distance_km).toFixed(1)} كم</Text>}
           </View>
@@ -1242,7 +1288,7 @@ export default function RequestDetail() {
               <Text style={styles.actionBtnText}>إنهاء</Text>
             </TouchableOpacity>
           )}
-          {(isCustomer || isProvider) &&
+          {(isCustomer || (isProvider && request.type !== "taxi")) &&
             request.status !== "cancelled" &&
             request.status !== "completed" &&
             request.status !== "in_progress" && (
