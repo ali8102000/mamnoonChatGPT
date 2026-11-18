@@ -18,9 +18,14 @@ export default function PartnerDashboardScreen() {
   const load=useCallback(async()=>{
     if(!user?.id)return;
     setLoading(true);
+    const {data:approved,error:approvalError}=await (supabase as any).from("partner_applications")
+      .select("id").eq("user_id",user.id).eq("status","approved");
+    if(approvalError){Alert.alert("تعذر تحميل حالة الشراكة",approvalError.message);setItems([]);setLoading(false);return;}
+    const ids=(approved??[]).map((row:any)=>row.id);
+    if(!ids.length){setItems([]);setLoading(false);return;}
     const {data,error}=await (supabase as any).from("partner_business_profiles")
       .select("id,application_id,partner_type,business_name,phone,email,city,address,description,is_published")
-      .eq("user_id",user.id).order("created_at",{ascending:false});
+      .eq("user_id",user.id).in("application_id",ids).order("created_at",{ascending:false});
     if(error)Alert.alert("تعذر تحميل لوحة الشريك",error.message);
     setItems(data??[]);setLoading(false);
   },[user?.id]);
