@@ -45,7 +45,13 @@ create policy "Customers add own favorite places"
 drop policy if exists "Customers update own favorite places" on public.customer_favorite_places;
 create policy "Customers update own favorite places"
   on public.customer_favorite_places for update to authenticated
-  using ((select auth.uid()) = user_id)
+  using (
+    (select auth.uid()) = user_id
+    and exists (
+      select 1 from public.user_roles
+      where user_id = (select auth.uid()) and role = 'customer'::public.app_role
+    )
+  )
   with check (
     (select auth.uid()) = user_id
     and exists (
@@ -74,7 +80,7 @@ begin
   new.updated_at = now();
   return new;
 end;
-$;
+$$;
 
 revoke all on function public.set_customer_favorite_place_updated_at() from public, anon, authenticated;
 
