@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getSupabasePublishableKey } from "../_shared/api-keys.ts";
+import { getSupabasePublishableKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 const cors = {
@@ -18,7 +18,7 @@ Deno.serve(async (req: Request) => {
     const auth = req.headers.get("Authorization") || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
     if (!supabaseUrl || !anonKey || !token) return new Response(JSON.stringify({ ready: false }), { status: 401, headers: cors });
-    const client = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: "Bearer " + token } }, auth: { persistSession: false, autoRefreshToken: false } });
+    const client = createClient(supabaseUrl, anonKey, { global: { fetch: createSupabaseFetch(anonKey), headers: { Authorization: "Bearer " + token } }, auth: { persistSession: false, autoRefreshToken: false } });
     const { data: authData, error } = await client.auth.getUser(token);
     if (error || !authData.user) return new Response(JSON.stringify({ ready: false }), { status: 401, headers: cors });
     const required = ["ZAINCASH_CLIENT_ID", "ZAINCASH_CLIENT_SECRET", "ZAINCASH_API_KEY", "ZAINCASH_BASE_URL", "MAMNOON_PUBLIC_URL"];
