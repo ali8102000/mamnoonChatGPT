@@ -516,10 +516,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
-        {[...tiles].sort((a, b) => {
-          const keyFor = (tile: (typeof tiles)[number]) => tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
-          return Number(visuals[keyFor(a)]?.sort_order ?? 0) - Number(visuals[keyFor(b)]?.sort_order ?? 0);
-        }).map((tile) => (
+        {tiles.map((tile) => (
           <TouchableOpacity
             key={tile.key}
             accessibilityRole="button"
