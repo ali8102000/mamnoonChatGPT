@@ -5,8 +5,8 @@ CREATE OR REPLACE FUNCTION public.guard_live_location_speed()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
-AS $$
+SET search_path = ''
+AS $function$
 DECLARE
   prev RECORD;
   dist_km numeric;
@@ -35,5 +35,7 @@ BEGIN
 
   NEW.updated_at := now();
   RETURN NEW;
-END
-$$;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.guard_live_location_speed() FROM PUBLIC, anon, authenticated;
