@@ -314,6 +314,7 @@ export default function RequestDetail() {
     void (async () => {
       const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
       const remaining = Math.max(0, 360 - Math.floor((Date.now() - start) / 1000));
+      if (remaining <= 0) return;
       const preferences = await loadNotificationPreferences();
       if (!active || !preferences.soundEnabled) return;
       const seconds = Math.max(1, remaining - 10);
