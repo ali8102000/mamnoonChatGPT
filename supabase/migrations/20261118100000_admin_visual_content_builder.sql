@@ -184,10 +184,10 @@ create or replace view public.app_content_sections_public with (security_invoker
   select id,title,section_type,placement_key,sort_order,published_config,updated_at
   from public.app_content_sections where is_published = true and is_enabled = true;
 grant select on public.app_ui_elements_public to anon, authenticated;
-grant select (element_key,label,screen_key,placement_key,element_type,action_key,title,subtitle,sort_order,is_enabled,published_config,updated_at)
+grant select (element_key,label,screen_key,placement_key,element_type,action_key,title,subtitle,sort_order,is_enabled,is_published,published_config,updated_at)
   on public.app_ui_elements to anon;
 grant select on public.app_content_sections_public to anon, authenticated;
-grant select (id,title,section_type,placement_key,sort_order,is_enabled,published_config,updated_at)
+grant select (id,title,section_type,placement_key,sort_order,is_enabled,is_published,published_config,updated_at)
   on public.app_content_sections to anon;
 grant select, insert, update, delete on public.app_ui_elements, public.app_content_sections,
   public.app_campaigns, public.app_campaign_options to authenticated;
