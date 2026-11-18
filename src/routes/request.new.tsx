@@ -750,7 +750,7 @@ function NewRequest() {
                   ? `ابحث عن موقع الانطلاق في ${gov?.name ?? "محافظتك"}...`
                   : `ابحث عن وجهة الوصول في ${getGovernorate(destinationGovernorateKey)?.name ?? gov?.name ?? "المحافظة المختارة"}...`
               }
-              showLocateButton={mapStep === "pickup"}
+              showLocateButton={true}
               isFullScreen={true}
               searchTop={72}
               hideOutsideButtons={true}
