@@ -88,3 +88,16 @@
 6. عدم إنشاء Policies عامة للجداول الـ13 التي بلا Policies لمجرد إزالة تحذير Advisor؛ لا تُفتح جداول الطوابير والسجلات والمدفوعات دون حاجة وصلاحية محددة.
 
 **لا تغييرات إنتاجية نُفذت خلال هذا التدقيق.** يجب تطبيق تغييرات SQL عبر migrations مراجعة واختبارها على staging أولاً، بسبب اختلاف سجل migrations الحي عن ملفات المستودع الذي سبق توثيقه.
+
+
+
+## لقطة محدثة من Supabase Advisors — 19 نوفمبر 2026
+
+الفحص المباشر للمشروع `enteiolvirenbhkyskgb` أعاد النتائج التالية:
+
+- **14 جدولاً** عليه RLS دون سياسات مباشرة: `audit_logs`, `coupon_assignments`, `coupon_redemptions`, `coupon_subsidy_ledger`, `coupons`, `dispatch_zone_settings`, `driver_performance_tier_rules`, `map_place_search_cache`, `map_place_suggestions`, `push_delivery_outbox`, `route_distance_cache`, `service_dispatch_queue`, `taxi_dispatch_queue`, `zaincash_webhook_events`. لا تُضاف سياسات عامة تلقائياً؛ يجب التحقق من المنح ومصدر الوصول لكل جدول، فبعضها قد يكون مخصصاً لوظائف الخلفية.
+- تحذير واحد بشأن `pg_net` المثبت في schema `public`.
+- **106** دوال `SECURITY DEFINER` متاحة لدور `authenticated`. هذا لا يثبت وحده وجود ثغرة؛ يلزم مراجعة كل دالة للتحقق من `auth.uid()` وصلاحيات الإدارة ونطاق البيانات قبل أي REVOKE.
+- **16** حالة سياسات permissive متعددة لنفس الدور/العملية، وهي ملاحظة أداء تحتاج مراجعة خطط الاستعلام قبل الدمج أو التعديل.
+
+لم تُجرَ أي تغييرات على RLS أو grants أو extensions ضمن هذا الفحص.
