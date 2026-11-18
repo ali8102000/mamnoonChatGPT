@@ -255,7 +255,7 @@ export default function AdminScreen() {
       admin_note: status === "rejected" ? "يرجى مراجعة البيانات وإعادة التقديم" : status === "suspended" ? "تم إيقاف الشراكة من الإدارة" : null,
     }).eq("id", applicationId);
     if (error) { Alert.alert("تعذر تحديث طلب الشراكة", error.message); return; }
-    Alert.alert("تم", status === "approved" ? "تمت الموافقة على طلب الشراكة." : "تم رفض طلب الشراكة.");
+    Alert.alert("تم", status === "approved" ? "تمت الموافقة على الشراكة." : status === "suspended" ? "تم إيقاف الشريك وإخفاء منشأته." : "تم رفض طلب الشراكة.");
     await load();
   };
 
