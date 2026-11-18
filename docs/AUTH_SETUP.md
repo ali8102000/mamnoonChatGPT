@@ -21,4 +21,4 @@ The built-in Supabase mail service is intended for testing and has strict sendin
 
 The account settings screen uses Supabase's `updateUser({ phone })` and `verifyOtp({ type: "phone_change" })` flow. Enable Phone Auth, configure an SMS provider and test delivery to Iraqi +964 numbers before enabling phone changes for production users.
 
-The database migration `0007_sync_verified_auth_contacts.sql` updates `profiles.email` and `profiles.phone` only after Supabase Auth confirms the contact change. Apply the Drizzle migration with the configured `LOVABLE_DB_MIGRATION_URL` before relying on the profile contact sync.
+The database migration `0007_sync_verified_auth_contacts.sql` updates `profiles.email` and `profiles.phone` only after Supabase Auth confirms the contact change. Apply the Drizzle migration with the configured `SUPABASE_DB_URL` before relying on the profile contact sync.
