@@ -13,6 +13,7 @@ import { LargeVehicleIllustration } from "@/components/large-vehicle-illustratio
 type VehicleModel = { id: string; make: string; model: string; category: string; min_year: number };
 type DocumentType = "national_id" | "driver_license";
 type PickedImage = { uri: string; mimeType?: string | null; fileName?: string | null };
+type PickedVideo = { uri: string; mimeType?: string | null; fileName?: string | null; fileSize?: number | null; duration?: number | null };
 
 const CATEGORIES = [
   { key: "economy", label: "اقتصادي" },
@@ -42,6 +43,8 @@ export default function DriverOnboarding() {
   const [idPhoto, setIdPhoto] = useState<PickedImage | null>(null);
   const [idBackPhoto, setIdBackPhoto] = useState<PickedImage | null>(null);
   const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<PickedImage | null>(null);
+  const [vehicleVideo, setVehicleVideo] = useState<PickedVideo | null>(null);
+  const [vehicleVideoPath, setVehicleVideoPath] = useState<string | null>(null);
   const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
   const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: "", model: "", year: "", plate: "", color: "", category: largeDriverMode ? "large" : "economy", vehicleType: "kia_cargo" });
   const [status, setStatus] = useState<string | null>(null);
@@ -103,6 +106,7 @@ export default function DriverOnboarding() {
         const savedPlate = typeof saved?.vehicle_plate === "string" ? saved.vehicle_plate : m.vehiclePlate;
         const savedColor = typeof saved?.vehicle_color === "string" ? saved.vehicle_color : m.vehicleColor;
         const savedCategory = saved?.vehicle_category ?? m.vehicleCategory;
+        if (typeof m.vehicleVideoPath === "string") setVehicleVideoPath(m.vehicleVideoPath);
         if (typeof make === "string") setSelectedMake(make);
         if (typeof model === "string") setSavedModelName(model);
         if (typeof savedYear === "number") setYear(String(savedYear));
@@ -191,6 +195,47 @@ export default function DriverOnboarding() {
     }
   }
 
+  async function pickVehicleVideo(source: "camera" | "library") {
+    try {
+      if (source === "camera") {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) { Alert.alert("إذن الكاميرا", "اسمح لممنون باستخدام الكاميرا لتصوير فيديو السيارة."); return; }
+      } else {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) { Alert.alert("إذن الفيديوهات", "اسمح لممنون بالوصول إلى الفيديوهات لاختيار فيديو السيارة."); return; }
+      }
+      const options = { mediaTypes: ["videos"] as any, videoMaxDuration: 60, allowsEditing: false };
+      const result = source === "camera"
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0] as any;
+      if (typeof asset.fileSize === "number" && asset.fileSize > 50 * 1024 * 1024) {
+        Alert.alert("حجم الفيديو كبير", "الحد الأعلى للفيديو 50 ميغابايت. اختَر فيديو أقصر أو أقل حجماً."); return;
+      }
+      if (typeof asset.duration === "number" && asset.duration > 60_000) {
+        Alert.alert("الفيديو طويل", "لازم يكون الفيديو دقيقة واحدة أو أقل."); return;
+      }
+      setVehicleVideo({ uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName, fileSize: asset.fileSize, duration: asset.duration });
+      setVehicleVideoPath(null);
+      setChangedDocuments((current) => ({ ...current, vehicle_video: true }));
+    } catch {
+      Alert.alert("تعذر إرفاق الفيديو", "حاول تصوير الفيديو أو اختياره من المعرض مرة ثانية.");
+    }
+  }
+
+  async function uploadVideo(video: PickedVideo) {
+    if (!user) throw new Error("انتهت جلسة الدخول.");
+    const response = await fetch(video.uri);
+    const body = await response.arrayBuffer();
+    const mime = video.mimeType && ["video/mp4", "video/quicktime", "video/webm"].includes(video.mimeType) ? video.mimeType : "video/mp4";
+    const extension = mime === "video/quicktime" ? "mov" : mime === "video/webm" ? "webm" : "mp4";
+    const path = `${user.id}/${providerRole}/vehicle-video-${Date.now()}.${extension}`;
+    const { error } = await supabase.storage.from("provider-verification").upload(path, body, { contentType: mime, upsert: true, cacheControl: "3600" });
+    if (error) throw new Error(`تعذر رفع فيديو السيارة: ${error.message}`);
+    return path;
+  }
+
   async function uploadImage(image: PickedImage, kind: "face" | "id-card" | "id-card-back" | "vehicle-registration") {
     if (!user) throw new Error("انتهت جلسة الدخول.");
     const response = await fetch(image.uri);
@@ -255,6 +300,11 @@ export default function DriverOnboarding() {
         if (changedDocuments.id_card && idPhoto) documents.id_card = await uploadImage(idPhoto, "id-card");
         if (changedDocuments.id_card_back && idBackPhoto) documents.id_card_back = await uploadImage(idBackPhoto, "id-card-back");
         if (changedDocuments.vehicle_document && vehicleDocumentPhoto) documents.vehicle_document = await uploadImage(vehicleDocumentPhoto, "vehicle-registration");
+        if (changedDocuments.vehicle_video && vehicleVideo) {
+          const uploadedVideoPath = await uploadVideo(vehicleVideo);
+          documents.vehicle_video = uploadedVideoPath;
+          setVehicleVideoPath(uploadedVideoPath);
+        }
         if (!Object.keys(changedVehicle).length && !Object.keys(documents).length) {
           Alert.alert("ماكو تغييرات", "ماكو بيانات أو مستندات جديدة لإرسالها.");
           return;
@@ -305,7 +355,11 @@ export default function DriverOnboarding() {
       return;
     }
     if (!facePhoto || !idPhoto || (documentType === "national_id" && !idBackPhoto) || !vehicleDocumentPhoto) {
-      Alert.alert("الصور مطلوبة", "أرفق صورة الوجه والجهة الأمامية والخلفية للبطاقة الوطنية (أو صورة إجازة السوق) وصورة سنوية السيارة أو الوكالة التي يظهر فيها رقم المركبة.");
+      Alert.alert("المستندات مطلوبة", "أرفق صورة الوجه والهوية ومستند السيارة الرسمي.");
+      return;
+    }
+    if (!vehicleVideo && !vehicleVideoPath) {
+      Alert.alert("فيديو السيارة مطلوب", "أرفق فيديو واضحاً تظهر فيه السيارة كاملة ورقم لوحتها بوضوح.");
       return;
     }
 
@@ -335,6 +389,7 @@ export default function DriverOnboarding() {
         idBackPhoto ? uploadImage(idBackPhoto, "id-card-back") : Promise.resolve(null),
         uploadImage(vehicleDocumentPhoto, "vehicle-registration"),
       ]);
+      const uploadedVehicleVideoPath = vehicleVideo ? await uploadVideo(vehicleVideo) : vehicleVideoPath;
       const { error: verificationError } = await supabase.from("provider_verifications").upsert({
         user_id: user.id,
         provider_type: providerRole,
@@ -354,6 +409,7 @@ export default function DriverOnboarding() {
           vehicleColor: color.trim() || null,
           vehicleCategory: category,
           vehicleType: category === "large" ? vehicleType : null,
+          vehicleVideoPath: uploadedVehicleVideoPath,
         },
         status: "pending",
         rejection_reason: null,
@@ -363,6 +419,8 @@ export default function DriverOnboarding() {
       }, { onConflict: "user_id,provider_type" });
       if (verificationError) throw new Error(`تعذر حفظ طلب التوثيق: ${verificationError.message}`);
 
+      setVehicleVideoPath(uploadedVehicleVideoPath);
+      setVehicleVideo(null);
       setStatus("pending");
       setChangedDocuments({});
       setRejectionReason(null);
@@ -530,10 +588,10 @@ export default function DriverOnboarding() {
         { text: "اختيار صورة من المعرض", onPress: () => { void pickPhoto("vehicle-document", "library"); } },
         { text: "إلغاء", style: "cancel" },
       ])}>
-        {vehicleDocumentPhoto ? <Image source={{ uri: vehicleDocumentPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>اضغط هنا لتصوير السنوية أو اختيارها من المعرض</Text>}
+        {vehicleDocumentPhoto ? <Image source={{ uri: vehicleDocumentPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>اضغط هنا لتصوير المستند الرسمي أو اختياره من المعرض</Text>}
       </TouchableOpacity>
 
-      <View style={{ height: 24 }} />
+      <Text style={styles.label}>فيديو السيارة *</Text>\n      <Text style={styles.note}>أرفق فيديو مدته دقيقة أو أقل. صوّر السيارة من الخارج بحيث تظهر السيارة كاملة من الأمام والخلف والجوانب، ويكون رقم لوحة السيارة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.</Text>\n      <View style={styles.photoButton}>\n        <Text style={styles.photoText}>{vehicleVideo ? (vehicleVideo.fileName || "تم اختيار فيديو السيارة") : vehicleVideoPath ? "يوجد فيديو محفوظ مرفق سابقاً ✓" : "لم يتم إرفاق فيديو السيارة بعد"}</Text>\n        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>\n          <Button title="تصوير فيديو" onPress={() => { void pickVehicleVideo("camera"); }} />\n          <Button title="اختيار فيديو" onPress={() => { void pickVehicleVideo("library"); }} />\n        </View>\n      </View>\n\n      <View style={{ height: 24 }} />
       <Button title={vehicleChangeMode ? "إرسال طلب التحديث للإدارة" : "إرسال طلب التسجيل للمراجعة"} onPress={submit} loading={busy} />
     </ScrollView>
   );
