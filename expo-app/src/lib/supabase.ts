@@ -6,11 +6,11 @@ import "react-native-url-polyfill/auto";
 
 // These are public client values only. Never place a Supabase service-role key here.
 const configuredUrl =
-  process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ||
-  String(Constants.expoConfig?.extra?.supabaseUrl ?? "").trim();
+  String(Constants.expoConfig?.extra?.supabaseUrl ?? "").trim() ||
+  process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
 const configuredPublishableKey =
-  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-  String(Constants.expoConfig?.extra?.supabasePublishableKey ?? "").trim();
+  String(Constants.expoConfig?.extra?.supabasePublishableKey ?? "").trim() ||
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
 
 export const isSupabaseConfigured = Boolean(
   configuredUrl && configuredPublishableKey,
