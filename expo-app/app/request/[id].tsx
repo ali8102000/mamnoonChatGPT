@@ -739,9 +739,14 @@ export default function RequestDetail() {
       setRoadRoutePoints([]);
       return;
     }
-    // Both views draw the same real road route: provider GPS -> customer pickup.
+    // Both views draw the same real road route. After a taxi passenger boards,
+    // route from the provider's live GPS to the saved trip destination instead.
     const origin = isCustomer ? otherLocation : myLocation;
-    const destination = isCustomer ? myLocation : otherLocation;
+    const tripStarted = request?.type === "taxi" && request.status === "in_progress" &&
+      request.dest_lat != null && request.dest_lng != null;
+    const destination = tripStarted
+      ? { latitude: Number(request!.dest_lat), longitude: Number(request!.dest_lng) }
+      : isCustomer ? myLocation : otherLocation;
     const sequence = ++roadRouteSequenceRef.current;
     const timeout = setTimeout(() => {
       void callMamnoonMapsApi<{ routePoints?: { lat: number; lng: number }[] }>({
@@ -764,7 +769,7 @@ export default function RequestDetail() {
       });
     }, 350);
     return () => clearTimeout(timeout);
-  }, [isActive, isCustomer, myLocation?.latitude, myLocation?.longitude, otherLocation?.latitude, otherLocation?.longitude, driverLocationFresh]);
+  }, [isActive, isCustomer, request?.type, request?.status, request?.dest_lat, request?.dest_lng, myLocation?.latitude, myLocation?.longitude, otherLocation?.latitude, otherLocation?.longitude, driverLocationFresh]);
 
   useEffect(() => {
     if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
