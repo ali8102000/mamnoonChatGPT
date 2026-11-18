@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
@@ -175,6 +175,21 @@ function HomePage() {
 }
 
 function CustomerHome() {
+  const [visuals, setVisuals] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("app_ui_elements_public")
+      .select("element_key,published_config,title,subtitle,sort_order")
+      .then(({ data, error }: any) => {
+        if (!active || error) return;
+        const next: Record<string, any> = {};
+        for (const item of data ?? []) next[item.element_key] = { ...(item.published_config ?? {}), title: item.title, subtitle: item.subtitle, sort_order: item.sort_order };
+        setVisuals(next);
+      });
+    return () => { active = false; };
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="relative rounded-3xl p-6 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
@@ -193,13 +208,17 @@ function CustomerHome() {
         </div>
       </div>
 
+      <HomeCustomContent placementKey="home.customer.top" />
+
       <div className="grid grid-cols-3 gap-3">
         <QuickTile
           to="/request/new"
           type="taxi"
-          title="طلب سيارة"
-          subtitle="خلال دقائق"
-          icon={<img src="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" alt="" className="h-11 w-11 object-contain" />}
+          title={visuals.home_customer_taxi?.title || "طلب سيارة"}
+          subtitle={visuals.home_customer_taxi?.subtitle || "خلال دقائق"}
+          icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: Number(visuals.home_customer_taxi?.width_px) || 44, height: Number(visuals.home_customer_taxi?.height_px) || 44, objectFit: "contain" }} />}
+          iconBoxSize={Math.max(Number(visuals.home_customer_taxi?.width_px) || 48, 48)}
+          sortOrder={Number(visuals.home_customer_taxi?.sort_order) || 10}
           gradient="from-amber-500 to-orange-500"
           span={2}
           delay={0.05}
@@ -207,9 +226,11 @@ function CustomerHome() {
         <QuickTile
           to="/request/new"
           type="service"
-          title="طلب فني"
-          subtitle="١٦ خدمة"
-          icon={<img src={serviceIcon("build")} alt="" className="h-16 w-16 object-cover" />}
+          title={visuals.home_customer_service?.title || "طلب فني"}
+          subtitle={visuals.home_customer_service?.subtitle || "١٦ خدمة"}
+          icon={visuals.home_customer_service?.icon_name ? <span className="text-3xl">{visuals.home_customer_service.icon_name}</span> : <img src={visuals.home_customer_service?.image_url || serviceIcon("build")} alt="" style={{ width: Number(visuals.home_customer_service?.width_px) || 64, height: Number(visuals.home_customer_service?.height_px) || 64, objectFit: "cover" }} />}
+          iconBoxSize={Math.max(Number(visuals.home_customer_service?.width_px) || 64, 48)}
+          sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
@@ -217,18 +238,24 @@ function CustomerHome() {
           to="/request/new"
           type="taxi"
           vehicle="large"
-          title="طلب سيارة كبيرة"
-          subtitle="كيا حمل أو كيا ركاب أو باص"
-          icon={<img src="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" alt="" className="h-11 w-11 object-contain" />}
+          title={visuals.home_customer_large_vehicle?.title || "طلب سيارة كبيرة"}
+          subtitle={visuals.home_customer_large_vehicle?.subtitle || "كيا حمل أو كيا ركاب أو باص"}
+          icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: Number(visuals.home_customer_large_vehicle?.width_px) || 44, height: Number(visuals.home_customer_large_vehicle?.height_px) || 44, objectFit: "contain" }} />}
+          iconBoxSize={Math.max(Number(visuals.home_customer_large_vehicle?.width_px) || 48, 48)}
+          sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
           gradient="from-orange-500 to-amber-600"
           delay={0.15}
         />
       </div>
 
+      <HomeCustomContent placementKey="home.customer.content" />
+
       <div className="grid grid-cols-2 gap-2.5 animate-pop-in" style={{ animationDelay: "0.15s" }}>
         <MiniStat icon={<Clock className="h-4 w-4" />} label="أقل من" value="٣ د" />
         <MiniStat icon={<ShieldCheck className="h-4 w-4" />} label="مزودون" value="موثق" />
       </div>
+
+      <HomeCustomContent placementKey="home.customer.after_stats" />
 
       <div className="mt-4">
         <div className="flex items-center justify-between mb-3">
@@ -254,6 +281,114 @@ function CustomerHome() {
   );
 }
 
+
+function HomeCustomContent({ placementKey }: { placementKey: string }) {
+  const { session } = useAuth();
+  const [sections, setSections] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [responses, setResponses] = useState<Record<string, string>>({});
+  const [results, setResults] = useState<Record<string, any[]>>({});
+  const [voting, setVoting] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const [sectionResult, campaignResult] = await Promise.all([
+      (supabase as any).from("app_content_sections_public").select("id,title,section_type,placement_key,sort_order,published_config").eq("placement_key", placementKey).order("sort_order"),
+      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", placementKey).order("sort_order").order("created_at", { ascending: false }),
+    ]);
+    if (!sectionResult.error) setSections(sectionResult.data ?? []);
+    if (!campaignResult.error) {
+      const now = Date.now();
+      const active = (campaignResult.data ?? []).filter((item: any) =>
+        (!item.starts_at || new Date(item.starts_at).getTime() <= now) &&
+        (!item.ends_at || new Date(item.ends_at).getTime() > now || item.result_visibility === "public" || item.result_visibility === "after_end")
+      );
+      setCampaigns(active);
+      if (session?.user?.id && active.length) {
+        const ids = active.map((item: any) => item.id);
+        const { data: own } = await (supabase as any).from("app_campaign_responses").select("campaign_id,option_id").in("campaign_id", ids);
+        const ownMap: Record<string, string> = {};
+        for (const row of own ?? []) ownMap[row.campaign_id] = row.option_id;
+        setResponses(ownMap);
+        const resultPairs = await Promise.all(active.map(async (item: any) => {
+          const { data } = await (supabase as any).from("app_campaign_option_results").select("option_id,vote_count").eq("campaign_id", item.id);
+          return [item.id, data ?? []] as const;
+        }));
+        setResults(Object.fromEntries(resultPairs));
+      }
+    }
+  }, [session?.user?.id, placementKey]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const vote = async (campaign: any, optionId: string) => {
+    const now = Date.now();
+    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);
+    if (!votingOpen) return;
+    const userId = session?.user?.id;
+    if (!userId || responses[campaign.id] || voting) return;
+    setVoting(campaign.id);
+    const { error } = await (supabase as any).from("app_campaign_responses").insert({
+      campaign_id: campaign.id, option_id: optionId, user_id: userId,
+    });
+    if (error) toast.error(error.code === "23505" ? "سبق وشاركت بهذا الاستطلاع." : error.message);
+    else {
+      setResponses((current) => ({ ...current, [campaign.id]: optionId }));
+      const { data } = await (supabase as any).from("app_campaign_option_results").select("option_id,vote_count").eq("campaign_id", campaign.id);
+      setResults((current) => ({ ...current, [campaign.id]: data ?? [] }));
+      toast.success("تم تسجيل مشاركتك");
+    }
+    setVoting(null);
+  };
+
+  if (!sections.length && !campaigns.length) return null;
+  return (
+    <div className="space-y-3">
+      {sections.map((section) => {
+        const config = section.published_config ?? {};
+        if (section.section_type === "table") {
+          const columns = Array.isArray(config.columns) ? config.columns : [];
+          const rows = Array.isArray(config.rows) ? config.rows : [];
+          return <section key={section.id} className="rounded-2xl border border-border bg-card p-3">
+            <h3 className="mb-2 text-sm font-black">{section.title}</h3>
+            <div className="overflow-x-auto"><table className="w-full min-w-max text-right text-xs">
+              {columns.length > 0 && <thead><tr>{columns.map((column: any, index: number) => <th key={index} className="border-b border-border bg-muted px-3 py-2 font-black">{String(column)}</th>)}</tr></thead>}
+              <tbody>{rows.map((row: any, rowIndex: number) => <tr key={rowIndex}>{(Array.isArray(row) ? row : []).map((cell: any, cellIndex: number) => <td key={cellIndex} className="border-b border-border/60 px-3 py-2">{String(cell ?? "")}</td>)}</tr>)}</tbody>
+            </table></div>
+          </section>;
+        }
+        return <section key={section.id} className="rounded-2xl border border-border bg-card p-4">
+          <h3 className="text-sm font-black">{config.title || section.title}</h3>
+          {config.description && <p className="mt-1 text-xs text-muted-foreground">{config.description}</p>}
+          {config.image_url && <img src={config.image_url} alt="" className="mt-3 max-h-40 w-full rounded-xl object-cover" />}
+        </section>;
+      })}
+      {campaigns.map((campaign) => {
+        const options = [...(campaign.app_campaign_options ?? [])].sort((a: any, b: any) => a.sort_order - b.sort_order);
+        const selected = responses[campaign.id];
+        const counts = results[campaign.id] ?? [];
+        const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= Date.now()) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > Date.now());
+        const showResults = campaign.result_visibility === "public" || (campaign.result_visibility === "after_end" && !!campaign.ends_at && new Date(campaign.ends_at).getTime() <= Date.now());
+        const total = counts.reduce((sum: number, row: any) => sum + Number(row.vote_count ?? 0), 0);
+        return <section key={campaign.id} className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between"><span className="text-[10px] font-black text-primary">{campaign.campaign_type === "contest" ? "مسابقة" : "استطلاع رأي"}</span><span className="text-[10px] text-muted-foreground">{total} مشاركة</span></div>
+          <h3 className="mt-1 text-base font-black">{campaign.title}</h3>
+          {campaign.description && <p className="mt-1 text-xs text-muted-foreground">{campaign.description}</p>}
+          <div className="mt-3 space-y-2">{options.map((option: any) => {
+            const count = Number(counts.find((row: any) => row.option_id === option.id)?.vote_count ?? 0);
+            const percent = total > 0 ? Math.round(count / total * 100) : 0;
+            return <button key={option.id} type="button" disabled={!session?.user?.id || !!selected || voting === campaign.id || !votingOpen} onClick={() => void vote(campaign, option.id)} className={`w-full rounded-xl border p-3 text-right text-sm transition ${selected === option.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
+              <span className="flex items-center justify-between gap-2"><span>{option.label}</span>{showResults && <b className="text-xs text-primary">{percent}% · {count}</b>}</span>
+              {showResults && <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: percent + "%" }} /></span>}
+            </button>;
+          })}</div>
+          {!session?.user?.id && <p className="mt-2 text-[11px] text-muted-foreground">سجّل الدخول حتى تشارك.</p>}
+          {selected && <p className="mt-2 text-xs font-bold text-primary">تم تسجيل مشاركتك.</p>}
+        </section>;
+      })}
+    </div>
+  );
+}
+
 function QuickTile({
   to,
   type,
@@ -264,6 +399,8 @@ function QuickTile({
   gradient,
   span = 1,
   delay = 0,
+  iconBoxSize,
+  sortOrder = 0,
 }: {
   to: string;
   type: "taxi" | "service";
@@ -274,6 +411,8 @@ function QuickTile({
   gradient: string;
   span?: 1 | 2;
   delay?: number;
+  iconBoxSize?: number;
+  sortOrder?: number;
 }) {
   return (
     <Link
@@ -283,7 +422,7 @@ function QuickTile({
       className={`glass rounded-3xl p-4 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
         span === 2 ? "col-span-2 min-h-[132px]" : "min-h-[132px]"
       }`}
-      style={{ animationDelay: `${delay}s` }}
+      style={{ animationDelay: `${delay}s`, order: sortOrder }}
     >
       <div
         className={`absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`}
@@ -291,6 +430,7 @@ function QuickTile({
       <div className="relative flex flex-col h-full justify-between">
         <div
           className={`${type === "service" ? "h-16 w-16" : "h-12 w-12"} rounded-2xl bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg overflow-hidden`}
+          style={{ width: iconBoxSize, height: iconBoxSize }}
         >
           {icon}
         </div>
