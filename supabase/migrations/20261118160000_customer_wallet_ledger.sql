@@ -12,6 +12,11 @@ CREATE TABLE IF NOT EXISTS public.customer_wallet_transactions (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   transaction_type text NOT NULL CHECK (transaction_type IN ('deposit','withdrawal','payment','refund','adjustment')),
   amount numeric(14,2) NOT NULL CHECK (amount <> 0),
+  CONSTRAINT customer_wallet_transaction_amount_direction CHECK (
+    (transaction_type IN ('deposit','refund') AND amount > 0)
+    OR (transaction_type IN ('withdrawal','payment') AND amount < 0)
+    OR transaction_type = 'adjustment'
+  ),
   balance_after numeric(14,2) NOT NULL CHECK (balance_after >= 0),
   status text NOT NULL DEFAULT 'completed' CHECK (status IN ('pending','completed','failed','reversed')),
   provider text,
