@@ -867,7 +867,7 @@ function RequestDetail() {
                   const ss = String(remaining % 60).padStart(2, "0");
                   const progress = Math.max(0, Math.min(100, remaining / 360 * 100));
                   return <div className="mt-5 flex flex-col items-center gap-2">
-                    <div className="grid h-28 w-28 place-items-center rounded-full" className={remaining > 0 && remaining <= 10 ? "animate-pulse" : ""} style={{ background: `conic-gradient(${remaining > 0 && remaining <= 10 ? "hsl(var(--destructive))" : "hsl(var(--primary))"} ${progress}%, hsl(var(--muted)) ${progress}% 100%)` }}>
+                    <div className={`grid h-28 w-28 place-items-center rounded-full ${remaining > 0 && remaining <= 10 ? "animate-pulse" : ""}`} style={{ background: `conic-gradient(${remaining > 0 && remaining <= 10 ? "hsl(var(--destructive))" : "hsl(var(--primary))"} ${progress}%, hsl(var(--muted)) ${progress}% 100%)` }}>
                       <div className="grid h-24 w-24 place-items-center rounded-full bg-background">
                         <div className="text-2xl font-black tabular-nums text-foreground">{mm}:{ss}</div>
                         <div className="text-[10px] font-bold text-muted-foreground">وقت البحث</div>
