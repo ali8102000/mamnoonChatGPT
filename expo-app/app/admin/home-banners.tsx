@@ -121,6 +121,10 @@ export default function AdminHomeBannersScreen() {
       Alert.alert("الصورة مطلوبة", "اختار صورة البانر أولاً.");
       return;
     }
+    if (!asset.mimeType?.startsWith("image/") || (asset.fileSize != null && asset.fileSize > 8 * 1024 * 1024)) {
+      Alert.alert("الصورة غير مناسبة", "اختار ملف صورة حجمه 8 ميغابايت أو أقل.");
+      return;
+    }
     const numericSpeed = Math.max(2, Math.min(30, Number(speed) || 5));
     const numericOrder = Number.isFinite(Number(order)) ? Number(order) : 0;
     setBusy(true);
@@ -209,10 +213,10 @@ export default function AdminHomeBannersScreen() {
                   .remove([banner.storage_path]);
                 storageFailed = Boolean(storageError);
               }
+              await load();
               setMessage(storageFailed
                 ? "حُذف البانر من القائمة، لكن تعذر حذف ملف الصورة من التخزين."
                 : "تم حذف البانر وصورته.");
-              await load();
             }
             setBusy(false);
           })();
