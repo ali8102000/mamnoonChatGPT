@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Eye, ImagePlus, LayoutTemplate, ListOrdered, MonitorSmartphone, Plus,
-  Save, Smartphone, Table2, Trophy, Vote, X, Check, ChevronUp, ChevronDown,
-} from "lucide-react";
+import { Eye, ImagePlus, LayoutTemplate, Plus, Save, Smartphone, Table2, Trophy, Vote, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type UiElement = {
