@@ -7,14 +7,14 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
-type DriverWallet = { balance: number; currency?: string };
+type CustomerWallet = { balance: number; currency?: string };
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
 
 export default function ProfileScreen() {
   const { user, profile, roles, activeRole, signOut, refresh } = useAuth();
   const isProvider = activeRole !== "customer" && (roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver"));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [wallet, setWallet] = useState<DriverWallet | null>(null);
+  const [wallet, setWallet] = useState<CustomerWallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
@@ -55,7 +55,7 @@ export default function ProfileScreen() {
       try {
         const { data, error } = await (supabase as any).rpc("get_my_customer_wallet");
         if (error) throw error;
-        const nextWallet = (data?.wallet ?? null) as DriverWallet | null;
+        const nextWallet = (data?.wallet ?? null) as CustomerWallet | null;
         const nextTransactions = (Array.isArray(data?.transactions) ? data.transactions : []) as WalletTransaction[];
         if (!active) return;
         setWallet(nextWallet);
@@ -195,7 +195,7 @@ export default function ProfileScreen() {
             <View style={styles.walletDetails}>
               {transactions.length === 0 ? <Text style={styles.emptyTransactions}>لا توجد حركات مسجلة في المحفظة حالياً</Text> : transactions.map((txn) => (
                 <View key={txn.id} style={styles.txnCard}>
-                  <View style={{ flex: 1 }}><Text style={styles.txnType}>{txn.type === "earning" ? "إضافة رصيد" : txn.type === "withdrawal" ? "سحب" : txn.type === "refund" ? "استرجاع" : txn.type === "adjustment" ? "تسوية رصيد" : txn.type}</Text><Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text></View>
+                  <View style={{ flex: 1 }}><Text style={styles.txnType}>{txn.type === "deposit" ? "إيداع رصيد" : txn.type === "withdrawal" ? "سحب" : txn.type === "payment" ? "دفع من المحفظة" : txn.type === "refund" ? "استرجاع مبلغ" : txn.type === "adjustment" ? "تسوية رصيد" : txn.type}</Text><Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text></View>
                   <Text style={[styles.txnAmount, { color: txn.amount >= 0 ? "#16a34a" : "#dc2626" }]}>{txn.amount >= 0 ? "+" : "-"}{Math.abs(txn.amount || 0).toLocaleString("en")} د.ع</Text>
                 </View>
               ))}
