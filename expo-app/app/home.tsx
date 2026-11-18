@@ -418,6 +418,20 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
 }
 
 function CustomerHome() {
+  const [visuals, setVisuals] = useState<Record<string, any>>({});
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("app_ui_elements_public")
+      .select("element_key,published_config,title,subtitle,sort_order")
+      .then(({ data, error }: any) => {
+        if (!active || error) return;
+        const next: Record<string, any> = {};
+        for (const item of data ?? []) next[item.element_key] = { ...(item.published_config ?? {}), title: item.title, subtitle: item.subtitle, sort_order: item.sort_order };
+        setVisuals(next);
+      });
+    return () => { active = false; };
+  }, []);
+
   const tiles = [
     {
       key: "taxi",
@@ -536,17 +550,17 @@ function CustomerHome() {
               }}
             >
               {tile.key === "service" ? (
-                <Image source={getServiceImage("build")} style={{ width: 68, height: 68 }} resizeMode="cover" />
+                <Image source={visuals.home_customer_service?.image_url ? { uri: visuals.home_customer_service.image_url } : getServiceImage("build")} style={{ width: Number(visuals.home_customer_service?.width_px) || 68, height: Number(visuals.home_customer_service?.height_px) || 68 }} resizeMode="cover" />
               ) : (
-                <Image source={{ uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 54, height: 42 }} resizeMode="contain" />
+                <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 54, height: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 42 }} resizeMode="contain" />
               )}
             </LinearGradient>
             <View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>{tile.title}</Text>
+                <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.title || tile.title}</Text>
                 <HomeGlyph name="arrow" color={palette.muted} size={14} />
               </View>
-              <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", marginTop: 3, textAlign: "right" }}>{tile.subtitle}</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", marginTop: 3, textAlign: "right" }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.subtitle || tile.subtitle}</Text>
             </View>
           </TouchableOpacity>
         ))}
