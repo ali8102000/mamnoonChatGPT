@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -215,6 +215,7 @@ function AccountSettingsPage() {
         <button type="submit" disabled={partnerBusy} className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black disabled:opacity-50">{partnerBusy?"جارٍ إرسال الطلب...":"إرسال طلب الشراكة"}</button>
       </form>}
       {partnerApplications.length>0 && <div className="mt-4 space-y-2"><h3 className="text-xs font-black">طلبات الشراكة السابقة</h3>{partnerApplications.map((item:any)=><div key={item.id} className="rounded-xl border border-border p-3 text-xs"><div className="flex items-center justify-between gap-2"><b>{item.business_name}</b><span className={`rounded-full px-2 py-1 font-bold ${item.status==="approved"?"bg-emerald-500/10 text-emerald-700":item.status==="rejected"?"bg-red-500/10 text-red-700":"bg-amber-500/10 text-amber-700"}`}>{item.status==="approved"?"تمت الموافقة":item.status==="rejected"?"مرفوض":"قيد المراجعة"}</span></div><p className="mt-1 text-muted-foreground">{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {new Date(item.created_at).toLocaleDateString("ar-IQ")}</p>{item.admin_note&&<p className="mt-1 text-muted-foreground">ملاحظة الإدارة: {item.admin_note}</p>}</div>)}</div>}
+      {partnerApplications.some((item:any)=>item.status==="approved") && <Link to="/partner/dashboard" className="block w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 p-3 text-center text-xs font-black">فتح لوحة الشريك</Link>}
     </section>
 
     <section className="mb-6 rounded-3xl border border-border/60 bg-card/60 p-4">
