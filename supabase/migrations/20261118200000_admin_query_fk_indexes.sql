@@ -63,3 +63,40 @@ CREATE INDEX IF NOT EXISTS idx_staff_assignments_assigned_by_fk
 
 CREATE INDEX IF NOT EXISTS idx_support_messages_read_by_fk
   ON public.support_messages USING btree (read_by);
+
+-- Evaluate auth.uid() once per statement instead of once per row in RLS.
+-- Predicates and role checks are otherwise unchanged.
+ALTER POLICY "Providers insert own presence"
+  ON public.provider_presence
+  WITH CHECK (
+    (select auth.uid()) = user_id
+    AND (
+      has_role((select auth.uid()), 'driver'::app_role)
+      OR has_role((select auth.uid()), 'large_driver'::app_role)
+      OR has_role((select auth.uid()), 'worker'::app_role)
+    )
+  );
+
+ALTER POLICY "Providers update own presence"
+  ON public.provider_presence
+  USING (
+    (select auth.uid()) = user_id
+    AND (
+      has_role((select auth.uid()), 'driver'::app_role)
+      OR has_role((select auth.uid()), 'large_driver'::app_role)
+      OR has_role((select auth.uid()), 'worker'::app_role)
+    )
+  )
+  WITH CHECK (
+    (select auth.uid()) = user_id
+    AND (
+      has_role((select auth.uid()), 'driver'::app_role)
+      OR has_role((select auth.uid()), 'large_driver'::app_role)
+      OR has_role((select auth.uid()), 'worker'::app_role)
+    )
+  );
+
+ALTER POLICY "Admins manage regional controls"
+  ON public.regional_service_controls
+  USING (has_admin_access((select auth.uid())))
+  WITH CHECK (has_admin_access((select auth.uid())));
