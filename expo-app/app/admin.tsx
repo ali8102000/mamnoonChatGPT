@@ -183,7 +183,7 @@ export default function AdminScreen() {
     }
     const { data: partnerRows, error: partnerError } = await (supabase as any).from("partner_applications")
       .select("id,user_id,partner_type,business_name,contact_name,phone,email,governorate_key,city,address,description,status,created_at")
-      .eq("status", "pending").order("created_at", { ascending: true }).limit(100);
+      .order("created_at", { ascending: false }).limit(200);
     if (partnerError) console.warn("[admin] partner applications unavailable:", partnerError.message);
     setPartnerApplications(partnerRows ?? []);
     setLoading(false);
@@ -249,10 +249,10 @@ export default function AdminScreen() {
     await load();
     setRefreshing(false);
   };
-  const reviewPartnerApplication = async (applicationId: string, status: "approved" | "rejected") => {
+  const reviewPartnerApplication = async (applicationId: string, status: "approved" | "rejected" | "suspended") => {
     const { error } = await (supabase as any).from("partner_applications").update({
       status, reviewed_by: user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      admin_note: status === "rejected" ? "يرجى مراجعة البيانات وإعادة التقديم" : null,
+      admin_note: status === "rejected" ? "يرجى مراجعة البيانات وإعادة التقديم" : status === "suspended" ? "تم إيقاف الشراكة من الإدارة" : null,
     }).eq("id", applicationId);
     if (error) { Alert.alert("تعذر تحديث طلب الشراكة", error.message); return; }
     Alert.alert("تم", status === "approved" ? "تمت الموافقة على طلب الشراكة." : "تم رفض طلب الشراكة.");
@@ -310,17 +310,18 @@ export default function AdminScreen() {
         </View>
         <ActionButton size="sm" onPress={onRefresh}><Text style={styles.inboxOpenText}>تحديث</Text></ActionButton>
       </View>
-      {partnerApplications.length === 0 ? <Text style={styles.emptyHint}>ماكو طلبات شراكة معلّقة حالياً</Text> : partnerApplications.map((item) => (
+      {partnerApplications.length === 0 ? <Text style={styles.emptyHint}>ماكو طلبات شراكة حالياً</Text> : partnerApplications.map((item) => (
         <View key={item.id} style={styles.reportCard}>
           <Text style={styles.inboxName}>{item.business_name}</Text>
           <Text style={styles.reportMeta}>{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {item.city} · {item.governorate_key}</Text>
           <Text style={styles.reportMeta}>المسؤول: {item.contact_name} · الهاتف: {item.phone}</Text>
           <Text style={styles.reportDetails}>{item.address}</Text>
           {!!item.description && <Text style={styles.reportDetails}>{item.description}</Text>}
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-            <ActionButton size="sm" onPress={() => void reviewPartnerApplication(item.id, "approved")} style={{ flex: 1, backgroundColor: "#15803d" }}><Text style={{ color: "#fff", fontWeight: "900", fontSize: 11 }}>موافقة وإتاحة اللوحة</Text></ActionButton>
-            <ActionButton size="sm" onPress={() => Alert.alert("رفض طلب الشراكة", "تأكد من رفض طلب هذه المنشأة؟", [{ text: "رجوع", style: "cancel" }, { text: "رفض", style: "destructive", onPress: () => void reviewPartnerApplication(item.id, "rejected") }])} style={{ flex: 1, backgroundColor: "#b91c1c" }}><Text style={{ color: "#fff", fontWeight: "900", fontSize: 11 }}>رفض الطلب</Text></ActionButton>
-          </View>
+          <Text style={styles.reportMeta}>الحالة: {item.status==="approved"?"معتمد":item.status==="suspended"?"موقوف":item.status==="rejected"?"مرفوض":"قيد المراجعة"}</Text>
+          {item.status==="pending" ? <View style={{ flexDirection:"row",gap:8,marginTop:8 }}>
+            <ActionButton size="sm" onPress={()=>void reviewPartnerApplication(item.id,"approved")} style={{flex:1,backgroundColor:"#15803d"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>موافقة وتفعيل</Text></ActionButton>
+            <ActionButton size="sm" onPress={()=>Alert.alert("رفض طلب الشراكة","تأكد من رفض الطلب؟",[{text:"رجوع",style:"cancel"},{text:"رفض",style:"destructive",onPress:()=>void reviewPartnerApplication(item.id,"rejected")}])} style={{flex:1,backgroundColor:"#b91c1c"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>رفض الطلب</Text></ActionButton>
+          </View> : item.status==="approved" ? <ActionButton size="sm" onPress={()=>Alert.alert("إيقاف الشريك","سيتم إخفاء المنشأة وإيقاف لوحة الشريك. متأكد؟",[{text:"رجوع",style:"cancel"},{text:"إيقاف",style:"destructive",onPress:()=>void reviewPartnerApplication(item.id,"suspended")}])} style={{backgroundColor:"#b91c1c"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>إيقاف الشريك وإخفاء المنشأة</Text></ActionButton> : item.status==="suspended" ? <ActionButton size="sm" onPress={()=>void reviewPartnerApplication(item.id,"approved")} style={{backgroundColor:"#15803d"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>إعادة تفعيل الشريك</Text></ActionButton> : null}
         </View>
       ))}
       <View style={styles.inboxHeader}>
