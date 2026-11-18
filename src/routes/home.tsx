@@ -247,7 +247,7 @@ function CustomerHome() {
           gradient="from-orange-500 to-amber-600"
           delay={0.15}
         />
-        <div className="col-span-2 min-w-0" style={{ order: 9999 }}>
+        <div className="col-span-2 min-w-0">
           <HomeCategoryCarousel />
         </div>
       </div>
