@@ -42,7 +42,8 @@ export default function AdminVisualBuilder() {
   const [sectionTitle, setSectionTitle] = useState("");
   const [sectionType, setSectionType] = useState<"table" | "banner">("table");
   const [sectionPlacement, setSectionPlacement] = useState("home.customer.content");
-  const [sectionJson, setSectionJson] = useState('{"columns":["العنوان","التفاصيل"],"rows":[["مثال","محتوى تجريبي"]]}');
+  const [sectionColumns, setSectionColumns] = useState("العنوان | التفاصيل");
+  const [sectionRows, setSectionRows] = useState("مثال | محتوى تجريبي");
   const [campaignTitle, setCampaignTitle] = useState("");
   const [campaignDescription, setCampaignDescription] = useState("");
   const [campaignType, setCampaignType] = useState<"poll" | "contest">("poll");
@@ -143,8 +144,10 @@ export default function AdminVisualBuilder() {
 
   const createSection = async () => {
     if (!sectionTitle.trim()) { setMessage("اكتب اسم القسم أولاً."); return; }
-    let config: Record<string, any>;
-    try { config = JSON.parse(sectionJson); } catch { setMessage("صيغة بيانات القسم JSON غير صحيحة."); return; }
+    const columns = sectionColumns.split("|").map((value) => value.trim()).filter(Boolean);
+    const rows = sectionRows.split("\\n").map((line) => line.split("|").map((value) => value.trim())).filter((row) => row.some(Boolean));
+    if (sectionType === "table" && columns.length < 1) { setMessage("اكتب اسم عمود واحد على الأقل."); return; }
+    const config: Record<string, any> = sectionType === "table" ? { columns, rows } : { description: sectionRows.trim() };
     const { error } = await (supabase as any).from("app_content_sections").insert({
       title: sectionTitle.trim(), section_type: sectionType, placement_key: sectionPlacement,
       config, published_config: config, sort_order: sections.length + 1,
@@ -266,7 +269,7 @@ export default function AdminVisualBuilder() {
               <label className="mb-1 block text-xs font-bold">النص الثانوي</label><input className={inputClass + " mb-3"} value={draft.subtitle ?? ""} onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })} />
               <label className="mb-1 block text-xs font-bold">رابط الصورة</label><input className={inputClass + " mb-2"} dir="ltr" value={draft.image_url ?? ""} onChange={(e) => setDraft({ ...draft, image_url: e.target.value })} placeholder="https://..." />
               <label className={buttonClass + " mb-3 w-full cursor-pointer border border-border"}><ImagePlus className="h-4 w-4" />{uploading ? "جاري رفع الصورة..." : "اختيار صورة من الجهاز"}<input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => void uploadImage(e.target.files?.[0])} /></label>
-              <label className="mb-1 block text-xs font-bold">اسم الأيقونة (Lucide)</label><input className={inputClass + " mb-3"} dir="ltr" value={draft.icon_name ?? ""} onChange={(e) => setDraft({ ...draft, icon_name: e.target.value })} placeholder="car-front" />
+              <label className="mb-1 block text-xs font-bold">رمز تعبيري بديل (اختياري)</label><input className={inputClass + " mb-3"} value={draft.icon_name ?? ""} onChange={(e) => setDraft({ ...draft, icon_name: e.target.value })} placeholder="🚗" />
               <div className="mb-3 grid grid-cols-2 gap-2">
                 <div><label className="mb-1 block text-xs font-bold">العرض px</label><input type="number" min="16" max="600" className={inputClass} value={draft.width_px ?? 64} onChange={(e) => setDraft({ ...draft, width_px: Number(e.target.value) })} /></div>
                 <div><label className="mb-1 block text-xs font-bold">الارتفاع px</label><input type="number" min="16" max="600" className={inputClass} value={draft.height_px ?? 64} onChange={(e) => setDraft({ ...draft, height_px: Number(e.target.value) })} /></div>
@@ -287,8 +290,10 @@ export default function AdminVisualBuilder() {
             <input className={inputClass} placeholder="اسم القسم" value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} />
             <select className={inputClass} value={sectionType} onChange={(e) => setSectionType(e.target.value as any)}><option value="table">جدول بيانات</option><option value="banner">بطاقة / إعلان</option></select>
             <input className={inputClass} value={sectionPlacement} onChange={(e) => setSectionPlacement(e.target.value)} placeholder="مكان العرض، مثال home.customer.content" />
-            <label className="text-xs font-bold">بيانات الجدول بصيغة JSON</label>
-            <textarea className={inputClass + " min-h-36 font-mono text-xs"} dir="ltr" value={sectionJson} onChange={(e) => setSectionJson(e.target.value)} />
+            <label className="text-xs font-bold">أسماء الأعمدة (افصل بينها بعلامة |)</label>
+            <input className={inputClass} value={sectionColumns} onChange={(e) => setSectionColumns(e.target.value)} placeholder="العنوان | السعر | التفاصيل" />
+            <label className="text-xs font-bold">صفوف الجدول (كل صف بسطر، وافصل الخانات بعلامة |)</label>
+            <textarea className={inputClass + " min-h-28"} value={sectionRows} onChange={(e) => setSectionRows(e.target.value)} placeholder={"مثال | 5000 | تفاصيل\nمثال آخر | 7000 | تفاصيل"} />
             <button onClick={() => void createSection()} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Plus className="h-4 w-4" />إنشاء كمسودة</button>
           </section>
           <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
