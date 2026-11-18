@@ -34,13 +34,13 @@ try {
 
 // Log only the public hostname (never the URL path, query, or API keys) to
 // identify which EAS project/environment value reached the build.
-console.log(`Supabase URL host loaded from EAS production: ${supabaseHost}`);
+console.log(`Supabase URL host loaded from shared Mamnoon backend config: ${supabaseHost}`);
 
 // The mobile app must use the same Supabase project as the Mamnoon web app.
 const expectedSupabaseProjectRef = "enteiolvirenbhkyskgb";
 if (supabaseHost.split(".")[0] !== expectedSupabaseProjectRef) {
   console.error(
-    `قيمة Supabase التي وصلتنا من EAS تشير إلى المضيف "${supabaseHost}" بدلاً من مشروع ممنون الصحيح "${expectedSupabaseProjectRef}". راجع مشروع Expo المرتبط وبيئة Production والمتغيرات المكررة.`,
+    `إعداد Supabase المشترك يشير إلى المضيف "${supabaseHost}" بدلاً من مشروع ممنون الصحيح "${expectedSupabaseProjectRef}". راجع ملف config/public-backend.json.`,
   );
   process.exit(1);
 }
@@ -56,7 +56,7 @@ if (process.env.MAMNOON_CI_CONFIG_ONLY === "true") {
   if (!authSettingsResponse.ok) {
     const responseText = await authSettingsResponse.text();
     console.error(
-      `Supabase rejected the Production publishable key (HTTP ${authSettingsResponse.status}). Update EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY in EAS Production; response: ${responseText.slice(0, 240)}`,
+      `Supabase rejected the Production publishable key (HTTP ${authSettingsResponse.status}). Check config/public-backend.json publishable key; response: ${responseText.slice(0, 240)}`,
     );
     process.exit(1);
   }
