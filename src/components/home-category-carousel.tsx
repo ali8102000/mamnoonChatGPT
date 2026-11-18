@@ -14,6 +14,7 @@ export function HomeCategoryCarousel() {
   const [popup, setPopup] = useState<Banner["target_category"] | null>(null);
   const resumeAt = useRef(0);
   const touchStartX = useRef<number | null>(null);
+  const movedBySwipe = useRef(false);
   const refresh = useCallback(async () => {
     const { data, error } = await (supabase as any).from("home_carousel_banners")
       .select("id,image_url,target_category,scroll_speed,badge_text,display_order")
@@ -41,10 +42,10 @@ export function HomeCategoryCarousel() {
   return (
     <>
       <div className="relative w-full aspect-[1.13/1] overflow-hidden rounded-[24px] border border-border bg-transparent shadow-sm"
-        onPointerDown={(event) => { pause(); touchStartX.current = event.clientX; }}
-        onPointerUp={(event) => { if (touchStartX.current !== null) { const delta = event.clientX - touchStartX.current; if (Math.abs(delta) > 35 && banners.length > 1) setIndex((current) => (current + (delta < 0 ? 1 : -1) + banners.length) % banners.length); } touchStartX.current = null; pause(); }}
+        onPointerDown={(event) => { pause(); touchStartX.current = event.clientX; movedBySwipe.current = false; }}
+        onPointerUp={(event) => { if (touchStartX.current !== null) { const delta = event.clientX - touchStartX.current; if (Math.abs(delta) > 35 && banners.length > 1) { movedBySwipe.current = true; setIndex((current) => (current + (delta < 0 ? 1 : -1) + banners.length) % banners.length); } } touchStartX.current = null; pause(); }}
         onTouchStart={pause} onTouchEnd={pause} onMouseEnter={pause}>
-        <button type="button" aria-label="عرض الإعلان" onClick={() => setPopup(current.target_category)}
+        <button type="button" aria-label="عرض الإعلان" onClick={() => { if (movedBySwipe.current) { movedBySwipe.current = false; return; } setPopup(current.target_category); }}
           className="absolute inset-0 h-full w-full touch-pan-y">
           <img src={current.image_url} alt="" draggable={false} className="h-full w-full object-cover" />
           {current.badge_text && <span className="absolute right-3 top-3 rounded-full bg-black/55 px-3 py-1 text-xs font-bold text-white">{current.badge_text}</span>}
