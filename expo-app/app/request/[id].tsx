@@ -98,6 +98,7 @@ type RequestRecord = {
   attachment_path?: string | null;
   created_at?: string;
   searching_started_at?: string | null;
+  provider_arrived_at?: string | null;
   cancellation_reason?: string | null;
   distance_km?: number | null;
   taxi_urgency_enabled?: boolean;
@@ -904,6 +905,19 @@ export default function RequestDetail() {
     await loadRequest();
   }
 
+  async function markProviderArrived() {
+    if (!request || !isProvider || request.status !== "accepted") return;
+    const { error } = await (supabase as any).rpc("mark_service_request_arrived", {
+      _request_id: id,
+    });
+    if (error) {
+      Alert.alert("تعذر تأكيد الوصول", error.message);
+      return;
+    }
+    Alert.alert("تم تأكيد الوصول", "تم تسجيل وصولك إلى موقع الزبون.");
+    await loadRequest();
+  }
+
   async function startRide() {
     const { error } = await supabase.rpc("transition_service_request", {
       _request_id: id,
@@ -1278,10 +1292,18 @@ export default function RequestDetail() {
               <Text style={styles.actionBtnText}>قبول الطلب</Text>
             </TouchableOpacity>
           )}
-          {request.status === "accepted" && isProvider && (
-            <TouchableOpacity style={styles.actionBtn} onPress={startRide}>
-              <Text style={styles.actionBtnText}>{request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
-            </TouchableOpacity>
+          {request.status === "accepted" && isProvider &&
+            (request.type !== "taxi" || request.vehicle_category === "large") &&
+            !request.provider_arrived_at && (
+              <TouchableOpacity style={styles.actionBtn} onPress={markProviderArrived}>
+                <Text style={styles.actionBtnText}>{request.vehicle_category === "large" ? "وصلت للزبون" : "وصلت للموقع"}</Text>
+              </TouchableOpacity>
+          )}
+          {request.status === "accepted" && isProvider &&
+            ((request.type === "taxi" && request.vehicle_category !== "large") || !!request.provider_arrived_at) && (
+              <TouchableOpacity style={styles.actionBtn} onPress={startRide}>
+                <Text style={styles.actionBtnText}>{request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
+              </TouchableOpacity>
           )}
           {isActive && isProvider && (
             <TouchableOpacity
@@ -1294,7 +1316,8 @@ export default function RequestDetail() {
           {(isCustomer || (isProvider && request.type !== "taxi")) &&
             request.status !== "cancelled" &&
             request.status !== "completed" &&
-            request.status !== "in_progress" && (
+            request.status !== "in_progress" &&
+            !request.provider_arrived_at && (
               <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: palette.danger }]}
                 onPress={cancelRequest}
