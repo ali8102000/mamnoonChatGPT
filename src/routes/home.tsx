@@ -300,7 +300,7 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
       const now = Date.now();
       const active = (campaignResult.data ?? []).filter((item: any) =>
         (!item.starts_at || new Date(item.starts_at).getTime() <= now) &&
-        (!item.ends_at || new Date(item.ends_at).getTime() > now)
+        (!item.ends_at || new Date(item.ends_at).getTime() > now || item.result_visibility === "public" || item.result_visibility === "after_end")
       );
       setCampaigns(active);
       if (session?.user?.id && active.length) {
@@ -320,7 +320,7 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const vote = async (campaign: any, optionId: string) => {
+  const vote = async (campaign: any, optionId: string) => {\n    const now = Date.now();\n    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);\n    if (!votingOpen) return;
     const userId = session?.user?.id;
     if (!userId || responses[campaign.id] || voting) return;
     setVoting(campaign.id);
@@ -371,9 +371,9 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
           <div className="mt-3 space-y-2">{options.map((option: any) => {
             const count = Number(counts.find((row: any) => row.option_id === option.id)?.vote_count ?? 0);
             const percent = total > 0 ? Math.round(count / total * 100) : 0;
-            return <button key={option.id} type="button" disabled={!session?.user?.id || !!selected || voting === campaign.id} onClick={() => void vote(campaign, option.id)} className={`w-full rounded-xl border p-3 text-right text-sm transition ${selected === option.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
-              <span className="flex items-center justify-between gap-2"><span>{option.label}</span>{selected && <b className="text-xs text-primary">{percent}% · {count}</b>}</span>
-              {selected && <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: percent + "%" }} /></span>}
+            return <button key={option.id} type="button" disabled={!session?.user?.id || !!selected || voting === campaign.id || !votingOpen} onClick={() => void vote(campaign, option.id)} className={`w-full rounded-xl border p-3 text-right text-sm transition ${selected === option.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
+              <span className="flex items-center justify-between gap-2"><span>{option.label}</span>{showResults && <b className="text-xs text-primary">{percent}% · {count}</b>}</span>
+              {showResults && <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: percent + "%" }} /></span>}
             </button>;
           })}</div>
           {!session?.user?.id && <p className="mt-2 text-[11px] text-muted-foreground">سجّل الدخول حتى تشارك.</p>}
