@@ -35,7 +35,8 @@ import { ReputationBadge } from "@/components/reputation";
 import { isSoundEnabled, playMessageSound, setSoundEnabled } from "@/lib/click-sound";
 import { NavigationAppModal } from "@/components/navigation-app-modal";
 import { Button } from "@/components/ui/button";
-import { ContactOptions } from "@/components/contact-options";\nimport { serviceIcon } from "@/lib/service-visuals";
+import { ContactOptions } from "@/components/contact-options";
+import { serviceIcon } from "@/lib/service-visuals";
 
 const VEHICLE_CAT_META: Record<string, { label: string; emoji: string; gradient: string }> = {
   economy: { label: "ممنون اقتصادي", emoji: "🚗", gradient: "from-emerald-400 to-teal-500" },
@@ -88,7 +89,12 @@ function RequestDetail() {
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
-  const [dispatchClock, setDispatchClock] = useState(Date.now());\n  const [urgencyAllowed, setUrgencyAllowed] = useState(false);\n  const [urgencyAdminPercent, setUrgencyAdminPercent] = useState(0);\n  const [urgencyBusy, setUrgencyBusy] = useState(false);\n  const countdownAlertedRef = useRef<string | null>(null);\n  const lastAcceptedAlertRef = useRef<string | null>(null);
+  const [dispatchClock, setDispatchClock] = useState(Date.now());
+  const [urgencyAllowed, setUrgencyAllowed] = useState(false);
+  const [urgencyAdminPercent, setUrgencyAdminPercent] = useState(0);
+  const [urgencyBusy, setUrgencyBusy] = useState(false);
+  const countdownAlertedRef = useRef<string | null>(null);
+  const lastAcceptedAlertRef = useRef<string | null>(null);
   const [retryPriceIncrease, setRetryPriceIncrease] = useState("0");
   const [retryingRequest, setRetryingRequest] = useState(false);
   const [navModalOpen, setNavModalOpen] = useState(false);
@@ -822,7 +828,8 @@ function RequestDetail() {
         <div className="mx-5 my-5 rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 text-center shadow-sm">
           {myRole === "customer" ? (
             <>
-              <div className="mx-auto mb-3 grid h-16 w-16 place-items-center overflow-hidden rounded-2xl bg-primary/10 text-3xl">{req.type === "taxi" ? "🚕" : req.services?.slug ? <img src={serviceIcon(req.services.slug)} alt={req.services.name_ar || "الخدمة"} className="h-full w-full object-cover" /> : "🛠️"}</div>\n              {req.type === "service" && req.services?.name_ar && <div className="mb-1 text-sm font-black">{req.services.name_ar}</div>}
+              <div className="mx-auto mb-3 grid h-16 w-16 place-items-center overflow-hidden rounded-2xl bg-primary/10 text-3xl">{req.type === "taxi" ? "🚕" : req.services?.slug ? <img src={serviceIcon(req.services.slug)} alt={req.services.name_ar || "الخدمة"} className="h-full w-full object-cover" /> : "🛠️"}</div>
+              {req.type === "service" && req.services?.name_ar && <div className="mb-1 text-sm font-black">{req.services.name_ar}</div>}
               <div className="text-lg font-black text-foreground">طلبك وصل إلى ممنون</div>
               <p className="mt-2 text-sm leading-7 text-muted-foreground">
                 {req.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار أول ما توصل." : "نبحث عن أقرب مزوّد متاح ومؤهل. أول شخص يقبل الطلب راح يتواصل وياك مباشرة."}
@@ -851,7 +858,8 @@ function RequestDetail() {
                 {req.distance_km != null && <div><b>المسافة:</b> {Number(req.distance_km).toFixed(1)} كم</div>}
                 <div><b>السعر:</b> {Number(req.customer_payable ?? req.customer_price ?? req.price_estimate ?? 0).toLocaleString("ar-IQ")} د.ع</div>
               </div>
-              {urgencyAllowed && Number(req.customer_price ?? req.price_estimate ?? 0) > 0 && <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-right"><div className="font-black text-sm">⚡ وضع الاستعجال</div><div className="mt-1 text-xs text-muted-foreground">نسبة الزيادة الأساسية من الإدارة: {urgencyAdminPercent}٪. اختر ×2 أو ×3 لزيادة أجر الطلب وتشجيع المزوّدين على قبوله.</div><div className="mt-3 grid grid-cols-2 gap-2"><button disabled={urgencyBusy} onClick={() => void applyRequestUrgency(2)} className="rounded-xl bg-amber-500 px-3 py-3 text-sm font-black text-white disabled:opacity-50">×2 زيادة الاستعجال</button><button disabled={urgencyBusy} onClick={() => void applyRequestUrgency(3)} className="rounded-xl bg-primary px-3 py-3 text-sm font-black text-primary-foreground disabled:opacity-50">×3 أقصى استعجال</button></div>{Number(req.urgency_multiplier ?? 1) > 1 && <div className="mt-2 text-xs font-bold text-emerald-700">مفعّل حالياً ×{req.urgency_multiplier} · زيادة {Number(req.urgency_percent ?? 0)}٪</div>}</div>}\n              <button onClick={() => setShowCancel(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
+              {urgencyAllowed && Number(req.customer_price ?? req.price_estimate ?? 0) > 0 && <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-right"><div className="font-black text-sm">⚡ وضع الاستعجال</div><div className="mt-1 text-xs text-muted-foreground">نسبة الزيادة الأساسية من الإدارة: {urgencyAdminPercent}٪. اختر ×2 أو ×3 لزيادة أجر الطلب وتشجيع المزوّدين على قبوله.</div><div className="mt-3 grid grid-cols-2 gap-2"><button disabled={urgencyBusy} onClick={() => void applyRequestUrgency(2)} className="rounded-xl bg-amber-500 px-3 py-3 text-sm font-black text-white disabled:opacity-50">×2 زيادة الاستعجال</button><button disabled={urgencyBusy} onClick={() => void applyRequestUrgency(3)} className="rounded-xl bg-primary px-3 py-3 text-sm font-black text-primary-foreground disabled:opacity-50">×3 أقصى استعجال</button></div>{Number(req.urgency_multiplier ?? 1) > 1 && <div className="mt-2 text-xs font-bold text-emerald-700">مفعّل حالياً ×{req.urgency_multiplier} · زيادة {Number(req.urgency_percent ?? 0)}٪</div>}</div>}
+              <button onClick={() => setShowCancel(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
             </>
           ) : (
             <>
