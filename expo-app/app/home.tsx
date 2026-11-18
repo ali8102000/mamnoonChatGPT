@@ -507,6 +507,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
         </Text>
       </LinearGradient>
 
+      <HomeCustomContent userId={userId} placementKey="home.customer.top" />
+
       <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
         {[...tiles].sort((a, b) => {
           const keyFor = (tile: (typeof tiles)[number]) => tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
@@ -569,6 +571,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
         ))}
       </View>
 
+      <HomeCustomContent userId={userId} placementKey="home.customer.content" />
+
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ flex: 1, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
           <HomeGlyph name="clock" color={palette.brand} size={18} />
@@ -582,7 +586,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
         </View>
       </View>
 
-      <HomeCustomContent userId={userId} />
+      <HomeCustomContent userId={userId} placementKey="home.customer.after_stats" />
 
       <View style={{ paddingTop: 2, paddingBottom: 20, marginTop: 8 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -615,7 +619,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
 }
 
 
-function HomeCustomContent({ userId }: { userId: string | null }) {
+function HomeCustomContent({ userId, placementKey }: { userId: string | null; placementKey: string }) {
   const [sections, setSections] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [responses, setResponses] = useState<Record<string, string>>({});
@@ -624,8 +628,8 @@ function HomeCustomContent({ userId }: { userId: string | null }) {
 
   const refresh = useCallback(async () => {
     const [sectionResult, campaignResult] = await Promise.all([
-      (supabase as any).from("app_content_sections_public").select("id,title,section_type,placement_key,sort_order,published_config").eq("placement_key", "home.customer.content").order("sort_order"),
-      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", "home.customer.content").order("created_at", { ascending: false }),
+      (supabase as any).from("app_content_sections_public").select("id,title,section_type,placement_key,sort_order,published_config").eq("placement_key", placementKey).order("sort_order"),
+      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", placementKey).order("created_at", { ascending: false }),
     ]);
     if (!sectionResult.error) setSections(sectionResult.data ?? []);
     if (!campaignResult.error) {
@@ -648,7 +652,7 @@ function HomeCustomContent({ userId }: { userId: string | null }) {
         setResults(Object.fromEntries(resultPairs));
       }
     }
-  }, [userId]);
+  }, [userId, placementKey]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
