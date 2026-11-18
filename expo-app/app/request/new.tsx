@@ -548,17 +548,21 @@ export default function NewRequest() {
         longitude: position.coords.longitude,
       };
       setDestinationConfirmed(false);
-      setMapMode("pickup");
-      setPickupCoords(coords);
-      setPickupGovernorateKey(nearestGovernorateKey(coords));
-      void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
-        .then((result) => setPickupGovernorateKey(result.key))
-        .catch(() => {});
       moveMap({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
       const address = formatAddress(await Location.reverseGeocodeAsync(coords));
-      setPickup(address || "موقع محدد على الخريطة");
-      setMapMode("pickup");
-      setDestinationConfirmed(false);
+      if (mapMode === "destination") {
+        const detectedGovernorate = await callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } });
+        setDestinationCoords(coords);
+        setDestinationGovernorateKey(detectedGovernorate.key);
+        setDestination(address || "موقع محدد على الخريطة");
+      } else {
+        setPickupCoords(coords);
+        setPickupGovernorateKey(nearestGovernorateKey(coords));
+        void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
+          .then((result) => setPickupGovernorateKey(result.key))
+          .catch(() => {});
+        setPickup(address || "موقع محدد على الخريطة");
+      }
       setPlaceQuery("");
       setPlaceSuggestions([]);
     } catch {
