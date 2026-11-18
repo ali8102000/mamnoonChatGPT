@@ -1295,8 +1295,6 @@ export default function RequestDetail() {
                     coordinates={roadRoutePoints}
                     strokeColor="#2563EB"
                     strokeWidth={6}
-                    lineCap="round"
-                    lineJoin="round"
                   />
                 )}
                 {providerRoutePoints.length > 1 && (
