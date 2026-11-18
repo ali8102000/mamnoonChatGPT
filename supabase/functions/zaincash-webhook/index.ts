@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getSupabaseSecretKey } from "../_shared/api-keys.ts";
+import { getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json"}});
@@ -34,7 +34,7 @@ Deno.serve(async(req:Request)=>{
   const data=claims.data||{};
   const eventId=claims.eventId; const transactionId=data.transactionId; const reference=data.merchantReferenceId;
   if(typeof eventId!=="string"||typeof transactionId!=="string"||typeof reference!=="string") return json({error:"invalid_webhook_claims"},400);
-  const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const admin=createClient(url,serviceKey,{global:{fetch:createSupabaseFetch(serviceKey)},auth:{persistSession:false,autoRefreshToken:false}});
   const {data:payment,error:paymentError}=await admin.from("payment_transactions").select("id,amount,currency,external_reference_id,status,gateway_transaction_id").eq("external_reference_id",reference).maybeSingle();
   if(paymentError||!payment) return json({error:"payment_not_found"},404);
   if(payment.gateway_transaction_id && payment.gateway_transaction_id!==transactionId) return json({error:"transaction_mismatch"},409);
