@@ -228,7 +228,7 @@ export default function AdminProvidersScreen() {
               <Doc label="صورة الوجه" url={provider.verification?.face_photo_url} onPress={openDocument}/>
               <Doc label="الهوية الأمامية" url={provider.verification?.id_card_photo_url} onPress={openDocument}/>
               <Doc label="الهوية الخلفية" url={provider.verification?.id_card_back_photo_url} onPress={openDocument}/>
-              <Doc label="مستند المركبة" url={provider.verification?.vehicle_document_url} onPress={openDocument}/>
+              <Doc label="مستند رسمي للسيارة" url={provider.verification?.vehicle_document_url} onPress={openDocument}/>
               <Doc label="فيديو السيارة" url={provider.verification?.vehicle_video_url} onPress={openDocument}/>
             </View>
             {canManage && <View style={s.actions}>
