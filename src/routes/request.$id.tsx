@@ -88,7 +88,7 @@ function RequestDetail() {
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
-  const [dispatchClock, setDispatchClock] = useState(Date.now());
+  const [dispatchClock, setDispatchClock] = useState(Date.now());\n  const [urgencyAllowed, setUrgencyAllowed] = useState(false);\n  const [urgencyAdminPercent, setUrgencyAdminPercent] = useState(0);\n  const [urgencyBusy, setUrgencyBusy] = useState(false);\n  const countdownAlertedRef = useRef<string | null>(null);\n  const lastAcceptedAlertRef = useRef<string | null>(null);
   const [retryPriceIncrease, setRetryPriceIncrease] = useState("0");
   const [retryingRequest, setRetryingRequest] = useState(false);
   const [navModalOpen, setNavModalOpen] = useState(false);
@@ -419,6 +419,22 @@ function RequestDetail() {
       toast.error(error?.message ?? "تعذّرت إعادة المحاولة");
     } finally {
       setRetryingRequest(false);
+    }
+  }
+
+  async function applyRequestUrgency(multiplier: 2 | 3) {
+    if (!req || myRole !== "customer" || urgencyBusy) return;
+    setUrgencyBusy(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("apply_request_urgency", { _request_id: id, _multiplier: multiplier });
+      if (error) throw error;
+      const result = Array.isArray(data) ? data[0] : data;
+      toast.success(`تم تفعيل الاستعجال ×${multiplier} وزيادة الأجر بنسبة ${Number(result?.urgency_percent ?? urgencyAdminPercent * multiplier)}٪`);
+      await loadAll();
+    } catch (error: any) {
+      toast.error(error?.message ?? "تعذر تفعيل وضع الاستعجال");
+    } finally {
+      setUrgencyBusy(false);
     }
   }
 
@@ -835,7 +851,7 @@ function RequestDetail() {
                 {req.distance_km != null && <div><b>المسافة:</b> {Number(req.distance_km).toFixed(1)} كم</div>}
                 <div><b>السعر:</b> {Number(req.customer_payable ?? req.customer_price ?? req.price_estimate ?? 0).toLocaleString("ar-IQ")} د.ع</div>
               </div>
-              <button onClick={() => setShowCancel(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
+              {urgencyAllowed && Number(req.customer_price ?? req.price_estimate ?? 0) > 0 && <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-right"><div className="font-black text-sm">⚡ وضع الاستعجال</div><div className="mt-1 text-xs text-muted-foreground">نسبة الزيادة الأساسية من الإدارة: {urgencyAdminPercent}٪. اختر ×2 أو ×3 لزيادة أجر الطلب وتشجيع المزوّدين على قبوله.</div><div className="mt-3 grid grid-cols-2 gap-2"><button disabled={urgencyBusy} onClick={() => void applyRequestUrgency(2)} className="rounded-xl bg-amber-500 px-3 py-3 text-sm font-black text-white disabled:opacity-50">×2 زيادة الاستعجال</button><button disabled={urgencyBusy} onClick={() => void applyRequestUrgency(3)} className="rounded-xl bg-primary px-3 py-3 text-sm font-black text-primary-foreground disabled:opacity-50">×3 أقصى استعجال</button></div>{Number(req.urgency_multiplier ?? 1) > 1 && <div className="mt-2 text-xs font-bold text-emerald-700">مفعّل حالياً ×{req.urgency_multiplier} · زيادة {Number(req.urgency_percent ?? 0)}٪</div>}</div>}\n              <button onClick={() => setShowCancel(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
             </>
           ) : (
             <>
