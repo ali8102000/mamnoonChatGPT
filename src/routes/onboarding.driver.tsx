@@ -861,7 +861,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
             <div className="font-black text-sm">فيديو السيارة *</div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              أرفق فيديو مدته دقيقة أو أقل. صوّر السيارة من الخارج بحيث تظهر كاملة من الأمام والخلف والجوانب، ويكون رقم اللوحة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.
+              أرفق فيديو واضحاً للسيارة من الخارج بحيث تظهر كاملة من الأمام والخلف والجوانب، ويكون رقم اللوحة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.
             </p>
             <input ref={vehicleVideoInputRef} type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={handleVehicleVideoChange} />
             <div className="flex items-center gap-3">
