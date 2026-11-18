@@ -90,6 +90,7 @@ import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
 import AdminDispatchZones from "@/components/admin-dispatch-zones";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
+import AdminVisualBuilder from "@/components/admin-visual-builder";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -128,7 +129,8 @@ type Section =
   | "staff"
   | "company"
   | "driverTiers"
-  | "dispatchZones";
+  | "dispatchZones"
+  | "visualBuilder";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
   {
@@ -197,6 +199,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
+  { key: "visualBuilder", label: "محرر الواجهة والمحتوى", icon: Eye, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
 
@@ -392,6 +395,7 @@ function AdminPage() {
           {section === "pricing" && <AdminTaxiPricingControls />}
           {section === "driverTiers" && <DriverPerformanceTierSettings />}
           {section === "dispatchZones" && <AdminDispatchZones />}
+          {section === "visualBuilder" && <AdminVisualBuilder />}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
