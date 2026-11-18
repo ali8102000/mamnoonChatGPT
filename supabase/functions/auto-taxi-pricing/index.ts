@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
+import { getSupabasePublishableKey, getSupabaseSecretKey } from "../_shared/api-keys.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +42,7 @@ function fare(
 Deno.serve(async (req) => {
   if(req.method==="OPTIONS") return new Response("ok",{headers:corsHeaders});
   if(req.method!=="POST") return json({error:"الطريقة غير مدعومة"},405);
-  const url=Deno.env.get("SUPABASE_URL"), anon=Deno.env.get("SUPABASE_ANON_KEY"), service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url=Deno.env.get("SUPABASE_URL"), anon=getSupabasePublishableKey(), service=getSupabaseSecretKey();
   if(!url||!anon||!service) return json({error:"إعدادات خدمة التسعير غير مكتملة"},503);
   const auth=req.headers.get("Authorization")||"";
   if(!auth.startsWith("Bearer ")) return json({error:"سجّل الدخول أولاً"},401);
