@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native";
+import { Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native";
+import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 
 type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; is_active: boolean; scroll_speed: number; badge_text: string | null };
@@ -14,13 +15,15 @@ const messages: Record<Banner["target_category"], string> = {
 export function HomeCategoryCarousel() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [index, setIndex] = useState(0);
+  const [failedImages, setFailedImages] = useState<string[]>([]);
   const list = useRef<FlatList<Banner>>(null);
   const resumeAt = useRef(0);
   const refresh = useCallback(async () => {
     const { data, error } = await (supabase as any).from("home_carousel_banners")
       .select("id,image_url,target_category,is_active,scroll_speed,badge_text,display_order")
-      .order("display_order").order("created_at");
-    if (!error) { setBanners(data ?? []); setIndex(0); }
+      .eq("is_active", true).order("display_order").order("created_at");
+    if (error) { console.warn("[home-banners] load failed:", error.message); return; }
+    setBanners(data ?? []); setFailedImages([]); setIndex(0);
   }, []);
   useEffect(() => {
     void refresh();
@@ -48,10 +51,14 @@ export function HomeCategoryCarousel() {
   if (!banners.length) return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="إعلان الشركاء - سيتوفر قريباً"
-      onPress={() => Alert.alert("سيتوفر قريباً", "أنت شريك؟ سجل ويانه وانتظر طلباتك", [{ text: "حسناً" }])}
-      style={{ width: "100%", height, backgroundColor: "transparent", borderRadius: 22 }}
-    />
+      accessibilityLabel="انضم كشريك في ممنون"
+      onPress={() => router.push("/account-settings")}
+      style={{ width: "100%", height, backgroundColor: "#173F35", borderRadius: 22, padding: 14, justifyContent: "center", alignItems: "center" }}
+    >
+      <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 16, textAlign: "center" }}>انضم كشريك في ممنون</Text>
+      <Text style={{ color: "#FFFFFF", opacity: 0.9, fontWeight: "700", fontSize: 11, textAlign: "center", marginTop: 6 }}>فندق أو مطعم أو محل أو مول</Text>
+      <Text style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 11, textAlign: "center", marginTop: 8 }}>اضغط للتسجيل ←</Text>
+    </Pressable>
   );
   return (
     <View style={{ width: "100%", height, borderRadius: 22, overflow: "hidden", backgroundColor: "transparent" }}>
@@ -61,9 +68,9 @@ export function HomeCategoryCarousel() {
         onTouchEnd={() => { resumeAt.current = Date.now() + 5000; }}
         onMomentumScrollEnd={() => { resumeAt.current = Date.now() + 5000; }}
         renderItem={({ item }) => (
-          <Pressable onPress={() => Alert.alert(item.is_active ? "قريباً" : "سيتوفر قريباً", item.is_active ? messages[item.target_category] : "أنت شريك؟ سجل ويانه وانتظر طلباتك", [{ text: "حسناً" }])} style={{ width, height, position: "relative" }}>
-            {item.is_active && <Image source={{ uri: item.image_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />}
-            {item.is_active && !!item.badge_text && <View style={{ position: "absolute", top: 12, right: 12, backgroundColor: "#0009", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
+          <Pressable onPress={() => router.push("/account-settings")} accessibilityRole="button" accessibilityLabel={messages[item.target_category]} style={{ width, height, position: "relative", backgroundColor: "#173F35", justifyContent: "center", alignItems: "center" }}>
+            {!failedImages.includes(item.id) && !!item.image_url ? <Image source={{ uri: item.image_url }} onError={() => setFailedImages(current => current.includes(item.id) ? current : [...current, item.id])} style={{ width: "100%", height: "100%" }} resizeMode="cover" /> : <View style={{ padding: 12, alignItems: "center" }}><Text style={{ color: "#fff", fontWeight: "900", fontSize: 15, textAlign: "center" }}>{messages[item.target_category]}</Text><Text style={{ color: "#fff", fontSize: 11, fontWeight: "800", marginTop: 8 }}>اضغط للتسجيل كشريك</Text></View>}
+            {!!item.badge_text && <View style={{ position: "absolute", top: 12, right: 12, backgroundColor: "#0009", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
               <Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{item.badge_text}</Text>
             </View>}
           </Pressable>
