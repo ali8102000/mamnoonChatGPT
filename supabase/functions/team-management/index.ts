@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getSupabasePublishableKey, getSupabaseSecretKey } from "../_shared/api-keys.ts";
+import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 const corsHeaders = {
@@ -39,7 +39,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const authClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authorization } },
+      global: { fetch: createSupabaseFetch(anonKey), headers: { Authorization: authorization } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: authData, error: authError } = await authClient.auth.getUser();
@@ -49,6 +49,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
+      global: { fetch: createSupabaseFetch(serviceRoleKey) },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: ownerRole, error: ownerRoleError } = await admin
