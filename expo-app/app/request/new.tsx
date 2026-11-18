@@ -32,6 +32,7 @@ import { palette, radius } from "@/styles/theme";
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 
+type FavoritePlace = { id: string; label: string; address: string; latitude: number; longitude: number; governorate_key: string | null };
 type CatalogService = { id: string; slug: string; name_ar: string };
 
 const EXPERT_ONLY_SERVICE_SLUGS = new Set([
@@ -126,10 +127,55 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
+  const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
+  const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
+  const [favoriteName, setFavoriteName] = useState("");
+  const [showFavoriteNameInput, setShowFavoriteNameInput] = useState(false);
   const [destinationConfirmed, setDestinationConfirmed] = useState(false);
   const [pickupGovernorateKey, setPickupGovernorateKey] = useState<string | null>(null);
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const activeGovernorateKey = mapMode === "pickup" ? pickupGovernorateKey : destinationGovernorateKey ?? pickupGovernorateKey;
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) { setFavoritePlaces([]); return; }
+    setFavoritePlacesLoading(true);
+    (supabase as any).from("customer_favorite_places")
+      .select("id,label,address,latitude,longitude,governorate_key")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }: any) => {
+        if (!active) return;
+        if (!error) setFavoritePlaces((data ?? []) as FavoritePlace[]);
+        setFavoritePlacesLoading(false);
+      });
+    return () => { active = false; };
+  }, [user?.id]);
+
+  async function saveFavoritePlace() {
+    const label = favoriteName.trim();
+    if (!user?.id || !destinationCoords || !label) { Alert.alert("بيانات ناقصة", "اكتب اسماً للمكان وحدد الوجهة أولاً."); return; }
+    const row = { user_id: user.id, label, address: destination || label, latitude: destinationCoords.latitude, longitude: destinationCoords.longitude, governorate_key: destinationGovernorateKey ?? pickupGovernorateKey };
+    const { data, error } = await (supabase as any).from("customer_favorite_places").insert(row).select("id,label,address,latitude,longitude,governorate_key").single();
+    if (error) { Alert.alert("تعذر الحفظ", error.code === "23505" ? "عندك مكان محفوظ بنفس الاسم." : "حاول مرة ثانية."); return; }
+    setFavoritePlaces((items) => [data as FavoritePlace, ...items]);
+    setFavoriteName(""); setShowFavoriteNameInput(false);
+    Alert.alert("تم الحفظ", "انضاف المكان إلى أماكنك المفضلة.");
+  }
+
+  function chooseFavoritePlace(place: FavoritePlace) {
+    const coords = { latitude: Number(place.latitude), longitude: Number(place.longitude) };
+    setDestinationGovernorateKey(place.governorate_key ?? pickupGovernorateKey);
+    setDestinationCoords(coords); setDestination(place.address || place.label);
+    setMapMode("destination"); setDestinationConfirmed(false);
+    setRouteKm(null); setRouteError(null); setShowFavoriteNameInput(false);
+    moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+  }
+
+  async function deleteFavoritePlace(id: string) {
+    const { error } = await (supabase as any).from("customer_favorite_places").delete().eq("id", id);
+    if (error) { Alert.alert("تعذر الحذف", "حاول مرة ثانية."); return; }
+    setFavoritePlaces((items) => items.filter((item) => item.id !== id));
+  }
   const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
   const [governoratePickerVisible, setGovernoratePickerVisible] = useState(false);
   const outsideGovernoratePromptShownRef = useRef(false);
@@ -1116,6 +1162,41 @@ export default function NewRequest() {
                     ? pickup || "حرّك الخريطة حتى تصبح نقطة الانطلاق تحت الدبوس"
                     : destination || "حرّك الخريطة حتى تصبح وجهتك تحت الدبوس"}
                 </Text>
+                {mapMode === "destination" && (
+                  <View style={{ gap: 9, marginTop: 4 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900" }}>أماكني المفضلة</Text>
+                      {favoritePlacesLoading && <ActivityIndicator size="small" color={palette.brand} />}
+                    </View>
+                    {favoritePlaces.length > 0 ? (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        {favoritePlaces.map((place) => (
+                          <View key={place.id} style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.surfaceSoft, borderRadius: 13, overflow: "hidden" }}>
+                            <TouchableOpacity onPress={() => chooseFavoritePlace(place)} style={{ paddingHorizontal: 12, paddingVertical: 9 }}>
+                              <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900" }}>📍 {place.label}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => deleteFavoritePlace(place.id)} style={{ paddingHorizontal: 9, paddingVertical: 9 }}>
+                              <Text style={{ color: "#DC2626", fontWeight: "900" }}>×</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    ) : <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>احفظ بيتك أو عملك حتى تختاره بضغطة واحدة.</Text>}
+                    {destinationCoords && !showFavoriteNameInput && (
+                      <TouchableOpacity onPress={() => setShowFavoriteNameInput(true)} style={{ borderWidth: 1, borderStyle: "dashed", borderColor: palette.gold, borderRadius: 12, paddingVertical: 10, alignItems: "center" }}>
+                        <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900" }}>＋ حفظ هذه الوجهة بالمفضلة</Text>
+                      </TouchableOpacity>
+                    )}
+                    {showFavoriteNameInput && (
+                      <View style={{ flexDirection: "row", gap: 7 }}>
+                        <TextInput value={favoriteName} onChangeText={setFavoriteName} maxLength={60} placeholder="مثلاً: البيت أو العمل" placeholderTextColor={palette.muted} style={{ flex: 1, minWidth: 0, borderWidth: 1, borderColor: palette.line, borderRadius: 11, paddingHorizontal: 10, paddingVertical: 8, color: palette.ink, textAlign: "right" }} />
+                        <TouchableOpacity onPress={saveFavoritePlace} style={{ backgroundColor: palette.brand, borderRadius: 11, paddingHorizontal: 13, justifyContent: "center" }}><Text style={{ color: palette.white, fontWeight: "900", fontSize: 12 }}>حفظ</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => { setShowFavoriteNameInput(false); setFavoriteName(""); }} style={{ borderWidth: 1, borderColor: palette.line, borderRadius: 11, paddingHorizontal: 10, justifyContent: "center" }}><Text style={{ color: palette.ink, fontWeight: "800", fontSize: 12 }}>إلغاء</Text></TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+
 
                 {isLargeVehicle && mapMode === "pickup" && (
                   <View style={styles.taxiLargeTypePanel}>
