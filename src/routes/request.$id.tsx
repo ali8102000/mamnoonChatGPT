@@ -449,7 +449,7 @@ function RequestDetail() {
     setRetryingRequest(true);
     try {
       if (activeSearch) {
-        const { error } = await supabase.rpc("raise_request_price", { _request_id: id, _price_increase: increase });
+        const { error } = await (supabase as any).rpc("raise_request_price", { _request_id: id, _price_increase: increase });
         if (error) throw error;
       } else {
         await retryFailedRequest({ data: { requestId: id, priceIncrease: increase } });
@@ -484,7 +484,7 @@ function RequestDetail() {
     if (!req || taxiUrgencyBusy) return;
     setTaxiUrgencyBusy(true);
     try {
-      const { error } = await supabase.rpc("enable_taxi_request_urgency", { _request_id: id });
+      const { error } = await (supabase as any).rpc("enable_taxi_request_urgency", { _request_id: id });
       if (error) throw error;
       toast.success("تم تفعيل الاستعجال وتحديث الأجرة وإعادة إرسال الطلب للسائقين");
       await loadAll();
