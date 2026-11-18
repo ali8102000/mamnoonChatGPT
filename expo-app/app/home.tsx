@@ -723,7 +723,7 @@ function HomeCustomContent({ userId, placementKey }: { userId: string | null; pl
                       <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "800" }}>{option.label}</Text>
                       {selected && <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>{percent}% · {count}</Text>}
                     </View>
-                    {selected && <View style={{ height: 5, backgroundColor: palette.line, borderRadius: 9, marginTop: 7, overflow: "hidden" }}><View style={{ height: 5, width: percent + "%", backgroundColor: palette.brand, borderRadius: 9 }} /></View>}
+                    {selected && <View style={{ height: 5, backgroundColor: palette.line, borderRadius: 9, marginTop: 7, overflow: "hidden" }}><View style={{ height: 5, width: `${percent}%` as `${number}%`, backgroundColor: palette.brand, borderRadius: 9 }} /></View>}
                   </TouchableOpacity>
                 );
               })}
