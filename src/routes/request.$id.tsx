@@ -123,6 +123,31 @@ function RequestDetail() {
     const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("taxi_pricing_controls").select("urgency_enabled,urgency_max_percent")
+      .eq("governorate_key","all").maybeSingle()
+      .then(({ data }: any) => {
+        if (!active) return;
+        setUrgencyAllowed(Boolean(data?.urgency_enabled) && Number(data?.urgency_max_percent) > 0);
+        setUrgencyAdminPercent(Number(data?.urgency_max_percent) || 0);
+      });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (!req || myRole !== "customer" || !["pending","searching"].includes(req.status)) return;
+    const start = Date.parse(req.searching_started_at || req.created_at || new Date().toISOString());
+    const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
+    if (remaining <= 10 && remaining > 0 && countdownAlertedRef.current !== req.id && soundEnabled) {
+      countdownAlertedRef.current = req.id;
+      playMessageSound(true);
+    }
+  }, [req?.id, req?.status, req?.searching_started_at, req?.created_at, dispatchClock, myRole, soundEnabled]);
+  useEffect(() => {
+    if (!req || myRole !== "customer" || req.status !== "accepted" || lastAcceptedAlertRef.current === req.id) return;
+    lastAcceptedAlertRef.current = req.id;
+    if (soundEnabled) playMessageSound(true);
+  }, [req?.id, req?.status, myRole, soundEnabled]);
   const otherBadges = otherRep?.badges ?? [];
   const trackingActive = !!req && (req.status === "accepted" || req.status === "in_progress");
   const { me: myLive, other: otherLive, routePoints: providerRoutePoints } = useLiveTracking({
@@ -140,7 +165,7 @@ function RequestDetail() {
     try {
       const { data: r } = await supabase
         .from("service_requests")
-        .select("*")
+        .select("*, services(name_ar,slug)")
         .eq("id", id)
         .maybeSingle();
       if (!r) {
@@ -842,7 +867,7 @@ function RequestDetail() {
                   const ss = String(remaining % 60).padStart(2, "0");
                   const progress = Math.max(0, Math.min(100, remaining / 360 * 100));
                   return <div className="mt-5 flex flex-col items-center gap-2">
-                    <div className="grid h-28 w-28 place-items-center rounded-full" style={{ background: `conic-gradient(hsl(var(--primary)) ${progress}%, hsl(var(--muted)) ${progress}% 100%)` }}>
+                    <div className="grid h-28 w-28 place-items-center rounded-full" className={remaining > 0 && remaining <= 10 ? "animate-pulse" : ""} style={{ background: `conic-gradient(${remaining > 0 && remaining <= 10 ? "hsl(var(--destructive))" : "hsl(var(--primary))"} ${progress}%, hsl(var(--muted)) ${progress}% 100%)` }}>
                       <div className="grid h-24 w-24 place-items-center rounded-full bg-background">
                         <div className="text-2xl font-black tabular-nums text-foreground">{mm}:{ss}</div>
                         <div className="text-[10px] font-bold text-muted-foreground">وقت البحث</div>
