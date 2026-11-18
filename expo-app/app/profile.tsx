@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 type CustomerWallet = { balance: number; currency?: string };
+type DriverWallet = { balance: number; total_earned: number; total_commission: number };
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
 
 export default function ProfileScreen() {
@@ -19,6 +20,11 @@ export default function ProfileScreen() {
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [walletOffline, setWalletOffline] = useState(false);
+  const [providerWallet, setProviderWallet] = useState<DriverWallet | null>(null);
+  const [providerTransactions, setProviderTransactions] = useState<WalletTransaction[]>([]);
+  const [showProviderWalletDetails, setShowProviderWalletDetails] = useState(false);
+  const [showProviderRecentTransactions, setShowProviderRecentTransactions] = useState(false);
+  const [providerWalletOffline, setProviderWalletOffline] = useState(false);
   const [staffRank, setStaffRank] = useState<string | null>(null);
   const isGeneralManager = staffRank === "general_manager";
   const hasStaffRank = ["general_manager", "department_manager", "supervisor"].includes(staffRank ?? "");
@@ -89,6 +95,70 @@ export default function ProfileScreen() {
     void load();
     return () => { active = false; };
   }, [user?.id, activeRole]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadProviderWallet() {
+      const canViewProviderWallet = roles.includes("driver") || roles.includes("large_driver");
+      if (!user?.id || !canViewProviderWallet) {
+        setProviderWallet(null);
+        setProviderTransactions([]);
+        setProviderWalletOffline(false);
+        return;
+      }
+      const cacheKey = `mamnoon-wallet-v1:${user.id}`;
+      try {
+        const since24Hours = new Date(Date.now() - 86400000).toISOString();
+        const [walletResult, transactionResult] = await Promise.all([
+          supabase
+            .from("driver_wallets")
+            .select("balance,total_earned,total_commission")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+          supabase
+            .from("transactions")
+            .select("id,type,created_at,amount")
+            .eq("user_id", user.id)
+            .gte("created_at", since24Hours)
+            .order("created_at", { ascending: false })
+            .limit(30),
+        ]);
+        if (walletResult.error) throw walletResult.error;
+        if (transactionResult.error) throw transactionResult.error;
+        const nextWallet = walletResult.data as DriverWallet | null;
+        const nextTransactions = (transactionResult.data || []) as WalletTransaction[];
+        if (!active) return;
+        setProviderWallet(nextWallet);
+        setProviderTransactions(nextTransactions);
+        setProviderWalletOffline(false);
+        try {
+          await SecureStore.setItemAsync(cacheKey, JSON.stringify({
+            wallet: nextWallet,
+            transactions: nextTransactions,
+            cachedAt: Date.now(),
+          }));
+        } catch (cacheError) {
+          console.warn("[offline] Could not save provider wallet snapshot:", cacheError);
+        }
+      } catch (error) {
+        console.warn("[offline] Provider wallet unavailable; restoring saved wallet snapshot.", error);
+        try {
+          const raw = await SecureStore.getItemAsync(cacheKey);
+          const saved = raw ? JSON.parse(raw) : null;
+          if (!active) return;
+          setProviderWallet(saved?.wallet ?? null);
+          setProviderTransactions(Array.isArray(saved?.transactions) ? saved.transactions : []);
+        } catch {
+          if (!active) return;
+          setProviderWallet(null);
+          setProviderTransactions([]);
+        }
+        if (active) setProviderWalletOffline(true);
+      }
+    }
+    void loadProviderWallet();
+    return () => { active = false; };
+  }, [user?.id, roles]);
 
   async function chooseAndUploadAvatar() {
     if (!user?.id || uploadingAvatar) return;
@@ -177,6 +247,43 @@ export default function ProfileScreen() {
           </View>
         ))}
       </View>
+      {providerWallet && (
+        <View style={styles.walletCard}>
+          {providerWalletOffline && (
+            <View style={styles.walletOfflineNotice}>
+              <Text style={styles.walletOfflineText}>بيانات محفوظة من آخر اتصال وقد لا تكون محدثة.</Text>
+            </View>
+          )}
+          <Text style={styles.walletTitle}>محفظتي</Text>
+          <Text style={styles.walletBalance}>{(providerWallet.balance || 0).toLocaleString("en")} د.ع</Text>
+          <TouchableOpacity style={styles.walletDetailsButton} onPress={() => setShowProviderWalletDetails((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showProviderWalletDetails }}>
+            <Text style={styles.walletDetailsButtonText}>{showProviderWalletDetails ? "إخفاء التفاصيل" : "تفاصيل المحفظة"}</Text>
+            <Text style={styles.walletDetailsArrow}>{showProviderWalletDetails ? "⌄" : "←"}</Text>
+          </TouchableOpacity>
+          {showProviderWalletDetails && (
+            <View style={styles.walletDetails}>
+              <View style={styles.walletStats}>
+                <View style={{ flex: 1 }}><Text style={styles.walletStatLabel}>إجمالي الأرباح</Text><Text style={styles.walletStatValue}>{(providerWallet.total_earned || 0).toLocaleString("en")} د.ع</Text></View>
+                <View style={{ flex: 1 }}><Text style={styles.walletStatLabel}>العمولة</Text><Text style={styles.walletStatValue}>{(providerWallet.total_commission || 0).toLocaleString("en")} د.ع</Text></View>
+              </View>
+              <TouchableOpacity style={styles.recentTransactionsButton} onPress={() => setShowProviderRecentTransactions((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showProviderRecentTransactions }}>
+                <Text style={styles.recentTransactionsText}>آخر الحركات · آخر ٢٤ ساعة</Text>
+                <Text style={styles.walletDetailsArrow}>{showProviderRecentTransactions ? "⌄" : "←"}</Text>
+              </TouchableOpacity>
+              {showProviderRecentTransactions && (
+                <View style={styles.recentTransactionsList}>
+                  {providerTransactions.length === 0 ? <Text style={styles.emptyTransactions}>ماكو حركات مالية خلال آخر ٢٤ ساعة</Text> : providerTransactions.map((txn) => (
+                    <View key={txn.id} style={styles.txnCard}>
+                      <View style={{ flex: 1 }}><Text style={styles.txnType}>{txn.type === "earning" ? "أرباح" : txn.type === "commission" ? "عمولة" : txn.type === "withdrawal" ? "سحب" : txn.type === "refund" ? "استرجاع" : "تسوية"}</Text><Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text></View>
+                      <Text style={[styles.txnAmount, { color: txn.amount >= 0 ? "#16a34a" : "#dc2626" }]}>{txn.amount >= 0 ? "+" : "-"}{Math.abs(txn.amount || 0).toLocaleString("en")} د.ع</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      )}
       {activeRole === "customer" && (
         <View style={styles.walletCard}>
           {walletOffline && (
