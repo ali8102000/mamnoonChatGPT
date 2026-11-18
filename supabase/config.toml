@@ -6,3 +6,7 @@ enable_confirmations = false
 [auth.email.template.recovery]
 subject = "رمز استعادة كلمة المرور | ممنون Mamnoon"
 content_path = "./supabase/templates/recovery.html"
+
+# This endpoint handles unauthenticated sign-up, login and recovery itself.
+[functions.auth-proxy]
+verify_jwt = false
