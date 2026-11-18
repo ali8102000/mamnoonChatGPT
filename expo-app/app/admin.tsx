@@ -258,24 +258,50 @@ export default function AdminScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <Text style={styles.title}>لوحة التحكم</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-        <ActionButton size="default" onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/live-map" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الخريطة المباشرة</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/analytics")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إحصائيات المحافظات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة مقدمي الخدمة</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/driver-tiers" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>معايير رتب السائقين</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/dispatch-zones" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>نطاقات توزيع الطلبات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/requests")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الطلبات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/finance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المحفظة والكوبونات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/governance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الصلاحيات وسجل العمليات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/staff")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الموظفين</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/staff-hierarchy")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الهيكل الوظيفي والترقيات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/regions" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>التحكم بالمحافظات والخدمات</Text></ActionButton>
-                <ActionButton size="default" onPress={() => router.push("/admin/import")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>مساعد استيراد البيانات</Text></ActionButton>
+      <View style={styles.shortcutSection}>
+        <Text style={styles.shortcutGroupTitle}>المتابعة والعمليات</Text>
+        <View style={styles.shortcutGrid}>
+          <ActionButton size="default" onPress={() => router.push("/admin/monitoring")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>📡 المراقبة المباشرة</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/live-map" as any)} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🗺️ الخريطة المباشرة</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/requests")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>📋 إدارة الطلبات</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🚘 مقدمو الخدمة</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/dispatch-zones" as any)} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>📍 نطاقات التوزيع</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/regions" as any)} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🏙️ المحافظات والخدمات</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/driver-tiers" as any)} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🏅 رتب أداء السائقين</Text></ActionButton>
+        </View>
+      </View>
+      <View style={styles.shortcutSection}>
+        <Text style={styles.shortcutGroupTitle}>المستخدمون والتواصل</Text>
+        <View style={styles.shortcutGrid}>
+          <ActionButton size="default" onPress={() => router.push("/admin/users")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>👥 إدارة المستخدمين</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/friends")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🤝 إدارة الأصدقاء</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/chats")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>💬 الدردشة والرسائل</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/support-chat")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🎧 صندوق الدعم</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/notifications")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🔔 إرسال الإشعارات</Text></ActionButton>
+        </View>
+      </View>
+      <View style={styles.shortcutSection}>
+        <Text style={styles.shortcutGroupTitle}>الإحصائيات</Text>
+        <View style={styles.shortcutGrid}>
+          <ActionButton size="default" onPress={() => router.push("/admin/analytics")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>📊 الإحصائيات الشاملة</Text></ActionButton>
+        </View>
+      </View>
+      <View style={styles.shortcutSection}>
+        <Text style={styles.shortcutGroupTitle}>الاشتراكات والمالية</Text>
+        <View style={styles.shortcutGrid}>
+          <ActionButton size="default" onPress={() => router.push("/admin/subscriptions")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>👑 إدارة الاشتراكات</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/finance")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>💳 المحفظة والكوبونات</Text></ActionButton>
+        </View>
+      </View>
+      <View style={styles.shortcutSection}>
+        <Text style={styles.shortcutGroupTitle}>الإدارة والحوكمة والمحتوى</Text>
+        <View style={styles.shortcutGrid}>
+          <ActionButton size="default" onPress={() => router.push("/admin/governance")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🛡️ الصلاحيات وسجل العمليات</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/staff")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>👨‍💼 إدارة الموظفين</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/staff-hierarchy")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🏢 الهيكل الوظيفي والترقيات</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/import")} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>📦 مساعد استيراد البيانات</Text></ActionButton>
+          <ActionButton size="default" onPress={() => router.push("/admin/home-banners" as any)} style={styles.shortcutButton}><Text style={styles.shortcutButtonText}>🖼️ بانرات الصفحة الرئيسية</Text></ActionButton>
+        </View>
       </View>
       <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
@@ -458,6 +484,11 @@ const styles = StyleSheet.create({
   companySaveText: { color: palette.white, fontWeight: "900" },
   supportButton: { minHeight: 40, backgroundColor: palette.brand, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 18, alignItems: "center", justifyContent: "center" },
   supportButtonText: { color: palette.white, fontWeight: "900", textAlign: "center" },
+  shortcutSection: { marginBottom: 16, padding: 12, borderRadius: radius.lg, backgroundColor: palette.canvas, borderWidth: 1, borderColor: palette.line },
+  shortcutGroupTitle: { color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right", marginBottom: 10 },
+  shortcutGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+  shortcutButton: { flexBasis: "47%", flexGrow: 1, minHeight: 58, paddingHorizontal: 9, paddingVertical: 9, marginBottom: 0, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md },
+  shortcutButtonText: { color: palette.ink, fontWeight: "900", fontSize: 11, textAlign: "center", lineHeight: 18 },
   inboxHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, marginBottom: 8 },
   inboxHint: { color: palette.muted, fontSize: 11, marginTop: -5, marginBottom: 8 },
   inboxOpen: { minHeight: 36, backgroundColor: palette.brandSoft, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, alignItems: "center", justifyContent: "center" },
