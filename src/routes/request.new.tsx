@@ -505,16 +505,16 @@ function NewRequest() {
     let verifiedRouteKm = routeKm;
     let priceEstimate: number | null = null;
 
-    const priceNum = parseInt(customerPrice.replace(/[^0-9]/g, ""), 10);
+    const unitPriceNum = parseInt(customerPrice.replace(/[^0-9]/g, ""), 10);\n    const priceNum = type === "service" && Number.isFinite(unitPriceNum) ? unitPriceNum * (finalWorkers + (level === "khabir" ? 1 : 0)) : unitPriceNum;
     if (vehicle === "large" && customerPrice.trim() && (!Number.isSafeInteger(priceNum) || priceNum < 250 || priceNum > 50000 || priceNum % 250 !== 0)) {
       toast.error("السعر المقترح يجب أن يكون من 250 إلى 50000 دينار ومن مضاعفات 250");
       return;
     }
-    if (type === "service" && pricingMode !== "negotiable" && !(priceNum > 0)) {
+    if (type === "service" && pricingMode !== "negotiable" && !(unitPriceNum > 0)) {
       toast.error("اكتب المبلغ اللي تريد تدفعه");
       return;
     }
-    if (type === "service" && pricingMode !== "negotiable" && priceNum % 250 !== 0) {
+    if (type === "service" && pricingMode !== "negotiable" && unitPriceNum % 250 !== 0) {
       toast.error("المبلغ لازم يكون من مضاعفات 250 دينار");
       return;
     }
@@ -1117,7 +1117,7 @@ function NewRequest() {
   /* =========================================================================
      2. HOME SERVICE VIEW: CLASSIC CLEAN SERVICE FORM
      ========================================================================= */
-  const selectedService = services.find((s) => s.id === serviceId);
+  const selectedService = services.find((s) => s.id === serviceId);\n  const serviceProviderCount = level === "khabir" ? (khabirMode === "alone" ? 1 : 1 + workersCount) : workersCount;\n  const servicePriceMultiplier = serviceProviderCount + (level === "khabir" ? 1 : 0);\n  const serviceTotalPrice = (Number(customerPrice.replace(/[^0-9]/g, "")) || 0) * servicePriceMultiplier;
 
   return (
     <div className="min-h-screen px-5 pt-10 pb-36">
@@ -1132,7 +1132,7 @@ function NewRequest() {
         />
         طلب خدمة منزلية
       </h1>
-      <p className="text-sm text-muted-foreground mt-1">اختر الحرفة وحدد موقع العمل بسهولة</p>
+      <p className="text-sm text-muted-foreground mt-1">اختر الحرفة وحدد موقع العمل بسهولة</p>\n      {selectedService && <div className="mt-4 mb-4 flex items-center gap-3 rounded-2xl border border-border bg-card p-3"><img src={serviceIcon(selectedService.slug)} alt={selectedService.name_ar} className="h-16 w-16 rounded-xl object-cover" /><div className="text-right"><div className="text-xs text-muted-foreground">الخدمة المختارة</div><div className="font-black">{selectedService.name_ar}</div></div></div>}
 
       {/* Technician choices are shown on the previous dedicated screen. */}
       {/* Level Selection */}
@@ -1332,7 +1332,7 @@ function NewRequest() {
               className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:border-ring"
             />
             <div className="flex flex-wrap gap-2">
-              {[10000, 25000, 50000, 100000].map((v) => (
+              {[15000, 25000, 30000, 50000].map((v) => (
                 <button
                   key={v}
                   type="button"
