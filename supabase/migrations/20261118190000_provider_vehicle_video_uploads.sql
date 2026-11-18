@@ -23,7 +23,7 @@ set
     from unnest(
       coalesce(allowed_mime_types, array[]::text[])
       || array['video/mp4', 'video/quicktime', 'video/webm']::text[]
-    ) as mime_type
+    ) as allowed(mime_type)
     order by mime_type
   )
 where id = 'provider-verification';
