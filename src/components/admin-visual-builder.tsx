@@ -138,7 +138,7 @@ export default function AdminVisualBuilder() {
     if (error) setMessage("فشل رفع الصورة: " + error.message);
     else {
       const { data } = supabase.storage.from("app-visuals").getPublicUrl(path);
-      setDraft((current) => ({ ...current, image_url: data.publicUrl }));
+      setDraft((current) => ({ ...current, image_url: data.publicUrl, icon_name: "" }));
       setMessage("ترفعَت الصورة. اضغط حفظ المسودة ثم نشر حتى تظهر.");
     }
     setUploading(false);
@@ -300,9 +300,9 @@ export default function AdminVisualBuilder() {
               <div className="mb-3 rounded-xl bg-muted p-3"><b className="text-sm">{selected.label}</b><p className="mt-1 text-[11px] text-muted-foreground">المعرّف الوظيفي: {selected.action_key}</p></div>
               <label className="mb-1 block text-xs font-bold">النص الرئيسي</label><input className={inputClass + " mb-3"} value={draft.title ?? ""} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
               <label className="mb-1 block text-xs font-bold">النص الثانوي</label><input className={inputClass + " mb-3"} value={draft.subtitle ?? ""} onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })} />
-              <label className="mb-1 block text-xs font-bold">رابط الصورة</label><input className={inputClass + " mb-2"} dir="ltr" value={draft.image_url ?? ""} onChange={(e) => setDraft({ ...draft, image_url: e.target.value })} placeholder="https://..." />
+              <label className="mb-1 block text-xs font-bold">رابط الصورة</label><input className={inputClass + " mb-2"} dir="ltr" value={draft.image_url ?? ""} onChange={(e) => setDraft({ ...draft, image_url: e.target.value, icon_name: e.target.value ? "" : draft.icon_name })} placeholder="https://..." />
               <label className={buttonClass + " mb-3 w-full cursor-pointer border border-border"}><ImagePlus className="h-4 w-4" />{uploading ? "جاري رفع الصورة..." : "اختيار صورة من الجهاز"}<input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => void uploadImage(e.target.files?.[0])} /></label>
-              <label className="mb-1 block text-xs font-bold">رمز تعبيري بديل (اختياري)</label><input className={inputClass + " mb-3"} value={draft.icon_name ?? ""} onChange={(e) => setDraft({ ...draft, icon_name: e.target.value })} placeholder="🚗" />
+              <label className="mb-1 block text-xs font-bold">رمز تعبيري بديل (اختياري)</label><input className={inputClass + " mb-3"} value={draft.icon_name ?? ""} onChange={(e) => setDraft({ ...draft, icon_name: e.target.value, image_url: e.target.value ? "" : draft.image_url })} placeholder="🚗" />
               <div className="mb-3 grid grid-cols-2 gap-2">
                 <div><label className="mb-1 block text-xs font-bold">العرض px</label><input type="number" min="16" max="600" className={inputClass} value={draft.width_px ?? 64} onChange={(e) => setDraft({ ...draft, width_px: Number(e.target.value) })} /></div>
                 <div><label className="mb-1 block text-xs font-bold">الارتفاع px</label><input type="number" min="16" max="600" className={inputClass} value={draft.height_px ?? 64} onChange={(e) => setDraft({ ...draft, height_px: Number(e.target.value) })} /></div>
