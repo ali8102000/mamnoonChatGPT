@@ -29,6 +29,7 @@ import {
   getProviderVerification,
   saveProviderVerificationRemote,
   uploadProviderChangeDocuments,
+  uploadProviderVehicleVideo,
 } from "@/lib/verification";
 
 export const Route = createFileRoute("/onboarding/driver")({
@@ -138,6 +139,8 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [idCardPhoto, setIdCardPhoto] = useState<string | null>(null);
   const [idCardBackPhoto, setIdCardBackPhoto] = useState<string | null>(null);
   const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<string | null>(null);
+  const [vehicleVideoFile, setVehicleVideoFile] = useState<File | null>(null);
+  const [vehicleVideoPath, setVehicleVideoPath] = useState<string | null>(null);
   const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
   const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: largeDriverMode ? "كيا" : "تويوتا", model: largeDriverMode ? "" : "كورولا", year: String(new Date().getFullYear() - 2), plate: "", color: "أبيض", category: largeDriverMode ? "large" : "economy", vehicleType: null });
   const [documentType, setDocumentType] = useState<"national_id" | "driver_license">("national_id");
@@ -152,6 +155,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const idCardBackInputRef = useRef<HTMLInputElement>(null);
   const vehicleDocumentInputRef = useRef<HTMLInputElement>(null);
   const vehicleDocumentCameraInputRef = useRef<HTMLInputElement>(null);
+  const vehicleVideoInputRef = useRef<HTMLInputElement>(null);
 
   const [existingDoc, setExistingDoc] = useState<any>(null);
   const [editingMode, setEditingMode] = useState(false);
@@ -169,6 +173,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         if (existing.idCardPhotoUrl) setIdCardPhoto(existing.idCardPhotoUrl);
         if (existing.idCardBackPhotoUrl) setIdCardBackPhoto(existing.idCardBackPhotoUrl);
         if (existing.vehicleDocumentPhotoUrl) setVehicleDocumentPhoto(existing.vehicleDocumentPhotoUrl);
+        if (existing.vehicleVideoPath) setVehicleVideoPath(existing.vehicleVideoPath);
         if (existing.idNumber) setIdNumber(existing.idNumber);
         if (existing.vehicleMake) setMake(existing.vehicleMake);
         if (existing.vehicleModel) setModelName(existing.vehicleModel);
@@ -313,10 +318,21 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       const dataUrl = await fileToCompressedDataUrl(file, 1600, 1600, 0.82);
       setVehicleDocumentPhoto(dataUrl);
       setChangedDocuments((current) => ({ ...current, vehicle_document: true }));
-      toast.success("تم إرفاق صورة سنوية السيارة أو الوكالة ✓");
+      toast.success("تم إرفاق صورة المستند الرسمي للسيارة ✓");
     } catch {
       toast.error("تعذر معالجة صورة مستند السيارة");
     }
+  }
+
+  async function handleVehicleVideoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["video/mp4", "video/quicktime", "video/webm"].includes(file.type)) { toast.error("صيغة الفيديو غير مدعومة. استخدم MP4 أو MOV أو WEBM."); e.target.value = ""; return; }
+    if (file.size > 50 * 1024 * 1024) { toast.error("حجم فيديو السيارة يجب ألا يتجاوز 50 ميغابايت."); e.target.value = ""; return; }
+    setVehicleVideoFile(file);
+    setVehicleVideoPath(null);
+    setChangedDocuments((current) => ({ ...current, vehicle_video: true }));
+    toast.success("تم إرفاق فيديو السيارة ✓");
   }
 
   async function submit() {
@@ -371,6 +387,10 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           ...(changedDocuments.id_card_back && idCardBackPhoto ? { id_card_back: idCardBackPhoto } : {}),
           ...(changedDocuments.vehicle_document && vehicleDocumentPhoto ? { vehicle_document: vehicleDocumentPhoto } : {}),
         });
+        if (changedDocuments.vehicle_video && vehicleVideoFile) {
+          documents.vehicle_video = await uploadProviderVehicleVideo(uid, providerRole, vehicleVideoFile);
+          setVehicleVideoPath(documents.vehicle_video);
+        }
         if (!Object.keys(changedVehicle).length && !Object.keys(documents).length) {
           toast.error("ماكو تغييرات جديدة لإرسالها");
           return;
@@ -431,7 +451,12 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       return;
     }
     if (!vehicleDocumentPhoto) {
-      toast.error("يرجى إرفاق صورة سنوية السيارة أو الوكالة التي يظهر فيها رقم المركبة");
+      toast.error("يرجى إرفاق صورة المستند الرسمي للسيارة الذي يظهر بيانات المركبة ورقم اللوحة");
+      setActiveStep("car");
+      return;
+    }
+    if (!vehicleVideoFile && !vehicleVideoPath) {
+      toast.error("يرجى إرفاق فيديو تظهر فيه السيارة كاملة ورقم لوحتها بوضوح");
       setActiveStep("car");
       return;
     }
@@ -473,6 +498,9 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       }
 
       // 3. Persist identity documents only after the driver profile exists.
+      const uploadedVehicleVideoPath = vehicleVideoFile
+        ? await uploadProviderVehicleVideo(uid, providerRole, vehicleVideoFile)
+        : vehicleVideoPath ?? undefined;
       const verificationDoc: VerificationDocument = {
         userId: uid,
         role: providerRole,
@@ -483,6 +511,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         idCardPhotoUrl: idCardPhoto,
         ...(idCardBackPhoto ? { idCardBackPhotoUrl: idCardBackPhoto } : {}),
         vehicleDocumentPhotoUrl: vehicleDocumentPhoto,
+        vehicleVideoPath: uploadedVehicleVideoPath,
         idNumber: idNumber.trim() || undefined,
         documentType,
         verifiedAt: new Date().toISOString(),
@@ -801,13 +830,13 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           </div>
 
           <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
-            <div className="font-black text-sm">{largeDriverMode ? "مستندات المركبة (السنوية أو الوكالة) *" : "مستند تسجيل السيارة *"}</div>
+            <div className="font-black text-sm">مستند رسمي للسيارة *</div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              أرفق صورة صفحة السنوية أو الوكالة كاملة. خلّي رقم المركبة أو رقم اللوحة وبيانات السيارة ظاهرة وواضحة. لا تقص أطراف المستند.
+              أرفق صورة واضحة وكاملة لمستند رسمي يثبت تسجيل السيارة، وتأكد أن بيانات المركبة ورقم اللوحة ظاهرة وواضحة. لا تقص أطراف المستند.
             </p>
             <div className="flex items-center gap-3">
               {vehicleDocumentPhoto ? (
-                <img src={vehicleDocumentPhoto} alt="سنوية السيارة أو الوكالة" className="h-20 w-28 object-contain rounded-xl border bg-slate-50" />
+                <img src={vehicleDocumentPhoto} alt="المستند الرسمي للسيارة" className="h-20 w-28 object-contain rounded-xl border bg-slate-50" />
               ) : (
                 <div className="h-20 w-28 rounded-xl bg-slate-100 border border-dashed border-slate-300 grid place-items-center text-slate-400">📄</div>
               )}
@@ -826,6 +855,22 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
                 </div>
                 {vehicleDocumentPhoto && <p className="text-[11px] font-bold text-emerald-600 mt-2">تم إرفاق المستند ✓</p>}
               </div>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
+            <div className="font-black text-sm">فيديو السيارة *</div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              أرفق فيديو واضحاً للسيارة من الخارج بحيث تظهر كاملة من الأمام والخلف والجوانب، ويكون رقم اللوحة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.
+            </p>
+            <input ref={vehicleVideoInputRef} type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={handleVehicleVideoChange} />
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0 text-xs text-muted-foreground">
+                {vehicleVideoFile?.name || (vehicleVideoPath ? "يوجد فيديو محفوظ مرفق سابقاً ✓" : "لم يتم إرفاق فيديو السيارة بعد")}
+              </div>
+              <button type="button" onClick={() => vehicleVideoInputRef.current?.click()} className="px-4 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold btn-press">
+                {vehicleVideoFile || vehicleVideoPath ? "تغيير الفيديو" : "إرفاق فيديو"}
+              </button>
             </div>
           </div>
 

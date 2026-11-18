@@ -217,16 +217,16 @@ Deno.serve(async (req: Request) => {
           const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 600);
           return error ? null : data?.signedUrl ?? null;
         };
-        const [face, front, back, vehicle] = await Promise.all([
+        const [face, front, back, vehicle, vehicleVideo] = await Promise.all([
           sign(row.face_photo_path), sign(row.id_card_photo_path),
-          sign(row.id_card_back_photo_path), sign(row.vehicle_document_path),
+          sign(row.id_card_back_photo_path), sign(row.vehicle_document_path), sign(row.metadata?.vehicleVideoPath ?? null),
         ]);
         return {
           provider_type: row.provider_type, legal_name: row.legal_name, phone: row.phone, email: row.email,
           document_type: row.document_type, id_number: row.id_number, status: row.status,
           rejection_reason: row.rejection_reason, metadata: row.metadata,
           face_photo_url: face, id_card_photo_url: front, id_card_back_photo_url: back,
-          vehicle_document_url: vehicle, submitted_at: row.submitted_at,
+          vehicle_document_url: vehicle, vehicle_video_url: vehicleVideo, submitted_at: row.submitted_at,
           reviewed_at: row.reviewed_at, updated_at: row.updated_at,
         };
       }));
@@ -267,14 +267,15 @@ Deno.serve(async (req: Request) => {
           const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 600);
           return error ? null : data?.signedUrl ?? null;
         };
-        const [face, front, back, vehicle] = await Promise.all([
+        const [face, front, back, vehicle, vehicleVideo] = await Promise.all([
           sign(verification.face_photo_path), sign(verification.id_card_photo_path),
           sign(verification.id_card_back_photo_path), sign(verification.vehicle_document_path),
+          sign(verification.metadata?.vehicleVideoPath),
         ]);
         return { ...provider, verification: {
           status: verification.status, rejection_reason: verification.rejection_reason,
           face_photo_url: face, id_card_photo_url: front,
-          id_card_back_photo_url: back, vehicle_document_url: vehicle,
+          id_card_back_photo_url: back, vehicle_document_url: vehicle, vehicle_video_url: vehicleVideo,
         } };
       }));
       return json({ providers: enriched, total: count ?? enriched.length });

@@ -394,16 +394,16 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
         const { data: signed, error } = await (supabaseAdmin as any).storage.from("provider-verification").createSignedUrl(path, 600);
         return error ? null : signed?.signedUrl ?? null;
       };
-      const [face, front, back, vehicle] = await Promise.all([
+      const [face, front, back, vehicle, vehicleVideo] = await Promise.all([
         sign(row.face_photo_path), sign(row.id_card_photo_path),
-        sign(row.id_card_back_photo_path), sign(row.vehicle_document_path),
+        sign(row.id_card_back_photo_path), sign(row.vehicle_document_path), sign(row.metadata?.vehicleVideoPath ?? null),
       ]);
       return {
         provider_type: row.provider_type, legal_name: row.legal_name, phone: row.phone, email: row.email,
         document_type: row.document_type, id_number: row.id_number, status: row.status,
         rejection_reason: row.rejection_reason, metadata: row.metadata,
         face_photo_url: face, id_card_photo_url: front, id_card_back_photo_url: back,
-        vehicle_document_url: vehicle, submitted_at: row.submitted_at,
+        vehicle_document_url: vehicle, vehicle_video_url: vehicleVideo, submitted_at: row.submitted_at,
         reviewed_at: row.reviewed_at, updated_at: row.updated_at,
       };
     }));
@@ -475,7 +475,7 @@ export const adminListProviders = createServerFn({ method: "GET" })
     return await Promise.all((providers ?? []).map(async (provider: any) => {
       const verification: any = verificationByUser.get(provider.user_id);
       if (!verification) return { ...provider, verification: null };
-      const [face, identity, identityBack, vehicleDocument] = await Promise.all([
+      const [face, identity, identityBack, vehicleDocument, vehicleVideo] = await Promise.all([
         supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.face_photo_path, 600),
         supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.id_card_photo_path, 600),
         verification.id_card_back_photo_path
@@ -483,6 +483,9 @@ export const adminListProviders = createServerFn({ method: "GET" })
           : Promise.resolve({ data: null, error: null }),
         verification.vehicle_document_path
           ? supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.vehicle_document_path, 600)
+          : Promise.resolve({ data: null, error: null }),
+        verification.metadata?.vehicleVideoPath
+          ? supabaseAdmin.storage.from("provider-verification").createSignedUrl(verification.metadata.vehicleVideoPath, 600)
           : Promise.resolve({ data: null, error: null }),
       ]);
       return {
@@ -493,6 +496,7 @@ export const adminListProviders = createServerFn({ method: "GET" })
           id_card_photo_url: identity.error ? null : identity.data?.signedUrl ?? null,
           id_card_back_photo_url: identityBack.error ? null : identityBack.data?.signedUrl ?? null,
           vehicle_document_url: vehicleDocument.error ? null : vehicleDocument.data?.signedUrl ?? null,
+          vehicle_video_url: vehicleVideo.error ? null : vehicleVideo.data?.signedUrl ?? null,
         },
       };
     }));
