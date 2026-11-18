@@ -97,8 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRoleState] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const lastUserId = useRef<string | null>(null);
+  // Prevent a delayed profile restore from overwriting a role the user just selected.
+  const roleRevision = useRef(0);
 
   async function restoreActiveRole(uid: string, availableRoles: AppRole[]) {
+    const revisionAtStart = roleRevision.current;
     const fallback = availableRoles.includes("customer")
       ? "customer"
       : availableRoles[0] ?? null;
@@ -114,11 +117,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const selected = saved && availableRoles.includes(saved as AppRole)
         ? saved as AppRole
         : fallback;
+
+      // A profile refresh can finish after a manual role switch. Never let
+      // that older restore operation replace the user's latest selection.
+      if (roleRevision.current !== revisionAtStart) return;
       setActiveRoleState(selected);
       if (selected) await SecureStore.setItemAsync(preferenceKey, selected);
     } catch (error) {
       console.warn("[Mamnoon] Could not restore the saved role:", error);
-      setActiveRoleState(fallback);
+      if (roleRevision.current === revisionAtStart) setActiveRoleState(fallback);
     }
   }
 
@@ -135,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Persist the preference before updating UI or navigating. A failed
     // SecureStore write must not leave the app in a half-switched state.
     await SecureStore.setItemAsync(rolePreferenceKey(uid), role);
+    roleRevision.current += 1;
     setActiveRoleState(role);
   }
 
