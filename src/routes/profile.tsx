@@ -81,7 +81,7 @@ function ProfilePage() {
         .then((rep) => setReputation(rep))
         .catch(() => {});
     }
-  }, [uid, isProvider, getRepFn]);
+  }, [uid, activeRole, isProvider, getRepFn]);
 
   async function uploadAvatar(file?: File) {
     if (!file || !uid || avatarUploading) return;
@@ -279,7 +279,7 @@ function ProfilePage() {
             {showRecentTransactions && <ul className="mt-3 space-y-2">
               {txs.length === 0 ? <li className="rounded-xl bg-white/10 p-3 text-center text-xs opacity-80">لا توجد حركات مسجلة في المحفظة حالياً</li> : txs.map((t) => (
                 <li key={t.id} className="rounded-xl bg-white/10 p-3 flex items-center justify-between gap-3">
-                  <div><div className="text-xs font-bold">{t.note ?? t.type}</div><div className="text-[10px] opacity-75">{new Date(t.created_at).toLocaleString("ar-IQ")}</div></div>
+                  <div><div className="text-xs font-bold">{t.note ?? (t.type === "deposit" ? "إيداع رصيد" : t.type === "withdrawal" ? "سحب" : t.type === "payment" ? "دفع من المحفظة" : t.type === "refund" ? "استرجاع مبلغ" : t.type === "adjustment" ? "تسوية رصيد" : t.type)}</div><div className="text-[10px] opacity-75">{new Date(t.created_at).toLocaleString("ar-IQ")}</div></div>
                   <div className={`text-sm font-black whitespace-nowrap ${Number(t.amount) >= 0 ? "text-emerald-200" : "text-red-200"}`}>{Number(t.amount) >= 0 ? "+" : ""}{Number(t.amount).toLocaleString("ar-IQ")} د.ع</div>
                 </li>
               ))}
