@@ -19,9 +19,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const isProduction = process.env.APP_ENV === "production";
   const isEasBuild = process.env.EAS_BUILD === "true";
 
-  // EAS env:exec must be able to resolve the project before it can inject
-  // remote production variables. Validate those values in the env:exec
-  // preflight script and again on the remote production build worker.
+  // EAS supplies the Google Maps key and project ID. Supabase URL and
+  // publishable key always come from the same verified config as the web app.
   const missingProductionConfig = [
     ...(!mapsKey ? ["EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"] : []),
     ...(!easProjectId ? ["EAS_PROJECT_ID"] : []),
