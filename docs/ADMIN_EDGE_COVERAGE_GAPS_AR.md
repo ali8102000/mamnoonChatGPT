@@ -19,7 +19,7 @@
 
 
 - كشف فحص TypeScript السابق أن طبقة `createClientFn` كانت تعرّف builder كـ`any`، ما أفقد الأنواع في handlers وvalidators. استبدلت بتعريف generic يحافظ على نوع ناتج validator وسياق المستخدم.
-- عولجت أخطاء RPC الناتجة عن اختلاف ملف أنواع قاعدة البيانات عن الدوال المنشورة، وأزيلت إشارة TypeScript قديمة إلى ملف AI gateway الذي حُذف مع حزمة Lovable.
+- عولجت أخطاء RPC الناتجة عن اختلاف ملف أنواع قاعدة البيانات عن الدوال المنشورة، وأزيلت إشارة TypeScript قديمة إلى ملف بوابة الذكاء الاصطناعي القديم الذي أزيل من المشروع.
 - تدقيق مباشر للـPostgreSQL أكد أن دوال الصلاحيات الأساسية `is_super_admin` و`has_admin_access` و`has_staff_role` و`has_subscription_admin_access` ترفض المستخدم المجهول وتربط `p_user_id` بـ`auth.uid()`.
 - فُحصت صلاحيات التنفيذ على مجموعة RPC الإدارية التي يستعملها الفرع: لم تظهر صلاحية تنفيذ لدور `anon`، بينما التنفيذ متاح لـ`authenticated` مع وجود فحوص صلاحيات داخل الدوال المفحوصة.
 - دوال إدارة الموظفين مثل `staff_deactivate` و`staff_set_rank` و`staff_list_department` و`staff_promote_one_level` تحتوي فحوصاً خادمية مرتبطة بالمستخدم المصادق عليه.
@@ -36,7 +36,7 @@
 
 
 تاريخ التدقيق: 17 نوفمبر 2026
-الفرع: `chore/decouple-lovable-backend`
+الفرع: `feature/admin-control-center-unified-analytics`
 
 ## الجرد المؤكد من المصدر
 - `src/lib/admin.functions.ts`: 60 وظيفة TanStack Server Function.
