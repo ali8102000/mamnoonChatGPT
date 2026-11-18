@@ -33,7 +33,6 @@
 الخرائط تعمل عبر Supabase Edge Function `maps-proxy`. لا يحتاج هذا المسار إلى مفتاح منصة استضافة أو مفتاح وسيط خاص بمزود بناء:
 
 - `GOOGLE_MAPS_API_KEY`
-- `LOVABLE_API_KEY`
 - `MAMNOON_SUPABASE_URL` أو `SUPABASE_URL`
 - `MAMNOON_SUPABASE_SERVICE_ROLE_KEY` أو `SUPABASE_SERVICE_ROLE_KEY`
 
