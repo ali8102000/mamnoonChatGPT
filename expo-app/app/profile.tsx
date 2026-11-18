@@ -53,23 +53,10 @@ export default function ProfileScreen() {
       }
       const cacheKey = `mamnoon-customer-wallet-v2:${user.id}`;
       try {
-        const [walletResult, transactionResult] = await Promise.all([
-          supabase
-            .from("driver_wallets")
-            .select("balance,currency")
-            .eq("user_id", user.id)
-            .maybeSingle(),
-          supabase
-            .from("transactions")
-            .select("id,type,created_at,amount")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(30),
-        ]);
-        if (walletResult.error) throw walletResult.error;
-        if (transactionResult.error) throw transactionResult.error;
-        const nextWallet = walletResult.data as DriverWallet | null;
-        const nextTransactions = (transactionResult.data || []) as WalletTransaction[];
+        const { data, error } = await (supabase as any).rpc("get_my_customer_wallet");
+        if (error) throw error;
+        const nextWallet = (data?.wallet ?? null) as DriverWallet | null;
+        const nextTransactions = (Array.isArray(data?.transactions) ? data.transactions : []) as WalletTransaction[];
         if (!active) return;
         setWallet(nextWallet);
         setTransactions(nextTransactions);
