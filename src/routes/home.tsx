@@ -208,6 +208,8 @@ function CustomerHome() {
         </div>
       </div>
 
+      <HomeCustomContent placementKey="home.customer.top" />
+
       <div className="grid grid-cols-3 gap-3">
         <QuickTile
           to="/request/new"
@@ -246,12 +248,14 @@ function CustomerHome() {
         />
       </div>
 
-      <HomeCustomContent />
+      <HomeCustomContent placementKey="home.customer.content" />
 
       <div className="grid grid-cols-2 gap-2.5 animate-pop-in" style={{ animationDelay: "0.15s" }}>
         <MiniStat icon={<Clock className="h-4 w-4" />} label="أقل من" value="٣ د" />
         <MiniStat icon={<ShieldCheck className="h-4 w-4" />} label="مزودون" value="موثق" />
       </div>
+
+      <HomeCustomContent placementKey="home.customer.after_stats" />
 
       <div className="mt-4">
         <div className="flex items-center justify-between mb-3">
@@ -278,7 +282,7 @@ function CustomerHome() {
 }
 
 
-function HomeCustomContent() {
+function HomeCustomContent({ placementKey }: { placementKey: string }) {
   const { session } = useAuth();
   const [sections, setSections] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -288,8 +292,8 @@ function HomeCustomContent() {
 
   const refresh = useCallback(async () => {
     const [sectionResult, campaignResult] = await Promise.all([
-      (supabase as any).from("app_content_sections_public").select("id,title,section_type,placement_key,sort_order,published_config").eq("placement_key", "home.customer.content").order("sort_order"),
-      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", "home.customer.content").order("created_at", { ascending: false }),
+      (supabase as any).from("app_content_sections_public").select("id,title,section_type,placement_key,sort_order,published_config").eq("placement_key", placementKey).order("sort_order"),
+      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", placementKey).order("created_at", { ascending: false }),
     ]);
     if (!sectionResult.error) setSections(sectionResult.data ?? []);
     if (!campaignResult.error) {
@@ -312,7 +316,7 @@ function HomeCustomContent() {
         setResults(Object.fromEntries(resultPairs));
       }
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, placementKey]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
