@@ -7,7 +7,7 @@ grant select (id, partner_type, business_name, phone, city, address, description
   on public.partner_business_profiles to anon;
 drop policy if exists partner_business_profiles_public_read on public.partner_business_profiles;
 create policy partner_business_profiles_public_read on public.partner_business_profiles
-  for select to anon using (is_published = true);
+  for select to anon, authenticated using (is_published = true);
 
 create table if not exists public.partner_catalog_items (
   id uuid primary key default gen_random_uuid(),
