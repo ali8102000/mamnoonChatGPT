@@ -45,7 +45,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     let active = true;
     async function load() {
-      if (!user?.id || !(roles.includes("driver") || roles.includes("large_driver"))) {
+      if (!user?.id || !(roles.includes("driver") || roles.includes("large_driver") || roles.includes("worker"))) {
         setWallet(null);
         setTransactions([]);
         setWalletOffline(false);
