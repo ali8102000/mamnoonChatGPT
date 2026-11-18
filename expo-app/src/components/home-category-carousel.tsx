@@ -45,7 +45,14 @@ export function HomeCategoryCarousel() {
     const next = Math.round(event.nativeEvent.contentOffset.x / width);
     if (next >= 0 && next < banners.length) setIndex(next);
   };
-  if (!banners.length) return <View style={{ width: "100%", height, backgroundColor: "transparent" }} />;
+  if (!banners.length) return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="إعلان الشركاء - سيتوفر قريباً"
+      onPress={() => Alert.alert("سيتوفر قريباً", "أنت شريك؟ سجل ويانه وانتظر طلباتك", [{ text: "حسناً" }])}
+      style={{ width: "100%", height, backgroundColor: "transparent", borderRadius: 22 }}
+    />
+  );
   return (
     <View style={{ width: "100%", height, borderRadius: 22, overflow: "hidden", backgroundColor: "transparent" }}>
       <FlatList ref={list} data={banners} horizontal pagingEnabled showsHorizontalScrollIndicator={false}
