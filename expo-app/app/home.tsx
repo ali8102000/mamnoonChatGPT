@@ -515,7 +515,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
-      <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
+      <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
         {tiles.map((tile) => (
           <TouchableOpacity
             key={tile.key}
@@ -533,6 +533,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
               });
             }}
             style={{
+              direction: "rtl",
               width: tile.width,
               minHeight: 132,
               borderRadius: 24,
@@ -572,7 +573,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
             </View>
           </TouchableOpacity>
         ))}
-        <View style={{ width: "65%" }}>
+        <View style={{ width: "65%", direction: "rtl" }}>
           <HomeCategoryCarousel />
         </View>
       </View>
