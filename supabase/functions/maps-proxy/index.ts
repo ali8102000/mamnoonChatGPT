@@ -120,6 +120,7 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
       const selected=routes.reduce((a:any,b:any)=>b.distance<a.distance?b:a);
       routed={distanceKm:selected.distance/1000,durationMin:selected.duration/60,routeSource:"osrm",
         ...(includeGeometry&&Array.isArray(selected.geometry?.coordinates)?{routePoints:selected.geometry.coordinates.map((p:number[])=>({lat:Number(p[1]),lng:Number(p[0])})).filter((p:Point)=>validPoint(p))}:{})};
+      if(includeGeometry&&(routed.routePoints?.length??0)<2) routed=null;
     } catch(error) {
       console.warn("[route] configured OSRM unavailable; trying Google Routes",error instanceof Error?error.message:"unknown");
     }
