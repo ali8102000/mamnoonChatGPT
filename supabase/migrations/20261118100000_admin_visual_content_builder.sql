@@ -184,7 +184,11 @@ create or replace view public.app_content_sections_public with (security_invoker
   select id,title,section_type,placement_key,sort_order,published_config,updated_at
   from public.app_content_sections where is_published = true and is_enabled = true;
 grant select on public.app_ui_elements_public to anon, authenticated;
+grant select (element_key,label,screen_key,placement_key,element_type,action_key,title,subtitle,sort_order,is_enabled,published_config,updated_at)
+  on public.app_ui_elements to anon;
 grant select on public.app_content_sections_public to anon, authenticated;
+grant select (id,title,section_type,placement_key,sort_order,is_enabled,published_config,updated_at)
+  on public.app_content_sections to anon;
 grant select, insert, update, delete on public.app_ui_elements, public.app_content_sections,
   public.app_campaigns, public.app_campaign_options to authenticated;
 grant select, insert, update on public.app_campaign_responses to authenticated;
@@ -204,6 +208,10 @@ values
   ('vehicle_kia_passenger','أيقونة كيا ركاب','request.new','request.large_vehicle.types','vehicle','vehicle.kia_passenger','كيا ركاب',null,64,64,50,true,'{}'::jsonb),
   ('vehicle_bus','أيقونة الباص','request.new','request.large_vehicle.types','vehicle','vehicle.bus','باص',null,64,64,60,true,'{}'::jsonb)
 on conflict (element_key) do nothing;
+
+update public.app_ui_elements
+set published_config = config
+where published_config = '{}'::jsonb and is_published = true;
 
 insert into storage.buckets (id,name,public)
 values ('app-visuals','app-visuals',true)
