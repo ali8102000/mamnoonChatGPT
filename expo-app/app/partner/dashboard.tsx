@@ -48,7 +48,7 @@ export default function PartnerDashboardScreen() {
 
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.container}>
     <TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>رجوع للإعدادات</Text></TouchableOpacity>
-    <View style={styles.hero}><Text style={styles.heroTitle}>لوحة الشريك</Text><Text style={styles.heroHint}>إدارة بيانات منشآتك وحالة ظهورها في ممنون</Text></View>
+    <View style={styles.hero}><Text style={styles.heroTitle}>لوحة الشريك</Text><Text style={styles.heroHint}>إدارة بيانات منشآتك وحالة نشرها في ممنون</Text></View>
     <View style={styles.heading}><Text style={styles.sectionTitle}>منشآتي المعتمدة</Text><TouchableOpacity onPress={()=>void load()}><Text style={styles.refresh}>تحديث</Text></TouchableOpacity></View>
     {loading?<ActivityIndicator color={palette.brand}/>:items.length===0?<Text style={styles.empty}>ما عندك منشأة معتمدة حالياً. تابع حالة طلبك من الإعدادات.</Text>:items.map(item=><View key={item.id} style={styles.card}>
       <View style={styles.cardHead}><View style={{flex:1}}><Text style={styles.name}>{item.business_name}</Text><Text style={styles.detail}>{typeLabels[item.partner_type]}</Text></View><Text style={[styles.status,item.is_published?styles.visible:styles.hidden]}>{item.is_published?"ظاهر للمستخدمين":"غير منشور"}</Text></View>
@@ -58,10 +58,10 @@ export default function PartnerDashboardScreen() {
       <Text style={styles.label}>المدينة</Text><TextInput value={item.city} onChangeText={v=>change(item.id,"city",v)} maxLength={80} style={styles.input}/>
       <Text style={styles.label}>العنوان</Text><TextInput value={item.address} onChangeText={v=>change(item.id,"address",v)} maxLength={240} style={styles.input}/>
       <Text style={styles.label}>نبذة المنشأة</Text><TextInput value={item.description??""} onChangeText={v=>change(item.id,"description",v)} multiline maxLength={1000} style={[styles.input,styles.multiline]}/>
-      <View style={styles.switchRow}><Text style={styles.label}>إظهار المنشأة للمستخدمين</Text><Switch value={item.is_published} onValueChange={v=>change(item.id,"is_published",v)} trackColor={{true:palette.brand}}/></View>
+      <View style={styles.switchRow}><Text style={styles.label}>تفعيل حالة النشر</Text><Switch value={item.is_published} onValueChange={v=>change(item.id,"is_published",v)} trackColor={{true:palette.brand}}/></View>
       <TouchableOpacity disabled={savingId===item.id} onPress={()=>void save(item)} style={[styles.save,savingId===item.id&&{opacity:0.5}]}><Text style={styles.saveText}>{savingId===item.id?"جارٍ الحفظ...":"حفظ التعديلات"}</Text></TouchableOpacity>
     </View>)}
-    <View style={styles.notice}><Text style={styles.noticeText}>إدارة الحجوزات والغرف وقائمة الطعام والمنتجات ستُربط بوحدات النشاط الخاصة بكل نوع شريك. هذه اللوحة حالياً تدير بيانات المنشأة ونشرها.</Text></View>
+    <View style={styles.notice}><Text style={styles.noticeText}>حالة النشر تُحفظ بملف الشريك. ربط الدليل العام للزبائن وإدارة الحجوزات والغرف وقائمة الطعام والمنتجات يحتاج وحدات عرض وتشغيل مستقلة.</Text></View>
   </ScrollView></SafeAreaView>;
 }
 const styles=StyleSheet.create({
