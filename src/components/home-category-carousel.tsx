@@ -11,7 +11,7 @@ const categoryCopy: Record<Banner["target_category"], { title: string; body: str
 export function HomeCategoryCarousel() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [index, setIndex] = useState(0);
-  const [popup, setPopup] = useState<Banner["target_category"] | null>(null);
+  const [popup, setPopup] = useState<Banner["target_category"] | "disabled" | null>(null);
   const resumeAt = useRef(0);
   const touchStartX = useRef<number | null>(null);
   const movedBySwipe = useRef(false);
@@ -36,7 +36,18 @@ export function HomeCategoryCarousel() {
     }, delay);
     return () => window.clearInterval(timer);
   }, [banners, index]);
-  if (!banners.length) return <div aria-hidden="true" className="w-full aspect-[1.13/1]" />;
+  if (!banners.length) return (
+    <>
+      <button type="button" aria-label="إعلان الشركاء - سيتوفر قريباً" onClick={() => setPopup("disabled")} className="block w-full aspect-[1.13/1] rounded-[24px] border border-border bg-transparent" />
+      {popup === "disabled" && <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] grid place-items-center bg-black/55 p-5" onClick={() => setPopup(null)}>
+        <div className="w-full max-w-sm rounded-3xl bg-card p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <div className="text-2xl font-black text-primary">سيتوفر قريباً</div>
+          <p className="mt-3 text-base font-bold leading-8">أنت شريك؟ سجل ويانه وانتظر طلباتك</p>
+          <button type="button" onClick={() => setPopup(null)} className="mt-5 rounded-xl bg-primary px-6 py-2.5 font-bold text-primary-foreground">حسناً</button>
+        </div>
+      </div>}
+    </>
+  );
   const pause = () => { resumeAt.current = Date.now() + 5000; };
   const current = banners[index];
   return (
