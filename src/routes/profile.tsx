@@ -34,7 +34,7 @@ export const Route = createFileRoute("/profile")({
 });
 
 function ProfilePage() {
-  const { session, profile, roles, loading, signOut, refresh } = useAuth();
+  const { session, profile, roles, activeRole, loading, signOut, refresh } = useAuth();
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<any>(null);
   const [txs, setTxs] = useState<any[]>([]);
@@ -51,7 +51,7 @@ function ProfilePage() {
   const uid = session?.user.id;
   const isDriver = roles.includes("driver") || roles.includes("large_driver");
   const isWorker = roles.includes("worker");
-  const isProvider = isDriver || isWorker;
+  const isProvider = (isDriver || isWorker) && activeRole !== "customer";
 
   const getRepFn = useServerFn(getReputation);
   const getReviewsFn = useServerFn(getProviderReviews);
@@ -288,7 +288,7 @@ function ProfilePage() {
         )}
         {isProvider && (
           <div className="mt-5 rounded-3xl p-5 bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant">
-            <div className="flex items-center gap-2 mb-3 opacity-90"><TrendingUp className="h-4 w-4" /><span className="text-sm font-black">أرباحي</span></div>
+            <div className="flex items-center gap-2 mb-3 opacity-90"><CreditCard className="h-3.5 w-3.5" /><span className="text-xs font-black">محفظتي</span></div>
             <div className="text-xs opacity-80 mb-1">أرباح اليوم</div>
             <div className="text-3xl font-black tabular-nums">{earnings.today.toLocaleString("ar-IQ")} <span className="text-base font-bold opacity-80">د.ع</span></div>
             <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-white/15 px-3 py-3">
