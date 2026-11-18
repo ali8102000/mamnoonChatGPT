@@ -18,7 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import { loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
+import { getNotificationChannelId, loadNotificationPreferences, loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import service_build from "../../assets/services/build.jpg";
@@ -231,7 +231,7 @@ export default function RequestDetail() {
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
-  const [dispatchClock, setDispatchClock] = useState(Date.now());
+  const [dispatchClock, setDispatchClock] = useState(Date.now());\n  const [urgencyAllowed, setUrgencyAllowed] = useState(false);\n  const [urgencyAdminPercent, setUrgencyAdminPercent] = useState(0);\n  const [urgencyBusy, setUrgencyBusy] = useState(false);\n  const countdownNotificationIdRef = useRef<string | null>(null);\n  const acceptedAlertRequestRef = useRef<string | null>(null);
   const [retryPriceIncrease, setRetryPriceIncrease] = useState("0");
   const [retryingDispatch, setRetryingDispatch] = useState(false);
   const [activeOffer, setActiveOffer] = useState<any>(null);
@@ -292,7 +292,68 @@ export default function RequestDetail() {
     ]);
   }, [openTaxiNavigation]);
 
-  useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);
+  useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);\n  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const { data, error } = await (supabase as any).from("taxi_pricing_controls")
+        .select("urgency_enabled,urgency_max_percent").eq("governorate_key","all").maybeSingle();
+      if (!active || error) return;
+      setUrgencyAllowed(Boolean(data?.urgency_enabled) && Number(data?.urgency_max_percent) > 0);
+      setUrgencyAdminPercent(Number(data?.urgency_max_percent) || 0);
+    })();
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (!request || !isCustomer || !["pending","searching"].includes(request.status)) return;
+    let active = true;
+    void (async () => {
+      const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
+      const remaining = Math.max(0, 360 - Math.floor((Date.now() - start) / 1000));
+      const preferences = await loadNotificationPreferences();
+      if (!active || !preferences.soundEnabled) return;
+      const seconds = Math.max(1, remaining - 10);
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "تنبيه انتهاء البحث",
+          body: "باقي ١٠ ثوانٍ على انتهاء وقت البحث عن مزوّد لطلبك.",
+          sound: "default",
+          vibrate: preferences.vibrationEnabled ? [0, 250, 180, 250, 180, 350] : [],
+          data: { request_id: request.id, type: "request_countdown" },
+        },
+        trigger: seconds <= 1 ? null : {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds,
+          channelId: getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled),
+        },
+      });
+      if (active) countdownNotificationIdRef.current = notificationId;
+      else await Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => {});
+    })().catch((error) => console.warn("[request-countdown] notification scheduling failed:", error));
+    return () => {
+      active = false;
+      const notificationId = countdownNotificationIdRef.current;
+      countdownNotificationIdRef.current = null;
+      if (notificationId) void Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => {});
+    };
+  }, [request?.id, request?.status, request?.searching_started_at, request?.created_at, isCustomer]);
+  useEffect(() => {
+    if (!request || !isCustomer || request.status !== "accepted" || acceptedAlertRequestRef.current === request.id) return;
+    acceptedAlertRequestRef.current = request.id;
+    void (async () => {
+      const preferences = await loadNotificationPreferences();
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: request.type === "taxi" ? "تم قبول طلب التكسي" : "تم قبول طلب الخدمة",
+          body: "قبل أحد المزوّدين طلبك. افتح ممنون لمتابعة التفاصيل.",
+          sound: preferences.soundEnabled ? "default" : false,
+          vibrate: preferences.vibrationEnabled ? [0, 250, 180, 250] : [],
+          data: { request_id: request.id, type: "request_accepted" },
+        },
+        trigger: null,
+      });
+    })().catch((error) => console.warn("[request-accepted] notification failed:", error));
+  }, [request?.id, request?.status, request?.type, isCustomer]);
+
   useEffect(() => {
     const timer = setInterval(() => setFreshnessClock(Date.now()), 5000);
     return () => clearInterval(timer);
@@ -306,7 +367,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, cancellation_reason, distance_km",
+        "provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
       )
       .eq("id", id)
       .maybeSingle();
@@ -867,6 +928,25 @@ export default function RequestDetail() {
     ]);
   }
 
+  async function applyRequestUrgency(multiplier: 2 | 3) {
+    if (!request || !isCustomer || urgencyBusy) return;
+    setUrgencyBusy(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("apply_request_urgency", {
+        _request_id: id,
+        _multiplier: multiplier,
+      });
+      if (error) throw error;
+      const result = Array.isArray(data) ? data[0] : data;
+      Alert.alert("تم تفعيل الاستعجال", `تم رفع الأجر بنسبة ${Number(result?.urgency_percent ?? urgencyAdminPercent * multiplier)}٪ وأُبلغ المزوّدون بالزيادة.`);
+      await loadRequest();
+    } catch (error: any) {
+      Alert.alert("تعذر تفعيل الاستعجال", error?.message ?? "حاول مرة ثانية.");
+    } finally {
+      setUrgencyBusy(false);
+    }
+  }
+
   async function submitUserReport() {
     if (!user?.id || !request) return;
     if (request.status !== "in_progress") { Alert.alert("البلاغات غير متاحة", "تگدر ترسل بلاغ بعد بدء الرحلة أو الخدمة فعلياً."); return; }
@@ -1004,12 +1084,12 @@ export default function RequestDetail() {
             {(() => {
               const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
               const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
-              return <View style={{ width: 104, height: 104, borderRadius: 52, borderWidth: 7, borderColor: palette.gold, alignItems: "center", justifyContent: "center", marginTop: 8, backgroundColor: palette.surface }}>
+              return <View style={{ width: 104, height: 104, borderRadius: 52, borderWidth: 7, borderColor: remaining <= 10 && remaining > 0 ? palette.danger : palette.gold, alignItems: "center", justifyContent: "center", marginTop: 8, backgroundColor: remaining <= 10 && remaining > 0 ? palette.dangerSoft : palette.surface, opacity: remaining <= 10 && remaining > 0 ? 0.78 + (dispatchClock % 2) * 0.22 : 1 }}>
                 <Text style={{ color: palette.ink, fontSize: 23, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</Text>
                 <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "800" }}>وقت البحث</Text>
               </View>;
             })()}
-            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>\n            {urgencyAllowed && Number(request.customer_price ?? request.price_estimate ?? 0) > 0 && <View style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>\n              <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>⚡ وضع الاستعجال</Text>\n              <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>نسبة الزيادة الأساسية من الإدارة: {urgencyAdminPercent}٪. اختر ×2 أو ×3 لرفع الأجر وتشجيع المزوّدين على قبول الطلب.</Text>\n              <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>\n                <TouchableOpacity disabled={urgencyBusy} onPress={() => void applyRequestUrgency(2)} style={{ flex: 1, borderRadius: 12, padding: 12, alignItems: "center", backgroundColor: palette.gold, opacity: urgencyBusy ? 0.5 : 1 }}><Text style={{ color: palette.brandDeep, fontWeight: "900" }}>×2 استعجال</Text></TouchableOpacity>\n                <TouchableOpacity disabled={urgencyBusy} onPress={() => void applyRequestUrgency(3)} style={{ flex: 1, borderRadius: 12, padding: 12, alignItems: "center", backgroundColor: palette.brand, opacity: urgencyBusy ? 0.5 : 1 }}><Text style={{ color: palette.white, fontWeight: "900" }}>×3 أقصى استعجال</Text></TouchableOpacity>\n              </View>\n              {Number(request.urgency_multiplier ?? 1) > 1 && <Text style={{ color: palette.success, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>مفعّل حالياً ×{request.urgency_multiplier} · زيادة {Number(request.urgency_percent ?? 0)}٪</Text>}\n            </View>}
           </View>
         )}
         {isCustomer && request.status === "cancelled" && request.cancellation_reason === "dispatch_no_provider" && (
