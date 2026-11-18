@@ -581,9 +581,9 @@ export default function DriverOnboarding() {
         </TouchableOpacity>
       </>}
 
-      <Text style={styles.label}>صورة سنوية السيارة أو الوكالة *</Text>
-      <Text style={styles.note}>صوّر صفحة المستند كاملة وبوضوح، بحيث يظهر رقم المركبة أو رقم اللوحة وبيانات السيارة. إذا عندك وكالة استخدمها بدلاً من السنوية.</Text>
-      <TouchableOpacity style={styles.photoButton} onPress={() => Alert.alert("إرفاق مستند السيارة", "اختَر طريقة إرفاق السنوية أو الوكالة", [
+      <Text style={styles.label}>مستند رسمي للسيارة *</Text>
+      <Text style={styles.note}>أرفق صورة واضحة وكاملة لمستند رسمي يثبت تسجيل السيارة، وتأكد أن بيانات المركبة ورقم اللوحة ظاهرة وواضحة.</Text>
+      <TouchableOpacity style={styles.photoButton} onPress={() => Alert.alert("إرفاق مستند السيارة", "اختَر طريقة إرفاق المستند الرسمي للسيارة", [
         { text: "تصوير المستند بالكاميرا", onPress: () => { void pickPhoto("vehicle-document", "camera"); } },
         { text: "اختيار صورة من المعرض", onPress: () => { void pickPhoto("vehicle-document", "library"); } },
         { text: "إلغاء", style: "cancel" },
@@ -591,7 +591,17 @@ export default function DriverOnboarding() {
         {vehicleDocumentPhoto ? <Image source={{ uri: vehicleDocumentPhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>اضغط هنا لتصوير المستند الرسمي أو اختياره من المعرض</Text>}
       </TouchableOpacity>
 
-      <Text style={styles.label}>فيديو السيارة *</Text>\n      <Text style={styles.note}>أرفق فيديو مدته دقيقة أو أقل. صوّر السيارة من الخارج بحيث تظهر السيارة كاملة من الأمام والخلف والجوانب، ويكون رقم لوحة السيارة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.</Text>\n      <View style={styles.photoButton}>\n        <Text style={styles.photoText}>{vehicleVideo ? (vehicleVideo.fileName || "تم اختيار فيديو السيارة") : vehicleVideoPath ? "يوجد فيديو محفوظ مرفق سابقاً ✓" : "لم يتم إرفاق فيديو السيارة بعد"}</Text>\n        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>\n          <Button title="تصوير فيديو" onPress={() => { void pickVehicleVideo("camera"); }} />\n          <Button title="اختيار فيديو" onPress={() => { void pickVehicleVideo("library"); }} />\n        </View>\n      </View>\n\n      <View style={{ height: 24 }} />
+      <Text style={styles.label}>فيديو السيارة *</Text>
+      <Text style={styles.note}>أرفق فيديو مدته دقيقة أو أقل. صوّر السيارة من الخارج بحيث تظهر السيارة كاملة من الأمام والخلف والجوانب، ويكون رقم لوحة السيارة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.</Text>
+      <View style={styles.photoButton}>
+        <Text style={styles.photoText}>{vehicleVideo ? (vehicleVideo.fileName || "تم اختيار فيديو السيارة") : vehicleVideoPath ? "يوجد فيديو محفوظ مرفق سابقاً ✓" : "لم يتم إرفاق فيديو السيارة بعد"}</Text>
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+          <Button title="تصوير فيديو" onPress={() => { void pickVehicleVideo("camera"); }} />
+          <Button title="اختيار فيديو" onPress={() => { void pickVehicleVideo("library"); }} />
+        </View>
+      </View>
+
+      <View style={{ height: 24 }} />
       <Button title={vehicleChangeMode ? "إرسال طلب التحديث للإدارة" : "إرسال طلب التسجيل للمراجعة"} onPress={submit} loading={busy} />
     </ScrollView>
   );
