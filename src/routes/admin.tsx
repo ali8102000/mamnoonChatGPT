@@ -958,6 +958,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
                     ["الهوية الأمامية", v.id_card_photo_url],
                     ["الهوية الخلفية", v.id_card_back_photo_url],
                     ["مستند المركبة", v.vehicle_document_url],
+                    ["فيديو السيارة", v.vehicle_video_url],
                   ].map(([label, url]: any) => url
                     ? <a key={label} href={url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary underline">عرض {label}</a>
                     : <span key={label} className="text-[10px] text-muted-foreground">{label}: غير متوفر</span>)}
@@ -1559,12 +1560,20 @@ function ProvidersSection() {
                     ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم تُرفق صورة الجهة الخلفية للبطاقة الوطنية.</div>}
                   </div>
                 )}
-                {type === "driver" && (
+                {(type === "driver" || type === "large_driver") && (
                   <div>
-                    <div className="text-sm font-bold mb-2">سنوية السيارة أو الوكالة (رقم المركبة)</div>
+                    <div className="text-sm font-bold mb-2">مستند رسمي للسيارة</div>
                     {selectedVerification.verification.vehicle_document_url ? (
-                      <img src={selectedVerification.verification.vehicle_document_url} alt="سنوية السيارة أو الوكالة" className="w-full max-h-96 object-contain rounded-xl bg-black/5" />
-                    ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم تُرفق صورة سنوية السيارة أو الوكالة لهذا الطلب.</div>}
+                      <img src={selectedVerification.verification.vehicle_document_url} alt="المستند الرسمي للسيارة" className="w-full max-h-96 object-contain rounded-xl bg-black/5" />
+                    ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم يُرفق مستند رسمي للسيارة لهذا الطلب.</div>}
+                  </div>
+                )}
+                {(type === "driver" || type === "large_driver") && (
+                  <div>
+                    <div className="text-sm font-bold mb-2">فيديو السيارة (السيارة كاملة ورقم اللوحة)</div>
+                    {selectedVerification.verification.vehicle_video_url ? (
+                      <video src={selectedVerification.verification.vehicle_video_url} controls playsInline preload="metadata" className="w-full max-h-96 rounded-xl bg-black" />
+                    ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم يُرفق فيديو السيارة لهذا الطلب.</div>}
                   </div>
                 )}
                 <div className="text-xs rounded-xl bg-surface-2 p-3 space-y-1">
