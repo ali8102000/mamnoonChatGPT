@@ -636,7 +636,7 @@ function HomeCustomContent({ userId, placementKey }: { userId: string | null; pl
       const now = Date.now();
       const active = (campaignResult.data ?? []).filter((item: any) =>
         (!item.starts_at || new Date(item.starts_at).getTime() <= now) &&
-        (!item.ends_at || new Date(item.ends_at).getTime() > now)
+        (!item.ends_at || new Date(item.ends_at).getTime() > now || item.result_visibility === "public" || item.result_visibility === "after_end")
       );
       setCampaigns(active);
       if (userId && active.length) {
@@ -656,7 +656,7 @@ function HomeCustomContent({ userId, placementKey }: { userId: string | null; pl
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const vote = async (campaign: any, optionId: string) => {
+  const vote = async (campaign: any, optionId: string) => {\n    const now = Date.now();\n    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);\n    if (!votingOpen) return;
     if (!userId || responses[campaign.id] || voting) return;
     setVoting(campaign.id);
     const { error } = await (supabase as any).from("app_campaign_responses").insert({
@@ -718,12 +718,12 @@ function HomeCustomContent({ userId, placementKey }: { userId: string | null; pl
                 const count = Number(counts.find((row: any) => row.option_id === option.id)?.vote_count ?? 0);
                 const percent = total > 0 ? Math.round((count / total) * 100) : 0;
                 return (
-                  <TouchableOpacity key={option.id} disabled={!userId || !!selected || voting === campaign.id} onPress={() => void vote(campaign, option.id)} style={{ borderWidth: 1, borderColor: selected === option.id ? palette.brand : palette.line, borderRadius: 12, padding: 10 }}>
+                  <TouchableOpacity key={option.id} disabled={!userId || !!selected || voting === campaign.id || !votingOpen} onPress={() => void vote(campaign, option.id)} style={{ borderWidth: 1, borderColor: selected === option.id ? palette.brand : palette.line, borderRadius: 12, padding: 10 }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                       <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "800" }}>{option.label}</Text>
-                      {selected && <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>{percent}% · {count}</Text>}
+                      {showResults && <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>{percent}% · {count}</Text>}
                     </View>
-                    {selected && <View style={{ height: 5, backgroundColor: palette.line, borderRadius: 9, marginTop: 7, overflow: "hidden" }}><View style={{ height: 5, width: `${percent}%` as `${number}%`, backgroundColor: palette.brand, borderRadius: 9 }} /></View>}
+                    {showResults && <View style={{ height: 5, backgroundColor: palette.line, borderRadius: 9, marginTop: 7, overflow: "hidden" }}><View style={{ height: 5, width: `${percent}%` as `${number}%`, backgroundColor: palette.brand, borderRadius: 9 }} /></View>}
                   </TouchableOpacity>
                 );
               })}
