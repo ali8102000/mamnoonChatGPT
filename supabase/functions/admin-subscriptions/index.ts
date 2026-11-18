@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabasePublishableKey, getSupabaseSecretKey } from "../_shared/api-keys.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -57,8 +58,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = required("SUPABASE_URL");
-    const anonKey = required("SUPABASE_ANON_KEY");
-    const serviceKey = required("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = getSupabasePublishableKey();
+    const serviceKey = getSupabaseSecretKey();
     const authHeader = req.headers.get("Authorization") || "";
     const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
     if (!bearer) return json({ error: "unauthorized" }, 401);
