@@ -1320,8 +1320,8 @@ function NewRequest() {
               onChange={(e) => setCustomerPrice(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder={
                 pricingMode === "hourly"
-                  ? "المبلغ الكلي (د.ع) مثلاً 25000"
-                  : "مبلغ الإنجاز التام (د.ع) مثلاً 50000"
+                  ? "الأجر لكل ساعة ولكل فني"
+                  : "الأجر لكل فني بالدينار"
               }
               className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:border-ring"
             />
