@@ -633,7 +633,7 @@ function NewRequest() {
           ...(type === "service"
             ? {
                 pricing_mode: pricingMode,
-                customer_price: pricingMode === "negotiable" ? null : finalServicePrice,
+                customer_price: pricingMode === "negotiable" ? null : priceNum,
                 work_hours: pricingMode === "hourly" && workHours ? Number(workHours) : null,
                 work_description: [
                   workDescription.trim(),
@@ -1174,9 +1174,6 @@ function NewRequest() {
      2. HOME SERVICE VIEW: CLASSIC CLEAN SERVICE FORM
      ========================================================================= */
   const selectedService = services.find((s) => s.id === serviceId);
-  const serviceProviderCount = level === "khabir" ? (khabirMode === "alone" ? 1 : 1 + workersCount) : workersCount;
-  const servicePriceMultiplier = serviceProviderCount + (level === "khabir" ? 1 : 0);
-  const serviceTotalPrice = (Number(customerPrice.replace(/[^0-9]/g, "")) || 0) * servicePriceMultiplier;
 
   return (
     <div className="min-h-screen px-5 pt-10 pb-36">

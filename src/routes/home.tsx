@@ -911,7 +911,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
                   <div className="text-sm font-bold truncate">
                     📍 {r.pickup_text || "بدون عنوان"}
                   </div>
-                  {(r.service_urgency_enabled || r.large_vehicle_urgency_enabled || r.taxi_urgency_enabled) && <div className="mt-1 text-xs font-black text-amber-600">⚡ طلب مستعجل</div>
+                  {(r.service_urgency_enabled || r.large_vehicle_urgency_enabled || r.taxi_urgency_enabled) && <div className="mt-1 text-xs font-black text-amber-600">⚡ طلب مستعجل</div>}
                   {r.dest_text && (
                     <div className="text-xs text-muted-foreground mt-1 truncate">
                       🎯 {r.dest_text}

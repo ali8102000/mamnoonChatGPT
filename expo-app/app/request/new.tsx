@@ -999,7 +999,7 @@ export default function NewRequest() {
             workers_count: extraWorkers + 1,
             service_urgency_enabled: urgencyEnabled,
             pricing_mode: pricingMode,
-            customer_price: pricingMode === "negotiable" ? null : finalServicePrice,
+            customer_price: pricingMode === "negotiable" ? null : proposedPrice,
             work_hours: pricingMode === "hourly" ? hours : null,
             work_description: [workDescription.trim(), selectedService === "build" && brickQuantity.trim() ? "كمية الطابوق: " + brickQuantity.trim() : ""].filter(Boolean).join("\n") || null,
             notes: notes || null,
