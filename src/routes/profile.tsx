@@ -268,7 +268,7 @@ function ProfilePage() {
         )}
         {activeRole === "customer" && (
           <div className="mt-5 rounded-3xl p-5 bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant">
-            <div className="flex items-center gap-2 mb-3"><CreditCard className="h-4 w-4" /><span className="text-sm font-black">محفظتي</span></div>
+            <div className="flex items-center gap-2 mb-3"><TrendingUp className="h-4 w-4" /><span className="text-sm font-black">محفظتي</span></div>
             <div className="text-xs opacity-80 mb-1">رصيدك المتاح</div>
             <div className="text-3xl font-black tabular-nums">{Number(wallet?.balance ?? 0).toLocaleString("ar-IQ")} <span className="text-base font-bold opacity-80">د.ع</span></div>
             <div className="mt-3 rounded-2xl bg-white/15 p-3 text-xs leading-6">رصيد المحفظة وحركاتها محفوظة في حسابك. شحن الرصيد والسحب عبر زين كاش سيتفعّلان بعد ربط مفاتيح التاجر الرسمية.</div>
