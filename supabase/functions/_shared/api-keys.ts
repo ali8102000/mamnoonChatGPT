@@ -8,11 +8,9 @@ function readKeyFromDictionary(variableName: "SUPABASE_PUBLISHABLE_KEYS" | "SUPA
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const keys = parsed as KeyDictionary;
     const defaultKey = keys.default;
-    if (typeof defaultKey === "string" && defaultKey.trim()) return defaultKey.trim();
-    const firstActiveKey = Object.values(keys).find(
-      (value): value is string => typeof value === "string" && value.trim().length > 0,
-    );
-    return firstActiveKey?.trim() ?? null;
+    return typeof defaultKey === "string" && defaultKey.trim()
+      ? defaultKey.trim()
+      : null;
   } catch {
     return null;
   }
