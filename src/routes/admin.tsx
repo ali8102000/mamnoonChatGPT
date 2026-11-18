@@ -87,6 +87,7 @@ import AdminCompanySettings from "@/components/admin-company-settings";
 import RegionalControlsSection from "@/components/admin-regional-controls";
 import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
 import AdminDispatchZones from "@/components/admin-dispatch-zones";
+import AdminVisualBuilder from "@/components/admin-visual-builder";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
 
@@ -127,7 +128,8 @@ type Section =
   | "staff"
   | "company"
   | "driverTiers"
-  | "dispatchZones";
+  | "dispatchZones"
+  | "visualBuilder";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
   {
@@ -196,6 +198,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
+  { key: "visualBuilder", label: "محرر الواجهة والمحتوى", icon: Eye, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
 
@@ -394,6 +397,7 @@ function AdminPage() {
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
+          {section === "visualBuilder" && <AdminVisualBuilder />}
           {section === "audit" && <AuditSection />}
         </div>
       </main>
@@ -953,6 +957,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
                     ["الهوية الأمامية", v.id_card_photo_url],
                     ["الهوية الخلفية", v.id_card_back_photo_url],
                     ["مستند المركبة", v.vehicle_document_url],
+                    ["فيديو السيارة", v.vehicle_video_url],
                   ].map(([label, url]: any) => url
                     ? <a key={label} href={url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary underline">عرض {label}</a>
                     : <span key={label} className="text-[10px] text-muted-foreground">{label}: غير متوفر</span>)}
