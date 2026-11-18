@@ -18,6 +18,7 @@ export default function AdminAnalyticsScreen() {
   const { user } = useAuth();
   const [rows,setRows] = useState<Row[]>([]);
   const [platformStats,setPlatformStats] = useState<any>(null);
+  const [platformStatsWarning,setPlatformStatsWarning] = useState("");
   const [activity,setActivity] = useState<any>(null);
   const [loading,setLoading] = useState(true);
   const [refreshing,setRefreshing] = useState(false);
@@ -54,7 +55,7 @@ export default function AdminAnalyticsScreen() {
         dailyRevenue:commission(todayTx),monthlyRevenue:commission(monthTx),yearlyRevenue:commission(yearTx),
       });
       const metricErrors=[users,drivers,workers,activeDrivers,activeWorkers,requests,activeRequests,completed,cancelled,todayTx,monthTx,yearTx].filter((result:any)=>!!result?.error).length;
-      if(metricErrors) throw new Error(`تعذر تحميل ${metricErrors} من مؤشرات المنصة`);
+      setPlatformStatsWarning(metricErrors ? `تعذر تحميل ${metricErrors} من مؤشرات المنصة؛ قد تكون بعض الأرقام غير مكتملة.` : "");
       const { data, error: invokeError } = await supabase.functions.invoke("admin-users",{body:{action:"governorate_stats"}});
       if (invokeError) throw new Error(invokeError.message);
       if (data?.error) throw new Error(data.error);
@@ -76,6 +77,7 @@ export default function AdminAnalyticsScreen() {
       <Text style={s.title}>الإحصائيات الشاملة</Text>
       <Text style={s.muted}>مؤشرات المنصة والإيرادات وتوزيع المستخدمين والطلبات حسب المحافظة</Text>
       {loading ? <ActivityIndicator size="large" color={palette.brand}/> : error ? <View style={s.error}><Text style={s.errorText}>{error}</Text><TouchableOpacity onPress={()=>void load()}><Text style={s.link}>إعادة المحاولة</Text></TouchableOpacity></View> : <>
+        {!!platformStatsWarning && <View style={s.error}><Text style={s.errorText}>{platformStatsWarning}</Text></View>}
         <View style={s.totalCard}>
           <Text style={s.sectionTitle}>مؤشرات المنصة العامة</Text>
           <View style={s.metrics}>
