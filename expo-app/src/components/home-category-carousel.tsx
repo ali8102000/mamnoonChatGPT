@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Text, View } from "react-native";
+import { Alert, Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native";
 import { supabase } from "@/lib/supabase";
 
 type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; scroll_speed: number; badge_text: string | null };
@@ -51,15 +51,15 @@ export function HomeCategoryCarousel() {
       <FlatList ref={list} data={banners} horizontal pagingEnabled showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id} onScroll={onScroll} scrollEventThrottle={16}
         onTouchStart={() => { resumeAt.current = Date.now() + 5000; }}
+        onTouchEnd={() => { resumeAt.current = Date.now() + 5000; }}
         onMomentumScrollEnd={() => { resumeAt.current = Date.now() + 5000; }}
         renderItem={({ item }) => (
-          <View style={{ width, height, position: "relative" }}>
+          <Pressable onPress={() => Alert.alert("قريباً", messages[item.target_category], [{ text: "حسناً" }])} style={{ width, height, position: "relative" }}>
             <Image source={{ uri: item.image_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
             {!!item.badge_text && <View style={{ position: "absolute", top: 12, right: 12, backgroundColor: "#0009", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
               <Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{item.badge_text}</Text>
             </View>}
-            <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 54 }} />
-          </View>
+          </Pressable>
         )}
         onViewableItemsChanged={({ viewableItems }) => {
           const item = viewableItems[0]?.item as Banner | undefined;
@@ -73,9 +73,6 @@ export function HomeCategoryCarousel() {
       {banners.length > 1 && <View style={{ position: "absolute", bottom: 10, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 6 }}>
         {banners.map((banner, i) => <View key={banner.id} style={{ width: i === index ? 18 : 6, height: 6, borderRadius: 9, backgroundColor: "#FFFFFF" }} />)}
       </View>}
-      <View pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, flexDirection: "row" }}>
-        {banners.map((banner, i) => <View key={banner.id} style={{ width: 0, height: 0 }} />)}
-      </View>
     </View>
   );
 }
