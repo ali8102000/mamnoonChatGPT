@@ -211,6 +211,8 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.top" />
 
+      <HomeCategoryCarousel />
+
       <div className="grid grid-cols-3 gap-3">
         <QuickTile
           to="/request/new"
@@ -248,8 +250,6 @@ function CustomerHome() {
           delay={0.15}
         />
       </div>
-
-      <HomeCategoryCarousel />
 
       <HomeCustomContent placementKey="home.customer.content" />
 
