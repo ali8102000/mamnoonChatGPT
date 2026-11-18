@@ -22,6 +22,10 @@ BEGIN
     RAISE EXCEPTION 'profile_phone_required';
   END IF;
 
+  IF left(v_phone_digits, 2) = '00' THEN
+    v_phone_digits := substr(v_phone_digits, 3);
+  END IF;
+
   IF left(v_phone_digits, 1) = '0' THEN
     v_phone_digits := '964' || substr(v_phone_digits, 2);
   ELSIF left(v_phone_digits, 3) <> '964' THEN
