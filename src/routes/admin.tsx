@@ -722,20 +722,20 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
   async function viewUser(userId: string) {
     try {
       setSelectedUser(await getUserDetail({ data: { user_id: userId } }));
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleBlock(userId: string, reason: string, expiresAt: string | null) {
     try {
       await blockUser({ data: { user_id: userId, reason, expires_at: expiresAt ?? undefined } });
       setBlockModal(null);
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleUnblock(userId: string) {
     try {
       await unblockUser({ data: { user_id: userId } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   return (
     <div>
@@ -1621,13 +1621,13 @@ function RequestsSection() {
     try {
       await cancelRequest({ data: { request_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleReopen(id: string) {
     try {
       await reopenRequest({ data: { request_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   const statusLabels: Record<string, string> = {
     pending: "بانتظار",
@@ -1768,7 +1768,7 @@ function ChatSection() {
     try {
       await deleteMessage({ data: { message_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   return (
     <div>
@@ -1908,7 +1908,7 @@ function FriendsSection() {
                         data: { user1_id: f.user_id, user2_id: f.friend_id },
                       });
                       load();
-                    } catch (e) {}
+                    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
                   }}
                   className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
                 >
@@ -1937,7 +1937,7 @@ function FriendsSection() {
                   try {
                     await deleteRequest({ data: { request_id: r.id } });
                     load();
-                  } catch (e) {}
+                  } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
                 }}
                 className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
               >
@@ -1973,7 +1973,7 @@ function ReportsSection() {
     try {
       await resolveReport({ data: { report_id: id, status: status as any, note } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   return (
     <div>
@@ -2151,7 +2151,7 @@ function CouponsSection() {
     try {
       await deleteCoupon({ data: { coupon_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleDistribute(id: string) {
     if (distributionTarget === "single" && !singleUserId.trim()) {
@@ -2427,7 +2427,7 @@ function WalletSection() {
       await adjustWallet({ data: { user_id: userId, amount, type, note } });
       setAdjustModal(false);
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   return (
     <div>
@@ -2726,13 +2726,13 @@ function RolesSection() {
       await grantRole({ data: { target_user_id: userId, role } });
       setRoleModal(null);
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleRevoke(userId: string, role: string) {
     try {
       await revokeRole({ data: { target_user_id: userId, role } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleAssign(userId: string, rank: string, department: string, displayTitle: string) {
     try {
@@ -3129,7 +3129,7 @@ function AuditSection() {
       }
     })();
   }, [listLogs]);
-  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e) {} })(); }, [listStaffActivity]);
+  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } })(); }, [listStaffActivity]);
   const staffActionLabels: Record<string, string> = { view_support_message: "شاهد رسالة دعم", reply_support_message: "رد على رسالة دعم", rank_changed: "تغيير رتبة", department_changed: "تغيير قسم", staff_activated: "تفعيل موظف", staff_deactivated: "إيقاف موظف" };
   const actionLabels: Record<string, string> = {
     grant_role: "منح صلاحية",
