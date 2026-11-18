@@ -321,7 +321,8 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const vote = async (campaign: any, optionId: string) => {
-    const now = Date.now();\n    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);\n    if (!votingOpen) return;
+    const now = Date.now();
+    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);\n    if (!votingOpen) return;
     const userId = session?.user?.id;
     if (!userId || responses[campaign.id] || voting) return;
     setVoting(campaign.id);
