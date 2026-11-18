@@ -23,7 +23,13 @@ grant select, insert, update, delete on public.customer_favorite_places to authe
 drop policy if exists "Customers read own favorite places" on public.customer_favorite_places;
 create policy "Customers read own favorite places"
   on public.customer_favorite_places for select to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and exists (
+      select 1 from public.user_roles
+      where user_id = (select auth.uid()) and role = 'customer'::public.app_role
+    )
+  );
 
 drop policy if exists "Customers add own favorite places" on public.customer_favorite_places;
 create policy "Customers add own favorite places"
@@ -51,7 +57,13 @@ create policy "Customers update own favorite places"
 drop policy if exists "Customers delete own favorite places" on public.customer_favorite_places;
 create policy "Customers delete own favorite places"
   on public.customer_favorite_places for delete to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and exists (
+      select 1 from public.user_roles
+      where user_id = (select auth.uid()) and role = 'customer'::public.app_role
+    )
+  );
 
 create or replace function public.set_customer_favorite_place_updated_at()
 returns trigger
@@ -62,7 +74,9 @@ begin
   new.updated_at = now();
   return new;
 end;
-$$;
+$;
+
+revoke all on function public.set_customer_favorite_place_updated_at() from public, anon, authenticated;
 
 drop trigger if exists set_customer_favorite_place_updated_at on public.customer_favorite_places;
 create trigger set_customer_favorite_place_updated_at
