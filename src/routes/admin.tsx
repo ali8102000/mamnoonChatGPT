@@ -383,7 +383,7 @@ function AdminPage() {
                     <h2 className="text-xl font-black">مركز التحكم الإداري</h2>
                     <p className="mt-1 text-xs text-muted-foreground">كل أدوات الإدارة مرتبة حسب وظيفتها، وتظهر فقط الأقسام المسموح بها لحسابك.</p>
                   </div>
-                  <span className="rounded-full border border-border px-3 py-1 text-[10px] font-bold text-muted-foreground">{visibleItems.length} قسم متاح</span>
+                  <span className="rounded-full border border-border px-3 py-1 text-[10px] font-bold text-muted-foreground">{visibleItems.filter((item) => item.key !== "overview").length} قسم متاح</span>
                 </div>
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {ADMIN_NAV_GROUPS.map((group) => {
@@ -443,6 +443,7 @@ function AdminPage() {
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
           {section === "visualBuilder" && <AdminVisualBuilder />}
+          {section === "homeBanners" && <AdminHomeBanners />}
           {section === "audit" && <AuditSection />}
         </div>
       </main>
@@ -690,7 +691,7 @@ function StatsSection() {
   if (!stats) return <div className="text-sm text-muted-foreground">تعذّر تحميل البيانات</div>;
   return (
     <div>
-      <h2 className="text-xl font-black mb-4">الإحصائيات</h2>
+      <h2 className="text-lg font-black mb-4">المؤشرات العامة</h2>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
         <StatCard icon={Users} label="إجمالي المستخدمين" value={stats.totalUsers} />
         <StatCard icon={Car} label="إجمالي السائقين" value={stats.totalDrivers} />
