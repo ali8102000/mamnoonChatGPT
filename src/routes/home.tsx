@@ -812,7 +812,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-label="طلب جديد">
           <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl border border-primary/40 bg-background p-5 shadow-2xl">
             <div className="mb-3 text-xs font-black text-primary">🔔 طلب جديد موجّه إلك</div>
-            <div className="text-lg font-black text-foreground">{type === "taxi" ? (largeDriverMode ? "طلب سيارة كبيرة جديد" : "طلب رحلة جديد") : "طلب خدمة جديد"}</div>
+            <div className="text-lg font-black text-foreground">{type === "taxi" ? (largeDriverMode ? "طلب سيارة كبيرة جديد" : "طلب رحلة جديد") : "طلب خدمة جديد"}</div>\n            {Number(popupRequest.urgency_multiplier ?? 1) > 1 && <div className="mt-2 inline-flex rounded-full bg-amber-500/15 px-3 py-1 text-xs font-black text-amber-700">⚡ طلب عاجل ×{popupRequest.urgency_multiplier}</div>}
             {popupRequest.my_offer?.expires_at && (() => {
               const remaining = Math.max(0, Math.ceil((Date.parse(popupRequest.my_offer.expires_at) - dispatchClock) / 1000));
               const progress = Math.max(0, Math.min(100, remaining / 60 * 100));
