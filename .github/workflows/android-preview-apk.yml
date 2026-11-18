@@ -5,6 +5,7 @@ on:
     branches:
       - feat/admin-governance-rebased-20261117
       - feat/mamnoon-3-role-switch-settings
+      - feature/admin-control-center-unified-analytics
   pull_request:
     branches:
       - main
