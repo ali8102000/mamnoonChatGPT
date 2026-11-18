@@ -175,6 +175,21 @@ function HomePage() {
 }
 
 function CustomerHome() {
+  const [visuals, setVisuals] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("app_ui_elements_public")
+      .select("element_key,published_config,title,subtitle,sort_order")
+      .then(({ data, error }: any) => {
+        if (!active || error) return;
+        const next: Record<string, any> = {};
+        for (const item of data ?? []) next[item.element_key] = { ...(item.published_config ?? {}), title: item.title, subtitle: item.subtitle, sort_order: item.sort_order };
+        setVisuals(next);
+      });
+    return () => { active = false; };
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="relative rounded-3xl p-6 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
@@ -197,9 +212,9 @@ function CustomerHome() {
         <QuickTile
           to="/request/new"
           type="taxi"
-          title="طلب سيارة"
-          subtitle="خلال دقائق"
-          icon={<img src="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" alt="" className="h-11 w-11 object-contain" />}
+          title={visuals.home_customer_taxi?.title || "طلب سيارة"}
+          subtitle={visuals.home_customer_taxi?.subtitle || "خلال دقائق"}
+          icon={<img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: Number(visuals.home_customer_taxi?.width_px) || 44, height: Number(visuals.home_customer_taxi?.height_px) || 44, objectFit: "contain" }} />}
           gradient="from-amber-500 to-orange-500"
           span={2}
           delay={0.05}
@@ -207,9 +222,9 @@ function CustomerHome() {
         <QuickTile
           to="/request/new"
           type="service"
-          title="طلب فني"
-          subtitle="١٦ خدمة"
-          icon={<img src={serviceIcon("build")} alt="" className="h-16 w-16 object-cover" />}
+          title={visuals.home_customer_service?.title || "طلب فني"}
+          subtitle={visuals.home_customer_service?.subtitle || "١٦ خدمة"}
+          icon={<img src={visuals.home_customer_service?.image_url || serviceIcon("build")} alt="" style={{ width: Number(visuals.home_customer_service?.width_px) || 64, height: Number(visuals.home_customer_service?.height_px) || 64, objectFit: "cover" }} />}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
@@ -217,9 +232,9 @@ function CustomerHome() {
           to="/request/new"
           type="taxi"
           vehicle="large"
-          title="طلب سيارة كبيرة"
-          subtitle="كيا حمل أو كيا ركاب أو باص"
-          icon={<img src="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" alt="" className="h-11 w-11 object-contain" />}
+          title={visuals.home_customer_large_vehicle?.title || "طلب سيارة كبيرة"}
+          subtitle={visuals.home_customer_large_vehicle?.subtitle || "كيا حمل أو كيا ركاب أو باص"}
+          icon={<img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: Number(visuals.home_customer_large_vehicle?.width_px) || 44, height: Number(visuals.home_customer_large_vehicle?.height_px) || 44, objectFit: "contain" }} />}
           gradient="from-orange-500 to-amber-600"
           delay={0.15}
         />
