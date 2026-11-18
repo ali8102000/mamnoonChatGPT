@@ -75,7 +75,20 @@ function normalized(value:string) {
     .replace(/[إأآ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
     .replace(/\s+/g," ").trim().toLocaleLowerCase("ar");
 }
-async function route(from:Point,to:Point,admin:any) {
+function decodeGooglePolyline(encoded:string):Point[] {
+  const points:Point[]=[]; let index=0,lat=0,lng=0;
+  while(index<encoded.length) {
+    let result=0,shift=0,byte=0;
+    do { byte=encoded.charCodeAt(index++)-63; result|=(byte&0x1f)<<shift; shift+=5; } while(byte>=0x20&&index<encoded.length);
+    lat+=(result&1)?~(result>>1):(result>>1);
+    result=0;shift=0;
+    do { byte=encoded.charCodeAt(index++)-63; result|=(byte&0x1f)<<shift; shift+=5; } while(byte>=0x20&&index<encoded.length);
+    lng+=(result&1)?~(result>>1):(result>>1);
+    points.push({lat:lat/1e5,lng:lng/1e5});
+  }
+  return points;
+}
+async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
   const osrmBase=Deno.env.get("OSRM_ROUTING_URL")?.trim().replace(/\/+$/,"")||"";
   const cacheScope=osrmBase?new URL(osrmBase).host:"google-routes";
   const cacheInput=["mamnoon-driving-route-v1",cacheScope,from.lat.toFixed(6),from.lng.toFixed(6),to.lat.toFixed(6),to.lng.toFixed(6)].join("|");
@@ -85,17 +98,18 @@ async function route(from:Point,to:Point,admin:any) {
   const {data:cached,error:cacheReadError}=await admin.from("route_distance_cache")
     .select("distance_meters,duration_seconds,route_source")
     .eq("route_key",routeKey).gt("expires_at",now).maybeSingle();
-  if(!cacheReadError&&cached&&Number(cached.distance_meters)>0&&Number(cached.duration_seconds)>0) {
+  if(!includeGeometry&&!cacheReadError&&cached&&Number(cached.distance_meters)>0&&Number(cached.duration_seconds)>0) {
     return {distanceKm:Number(cached.distance_meters)/1000,durationMin:Number(cached.duration_seconds)/60,
       routeSource:String(cached.route_source),cacheHit:true};
   }
   if(cacheReadError) console.warn("[route] cache read unavailable",cacheReadError.code||"unknown");
 
-  let routed:{distanceKm:number;durationMin:number;routeSource:string}|null=null;
+  let routed:{distanceKm:number;durationMin:number;routeSource:string;routePoints?:Point[]}|null=null;
   if(osrmBase) {
     try {
       const url=new URL(osrmBase+"/route/v1/driving/"+from.lng+","+from.lat+";"+to.lng+","+to.lat);
-      url.searchParams.set("overview","false");
+      url.searchParams.set("overview",includeGeometry?"full":"false");
+      url.searchParams.set("geometries","geojson");
       url.searchParams.set("alternatives","true");
       url.searchParams.set("steps","false");
       const response=await fetch(url,{headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000)});
@@ -104,7 +118,8 @@ async function route(from:Point,to:Point,admin:any) {
       const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distance)&&r.distance>0&&Number.isFinite(r.duration)&&r.duration>0);
       if(result.code!=="Ok"||!routes.length) throw new Error("OSRM returned no valid driving route");
       const selected=routes.reduce((a:any,b:any)=>b.distance<a.distance?b:a);
-      routed={distanceKm:selected.distance/1000,durationMin:selected.duration/60,routeSource:"osrm"};
+      routed={distanceKm:selected.distance/1000,durationMin:selected.duration/60,routeSource:"osrm",
+        ...(includeGeometry&&Array.isArray(selected.geometry?.coordinates)?{routePoints:selected.geometry.coordinates.map((p:number[])=>({lat:Number(p[1]),lng:Number(p[0])})).filter((p:Point)=>validPoint(p))}:{})};
     } catch(error) {
       console.warn("[route] configured OSRM unavailable; trying Google Routes",error instanceof Error?error.message:"unknown");
     }
@@ -116,7 +131,7 @@ async function route(from:Point,to:Point,admin:any) {
     const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
       method:"POST",
       headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
-        "X-Goog-FieldMask":"routes.distanceMeters,routes.duration"},
+        "X-Goog-FieldMask":includeGeometry?"routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline":"routes.distanceMeters,routes.duration"},
       body:JSON.stringify({
         origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
         destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
@@ -131,7 +146,8 @@ async function route(from:Point,to:Point,admin:any) {
       typeof r.duration==="string"&&/^\d+(\.\d+)?s$/.test(r.duration)&&parseFloat(r.duration)>0);
     if(!routes.length) throw new Error("لم يتم العثور على طريق سيارة صالح بين النقطتين.");
     const selected=routes.reduce((a:any,b:any)=>b.distanceMeters<a.distanceMeters?b:a);
-    routed={distanceKm:selected.distanceMeters/1000,durationMin:parseFloat(selected.duration)/60,routeSource:"google_routes"};
+    routed={distanceKm:selected.distanceMeters/1000,durationMin:parseFloat(selected.duration)/60,routeSource:"google_routes",
+      ...(includeGeometry&&typeof selected.polyline?.encodedPolyline==="string"?{routePoints:decodeGooglePolyline(selected.polyline.encodedPolyline)}:{})};
   }
 
   if(!Number.isFinite(routed.distanceKm)||routed.distanceKm<=0||
@@ -264,7 +280,7 @@ Deno.serve(async (req:Request)=>{
       const from=governorates.find(g=>isInGovernorate(body.from,g[0]));
       const to=governorates.find(g=>isInGovernorate(body.to,g[0]));
       if(!from||!to) return json({error:"يجب أن تكون نقطتا الانطلاق والوجهة داخل حدود العراق."},400);
-      return json({...await route(body.from,body.to,admin),fromGovernorateKey:from[0],toGovernorateKey:to[0],isIntercity:from[0]!==to[0]});
+      return json({...await route(body.from,body.to,admin,body.includeGeometry===true),fromGovernorateKey:from[0],toGovernorateKey:to[0],isIntercity:from[0]!==to[0]});
     }
     if(action==="createTaxiRequest") {
       return json({error:"إنشاء طلب التاكسي يجب أن يمر عبر auto-taxi-pricing لضمان احتساب الأجرة والكوبون والتحقق من الطلب."},410);
