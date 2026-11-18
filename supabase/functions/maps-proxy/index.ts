@@ -155,6 +155,9 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
      !Number.isFinite(routed.durationMin)||routed.durationMin<=0) {
     throw new Error("خدمة الطرق أعادت مسافة أو مدة غير صالحة. أعد المحاولة.");
   }
+  if(includeGeometry&&(routed.routePoints?.length??0)<2) {
+    throw new Error("تعذّر الحصول على شكل الطريق من خدمة الخرائط. أعد المحاولة.");
+  }
   const {error:cacheWriteError}=await admin.from("route_distance_cache").upsert({
     route_key:routeKey,distance_meters:routed.distanceKm*1000,duration_seconds:routed.durationMin*60,
     route_source:routed.routeSource,expires_at:new Date(Date.now()+24*60*60*1000).toISOString()
