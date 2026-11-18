@@ -28,7 +28,7 @@ import {
   saveProviderVerification,
   getProviderVerification,
   saveProviderVerificationRemote,
-  uploadProviderChangeDocuments,
+  uploadProviderChangeDocuments,\n  uploadProviderVehicleVideo,
 } from "@/lib/verification";
 
 export const Route = createFileRoute("/onboarding/driver")({
@@ -137,7 +137,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [facePhoto, setFacePhoto] = useState<string | null>(profile?.avatar_url || null);
   const [idCardPhoto, setIdCardPhoto] = useState<string | null>(null);
   const [idCardBackPhoto, setIdCardBackPhoto] = useState<string | null>(null);
-  const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<string | null>(null);
+  const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<string | null>(null);\n  const [vehicleVideoFile, setVehicleVideoFile] = useState<File | null>(null);\n  const [vehicleVideoPath, setVehicleVideoPath] = useState<string | null>(null);
   const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
   const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: largeDriverMode ? "كيا" : "تويوتا", model: largeDriverMode ? "" : "كورولا", year: String(new Date().getFullYear() - 2), plate: "", color: "أبيض", category: largeDriverMode ? "large" : "economy", vehicleType: null });
   const [documentType, setDocumentType] = useState<"national_id" | "driver_license">("national_id");
@@ -151,7 +151,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const idCardInputRef = useRef<HTMLInputElement>(null);
   const idCardBackInputRef = useRef<HTMLInputElement>(null);
   const vehicleDocumentInputRef = useRef<HTMLInputElement>(null);
-  const vehicleDocumentCameraInputRef = useRef<HTMLInputElement>(null);
+  const vehicleDocumentCameraInputRef = useRef<HTMLInputElement>(null);\n  const vehicleVideoInputRef = useRef<HTMLInputElement>(null);
 
   const [existingDoc, setExistingDoc] = useState<any>(null);
   const [editingMode, setEditingMode] = useState(false);
@@ -168,7 +168,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         if (existing.facePhotoUrl) setFacePhoto(existing.facePhotoUrl);
         if (existing.idCardPhotoUrl) setIdCardPhoto(existing.idCardPhotoUrl);
         if (existing.idCardBackPhotoUrl) setIdCardBackPhoto(existing.idCardBackPhotoUrl);
-        if (existing.vehicleDocumentPhotoUrl) setVehicleDocumentPhoto(existing.vehicleDocumentPhotoUrl);
+        if (existing.vehicleDocumentPhotoUrl) setVehicleDocumentPhoto(existing.vehicleDocumentPhotoUrl);\n        if (existing.vehicleVideoPath) setVehicleVideoPath(existing.vehicleVideoPath);
         if (existing.idNumber) setIdNumber(existing.idNumber);
         if (existing.vehicleMake) setMake(existing.vehicleMake);
         if (existing.vehicleModel) setModelName(existing.vehicleModel);
@@ -313,13 +313,13 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       const dataUrl = await fileToCompressedDataUrl(file, 1600, 1600, 0.82);
       setVehicleDocumentPhoto(dataUrl);
       setChangedDocuments((current) => ({ ...current, vehicle_document: true }));
-      toast.success("تم إرفاق صورة سنوية السيارة أو الوكالة ✓");
+      toast.success("تم إرفاق صورة المستند الرسمي للسيارة ✓");
     } catch {
       toast.error("تعذر معالجة صورة مستند السيارة");
     }
   }
 
-  async function submit() {
+  async function handleVehicleVideoChange(e: React.ChangeEvent<HTMLInputElement>) {\n    const file = e.target.files?.[0];\n    if (!file) return;\n    if (!["video/mp4", "video/quicktime", "video/webm"].includes(file.type)) { toast.error("صيغة الفيديو غير مدعومة. استخدم MP4 أو MOV أو WEBM."); e.target.value = ""; return; }\n    if (file.size > 50 * 1024 * 1024) { toast.error("حجم فيديو السيارة يجب ألا يتجاوز 50 ميغابايت."); e.target.value = ""; return; }\n    setVehicleVideoFile(file);\n    setVehicleVideoPath(null);\n    setChangedDocuments((current) => ({ ...current, vehicle_video: true }));\n    toast.success("تم إرفاق فيديو السيارة ✓");\n  }\n\n  async function submit() {
     if (vehicleChangeMode && existingDoc?.status === "approved") {
       setBusy(true);
       try {
@@ -473,7 +473,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       }
 
       // 3. Persist identity documents only after the driver profile exists.
-      const verificationDoc: VerificationDocument = {
+      const uploadedVehicleVideoPath = vehicleVideoFile\n        ? await uploadProviderVehicleVideo(uid, providerRole, vehicleVideoFile)\n        : vehicleVideoPath ?? undefined;\n      const verificationDoc: VerificationDocument = {
         userId: uid,
         role: providerRole,
         legalName: identityName,
@@ -482,7 +482,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         facePhotoUrl: facePhoto,
         idCardPhotoUrl: idCardPhoto,
         ...(idCardBackPhoto ? { idCardBackPhotoUrl: idCardBackPhoto } : {}),
-        vehicleDocumentPhotoUrl: vehicleDocumentPhoto,
+        vehicleDocumentPhotoUrl: vehicleDocumentPhoto,\n        vehicleVideoPath: uploadedVehicleVideoPath,
         idNumber: idNumber.trim() || undefined,
         documentType,
         verifiedAt: new Date().toISOString(),
@@ -801,13 +801,13 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           </div>
 
           <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
-            <div className="font-black text-sm">{largeDriverMode ? "مستندات المركبة (السنوية أو الوكالة) *" : "مستند تسجيل السيارة *"}</div>
+            <div className="font-black text-sm">مستند رسمي للسيارة *</div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              أرفق صورة صفحة السنوية أو الوكالة كاملة. خلّي رقم المركبة أو رقم اللوحة وبيانات السيارة ظاهرة وواضحة. لا تقص أطراف المستند.
+              أرفق صورة واضحة وكاملة لمستند رسمي يثبت تسجيل السيارة، وتأكد أن بيانات المركبة ورقم اللوحة ظاهرة وواضحة. لا تقص أطراف المستند.
             </p>
             <div className="flex items-center gap-3">
               {vehicleDocumentPhoto ? (
-                <img src={vehicleDocumentPhoto} alt="سنوية السيارة أو الوكالة" className="h-20 w-28 object-contain rounded-xl border bg-slate-50" />
+                <img src={vehicleDocumentPhoto} alt="المستند الرسمي للسيارة" className="h-20 w-28 object-contain rounded-xl border bg-slate-50" />
               ) : (
                 <div className="h-20 w-28 rounded-xl bg-slate-100 border border-dashed border-slate-300 grid place-items-center text-slate-400">📄</div>
               )}
