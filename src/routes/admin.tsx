@@ -449,8 +449,7 @@ function OverviewSection() {
     (async () => {
       try {
         setStats(await getStats());
-      } catch (e) {
-      } finally {
+      } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
         setLoading(false);
       }
     })();
@@ -722,8 +721,7 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
         setUsers(d.users);
         setTotal(d.total);
       }
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
       setLoading(false);
     }
   }, [page, searchQuery, listUsers, searchUsers]);
@@ -733,20 +731,20 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
   async function viewUser(userId: string) {
     try {
       setSelectedUser(await getUserDetail({ data: { user_id: userId } }));
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   async function handleBlock(userId: string, reason: string, expiresAt: string | null) {
     try {
       await blockUser({ data: { user_id: userId, reason, expires_at: expiresAt ?? undefined } });
       setBlockModal(null);
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   async function handleUnblock(userId: string) {
     try {
       await unblockUser({ data: { user_id: userId } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   return (
     <div>
@@ -1620,8 +1618,7 @@ function RequestsSection() {
     setLoading(true);
     try {
       setRequests(await listRequests({ data: { status: statusFilter } }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
       setLoading(false);
     }
   }, [statusFilter, listRequests]);
@@ -1632,13 +1629,13 @@ function RequestsSection() {
     try {
       await cancelRequest({ data: { request_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   async function handleReopen(id: string) {
     try {
       await reopenRequest({ data: { request_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   const statusLabels: Record<string, string> = {
     pending: "بانتظار",
@@ -1747,8 +1744,7 @@ function ChatSection() {
     try {
       if (tab === "chats") setChats(await listChats({ data: {} }));
       else setMessages(await listMessages({ data: {} }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
       setLoading(false);
     }
   }, [tab, listChats, listMessages, customerServiceOnly]);
@@ -1779,7 +1775,7 @@ function ChatSection() {
     try {
       await deleteMessage({ data: { message_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   return (
     <div>
@@ -1873,8 +1869,7 @@ function FriendsSection() {
     try {
       if (tab === "friends") setFriends(await listFriends({ data: {} }));
       else setRequests(await listFriendRequests({ data: {} }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
       setLoading(false);
     }
   }, [tab, listFriends, listFriendRequests]);
@@ -1919,7 +1914,7 @@ function FriendsSection() {
                         data: { user1_id: f.user_id, user2_id: f.friend_id },
                       });
                       load();
-                    } catch (e) {}
+                    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
                   }}
                   className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
                 >
@@ -1948,7 +1943,7 @@ function FriendsSection() {
                   try {
                     await deleteRequest({ data: { request_id: r.id } });
                     load();
-                  } catch (e) {}
+                  } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
                 }}
                 className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
               >
@@ -1972,8 +1967,7 @@ function ReportsSection() {
     setLoading(true);
     try {
       setReports(await listReports({ data: { status: statusFilter } }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
       setLoading(false);
     }
   }, [statusFilter, listReports]);
@@ -1984,7 +1978,7 @@ function ReportsSection() {
     try {
       await resolveReport({ data: { report_id: id, status: status as any, note } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   return (
     <div>
@@ -2162,7 +2156,7 @@ function CouponsSection() {
     try {
       await deleteCoupon({ data: { coupon_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   async function handleDistribute(id: string) {
     if (distributionTarget === "single" && !singleUserId.trim()) {
@@ -2425,8 +2419,7 @@ function WalletSection() {
     setLoading(true);
     try {
       setTransactions(await listTx({ data: {} }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
       setLoading(false);
     }
   }, [listTx]);
@@ -2438,7 +2431,7 @@ function WalletSection() {
       await adjustWallet({ data: { user_id: userId, amount, type, note } });
       setAdjustModal(false);
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   return (
     <div>
@@ -2550,8 +2543,7 @@ function MapSection() {
         const [l, r] = await Promise.all([getLocations(), getRequests()]);
         setLocations(l);
         setRequests(r);
-      } catch (e) {
-      } finally {
+      } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
         setLoading(false);
       }
     })();
@@ -2724,8 +2716,7 @@ function RolesSection() {
         const d = await listUsers({ data: { page: 1, limit: 50 } });
         setUsers(d.users);
       }
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
       setLoading(false);
     }
   }, [searchQuery, searchUsers, listUsers]);
@@ -2737,13 +2728,13 @@ function RolesSection() {
       await grantRole({ data: { target_user_id: userId, role } });
       setRoleModal(null);
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   async function handleRevoke(userId: string, role: string) {
     try {
       await revokeRole({ data: { target_user_id: userId, role } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); }
   }
   async function handleAssign(userId: string, rank: string, department: string, displayTitle: string) {
     try {
@@ -2843,8 +2834,7 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }:
           .select("role")
           .eq("user_id", user.id);
         setRoles((data ?? []).map((r: any) => r.role));
-      } catch (e) {
-      } finally {
+      } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
         setLoading(false);
       }
     })();
@@ -3134,13 +3124,12 @@ function AuditSection() {
     (async () => {
       try {
         setLogs(await listLogs({ data: {} }));
-      } catch (e) {
-      } finally {
+      } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } finally {
         setLoading(false);
       }
     })();
   }, [listLogs]);
-  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e) {} })(); }, [listStaffActivity]);
+  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e: any) { toast.error(e?.message || "تعذر تنفيذ العملية. تحقق من الصلاحيات والاتصال ثم أعد المحاولة."); } })(); }, [listStaffActivity]);
   const staffActionLabels: Record<string, string> = { view_support_message: "شاهد رسالة دعم", reply_support_message: "رد على رسالة دعم", rank_changed: "تغيير رتبة", department_changed: "تغيير قسم", staff_activated: "تفعيل موظف", staff_deactivated: "إيقاف موظف" };
   const actionLabels: Record<string, string> = {
     grant_role: "منح صلاحية",
