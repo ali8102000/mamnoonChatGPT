@@ -120,7 +120,6 @@ type Section =
   | "coupons"
   | "wallet"
   | "stats"
-  | "governorateStats"
   | "map"
   | "notifications"
   | "regions"
@@ -142,7 +141,6 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
   { key: "stats", label: "الإحصائيات", icon: Activity, roles: ["super_admin", "admin", "finance"] },
-  { key: "governorateStats", label: "إحصائيات المستخدمين حسب المحافظة", icon: MapPin, roles: ["super_admin", "admin"] },
   {
     key: "users",
     label: "المستخدمون",
@@ -205,6 +203,61 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "homeBanners", label: "بانرات المطاعم والفنادق والمتاجر", icon: ImagePlus, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
+
+const NAV_GROUPS: { title: string; keys: Section[] }[] = [
+  { title: "المتابعة والعمليات", keys: ["stats", "users", "providers", "requests", "map"] },
+  { title: "خدمة العملاء والثقة", keys: ["chat", "friends", "reports", "notifications"] },
+  { title: "المالية والنمو", keys: ["subscriptions", "coupons", "wallet", "pricing"] },
+  { title: "المحافظات والتشغيل", keys: ["regions", "dispatchZones", "driverTiers"] },
+  { title: "الإدارة والحوكمة والمحتوى", keys: ["staff", "roles", "audit", "company", "visualBuilder", "homeBanners"] },
+];
+
+function AdminQuickAccess({
+  items,
+  onSelect,
+}: {
+  items: { key: Section; label: string; icon: any; roles: string[] }[];
+  onSelect: (key: Section) => void;
+}) {
+  const itemsByKey = new Map(items.map((item) => [item.key, item]));
+  return (
+    <section className="mt-7 space-y-5" dir="rtl">
+      <header>
+        <h2 className="text-lg font-black">مركز الاختصارات الإدارية</h2>
+        <p className="mt-1 text-xs text-muted-foreground">كل أدوات الإدارة مرتبة حسب وظيفتها، وتظهر فقط الأدوات المسموحة لحسابك.</p>
+      </header>
+      {NAV_GROUPS.map((group) => {
+        const groupItems = group.keys
+          .map((key) => itemsByKey.get(key))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
+        if (!groupItems.length) return null;
+        return (
+          <div key={group.title} className="space-y-2">
+            <h3 className="px-1 text-sm font-black text-foreground">{group.title}</h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              {groupItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onSelect(item.key)}
+                    className="group flex min-h-28 flex-col items-start justify-between rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:bg-surface-2 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="mt-4 text-xs font-black leading-5">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
 
 function AdminPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -357,32 +410,10 @@ function AdminPage() {
           {section === "overview" && (
             <>
               <OverviewSection />
-              {(staffRoles.includes("super_admin") || staffRoles.includes("admin")) && (
-                <section className="mt-6 space-y-3" dir="rtl">
-                  <div>
-                    <h2 className="text-lg font-black">التحكمات الإدارية المباشرة</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">اختصارات واضحة لإعدادات المحافظات والتوزيع ورتب السائقين.</p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <button onClick={() => setSection("regions")} className="glass flex items-center gap-3 rounded-2xl border border-border p-4 text-right transition-colors hover:border-primary/60 hover:bg-surface-2">
-                      <MapPin className="h-6 w-6 shrink-0 text-primary" />
-                      <span><span className="block text-sm font-black">التحكم بالمحافظات</span><span className="mt-1 block text-[11px] text-muted-foreground">إيقاف وتشغيل الخدمات والتنويهات لكل محافظة</span></span>
-                    </button>
-                    <button onClick={() => setSection("dispatchZones")} className="glass flex items-center gap-3 rounded-2xl border border-border p-4 text-right transition-colors hover:border-primary/60 hover:bg-surface-2">
-                      <Map className="h-6 w-6 shrink-0 text-primary" />
-                      <span><span className="block text-sm font-black">نطاقات توزيع الطلبات</span><span className="mt-1 block text-[11px] text-muted-foreground">تحديد مسافات وصول الطلبات للسائقين والفنيين</span></span>
-                    </button>
-                    <button onClick={() => setSection("driverTiers")} className="glass flex items-center gap-3 rounded-2xl border border-border p-4 text-right transition-colors hover:border-primary/60 hover:bg-surface-2">
-                      <Car className="h-6 w-6 shrink-0 text-primary" />
-                      <span><span className="block text-sm font-black">رتب أداء السائقين</span><span className="mt-1 block text-[11px] text-muted-foreground">تعديل معايير الرتب حسب الرحلات والتقييمات</span></span>
-                    </button>
-                  </div>
-                </section>
-              )}
+              <AdminQuickAccess items={visibleItems} onSelect={setSection} />
             </>
           )}
-          {section === "stats" && <StatsSection />}
-          {section === "governorateStats" && <GovernorateUserStatsSection />}
+          {section === "stats" && <StatsSection canViewRegional={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "users" && <UsersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "providers" && <ProvidersSection />}
           {section === "requests" && <RequestsSection />}
@@ -403,6 +434,7 @@ function AdminPage() {
           {section === "company" && <AdminCompanySettings />}
           {section === "visualBuilder" && <AdminVisualBuilder />}
           {section === "audit" && <AuditSection />}
+          {section === "homeBanners" && <AdminHomeBanners />}
         </div>
       </main>
     </div>
@@ -603,84 +635,64 @@ function GovernorateUserStatsSection() {
   );
 }
 
-function StatsSection() {
+function StatsSection({ canViewRegional = false }: { canViewRegional?: boolean }) {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const getStats = adminGetDashboardStats;
-  useEffect(() => {
-    (async () => {
-      try {
-        setStats(await getStats());
-      } catch (e) {
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setStats(await getStats());
+    } catch {
+      setError("تعذر تحميل الإحصائيات. تحقق من الاتصال والصلاحيات ثم أعد المحاولة.");
+    } finally {
+      setLoading(false);
+    }
   }, [getStats]);
+  useEffect(() => { void load(); }, [load]);
   if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
-  if (!stats) return <div className="text-sm text-muted-foreground">تعذّر تحميل البيانات</div>;
+  if (!stats) return (
+    <div className="glass rounded-2xl p-5 text-sm text-muted-foreground">
+      <p>{error || "تعذّر تحميل البيانات"}</p>
+      <button type="button" onClick={() => void load()} className="mt-3 rounded-xl bg-primary/10 px-4 py-2 font-bold text-primary">إعادة المحاولة</button>
+    </div>
+  );
   return (
-    <div>
-      <h2 className="text-xl font-black mb-4">الإحصائيات</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+    <div dir="rtl" className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-black mb-1">الإحصائيات الشاملة</h2>
+          <p className="text-xs text-muted-foreground">مؤشرات المنصة والعمولات، وتتبع المحافظات ونشاط الزبائن ضمن صفحة واحدة.</p>
+        </div>
+        <button type="button" onClick={() => void load()} className="rounded-xl border border-border px-3 py-2 text-xs font-bold">تحديث</button>
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <StatCard icon={Users} label="إجمالي المستخدمين" value={stats.totalUsers} />
         <StatCard icon={Car} label="إجمالي السائقين" value={stats.totalDrivers} />
         <StatCard icon={Activity} label="إجمالي الفنيين" value={stats.totalWorkers} />
-        <StatCard
-          icon={Car}
-          label="سائقون عاملون"
-          value={stats.activeDrivers}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={Activity}
-          label="فنيون عاملون"
-          value={stats.activeWorkers}
-          accent="text-emerald-600"
-        />
+        <StatCard icon={Car} label="سائقون متاحون" value={stats.activeDrivers} accent="text-emerald-600" />
+        <StatCard icon={Activity} label="فنيون متاحون" value={stats.activeWorkers} accent="text-emerald-600" />
         <StatCard icon={ListChecks} label="إجمالي الطلبات" value={stats.totalRequests} />
-        <StatCard
-          icon={Activity}
-          label="طلبات نشطة"
-          value={stats.activeRequests}
-          accent="text-amber-500"
-        />
-        <StatCard
-          icon={ListChecks}
-          label="طلبات مكتملة"
-          value={stats.completedRequests}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={AlertCircle}
-          label="طلبات ملغاة"
-          value={stats.cancelledRequests}
-          accent="text-red-500"
-        />
+        <StatCard icon={Activity} label="طلبات نشطة" value={stats.activeRequests} accent="text-amber-500" />
+        <StatCard icon={ListChecks} label="طلبات مكتملة" value={stats.completedRequests} accent="text-emerald-600" />
+        <StatCard icon={AlertCircle} label="طلبات ملغاة" value={stats.cancelledRequests} accent="text-red-500" />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="glass rounded-2xl p-5">
-          <Wallet className="h-5 w-5 text-emerald-600 mb-2" />
-          <div className="text-2xl font-black text-emerald-600">
-            {stats.dailyRevenue?.toLocaleString() ?? 0} د.ع
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          { label: "أرباح اليوم", value: stats.dailyRevenue, color: "text-emerald-600" },
+          { label: "أرباح الشهر", value: stats.monthlyRevenue, color: "text-amber-600" },
+          { label: "أرباح السنة", value: stats.yearlyRevenue, color: "text-primary" },
+        ].map((item) => (
+          <div key={item.label} className="glass rounded-2xl p-5">
+            <Wallet className={`mb-2 h-5 w-5 ${item.color}`} />
+            <div className={`text-2xl font-black ${item.color}`}>{Number(item.value ?? 0).toLocaleString("ar-IQ")} د.ع</div>
+            <div className="text-xs font-bold text-muted-foreground">{item.label}</div>
           </div>
-          <div className="text-xs text-muted-foreground font-bold">أرباح اليوم</div>
-        </div>
-        <div className="glass rounded-2xl p-5">
-          <Wallet className="h-5 w-5 text-amber-600 mb-2" />
-          <div className="text-2xl font-black text-amber-600">
-            {stats.monthlyRevenue?.toLocaleString() ?? 0} د.ع
-          </div>
-          <div className="text-xs text-muted-foreground font-bold">أرباح الشهر</div>
-        </div>
-        <div className="glass rounded-2xl p-5">
-          <Wallet className="h-5 w-5 text-primary mb-2" />
-          <div className="text-2xl font-black text-primary">
-            {stats.yearlyRevenue?.toLocaleString() ?? 0} د.ع
-          </div>
-          <div className="text-xs text-muted-foreground font-bold">أرباح السنة</div>
-        </div>
-      </div>
+        ))}
+      </section>
+      {canViewRegional && <GovernorateUserStatsSection />}
     </div>
   );
 }
