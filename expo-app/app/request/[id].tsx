@@ -996,7 +996,7 @@ export default function RequestDetail() {
         </View>
         {isCustomer && ["pending", "searching"].includes(request.status) && (
           <View style={{ marginTop: 14, borderRadius: 22, padding: 18, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand + "35", alignItems: "center", gap: 8 }}>
-            <Text style={{ fontSize: 28 }}>{request.type === "taxi" ? "🚕" : "🛠️"}</Text>
+            {request.type === "taxi" ? <Text style={{ fontSize: 28 }}>🚕</Text> : request.services?.slug && SERVICE_IMAGES[request.services.slug] ? <Image source={SERVICE_IMAGES[request.services.slug]} style={{ width: 76, height: 76, borderRadius: 18 }} resizeMode="cover" /> : <Text style={{ fontSize: 28 }}>🛠️</Text>}\n            {request.type === "service" && request.services?.name_ar && <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900" }}>{request.services.name_ar}</Text>}
             <Text style={{ color: palette.ink, fontSize: 18, fontWeight: "900" }}>طلبك وصل إلى ممنون</Text>
             <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", lineHeight: 20 }}>
               {request.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار عند وصولها." : "نبحث عن أقرب سائق أو فني متاح ومؤهل. أول شخص يقبل الطلب يحصل عليه."}
