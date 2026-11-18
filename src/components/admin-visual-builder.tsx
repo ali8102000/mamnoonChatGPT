@@ -200,7 +200,7 @@ export default function AdminVisualBuilder() {
   };
 
   const loadResults = async (campaign: Campaign) => {
-    const { data, error } = await (supabase as any).rpc("get_app_campaign_results", { p_campaign_id: campaign.id });
+    const { data, error } = await (supabase as any).from("app_campaign_option_results").select("option_id,vote_count").eq("campaign_id", campaign.id);
     if (error) setMessage("تعذر تحميل النتائج: " + error.message);
     else setResultRows((current) => ({ ...current, [campaign.id]: data ?? [] }));
   };
