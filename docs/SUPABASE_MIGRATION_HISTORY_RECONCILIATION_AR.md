@@ -1,6 +1,6 @@
 # فرق سجل migrations بين GitHub وSupabase
 
-تمت مقارنة مجلد `supabase/migrations` على فرع `chore/decouple-lovable-backend` مع سجل migrations الفعلي في مشروع Supabase `enteiolvirenbhkyskgb`.
+تمت مقارنة مجلد `supabase/migrations` على فرع `feature/admin-control-center-unified-analytics` مع سجل migrations الفعلي في مشروع Supabase `enteiolvirenbhkyskgb`.
 
 ## الأرقام المرصودة
 
