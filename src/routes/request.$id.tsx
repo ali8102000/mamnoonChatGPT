@@ -716,6 +716,15 @@ function RequestDetail() {
           {req.notes && <div><span className="text-muted-foreground text-xs">📝 ملاحظة: </span><span>{req.notes}</span></div>}
         </div>}
 
+        {myRole === "customer" && ["pending", "searching"].includes(req.status as string) && (
+          <button
+            onClick={() => setShowCancel(true)}
+            className="mx-5 mb-4 w-[calc(100%-2.5rem)] min-h-14 rounded-2xl border-2 border-destructive/25 bg-destructive/10 text-destructive font-black text-base active:scale-[0.99] transition"
+          >
+            {req.type === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب"}
+          </button>
+        )}
+
         {other && req.status !== "pending" && !["completed", "cancelled"].includes(req.status as string) && (
           <div className={`glass rounded-2xl ${req.type === "taxi" ? "p-2.5 space-y-2" : "p-4 space-y-4"}`}>
             <div className="flex items-center gap-3 min-w-0">
