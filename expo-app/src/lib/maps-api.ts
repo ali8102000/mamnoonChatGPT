@@ -1,28 +1,24 @@
 import { supabase } from "./supabase";
 
-const API_BASE =
-  process.env.EXPO_PUBLIC_MAMNOON_API_URL?.trim().replace(/\/+$/, "") ||
-  "https://mamnoon-theta.vercel.app";
-
 export async function callMamnoonMapsApi<T>(payload: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session?.access_token) {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session?.access_token) {
     throw new Error("انتهت جلسة الدخول. سجّل الدخول مرة ثانية.");
   }
 
-  const response = await fetch(`${API_BASE}/api/mobile-maps`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${data.session.access_token}`,
-    },
-    body: JSON.stringify(payload),
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  const { data, error } = await supabase.functions.invoke("maps-proxy", { body: payload });
+  if (error) {
+    const serverMessage = data && typeof data === "object" && "error" in data
+      ? (data as { error?: unknown }).error
+      : null;
     throw new Error(
-      typeof result?.error === "string" ? result.error : "تعذّر الاتصال بخدمة الخرائط.",
+      typeof serverMessage === "string"
+        ? serverMessage
+        : error.message || "تعذّر الاتصال بخدمة الخرائط.",
     );
   }
-  return result as T;
+  if (data && typeof data === "object" && "error" in data && typeof (data as { error?: unknown }).error === "string") {
+    throw new Error((data as { error: string }).error);
+  }
+  return data as T;
 }

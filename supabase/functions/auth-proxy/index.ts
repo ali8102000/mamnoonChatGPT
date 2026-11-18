@@ -1,5 +1,3 @@
-// Snapshot synchronized from active Supabase auth-proxy v4 on 2026-11-18.
-// Repository source only: this commit does not deploy or modify the hosted function.
 import { withSupabase } from "npm:@supabase/server@1.6.1";
 
 const corsHeaders = {
@@ -33,16 +31,56 @@ async function hasSuperAdminRole(supabase: any, userId?: string): Promise<boolea
   return !error && data === true;
 }
 
+async function hmacHex(secret: string, value: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
+  return Array.from(new Uint8Array(signature)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function checkAuthRateLimit(ctx: any, req: Request, action: "signup" | "login" | "reset", subject: string): Promise<Response | null> {
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!serviceKey) return json({ error: "rate_limit_unavailable" }, 503);
+  const ip = (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for")?.split(",")[0] || req.headers.get("x-real-ip") || "").trim();
+  const config = action === "signup"
+    ? { window: 3600, ipLimit: 8, subjectLimit: 3 }
+    : action === "login"
+      ? { window: 900, ipLimit: 20, subjectLimit: 10 }
+      : { window: 3600, ipLimit: 5, subjectLimit: 3 };
+  const checks: Array<{ action: string; value: string; max: number }> = [];
+  if (ip) checks.push({ action: `${action}_ip`, value: ip, max: config.ipLimit });
+  if (subject) checks.push({ action: `${action}_subject`, value: subject, max: config.subjectLimit });
+  for (const check of checks) {
+    const p_key_hash = await hmacHex(serviceKey, `${check.action}:${check.value}`);
+    const { data, error } = await ctx.supabaseAdmin.rpc("consume_auth_proxy_rate_limit", {
+      p_key_hash,
+      p_action: check.action,
+      p_max_attempts: check.max,
+      p_window_seconds: config.window,
+    });
+    if (error) {
+      console.error("[auth-proxy] rate limit check failed", error);
+      return json({ error: "rate_limit_unavailable" }, 503);
+    }
+    if (data !== true) return json({ error: "too_many_attempts" }, 429);
+  }
+  return null;
+}
+
 const authenticatedHandler = withSupabase(
   { auth: "publishable" },
   async (req, ctx) => {
     if (req.method !== "POST") return json({ error: "الطريقة غير مدعومة" }, 405);
 
     const contentLength = Number(req.headers.get("content-length") || "0");
-    if (contentLength > 16000) return json({ error: "حجم الطلب كبير" }, 413);
+    if (Number.isFinite(contentLength) && contentLength > 16000) return json({ error: "حجم الطلب كبير" }, 413);
 
     const url = new URL(req.url);
-    const body = await req.json().catch(() => null);
+    const rawBody = await req.clone().text();
+    if (new TextEncoder().encode(rawBody).byteLength > 16000) return json({ error: "حجم الطلب كبير" }, 413);
+    let body: Record<string, unknown> | null;
+    try { body = rawBody ? JSON.parse(rawBody) as Record<string, unknown> : null; }
+    catch { return json({ error: "بيانات الطلب غير صالحة" }, 400); }
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       return json({ error: "بيانات الطلب غير صالحة" }, 400);
     }
@@ -57,7 +95,7 @@ const authenticatedHandler = withSupabase(
       const fullName = typeof body.full_name === "string" ? body.full_name.trim() : "";
       const phoneInput = typeof body.phone === "string" ? body.phone : "";
       const phone = normalizePhone(phoneInput);
-      const accountEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const accountEmail = "phone" + phone.replace(/\D/g, "") + "@mamnoon.app";
       const contactEmail = typeof body.contact_email === "string" ? body.contact_email.trim().toLowerCase() : "";
 
       if (fullName.length < 2 || fullName.length > 100) return json({ error: "الاسم غير صالح" }, 400);
@@ -65,9 +103,27 @@ const authenticatedHandler = withSupabase(
       if (contactEmail && (contactEmail.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail))) {
         return json({ error: "البريد الإلكتروني غير صالح" }, 400);
       }
-      const expectedAccountEmail = contactEmail || "phone" + phone.replace(/\D/g, "") + "@mamnoon.app";
-      if (!accountEmail || accountEmail !== expectedAccountEmail) {
-        return json({ error: "بيانات الحساب غير متطابقة" }, 400);
+      // Contact email is profile metadata only; the account identity is always phone-derived.
+      const rateLimitResponse = await checkAuthRateLimit(ctx, req, "signup", phone);
+      if (rateLimitResponse) return rateLimitResponse;
+
+      const { data: existingEmail, error: existingLookupError } = await ctx.supabaseAdmin.rpc("lookup_email_by_phone", { _phone: phone });
+      if (existingLookupError) {
+        console.error("[auth-proxy] existing phone lookup failed", existingLookupError);
+        return json({ error: "signup_unavailable" }, 503);
+      }
+      if (typeof existingEmail === "string" && existingEmail) {
+        const { data: existingLogin, error: existingLoginError } = await ctx.supabase.auth.signInWithPassword({ email: existingEmail, password });
+        if (!existingLoginError && existingLogin.session) {
+          return json({
+            session: {
+              access_token: existingLogin.session.access_token,
+              refresh_token: existingLogin.session.refresh_token,
+            },
+            isSuperAdmin: await hasSuperAdminRole(ctx.supabase, existingLogin.user?.id),
+          });
+        }
+        return json({ error: "invalid_credentials" }, 401);
       }
 
       const { data: created, error: createError } = await ctx.supabaseAdmin.auth.admin.createUser({
@@ -80,33 +136,19 @@ const authenticatedHandler = withSupabase(
       if (createError || !created?.user) {
         const message = createError?.message || "";
         if (/already registered|already been registered|already exists|duplicate/i.test(message)) {
-          const { data: usersPage, error: usersError } = await ctx.supabaseAdmin.auth.admin.listUsers({
-            page: 1,
-            perPage: 1000,
-          });
-          if (!usersError) {
-            const existingUser = usersPage.users.find(
-              (user) => user.email?.toLowerCase() === accountEmail.toLowerCase(),
-            );
-            const existingPhone = String(existingUser?.user_metadata?.phone || "");
-            if (existingUser && existingPhone === phone) {
-              const { data: recovered, error: recoveryError } = await ctx.supabase.auth.signInWithPassword({
-                email: accountEmail,
-                password,
+          const { data: existingEmail, error: lookupError } = await ctx.supabaseAdmin.rpc("lookup_email_by_phone", { _phone: phone });
+          if (!lookupError && typeof existingEmail === "string" && existingEmail) {
+            const { data: recovered, error: recoveryError } = await ctx.supabase.auth.signInWithPassword({ email: existingEmail, password });
+            if (!recoveryError && recovered.session) {
+              return json({
+                session: {
+                  access_token: recovered.session.access_token,
+                  refresh_token: recovered.session.refresh_token,
+                },
+                isSuperAdmin: await hasSuperAdminRole(ctx.supabase, recovered.user?.id),
               });
-              if (!recoveryError && recovered.session) {
-                return json({
-                  session: {
-                    access_token: recovered.session.access_token,
-                    refresh_token: recovered.session.refresh_token,
-                  },
-                  isSuperAdmin: await hasSuperAdminRole(ctx.supabase, recovered.user?.id),
-                });
-              }
-              return json({ error: "existing_account_password_mismatch" }, 409);
             }
-          } else {
-            console.error("[auth-proxy] duplicate account verification failed:", usersError.code || "unknown");
+            return json({ error: "invalid_credentials" }, 401);
           }
         }
         console.error("[auth-proxy] signup createUser failed:", createError?.code || "unknown");
@@ -135,6 +177,8 @@ const authenticatedHandler = withSupabase(
       if (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return json({ error: "البريد الإلكتروني غير صالح" }, 400);
       }
+      const rateLimitResponse = await checkAuthRateLimit(ctx, req, "reset", email);
+      if (rateLimitResponse) return rateLimitResponse;
       const { error } = await ctx.supabase.auth.resetPasswordForEmail(email);
       if (error) {
         console.error("[auth-proxy] password reset failed:", error.code || "unknown");
@@ -152,6 +196,9 @@ const authenticatedHandler = withSupabase(
         ? body.email.trim().toLowerCase()
         : (identifier.includes("@") ? identifier.toLowerCase() : "");
       const phoneInput = typeof body.phone === "string" ? body.phone : (!emailInput ? identifier : "");
+      const rateLimitSubject = phoneInput ? normalizePhone(phoneInput) : emailInput;
+      const rateLimitResponse = await checkAuthRateLimit(ctx, req, "login", rateLimitSubject);
+      if (rateLimitResponse) return rateLimitResponse;
       let accountEmail = emailInput;
       let legacyPhoneEmail: string | null = null;
 

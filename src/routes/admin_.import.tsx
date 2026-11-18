@@ -1,6 +1,5 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/auth-context";
 import { suggestCsvMapping } from "@/lib/import-assist.functions";
 import { Button } from "@/components/ui/button";
@@ -78,7 +77,7 @@ const sevLabel: Record<string, string> = { high: "عالي", medium: "متوسط
 
 function ImportPage() {
   const { session, loading } = useAuth();
-  const suggest = useServerFn(suggestCsvMapping);
+  const suggest = suggestCsvMapping;
   const [files, setFiles] = useState<FileState[]>([]);
 
   if (loading)

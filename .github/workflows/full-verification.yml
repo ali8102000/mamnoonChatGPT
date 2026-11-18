@@ -1,0 +1,47 @@
+name: Mamnoon full verification
+
+on:
+  pull_request:
+  push:
+    branches:
+      - chore/decouple-lovable-backend
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web typecheck, tests and production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: TypeScript
+        run: bun run typecheck
+      - name: Unit tests
+        run: bun run test
+      - name: Production build
+        run: bun run build
+
+  edge-functions:
+    name: Supabase Edge Function typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Supabase Edge Functions in isolated Deno workspace
+        run: |
+          # Keep Deno outside the web app's package.json dependency tree.
+          mkdir -p /tmp/mamnoon-supabase
+          cp -R supabase/. /tmp/mamnoon-supabase/
+          cd /tmp/mamnoon-supabase
+          for file in functions/*/index.ts; do
+            echo "Checking $file"
+            deno check --node-modules-dir=none "$file"
+          done

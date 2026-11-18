@@ -8,6 +8,7 @@ import { palette, radius, space } from "@/styles/theme";
 type UserRow = { id: string; full_name: string | null; phone: string | null; email: string | null };
 type Coupon = { id: string; code: string; type: string; value: number; max_uses: number; used_count?: number; active: boolean; expires_at?: string | null; min_amount?: number };
 type Tx = { id: string; user_id: string; amount: number; type: string; status: string; created_at: string; profiles?: { full_name?: string; phone?: string } };
+type SubsidyReport = { payable_count?: number; payable_total?: number; pending_count?: number; pending_total?: number; void_count?: number };
 type Tab = "wallet" | "coupons" | "transactions";
 
 export default function AdminFinanceScreen() {
@@ -29,6 +30,10 @@ export default function AdminFinanceScreen() {
   const [kind, setKind] = useState<"credit" | "debit">("credit");
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [transactions, setTransactions] = useState<Tx[]>([]);
+  const [subsidyReport, setSubsidyReport] = useState<SubsidyReport | null>(null);
+  const [audienceCount, setAudienceCount] = useState<number | null>(null);
+  const [metricsError, setMetricsError] = useState("");
+  const [metricsLoading, setMetricsLoading] = useState(false);
   const [code, setCode] = useState("");
   const [couponType, setCouponType] = useState<"percentage" | "fixed">("percentage");
   const [value, setValue] = useState("");
@@ -44,6 +49,26 @@ export default function AdminFinanceScreen() {
     return data;
   }, []);
 
+  const loadCouponMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    setMetricsError("");
+    const [reportResult, audienceResult] = await Promise.allSettled([
+      invoke({ action: "subsidy_report" }),
+      invoke({ action: "audience_count", target: "customers" }),
+    ]);
+    if (reportResult.status === "fulfilled") {
+      setSubsidyReport(reportResult.value.report ?? null);
+    } else {
+      setMetricsError("تعذر تحميل الحساب المالي لخصومات الكوبونات.");
+    }
+    if (audienceResult.status === "fulfilled") {
+      setAudienceCount(Number(audienceResult.value.count ?? 0));
+    } else {
+      setMetricsError((current) => current ? current + " تعذر حساب عدد الزبائن المؤهلين." : "تعذر حساب عدد الزبائن المؤهلين.");
+    }
+    setMetricsLoading(false);
+  }, [invoke]);
+
   const load = useCallback(async () => {
     if (!user?.id) return;
     setError("");
@@ -52,7 +77,8 @@ export default function AdminFinanceScreen() {
         .select("scope_type,scope_governorate").eq("user_id",user.id).eq("active",true).maybeSingle();
       const scopeType=assignment?.scope_type==="governorate"?"governorate":"global";
       const scopeGovernorate=scopeType==="governorate"?assignment?.scope_governorate??null:null;
-      const [financeRead,promotionsRead,walletManage,couponCreate,couponPublish,couponDelete] = await Promise.all([
+      const [adminAccess,financeRead,promotionsRead,walletManage,couponCreate,couponPublish,couponDelete] = await Promise.all([
+        (supabase as any).rpc("has_admin_access",{p_user_id:user.id}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.read",p_scope_type:"global",p_scope_governorate:null}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.read",p_scope_type:"global",p_scope_governorate:null}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.wallet.adjust",p_scope_type:scopeType,p_scope_governorate:scopeGovernorate}),
@@ -60,21 +86,23 @@ export default function AdminFinanceScreen() {
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.publish",p_scope_type:"global",p_scope_governorate:null}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.delete",p_scope_type:"global",p_scope_governorate:null}),
       ]);
-      const canReadFinance=!financeRead.error&&financeRead.data===true;
-      const canReadPromotions=!promotionsRead.error&&promotionsRead.data===true;
+      const isPlatformAdmin=!adminAccess.error&&adminAccess.data===true;
+      const canReadFinance=isPlatformAdmin||(!financeRead.error&&financeRead.data===true);
+      const canReadPromotions=isPlatformAdmin||(!promotionsRead.error&&promotionsRead.data===true);
       if(!canReadFinance||!canReadPromotions){setAllowed(false);return;}
       setAllowed(true);
-      setCanManageWallet(!walletManage.error&&walletManage.data===true);
-      setCanManageCoupons(!couponCreate.error&&couponCreate.data===true);
-      setCanPublishCoupons(!couponPublish.error&&couponPublish.data===true);
-      setCanDeleteCoupons(!couponDelete.error&&couponDelete.data===true);
+      setCanManageWallet(isPlatformAdmin||(!walletManage.error&&walletManage.data===true));
+      setCanManageCoupons(isPlatformAdmin||(!couponCreate.error&&couponCreate.data===true));
+      setCanPublishCoupons(isPlatformAdmin||(!couponPublish.error&&couponPublish.data===true));
+      setCanDeleteCoupons(isPlatformAdmin||(!couponDelete.error&&couponDelete.data===true));
       const data = await invoke({ action: "list" });
       setCoupons(data.coupons ?? []);
       setTransactions(data.transactions ?? []);
+      void loadCouponMetrics();
     } catch (e: any) {
       setError(String(e?.message || "تعذر تحميل البيانات"));
     } finally { setLoading(false); }
-  }, [user?.id, invoke]);
+  }, [user?.id, invoke, loadCouponMetrics]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -150,6 +178,33 @@ export default function AdminFinanceScreen() {
       </>}
       {tab === "coupons" && <>
         <Text style={s.title}>إدارة الكوبونات</Text>
+        <View style={s.card}>
+          <View style={s.row}>
+            <Text style={[s.cardTitle, { flex: 1 }]}>الحساب المالي لخصومات الكوبونات</Text>
+            <TouchableOpacity disabled={metricsLoading} onPress={() => void loadCouponMetrics()} style={s.small}>
+              <Text style={s.smallText}>{metricsLoading ? "جاري التحديث..." : "تحديث"}</Text>
+            </TouchableOpacity>
+          </View>
+          {!!metricsError && <Text style={s.errorText}>{metricsError}</Text>}
+          {subsidyReport ? <>
+            <View style={s.row}>
+              <View style={[s.choice, { minWidth: "45%" }]}>
+                <Text style={s.muted}>مبالغ مستحقة على المنصة</Text>
+                <Text style={s.cardTitle}>{Number(subsidyReport.payable_total ?? 0).toLocaleString("ar-IQ")} د.ع</Text>
+                <Text style={s.muted}>{Number(subsidyReport.payable_count ?? 0).toLocaleString("ar-IQ")} طلب مكتمل</Text>
+              </View>
+              <View style={[s.choice, { minWidth: "45%" }]}>
+                <Text style={s.muted}>خصومات بطلبات قيد التنفيذ</Text>
+                <Text style={s.cardTitle}>{Number(subsidyReport.pending_total ?? 0).toLocaleString("ar-IQ")} د.ع</Text>
+                <Text style={s.muted}>{Number(subsidyReport.pending_count ?? 0).toLocaleString("ar-IQ")} طلب</Text>
+              </View>
+            </View>
+            <Text style={s.muted}>خصومات ملغاة: {Number(subsidyReport.void_count ?? 0).toLocaleString("ar-IQ")}</Text>
+            <Text style={s.muted}>المبالغ المستحقة سجل محاسبي للمطابقة والتسوية، وليست إثباتاً على تحويل نقدي.</Text>
+          </> : metricsLoading ? <Text style={s.muted}>جارٍ تحميل الحساب المالي...</Text> : null}
+          <Text style={s.muted}>عدد الزبائن المؤهلين للتوزيع: {audienceCount === null ? "—" : audienceCount.toLocaleString("ar-IQ")}</Text>
+          <Text style={s.muted}>الكوبون مخصص لطلبات التكسي الاعتيادي فقط، ولا يشمل الفنيين أو مركبات الكيا الكبيرة.</Text>
+        </View>
         {canManageCoupons && <View style={s.card}>
           <Text style={s.cardTitle}>إنشاء كوبون</Text>
           <TextInput value={code} onChangeText={setCode} autoCapitalize="characters" placeholder="رمز الكوبون" placeholderTextColor={palette.muted} style={s.input}/>

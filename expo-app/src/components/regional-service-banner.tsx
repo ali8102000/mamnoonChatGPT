@@ -5,6 +5,7 @@ import * as Location from "expo-location";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 
 type Row = {
   governorate_key: string; services_enabled: boolean; message_enabled: boolean; message_title: string; message_text: string;
@@ -14,11 +15,14 @@ type Row = {
 };
 
 export function RegionalServiceBanner() {
+  const { isAdmin, loading } = useAuth();
   const [row, setRow] = useState<Row | null>(null);
   const translate = useState(() => new Animated.Value(0))[0];
   const [marqueeWidth, setMarqueeWidth] = useState(0);
   const [textWidth, setTextWidth] = useState(0);
   useEffect(() => {
+    if (loading) return;
+    if (isAdmin) { setRow(null); return; }
     let active = true;
     const load = async () => {
       let key = await SecureStore.getItemAsync("mamnoon_governorate").catch(() => null);
@@ -60,7 +64,7 @@ export function RegionalServiceBanner() {
     channel.subscribe();
     const timer = setInterval(() => void load(), 30000);
     return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
-  }, []);
+  }, [isAdmin, loading]);
   const text = row?.message_text || (row && !row.services_enabled ? "الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون." : "");
   useEffect(() => {
     if (!row?.message_animate || (!row.message_enabled && row.services_enabled) || marqueeWidth <= 0 || textWidth <= 0) return;
@@ -72,7 +76,7 @@ export function RegionalServiceBanner() {
     animation.start();
     return () => animation.stop();
   }, [row?.message_animate, row?.message_enabled, row?.services_enabled, row?.message_text, marqueeWidth, textWidth, translate]);
-  if (!row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled) || !text) return null;
+  if (loading || isAdmin || !row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled) || !text) return null;
   const width = Math.max(60, Math.min(100, row.message_width_percent ?? 92));
   const height = Math.max(12, Math.min(60, row.message_height_percent ?? 34));
   const top = Math.max(0, Math.min(160, row.message_top_offset ?? 12));

@@ -8,6 +8,7 @@ import { palette, radius, space } from "@/styles/theme";
 type UserRow = { id: string; full_name?: string | null; phone?: string | null; email?: string | null };
 type RoleRow = string | { role?: string };
 type AuditRow = { id?: string; action?: string; table_name?: string; record_id?: string; created_at?: string; details?: any; admin?: { full_name?: string; phone?: string } };
+type StaffActivityRow = { id: string; activity: string; created_at: string; staff_user_id: string; actor_user_id: string; message_id?: string | null; staff?: { full_name?: string | null; email?: string | null }; actor?: { full_name?: string | null; email?: string | null } };
 const ROLES = [
   ["admin", "مدير"], ["support", "دعم فني"], ["finance", "مالية"], ["moderator", "مشرف محتوى"],
 ] as const;
@@ -18,12 +19,13 @@ export default function AdminGovernanceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [allowed, setAllowed] = useState(false);
   const [superAdmin, setSuperAdmin] = useState(false);
-  const [tab, setTab] = useState<"roles" | "audit" | "hierarchy">("hierarchy");
+  const [tab, setTab] = useState<"roles" | "audit" | "hierarchy" | "activity">("hierarchy");
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [selected, setSelected] = useState<UserRow | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [logs, setLogs] = useState<AuditRow[]>([]);
+  const [staffActivity, setStaffActivity] = useState<StaffActivityRow[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -54,6 +56,10 @@ export default function AdminGovernanceScreen() {
       if (staffRead.error || staffRead.data !== true) { setAllowed(false); return; }
       setAllowed(true);
       setSuperAdmin(root.data === true);
+      if (root.data === true) {
+        const activityResult = await invoke({ action: "staff_activity", limit: 100 });
+        setStaffActivity(activityResult.rows ?? []);
+      } else setStaffActivity([]);
       if (auditRead.data === true) {
         const r = await invoke({ action: "audit_logs", limit: 100 });
         setLogs(r.logs ?? []);
@@ -113,6 +119,7 @@ export default function AdminGovernanceScreen() {
       <TouchableOpacity onPress={()=>setTab("hierarchy")} style={[s.tab,tab==="hierarchy"&&s.active]}><Text style={[s.tabText,tab==="hierarchy"&&s.activeText]}>الإدارة الهرمية</Text></TouchableOpacity>
       <TouchableOpacity onPress={()=>setTab("roles")} style={[s.tab,tab==="roles"&&s.active]}><Text style={[s.tabText,tab==="roles"&&s.activeText]}>الصلاحيات</Text></TouchableOpacity>
       <TouchableOpacity onPress={()=>setTab("audit")} style={[s.tab,tab==="audit"&&s.active]}><Text style={[s.tabText,tab==="audit"&&s.activeText]}>سجل العمليات</Text></TouchableOpacity>
+      {superAdmin && <TouchableOpacity onPress={()=>setTab("activity")} style={[s.tab,tab==="activity"&&s.active]}><Text style={[s.tabText,tab==="activity"&&s.activeText]}>نشاط الموظفين</Text></TouchableOpacity>}
     </View>
     <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
       {!!error && <View style={s.error}><Text style={s.errorText}>{error}</Text></View>}
@@ -136,6 +143,17 @@ export default function AdminGovernanceScreen() {
             <Text style={s.muted}>الأدوار الحالية: {roles.length?roles.join("، "):"لا توجد أدوار إدارية"}</Text>
           </View>}
         </>}
+      </>}
+      {tab==="activity" && superAdmin && <>
+        <Text style={s.title}>سجل نشاط الموظفين</Text>
+        <Text style={s.muted}>آخر {staffActivity.length.toLocaleString("ar-IQ")} نشاط مسجل لخدمة العملاء وتغييرات الرتب، للمدير الأعلى فقط.</Text>
+        {staffActivity.map((entry) => <View key={entry.id} style={s.card}>
+          <Text style={s.cardTitle}>{({ view_support_message: "شاهد رسالة دعم", reply_support_message: "رد على رسالة دعم", rank_changed: "تغيير رتبة", department_changed: "تغيير قسم", staff_activated: "تفعيل موظف", staff_deactivated: "إيقاف موظف" } as Record<string, string>)[entry.activity] ?? entry.activity}</Text>
+          <Text style={s.muted}>الموظف: {entry.staff?.full_name || entry.staff?.email || entry.staff_user_id.slice(0, 8)} · بواسطة: {entry.actor?.full_name || entry.actor?.email || entry.actor_user_id.slice(0, 8)}</Text>
+          {!!entry.message_id && <Text style={s.muted}>رقم الرسالة: {entry.message_id}</Text>}
+          <Text style={s.muted}>{new Date(entry.created_at).toLocaleString("ar-IQ")}</Text>
+        </View>)}
+        {!staffActivity.length && <Text style={s.muted}>ماكو أنشطة موظفين مسجلة بعد.</Text>}
       </>}
       {tab==="audit" && <>
         <Text style={s.title}>سجل العمليات الإدارية</Text>

@@ -31,22 +31,22 @@ Deno.serve(async (req: Request) => {
     });
     const { data: auth, error: authError } = await caller.auth.getUser(token);
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
-    const { data: assignment } = await caller.from("staff_assignments")
-      .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
-    const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
-    const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
-    const { data: staffAllowed, error: staffPermissionError } = await caller.rpc("admin_has_permission", {
-      p_permission_key: "staff.read", p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
-    });
-    if (staffPermissionError || staffAllowed !== true) return json({ error: "forbidden" }, 403);
+    const { data: staff, error: staffError } = await caller.rpc("has_staff_role", { p_user_id: auth.user.id });
+    if (staffError || staff !== true) return json({ error: "forbidden" }, 403);
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
     const requireAdmin = async () => {
+      const { data, error } = await caller.rpc("has_admin_access", { p_user_id: auth.user.id });
+      if (error || data !== true) throw new Error("admin_required");
+    };
+    const requirePermission = async (permissionKey: string) => {
       const { data, error } = await caller.rpc("admin_has_permission", {
-        p_permission_key: "audit.read", p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
+        p_permission_key: permissionKey,
+        p_scope_type: "global",
+        p_scope_governorate: null,
       });
-      if (error || data !== true) throw new Error("permission_required:audit.read");
+      if (error || data !== true) throw new Error("permission_required:" + permissionKey);
     };
     const requireSuperAdmin = async () => {
       const { data, error } = await caller.rpc("is_super_admin", { p_user_id: auth.user.id });
@@ -54,13 +54,30 @@ Deno.serve(async (req: Request) => {
     };
 
     if (body.action === "audit_logs") {
-      await requireAdmin();
+      await requirePermission("audit.read");
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       const { data, error } = await admin.from("audit_logs")
         .select("*, admin:profiles!audit_logs_user_id_fkey(full_name,phone)")
         .order("created_at", { ascending: false }).limit(limit);
       if (error) return json({ error: "audit_logs_load_failed" }, 500);
       return json({ logs: data ?? [] });
+    }
+
+    if (body.action === "staff_activity") {
+      await requireSuperAdmin();
+      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
+      const { data: rows, error } = await admin.from("staff_activity_log")
+        .select("*").order("created_at", { ascending: false }).limit(limit);
+      if (error) return json({ error: "staff_activity_load_failed" }, 500);
+      const ids = [...new Set((rows ?? []).flatMap((row: any) => [row.staff_user_id, row.actor_user_id]))];
+      const { data: profiles, error: profilesError } = ids.length
+        ? await admin.from("profiles").select("id,full_name,email").in("id", ids)
+        : { data: [], error: null };
+      if (profilesError) return json({ error: "staff_profiles_load_failed" }, 500);
+      const byId = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+      return json({ rows: (rows ?? []).map((row: any) => ({
+        ...row, staff: byId.get(row.staff_user_id), actor: byId.get(row.actor_user_id),
+      })) });
     }
 
     if (body.action === "search_users") {
@@ -100,8 +117,9 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     const message = String(error);
     if (message.includes("missing_")) return json({ error: "server_configuration_incomplete" }, 503);
-    if (message.includes("super_admin_required")) return json({ error: "super_admin_required" }, 403);
     if (message.includes("permission_required:")) return json({ error: "permission_required" }, 403);
+    if (message.includes("super_admin_required")) return json({ error: "super_admin_required" }, 403);
+    if (message.includes("admin_required")) return json({ error: "admin_required" }, 403);
     return json({ error: "internal_error" }, 500);
   }
 });

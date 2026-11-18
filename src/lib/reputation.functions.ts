@@ -1,5 +1,5 @@
-import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ReputationData {
   score: number;
@@ -13,69 +13,40 @@ export interface ReputationData {
   quality_avg: number;
   ratings_count: number;
   completed_jobs: number;
-  badges: Array<{
-    code: string;
-    name_ar: string;
-    icon: string;
-    color: string;
-  }>;
+  badges: Array<{ code: string; name_ar: string; icon: string; color: string }>;
 }
 
-export const getReputation = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => {
-    const obj = d as { userId: string };
-    if (!obj?.userId || typeof obj.userId !== "string") {
-      throw new Error("userId is required");
-    }
-    return obj;
-  })
-  .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rep, error } = await (supabaseAdmin as any).rpc("get_provider_reputation", {
-      p_user_id: data.userId,
-    });
-    if (error || !rep) {
-      return {
-        score: 0,
-        level: "unranked",
-        level_name: "قيد التقييم",
-        level_icon: "🥉",
-        level_color: "#CD7F32",
-        avg_stars: 0,
-        professionalism_avg: 0,
-        punctuality_avg: 0,
-        quality_avg: 0,
-        ratings_count: 0,
-        completed_jobs: 0,
-        badges: [],
-      } as ReputationData;
-    }
-    return rep as ReputationData;
-  });
+const emptyReputation: ReputationData = {
+  score: 0,
+  level: "unranked",
+  level_name: "قيد التقييم",
+  level_icon: "🥉",
+  level_color: "#CD7F32",
+  avg_stars: 0,
+  professionalism_avg: 0,
+  punctuality_avg: 0,
+  quality_avg: 0,
+  ratings_count: 0,
+  completed_jobs: 0,
+  badges: [],
+};
 
-export const getProviderReviews = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => {
-    const obj = d as { userId: string };
-    if (!obj?.userId || typeof obj.userId !== "string") {
-      throw new Error("userId is required");
-    }
-    return obj;
-  })
-  .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: reviews, error } = await (supabaseAdmin as any)
-      .from("ratings")
-      .select(
-        `
-        id, stars, professionalism, punctuality, quality, comment, created_at,
-        rater:profiles!ratings_rater_id_fkey(full_name, avatar_url)
-      `,
-      )
-      .eq("ratee_id", data.userId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    if (error) return [];
-    return reviews ?? [];
+const userIdSchema = z.object({ userId: z.string().uuid() });
+
+export const getReputation = async ({ data }: { data: { userId: string } }): Promise<ReputationData> => {
+  const input = userIdSchema.parse(data);
+  const { data: result, error } = await supabase.rpc("get_provider_reputation", {
+    p_user_id: input.userId,
   });
+  if (error || !result) return emptyReputation;
+  return result as unknown as ReputationData;
+};
+
+export const getProviderReviews = async ({ data }: { data: { userId: string } }) => {
+  const input = userIdSchema.parse(data);
+  const { data: result, error } = await supabase.functions.invoke("reputation-proxy", {
+    body: { action: "reviews", user_id: input.userId },
+  });
+  if (error || result?.error) return [];
+  return result?.reviews ?? [];
+};

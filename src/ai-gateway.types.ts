@@ -1,1 +1,1 @@
-import type {} from "./generated/ai-gateway/models";
+export {}; // AI gateway type declarations were removed with the Lovable dependency.

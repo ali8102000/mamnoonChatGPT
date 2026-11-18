@@ -7,6 +7,54 @@ enable_confirmations = false
 subject = "رمز استعادة كلمة المرور | ممنون Mamnoon"
 content_path = "./supabase/templates/recovery.html"
 
-# This endpoint handles unauthenticated sign-up, login and recovery itself.
+[functions.maps-proxy]
+verify_jwt = true
+
+[functions.increment-request-count]
+verify_jwt = true
+
+[functions.bootstrap-admin]
+verify_jwt = true
+
+[functions.friends-proxy]
+verify_jwt = true
+
 [functions.auth-proxy]
+verify_jwt = false
+
+[functions.reputation-proxy]
+verify_jwt = true
+
+[functions.import-assist]
+verify_jwt = true
+
+[functions.admin-finance]
+verify_jwt = true
+
+[functions.admin-governance]
+verify_jwt = true
+
+[functions.admin-subscriptions]
+verify_jwt = true
+
+[functions.admin-users]
+verify_jwt = true
+
+[functions.auto-taxi-pricing]
+verify_jwt = true
+
+[functions.team-management]
+verify_jwt = true
+
+[functions.zaincash-create-payment]
+verify_jwt = true
+
+[functions.zaincash-config-status]
+verify_jwt = true
+
+# Payment provider callbacks authenticate their own signed payloads.
+[functions.zaincash-callback]
+verify_jwt = false
+
+[functions.zaincash-webhook]
 verify_jwt = false

@@ -38,11 +38,26 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
-    const requirePermission = async (permissionKey: string, scopeType = "global", scopeGovernorate: string | null = null) => {
+    const requirePermission = async (permissionKey: string, allowLegacyFinance = true, scopeType = "global", scopeGovernorate: string | null = null) => {
       const { data: permission, error: permissionError } = await caller.rpc("admin_has_permission", {
         p_permission_key: permissionKey, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
       });
-      if (permissionError || permission !== true) throw new Error("permission_required:" + permissionKey);
+      if (!permissionError && permission === true) return;
+      const [adminAccess, financeAccess] = await Promise.all([
+        caller.rpc("has_admin_access", { p_user_id: auth.user.id }),
+        allowLegacyFinance
+          ? caller.rpc("has_subscription_admin_access", { p_user_id: auth.user.id })
+          : Promise.resolve({ data: false, error: null }),
+      ]);
+      if (adminAccess.data !== true && financeAccess.data !== true) throw new Error("permission_required:" + permissionKey);
+    };
+    const requireStrictPermission = async (permissionKey: string) => {
+      const { data, error } = await caller.rpc("admin_has_permission", {
+        p_permission_key: permissionKey,
+        p_scope_type: "global",
+        p_scope_governorate: null,
+      });
+      if (error || data !== true) throw new Error("permission_required:" + permissionKey);
     };
     const rpc = async (name: string, args: Record<string, unknown>) => {
       const { data, error } = await caller.rpc(name, args);
@@ -55,7 +70,7 @@ Deno.serve(async (req: Request) => {
         .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
-      await requirePermission("finance.wallet.adjust", scopeType, scopeGovernorate);
+      await requirePermission("finance.wallet.adjust", false, scopeType, scopeGovernorate);
       const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
       if (query.length < 2) return json({ error: "query_too_short" }, 400);
       const safe = query.replace(/[,%()]/g, " ");
@@ -67,6 +82,7 @@ Deno.serve(async (req: Request) => {
       return json({ users: data ?? [] });
     }
 
+    // Keep the combined payload consumed by the native admin finance screen.
     if (body.action === "list") {
       await requirePermission("finance.read");
       await requirePermission("promotions.read");
@@ -79,6 +95,26 @@ Deno.serve(async (req: Request) => {
       return json({ transactions: transactions.data ?? [], coupons: coupons.data ?? [] });
     }
 
+    if (body.action === "list_transactions") {
+      await requireStrictPermission("finance.read");
+      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
+      const { data, error } = await admin.from("transactions")
+        .select("*, profiles!inner(full_name,phone)")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) return json({ error: "transactions_load_failed" }, 500);
+      return json({ transactions: data ?? [] });
+    }
+
+    if (body.action === "list_coupons") {
+      await requireStrictPermission("promotions.read");
+      const { data, error } = await admin.from("coupons")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) return json({ error: "coupons_load_failed" }, 500);
+      return json({ coupons: data ?? [] });
+    }
+
     if (body.action === "adjust_wallet") {
       if (!uuid(body.user_id) || typeof body.amount !== "number" || !Number.isFinite(body.amount) ||
           body.amount <= 0 || body.amount > 1000000000 ||
@@ -86,11 +122,6 @@ Deno.serve(async (req: Request) => {
           (body.note !== undefined && (typeof body.note !== "string" || body.note.length > 500))) {
         return json({ error: "invalid_request" }, 400);
       }
-      const { data: walletTarget, error: walletTargetError } = await admin.from("profiles")
-        .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (walletTargetError || !walletTarget) return json({ error: "target_user_not_found" }, 404);
-      const walletScopeType = walletTarget.governorate_key ? "governorate" : "global";
-      await requirePermission("finance.wallet.adjust", walletScopeType, walletTarget.governorate_key ?? null);
       return await rpc("admin_adjust_wallet", {
         p_user_id: body.user_id, p_amount: body.amount,
         p_note: typeof body.note === "string" ? body.note.trim() || null : null,
@@ -99,7 +130,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "save_coupon") {
-      await requirePermission(body.id ? "promotions.edit" : "promotions.create");
       if ((body.id !== undefined && !uuid(body.id)) ||
           typeof body.code !== "string" || body.code.trim().length < 2 || body.code.length > 50 ||
           !["percentage", "fixed"].includes(body.type) ||
@@ -128,7 +158,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "distribute_coupon") {
-      await requirePermission("promotions.publish");
       if (!uuid(body.coupon_id) || !targets.includes(body.target) ||
           (body.target === "single" ? !uuid(body.single_user_id) :
             (body.single_user_id !== undefined && !uuid(body.single_user_id)))) {
@@ -150,7 +179,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_coupon") {
-      await requirePermission("promotions.delete");
       if (!uuid(body.coupon_id)) return json({ error: "invalid_coupon_id" }, 400);
       return await rpc("admin_delete_coupon", { p_coupon_id: body.coupon_id });
     }

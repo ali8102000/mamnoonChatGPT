@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
-type Plan = { id: string; code: string; name_ar: string; monthly_price: number; yearly_price: number; currency: string; is_active: boolean; tier: number };
+type Plan = { id: string; code: string; name_ar: string; name_en?: string; monthly_price: number; yearly_price: number; currency: string; is_active: boolean; tier: number; max_requests_per_month?: number | null; priority_weight?: number; offer_priority?: number; badge_label?: string | null; badge_color?: string | null; show_stats?: boolean; priority_support?: boolean; sort_order?: number; governorate_limit?: number | null; features?: unknown };
 type UserRow = { id: string; full_name: string | null; phone: string | null; email: string | null };
 type SubscriptionRow = {
   id: string; user_id: string; status: string; current_period_end: string | null;
@@ -21,7 +21,7 @@ type Payload = { plans: Plan[]; subscriptions: SubscriptionRow[]; payments: { ro
 
 const TABS = [
   ["overview", "نظرة عامة"], ["subs", "المشتركون"], ["plans", "الباقات"],
-  ["grant", "منح اشتراك"], ["payments", "المدفوعات"], ["settings", "الإعدادات"],
+  ["grant", "منح اشتراك"], ["bulk", "منح جماعي"], ["broadcast", "إعلان إداري"], ["payments", "المدفوعات"], ["settings", "الإعدادات"],
 ] as const;
 type Tab = typeof TABS[number][0];
 
@@ -36,6 +36,10 @@ export default function AdminSubscriptionsScreen() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [selectedBulkUsers, setSelectedBulkUsers] = useState<string[]>([]);
+  const [broadcastTarget, setBroadcastTarget] = useState<"all" | "worker" | "driver" | "large_driver">("all");
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastBody, setBroadcastBody] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [planCode, setPlanCode] = useState("bronze");
   const [duration, setDuration] = useState("month");
@@ -43,6 +47,15 @@ export default function AdminSubscriptionsScreen() {
   const [busy, setBusy] = useState(false);
   const [settingsEnabled, setSettingsEnabled] = useState(false);
   const [minimumDownloads, setMinimumDownloads] = useState("100000");
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [planEditorOpen, setPlanEditorOpen] = useState(false);
+  const [planCodeInput, setPlanCodeInput] = useState("");
+  const [planNameInput, setPlanNameInput] = useState("");
+  const [planMonthlyInput, setPlanMonthlyInput] = useState("0");
+  const [planYearlyInput, setPlanYearlyInput] = useState("0");
+  const [planTierInput, setPlanTierInput] = useState("1");
+  const [planSortInput, setPlanSortInput] = useState("0");
+  const [planExtraFields, setPlanExtraFields] = useState<Partial<Plan>>({});
 
   const invoke = useCallback(async (body: Record<string, unknown>) => {
     const { data: result, error: invokeError } = await supabase.functions.invoke("admin-subscriptions", { body });
@@ -82,14 +95,16 @@ export default function AdminSubscriptionsScreen() {
     setRefreshing(false);
   }, [load]);
 
-  const runAction = async (body: Record<string, unknown>, success: string) => {
+  const runAction = async (body: Record<string, unknown>, success: string): Promise<boolean> => {
     setBusy(true);
     try {
       await invoke(body);
       Alert.alert("تم بنجاح", success);
       await load();
+      return true;
     } catch (e: any) {
       Alert.alert("تعذر التنفيذ", String(e?.message || "حدث خطأ غير متوقع"));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -114,11 +129,69 @@ export default function AdminSubscriptionsScreen() {
 
   const grant = async () => {
     if (!selectedUser) return;
-    await runAction({ action: "grant_subscription", user_id: selectedUser.id, plan_code: planCode, duration },
+    const ok = await runAction({ action: "grant_subscription", user_id: selectedUser.id, plan_code: planCode, duration },
       "تم منح الاشتراك وتحديث حساب المستخدم.");
-    setSelectedUser(null);
-    setUsers([]);
-    setQuery("");
+    if (ok) { setSelectedUser(null); setUsers([]); setQuery(""); }
+  };
+
+  const toggleBulkUser = (id: string) => setSelectedBulkUsers((current) =>
+    current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+
+  const grantBulk = async () => {
+    if (!selectedBulkUsers.length) { Alert.alert("المنح الجماعي", "حدد حساباً واحداً على الأقل."); return; }
+    const ok = await runAction({ action: "grant_bulk", user_ids: selectedBulkUsers, plan_code: planCode, duration },
+      `تم منح الاشتراك إلى ${selectedBulkUsers.length} حساباً.`);
+    if (ok) { setSelectedBulkUsers([]); setUsers([]); setQuery(""); }
+  };
+
+  const sendBroadcast = async () => {
+    if (broadcastTitle.trim().length < 2 || broadcastBody.trim().length < 2) {
+      Alert.alert("بيانات الإعلان", "اكتب عنواناً ونصاً واضحين قبل الإرسال."); return;
+    }
+    const ok = await runAction({ action: "broadcast", target: broadcastTarget, title: broadcastTitle.trim(), body: broadcastBody.trim() },
+      "تم إرسال الإعلان الإداري إلى الفئة المحددة.");
+    if (ok) { setBroadcastTitle(""); setBroadcastBody(""); }
+  };
+
+  const openPlanEditor = (plan?: Plan) => {
+    setPlanEditorOpen(true);
+    setEditingPlanId(plan?.id ?? null);
+    setPlanExtraFields(plan ? { name_en: plan.name_en, max_requests_per_month: plan.max_requests_per_month, priority_weight: plan.priority_weight, offer_priority: plan.offer_priority, badge_label: plan.badge_label, badge_color: plan.badge_color, show_stats: plan.show_stats, priority_support: plan.priority_support, governorate_limit: plan.governorate_limit, features: plan.features } : {});
+    setPlanCodeInput(plan?.code ?? "");
+    setPlanNameInput(plan?.name_ar ?? "");
+    setPlanMonthlyInput(String(plan?.monthly_price ?? 0));
+    setPlanYearlyInput(String(plan?.yearly_price ?? 0));
+    setPlanTierInput(String(plan?.tier ?? 1));
+    setPlanSortInput(String((plan as any)?.sort_order ?? 0));
+  };
+
+  const savePlan = async () => {
+    const code = planCodeInput.trim().toLowerCase();
+    const name = planNameInput.trim();
+    const monthly = Number(planMonthlyInput);
+    const yearly = Number(planYearlyInput);
+    const tier = Number(planTierInput);
+    const sort = Number(planSortInput);
+    if (!/^[a-z0-9_-]{2,30}$/.test(code) || !name || name.length > 100 ||
+        ![monthly, yearly, tier, sort].every(Number.isInteger) ||
+        monthly < 0 || yearly < 0 || tier < 0 || tier > 100 || sort < 0 || sort > 1000) {
+      Alert.alert("بيانات غير صحيحة", "راجع رمز الباقة والاسم والأسعار وترتيب الباقة.");
+      return;
+    }
+    const saved = await runAction({
+      action: "save_plan",
+      ...(editingPlanId ? { id: editingPlanId } : {}),
+      plan: {
+        ...planExtraFields,
+        code, name_ar: name, name_en: planExtraFields.name_en || code, description_ar: null,
+        tier, max_requests_per_month: planExtraFields.max_requests_per_month ?? null, priority_weight: planExtraFields.priority_weight ?? tier * 10,
+        offer_priority: planExtraFields.offer_priority ?? tier * 10, badge_label: planExtraFields.badge_label ?? null, badge_color: planExtraFields.badge_color ?? null,
+        show_stats: planExtraFields.show_stats ?? tier > 0, priority_support: planExtraFields.priority_support ?? tier >= 3,
+        monthly_price: monthly, yearly_price: yearly, currency: "IQD",
+        is_active: true, sort_order: sort,
+      },
+    }, editingPlanId ? "تم تحديث الباقة." : "تم إنشاء الباقة.");
+    if (saved) { setPlanEditorOpen(false); setEditingPlanId(null); }
   };
 
   const subscriptions = data?.subscriptions ?? [];
@@ -176,11 +249,30 @@ export default function AdminSubscriptionsScreen() {
         </>}
         {tab === "plans" && <>
           <Text style={s.title}>الباقات</Text>
+          {canManage && <>
+            <TouchableOpacity style={s.primaryButton} onPress={() => openPlanEditor()}><Text style={s.buttonText}>إضافة باقة جديدة</Text></TouchableOpacity>
+            {planEditorOpen && <View style={s.card}>
+              <Text style={s.cardTitle}>{editingPlanId ? "تعديل الباقة" : "باقة جديدة"}</Text>
+              <TextInput value={planCodeInput} onChangeText={setPlanCodeInput} editable={!editingPlanId} placeholder="رمز الباقة مثل platinum" placeholderTextColor={palette.muted} style={s.input} autoCapitalize="none"/>
+              <TextInput value={planNameInput} onChangeText={setPlanNameInput} placeholder="اسم الباقة بالعربي" placeholderTextColor={palette.muted} style={s.input}/>
+              <TextInput value={planMonthlyInput} onChangeText={setPlanMonthlyInput} keyboardType="number-pad" placeholder="السعر الشهري بالدينار" placeholderTextColor={palette.muted} style={s.input}/>
+              <TextInput value={planYearlyInput} onChangeText={setPlanYearlyInput} keyboardType="number-pad" placeholder="السعر السنوي بالدينار" placeholderTextColor={palette.muted} style={s.input}/>
+              <TextInput value={planTierInput} onChangeText={setPlanTierInput} keyboardType="number-pad" placeholder="مستوى الباقة" placeholderTextColor={palette.muted} style={s.input}/>
+              <TextInput value={planSortInput} onChangeText={setPlanSortInput} keyboardType="number-pad" placeholder="ترتيب العرض" placeholderTextColor={palette.muted} style={s.input}/>
+              <View style={s.actions}>
+                <TouchableOpacity style={s.smallButton} disabled={busy} onPress={() => void savePlan()}><Text style={s.buttonText}>حفظ الباقة</Text></TouchableOpacity>
+                <TouchableOpacity style={s.smallButtonDanger} onPress={() => { setPlanEditorOpen(false); setEditingPlanId(null); }}><Text style={s.buttonText}>إغلاق</Text></TouchableOpacity>
+              </View>
+            </View>}
+          </>}
           {(data?.plans ?? []).map((plan) => <View key={plan.id} style={s.card}>
             <Text style={s.cardTitle}>{plan.name_ar}</Text>
             <Text style={s.muted}>{plan.code} · {money(plan.monthly_price)} شهرياً · {money(plan.yearly_price)} سنوياً</Text>
             <View style={s.actions}><Text style={s.label}>{plan.is_active ? "فعالة" : "متوقفة"}</Text>
-              {canManage && <TouchableOpacity style={s.smallButton} onPress={() => void runAction({action:"toggle_plan",id:plan.id,is_active:!plan.is_active},plan.is_active?"تم إيقاف الباقة":"تم تفعيل الباقة")}><Text style={s.buttonText}>{plan.is_active?"إيقاف":"تفعيل"}</Text></TouchableOpacity>}
+              {canManage && <>
+                <TouchableOpacity style={s.smallButton} onPress={() => openPlanEditor(plan)}><Text style={s.buttonText}>تعديل</Text></TouchableOpacity>
+                <TouchableOpacity style={s.smallButton} onPress={() => void runAction({action:"toggle_plan",id:plan.id,is_active:!plan.is_active},plan.is_active?"تم إيقاف الباقة":"تم تفعيل الباقة")}><Text style={s.buttonText}>{plan.is_active?"إيقاف":"تفعيل"}</Text></TouchableOpacity>
+              </>}
             </View>
           </View>)}
         </>}
@@ -200,6 +292,39 @@ export default function AdminSubscriptionsScreen() {
             {(["month","two_months","year","permanent"] as const).map((d) => <TouchableOpacity key={d} style={[s.choice, duration===d&&s.choiceActive]} onPress={() => setDuration(d)}><Text style={s.label}>{d==="month"?"شهر":d==="two_months"?"شهرين":d==="year"?"سنة":"دائم"}</Text></TouchableOpacity>)}
             <TouchableOpacity disabled={busy} style={s.primaryButton} onPress={() => void grant()}><Text style={s.buttonText}>تأكيد منح الاشتراك</Text></TouchableOpacity>
           </>}
+        </>}
+        {tab === "bulk" && <>
+          <Text style={s.title}>منح اشتراك جماعي</Text>
+          <Text style={s.muted}>ابحث عن مقدمي الخدمة وحدد الحسابات المطلوبة. الحد الأعلى 500 حساب في العملية الواحدة.</Text>
+          <TextInput value={query} onChangeText={setQuery} placeholder="ابحث بالاسم أو رقم الهاتف" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
+          <TouchableOpacity disabled={busy || !canManage} style={s.primaryButton} onPress={() => void searchUsers()}><Text style={s.buttonText}>بحث عن مقدمي الخدمة</Text></TouchableOpacity>
+          <Text style={s.section}>الحسابات المحددة: {selectedBulkUsers.length}</Text>
+          {users.map((u) => {
+            const selected = selectedBulkUsers.includes(u.id);
+            return <TouchableOpacity key={u.id} onPress={() => toggleBulkUser(u.id)} style={[s.card, selected && s.selectedCard]}>
+              <Text style={s.cardTitle}>{selected ? "✓ " : ""}{u.full_name || "مستخدم"}</Text>
+              <Text style={s.muted}>{u.phone || u.email || u.id}</Text>
+            </TouchableOpacity>;
+          })}
+          <Text style={s.label}>الباقة</Text>
+          <View style={s.actions}>{(["bronze","silver","gold"] as const).map((p) => <TouchableOpacity key={p} style={[s.choice,planCode===p&&s.choiceActive]} onPress={() => setPlanCode(p)}><Text style={s.label}>{p==="bronze"?"برونزي":p==="silver"?"فضي":"ذهبي"}</Text></TouchableOpacity>)}</View>
+          <Text style={s.label}>المدة</Text>
+          <View style={s.actions}>{(["month","two_months","year","permanent"] as const).map((d) => <TouchableOpacity key={d} style={[s.choice,duration===d&&s.choiceActive]} onPress={() => setDuration(d)}><Text style={s.label}>{d==="month"?"شهر":d==="two_months"?"شهرين":d==="year"?"سنة":"دائم"}</Text></TouchableOpacity>)}</View>
+          <TouchableOpacity disabled={busy || !canManage || selectedBulkUsers.length===0 || selectedBulkUsers.length>500} style={s.primaryButton} onPress={() => Alert.alert("تأكيد المنح الجماعي", `راح تمنح اشتراكاً إلى ${selectedBulkUsers.length} حساب. هل تريد المتابعة؟`, [{text:"رجوع",style:"cancel"},{text:"تأكيد",onPress:()=>void grantBulk()}])}><Text style={s.buttonText}>تأكيد منح الاشتراك للمحددين</Text></TouchableOpacity>
+          <TouchableOpacity disabled={busy} style={s.smallButtonDanger} onPress={() => setSelectedBulkUsers([])}><Text style={s.buttonText}>إلغاء تحديد الكل</Text></TouchableOpacity>
+        </>}
+        {tab === "broadcast" && <>
+          <Text style={s.title}>إرسال إعلان إداري</Text>
+          <Text style={s.muted}>يرسل الإعلان للفئة المحددة عبر نظام الإعلانات داخل التطبيق.</Text>
+          <Text style={s.label}>الفئة المستهدفة</Text>
+          <View style={s.actions}>
+            {([{value:"all",label:"الكل"},{value:"worker",label:"الفنيون"},{value:"driver",label:"سائقو التكسي"},{value:"large_driver",label:"سائقو الكيات"}] as const).map((item) =>
+              <TouchableOpacity key={item.value} style={[s.choice,broadcastTarget===item.value&&s.choiceActive]} onPress={() => setBroadcastTarget(item.value)}><Text style={s.label}>{item.label}</Text></TouchableOpacity>)}
+          </View>
+          <TextInput value={broadcastTitle} onChangeText={setBroadcastTitle} maxLength={100} placeholder="عنوان الإعلان (حتى 100 حرف)" placeholderTextColor={palette.muted} style={s.input}/>
+          <TextInput value={broadcastBody} onChangeText={setBroadcastBody} maxLength={1500} multiline numberOfLines={5} placeholder="نص الإعلان (حتى 1500 حرف)" placeholderTextColor={palette.muted} style={[s.input,{minHeight:110,textAlignVertical:"top"}]}/>
+          <Text style={s.muted}>{broadcastTitle.length}/100 · {broadcastBody.length}/1500</Text>
+          <TouchableOpacity disabled={busy || !canManage || broadcastTitle.trim().length<2 || broadcastBody.trim().length<2} style={s.primaryButton} onPress={() => Alert.alert("تأكيد إرسال الإعلان","سيتم إرسال الإعلان إلى الفئة التي اخترتها. هل تريد المتابعة؟",[{text:"رجوع",style:"cancel"},{text:"إرسال",onPress:()=>void sendBroadcast()}])}><Text style={s.buttonText}>إرسال الإعلان</Text></TouchableOpacity>
         </>}
         {tab === "payments" && <>
           <Text style={s.title}>مدفوعات الاشتراكات</Text>

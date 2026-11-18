@@ -30,9 +30,8 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  // Lovable reserves the SUPABASE_ prefix for its own managed secrets.
-  // Use app-specific names for manually configured Lovable project secrets,
-  // while retaining the standard names for other deployment environments.
+  // Prefer app-specific server variable names when explicitly configured,
+  // while retaining standard Supabase names for compatible deployments.
   const SUPABASE_URL = process.env['MAMNOON_SUPABASE_URL'] || process.env['SUPABASE_URL'];
   const SUPABASE_SERVICE_ROLE_KEY = process.env['MAMNOON_SUPABASE_SERVICE_ROLE_KEY'] || process.env['SUPABASE_SERVICE_ROLE_KEY'];
 

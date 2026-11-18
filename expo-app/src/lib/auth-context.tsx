@@ -26,6 +26,7 @@ interface AuthCtx {
   user: User | null;
   profile: Profile | null;
   roles: AppRole[];
+  isAdmin: boolean;
   activeRole: AppRole | null;
   setActiveRole: (role: AppRole) => Promise<void>;
   loading: boolean;
@@ -284,7 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ session, user: session?.user ?? null, profile, roles, activeRole, setActiveRole, loading, refresh, signOut }}
+      value={{ session, user: session?.user ?? null, profile, roles, isAdmin: roles.includes("admin") || roles.includes("super_admin"), activeRole, setActiveRole, loading, refresh, signOut }}
     >
       {children}
     </Ctx.Provider>

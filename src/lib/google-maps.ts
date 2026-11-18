@@ -5,8 +5,6 @@
 let loaderPromise: Promise<any> | null = null;
 let provider: "google" | "leaflet" | null = null;
 
-// Restricted Lovable fallback key that is blocked on non-lovable domains (ais-dev-*.run.app)
-const RESTRICTED_FALLBACK_KEY = "AIzaSyBmvJph4LmrbtW7skeczzpBIyb9WWzFKo4";
 
 export function getMapProvider(): "google" | "leaflet" | null {
   return provider;
@@ -42,23 +40,16 @@ export function loadGoogleMaps(): Promise<any> {
 
   const rawKey =
     typeof import.meta !== "undefined" && import.meta.env
-      ? ((import.meta.env["VITE_GOOGLE_MAPS_API_KEY"] as string | undefined) ||
-         (import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined))
+      ? (import.meta.env["VITE_GOOGLE_MAPS_API_KEY"] as string | undefined)
       : undefined;
 
-  // If no key or if the key is the restricted Lovable domain key that fails on AI Studio / custom domains:
-  const isKeyValidForDomain = Boolean(rawKey && rawKey !== RESTRICTED_FALLBACK_KEY);
-
-  if (!isKeyValidForDomain) {
+  // Without an explicitly configured, restricted key, use the OpenStreetMap fallback.
+  if (!rawKey) {
     loaderPromise = loadLeafletFallback();
     return loaderPromise;
   }
 
   const key = rawKey!;
-  const channel =
-    typeof import.meta !== "undefined" && import.meta.env
-      ? (import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"] as string | undefined)
-      : undefined;
 
   loaderPromise = new Promise((resolve, reject) => {
     const cbName = `__gmInit_${Date.now()}`;
@@ -88,7 +79,7 @@ export function loadGoogleMaps(): Promise<any> {
     };
 
     const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=${cbName}&language=ar&region=IQ${channel ? `&channel=${channel}` : ""}`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=${cbName}&language=ar&region=IQ`;
     s.async = true;
     s.defer = true;
     s.onerror = () => {

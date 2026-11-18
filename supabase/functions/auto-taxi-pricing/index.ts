@@ -13,77 +13,6 @@ function validPoint(p: any): p is Point {
   return p && Number.isFinite(p.lat) && Number.isFinite(p.lng) &&
     p.lat >= -90 && p.lat <= 90 && p.lng >= -180 && p.lng <= 180;
 }
-function haversine(a: Point,b: Point) {
-  const rad=(v:number)=>v*Math.PI/180, dLat=rad(b.lat-a.lat), dLng=rad(b.lng-a.lng);
-  const h=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;
-  return 6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
-}
-async function route(from: Point,to: Point) {
-  const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
-  if (key) {
-    try {
-      const res=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
-        method:"POST",
-        headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
-          "X-Goog-FieldMask":"routes.distanceMeters,routes.duration"},
-        body:JSON.stringify({
-          origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
-          destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
-          travelMode:"DRIVE",routingPreference:"TRAFFIC_AWARE",
-          computeAlternativeRoutes:false,languageCode:"ar",units:"METRIC"
-        }),
-        signal:AbortSignal.timeout(9000)
-      });
-      if (res.ok) {
-        const data=await res.json(), r=data.routes?.[0];
-        const distanceKm=Number(r?.distanceMeters)/1000;
-        const durationMin=Number.parseFloat(String(r?.duration||"").replace("s",""))/60;
-        if (Number.isFinite(distanceKm)&&distanceKm>0&&Number.isFinite(durationMin)&&durationMin>=0)
-          return {distanceKm,durationMin,routeSource:"google_routes"};
-      }
-    } catch (e) { console.warn("[auto-taxi-pricing] Google Routes unavailable; using Haversine fallback"); }
-  }
-  const distanceKm=Math.max(0.1,haversine(from,to)*1.35);
-  return {distanceKm:Number(distanceKm.toFixed(3)),durationMin:Number((distanceKm/32*60+3).toFixed(1)),routeSource:"haversine_fallback"};
-}
-
-const GOVERNORATE_CENTROIDS: Array<{ key: string; lat: number; lng: number }> = [
-  { key: "baghdad", lat: 33.3152, lng: 44.3661 },
-  { key: "basra", lat: 30.5085, lng: 47.7804 },
-  { key: "nineveh", lat: 36.34, lng: 43.13 },
-  { key: "erbil", lat: 36.1911, lng: 44.0092 },
-  { key: "sulaymaniyah", lat: 35.5613, lng: 45.4306 },
-  { key: "duhok", lat: 36.8669, lng: 42.9503 },
-  { key: "kirkuk", lat: 35.4681, lng: 44.3922 },
-  { key: "najaf", lat: 32.0259, lng: 44.3462 },
-  { key: "karbala", lat: 32.616, lng: 44.0249 },
-  { key: "babil", lat: 32.4637, lng: 44.4196 },
-  { key: "anbar", lat: 33.4206, lng: 43.3058 },
-  { key: "diyala", lat: 33.7502, lng: 44.6066 },
-  { key: "saladin", lat: 34.6, lng: 43.68 },
-  { key: "wasit", lat: 32.5128, lng: 45.8182 },
-  { key: "dhiqar", lat: 31.0439, lng: 46.2573 },
-  { key: "maysan", lat: 31.8356, lng: 47.1449 },
-  { key: "muthanna", lat: 31.3099, lng: 45.2803 },
-  { key: "qadisiyah", lat: 31.9929, lng: 44.925 },
-];
-
-function inferGovernorateKey(point: Point): string {
-  const cosine = Math.cos(point.lat * Math.PI / 180);
-  let nearest = GOVERNORATE_CENTROIDS[0];
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  for (const governorate of GOVERNORATE_CENTROIDS) {
-    const distance =
-      (point.lat - governorate.lat) ** 2 +
-      ((point.lng - governorate.lng) * cosine) ** 2;
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearest = governorate;
-    }
-  }
-  return nearest.key;
-}
-
 function fare(
   category: Category,
   economyRaw: number,
@@ -138,27 +67,49 @@ Deno.serve(async (req) => {
   const tripType=["one_way","round_trip","second_trip","stop"].includes(body.tripType)?body.tripType:"one_way";
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
-  const routed=await route(body.from,body.to);
-  const governorateKeys = new Set(GOVERNORATE_CENTROIDS.map((item) => item.key));
   const suppliedPickupKey = typeof body.pickupGovernorateKey === "string"
     ? body.pickupGovernorateKey
     : typeof body.governorateKey === "string" ? body.governorateKey : null;
   const suppliedDestinationKey = typeof body.destinationGovernorateKey === "string"
     ? body.destinationGovernorateKey
     : null;
-  if ((suppliedPickupKey && !governorateKeys.has(suppliedPickupKey)) ||
-      (suppliedDestinationKey && !governorateKeys.has(suppliedDestinationKey))) {
-    return json({error:"المحافظة المختارة غير صحيحة. أعد تحديد المحافظة وحاول مرة ثانية."},400);
+  // Use the same polygon-validated route service as the map UI. Never trust
+  // client-supplied governorate names for intercity pricing.
+  const routeResponse = await fetch(`${url.replace(/\/+$/, "")}/functions/v1/maps-proxy`, {
+    method: "POST",
+    headers: { Authorization: auth, apikey: anon, "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "route", from: body.from, to: body.to }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const routeData = await routeResponse.json().catch(() => null) as any;
+  if (!routeResponse.ok || !routeData) {
+    const status = routeResponse.status >= 400 && routeResponse.status < 500 ? routeResponse.status : 503;
+    return json({ error: routeData?.error || "تعذّر التحقق من مسار الرحلة داخل العراق", code: "ROUTE_VALIDATION_FAILED" }, status);
   }
-  const fromGovernorate = suppliedPickupKey || inferGovernorateKey(body.from);
-  const toGovernorate = suppliedDestinationKey || inferGovernorateKey(body.to);
-  const isIntercity = fromGovernorate !== toGovernorate;
+  const fromGovernorate = typeof routeData.fromGovernorateKey === "string" ? routeData.fromGovernorateKey : "";
+  const toGovernorate = typeof routeData.toGovernorateKey === "string" ? routeData.toGovernorateKey : "";
+  const isIntercity = routeData.isIntercity === true;
+  if (!fromGovernorate || !toGovernorate || typeof routeData.isIntercity !== "boolean" ||
+      !Number.isFinite(Number(routeData.distanceKm)) || Number(routeData.distanceKm) <= 0 ||
+      !Number.isFinite(Number(routeData.durationMin)) || Number(routeData.durationMin) <= 0) {
+    return json({ error: "أعادت خدمة الخرائط بيانات مسار غير صالحة", code: "ROUTE_VALIDATION_FAILED" }, 503);
+  }
+  if ((suppliedPickupKey && suppliedPickupKey !== fromGovernorate) ||
+      (suppliedDestinationKey && suppliedDestinationKey !== toGovernorate)) {
+    return json({ error: "المحافظة المحددة لا تطابق موقع الرحلة الفعلي. حدّد المحافظات من جديد." }, 400);
+  }
   if (isIntercity && !suppliedDestinationKey) {
-    return json({error:"أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها."},400);
+    return json({ error: "أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها." }, 400);
   }
   if (typeof body.isIntercity === "boolean" && body.isIntercity !== isIntercity) {
-    return json({error:"المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد."},400);
+    return json({ error: "المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد." }, 400);
   }
+  const routed = {
+    distanceKm: Number(routeData.distanceKm),
+    durationMin: Number(routeData.durationMin),
+    routeSource: String(routeData.routeSource || "maps_proxy"),
+    cacheHit: routeData.cacheHit === true,
+  };
   // Read through the authenticated customer session: pricing_settings grants
   // SELECT to authenticated only. Keep service-role access for request creation.
   const {data:settingsRows,error:settingsError}=await userClient.from("pricing_settings").select("*")

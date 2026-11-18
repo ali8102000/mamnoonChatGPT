@@ -88,6 +88,49 @@ Deno.serve(async (req: Request) => {
       if (error || data !== true) throw new Error("admin_required");
     };
 
+    if (body.action === "plans") {
+      const { data, error } = await admin.from("subscription_plans").select("*").order("sort_order");
+      if (error) return json({ error: "plans_load_failed" }, 500);
+      return json({ plans: data ?? [] });
+    }
+
+    if (body.action === "settings") {
+      const { data, error } = await admin.from("subscription_settings").select("*").eq("id", 1).maybeSingle();
+      if (error) return json({ error: "settings_load_failed" }, 500);
+      return json({ settings: data ?? { subscription_enabled: false, minimum_downloads_before_activation: 100000 } });
+    }
+
+    if (body.action === "payments") {
+      const { data, error } = await admin.from("payment_transactions")
+        .select("id,user_id,purpose,amount,currency,status,gateway_status,gateway_transaction_id,paid_at,created_at,profile:profiles!payment_transactions_user_id_fkey(full_name,email,phone),plan:subscription_plans(name_ar,code)")
+        .eq("purpose", "subscription")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (error) return json({ error: "payments_load_failed" }, 500);
+      const rows = data ?? [];
+      return json({
+        payments: {
+          rows,
+          totals: {
+            paidCount: rows.filter((row: any) => row.status === "paid").length,
+            paidAmount: rows.filter((row: any) => row.status === "paid").reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0),
+            pendingCount: rows.filter((row: any) => row.status === "pending").length,
+            failedCount: rows.filter((row: any) => ["failed", "expired", "refunded", "partially_refunded"].includes(row.status)).length,
+          },
+        },
+      });
+    }
+
+    if (body.action === "subscriptions") {
+      const { data, error } = await admin.from("user_subscriptions")
+        .select("id, user_id, status, billing_cycle, current_period_start, current_period_end, request_count, auto_renew, created_at, grant_type, granted_by, is_trial, paused_at, cancel_at_period_end, profile:profiles!user_subscriptions_user_id_fkey(full_name,email,phone), plan:subscription_plans(code,name_ar,tier)")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) return json({ error: "subscriptions_load_failed" }, 500);
+      return json({ subscriptions: data ?? [] });
+    }
+
+
     if (body.action === "list") {
       const [plansResult, settingsResult, subscriptionsResult, paymentsResult, statsResult] =
         await Promise.all([
@@ -146,7 +189,7 @@ Deno.serve(async (req: Request) => {
         ...(digits ? [`email.ilike.%phone${digits}%`] : []),
       ];
       const { data: users, error } = await admin.from("profiles")
-        .select("id,email,phone,full_name,created_at")
+        .select("id,email,phone,full_name")
         .or(filters.join(","))
         .order("created_at", { ascending: false })
         .limit(100);
@@ -213,6 +256,48 @@ Deno.serve(async (req: Request) => {
           minimum_downloads_before_activation: body.minimum_downloads_before_activation,
         }).eq("id", 1);
       if (error) return json({ error: "settings_save_failed" }, 500);
+      return json({ ok: true });
+    }
+
+    if (body.action === "assign_subscription") {
+      await requireAdmin();
+      if (!isUuid(body.user_id) || !isUuid(body.plan_id) ||
+          !["monthly", "yearly"].includes(body.billing_cycle) ||
+          !Number.isInteger(body.period_days) || body.period_days < 1 || body.period_days > 365) {
+        return json({ error: "invalid_request" }, 400);
+      }
+      const { data: plan, error: planError } = await admin.from("subscription_plans")
+        .select("monthly_price,yearly_price").eq("id", body.plan_id).maybeSingle();
+      if (planError) return json({ error: "subscription_plan_lookup_failed" }, 500);
+      if (!plan) return json({ error: "subscription_plan_not_found" }, 404);
+      const now = new Date();
+      const periodEnd = new Date(now);
+      periodEnd.setDate(periodEnd.getDate() + body.period_days);
+      const { error: upsertError } = await admin.from("user_subscriptions").upsert({
+        user_id: body.user_id,
+        plan_id: body.plan_id,
+        status: "active",
+        billing_cycle: body.billing_cycle,
+        current_period_start: now.toISOString(),
+        current_period_end: periodEnd.toISOString(),
+        request_count: 0,
+        resets_count_period_start: now.toISOString(),
+        auto_renew: false,
+      }, { onConflict: "user_id" });
+      if (upsertError) return json({ error: "subscription_assign_failed" }, 500);
+      const amount = body.billing_cycle === "yearly" ? (plan.yearly_price ?? 0) : (plan.monthly_price ?? 0);
+      if (amount > 0) {
+        const { error: paymentError } = await admin.from("subscription_payments").insert({
+          user_id: body.user_id,
+          plan_id: body.plan_id,
+          amount,
+          billing_cycle: body.billing_cycle,
+          status: "paid",
+          period_start: now.toISOString(),
+          period_end: periodEnd.toISOString(),
+        });
+        if (paymentError) console.error("subscription_payment_record_failed", paymentError.message);
+      }
       return json({ ok: true });
     }
 

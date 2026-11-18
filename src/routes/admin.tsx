@@ -83,14 +83,13 @@ import {
   adminUpdateProviderName,
   adminUnblockUser,
 } from "@/lib/admin.functions";
-import { useServerFn } from "@tanstack/react-start";
 import AdminCompanySettings from "@/components/admin-company-settings";
 import RegionalControlsSection from "@/components/admin-regional-controls";
 import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
 import AdminDispatchZones from "@/components/admin-dispatch-zones";
+import AdminVisualBuilder from "@/components/admin-visual-builder";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
-import AdminVisualBuilder from "@/components/admin-visual-builder";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -395,10 +394,10 @@ function AdminPage() {
           {section === "pricing" && <AdminTaxiPricingControls />}
           {section === "driverTiers" && <DriverPerformanceTierSettings />}
           {section === "dispatchZones" && <AdminDispatchZones />}
-          {section === "visualBuilder" && <AdminVisualBuilder />}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
+          {section === "visualBuilder" && <AdminVisualBuilder />}
           {section === "audit" && <AuditSection />}
         </div>
       </main>
@@ -409,7 +408,7 @@ function AdminPage() {
 function OverviewSection() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const getStats = useServerFn(adminGetDashboardStats);
+  const getStats = adminGetDashboardStats;
   useEffect(() => {
     (async () => {
       try {
@@ -483,8 +482,8 @@ function GovernorateUserStatsSection() {
   const [activity, setActivity] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const getStats = useServerFn(adminGetGovernorateUserStats);
-  const getActivity = useServerFn(adminGetCustomerActivityStats);
+  const getStats = adminGetGovernorateUserStats;
+  const getActivity = adminGetCustomerActivityStats;
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -603,7 +602,7 @@ function GovernorateUserStatsSection() {
 function StatsSection() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const getStats = useServerFn(adminGetDashboardStats);
+  const getStats = adminGetDashboardStats;
   useEffect(() => {
     (async () => {
       try {
@@ -690,11 +689,11 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
   const [total, setTotal] = useState(0);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [blockModal, setBlockModal] = useState<any | null>(null);
-  const listUsers = useServerFn(adminListUsers);
-  const searchUsers = useServerFn(adminSearchUsers);
-  const blockUser = useServerFn(adminBlockUser);
-  const unblockUser = useServerFn(adminUnblockUser);
-  const getUserDetail = useServerFn(adminGetUserDetail);
+  const listUsers = adminListUsers;
+  const searchUsers = adminSearchUsers;
+  const blockUser = adminBlockUser;
+  const unblockUser = adminUnblockUser;
+  const getUserDetail = adminGetUserDetail;
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -837,7 +836,7 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
 }
 
 function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdit: boolean; onClose: () => void; onSave: (profile: any) => void }) {
-  const updateProfile = useServerFn(adminUpdateUserProfile);
+  const updateProfile = adminUpdateUserProfile;
   const [fullName, setFullName] = useState(user.profile?.full_name ?? "");
   const [governorateKey, setGovernorateKey] = useState(user.profile?.governorate_key ?? "");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -957,7 +956,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
                     ["صورة الوجه", v.face_photo_url],
                     ["الهوية الأمامية", v.id_card_photo_url],
                     ["الهوية الخلفية", v.id_card_back_photo_url],
-                    ["مستند رسمي للسيارة", v.vehicle_document_url],
+                    ["مستند المركبة", v.vehicle_document_url],
                     ["فيديو السيارة", v.vehicle_video_url],
                   ].map(([label, url]: any) => url
                     ? <a key={label} href={url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary underline">عرض {label}</a>
@@ -1176,12 +1175,12 @@ function ProvidersSection() {
   const [changeRequestsLoading, setChangeRequestsLoading] = useState(true);
   const [rejectingChangeRequest, setRejectingChangeRequest] = useState<any | null>(null);
   const [changeRequestReason, setChangeRequestReason] = useState("");
-  const listProviderDetail = useServerFn(adminGetUserDetail);
-  const updateProviderName = useServerFn(adminUpdateProviderName);
-  const listProviders = useServerFn(adminListProviders);
-  const setStatus = useServerFn(adminSetProviderStatus);
-  const listChangeRequests = useServerFn(adminListProviderChangeRequests);
-  const reviewChangeRequest = useServerFn(adminReviewProviderChangeRequest);
+  const listProviderDetail = adminGetUserDetail;
+  const updateProviderName = adminUpdateProviderName;
+  const listProviders = adminListProviders;
+  const setStatus = adminSetProviderStatus;
+  const listChangeRequests = adminListProviderChangeRequests;
+  const reviewChangeRequest = adminReviewProviderChangeRequest;
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -1562,18 +1561,16 @@ function ProvidersSection() {
                 )}
                 {(type === "driver" || type === "large_driver") && (
                   <div>
-                    <div className="text-sm font-bold mb-2">مستند رسمي للسيارة</div>
+                    <div className="text-sm font-bold mb-2">سنوية السيارة أو الوكالة (رقم المركبة)</div>
                     {selectedVerification.verification.vehicle_document_url ? (
-                      <img src={selectedVerification.verification.vehicle_document_url} alt="المستند الرسمي للسيارة" className="w-full max-h-96 object-contain rounded-xl bg-black/5" />
-                    ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم يُرفق مستند رسمي للسيارة لهذا الطلب.</div>}
-                  </div>
-                )}
-                {(type === "driver" || type === "large_driver") && (
-                  <div>
-                    <div className="text-sm font-bold mb-2">فيديو السيارة (السيارة كاملة ورقم اللوحة)</div>
-                    {selectedVerification.verification.vehicle_video_url ? (
-                      <video src={selectedVerification.verification.vehicle_video_url} controls playsInline preload="metadata" className="w-full max-h-96 rounded-xl bg-black" />
-                    ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم يُرفق فيديو السيارة لهذا الطلب.</div>}
+                      <img src={selectedVerification.verification.vehicle_document_url} alt="سنوية السيارة أو الوكالة" className="w-full max-h-96 object-contain rounded-xl bg-black/5" />
+                    ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم تُرفق صورة سنوية السيارة أو الوكالة لهذا الطلب.</div>}
+                    <div className="mt-3">
+                      <div className="text-sm font-bold mb-2">فيديو السيارة من جميع الجهات</div>
+                      {selectedVerification.verification.vehicle_video_url ? (
+                        <a href={selectedVerification.verification.vehicle_video_url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-xl bg-primary text-primary-foreground px-4 py-2 text-xs font-bold">مشاهدة فيديو السيارة</a>
+                      ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم يُرفق فيديو السيارة لهذا الطلب.</div>}
+                    </div>
                   </div>
                 )}
                 <div className="text-xs rounded-xl bg-surface-2 p-3 space-y-1">
@@ -1600,9 +1597,9 @@ function RequestsSection() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const listRequests = useServerFn(adminListRequests);
-  const cancelRequest = useServerFn(adminCancelRequest);
-  const reopenRequest = useServerFn(adminReopenRequest);
+  const listRequests = adminListRequests;
+  const cancelRequest = adminCancelRequest;
+  const reopenRequest = adminReopenRequest;
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -1714,9 +1711,9 @@ function ChatSection() {
   const [chats, setChats] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const listChats = useServerFn(adminListChats);
-  const listMessages = useServerFn(adminListMessages);
-  const deleteMessage = useServerFn(adminDeleteMessage);
+  const listChats = adminListChats;
+  const listMessages = adminListMessages;
+  const deleteMessage = adminDeleteMessage;
   useEffect(() => {
     if (!session?.user.id) return;
     void (async () => {
@@ -1851,10 +1848,10 @@ function FriendsSection() {
   const [friends, setFriends] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const listFriends = useServerFn(adminListFriends);
-  const listFriendRequests = useServerFn(adminListFriendRequests);
-  const deleteFriendship = useServerFn(adminDeleteFriendship);
-  const deleteRequest = useServerFn(adminDeleteFriendRequest);
+  const listFriends = adminListFriends;
+  const listFriendRequests = adminListFriendRequests;
+  const deleteFriendship = adminDeleteFriendship;
+  const deleteRequest = adminDeleteFriendRequest;
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -1953,8 +1950,8 @@ function ReportsSection() {
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
-  const listReports = useServerFn(adminListReports);
-  const resolveReport = useServerFn(adminResolveReport);
+  const listReports = adminListReports;
+  const resolveReport = adminResolveReport;
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2080,12 +2077,12 @@ function CouponsSection() {
   const [audienceCountLoading, setAudienceCountLoading] = useState(false);
   const [subsidyReport, setSubsidyReport] = useState<any | null>(null);
   const [subsidyReportError, setSubsidyReportError] = useState("");
-  const listCoupons = useServerFn(adminListCoupons);
-  const saveCoupon = useServerFn(adminSaveCoupon);
-  const deleteCoupon = useServerFn(adminDeleteCoupon);
-  const distributeCoupon = useServerFn(adminDistributeCoupon);
-  const getSubsidyReport = useServerFn(adminCouponSubsidyReport);
-  const getAudienceCount = useServerFn(adminCouponAudienceCount);
+  const listCoupons = adminListCoupons;
+  const saveCoupon = adminSaveCoupon;
+  const deleteCoupon = adminDeleteCoupon;
+  const distributeCoupon = adminDistributeCoupon;
+  const getSubsidyReport = adminCouponSubsidyReport;
+  const getAudienceCount = adminCouponAudienceCount;
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2111,7 +2108,7 @@ function CouponsSection() {
     let active = true;
     setAudienceCountLoading(true);
     getAudienceCount({ data: { target: distributionTarget } })
-      .then((result) => { if (active) setAudienceCount(result.count); })
+      .then((result: { count: number }) => { if (active) setAudienceCount(result.count); })
       .catch(() => { if (active) setAudienceCount(null); })
       .finally(() => { if (active) setAudienceCountLoading(false); });
     return () => { active = false; };
@@ -2406,8 +2403,8 @@ function WalletSection() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [adjustModal, setAdjustModal] = useState(false);
-  const listTx = useServerFn(adminListTransactions);
-  const adjustWallet = useServerFn(adminAdjustWallet);
+  const listTx = adminListTransactions;
+  const adjustWallet = adminAdjustWallet;
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2529,8 +2526,8 @@ function MapSection() {
   const [locations, setLocations] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const getLocations = useServerFn(adminGetLiveLocations);
-  const getRequests = useServerFn(adminGetLiveRequests);
+  const getLocations = adminGetLiveLocations;
+  const getRequests = adminGetLiveRequests;
   useEffect(() => {
     (async () => {
       try {
@@ -2602,8 +2599,8 @@ function NotificationsSection() {
   const [governorateKey, setGovernorateKey] = useState("najaf");
   const [sending, setSending] = useState(false);
   const [sentCount, setSentCount] = useState<number | null>(null);
-  const broadcast = useServerFn(adminBroadcastNotification);
-  const broadcastGovernorate = useServerFn(adminBroadcastGovernorateNotification);
+  const broadcast = adminBroadcastNotification;
+  const broadcastGovernorate = adminBroadcastGovernorateNotification;
   async function handleSend() {
     if (!title.trim() || !body.trim()) { toast.error("اكتب عنوان الإشعار ونصه أولاً"); return; }
     if (target === "single" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId.trim())) {
@@ -2697,12 +2694,12 @@ function RolesSection() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleModal, setRoleModal] = useState<any | null>(null);
-  const listUsers = useServerFn(adminListUsers);
-  const searchUsers = useServerFn(adminSearchUsers);
-  const grantRole = useServerFn(adminGrantRole);
-  const revokeRole = useServerFn(adminRevokeRole);
-  const setStaffRank = useServerFn(adminSetStaffRank);
-  const deactivateStaff = useServerFn(adminDeactivateStaff);
+  const listUsers = adminListUsers;
+  const searchUsers = adminSearchUsers;
+  const grantRole = adminGrantRole;
+  const revokeRole = adminRevokeRole;
+  const setStaffRank = adminSetStaffRank;
+  const deactivateStaff = adminDeactivateStaff;
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2932,16 +2929,16 @@ function StaffHierarchySection() {
   const [pricingGovernorates, setPricingGovernorates] = useState<string[]>(["najaf"]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const listStaff = useServerFn(adminGovernanceListStaff);
-  const assignStaff = useServerFn(adminGovernanceAssignStaff);
-  const changeRank = useServerFn(adminGovernanceChangeRank);
-  const deactivateStaff = useServerFn(adminGovernanceDeactivateStaff);
-  const grantPricingPermissions = useServerFn(adminGovernanceGrantPricingPermissions);
-  const createDelegation = useServerFn(adminGovernanceCreateDelegation);
-  const reviewApproval = useServerFn(adminGovernanceReviewApproval);
-  const revokePermission = useServerFn(adminGovernanceRevokePermission);
-  const revokeDelegation = useServerFn(adminGovernanceRevokeDelegation);
-  const searchUsers = useServerFn(adminSearchUsers);
+  const listStaff = adminGovernanceListStaff;
+  const assignStaff = adminGovernanceAssignStaff;
+  const changeRank = adminGovernanceChangeRank;
+  const deactivateStaff = adminGovernanceDeactivateStaff;
+  const grantPricingPermissions = adminGovernanceGrantPricingPermissions;
+  const createDelegation = adminGovernanceCreateDelegation;
+  const reviewApproval = adminGovernanceReviewApproval;
+  const revokePermission = adminGovernanceRevokePermission;
+  const revokeDelegation = adminGovernanceRevokeDelegation;
+  const searchUsers = adminSearchUsers;
   const permissionOptions = [
     ["dashboard.view","لوحة القيادة"],["users.read","عرض العملاء"],["users.block","حظر العملاء"],
     ["providers.read","عرض مقدمي الخدمة"],["providers.verify","توثيق مقدمي الخدمة"],["providers.suspend","إيقاف مقدمي الخدمة"],
@@ -3115,8 +3112,8 @@ function AuditSection() {
   const [logs, setLogs] = useState<any[]>([]);
   const [staffActivity, setStaffActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const listLogs = useServerFn(adminListAuditLogs);
-  const listStaffActivity = useServerFn(adminListStaffActivity);
+  const listLogs = adminListAuditLogs;
+  const listStaffActivity = adminListStaffActivity;
   useEffect(() => {
     (async () => {
       try {
