@@ -24,6 +24,7 @@ import {
   Settings,
   AlertCircle,
   Eye,
+  ImagePlus,
   X,
 } from "lucide-react";
 import {
