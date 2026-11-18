@@ -13,114 +13,6 @@ function validPoint(p: any): p is Point {
   return p && Number.isFinite(p.lat) && Number.isFinite(p.lng) &&
     p.lat >= -90 && p.lat <= 90 && p.lng >= -180 && p.lng <= 180;
 }
-async function route(from:Point,to:Point,admin:any) {
-  const osrmBase=Deno.env.get("OSRM_ROUTING_URL")?.trim().replace(/\/+$/,"")||"";
-  const cacheScope=osrmBase?new URL(osrmBase).host:"google-routes";
-  const cacheInput=["mamnoon-driving-route-v1",cacheScope,from.lat.toFixed(6),from.lng.toFixed(6),to.lat.toFixed(6),to.lng.toFixed(6)].join("|");
-  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(cacheInput));
-  const routeKey=Array.from(new Uint8Array(digest)).map((b)=>b.toString(16).padStart(2,"0")).join("");
-  const now=new Date().toISOString();
-  const {data:cached,error:cacheReadError}=await admin.from("route_distance_cache")
-    .select("distance_meters,duration_seconds,route_source")
-    .eq("route_key",routeKey).gt("expires_at",now).maybeSingle();
-  if(!cacheReadError&&cached&&Number(cached.distance_meters)>0&&Number(cached.duration_seconds)>0) {
-    return {distanceKm:Number(cached.distance_meters)/1000,durationMin:Number(cached.duration_seconds)/60,
-      routeSource:String(cached.route_source),cacheHit:true};
-  }
-  if(cacheReadError) console.warn("[route] cache read unavailable",cacheReadError.code||"unknown");
-
-  let routed:{distanceKm:number;durationMin:number;routeSource:string}|null=null;
-  if(osrmBase) {
-    try {
-      const url=new URL(osrmBase+"/route/v1/driving/"+from.lng+","+from.lat+";"+to.lng+","+to.lat);
-      url.searchParams.set("overview","false");
-      url.searchParams.set("alternatives","true");
-      url.searchParams.set("steps","false");
-      const response=await fetch(url,{headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000)});
-      if(!response.ok) throw new Error("OSRM HTTP "+response.status);
-      const result=await response.json() as any;
-      const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distance)&&r.distance>0&&Number.isFinite(r.duration)&&r.duration>0);
-      if(result.code!=="Ok"||!routes.length) throw new Error("OSRM returned no valid driving route");
-      const selected=routes.reduce((a:any,b:any)=>b.distance<a.distance?b:a);
-      routed={distanceKm:selected.distance/1000,durationMin:selected.duration/60,routeSource:"osrm"};
-    } catch(error) {
-      console.warn("[route] configured OSRM unavailable; trying Google Routes",error instanceof Error?error.message:"unknown");
-    }
-  }
-
-  if(!routed) {
-    const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
-    if(!key) throw new Error("تعذّر حساب مسافة الطريق الفعلية حالياً. أعد المحاولة لاحقاً.");
-    const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
-        "X-Goog-FieldMask":"routes.distanceMeters,routes.duration"},
-      body:JSON.stringify({
-        origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
-        destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
-        travelMode:"DRIVE",routingPreference:"TRAFFIC_UNAWARE",computeAlternativeRoutes:true,
-        languageCode:"ar",units:"METRIC"
-      }),
-      signal:AbortSignal.timeout(9000)
-    });
-    if(!response.ok) throw new Error("تعذّر حساب مسافة الطريق الفعلية من خدمة الخرائط. أعد المحاولة.");
-    const result=await response.json() as any;
-    const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distanceMeters)&&r.distanceMeters>0&&
-      typeof r.duration==="string"&&/^\d+(\.\d+)?s$/.test(r.duration)&&parseFloat(r.duration)>0);
-    if(!routes.length) throw new Error("لم يتم العثور على طريق سيارة صالح بين النقطتين.");
-    const selected=routes.reduce((a:any,b:any)=>b.distanceMeters<a.distanceMeters?b:a);
-    routed={distanceKm:selected.distanceMeters/1000,durationMin:parseFloat(selected.duration)/60,routeSource:"google_routes"};
-  }
-
-  if(!Number.isFinite(routed.distanceKm)||routed.distanceKm<=0||
-     !Number.isFinite(routed.durationMin)||routed.durationMin<=0) {
-    throw new Error("خدمة الطرق أعادت مسافة أو مدة غير صالحة. أعد المحاولة.");
-  }
-  const {error:cacheWriteError}=await admin.from("route_distance_cache").upsert({
-    route_key:routeKey,distance_meters:routed.distanceKm*1000,duration_seconds:routed.durationMin*60,
-    route_source:routed.routeSource,expires_at:new Date(Date.now()+24*60*60*1000).toISOString()
-  },{onConflict:"route_key"});
-  if(cacheWriteError) console.warn("[route] cache write unavailable",cacheWriteError.code||"unknown");
-  return {...routed,cacheHit:false};
-}
-
-const GOVERNORATE_CENTROIDS: Array<{ key: string; lat: number; lng: number }> = [
-  { key: "baghdad", lat: 33.3152, lng: 44.3661 },
-  { key: "basra", lat: 30.5085, lng: 47.7804 },
-  { key: "nineveh", lat: 36.34, lng: 43.13 },
-  { key: "erbil", lat: 36.1911, lng: 44.0092 },
-  { key: "sulaymaniyah", lat: 35.5613, lng: 45.4306 },
-  { key: "duhok", lat: 36.8669, lng: 42.9503 },
-  { key: "kirkuk", lat: 35.4681, lng: 44.3922 },
-  { key: "najaf", lat: 32.0259, lng: 44.3462 },
-  { key: "karbala", lat: 32.616, lng: 44.0249 },
-  { key: "babil", lat: 32.4637, lng: 44.4196 },
-  { key: "anbar", lat: 33.4206, lng: 43.3058 },
-  { key: "diyala", lat: 33.7502, lng: 44.6066 },
-  { key: "saladin", lat: 34.6, lng: 43.68 },
-  { key: "wasit", lat: 32.5128, lng: 45.8182 },
-  { key: "dhiqar", lat: 31.0439, lng: 46.2573 },
-  { key: "maysan", lat: 31.8356, lng: 47.1449 },
-  { key: "muthanna", lat: 31.3099, lng: 45.2803 },
-  { key: "qadisiyah", lat: 31.9929, lng: 44.925 },
-];
-
-function inferGovernorateKey(point: Point): string {
-  const cosine = Math.cos(point.lat * Math.PI / 180);
-  let nearest = GOVERNORATE_CENTROIDS[0];
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  for (const governorate of GOVERNORATE_CENTROIDS) {
-    const distance =
-      (point.lat - governorate.lat) ** 2 +
-      ((point.lng - governorate.lng) * cosine) ** 2;
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearest = governorate;
-    }
-  }
-  return nearest.key;
-}
-
 function fare(
   category: Category,
   economyRaw: number,
@@ -175,34 +67,49 @@ Deno.serve(async (req) => {
   const tripType=["one_way","round_trip","second_trip","stop"].includes(body.tripType)?body.tripType:"one_way";
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
-  const governorateKeys = new Set(GOVERNORATE_CENTROIDS.map((item) => item.key));
   const suppliedPickupKey = typeof body.pickupGovernorateKey === "string"
     ? body.pickupGovernorateKey
     : typeof body.governorateKey === "string" ? body.governorateKey : null;
   const suppliedDestinationKey = typeof body.destinationGovernorateKey === "string"
     ? body.destinationGovernorateKey
     : null;
-  if ((suppliedPickupKey && !governorateKeys.has(suppliedPickupKey)) ||
-      (suppliedDestinationKey && !governorateKeys.has(suppliedDestinationKey))) {
-    return json({error:"المحافظة المختارة غير صحيحة. أعد تحديد المحافظة وحاول مرة ثانية."},400);
+  // Use the same polygon-validated route service as the map UI. Never trust
+  // client-supplied governorate names for intercity pricing.
+  const routeResponse = await fetch(`${url.replace(/\\/+$/, "")}/functions/v1/maps-proxy`, {
+    method: "POST",
+    headers: { Authorization: auth, apikey: anon, "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "route", from: body.from, to: body.to }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const routeData = await routeResponse.json().catch(() => null) as any;
+  if (!routeResponse.ok || !routeData) {
+    const status = routeResponse.status >= 400 && routeResponse.status < 500 ? routeResponse.status : 503;
+    return json({ error: routeData?.error || "تعذّر التحقق من مسار الرحلة داخل العراق", code: "ROUTE_VALIDATION_FAILED" }, status);
   }
-  const fromGovernorate = suppliedPickupKey || inferGovernorateKey(body.from);
-  const toGovernorate = suppliedDestinationKey || inferGovernorateKey(body.to);
-  const isIntercity = fromGovernorate !== toGovernorate;
+  const fromGovernorate = typeof routeData.fromGovernorateKey === "string" ? routeData.fromGovernorateKey : "";
+  const toGovernorate = typeof routeData.toGovernorateKey === "string" ? routeData.toGovernorateKey : "";
+  const isIntercity = routeData.isIntercity === true;
+  if (!fromGovernorate || !toGovernorate || typeof routeData.isIntercity !== "boolean" ||
+      !Number.isFinite(Number(routeData.distanceKm)) || Number(routeData.distanceKm) <= 0 ||
+      !Number.isFinite(Number(routeData.durationMin)) || Number(routeData.durationMin) <= 0) {
+    return json({ error: "أعادت خدمة الخرائط بيانات مسار غير صالحة", code: "ROUTE_VALIDATION_FAILED" }, 503);
+  }
+  if ((suppliedPickupKey && suppliedPickupKey !== fromGovernorate) ||
+      (suppliedDestinationKey && suppliedDestinationKey !== toGovernorate)) {
+    return json({ error: "المحافظة المحددة لا تطابق موقع الرحلة الفعلي. حدّد المحافظات من جديد." }, 400);
+  }
   if (isIntercity && !suppliedDestinationKey) {
-    return json({error:"أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها."},400);
+    return json({ error: "أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها." }, 400);
   }
   if (typeof body.isIntercity === "boolean" && body.isIntercity !== isIntercity) {
-    return json({error:"المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد."},400);
+    return json({ error: "المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد." }, 400);
   }
-  let routed;
-  try {
-    routed=await route(body.from,body.to,admin);
-  } catch(error) {
-    const message=error instanceof Error?error.message:"تعذّر حساب مسافة الطريق الفعلية. أعد المحاولة لاحقاً.";
-    console.error("[auto-taxi-pricing] driving route unavailable",message);
-    return json({error:message,code:"DRIVING_ROUTE_UNAVAILABLE"},503);
-  }
+  const routed = {
+    distanceKm: Number(routeData.distanceKm),
+    durationMin: Number(routeData.durationMin),
+    routeSource: String(routeData.routeSource || "maps_proxy"),
+    cacheHit: routeData.cacheHit === true,
+  };
   // Read through the authenticated customer session: pricing_settings grants
   // SELECT to authenticated only. Keep service-role access for request creation.
   const {data:settingsRows,error:settingsError}=await userClient.from("pricing_settings").select("*")

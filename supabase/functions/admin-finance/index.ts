@@ -102,18 +102,6 @@ Deno.serve(async (req: Request) => {
       return json({ coupons: data ?? [] });
     }
 
-    if (body.action === "list") {
-      await requirePermission("finance.read");
-      await requirePermission("promotions.read");
-      const [transactions, coupons] = await Promise.all([
-        admin.from("transactions").select("*, profiles!inner(full_name,phone)")
-          .order("created_at", { ascending: false }).limit(200),
-        admin.from("coupons").select("*").order("created_at", { ascending: false }).limit(200),
-      ]);
-      if (transactions.error || coupons.error) return json({ error: "finance_data_load_failed" }, 500);
-      return json({ transactions: transactions.data ?? [], coupons: coupons.data ?? [] });
-    }
-
     if (body.action === "adjust_wallet") {
       if (!uuid(body.user_id) || typeof body.amount !== "number" || !Number.isFinite(body.amount) ||
           body.amount <= 0 || body.amount > 1000000000 ||
