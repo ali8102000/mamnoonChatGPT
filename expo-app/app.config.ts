@@ -1,9 +1,20 @@
 import type { ExpoConfig, ConfigContext } from "expo/config";
+import publicBackend from "../config/public-backend.json";
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const mapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  // Web and Android share one committed public backend configuration.
+  // Ignore stale EAS Supabase variables so an old project can never be baked into a new APK.
+  const supabaseUrl = publicBackend.VITE_SUPABASE_URL.trim();
+  const supabasePublishableKey = publicBackend.VITE_SUPABASE_PUBLISHABLE_KEY.trim();
+  const easSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
+  const easSupabaseKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (easSupabaseUrl && easSupabaseUrl !== supabaseUrl) {
+    console.warn("[Mamnoon] Ignoring stale EXPO_PUBLIC_SUPABASE_URL; using the verified shared backend config.");
+  }
+  if (easSupabaseKey && easSupabaseKey !== supabasePublishableKey) {
+    console.warn("[Mamnoon] Ignoring stale EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY; using the verified shared backend config.");
+  }
   const easProjectId = process.env.EAS_PROJECT_ID ?? process.env.EAS_BUILD_PROJECT_ID;
   const isProduction = process.env.APP_ENV === "production";
   const isEasBuild = process.env.EAS_BUILD === "true";
@@ -12,8 +23,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   // remote production variables. Validate those values in the env:exec
   // preflight script and again on the remote production build worker.
   const missingProductionConfig = [
-    ...(!supabaseUrl ? ["EXPO_PUBLIC_SUPABASE_URL"] : []),
-    ...(!supabasePublishableKey ? ["EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] : []),
     ...(!mapsKey ? ["EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"] : []),
     ...(!easProjectId ? ["EAS_PROJECT_ID"] : []),
   ];
@@ -21,6 +30,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     throw new Error(
       `Production build is missing required Expo environment variables: ${missingProductionConfig.join(", ")}`,
     );
+  }
+  if (supabaseUrl.split(".")[0] !== "enteiolvirenbhkyskgb") {
+    throw new Error("Mamnoon shared backend config must point to Supabase project enteiolvirenbhkyskgb.");
   }
   if (isProduction && supabaseUrl && !supabaseUrl.startsWith("https://")) {
     throw new Error("EXPO_PUBLIC_SUPABASE_URL must use HTTPS in production.");
