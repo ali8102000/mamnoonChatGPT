@@ -508,7 +508,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
       </LinearGradient>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
-        {tiles.map((tile) => (
+        {[...tiles].sort((a, b) => {
+          const keyFor = (tile: (typeof tiles)[number]) => tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
+          return Number(visuals[keyFor(a)]?.sort_order ?? 0) - Number(visuals[keyFor(b)]?.sort_order ?? 0);
+        }).map((tile) => (
           <TouchableOpacity
             key={tile.key}
             accessibilityRole="button"
@@ -541,8 +544,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: tile.key === "service" ? 68 : 48,
-                height: tile.key === "service" ? 68 : 48,
+                width: Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.width_px) || (tile.key === "service" ? 68 : 48), 48),
+                height: Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.height_px) || (tile.key === "service" ? 68 : 48), 48),
                 borderRadius: 18,
                 alignItems: "center",
                 justifyContent: "center",
@@ -550,9 +553,9 @@ function CustomerHome({ userId }: { userId: string | null }) {
               }}
             >
               {tile.key === "service" ? (
-                <Image source={visuals.home_customer_service?.image_url ? { uri: visuals.home_customer_service.image_url } : getServiceImage("build")} style={{ width: Number(visuals.home_customer_service?.width_px) || 68, height: Number(visuals.home_customer_service?.height_px) || 68 }} resizeMode="cover" />
+                visuals.home_customer_service?.icon_name ? <Text style={{ fontSize: 34 }}>{visuals.home_customer_service.icon_name}</Text> : <Image source={visuals.home_customer_service?.image_url ? { uri: visuals.home_customer_service.image_url } : getServiceImage("build")} style={{ width: Number(visuals.home_customer_service?.width_px) || 68, height: Number(visuals.home_customer_service?.height_px) || 68 }} resizeMode="cover" />
               ) : (
-                <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 54, height: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 42 }} resizeMode="contain" />
+                visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.icon_name ? <Text style={{ fontSize: 30 }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].icon_name}</Text> : <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 54, height: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 42 }} resizeMode="contain" />
               )}
             </LinearGradient>
             <View>
