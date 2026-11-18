@@ -837,7 +837,8 @@ function ProviderHome({
               activeOpacity={0.85}
             >
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.requestCustomer}>طلب جديد · {req.type === "taxi" ? "سائق" : "فني"}</Text>\n                {Number(req.urgency_multiplier ?? 1) > 1 && <Text style={{ color: "#B45309", fontSize: 11, fontWeight: "900", textAlign: "right" }}>⚡ طلب عاجل ×{req.urgency_multiplier}</Text>}
+                <Text style={styles.requestCustomer}>طلب جديد · {req.type === "taxi" ? "سائق" : "فني"}</Text>
+                {Number(req.urgency_multiplier ?? 1) > 1 && <Text style={{ color: "#B45309", fontSize: 11, fontWeight: "900", textAlign: "right" }}>⚡ طلب عاجل ×{req.urgency_multiplier}</Text>}
                 <Text style={styles.requestType}>
                   {req.vehicle_category === "large" ? `🚚 سيارة كبيرة — ${req.vehicle_type === "kia_passenger" ? "كيا ركاب" : req.vehicle_type === "bus" ? "باص" : "كيا حمل"}` : req.type === "taxi" ? "🚕 طلب سيارة" : "🔧 طلب خدمة"}
                 </Text>
