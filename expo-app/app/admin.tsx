@@ -306,7 +306,7 @@ export default function AdminScreen() {
       <View style={styles.inboxHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>طلبات الشراكة الجديدة</Text>
-          <Text style={styles.inboxHint}>{partnerApplications.length} طلب بانتظار مراجعة الإدارة</Text>
+          <Text style={styles.inboxHint}>{partnerApplications.length} طلب شراكة مسجل</Text>
         </View>
         <ActionButton size="sm" onPress={onRefresh}><Text style={styles.inboxOpenText}>تحديث</Text></ActionButton>
       </View>
