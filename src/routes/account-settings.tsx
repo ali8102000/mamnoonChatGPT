@@ -217,6 +217,24 @@ function AccountSettingsPage() {
       {partnerApplications.length>0 && <div className="mt-4 space-y-2"><h3 className="text-xs font-black">طلبات الشراكة السابقة</h3>{partnerApplications.map((item:any)=><div key={item.id} className="rounded-xl border border-border p-3 text-xs"><div className="flex items-center justify-between gap-2"><b>{item.business_name}</b><span className={`rounded-full px-2 py-1 font-bold ${item.status==="approved"?"bg-emerald-500/10 text-emerald-700":item.status==="rejected"?"bg-red-500/10 text-red-700":"bg-amber-500/10 text-amber-700"}`}>{item.status==="approved"?"تمت الموافقة":item.status==="rejected"?"مرفوض":"قيد المراجعة"}</span></div><p className="mt-1 text-muted-foreground">{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {new Date(item.created_at).toLocaleDateString("ar-IQ")}</p>{item.admin_note&&<p className="mt-1 text-muted-foreground">ملاحظة الإدارة: {item.admin_note}</p>}</div>)}</div>}
     </section>
 
+    <section className="mb-6 rounded-3xl border border-border/60 bg-card/60 p-4">
+      <div className="mb-3"><h2 className="font-black text-sm">سجّل كسائق أو فني</h2><p className="text-[10px] text-muted-foreground mt-1">طلبات التكسي والسيارات الكبيرة والفنيين تبقى ضمن مساراتها الحالية.</p></div>
+      <div className="grid grid-cols-1 gap-3">
+        {roleItems.filter(item => item.role !== "customer").map(item => {
+          const Icon = item.icon;
+          const alreadyRegistered = roles.includes(item.role as any);
+          return <button key={item.role} type="button" onClick={() => {
+            if (item.role === "large_driver") window.location.href = "/onboarding/driver?provider=large_driver";
+            else navigate({ to: item.role === "driver" ? "/onboarding/driver" : "/onboarding/worker" });
+          }} className="w-full rounded-2xl border border-border/70 bg-background/70 p-4 flex items-center gap-3 text-right transition active:scale-[0.99] hover:border-primary/40">
+            <span className={`h-11 w-11 shrink-0 rounded-2xl grid place-items-center ${item.style}`}><Icon className="h-5 w-5" /></span>
+            <span className="flex-1 min-w-0"><span className="block text-sm font-black">{item.title}</span><span className="block text-[10px] text-muted-foreground mt-1">{item.subtitle}</span></span>
+            <span className="shrink-0 rounded-xl bg-primary/10 text-primary px-3 py-2 text-[10px] font-black">{alreadyRegistered ? "متابعة / تحديث" : "ابدأ التسجيل"}</span>
+          </button>;
+        })}
+      </div>
+    </section>
+
     {isCompanyAdmin && <section className="mb-6">
       <h2 className="font-black text-sm mb-3 px-1">اسم الشركة الظاهر للمستخدمين</h2>
       <div className="rounded-3xl border border-primary/20 bg-card p-4">
