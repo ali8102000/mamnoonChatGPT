@@ -243,4 +243,107 @@ create policy partner_customer_orders_partner_update on public.partner_customer_
     )
   );
 
+
+-- Validate every submitted restaurant/store item against the active catalogue.
+-- The partner confirms the final price separately; customer-supplied totals are never trusted.
+create or replace function public.validate_partner_order_items()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_entry jsonb;
+  v_item_id uuid;
+  v_quantity integer;
+  v_item public.partner_catalog_items%rowtype;
+  v_expected_type text;
+begin
+  v_expected_type := case when new.order_type = 'restaurant' then 'menu_item' else 'product' end;
+
+  for v_entry in select value from jsonb_array_elements(new.requested_items)
+  loop
+    if jsonb_typeof(v_entry) <> 'object'
+      or coalesce(v_entry->>'item_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+      or coalesce(v_entry->>'quantity', '') !~ '^[1-9][0-9]{0,3} then
+      raise exception 'كل عنصر بالطلب لازم يحتوي item_id صحيح وكمية من 1 إلى 9999'
+        using errcode = '22023';
+    end if;
+
+    v_item_id := (v_entry->>'item_id')::uuid;
+    v_quantity := (v_entry->>'quantity')::integer;
+
+    select * into v_item
+    from public.partner_catalog_items
+    where id = v_item_id
+      and business_profile_id = new.business_profile_id
+      and item_type = v_expected_type
+      and is_active = true;
+
+    if not found then
+      raise exception 'أحد عناصر الطلب غير متاح حالياً'
+        using errcode = '22023';
+    end if;
+
+    if v_item.quantity_available is not null and v_quantity > v_item.quantity_available then
+      raise exception 'الكمية المطلوبة غير متوفرة'
+        using errcode = '22023';
+    end if;
+  end loop;
+
+  return new;
+end;
+$;
+revoke all on function public.validate_partner_order_items() from public, anon, authenticated;
+drop trigger if exists trg_validate_partner_order_items on public.partner_customer_orders;
+create trigger trg_validate_partner_order_items
+  before insert on public.partner_customer_orders
+  for each row execute function public.validate_partner_order_items();
+
+-- Prevent two confirmed reservations for the same room from overlapping.
+-- A transaction-scoped advisory lock serializes confirmations for each room.
+create or replace function public.prevent_partner_room_double_booking()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  if new.status = 'confirmed' then
+    perform pg_advisory_xact_lock(hashtextextended(new.room_item_id::text, 0));
+
+    if not exists (
+      select 1 from public.partner_catalog_items i
+      where i.id = new.room_item_id
+        and i.business_profile_id = new.business_profile_id
+        and i.item_type = 'room'
+        and i.is_active = true
+    ) then
+      raise exception 'الغرفة غير متاحة للحجز'
+        using errcode = '22023';
+    end if;
+
+    if exists (
+      select 1 from public.partner_hotel_reservations r
+      where r.room_item_id = new.room_item_id
+        and r.id <> new.id
+        and r.status = 'confirmed'
+        and new.check_in < r.check_out
+        and new.check_out > r.check_in
+    ) then
+      raise exception 'الغرفة محجوزة خلال هذه المدة'
+        using errcode = '23P01';
+    end if;
+  end if;
+
+  return new;
+end;
+$;
+revoke all on function public.prevent_partner_room_double_booking() from public, anon, authenticated;
+drop trigger if exists trg_prevent_partner_room_double_booking on public.partner_hotel_reservations;
+create trigger trg_prevent_partner_room_double_booking
+  before insert or update of status, room_item_id, check_in, check_out
+  on public.partner_hotel_reservations
+  for each row execute function public.prevent_partner_room_double_booking();
+
 commit;
