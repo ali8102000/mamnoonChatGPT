@@ -120,7 +120,6 @@ type Section =
   | "coupons"
   | "wallet"
   | "stats"
-  | "governorateStats"
   | "map"
   | "notifications"
   | "regions"
@@ -142,7 +141,6 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
   { key: "stats", label: "الإحصائيات", icon: Activity, roles: ["super_admin", "admin", "finance"] },
-  { key: "governorateStats", label: "إحصائيات المستخدمين حسب المحافظة", icon: MapPin, roles: ["super_admin", "admin"] },
   {
     key: "users",
     label: "المستخدمون",
@@ -206,6 +204,28 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
 
+const ADMIN_NAV_GROUPS: { title: string; description: string; keys: Section[] }[] = [
+  {
+    title: "إدارة المنصة والمستخدمين",
+    description: "حسابات الزبائن ومقدمي الخدمات والطلبات والتواصل والمتابعة",
+    keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"],
+  },
+  {
+    title: "الإحصائيات والمال",
+    description: "مؤشرات الأداء والإيرادات والاشتراكات والأرصدة والعروض",
+    keys: ["stats", "subscriptions", "wallet", "coupons"],
+  },
+  {
+    title: "التشغيل والمدن والتسعير",
+    description: "إعدادات المحافظات والتوزيع والتعرفة ومستويات الأداء",
+    keys: ["regions", "dispatchZones", "pricing", "driverTiers", "notifications"],
+  },
+  {
+    title: "الحوكمة وإعدادات النظام",
+    description: "الموظفون والصلاحيات وسجل العمليات وإعدادات الشركة والمحتوى",
+    keys: ["staff", "roles", "audit", "company", "visualBuilder", "homeBanners"],
+  },
+];
 function AdminPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { session, loading } = useAuth();
@@ -357,32 +377,53 @@ function AdminPage() {
           {section === "overview" && (
             <>
               <OverviewSection />
-              {(staffRoles.includes("super_admin") || staffRoles.includes("admin")) && (
-                <section className="mt-6 space-y-3" dir="rtl">
+              <section className="mt-7 space-y-4" dir="rtl">
+                <div className="flex flex-wrap items-end justify-between gap-2">
                   <div>
-                    <h2 className="text-lg font-black">التحكمات الإدارية المباشرة</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">اختصارات واضحة لإعدادات المحافظات والتوزيع ورتب السائقين.</p>
+                    <h2 className="text-xl font-black">مركز التحكم الإداري</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">كل أدوات الإدارة مرتبة حسب وظيفتها، وتظهر فقط الأقسام المسموح بها لحسابك.</p>
                   </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <button onClick={() => setSection("regions")} className="glass flex items-center gap-3 rounded-2xl border border-border p-4 text-right transition-colors hover:border-primary/60 hover:bg-surface-2">
-                      <MapPin className="h-6 w-6 shrink-0 text-primary" />
-                      <span><span className="block text-sm font-black">التحكم بالمحافظات</span><span className="mt-1 block text-[11px] text-muted-foreground">إيقاف وتشغيل الخدمات والتنويهات لكل محافظة</span></span>
-                    </button>
-                    <button onClick={() => setSection("dispatchZones")} className="glass flex items-center gap-3 rounded-2xl border border-border p-4 text-right transition-colors hover:border-primary/60 hover:bg-surface-2">
-                      <Map className="h-6 w-6 shrink-0 text-primary" />
-                      <span><span className="block text-sm font-black">نطاقات توزيع الطلبات</span><span className="mt-1 block text-[11px] text-muted-foreground">تحديد مسافات وصول الطلبات للسائقين والفنيين</span></span>
-                    </button>
-                    <button onClick={() => setSection("driverTiers")} className="glass flex items-center gap-3 rounded-2xl border border-border p-4 text-right transition-colors hover:border-primary/60 hover:bg-surface-2">
-                      <Car className="h-6 w-6 shrink-0 text-primary" />
-                      <span><span className="block text-sm font-black">رتب أداء السائقين</span><span className="mt-1 block text-[11px] text-muted-foreground">تعديل معايير الرتب حسب الرحلات والتقييمات</span></span>
-                    </button>
-                  </div>
-                </section>
-              )}
+                  <span className="rounded-full border border-border px-3 py-1 text-[10px] font-bold text-muted-foreground">{visibleItems.length} قسم متاح</span>
+                </div>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  {ADMIN_NAV_GROUPS.map((group) => {
+                    const items = group.keys
+                      .map((key) => visibleItems.find((item) => item.key === key))
+                      .filter((item): item is (typeof NAV_ITEMS)[number] => Boolean(item));
+                    if (items.length === 0) return null;
+                    return (
+                      <section key={group.title} className="glass rounded-2xl border border-border p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <div>
+                            <h3 className="text-sm font-black">{group.title}</h3>
+                            <p className="mt-1 text-[10px] text-muted-foreground">{group.description}</p>
+                          </div>
+                          <span className="rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-black text-primary">{items.length}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {items.map((item) => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              onClick={() => setSection(item.key)}
+                              className="group flex min-h-[92px] flex-col items-start justify-between gap-3 rounded-xl border border-border bg-background/70 p-3 text-right transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:bg-primary/5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              aria-label={"فتح قسم " + item.label}
+                            >
+                              <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                                <item.icon className="h-4 w-4" />
+                              </span>
+                              <span className="text-xs font-black leading-5">{item.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              </section>
             </>
           )}
-          {section === "stats" && <StatsSection />}
-          {section === "governorateStats" && <GovernorateUserStatsSection />}
+          {section === "stats" && <StatsDashboardSection staffRoles={staffRoles} />}
           {section === "users" && <UsersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "providers" && <ProvidersSection />}
           {section === "requests" && <RequestsSection />}
@@ -417,8 +458,7 @@ function OverviewSection() {
     (async () => {
       try {
         setStats(await getStats());
-      } catch (e) {
-      } finally {
+      } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
         setLoading(false);
       }
     })();
@@ -603,6 +643,36 @@ function GovernorateUserStatsSection() {
   );
 }
 
+function StatsDashboardSection({ staffRoles }: { staffRoles: string[] }) {
+  const canViewGovernorates = staffRoles.some((role) => role === "super_admin" || role === "admin");
+  const [activeTab, setActiveTab] = useState<"overview" | "governorates">("overview");
+
+  useEffect(() => {
+    if (!canViewGovernorates && activeTab === "governorates") setActiveTab("overview");
+  }, [activeTab, canViewGovernorates]);
+
+  return (
+    <div dir="rtl">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-black">الإحصائيات</h2>
+          <p className="mt-1 text-xs text-muted-foreground">لوحة موحدة لمؤشرات المنصة وتوزيع المستخدمين حسب المحافظة.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-surface-2 p-1" role="tablist" aria-label="أقسام الإحصائيات">
+          <button type="button" role="tab" aria-selected={activeTab === "overview"} onClick={() => setActiveTab("overview")} className={activeTab === "overview" ? "rounded-lg bg-primary px-4 py-2 text-xs font-black text-primary-foreground shadow-sm" : "rounded-lg px-4 py-2 text-xs font-black text-muted-foreground hover:bg-background"}>
+            المؤشرات العامة
+          </button>
+          {canViewGovernorates && (
+            <button type="button" role="tab" aria-selected={activeTab === "governorates"} onClick={() => setActiveTab("governorates")} className={activeTab === "governorates" ? "rounded-lg bg-primary px-4 py-2 text-xs font-black text-primary-foreground shadow-sm" : "rounded-lg px-4 py-2 text-xs font-black text-muted-foreground hover:bg-background"}>
+              إحصائيات المحافظات
+            </button>
+          )}
+        </div>
+      </div>
+      {activeTab === "overview" ? <StatsSection /> : canViewGovernorates ? <GovernorateUserStatsSection /> : <StatsSection />}
+    </div>
+  );
+}
 function StatsSection() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -611,8 +681,7 @@ function StatsSection() {
     (async () => {
       try {
         setStats(await getStats());
-      } catch (e) {
-      } finally {
+      } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
         setLoading(false);
       }
     })();
@@ -710,8 +779,7 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
         setUsers(d.users);
         setTotal(d.total);
       }
-    } catch (e) {
-    } finally {
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
       setLoading(false);
     }
   }, [page, searchQuery, listUsers, searchUsers]);
@@ -721,20 +789,20 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
   async function viewUser(userId: string) {
     try {
       setSelectedUser(await getUserDetail({ data: { user_id: userId } }));
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   async function handleBlock(userId: string, reason: string, expiresAt: string | null) {
     try {
       await blockUser({ data: { user_id: userId, reason, expires_at: expiresAt ?? undefined } });
       setBlockModal(null);
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   async function handleUnblock(userId: string) {
     try {
       await unblockUser({ data: { user_id: userId } });
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   return (
     <div>
@@ -1608,8 +1676,7 @@ function RequestsSection() {
     setLoading(true);
     try {
       setRequests(await listRequests({ data: { status: statusFilter } }));
-    } catch (e) {
-    } finally {
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
       setLoading(false);
     }
   }, [statusFilter, listRequests]);
@@ -1620,13 +1687,13 @@ function RequestsSection() {
     try {
       await cancelRequest({ data: { request_id: id } });
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   async function handleReopen(id: string) {
     try {
       await reopenRequest({ data: { request_id: id } });
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   const statusLabels: Record<string, string> = {
     pending: "بانتظار",
@@ -1735,8 +1802,7 @@ function ChatSection() {
     try {
       if (tab === "chats") setChats(await listChats({ data: {} }));
       else setMessages(await listMessages({ data: {} }));
-    } catch (e) {
-    } finally {
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
       setLoading(false);
     }
   }, [tab, listChats, listMessages, customerServiceOnly]);
@@ -1767,7 +1833,7 @@ function ChatSection() {
     try {
       await deleteMessage({ data: { message_id: id } });
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   return (
     <div>
@@ -1861,8 +1927,7 @@ function FriendsSection() {
     try {
       if (tab === "friends") setFriends(await listFriends({ data: {} }));
       else setRequests(await listFriendRequests({ data: {} }));
-    } catch (e) {
-    } finally {
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
       setLoading(false);
     }
   }, [tab, listFriends, listFriendRequests]);
@@ -1907,7 +1972,7 @@ function FriendsSection() {
                         data: { user1_id: f.user_id, user2_id: f.friend_id },
                       });
                       load();
-                    } catch (e) {}
+                    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
                   }}
                   className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
                 >
@@ -1936,7 +2001,7 @@ function FriendsSection() {
                   try {
                     await deleteRequest({ data: { request_id: r.id } });
                     load();
-                  } catch (e) {}
+                  } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
                 }}
                 className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
               >
@@ -1960,8 +2025,7 @@ function ReportsSection() {
     setLoading(true);
     try {
       setReports(await listReports({ data: { status: statusFilter } }));
-    } catch (e) {
-    } finally {
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
       setLoading(false);
     }
   }, [statusFilter, listReports]);
@@ -1972,7 +2036,7 @@ function ReportsSection() {
     try {
       await resolveReport({ data: { report_id: id, status: status as any, note } });
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   return (
     <div>
@@ -2150,7 +2214,7 @@ function CouponsSection() {
     try {
       await deleteCoupon({ data: { coupon_id: id } });
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   async function handleDistribute(id: string) {
     if (distributionTarget === "single" && !singleUserId.trim()) {
@@ -2413,8 +2477,7 @@ function WalletSection() {
     setLoading(true);
     try {
       setTransactions(await listTx({ data: {} }));
-    } catch (e) {
-    } finally {
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
       setLoading(false);
     }
   }, [listTx]);
@@ -2426,7 +2489,7 @@ function WalletSection() {
       await adjustWallet({ data: { user_id: userId, amount, type, note } });
       setAdjustModal(false);
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   return (
     <div>
@@ -2538,8 +2601,7 @@ function MapSection() {
         const [l, r] = await Promise.all([getLocations(), getRequests()]);
         setLocations(l);
         setRequests(r);
-      } catch (e) {
-      } finally {
+      } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
         setLoading(false);
       }
     })();
@@ -2712,8 +2774,7 @@ function RolesSection() {
         const d = await listUsers({ data: { page: 1, limit: 50 } });
         setUsers(d.users);
       }
-    } catch (e) {
-    } finally {
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
       setLoading(false);
     }
   }, [searchQuery, searchUsers, listUsers]);
@@ -2725,13 +2786,13 @@ function RolesSection() {
       await grantRole({ data: { target_user_id: userId, role } });
       setRoleModal(null);
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   async function handleRevoke(userId: string, role: string) {
     try {
       await revokeRole({ data: { target_user_id: userId, role } });
       load();
-    } catch (e) {}
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); }
   }
   async function handleAssign(userId: string, rank: string, department: string, displayTitle: string) {
     try {
@@ -2831,8 +2892,7 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }:
           .select("role")
           .eq("user_id", user.id);
         setRoles((data ?? []).map((r: any) => r.role));
-      } catch (e) {
-      } finally {
+      } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
         setLoading(false);
       }
     })();
@@ -3122,13 +3182,12 @@ function AuditSection() {
     (async () => {
       try {
         setLogs(await listLogs({ data: {} }));
-      } catch (e) {
-      } finally {
+      } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } finally {
         setLoading(false);
       }
     })();
   }, [listLogs]);
-  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e) {} })(); }, [listStaffActivity]);
+  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e) { toast.error(e instanceof Error ? e.message : "تعذّر تنفيذ العملية"); } })(); }, [listStaffActivity]);
   const staffActionLabels: Record<string, string> = { view_support_message: "شاهد رسالة دعم", reply_support_message: "رد على رسالة دعم", rank_changed: "تغيير رتبة", department_changed: "تغيير قسم", staff_activated: "تفعيل موظف", staff_deactivated: "إيقاف موظف" };
   const actionLabels: Record<string, string> = {
     grant_role: "منح صلاحية",
