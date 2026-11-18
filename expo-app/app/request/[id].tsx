@@ -221,6 +221,8 @@ export default function RequestDetail() {
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
   const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
+  const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
+  const roadRouteSequenceRef = useRef(0);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
   const [freshnessClock, setFreshnessClock] = useState(Date.now());
   const lastEtaRequestRef = useRef<{ latitude: number; longitude: number; requestedAt: number } | null>(null);
@@ -730,6 +732,39 @@ export default function RequestDetail() {
       supabase.removeChannel(channel);
     };
   }, [id, isActive, currentUserId]);
+
+  useEffect(() => {
+    if (!isActive || !myLocation || !otherLocation || !driverLocationFresh) {
+      roadRouteSequenceRef.current += 1;
+      setRoadRoutePoints([]);
+      return;
+    }
+    // Both views draw the same real road route: provider GPS -> customer pickup.
+    const origin = isCustomer ? otherLocation : myLocation;
+    const destination = isCustomer ? myLocation : otherLocation;
+    const sequence = ++roadRouteSequenceRef.current;
+    const timeout = setTimeout(() => {
+      void callMamnoonMapsApi<{ routePoints?: { lat: number; lng: number }[] }>({
+        action: "route",
+        from: { lat: origin.latitude, lng: origin.longitude },
+        to: { lat: destination.latitude, lng: destination.longitude },
+        includeGeometry: true,
+      }).then((route) => {
+        if (sequence !== roadRouteSequenceRef.current) return;
+        const points = (route.routePoints ?? []).filter((point) =>
+          Number.isFinite(point.lat) && Number.isFinite(point.lng) &&
+          Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180,
+        );
+        setRoadRoutePoints(points.length > 1 ? points.map((point) => ({ latitude: point.lat, longitude: point.lng })) : []);
+      }).catch((error) => {
+        if (sequence === roadRouteSequenceRef.current) {
+          setRoadRoutePoints([]);
+          console.warn("[Mamnoon] road route unavailable:", error instanceof Error ? error.message : "unknown");
+        }
+      });
+    }, 350);
+    return () => clearTimeout(timeout);
+  }, [isActive, isCustomer, myLocation?.latitude, myLocation?.longitude, otherLocation?.latitude, otherLocation?.longitude, driverLocationFresh]);
 
   useEffect(() => {
     if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
@@ -1255,6 +1290,15 @@ export default function RequestDetail() {
                 }}
                 showsUserLocation={request.type !== "taxi"}
               >
+                {roadRoutePoints.length > 1 && (
+                  <Polyline
+                    coordinates={roadRoutePoints}
+                    strokeColor="#2563EB"
+                    strokeWidth={6}
+                    lineCap="round"
+                    lineJoin="round"
+                  />
+                )}
                 {providerRoutePoints.length > 1 && (
                   <Polyline
                     coordinates={providerRoutePoints}
