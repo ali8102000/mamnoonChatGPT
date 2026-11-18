@@ -834,7 +834,9 @@ export default function NewRequest() {
       return;
     }
 
-    const proposedUnitPrice = customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;\n    const servicePriceMultiplier = extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0);\n    const proposedPrice = proposedUnitPrice === null ? null : (isTaxi ? proposedUnitPrice : proposedUnitPrice * servicePriceMultiplier);
+    const proposedUnitPrice = customerPrice.trim() ? Number(customerPrice.replace(/[^0-9]/g, "")) : null;
+    const servicePriceMultiplier = extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0);
+    const proposedPrice = proposedUnitPrice === null ? null : (isTaxi ? proposedUnitPrice : proposedUnitPrice * servicePriceMultiplier);
     if (isLargeVehicle && customerPrice.trim() && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice > 50000 || proposedPrice % 250 !== 0)) {
       Alert.alert("السعر غير صحيح", "السعر المقترح يجب أن يكون من 250 إلى 50000 دينار ومن مضاعفات 250.");
       return;
