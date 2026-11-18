@@ -11,7 +11,8 @@ export interface VerificationDocument {
   facePhotoUrl: string; // Base64 data URL
   idCardPhotoUrl: string; // Base64 data URL
   idCardBackPhotoUrl?: string; // Back side of national ID, Base64 data URL
-  vehicleDocumentPhotoUrl?: string; // Official vehicle document image\n  vehicleVideoPath?: string; // Private Supabase Storage path for the vehicle walkaround video
+  vehicleDocumentPhotoUrl?: string; // Official vehicle document image
+  vehicleVideoPath?: string; // Private Supabase Storage path for the vehicle walkaround video
   idNumber?: string;
   documentType: "national_id" | "driver_license" | "passport";
   verifiedAt: string;
@@ -169,7 +170,8 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
       vehiclePlate: doc.vehiclePlate ?? null,
       vehicleColor: doc.vehicleColor ?? null,
       vehicleCategory: doc.vehicleCategory ?? null,
-      vehicleType: doc.vehicleType ?? null,\n      vehicleVideoPath: doc.vehicleVideoPath ?? null,
+      vehicleType: doc.vehicleType ?? null,
+      vehicleVideoPath: doc.vehicleVideoPath ?? null,
       workerLevel: doc.workerLevel ?? null,
       workerBio: doc.workerBio ?? null,
       workerServices: doc.workerServices ?? [],
@@ -184,7 +186,24 @@ export async function saveProviderVerificationRemote(doc: VerificationDocument):
 }
 
 
-/** Upload a short vehicle walkaround video to private verification storage. */\nexport async function uploadProviderVehicleVideo(\n  userId: string,\n  role: VerificationDocument["role"],\n  file: File,\n): Promise<string> {\n  const { supabase } = await import("@/integrations/supabase/client");\n  const allowed = ["video/mp4", "video/quicktime", "video/webm"];\n  if (!allowed.includes(file.type)) throw new Error("صيغة الفيديو غير مدعومة. استخدم MP4 أو MOV أو WEBM.");\n  if (file.size > 50 * 1024 * 1024) throw new Error("حجم فيديو السيارة يجب ألا يتجاوز 50 ميغابايت.");\n  const extension = file.type === "video/quicktime" ? "mov" : file.type === "video/webm" ? "webm" : "mp4";\n  const path = `${userId}/${role}/vehicle-video-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;\n  const { error } = await supabase.storage.from("provider-verification").upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });\n  if (error) throw new Error(`تعذر رفع فيديو السيارة: ${error.message}`);\n  return path;\n}\n\n/** Upload only the verification documents explicitly replaced by a provider. */
+/** Upload a short vehicle walkaround video to private verification storage. */
+export async function uploadProviderVehicleVideo(
+  userId: string,
+  role: VerificationDocument["role"],
+  file: File,
+): Promise<string> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const allowed = ["video/mp4", "video/quicktime", "video/webm"];
+  if (!allowed.includes(file.type)) throw new Error("صيغة الفيديو غير مدعومة. استخدم MP4 أو MOV أو WEBM.");
+  if (file.size > 50 * 1024 * 1024) throw new Error("حجم فيديو السيارة يجب ألا يتجاوز 50 ميغابايت.");
+  const extension = file.type === "video/quicktime" ? "mov" : file.type === "video/webm" ? "webm" : "mp4";
+  const path = `${userId}/${role}/vehicle-video-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+  const { error } = await supabase.storage.from("provider-verification").upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
+  if (error) throw new Error(`تعذر رفع فيديو السيارة: ${error.message}`);
+  return path;
+}
+
+/** Upload only the verification documents explicitly replaced by a provider. */
 export async function uploadProviderChangeDocuments(
   userId: string,
   role: VerificationDocument["role"],
