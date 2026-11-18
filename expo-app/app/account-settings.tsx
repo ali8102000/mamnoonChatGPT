@@ -20,6 +20,7 @@ export default function AccountSettingsScreen() {
   const [otp, setOtp] = useState("");
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [switchingRole, setSwitchingRole] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const isCompanyAdmin = user?.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
@@ -32,9 +33,36 @@ export default function AccountSettingsScreen() {
   }, [isCompanyAdmin]);
 
   async function switchRole(role: string) {
-    if (!roles.includes(role as (typeof roles)[number])) return;
-    await setActiveRole(role as (typeof roles)[number]);
-    router.replace("/home");
+    if (switchingRole) return;
+    if (!user?.id || !roles.includes(role as (typeof roles)[number])) {
+      Alert.alert("تعذر تبديل الدور", "تأكد من تسجيل الدخول وامتلاكك لهذا الدور.");
+      return;
+    }
+
+    setSwitchingRole(role);
+    try {
+      const { data: before, error: beforeError } = await supabase.auth.getSession();
+      if (beforeError) throw beforeError;
+      if (!before.session || before.session.user.id !== user.id) {
+        throw new Error("انتهت جلسة الدخول. سجّل الدخول من جديد قبل تبديل الدور.");
+      }
+
+      await setActiveRole(role as (typeof roles)[number]);
+
+      // Role switching changes only the local role preference; it must never
+      // sign out or replace the authenticated Supabase session.
+      const { data: after, error: afterError } = await supabase.auth.getSession();
+      if (afterError) throw afterError;
+      if (!after.session || after.session.user.id !== user.id) {
+        throw new Error("جلسة الحساب تغيّرت أثناء التبديل. لم نكمل الانتقال حفاظاً على حسابك.");
+      }
+
+      router.replace("/home");
+    } catch (error) {
+      Alert.alert("تعذر تبديل الدور", error instanceof Error ? error.message : "حدث خطأ غير متوقع. حاول مرة ثانية.");
+    } finally {
+      setSwitchingRole(null);
+    }
   }
 
   function startRegistration(role: "driver" | "large_driver" | "worker") {
@@ -147,10 +175,10 @@ export default function AccountSettingsScreen() {
                 ? { title: "سيارات كبيرة", mark: "ك", backgroundColor: palette.goldSoft, color: palette.gold }
                 : { title: "كابتن تكسي", mark: "س", backgroundColor: palette.brandSoft, color: palette.brand };
           return (
-            <TouchableOpacity key={role} activeOpacity={0.82} style={[styles.roleCard, { backgroundColor: selected.backgroundColor }, activeRole === role && styles.roleCardActive]} onPress={() => switchRole(role)}>
+            <TouchableOpacity key={role} disabled={switchingRole !== null} activeOpacity={0.82} style={[styles.roleCard, { backgroundColor: selected.backgroundColor, opacity: switchingRole && switchingRole !== role ? 0.55 : 1 }, activeRole === role && styles.roleCardActive]} onPress={() => switchRole(role)}>
               <View style={styles.roleMark}><Text style={styles.roleEmoji}>{selected.mark}</Text></View>
               <Text style={[styles.roleTitle, { color: selected.color }]}>{selected.title}</Text>
-              <Text style={[styles.roleHint, { color: selected.color }]}>{activeRole === role ? "المساحة الحالية" : "التبديل إلى هذا الدور"}</Text>
+              <Text style={[styles.roleHint, { color: selected.color }]}>{switchingRole === role ? "جاري التبديل..." : activeRole === role ? "المساحة الحالية" : "التبديل إلى هذا الدور"}</Text>
             </TouchableOpacity>
           );
         })}
