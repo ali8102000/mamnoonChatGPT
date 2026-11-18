@@ -272,6 +272,23 @@ export default function AdminVisualBuilder() {
                   </button>;
                 })}
               </div>
+              <div className="mt-5">
+                <h4 className="mb-2 text-sm font-black">معاينة أنواع المركبات</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {elements.filter((item) => item.element_type === "vehicle").map((item) => {
+                    const visual = item.element_key === selected?.element_key ? draft : item.published_config ?? {};
+                    return <button key={item.element_key} onContextMenu={(event) => { event.preventDefault(); openEditor(item); }}
+                      onPointerDown={() => startHold(item)} onPointerUp={clearHold} onPointerLeave={clearHold}
+                      onClick={() => openEditor(item)}
+                      className={`rounded-xl border-2 p-2 text-center ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border"}`}>
+                      <div className="grid h-14 place-items-center rounded-lg bg-muted">
+                        {visual.image_url ? <img src={visual.image_url} alt="" style={{ width: Number(visual.width_px) || 52, height: Number(visual.height_px) || 52, objectFit: "contain" }} /> : <span className="text-2xl">{visual.icon_name || "🚘"}</span>}
+                      </div>
+                      <span className="mt-1 block text-[10px] font-bold">{visual.title || item.title || item.label}</span>
+                    </button>;
+                  })}
+                </div>
+              </div>
               <div className="mt-4 rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">المعاينة توضح الشكل فقط؛ وظيفة الزر الأصلية تبقى مرتبطة بهويته الثابتة.</div>
             </div>
           </section>
