@@ -656,7 +656,8 @@ function HomeCustomContent({ userId, placementKey }: { userId: string | null; pl
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const vote = async (campaign: any, optionId: string) => {\n    const now = Date.now();\n    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);\n    if (!votingOpen) return;
+  const vote = async (campaign: any, optionId: string) => {
+    const now = Date.now();\n    const votingOpen = (!campaign.starts_at || new Date(campaign.starts_at).getTime() <= now) && (!campaign.ends_at || new Date(campaign.ends_at).getTime() > now);\n    if (!votingOpen) return;
     if (!userId || responses[campaign.id] || voting) return;
     setVoting(campaign.id);
     const { error } = await (supabase as any).from("app_campaign_responses").insert({
