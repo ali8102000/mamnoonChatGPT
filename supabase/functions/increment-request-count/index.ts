@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
-import { getSupabasePublishableKey, getSupabaseSecretKey } from "../_shared/api-keys.ts";
+import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
     if (!token) return json({ error: "unauthorized" }, 401);
 
     const caller = createClient(url, anon, {
-      global: { headers: { Authorization: "Bearer " + token } },
+      global: { fetch: createSupabaseFetch(anon), headers: { Authorization: "Bearer " + token } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: auth, error: authError } = await caller.auth.getUser(token);
@@ -39,6 +39,7 @@ Deno.serve(async (req: Request) => {
     // The target user is derived only from the verified JWT. The client cannot
     // supply an arbitrary user_id to the service-role RPC.
     const admin = createClient(url, service, {
+      global: { fetch: createSupabaseFetch(service) },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { error } = await admin.rpc("increment_request_count", { _user_id: auth.user.id });
