@@ -52,6 +52,8 @@ BEGIN
   END IF;
 
   v_video_path := NEW.metadata->>'vehicleVideoPath';
+  -- New pending driver applications must include a video. Existing approved
+  -- legacy records without a video remain editable without retroactive lockout.
   IF NEW.provider_type IN ('driver', 'large_driver')
      AND (NEW.status = 'pending' OR v_video_path IS NOT NULL) THEN
     v_expected_prefix := NEW.user_id::text || '/' || NEW.provider_type || '/vehicle-video-';
@@ -59,27 +61,7 @@ BEGIN
        OR length(v_video_path) > 512
        OR position('..' in v_video_path) > 0
        OR left(v_video_path, length(v_expected_prefix)) <> v_expected_prefix
-       OR v_video_path !~ ('^' || NEW.user_id::text || '/' || NEW.provider_type || '/vehicle-video-[0-9]+(-[a-z0-9]{6})?[.](mp4|mov|webm)
-      RAISE EXCEPTION 'vehicle_video_path_must_belong_to_provider';
-    END IF;
-  ELSIF v_video_path IS NOT NULL THEN
-    RAISE EXCEPTION 'vehicle_video_not_allowed_for_worker_verification';
-  END IF;
-
-  RETURN NEW;
-END;
-$function$;
-
-DROP TRIGGER IF EXISTS guard_provider_verification_owner_write
-  ON public.provider_verifications;
-
-CREATE TRIGGER guard_provider_verification_owner_write
-BEFORE INSERT OR UPDATE ON public.provider_verifications
-FOR EACH ROW
-EXECUTE FUNCTION public.guard_provider_verification_owner_write();
-
-REVOKE ALL ON FUNCTION public.guard_provider_verification_owner_write() FROM PUBLIC, anon, authenticated;
-) THEN
+       OR v_video_path !~ ('^' || NEW.user_id::text || '/' || NEW.provider_type || '/vehicle-video-[0-9]+(-[a-z0-9]{6})?[.](mp4|mov|webm)$') THEN
       RAISE EXCEPTION 'vehicle_video_path_must_belong_to_provider';
     END IF;
   ELSIF v_video_path IS NOT NULL THEN
