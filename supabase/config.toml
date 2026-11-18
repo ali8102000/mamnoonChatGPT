@@ -27,3 +27,34 @@ verify_jwt = true
 
 [functions.import-assist]
 verify_jwt = true
+
+[functions.admin-finance]
+verify_jwt = true
+
+[functions.admin-governance]
+verify_jwt = true
+
+[functions.admin-subscriptions]
+verify_jwt = true
+
+[functions.admin-users]
+verify_jwt = true
+
+[functions.auto-taxi-pricing]
+verify_jwt = true
+
+[functions.team-management]
+verify_jwt = true
+
+[functions.zaincash-create-payment]
+verify_jwt = true
+
+[functions.zaincash-config-status]
+verify_jwt = true
+
+# Payment provider callbacks authenticate their own signed payloads.
+[functions.zaincash-callback]
+verify_jwt = false
+
+[functions.zaincash-webhook]
+verify_jwt = false
