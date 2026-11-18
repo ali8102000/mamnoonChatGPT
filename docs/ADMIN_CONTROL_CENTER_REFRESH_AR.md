@@ -73,6 +73,23 @@
 - Migration الفهارس الـ21 وتحسين سياسات RLS الثلاثة محفوظة بالمستودع ضمن PR فقط ولم تُطبق على الإنتاج. يجب اختبارها ثم تطبيقها بترحيل معتمد ومراجعة نتائج Advisor بعد التنفيذ.
 - اختبارات التشغيل التي تتطلب جلسات فعلية لمستخدم عادي، وسائق، وفني، وموظف دعم، ومالية، وإدارة، ومدير أعلى، ونطاق محافظة، تبقى شرطاً قبل إعلان اكتمال التحقق التشغيلي.
 
+## 6. نتائج GitHub Actions في 18 نوفمبر 2026
+
+- Web CI `44287733879`: نجاح TypeScript وESLint واختبارات الوحدة وبناء الإنتاج.
+- Supabase Edge Function checks `44287734362`: نجاح فحص Deno.
+- Full verification `44287733902`: نجاح اختبارات الويب وفحص Supabase Edge Function.
+- Mobile CI `44287734095`: نجاح TypeScript وExpo Doctor وتصدير Android.
+- Service photo integration `44287733829`: نجاح فحص التكامل بين الويب والأندرويد.
+- Android standalone preview APK `44287734563`: كان قيد البناء عند آخر تحقق، ولم يظهر Artifact بعد؛ لذلك لم يُعلن رابط APK جاهز.
+
+روابط النتائج:
+- https://github.com/ali8102000/mamnoonChatGPT/actions/runs/44287733879
+- https://github.com/ali8102000/mamnoonChatGPT/actions/runs/44287734362
+- https://github.com/ali8102000/mamnoonChatGPT/actions/runs/44287733902
+- https://github.com/ali8102000/mamnoonChatGPT/actions/runs/44287734095
+- https://github.com/ali8102000/mamnoonChatGPT/actions/runs/44287733829
+- https://github.com/ali8102000/mamnoonChatGPT/actions/runs/44287734563
+
 ## 6. المراجع الرسمية
 
 - إصدار Supabase JavaScript SDK 2.119.0: https://github.com/supabase/supabase-js/releases
