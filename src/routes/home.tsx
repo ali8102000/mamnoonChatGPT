@@ -293,7 +293,7 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
   const refresh = useCallback(async () => {
     const [sectionResult, campaignResult] = await Promise.all([
       (supabase as any).from("app_content_sections_public").select("id,title,section_type,placement_key,sort_order,published_config").eq("placement_key", placementKey).order("sort_order"),
-      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", placementKey).order("created_at", { ascending: false }),
+      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", placementKey).order("sort_order").order("created_at", { ascending: false }),
     ]);
     if (!sectionResult.error) setSections(sectionResult.data ?? []);
     if (!campaignResult.error) {
