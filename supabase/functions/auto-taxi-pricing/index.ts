@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
   const auth=req.headers.get("Authorization")||"";
   if(!auth.startsWith("Bearer ")) return json({error:"سجّل الدخول أولاً"},401);
   const userClient=createClient(url,anon,{global:{fetch:createSupabaseFetch(anon),headers:{Authorization:auth}},auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
-  const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
+  const admin=createClient(url,service,{global:{fetch:createSupabaseFetch(service)},auth:{persistSession:false,autoRefreshToken:false}});
   // Edge Functions have no browser session storage: validate the bearer token explicitly.
   const {data:{user},error:userError}=await userClient.auth.getUser(auth.slice(7));
   if(userError||!user) {
