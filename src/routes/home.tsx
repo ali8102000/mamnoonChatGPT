@@ -211,7 +211,7 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.top" />
 
-      <div className="grid grid-cols-3 gap-3">
+      <div dir="ltr" className="grid grid-cols-3 gap-3">
         <QuickTile
           to="/request/new"
           type="taxi"
@@ -247,7 +247,7 @@ function CustomerHome() {
           gradient="from-orange-500 to-amber-600"
           delay={0.15}
         />
-        <div className="col-span-2 min-w-0">
+        <div dir="rtl" className="col-span-2 min-w-0">
           <HomeCategoryCarousel />
         </div>
       </div>
@@ -420,6 +420,7 @@ function QuickTile({
 }) {
   return (
     <Link
+      dir="rtl"
       to={to as any}
       search={{ type, ...(vehicle ? { vehicle } : {}) } as any}
       onClick={() => playClick("pop")}
