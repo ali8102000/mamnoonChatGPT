@@ -839,7 +839,7 @@ export default function NewRequest() {
       Alert.alert("السعر غير صحيح", "السعر المقترح يجب أن يكون من 250 إلى 50000 دينار ومن مضاعفات 250.");
       return;
     }
-    if (!isTaxi && pricingMode !== "negotiable" && (proposedPrice === null || !Number.isSafeInteger(proposedPrice) || proposedPrice < 250 || proposedPrice % 250 !== 0)) {
+    if (!isTaxi && pricingMode !== "negotiable" && (proposedUnitPrice === null || !Number.isSafeInteger(proposedUnitPrice) || proposedUnitPrice < 250 || proposedUnitPrice % 250 !== 0)) {
       Alert.alert("الأجر غير صحيح", "اكتب أجراً صحيحاً لا يقل عن 250 ديناراً ويكون من مضاعفات 250.");
       return;
     }
@@ -1704,7 +1704,7 @@ export default function NewRequest() {
               />
             </>
           )}
-          {pricingMode === "hourly" && (
+          {pricingMode !== "negotiable" && Number(customerPrice) > 0 && (\n            <View style={{ marginTop: 8, padding: 12, borderRadius: 14, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.gold }}>\n              <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>الإجمالي التقديري لجميع أفراد الطاقم</Text>\n              <Text style={{ color: palette.brand, fontSize: 20, fontWeight: "900", textAlign: "right", marginTop: 4 }}>{(Number(customerPrice) * (extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0))).toLocaleString("ar-IQ")} د.ع</Text>\n              <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>سعر الفرد × {extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0)} وحدات أجرة · أجرة الخبير ضعف أجرة الفني العادي</Text>\n            </View>\n          )}\n          {pricingMode === "hourly" && (
             <>
               <Text style={styles.label}>عدد ساعات العمل المتوقعة</Text>
               <TextInput
