@@ -38,7 +38,7 @@ export function HomeCategoryCarousel() {
   }, [banners, index]);
   if (!banners.length) return (
     <>
-      <button type="button" aria-label="إعلان الشركاء - سيتوفر قريباً" onClick={() => setPopup("disabled")} className="block w-full aspect-[16/9] rounded-[24px] border border-border bg-transparent" />
+      <button type="button" aria-label="إعلان الشركاء - سيتوفر قريباً" onClick={() => setPopup("disabled")} className="block w-full aspect-[1.13/1] rounded-[24px] border border-border bg-transparent" />
       {popup === "disabled" && <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] grid place-items-center bg-black/55 p-5" onClick={() => setPopup(null)}>
         <div className="w-full max-w-sm rounded-3xl bg-card p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
           <div className="text-2xl font-black text-primary">سيتوفر قريباً</div>
@@ -52,7 +52,7 @@ export function HomeCategoryCarousel() {
   const current = banners[index];
   return (
     <>
-      <div className="relative w-full aspect-[16/9] overflow-hidden rounded-[24px] border border-border bg-transparent shadow-sm"
+      <div className="relative w-full aspect-[1.13/1] overflow-hidden rounded-[24px] border border-border bg-transparent shadow-sm"
         onPointerDown={(event) => { pause(); touchStartX.current = event.clientX; movedBySwipe.current = false; }}
         onPointerUp={(event) => { if (touchStartX.current !== null) { const delta = event.clientX - touchStartX.current; if (Math.abs(delta) > 35 && banners.length > 1) { movedBySwipe.current = true; setIndex((current) => (current + (delta < 0 ? 1 : -1) + banners.length) % banners.length); } } touchStartX.current = null; pause(); }}
         onTouchStart={pause} onTouchEnd={pause} onMouseEnter={pause}>
