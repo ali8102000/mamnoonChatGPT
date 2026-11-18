@@ -246,11 +246,11 @@ export default function NewRequest() {
 
   useEffect(() => {
     let active = true;
-    (supabase as any).from("app_ui_elements_public").select("element_key,published_config")
+    (supabase as any).from("app_ui_elements_public").select("element_key,published_config,title,sort_order")
       .then(({ data, error }: any) => {
         if (!active || error) return;
         const next: Record<string, any> = {};
-        for (const item of data ?? []) next[item.element_key] = item.published_config ?? {};
+        for (const item of data ?? []) next[item.element_key] = { ...(item.published_config ?? {}), title: item.title, sort_order: item.sort_order };
         setUiVisuals(next);
       });
     return () => { active = false; };
@@ -1121,7 +1121,7 @@ export default function NewRequest() {
                         { key: "bus", label: "باص", image: "https://xcode.shamayah.co.ke/assets/login-bus-CChLKdVW.png" },
                       ] as const).map((item) => (
                         <TouchableOpacity key={item.key} style={[styles.taxiLargeTypeCard, vehicleType === item.key && styles.taxiLargeTypeCardActive]} onPress={() => setVehicleType(item.key)}>
-                          {"image" in item ? <Image source={{ uri: uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.image_url || item.image }} style={[styles.taxiLargeTypeImage, { width: Number(uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.width_px) || 76, height: Number(uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.height_px) || 56 }]} resizeMode="contain" /> : <Text style={styles.taxiLargeBus}>🚌</Text>}
+                          {"image" in item ? (uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.icon_name ? <Text style={styles.taxiLargeBus}>{uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"].icon_name}</Text> : <Image source={{ uri: uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.image_url || item.image }} style={[styles.taxiLargeTypeImage, { width: Number(uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.width_px) || 76, height: Number(uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.height_px) || 56 }]} resizeMode="contain" />) : <Text style={styles.taxiLargeBus}>🚌</Text>}
                           <Text style={[styles.taxiLargeTypeText, vehicleType === item.key && styles.taxiLargeTypeTextActive]}>{item.label}</Text>
                         </TouchableOpacity>
                       ))}
@@ -1193,13 +1193,13 @@ export default function NewRequest() {
                     </View>
                     <Text style={styles.taxiFieldLabel}>فئة السيارة</Text>
                     <View style={styles.taxiVehicleList}>
-                      {VEHICLE_CATS.filter((category) => category.key !== "large").map((category) => {
+                      {VEHICLE_CATS.filter((category) => category.key !== "large").sort((a, b) => Number(uiVisuals[`vehicle_${a.key}`]?.sort_order ?? 0) - Number(uiVisuals[`vehicle_${b.key}`]?.sort_order ?? 0)).map((category) => {
                         const active = vehicleCat === category.key;
                         const fare = routeKm !== null ? (serverTaxiFares[category.key as Exclude<VehicleCategory, "large">] ?? (active ? serverTaxiFare : null)) : null;
                         return (
                           <TouchableOpacity key={category.key} style={[styles.taxiVehicleCard, active && styles.taxiVehicleCardActive]} onPress={() => setVehicleCat(category.key as Exclude<VehicleCategory, "large">)}>
-                            {uiVisuals[`vehicle_${category.key}`]?.image_url ? <Image source={{ uri: uiVisuals[`vehicle_${category.key}`].image_url }} style={{ width: Number(uiVisuals[`vehicle_${category.key}`].width_px) || 64, height: Number(uiVisuals[`vehicle_${category.key}`].height_px) || 48 }} resizeMode="contain" /> : <Text style={styles.taxiVehicleEmoji}>{category.emoji}</Text>}
-                            <Text style={styles.taxiVehicleName}>{category.label}</Text>
+                            {uiVisuals[`vehicle_${category.key}`]?.icon_name ? <Text style={styles.taxiVehicleEmoji}>{uiVisuals[`vehicle_${category.key}`].icon_name}</Text> : uiVisuals[`vehicle_${category.key}`]?.image_url ? <Image source={{ uri: uiVisuals[`vehicle_${category.key}`].image_url }} style={{ width: Number(uiVisuals[`vehicle_${category.key}`].width_px) || 64, height: Number(uiVisuals[`vehicle_${category.key}`].height_px) || 48 }} resizeMode="contain" /> : <Text style={styles.taxiVehicleEmoji}>{category.emoji}</Text>}
+                            <Text style={styles.taxiVehicleName}>{uiVisuals[`vehicle_${category.key}`]?.title || category.label}</Text>
                             <Text style={styles.taxiVehicleFare}>{fare !== null ? fare.toLocaleString("ar-IQ") + " د.ع" : "—"}</Text>
                           </TouchableOpacity>
                         );
