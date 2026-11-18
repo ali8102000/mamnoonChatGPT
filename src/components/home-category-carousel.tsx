@@ -67,8 +67,8 @@ export function HomeCategoryCarousel() {
       </div>
       {popup && <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] grid place-items-center bg-black/55 p-5" onClick={() => setPopup(null)}>
         <div className="w-full max-w-sm rounded-3xl bg-card p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
-          <div className="text-2xl font-black text-primary">{categoryCopy[popup].title}</div>
-          <p className="mt-3 text-base font-bold leading-8">{categoryCopy[popup].body}</p>
+          <div className="text-2xl font-black text-primary">{popup === "disabled" ? "سيتوفر قريباً" : categoryCopy[popup].title}</div>
+          <p className="mt-3 text-base font-bold leading-8">{popup === "disabled" ? "أنت شريك؟ سجل ويانه وانتظر طلباتك" : categoryCopy[popup].body}</p>
           <button type="button" onClick={() => setPopup(null)} className="mt-5 rounded-xl bg-primary px-6 py-2.5 font-bold text-primary-foreground">حسناً</button>
         </div>
       </div>}
