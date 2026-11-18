@@ -515,6 +515,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
+      <HomeCategoryCarousel />
+
       <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
         {[...tiles].sort((a, b) => {
           const keyFor = (tile: (typeof tiles)[number]) => tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
@@ -576,8 +578,6 @@ function CustomerHome({ userId }: { userId: string | null }) {
           </TouchableOpacity>
         ))}
       </View>
-
-      <HomeCategoryCarousel />
 
       <HomeCustomContent userId={userId} placementKey="home.customer.content" />
 
