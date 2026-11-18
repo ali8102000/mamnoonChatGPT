@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
-type DriverWallet = { balance: number; total_earned: number; total_commission: number };
+type DriverWallet = { balance: number; currency?: string };
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
 
 export default function ProfileScreen() {
