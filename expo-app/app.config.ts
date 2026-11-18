@@ -31,7 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       `Production build is missing required Expo environment variables: ${missingProductionConfig.join(", ")}`,
     );
   }
-  if (supabaseUrl.split(".")[0] !== "enteiolvirenbhkyskgb") {
+  if (new URL(supabaseUrl).hostname.split(".")[0] !== "enteiolvirenbhkyskgb") {
     throw new Error("Mamnoon shared backend config must point to Supabase project enteiolvirenbhkyskgb.");
   }
   if (isProduction && supabaseUrl && !supabaseUrl.startsWith("https://")) {
