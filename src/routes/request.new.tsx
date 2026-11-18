@@ -155,6 +155,7 @@ function NewRequest() {
 
   // Taxi State
   const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
+  const [uiVisuals, setUiVisuals] = useState<Record<string, any>>({});
   const [urgencyEnabled, setUrgencyEnabled] = useState(false);
   const [urgencyAllowed, setUrgencyAllowed] = useState(false);
   const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
@@ -182,6 +183,17 @@ function NewRequest() {
   const [destinationGovernorateKey, setDestinationGovernorateKey] = useState<string | null>(null);
   const [interCity, setInterCity] = useState(false);
   useEffect(() => { setUrgencyEnabled(false); setUrgencyAllowed(false); }, [type, vehicle]);
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("app_ui_elements_public").select("element_key,published_config,title,subtitle,sort_order")
+      .then(({ data, error }: any) => {
+        if (!active || error) return;
+        const next: Record<string, any> = {};
+        for (const item of data ?? []) next[item.element_key] = { ...(item.published_config ?? {}), title: item.title, subtitle: item.subtitle, sort_order: item.sort_order };
+        setUiVisuals(next);
+      });
+    return () => { active = false; };
+  }, []);
   useEffect(() => {
     const restoreGovernorate = () => {
       const selected = getGovernorate(localStorage.getItem(GOV_STORAGE_KEY));
@@ -867,7 +879,7 @@ function NewRequest() {
                   <div className="grid grid-cols-2 gap-2">
                     {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }, { key: "bus", label: "باص", image: "https://xcode.shamayah.co.ke/assets/login-bus-CChLKdVW.png" }] as const).map((item) => (
                       <button key={item.key} type="button" onClick={() => setVehicleType(item.key)} className={`rounded-2xl border p-2.5 font-black flex flex-col items-center gap-1 ${vehicleType === item.key ? "border-orange-500 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 ring-2 ring-orange-300" : "border-orange-200 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700/70 dark:bg-black/70 dark:text-slate-100 dark:border-slate-700"}`}>
-                        {"image" in item ? <img src={item.image} alt={item.label} className="w-full h-16 object-contain" /> : <span className="text-4xl">🚌</span>}
+                        {"image" in item ? <img src={uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.image_url || item.image} alt={item.label} style={{ width: Number(uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.width_px) || undefined, height: Number(uiVisuals[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.height_px) || undefined }} className="w-full h-16 object-contain" /> : <span className="text-4xl">🚌</span>}
                         <span>{item.label}</span>
                       </button>
                     ))}
@@ -1014,12 +1026,12 @@ function NewRequest() {
                         active ? "ring-2 ring-primary border-primary" : "border-border/60"
                       }`}
                     >
-                      {c.img ? (
-                        <img src={c.img} alt={c.label} width={56} height={38} className="w-14 h-9 object-contain shrink-0" />
+                      {uiVisuals[`vehicle_${c.key}`]?.image_url || c.img ? (
+                        <img src={uiVisuals[`vehicle_${c.key}`]?.image_url || c.img} alt={uiVisuals[`vehicle_${c.key}`]?.title || c.label} style={{ width: Number(uiVisuals[`vehicle_${c.key}`]?.width_px) || 56, height: Number(uiVisuals[`vehicle_${c.key}`]?.height_px) || 38 }} className="object-contain shrink-0" />
                       ) : (
                         <div className="text-3xl shrink-0">{c.emoji}</div>
                       )}
-                      <div className="flex-1 font-black text-sm text-foreground">{c.label}</div>
+                      <div className="flex-1 font-black text-sm text-foreground">{uiVisuals[`vehicle_${c.key}`]?.title || c.label}</div>
                       <div className="font-black text-base text-primary shrink-0">
                         {fare !== null ? `${fare.toLocaleString()} د.ع` : "—"}
                       </div>
