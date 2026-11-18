@@ -22,9 +22,60 @@ export default function AccountSettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [switchingRole, setSwitchingRole] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState("شركة ممنون");
+  const [partnerFormOpen, setPartnerFormOpen] = useState(false);
+  const [partnerType, setPartnerType] = useState<"hotel" | "restaurant" | "store" | "mall">("hotel");
+  const [partnerName, setPartnerName] = useState("");
+  const [partnerContact, setPartnerContact] = useState(profile?.full_name ?? "");
+  const [partnerPhone, setPartnerPhone] = useState(profile?.phone ?? "");
+  const [partnerEmail, setPartnerEmail] = useState(actualEmail);
+  const [partnerGovernorate, setPartnerGovernorate] = useState("najaf");
+  const [partnerCity, setPartnerCity] = useState("");
+  const [partnerAddress, setPartnerAddress] = useState("");
+  const [partnerDescription, setPartnerDescription] = useState("");
+  const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
+  const [partnerBusy, setPartnerBusy] = useState(false);
+  const governorateLabels: Record<string,string> = {baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
+
   const isCompanyAdmin = user?.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
   useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
+  useEffect(() => { if (user?.id) void loadPartnerApplications(); }, [user?.id]);
+
+  async function loadPartnerApplications() {
+    if (!user?.id) return;
+    const { data, error } = await (supabase as any).from("partner_applications")
+      .select("id,partner_type,business_name,status,admin_note,created_at")
+      .eq("user_id", user.id).order("created_at", { ascending: false }).limit(10);
+    if (error) { console.warn("[partner-applications] load failed:", error.message); return; }
+    setPartnerApplications(data ?? []);
+  }
+
+  async function submitPartnerApplication() {
+    if (!user?.id) return;
+    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4) {
+      Alert.alert("بيانات ناقصة", "كمّل اسم المنشأة واسم المسؤول والهاتف والمدينة والعنوان.");
+      return;
+    }
+    setPartnerBusy(true);
+    try {
+      const { error } = await (supabase as any).from("partner_applications").insert({
+        user_id: user.id, partner_type: partnerType, business_name: partnerName.trim(),
+        contact_name: partnerContact.trim(), phone: partnerPhone.trim(),
+        email: partnerEmail.trim() || null, governorate_key: partnerGovernorate,
+        city: partnerCity.trim(), address: partnerAddress.trim(),
+        description: partnerDescription.trim() || null,
+        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null
+      });
+      if (error) throw error;
+      Alert.alert("تم إرسال الطلب", "وصل طلب الشراكة إلى إدارة ممنون وبانتظار المراجعة.");
+      setPartnerFormOpen(false);
+      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription("");
+      await loadPartnerApplications();
+    } catch (error) {
+      Alert.alert("تعذر إرسال الطلب", error instanceof Error ? error.message : "حاول مرة ثانية.");
+    } finally { setPartnerBusy(false); }
+  }
+
 
   useEffect(() => {
     if (!isCompanyAdmin) return;
@@ -210,6 +261,30 @@ export default function AccountSettingsScreen() {
           </TouchableOpacity>
         ))}
       </View>
+      <View style={styles.partnerJoinBox}>
+        <Text style={styles.partnerJoinTitle}>انضم كشريك</Text>
+        <Text style={styles.note}>سجّل منشأتك بفندق أو مطعم أو محل أو مول، وطلبك يروح للإدارة للمراجعة.</Text>
+        <TouchableOpacity activeOpacity={0.85} onPress={() => setPartnerFormOpen(v => !v)} style={styles.partnerJoinButton}>
+          <Text style={styles.partnerJoinButtonText}>{partnerFormOpen ? "إغلاق تسجيل الشريك" : "انضم كشريك"}</Text>
+        </TouchableOpacity>
+        {partnerFormOpen && <View style={styles.partnerForm}>
+          <Text style={styles.partnerLabel}>اختار نوع الشراكة</Text>
+          <View style={styles.partnerTypeGrid}>
+            {([{key:"hotel",label:"🏨 فندق"},{key:"restaurant",label:"🍽️ مطعم"},{key:"store",label:"🏪 محل"},{key:"mall",label:"🏬 مول"}] as const).map(item => <TouchableOpacity key={item.key} onPress={() => setPartnerType(item.key)} style={[styles.partnerTypeOption, partnerType===item.key && styles.partnerTypeSelected]}><Text style={styles.partnerTypeText}>{item.label}</Text></TouchableOpacity>)}
+          </View>
+          <Text style={styles.partnerLabel}>اسم المنشأة</Text><RealInput value={partnerName} onChangeText={setPartnerName} placeholder="اسم الفندق أو المطعم أو المحل" maxLength={120} />
+          <Text style={styles.partnerLabel}>اسم الشخص المسؤول</Text><RealInput value={partnerContact} onChangeText={setPartnerContact} placeholder="الاسم الكامل" maxLength={100} />
+          <Text style={styles.partnerLabel}>رقم الهاتف</Text><RealInput value={partnerPhone} onChangeText={setPartnerPhone} placeholder="07XXXXXXXXX" keyboardType="phone-pad" />
+          <Text style={styles.partnerLabel}>البريد الإلكتروني (اختياري)</Text><RealInput value={partnerEmail} onChangeText={setPartnerEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+          <Text style={styles.partnerLabel}>المحافظة</Text>
+          <View style={styles.partnerGovernorates}>{Object.entries(governorateLabels).map(([key,label])=><TouchableOpacity key={key} onPress={()=>setPartnerGovernorate(key)} style={[styles.partnerGovernorateChip,partnerGovernorate===key&&styles.partnerTypeSelected]}><Text style={styles.partnerGovernorateText}>{label}</Text></TouchableOpacity>)}</View>
+          <Text style={styles.partnerLabel}>المدينة / القضاء</Text><RealInput value={partnerCity} onChangeText={setPartnerCity} placeholder="مثال: النجف الأشرف" maxLength={80} />
+          <Text style={styles.partnerLabel}>العنوان التفصيلي</Text><RealInput value={partnerAddress} onChangeText={setPartnerAddress} placeholder="الحي والشارع وأقرب نقطة دالة" maxLength={240} />
+          <Text style={styles.partnerLabel}>نبذة عن المنشأة (اختياري)</Text><RealInput value={partnerDescription} onChangeText={setPartnerDescription} placeholder="الخدمات أو المنتجات" multiline />
+          <Button title={partnerBusy ? "جارٍ إرسال الطلب..." : "إرسال طلب الشراكة"} onPress={submitPartnerApplication} loading={partnerBusy} />
+        </View>}
+        {partnerApplications.length>0 && <View style={{marginTop:12,gap:8}}><Text style={styles.partnerLabel}>طلبات الشراكة السابقة</Text>{partnerApplications.map(item=><View key={item.id} style={styles.partnerApplicationCard}><Text style={styles.partnerApplicationName}>{item.business_name}</Text><Text style={styles.partnerApplicationStatus}>{item.status==="approved"?"تمت الموافقة":item.status==="rejected"?"مرفوض":"قيد المراجعة"} · {({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]}</Text>{item.admin_note?<Text style={styles.note}>ملاحظة الإدارة: {item.admin_note}</Text>:null}</View>)}</View>}
+      </View>
       <Text style={styles.note}>كل خيارات الانضمام مجمّعة هنا. بعد إكمال بياناتك ومستنداتك تراجع الإدارة طلبك.</Text>
     </View>
     <Text style={styles.note}>أي تغيير ببيانات الدخول لا يعتمد إلا بعد إكمال التحقق.</Text>
@@ -251,6 +326,23 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: "900", color: palette.ink, marginTop: 20, marginBottom: 8 },
   nameSection: { backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.lg, borderWidth: 1, borderColor: palette.line, marginBottom: 12 },
   joinSection: { marginTop: 8, marginBottom: 12, padding: 14, borderRadius: radius.xl, borderWidth: 1, borderColor: palette.gold + "88", backgroundColor: palette.surface + "CC" },
+  partnerJoinBox: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: palette.line },
+  partnerJoinTitle: { color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right", marginBottom: 6 },
+  partnerJoinButton: { backgroundColor: palette.brand, borderRadius: radius.lg, padding: 15, alignItems: "center", marginTop: 8 },
+  partnerJoinButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
+  partnerForm: { marginTop: 12, padding: 12, borderRadius: radius.lg, backgroundColor: palette.pageCanvas, borderWidth: 1, borderColor: palette.line, gap: 8 },
+  partnerLabel: { color: palette.ink, fontSize: 12, fontWeight: "900", textAlign: "right", marginTop: 6 },
+  partnerTypeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  partnerTypeOption: { width: "48%", padding: 12, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, alignItems: "center" },
+  partnerTypeSelected: { borderColor: palette.brand, backgroundColor: palette.brandSoft },
+  partnerTypeText: { color: palette.ink, fontSize: 12, fontWeight: "900" },
+  partnerGovernorates: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  partnerGovernorateChip: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+  partnerGovernorateText: { color: palette.ink, fontSize: 10, fontWeight: "700" },
+  partnerApplicationCard: { borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, backgroundColor: palette.surface, padding: 12 },
+  partnerApplicationName: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
+  partnerApplicationStatus: { color: palette.brand, fontSize: 11, fontWeight: "800", textAlign: "right", marginTop: 4 },
+
   registrationList: { gap: 9, marginTop: 8 },
   registrationCard: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 76, padding: 12, borderRadius: radius.lg, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
   registrationMark: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: palette.brandSoft },
