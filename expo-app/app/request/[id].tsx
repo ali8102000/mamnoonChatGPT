@@ -323,7 +323,6 @@ export default function RequestDetail() {
           title: "تنبيه انتهاء البحث",
           body: "باقي ١٠ ثوانٍ على انتهاء وقت البحث عن مزوّد لطلبك.",
           sound: "default",
-          vibrate: preferences.vibrationEnabled ? [0, 250, 180, 250, 180, 350] : [],
           data: { request_id: request.id, type: "request_countdown" },
         },
         trigger: seconds <= 1 ? null : {
