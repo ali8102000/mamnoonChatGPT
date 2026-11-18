@@ -48,6 +48,7 @@ export default function AdminScreen() {
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [reports, setReports] = useState<any[]>([]);
   const [changeRequests, setChangeRequests] = useState<any[]>([]);
+  const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [rejectingChangeId, setRejectingChangeId] = useState<string | null>(null);
   const [changeRejectReason, setChangeRejectReason] = useState("");
   const [reviewingChangeId, setReviewingChangeId] = useState<string | null>(null);
@@ -180,6 +181,11 @@ export default function AdminScreen() {
       }));
       setChangeRequests(enriched);
     }
+    const { data: partnerRows, error: partnerError } = await (supabase as any).from("partner_applications")
+      .select("id,user_id,partner_type,business_name,contact_name,phone,email,governorate_key,city,address,description,status,created_at")
+      .eq("status", "pending").order("created_at", { ascending: true }).limit(100);
+    if (partnerError) console.warn("[admin] partner applications unavailable:", partnerError.message);
+    setPartnerApplications(partnerRows ?? []);
     setLoading(false);
   }, [user?.id, reportFilter]);
 
@@ -243,6 +249,15 @@ export default function AdminScreen() {
     await load();
     setRefreshing(false);
   };
+  const reviewPartnerApplication = async (applicationId: string, status: "approved" | "rejected") => {
+    const { error } = await (supabase as any).from("partner_applications").update({
+      status, reviewed_by: user?.id, reviewed_at: new Date().toISOString(),
+      admin_note: status === "rejected" ? "يرجى مراجعة البيانات وإعادة التقديم" : null,
+    }).eq("id", applicationId);
+    if (error) { Alert.alert("تعذر تحديث طلب الشراكة", error.message); return; }
+    Alert.alert("تم", status === "approved" ? "تمت الموافقة على طلب الشراكة." : "تم رفض طلب الشراكة.");
+    await load();
+  };
 
   if (loading)
     return (
@@ -288,6 +303,26 @@ export default function AdminScreen() {
       <ActionButton size="default" onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></ActionButton>
       <ActionButton size="default" onPress={() => router.push("/admin/chats")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة الدردشة الخاصة والرسائل</Text></ActionButton>
       <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة السائقين والفنيين ومراجعة المستمسكات</Text></ActionButton>
+      <View style={styles.inboxHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sectionTitle}>طلبات الشراكة الجديدة</Text>
+          <Text style={styles.inboxHint}>{partnerApplications.length} طلب بانتظار مراجعة الإدارة</Text>
+        </View>
+        <ActionButton size="sm" onPress={onRefresh}><Text style={styles.inboxOpenText}>تحديث</Text></ActionButton>
+      </View>
+      {partnerApplications.length === 0 ? <Text style={styles.emptyHint}>ماكو طلبات شراكة معلّقة حالياً</Text> : partnerApplications.map((item) => (
+        <View key={item.id} style={styles.reportCard}>
+          <Text style={styles.inboxName}>{item.business_name}</Text>
+          <Text style={styles.reportMeta}>{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {item.city} · {item.governorate_key}</Text>
+          <Text style={styles.reportMeta}>المسؤول: {item.contact_name} · الهاتف: {item.phone}</Text>
+          <Text style={styles.reportDetails}>{item.address}</Text>
+          {!!item.description && <Text style={styles.reportDetails}>{item.description}</Text>}
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+            <ActionButton size="sm" onPress={() => void reviewPartnerApplication(item.id, "approved")} style={{ flex: 1, backgroundColor: "#15803d" }}><Text style={{ color: "#fff", fontWeight: "900", fontSize: 11 }}>موافقة وتفعيل</Text></ActionButton>
+            <ActionButton size="sm" onPress={() => Alert.alert("رفض طلب الشراكة", "تأكد من رفض طلب هذه المنشأة؟", [{ text: "رجوع", style: "cancel" }, { text: "رفض", style: "destructive", onPress: () => void reviewPartnerApplication(item.id, "rejected") }])} style={{ flex: 1, backgroundColor: "#b91c1c" }}><Text style={{ color: "#fff", fontWeight: "900", fontSize: 11 }}>رفض الطلب</Text></ActionButton>
+          </View>
+        </View>
+      ))}
       <View style={styles.inboxHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>رسائل المستخدمين إلى الإدارة</Text>
