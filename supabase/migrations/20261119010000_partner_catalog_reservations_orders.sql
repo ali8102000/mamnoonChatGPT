@@ -2,6 +2,13 @@
 -- hotel reservations and customer orders. Source-only migration; review and test before production.
 begin;
 
+-- Allow the public catalogue to resolve only published business cards.
+grant select (id, partner_type, business_name, phone, city, address, description, opening_hours, social_links, is_published)
+  on public.partner_business_profiles to anon;
+drop policy if exists partner_business_profiles_public_read on public.partner_business_profiles;
+create policy partner_business_profiles_public_read on public.partner_business_profiles
+  for select to anon using (is_published = true);
+
 create table if not exists public.partner_catalog_items (
   id uuid primary key default gen_random_uuid(),
   business_profile_id uuid not null references public.partner_business_profiles(id) on delete cascade,
@@ -26,7 +33,7 @@ create index if not exists idx_partner_catalog_business_type_active
 alter table public.partner_catalog_items enable row level security;
 grant select on public.partner_catalog_items to anon, authenticated;
 grant insert, delete on public.partner_catalog_items to authenticated;
-grant update (item_type, name, description, price_amount, currency, quantity_available, image_urls, attributes, is_active, sort_order, updated_at)
+grant update (name, description, price_amount, currency, quantity_available, image_urls, attributes, is_active, sort_order, updated_at)
   on public.partner_catalog_items to authenticated;
 drop policy if exists partner_catalog_public_read on public.partner_catalog_items;
 create policy partner_catalog_public_read on public.partner_catalog_items
