@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     : null;
   // Use the same polygon-validated route service as the map UI. Never trust
   // client-supplied governorate names for intercity pricing.
-  const routeResponse = await fetch(`${url.replace(/\\/+$/, "")}/functions/v1/maps-proxy`, {
+  const routeResponse = await fetch(`${url.replace(/\/+$/, "")}/functions/v1/maps-proxy`, {
     method: "POST",
     headers: { Authorization: auth, apikey: anon, "Content-Type": "application/json" },
     body: JSON.stringify({ action: "route", from: body.from, to: body.to }),
