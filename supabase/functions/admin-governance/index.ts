@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
-import { getSupabasePublishableKey, getSupabaseSecretKey } from "../_shared/api-keys.ts";
+import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -27,14 +27,14 @@ Deno.serve(async (req: Request) => {
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
     if (!token) return json({ error: "unauthorized" }, 401);
     const caller = createClient(url, anon, {
-      global: { headers: { Authorization: "Bearer " + token } },
+      global: { fetch: createSupabaseFetch(anon), headers: { Authorization: "Bearer " + token } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: auth, error: authError } = await caller.auth.getUser(token);
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
     const { data: staff, error: staffError } = await caller.rpc("has_staff_role", { p_user_id: auth.user.id });
     if (staffError || staff !== true) return json({ error: "forbidden" }, 403);
-    const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
+    const admin = createClient(url, service, { global: { fetch: createSupabaseFetch(service) }, auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
     const requireAdmin = async () => {
