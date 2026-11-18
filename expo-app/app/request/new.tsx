@@ -1807,17 +1807,10 @@ export default function NewRequest() {
                 <View style={{ padding: 12, borderRadius: 14, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand }}>
                   <Text style={{ color: palette.ink, textAlign: "right", fontSize: 12, fontWeight: "800" }}>المبلغ الإجمالي للطلب</Text>
                   <Text style={{ color: palette.brand, textAlign: "right", fontSize: 20, fontWeight: "900", marginTop: 4 }}>{serviceTotalPrice.toLocaleString("ar-IQ")} د.ع</Text>
-                  <Text style={{ color: palette.muted, textAlign: "right", fontSize: 10, marginTop: 3 }}>يشمل {extraWorkers + 1} {workerLevel === "khabir" ? "أفراد (الخبير بأجر مضاعف)" : "فني"}{pricingMode === "hourly" ? " لكل ساعة" : ""}</Text>
+                  <Text style={{ color: palette.muted, textAlign: "right", fontSize: 10, marginTop: 3 }}>سعر الفرد × {servicePriceMultiplier} وحدات أجرة · أجرة الخبير ضعف أجرة الفني العادي{pricingMode === "hourly" ? " لكل ساعة" : ""}</Text>
                 </View>
               )}
             </>
-          )}
-          {pricingMode !== "negotiable" && Number(customerPrice) > 0 && (
-            <View style={{ marginTop: 8, padding: 12, borderRadius: 14, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.gold }}>
-              <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>الإجمالي التقديري لجميع أفراد الطاقم</Text>
-              <Text style={{ color: palette.brand, fontSize: 20, fontWeight: "900", textAlign: "right", marginTop: 4 }}>{(Number(customerPrice) * (extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0))).toLocaleString("ar-IQ")} د.ع</Text>
-              <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>سعر الفرد × {extraWorkers + 1 + (workerLevel === "khabir" ? 1 : 0)} وحدات أجرة · أجرة الخبير ضعف أجرة الفني العادي</Text>
-            </View>
           )}
           {pricingMode === "hourly" && (
             <>
