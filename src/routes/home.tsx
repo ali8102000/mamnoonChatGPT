@@ -26,6 +26,7 @@ import { useTheme } from "@/lib/use-theme";
 import { playClick } from "@/lib/click-sound";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { serviceIcon } from "@/lib/service-visuals";
+import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 
 export const Route = createFileRoute("/home")({
   ssr: false,
@@ -247,6 +248,8 @@ function CustomerHome() {
           delay={0.15}
         />
       </div>
+
+      <HomeCategoryCarousel />
 
       <HomeCustomContent placementKey="home.customer.content" />
 
