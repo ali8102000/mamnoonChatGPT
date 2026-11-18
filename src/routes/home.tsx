@@ -214,7 +214,9 @@ function CustomerHome() {
           type="taxi"
           title={visuals.home_customer_taxi?.title || "طلب سيارة"}
           subtitle={visuals.home_customer_taxi?.subtitle || "خلال دقائق"}
-          icon={<img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: Number(visuals.home_customer_taxi?.width_px) || 44, height: Number(visuals.home_customer_taxi?.height_px) || 44, objectFit: "contain" }} />}
+          icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: Number(visuals.home_customer_taxi?.width_px) || 44, height: Number(visuals.home_customer_taxi?.height_px) || 44, objectFit: "contain" }} />}
+          iconBoxSize={Math.max(Number(visuals.home_customer_taxi?.width_px) || 48, 48)}
+          sortOrder={Number(visuals.home_customer_taxi?.sort_order) || 10}
           gradient="from-amber-500 to-orange-500"
           span={2}
           delay={0.05}
@@ -224,7 +226,9 @@ function CustomerHome() {
           type="service"
           title={visuals.home_customer_service?.title || "طلب فني"}
           subtitle={visuals.home_customer_service?.subtitle || "١٦ خدمة"}
-          icon={<img src={visuals.home_customer_service?.image_url || serviceIcon("build")} alt="" style={{ width: Number(visuals.home_customer_service?.width_px) || 64, height: Number(visuals.home_customer_service?.height_px) || 64, objectFit: "cover" }} />}
+          icon={visuals.home_customer_service?.icon_name ? <span className="text-3xl">{visuals.home_customer_service.icon_name}</span> : <img src={visuals.home_customer_service?.image_url || serviceIcon("build")} alt="" style={{ width: Number(visuals.home_customer_service?.width_px) || 64, height: Number(visuals.home_customer_service?.height_px) || 64, objectFit: "cover" }} />}
+          iconBoxSize={Math.max(Number(visuals.home_customer_service?.width_px) || 64, 48)}
+          sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
@@ -234,7 +238,9 @@ function CustomerHome() {
           vehicle="large"
           title={visuals.home_customer_large_vehicle?.title || "طلب سيارة كبيرة"}
           subtitle={visuals.home_customer_large_vehicle?.subtitle || "كيا حمل أو كيا ركاب أو باص"}
-          icon={<img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: Number(visuals.home_customer_large_vehicle?.width_px) || 44, height: Number(visuals.home_customer_large_vehicle?.height_px) || 44, objectFit: "contain" }} />}
+          icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: Number(visuals.home_customer_large_vehicle?.width_px) || 44, height: Number(visuals.home_customer_large_vehicle?.height_px) || 44, objectFit: "contain" }} />}
+          iconBoxSize={Math.max(Number(visuals.home_customer_large_vehicle?.width_px) || 48, 48)}
+          sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
           gradient="from-orange-500 to-amber-600"
           delay={0.15}
         />
@@ -384,6 +390,8 @@ function QuickTile({
   gradient,
   span = 1,
   delay = 0,
+  iconBoxSize,
+  sortOrder = 0,
 }: {
   to: string;
   type: "taxi" | "service";
@@ -394,6 +402,8 @@ function QuickTile({
   gradient: string;
   span?: 1 | 2;
   delay?: number;
+  iconBoxSize?: number;
+  sortOrder?: number;
 }) {
   return (
     <Link
@@ -403,7 +413,7 @@ function QuickTile({
       className={`glass rounded-3xl p-4 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
         span === 2 ? "col-span-2 min-h-[132px]" : "min-h-[132px]"
       }`}
-      style={{ animationDelay: `${delay}s` }}
+      style={{ animationDelay: `${delay}s`, order: sortOrder }}
     >
       <div
         className={`absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`}
@@ -411,6 +421,7 @@ function QuickTile({
       <div className="relative flex flex-col h-full justify-between">
         <div
           className={`${type === "service" ? "h-16 w-16" : "h-12 w-12"} rounded-2xl bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg overflow-hidden`}
+          style={{ width: iconBoxSize, height: iconBoxSize }}
         >
           {icon}
         </div>
