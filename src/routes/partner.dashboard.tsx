@@ -64,7 +64,7 @@ function PartnerDashboardPage() {
     <main dir="rtl" className="max-w-2xl mx-auto px-4 pt-6 pb-12 space-y-5">
       <Link to="/account-settings" className="inline-flex items-center gap-2 text-sm text-primary font-bold"><ArrowRight className="h-4 w-4"/> الإعدادات</Link>
       <div className="rounded-3xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground p-6 shadow-lg">
-        <div className="flex items-center gap-3"><Building2 className="h-8 w-8"/><div><h1 className="text-2xl font-black">لوحة الشريك</h1><p className="text-xs opacity-80 mt-1">إدارة بيانات منشآتك وحالة ظهورها في ممنون</p></div></div>
+        <div className="flex items-center gap-3"><Building2 className="h-8 w-8"/><div><h1 className="text-2xl font-black">لوحة الشريك</h1><p className="text-xs opacity-80 mt-1">إدارة بيانات منشآتك وحالة نشرها في ممنون</p></div></div>
       </div>
       <div className="flex items-center justify-between"><h2 className="font-black">منشآتي المعتمدة</h2><button onClick={()=>void load()} className="inline-flex items-center gap-2 text-xs text-primary"><RefreshCw className="h-4 w-4"/> تحديث</button></div>
       {error&&<div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-700">{error}</div>}
@@ -76,11 +76,11 @@ function PartnerDashboardPage() {
         <label className="block text-xs font-bold">المدينة<input value={item.city} onChange={e=>change(item.id,"city",e.target.value)} maxLength={80} className="input-base mt-1 w-full rounded-xl"/></label>
         <label className="block text-xs font-bold">العنوان<input value={item.address} onChange={e=>change(item.id,"address",e.target.value)} maxLength={240} className="input-base mt-1 w-full rounded-xl"/></label>
         <label className="block text-xs font-bold">نبذة المنشأة<textarea value={item.description??""} onChange={e=>change(item.id,"description",e.target.value)} maxLength={1000} className="input-base mt-1 min-h-20 w-full rounded-xl"/></label>
-        <button type="button" onClick={()=>change(item.id,"is_published",!item.is_published)} className="w-full flex items-center justify-center gap-2 rounded-xl border border-border p-3 text-xs font-bold">{item.is_published?<><EyeOff className="h-4 w-4"/> إخفاء المنشأة من الظهور</>:<><Eye className="h-4 w-4"/> إظهار المنشأة للمستخدمين</>}</button>
+        <button type="button" onClick={()=>change(item.id,"is_published",!item.is_published)} className="w-full flex items-center justify-center gap-2 rounded-xl border border-border p-3 text-xs font-bold">{item.is_published?<><EyeOff className="h-4 w-4"/> إيقاف حالة النشر</>:<><Eye className="h-4 w-4"/> تفعيل حالة النشر</>}</button>
         <button disabled={savingId===item.id} onClick={()=>void save(item)} className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground p-3 text-sm font-black disabled:opacity-50"><Save className="h-4 w-4"/>{savingId===item.id?"جارٍ الحفظ...":"حفظ التعديلات"}</button>
         <div className="text-[10px] text-muted-foreground flex items-center gap-2"><MapPin className="h-3.5 w-3.5"/>{item.city} · {item.address}<Phone className="h-3.5 w-3.5 mr-2"/><span dir="ltr">{item.phone}</span></div>
       </article>)}
-      <div className="rounded-xl bg-muted/60 p-3 text-xs leading-6 text-muted-foreground">إدارة الحجوزات والغرف وقائمة الطعام والمنتجات ستُربط بوحدات النشاط الخاصة بكل نوع شريك. هذه اللوحة حالياً تدير بيانات المنشأة ونشرها.</div>
+      <div className="rounded-xl bg-muted/60 p-3 text-xs leading-6 text-muted-foreground">حالة النشر تُحفظ بملف الشريك. ربط الدليل العام للزبائن وإدارة الحجوزات والغرف وقائمة الطعام والمنتجات يحتاج وحدات عرض وتشغيل مستقلة.</div>
     </main>
   </MobileShell>;
 }
