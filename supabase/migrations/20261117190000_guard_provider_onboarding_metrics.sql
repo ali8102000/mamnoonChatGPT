@@ -1,124 +1,158 @@
--- Prevent users from seeding trusted provider metrics during self-service onboarding.
--- RLS limits profile creation to auth.uid() = user_id and the status guard
--- forces pending approval. Derive all ranking metrics from trusted records.
+-- Protect provider approval, suspension and all ranking metrics from client writes.
+-- Metrics are derived only from completed requests and trusted ratings.
 CREATE OR REPLACE FUNCTION public.guard_provider_status()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
-AS $$
+SET search_path = ''
+AS $function$
 DECLARE
-  v_new jsonb := to_jsonb(NEW);
-  v_old jsonb := to_jsonb(OLD);
+  v_is_admin boolean := auth.uid() IS NOT NULL AND public.has_admin_access(auth.uid());
+  v_allow_metrics boolean := current_setting('mamnoon.allow_provider_metrics_update', true) = 'true';
   v_rating_count integer := 0;
   v_completed integer := 0;
   v_avg_rating numeric(3,2) := 0;
   v_tier text := 'unranked';
 BEGIN
-  IF auth.uid() IS NOT NULL
-     AND NOT public.has_admin_access(auth.uid()) THEN
-    IF TG_OP = 'INSERT' THEN
-      -- Every self-service provider starts unapproved and unavailable.
-      NEW.status := 'pending';
-      NEW.available := false;
-      NEW.suspended_until := NULL;
+  -- Service-role jobs and authorized administrators are trusted writers.
+  IF auth.uid() IS NULL OR v_is_admin THEN
+    RETURN NEW;
+  END IF;
 
-      -- Never trust rating/achievement counters supplied by the client.
-      SELECT COUNT(*)::integer, COALESCE(AVG(stars), 0)::numeric(3,2)
-        INTO v_rating_count, v_avg_rating
-      FROM public.ratings
-      WHERE ratee_id = NEW.user_id;
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.user_id IS DISTINCT FROM auth.uid() THEN
+      RAISE EXCEPTION 'provider_profile_owner_mismatch';
+    END IF;
 
-      NEW.rating_avg := v_avg_rating;
-      NEW.ratings_count := v_rating_count;
+    -- Every self-service provider starts unapproved and unavailable.
+    NEW.status := 'pending';
+    NEW.available := false;
+    NEW.suspended_until := NULL;
+    NEW.created_at := now();
+    NEW.updated_at := now();
 
-      IF TG_TABLE_NAME = 'driver_profiles' THEN
-        SELECT COUNT(*)::integer
-          INTO v_completed
-        FROM public.service_requests
-        WHERE provider_id = NEW.user_id
-          AND type = 'taxi'
-          AND status::text = 'completed';
+    SELECT COUNT(*)::integer, COALESCE(AVG(r.stars), 0)::numeric(3,2)
+      INTO v_rating_count, v_avg_rating
+    FROM public.ratings AS r
+    WHERE r.ratee_id = NEW.user_id;
 
-        SELECT rule.tier
-          INTO v_tier
-        FROM public.driver_performance_tier_rules AS rule
-        WHERE rule.is_active
-          AND v_completed >= rule.min_completed_rides
-          AND v_rating_count >= rule.min_ratings_count
-          AND v_avg_rating >= rule.min_avg_rating
-        ORDER BY rule.priority DESC, rule.min_completed_rides DESC
-        LIMIT 1;
+    NEW.rating_avg := v_avg_rating;
+    NEW.ratings_count := v_rating_count;
 
-        NEW.completed_rides := v_completed;
-        NEW.performance_tier := COALESCE(v_tier, 'unranked');
-      ELSIF TG_TABLE_NAME = 'worker_profiles' THEN
-        SELECT COUNT(*)::integer
-          INTO v_completed
-        FROM public.service_requests
-        WHERE provider_id = NEW.user_id
-          AND type = 'service'
-          AND status::text = 'completed';
+    IF TG_TABLE_NAME = 'driver_profiles' THEN
+      SELECT COUNT(*)::integer
+        INTO v_completed
+      FROM public.service_requests AS s
+      WHERE s.provider_id = NEW.user_id
+        AND s.type = 'taxi'
+        AND s.status::text = 'completed';
 
-        NEW.completed_jobs := v_completed;
+      SELECT rule.tier
+        INTO v_tier
+      FROM public.driver_performance_tier_rules AS rule
+      WHERE rule.is_active
+        AND v_completed >= rule.min_completed_rides
+        AND v_rating_count >= rule.min_ratings_count
+        AND v_avg_rating >= rule.min_avg_rating
+      ORDER BY rule.priority DESC, rule.min_completed_rides DESC
+      LIMIT 1;
+
+      NEW.completed_rides := v_completed;
+      NEW.performance_tier := COALESCE(v_tier, 'unranked');
+    ELSIF TG_TABLE_NAME = 'worker_profiles' THEN
+      SELECT COUNT(*)::integer
+        INTO v_completed
+      FROM public.service_requests AS s
+      WHERE s.provider_id = NEW.user_id
+        AND s.type = 'service'
+        AND s.status::text = 'completed';
+
+      NEW.completed_jobs := v_completed;
+    END IF;
+
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF NEW.user_id IS DISTINCT FROM OLD.user_id
+       OR NEW.id IS DISTINCT FROM OLD.id
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+      RAISE EXCEPTION 'provider_profile_identity_readonly';
+    END IF;
+
+    -- A provider may resubmit a rejected profile, but cannot approve,
+    -- suspend, or reset an already approved/suspended profile.
+    IF NEW.status IS DISTINCT FROM OLD.status
+       AND NOT (OLD.status = 'rejected' AND NEW.status = 'pending') THEN
+      RAISE EXCEPTION 'status_readonly';
+    END IF;
+
+    IF NEW.suspended_until IS DISTINCT FROM OLD.suspended_until THEN
+      RAISE EXCEPTION 'provider_suspension_readonly';
+    END IF;
+
+    -- Derived counters and ranking are writable only by trusted database
+    -- recalculation functions, which set this transaction-local guard.
+    IF NOT v_allow_metrics THEN
+      IF TG_TABLE_NAME = 'driver_profiles' AND (
+        NEW.rating_avg IS DISTINCT FROM OLD.rating_avg
+        OR NEW.ratings_count IS DISTINCT FROM OLD.ratings_count
+        OR NEW.completed_rides IS DISTINCT FROM OLD.completed_rides
+        OR NEW.performance_tier IS DISTINCT FROM OLD.performance_tier
+      ) THEN
+        RAISE EXCEPTION 'provider_metrics_readonly';
       END IF;
-    ELSIF TG_OP = 'UPDATE' THEN
-      IF NEW.status IS DISTINCT FROM OLD.status THEN
-        IF TG_TABLE_NAME = 'driver_profiles'
-           AND auth.uid() = OLD.user_id
-           AND OLD.status = 'rejected'
-           AND NEW.status = 'pending' THEN
-          NULL; -- Allow a rejected driver to resubmit for review.
-        ELSE
-          RAISE EXCEPTION 'status_readonly';
-        END IF;
-      END IF;
 
-      IF OLD.status = 'approved' THEN
-        IF TG_TABLE_NAME = 'driver_profiles' AND (
-          v_new->'vehicle_make' IS DISTINCT FROM v_old->'vehicle_make'
-          OR v_new->'vehicle_model' IS DISTINCT FROM v_old->'vehicle_model'
-          OR v_new->'vehicle_year' IS DISTINCT FROM v_old->'vehicle_year'
-          OR v_new->'vehicle_category' IS DISTINCT FROM v_old->'vehicle_category'
-          OR v_new->'vehicle_type' IS DISTINCT FROM v_old->'vehicle_type'
-          OR v_new->'vehicle_plate' IS DISTINCT FROM v_old->'vehicle_plate'
-          OR v_new->'vehicle_color' IS DISTINCT FROM v_old->'vehicle_color'
-        ) THEN
-          RAISE EXCEPTION 'approved_vehicle_changes_require_admin_review';
-        END IF;
-
-        IF TG_TABLE_NAME = 'worker_profiles'
-           AND v_new->'level' IS DISTINCT FROM v_old->'level' THEN
-          RAISE EXCEPTION 'approved_worker_level_change_requires_admin_review';
-        END IF;
-      END IF;
-
-      IF NEW.rating_avg IS DISTINCT FROM OLD.rating_avg THEN
-        RAISE EXCEPTION 'rating_readonly';
-      END IF;
-
-      IF NEW.status <> 'approved' AND NEW.available THEN
-        NEW.available := false;
+      IF TG_TABLE_NAME = 'worker_profiles' AND (
+        NEW.rating_avg IS DISTINCT FROM OLD.rating_avg
+        OR NEW.ratings_count IS DISTINCT FROM OLD.ratings_count
+        OR NEW.completed_jobs IS DISTINCT FROM OLD.completed_jobs
+      ) THEN
+        RAISE EXCEPTION 'provider_metrics_readonly';
       END IF;
     END IF;
+
+    IF OLD.status = 'approved' THEN
+      IF TG_TABLE_NAME = 'driver_profiles' AND (
+        NEW.vehicle_make IS DISTINCT FROM OLD.vehicle_make
+        OR NEW.vehicle_model IS DISTINCT FROM OLD.vehicle_model
+        OR NEW.vehicle_year IS DISTINCT FROM OLD.vehicle_year
+        OR NEW.vehicle_category IS DISTINCT FROM OLD.vehicle_category
+        OR NEW.vehicle_type IS DISTINCT FROM OLD.vehicle_type
+        OR NEW.vehicle_plate IS DISTINCT FROM OLD.vehicle_plate
+        OR NEW.vehicle_color IS DISTINCT FROM OLD.vehicle_color
+      ) THEN
+        RAISE EXCEPTION 'approved_vehicle_changes_require_admin_review';
+      END IF;
+
+      IF TG_TABLE_NAME = 'worker_profiles'
+         AND NEW.level IS DISTINCT FROM OLD.level THEN
+        RAISE EXCEPTION 'approved_worker_level_change_requires_admin_review';
+      END IF;
+    END IF;
+
+    IF NEW.status <> 'approved' THEN
+      NEW.available := false;
+    END IF;
+    NEW.updated_at := now();
   END IF;
 
   RETURN NEW;
-END
-$$;
+END;
+$function$;
 
--- Driver performance tiers are based on taxi rides, not service jobs.
+REVOKE ALL ON FUNCTION public.guard_provider_status() FROM PUBLIC, anon, authenticated;
+
+-- Driver performance tiers are based on taxi rides and trusted ratings.
 CREATE OR REPLACE FUNCTION public.recalculate_driver_performance_tier(p_user_id uuid)
 RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
+SET search_path = ''
+AS $function$
 DECLARE
   v_completed integer := 0;
   v_rating_count integer := 0;
   v_avg_rating numeric := 0;
   v_tier text := 'unranked';
+  v_previous_setting text;
 BEGIN
   IF p_user_id IS NULL THEN
     RETURN 'unranked';
@@ -126,15 +160,15 @@ BEGIN
 
   SELECT COUNT(*)::integer
     INTO v_completed
-  FROM public.service_requests
-  WHERE provider_id = p_user_id
-    AND type = 'taxi'
-    AND status::text = 'completed';
+  FROM public.service_requests AS s
+  WHERE s.provider_id = p_user_id
+    AND s.type = 'taxi'
+    AND s.status::text = 'completed';
 
-  SELECT COUNT(*)::integer, COALESCE(AVG(stars), 0)
+  SELECT COUNT(*)::integer, COALESCE(AVG(r.stars), 0)
     INTO v_rating_count, v_avg_rating
-  FROM public.ratings
-  WHERE ratee_id = p_user_id;
+  FROM public.ratings AS r
+  WHERE r.ratee_id = p_user_id;
 
   SELECT rule.tier
     INTO v_tier
@@ -147,6 +181,8 @@ BEGIN
   LIMIT 1;
 
   v_tier := COALESCE(v_tier, 'unranked');
+  v_previous_setting := current_setting('mamnoon.allow_provider_metrics_update', true);
+  PERFORM set_config('mamnoon.allow_provider_metrics_update', 'true', true);
 
   UPDATE public.driver_profiles
   SET performance_tier = v_tier,
@@ -156,15 +192,16 @@ BEGIN
       updated_at = now()
   WHERE user_id = p_user_id;
 
+  PERFORM set_config('mamnoon.allow_provider_metrics_update', COALESCE(v_previous_setting, ''), true);
   RETURN v_tier;
 END;
-$$;
+$function$;
 
+REVOKE ALL ON FUNCTION public.recalculate_driver_performance_tier(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recalculate_driver_performance_tier(uuid) TO service_role;
 
--- Backfill the derived counters from their authoritative sources. This also
--- repairs profiles created before ratings existed or before the correct role
--- profile was created. The migration runs as the database owner.
-DO $$
+-- Backfill the derived counters from their authoritative sources.
+DO $function$
 DECLARE
   v_user_id uuid;
 BEGIN
@@ -172,22 +209,22 @@ BEGIN
     PERFORM public.recalculate_driver_performance_tier(v_user_id);
   END LOOP;
 END
-$$;
+$function$;
 
-UPDATE public.worker_profiles wp
+UPDATE public.worker_profiles AS wp
 SET rating_avg = COALESCE((
       SELECT AVG(r.stars)::numeric(3,2)
-      FROM public.ratings r
+      FROM public.ratings AS r
       WHERE r.ratee_id = wp.user_id
     ), 0),
     ratings_count = (
       SELECT COUNT(*)::integer
-      FROM public.ratings r
+      FROM public.ratings AS r
       WHERE r.ratee_id = wp.user_id
     ),
     completed_jobs = (
       SELECT COUNT(*)::integer
-      FROM public.service_requests s
+      FROM public.service_requests AS s
       WHERE s.provider_id = wp.user_id
         AND s.type = 'service'
         AND s.status::text = 'completed'
