@@ -1,4 +1,5 @@
-import { createClient } from "npm:@supabase/supabase-js@2.57.0";
+import { createClient } from "npm:@supabase/supabase-js@2.119.0";
+import { getSupabasePublishableKey, getSupabaseSecretKey } from "../_shared/api-keys.ts";
 import boundaries from "./iraq-governorate-boundaries.json" with { type: "json" };
 
 const corsHeaders = {
@@ -207,7 +208,7 @@ async function autocomplete(admin:any,input:string,key:string) {
 Deno.serve(async (req:Request)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:corsHeaders});
   if(req.method!=="POST") return json({error:"الطريقة غير مدعومة"},405);
-  const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url=Deno.env.get("SUPABASE_URL"),anon=getSupabasePublishableKey(),service=getSupabaseSecretKey();
   if(!url||!anon||!service) return json({error:"إعدادات خدمة الخرائط غير مكتملة"},503);
   const auth=req.headers.get("Authorization")||"",token=auth.match(/^Bearer\s+(.+)$/i)?.[1];
   if(!token) return json({error:"سجّل الدخول أولاً."},401);
