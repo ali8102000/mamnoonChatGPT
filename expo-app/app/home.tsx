@@ -348,7 +348,7 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {selectedRole === "customer" ? (
-          <CustomerHome />
+          <CustomerHome userId={user?.id ?? null} />
         ) : (
           <ProviderHome
             available={available}
@@ -417,7 +417,7 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
   );
 }
 
-function CustomerHome() {
+function CustomerHome({ userId }: { userId: string | null }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   useEffect(() => {
     let active = true;
@@ -579,6 +579,8 @@ function CustomerHome() {
         </View>
       </View>
 
+      <HomeCustomContent userId={userId} />
+
       <View style={{ paddingTop: 2, paddingBottom: 20, marginTop: 8 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <Text style={{ color: palette.ink, fontSize: 15, fontWeight: "900" }}>لماذا ممنون؟</Text>
@@ -605,6 +607,125 @@ function CustomerHome() {
           </View>
         </View>
       </View>
+    </View>
+  );
+}
+
+
+function HomeCustomContent({ userId }: { userId: string | null }) {
+  const [sections, setSections] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [responses, setResponses] = useState<Record<string, string>>({});
+  const [results, setResults] = useState<Record<string, any[]>>({});
+  const [voting, setVoting] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const [sectionResult, campaignResult] = await Promise.all([
+      (supabase as any).from("app_content_sections_public").select("id,title,section_type,placement_key,sort_order,published_config").eq("placement_key", "home.customer.content").order("sort_order"),
+      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", "home.customer.content").order("created_at", { ascending: false }),
+    ]);
+    if (!sectionResult.error) setSections(sectionResult.data ?? []);
+    if (!campaignResult.error) {
+      const now = Date.now();
+      const active = (campaignResult.data ?? []).filter((item: any) =>
+        (!item.starts_at || new Date(item.starts_at).getTime() <= now) &&
+        (!item.ends_at || new Date(item.ends_at).getTime() > now)
+      );
+      setCampaigns(active);
+      if (userId && active.length) {
+        const ids = active.map((item: any) => item.id);
+        const { data: own } = await (supabase as any).from("app_campaign_responses").select("campaign_id,option_id").in("campaign_id", ids);
+        const ownMap: Record<string, string> = {};
+        for (const row of own ?? []) ownMap[row.campaign_id] = row.option_id;
+        setResponses(ownMap);
+        const resultPairs = await Promise.all(active.map(async (item: any) => {
+          const { data } = await (supabase as any).rpc("get_app_campaign_results", { p_campaign_id: item.id });
+          return [item.id, data ?? []] as const;
+        }));
+        setResults(Object.fromEntries(resultPairs));
+      }
+    }
+  }, [userId]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const vote = async (campaign: any, optionId: string) => {
+    if (!userId || responses[campaign.id] || voting) return;
+    setVoting(campaign.id);
+    const { error } = await (supabase as any).from("app_campaign_responses").insert({
+      campaign_id: campaign.id, option_id: optionId, user_id: userId,
+    });
+    if (error) {
+      Alert.alert("تعذر تسجيل المشاركة", error.code === "23505" ? "سبق وشاركت بهذا الاستطلاع." : error.message);
+    } else {
+      setResponses((current) => ({ ...current, [campaign.id]: optionId }));
+      const { data } = await (supabase as any).rpc("get_app_campaign_results", { p_campaign_id: campaign.id });
+      setResults((current) => ({ ...current, [campaign.id]: data ?? [] }));
+    }
+    setVoting(null);
+  };
+
+  if (!sections.length && !campaigns.length) return null;
+  return (
+    <View style={{ gap: 12 }}>
+      {sections.map((section) => {
+        const config = section.published_config ?? {};
+        if (section.section_type === "table") {
+          const columns = Array.isArray(config.columns) ? config.columns : [];
+          const rows = Array.isArray(config.rows) ? config.rows : [];
+          return (
+            <View key={section.id} style={{ borderRadius: 18, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
+              <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right", marginBottom: 8 }}>{section.title}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator>
+                <View>
+                  {columns.length > 0 && <View style={{ flexDirection: "row", backgroundColor: palette.brand + "18", borderRadius: 8 }}>{columns.map((column: any, index: number) => <Text key={index} style={{ minWidth: 110, padding: 9, color: palette.ink, fontSize: 11, fontWeight: "900", textAlign: "center" }}>{String(column)}</Text>)}</View>}
+                  {rows.map((row: any, rowIndex: number) => <View key={rowIndex} style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: palette.line }}>{(Array.isArray(row) ? row : []).map((cell: any, cellIndex: number) => <Text key={cellIndex} style={{ minWidth: 110, padding: 9, color: palette.ink, fontSize: 11, textAlign: "center" }}>{String(cell ?? "")}</Text>)}</View>)}
+                </View>
+              </ScrollView>
+            </View>
+          );
+        }
+        return (
+          <View key={section.id} style={{ borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
+            <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>{config.title || section.title}</Text>
+            {!!config.description && <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 4 }}>{config.description}</Text>}
+            {!!config.image_url && <Image source={{ uri: config.image_url }} style={{ width: "100%", height: 130, marginTop: 8, borderRadius: 12 }} resizeMode="cover" />}
+          </View>
+        );
+      })}
+      {campaigns.map((campaign) => {
+        const options = [...(campaign.app_campaign_options ?? [])].sort((a: any, b: any) => a.sort_order - b.sort_order);
+        const selected = responses[campaign.id];
+        const counts = results[campaign.id] ?? [];
+        const total = counts.reduce((sum: number, row: any) => sum + Number(row.vote_count ?? 0), 0);
+        return (
+          <View key={campaign.id} style={{ borderRadius: 18, padding: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ color: palette.brand, fontSize: 10, fontWeight: "900" }}>{campaign.campaign_type === "contest" ? "مسابقة" : "استطلاع رأي"}</Text>
+              <Text style={{ color: palette.muted, fontSize: 10 }}>{total} مشاركة</Text>
+            </View>
+            <Text style={{ color: palette.ink, fontSize: 15, fontWeight: "900", textAlign: "right", marginTop: 5 }}>{campaign.title}</Text>
+            {!!campaign.description && <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 3 }}>{campaign.description}</Text>}
+            <View style={{ gap: 7, marginTop: 10 }}>
+              {options.map((option: any) => {
+                const count = Number(counts.find((row: any) => row.option_id === option.id)?.vote_count ?? 0);
+                const percent = total > 0 ? Math.round((count / total) * 100) : 0;
+                return (
+                  <TouchableOpacity key={option.id} disabled={!userId || !!selected || voting === campaign.id} onPress={() => void vote(campaign, option.id)} style={{ borderWidth: 1, borderColor: selected === option.id ? palette.brand : palette.line, borderRadius: 12, padding: 10 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "800" }}>{option.label}</Text>
+                      {selected && <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>{percent}% · {count}</Text>}
+                    </View>
+                    {selected && <View style={{ height: 5, backgroundColor: palette.line, borderRadius: 9, marginTop: 7, overflow: "hidden" }}><View style={{ height: 5, width: percent + "%", backgroundColor: palette.brand, borderRadius: 9 }} /></View>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {!userId && <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 8 }}>سجّل الدخول حتى تشارك.</Text>}
+            {selected && <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "800", textAlign: "right", marginTop: 8 }}>تم تسجيل مشاركتك.</Text>}
+          </View>
+        );
+      })}
     </View>
   );
 }
