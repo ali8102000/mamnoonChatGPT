@@ -16,6 +16,7 @@ on:
       - "supabase/functions/import-assist/**"
       - ".github/workflows/admin-subscriptions-edge.yml"
   push:
+    branches: [main]
     paths:
       - "supabase/functions/admin-subscriptions/**"
       - "supabase/functions/admin-users/**"
