@@ -1559,12 +1559,18 @@ function ProvidersSection() {
                     ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم تُرفق صورة الجهة الخلفية للبطاقة الوطنية.</div>}
                   </div>
                 )}
-                {type === "driver" && (
+                {(type === "driver" || type === "large_driver") && (
                   <div>
                     <div className="text-sm font-bold mb-2">سنوية السيارة أو الوكالة (رقم المركبة)</div>
                     {selectedVerification.verification.vehicle_document_url ? (
                       <img src={selectedVerification.verification.vehicle_document_url} alt="سنوية السيارة أو الوكالة" className="w-full max-h-96 object-contain rounded-xl bg-black/5" />
                     ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم تُرفق صورة سنوية السيارة أو الوكالة لهذا الطلب.</div>}
+                    <div className="mt-3">
+                      <div className="text-sm font-bold mb-2">فيديو السيارة من جميع الجهات</div>
+                      {selectedVerification.verification.vehicle_video_url ? (
+                        <a href={selectedVerification.verification.vehicle_video_url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-xl bg-primary text-primary-foreground px-4 py-2 text-xs font-bold">مشاهدة فيديو السيارة</a>
+                      ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم يُرفق فيديو السيارة لهذا الطلب.</div>}
+                    </div>
                   </div>
                 )}
                 <div className="text-xs rounded-xl bg-surface-2 p-3 space-y-1">
