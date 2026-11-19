@@ -51,7 +51,7 @@ export default function AccountSettingsScreen() {
       let next = local;
       if (user?.id) {
         const full = await (supabase as any).from("user_push_tokens")
-          .select("sound_enabled,vibration_enabled").eq("user_id", user.id).limit(1).maybeSingle();
+          .select("sound_enabled,vibration_enabled").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle();
         if (!full.error && full.data) {
           next = {
             soundEnabled: typeof full.data.sound_enabled === "boolean" ? full.data.sound_enabled : local.soundEnabled,
@@ -59,7 +59,7 @@ export default function AccountSettingsScreen() {
           };
         } else if (full.error?.code === "42703" || full.error?.message?.toLowerCase().includes("vibration_enabled")) {
           const legacy = await (supabase as any).from("user_push_tokens")
-            .select("sound_enabled").eq("user_id", user.id).limit(1).maybeSingle();
+            .select("sound_enabled").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle();
           if (!legacy.error && typeof legacy.data?.sound_enabled === "boolean") {
             next = { ...local, soundEnabled: legacy.data.sound_enabled };
           }
