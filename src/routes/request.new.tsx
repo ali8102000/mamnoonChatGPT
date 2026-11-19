@@ -1253,7 +1253,7 @@ function NewRequest() {
             <button
               type="button"
               disabled={busy || !pickupCoords || (vehicle !== "large" && (!destCoords || routeKm === null || !!routeError))}
-              onClick={submit}
+              onClick={() => void submit()}
               className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-xl btn-press disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>{vehicle === "large" ? "إرسال الطلب" : "اطلب الآن"}</span>}
@@ -1528,7 +1528,7 @@ function NewRequest() {
       <div className="fixed bottom-0 inset-x-0 p-4 glass-strong border-t border-border z-30">
         <button
           disabled={busy}
-          onClick={submit}
+          onClick={() => void submit()}
           className="w-full max-w-md mx-auto py-4 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-bold btn-press glow-primary disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {busy && <Loader2 className="h-5 w-5 animate-spin" />}
