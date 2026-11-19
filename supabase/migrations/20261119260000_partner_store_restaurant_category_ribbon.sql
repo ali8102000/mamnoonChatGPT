@@ -144,7 +144,13 @@ create policy partner_catalog_images_owner_update on storage.objects
       where p.id::text=(storage.foldername(name))[1]
         and (p.user_id=(select auth.uid()) or public.has_admin_access((select auth.uid())))
     )
-  ) with check (bucket_id='partner-catalog');
+  ) with check (
+    bucket_id='partner-catalog' and exists (
+      select 1 from public.partner_business_profiles p
+      where p.id::text=(storage.foldername(name))[1]
+        and (p.user_id=(select auth.uid()) or public.has_admin_access((select auth.uid())))
+    )
+  );
 
 drop policy if exists partner_catalog_images_owner_delete on storage.objects;
 create policy partner_catalog_images_owner_delete on storage.objects
