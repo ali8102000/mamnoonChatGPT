@@ -57,6 +57,36 @@ jobs:
           bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && cd android && ./gradlew assembleRelease'
           test -s android/app/build/outputs/apk/release/app-release.apk
 
+      - name: Verify APK signature, manifest, and alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          test -x "$BUILD_TOOLS/apksigner"
+          test -x "$BUILD_TOOLS/aapt"
+          test -x "$BUILD_TOOLS/zipalign"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$BUILD_TOOLS/zipalign" -c -v 4 "$APK"
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
+          printf '%s\n' "$BADGING" | grep -F "package: name='com.mamnoon.app'"
+          printf '%s\n' "$BADGING" | grep -F "sdkVersion:'24'"
+          printf '%s\n' "$BADGING" | grep -F "targetSdkVersion:'35'"
+          printf '%s\n' "$BADGING" | grep -F "application-label:'ممنون'"
+
+      - name: Install and launch APK on Android 15 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            adb install -r expo-app/android/app/build/outputs/apk/release/app-release.apk
+            adb shell monkey -p com.mamnoon.app 1
+            sleep 25
+            adb shell pidof com.mamnoon.app || (adb logcat -d -t 500 && exit 1)
+
       - name: Upload standalone preview APK
         uses: actions/upload-artifact@v4
         with:
