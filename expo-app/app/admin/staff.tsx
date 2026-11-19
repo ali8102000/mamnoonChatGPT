@@ -6,15 +6,15 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 const ITEMS = [
-  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"] },
-  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "support", "department_operations", "rank:general_manager"] },
-  { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "support", "department_operations", "rank:general_manager"] },
-  { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager"] },
-  { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager"] },
+  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "users_access"] },
+  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "providers_access"] },
+  { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "orders_access"] },
+  { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "subscriptions_access"] },
+  { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "finance_access"] },
   { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"] },
   { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support", "department_operations", "department_monitoring", "rank:general_manager"] },
   { label: "إدارة الأصدقاء", route: "/admin/friends", roles: ["super_admin", "admin", "moderator", "department_monitoring", "rank:general_manager"] },
-  { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager"] },
+  { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager", "notifications_access"] },
   { label: "الإدارة الهرمية والصلاحيات", route: "/admin/governance", roles: ["super_admin", "admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { label: "التحكم بالمحافظات", route: "/admin/regions", roles: ["super_admin"] },
   { label: "مساعد استيراد البيانات", route: "/admin/import", roles: ["super_admin", "admin"] },
@@ -55,16 +55,33 @@ export default function AdminStaffScreen() {
         if (assignment?.department === "monitoring") setDisplayTitle(assignment.display_title ?? "قسم المراقبة");
         const scopeType = assignment?.scope_type ?? "global";
         const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate : null;
-        const permissionChecks = await Promise.all([
+        const permissionKeys = [
           "staff.read","staff.assign","staff.manage_created","staff.delegate","staff.approve",
-          "pricing.taxi.edit","pricing.peak.edit","finance.read","promotions.read",
-        ].map(async (permission_key) => {
+          "users.read","users.profile.edit","users.block","users.unblock",
+          "providers.read","providers.profile.edit","providers.verify","providers.suspend",
+          "orders.read","orders.assign","orders.override","orders.cancel","orders.reopen",
+          "pricing.taxi.edit","pricing.peak.edit","finance.read","finance.wallet.adjust",
+          "promotions.read","promotions.manage","notifications.send",
+        ];
+        const permissionChecks = await Promise.all(permissionKeys.map(async (permission_key) => {
           const { data } = await (supabase as any).rpc("admin_has_permission", {
             p_permission_key: permission_key, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
           });
           return data === true;
         }));
-        if (permissionChecks.some(Boolean)) names.push("governance_access");
+        if (permissionKeys.slice(0, 5).some((_, index) => permissionChecks[index])) names.push("governance_access");
+        const hasPermission = (key: string) => permissionChecks[permissionKeys.indexOf(key)] === true;
+        if (scopeType === "global" && ["support","moderator","department_monitoring"].some((role) => names.includes(role))) names.push("users_access");
+        if (scopeType === "global" && ["support","department_operations"].some((role) => names.includes(role))) names.push("providers_access","orders_access");
+        if (["users.read","users.profile.edit","users.block","users.unblock"].some(hasPermission)) names.push("users_access");
+        if (["providers.read","providers.profile.edit","providers.verify","providers.suspend"].some(hasPermission)) names.push("providers_access");
+        if (["orders.read","orders.assign","orders.override","orders.cancel","orders.reopen"].some(hasPermission)) names.push("orders_access");
+        if (scopeType === "global" && hasPermission("finance.read") && hasPermission("promotions.read")) names.push("finance_access");
+        if (hasPermission("notifications.send")) names.push("notifications_access");
+        const { data: canManageSubscriptions } = await (supabase as any).rpc("admin_has_permission", {
+          p_permission_key: "subscriptions.manage", p_scope_type: "global", p_scope_governorate: null,
+        });
+        if (canManageSubscriptions === true) names.push("subscriptions_access");
         setRoles([...new Set(names)]);
 
       } catch {
@@ -82,7 +99,7 @@ export default function AdminStaffScreen() {
     return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة مخصصة لموظفي ممنون المخوّلين.</Text></View>;
   }
 
-  const customerServiceOnly = roles.includes("customer_service") && !roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager", "rank:department_manager", "rank:supervisor"].includes(role));
+  const customerServiceOnly = roles.includes("customer_service") && !roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager", "rank:department_manager", "rank:supervisor", "users_access", "providers_access", "orders_access", "finance_access", "subscriptions_access", "notifications_access", "governance_access"].includes(role));
   const visible = ITEMS.filter((item) => item.roles.some((role) => roles.includes(role)) && (!customerServiceOnly || item.route === "/support-chat"));
 
   return (

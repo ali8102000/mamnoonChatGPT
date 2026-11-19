@@ -72,11 +72,17 @@ Deno.serve(async (req: Request) => {
     const user = authData?.user;
     if (authError || !user) return json({ error: "unauthorized" }, 401);
 
-    const { data: canView, error: viewError } = await caller.rpc(
-      "has_subscription_admin_access",
-      { p_user_id: user.id },
-    );
-    if (viewError || canView !== true) return json({ error: "forbidden" }, 403);
+    const [legacyView, scopedView] = await Promise.all([
+      caller.rpc("has_subscription_admin_access", { p_user_id: user.id }),
+      caller.rpc("admin_has_permission", {
+        p_permission_key: "subscriptions.manage",
+        p_scope_type: "global",
+        p_scope_governorate: null,
+      }),
+    ]);
+    const canView = !legacyView.error && legacyView.data === true ||
+      !scopedView.error && scopedView.data === true;
+    if (!canView) return json({ error: "forbidden" }, 403);
 
     const admin = createClient(supabaseUrl, serviceKey, {
       global: { fetch: createSupabaseFetch(serviceKey) },
@@ -86,8 +92,18 @@ Deno.serve(async (req: Request) => {
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
 
     const requireAdmin = async () => {
-      const { data, error } = await caller.rpc("has_admin_access", { p_user_id: user.id });
-      if (error || data !== true) throw new Error("admin_required");
+      const [adminAccess, permission] = await Promise.all([
+        caller.rpc("has_admin_access", { p_user_id: user.id }),
+        caller.rpc("admin_has_permission", {
+          p_permission_key: "subscriptions.manage",
+          p_scope_type: "global",
+          p_scope_governorate: null,
+        }),
+      ]);
+      if (!( !adminAccess.error && adminAccess.data === true) &&
+          !( !permission.error && permission.data === true)) {
+        throw new Error("permission_required:subscriptions.manage");
+      }
     };
 
     if (body.action === "plans") {

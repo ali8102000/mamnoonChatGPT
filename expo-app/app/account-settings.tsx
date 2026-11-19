@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
 import { palette, radius, space } from "@/styles/theme";
 import { useThemePreference, type ThemeMode } from "@/lib/theme-preference";
+import { loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 import Svg, { Path } from "react-native-svg";
 
 export default function AccountSettingsScreen() {
@@ -21,6 +22,9 @@ export default function AccountSettingsScreen() {
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [switchingRole, setSwitchingRole] = useState<string | null>(null);
+  const [notificationSound, setNotificationSound] = useState(true);
+  const [notificationVibration, setNotificationVibration] = useState(true);
+  const [notificationPrefsBusy, setNotificationPrefsBusy] = useState(false);
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [partnerFormOpen, setPartnerFormOpen] = useState(false);
   const [partnerType, setPartnerType] = useState<"hotel" | "restaurant" | "store" | "mall">("hotel");
@@ -40,6 +44,57 @@ export default function AccountSettingsScreen() {
 
   useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
   useEffect(() => { if (user?.id) void loadPartnerApplications(); }, [user?.id]);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const local = await loadNotificationPreferences();
+      let next = local;
+      if (user?.id) {
+        const full = await (supabase as any).from("user_push_tokens")
+          .select("sound_enabled,vibration_enabled").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        if (!full.error && full.data) {
+          next = {
+            soundEnabled: typeof full.data.sound_enabled === "boolean" ? full.data.sound_enabled : local.soundEnabled,
+            vibrationEnabled: typeof full.data.vibration_enabled === "boolean" ? full.data.vibration_enabled : local.vibrationEnabled,
+          };
+        } else if (full.error?.code === "42703" || full.error?.message?.toLowerCase().includes("vibration_enabled")) {
+          const legacy = await (supabase as any).from("user_push_tokens")
+            .select("sound_enabled").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+          if (!legacy.error && typeof legacy.data?.sound_enabled === "boolean") {
+            next = { ...local, soundEnabled: legacy.data.sound_enabled };
+          }
+        }
+      }
+      if (!active) return;
+      setNotificationSound(next.soundEnabled);
+      setNotificationVibration(next.vibrationEnabled);
+      await setNotificationPreferences(next);
+    })().catch((error) => console.warn("[notifications] Could not load account preferences:", error));
+    return () => { active = false; };
+  }, [user?.id]);
+
+  async function saveNotificationPreference(next: { soundEnabled: boolean; vibrationEnabled: boolean }) {
+    setNotificationSound(next.soundEnabled);
+    setNotificationVibration(next.vibrationEnabled);
+    await setNotificationPreferences(next);
+    if (!user?.id) return;
+    setNotificationPrefsBusy(true);
+    try {
+      const { error } = await (supabase as any).from("user_push_tokens")
+        .update({ sound_enabled: next.soundEnabled, vibration_enabled: next.vibrationEnabled, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+      if (error && (error.code === "42703" || error.message?.toLowerCase().includes("vibration_enabled"))) {
+        const fallback = await (supabase as any).from("user_push_tokens")
+          .update({ sound_enabled: next.soundEnabled, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id);
+        if (fallback.error) console.warn("[notifications] Could not sync sound preference:", fallback.error.message);
+      } else if (error) {
+        console.warn("[notifications] Could not sync preferences:", error.message);
+      }
+    } finally {
+      setNotificationPrefsBusy(false);
+    }
+  }
 
   async function loadPartnerApplications() {
     if (!user?.id) return;
@@ -98,7 +153,29 @@ export default function AccountSettingsScreen() {
         throw new Error("انتهت جلسة الدخول. سجّل الدخول من جديد قبل تبديل الدور.");
       }
 
-      await setActiveRole(role as (typeof roles)[number]);
+      const nextRole = role as (typeof roles)[number];
+      const providerTableForRole = (value: string | null) =>
+        value === "driver" || value === "large_driver"
+          ? "driver_profiles"
+          : value === "worker"
+            ? "worker_profiles"
+            : null;
+      const nextProviderTable = providerTableForRole(nextRole);
+      // A user can have more than one provider profile. Deactivate every
+      // provider category except the one being entered, so stale availability
+      // cannot keep receiving dispatches after switching to customer/another role.
+      for (const providerTable of ["driver_profiles", "worker_profiles"]) {
+        if (providerTable === nextProviderTable) continue;
+        const { error: availabilityError } = await (supabase as any)
+          .from(providerTable)
+          .update({ available: false })
+          .eq("user_id", user.id);
+        if (availabilityError) {
+          throw new Error("تعذر إيقاف استقبال الطلبات للدور السابق. لم نبدّل الدور حتى لا تبقى تستقبل طلبات وأنت بوضع الزبون.");
+        }
+      }
+
+      await setActiveRole(nextRole);
 
       // Role switching changes only the local role preference; it must never
       // sign out or replace the authenticated Supabase session.
@@ -204,6 +281,30 @@ export default function AccountSettingsScreen() {
     <Text style={styles.sectionTitle}>مظهر التطبيق</Text>
     <Text style={styles.note}>اختار الوضع اللي يناسبك، وينحفظ على جهازك.</Text>
     <View style={styles.roleGrid}>{([{key:"system",label:"حسب الجهاز"},{key:"light",label:"نهاري"},{key:"dark",label:"ليلي"}] as const).map((item)=><TouchableOpacity key={item.key} onPress={()=>{void setMode(item.key as ThemeMode);}} style={[styles.roleCard,{minHeight:58,backgroundColor:mode===item.key?palette.brandSoft:palette.surface,borderColor:mode===item.key?palette.brand:palette.line}]}><Text style={[styles.roleTitle,{color:palette.ink}]}>{item.label}{mode===item.key?" ✓":""}</Text></TouchableOpacity>)}</View>
+    <Text style={styles.sectionTitle}>إعدادات الإشعارات</Text>
+    <Text style={styles.note}>تحكم بصوت واهتزاز تنبيهات ممنون. تنحفظ الإعدادات على جهازك وتتزامن مع أجهزة الحساب المسجلة.</Text>
+    <View style={styles.notificationPrefsCard}>
+      <View style={styles.notificationPrefsRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.notificationPrefsTitle}>صوت الإشعارات</Text>
+          <Text style={styles.notificationPrefsHint}>تشغيل أو كتم صوت التنبيهات</Text>
+        </View>
+        <TouchableOpacity disabled={notificationPrefsBusy} onPress={() => void saveNotificationPreference({ soundEnabled: !notificationSound, vibrationEnabled: notificationVibration })} style={[styles.notificationPrefsToggle, notificationSound && styles.notificationPrefsToggleOn]}>
+          <Text style={[styles.notificationPrefsToggleText, notificationSound && styles.notificationPrefsToggleTextOn]}>{notificationSound ? "مفعّل" : "مكتوم"}</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.notificationPrefsDivider} />
+      <View style={styles.notificationPrefsRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.notificationPrefsTitle}>اهتزاز الإشعارات</Text>
+          <Text style={styles.notificationPrefsHint}>تشغيل أو إيقاف الاهتزاز</Text>
+        </View>
+        <TouchableOpacity disabled={notificationPrefsBusy} onPress={() => void saveNotificationPreference({ soundEnabled: notificationSound, vibrationEnabled: !notificationVibration })} style={[styles.notificationPrefsToggle, notificationVibration && styles.notificationPrefsToggleOn]}>
+          <Text style={[styles.notificationPrefsToggleText, notificationVibration && styles.notificationPrefsToggleTextOn]}>{notificationVibration ? "مفعّل" : "متوقف"}</Text>
+        </TouchableOpacity>
+      </View>
+      {notificationPrefsBusy && <Text style={styles.notificationPrefsHint}>جارٍ حفظ الإعدادات...</Text>}
+    </View>
     {roles.filter((role) => ["customer", "worker", "driver", "large_driver"].includes(role)).length > 1 && <>
       <View style={styles.roleSectionHeading}>
         <View style={styles.roleSwitchIcon}>
@@ -363,6 +464,15 @@ const styles = StyleSheet.create({
   roleEmoji: { fontSize: 20, fontWeight: "900" },
   roleTitle: { fontSize: 14, fontWeight: "900" },
   roleHint: { fontSize: 10, fontWeight: "800", marginTop: 5, opacity: 0.9 },
+  notificationPrefsCard: { backgroundColor: palette.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: palette.line, paddingHorizontal: 14, marginBottom: 18 },
+  notificationPrefsRow: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 12 },
+  notificationPrefsTitle: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
+  notificationPrefsHint: { color: palette.muted, fontSize: 10, marginTop: 4, textAlign: "right" },
+  notificationPrefsToggle: { minWidth: 78, paddingHorizontal: 12, paddingVertical: 9, borderRadius: radius.md, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.pageCanvas, alignItems: "center" },
+  notificationPrefsToggleOn: { borderColor: palette.brand, backgroundColor: palette.brandSoft },
+  notificationPrefsToggleText: { color: palette.muted, fontSize: 11, fontWeight: "900" },
+  notificationPrefsToggleTextOn: { color: palette.brand },
+  notificationPrefsDivider: { height: 1, backgroundColor: palette.line },
   note: { color: palette.muted, lineHeight: 21, marginBottom: 16, fontSize: 12 },
   label: { fontSize: 12, fontWeight: "900", color: palette.ink, marginTop: 16, marginBottom: 8 },
   current: { color: palette.muted, fontSize: 14, paddingVertical: 8 },

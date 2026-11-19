@@ -89,10 +89,19 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await caller.rpc(rpcName, { p_user_id: auth.user.id });
       if (error || data !== true) throw new Error("forbidden");
     };
+    const getStaffScope = async () => {
+      const { data: assignment, error } = await caller.from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+      if (error) throw new Error("staff_scope_unavailable");
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+      if (scopeType === "governorate" && !scopeGovernorate) throw new Error("staff_scope_unavailable");
+      return { scopeType, scopeGovernorate };
+    };
     const requireFullChatModeration = async () => {
       await requireScopedAccess("has_chat_moderation_access");
       const { data, error } = await caller.rpc("is_customer_service_staff", { p_user_id: auth.user.id });
-      if (!error && data === true) throw new Error("forbidden");
+      if (error || data === true) throw new Error("forbidden");
     };
     const admin = createClient(url, service, { global: { fetch: createSupabaseFetch(service) }, auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
@@ -115,6 +124,16 @@ Deno.serve(async (req: Request) => {
         p_scope_governorate: scopeGovernorate,
       });
       if (error || data !== true) throw new Error("permission_required:" + permissionKey);
+    };
+    const requireScopedReadPermission = async (permissionKey: string, legacyRpc: string, scopeType: string, scopeGovernorate: string | null) => {
+      try {
+        await requirePermission(permissionKey, scopeType, scopeGovernorate);
+      } catch (error) {
+        // Preserve legacy global staff access only; regional access must use an
+        // explicitly scoped permission to avoid exposing other governorates.
+        if (scopeType !== "global") throw error;
+        await requireScopedAccess(legacyRpc);
+      }
     };
     const requireRequestPermission = async (permissionKey: string, requestId: string) => {
       const { data: request, error } = await admin.from("service_requests")
@@ -239,11 +258,24 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "provider_change_requests") {
-      await requirePermission("providers.read");
-      const { data, error } = await admin.from("provider_change_requests")
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("providers.read", "has_provider_ops_access", scopeType, scopeGovernorate);
+
+      let scopedUserIds: string[] | null = null;
+      if (scopeType === "governorate" && scopeGovernorate) {
+        const { data: scopedProfiles, error: scopedProfilesError } = await admin.from("profiles")
+          .select("id").eq("governorate_key", scopeGovernorate);
+        if (scopedProfilesError) return json({ error: "provider_change_requests_load_failed" }, 500);
+        scopedUserIds = (scopedProfiles ?? []).map((profile: any) => profile.id).filter(isUuid);
+        if (!scopedUserIds.length) return json({ requests: [] });
+      }
+
+      let query = admin.from("provider_change_requests")
         .select("*, profiles!provider_change_requests_user_id_fkey(full_name,phone)")
         .eq("status", "pending")
         .order("created_at", { ascending: true });
+      if (scopedUserIds) query = query.in("user_id", scopedUserIds);
+      const { data, error } = await query;
       if (error) return json({ error: "provider_change_requests_load_failed" }, 500);
       const serviceIds = [...new Set((data ?? []).flatMap((row: any) =>
         row.provider_type === "worker" && Array.isArray(row.requested_data?.service_ids)
@@ -264,7 +296,9 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "dashboard_stats") {
-      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
+      // This payload aggregates platform-wide user, request, and revenue totals.
+      // Keep it global-only; regional staff must not infer other governorates.
+      await requirePermission("analytics.view");
       const [
         usersRes, driversRes, workersRes, activeDriversRes, activeWorkersRes,
         reqAllRes, reqActiveRes, reqDoneRes, reqCancelledRes, todayTxRes, monthTxRes, yearTxRes,
@@ -306,7 +340,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "list" || body.action === "search") {
-      await requireScopedAccess("has_user_moderation_access");
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("users.read", "has_user_moderation_access", scopeType, scopeGovernorate);
       const isSearch = body.action === "search";
       if (isSearch && (typeof body.query !== "string" || body.query.trim().length < 1 || body.query.length > 100)) {
         return json({ error: "query_too_short" }, 400);
@@ -316,6 +351,7 @@ Deno.serve(async (req: Request) => {
       let query = admin.from("profiles")
         .select("id,phone,full_name,email,created_at,avatar_url", { count: "exact" })
         .order("created_at", { ascending: false });
+      if (scopeType === "governorate" && scopeGovernorate) query = query.eq("governorate_key", scopeGovernorate);
       if (isSearch) {
         const { term, digits, phones } = searchTerms(body.query);
         const filters = [
@@ -343,9 +379,15 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "detail") {
-      await requireScopedAccess("has_user_moderation_access");
       if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
       const id = body.user_id;
+      const { data: targetProfile, error: targetProfileError } = await admin.from("profiles")
+        .select("governorate_key").eq("id", id).maybeSingle();
+      if (targetProfileError || !targetProfile) return json({ error: "user_not_found" }, 404);
+      const governorate = targetProfile.governorate_key ?? null;
+      const staffScope = await getStaffScope();
+      if (staffScope.scopeType === "governorate" && staffScope.scopeGovernorate !== governorate) throw new Error("permission_required:users.read");
+      await requireScopedReadPermission("users.read", "has_user_moderation_access", staffScope.scopeType, staffScope.scopeGovernorate);
       const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications] = await Promise.all([
         admin.from("profiles").select("*").eq("id", id).maybeSingle(),
         admin.from("user_roles").select("role,created_at").eq("user_id", id),
@@ -393,13 +435,15 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "providers") {
-      await requireScopedAccess("has_provider_ops_access");
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("providers.read", "has_provider_ops_access", scopeType, scopeGovernorate);
       const type = ["driver", "large_driver", "worker"].includes(body.type) ? body.type : "driver";
       const status = ["all", "approved", "pending", "suspended", "rejected"].includes(body.status) ? body.status : "all";
       const category = typeof body.category === "string" ? body.category.slice(0, 80) : "all";
       const table = type === "worker" ? "worker_profiles" : "driver_profiles";
       let providerQuery = admin.from(table)
         .select("*, profiles!inner(full_name,phone,email,avatar_url)", { count: "exact" });
+      if (scopeType === "governorate" && scopeGovernorate) providerQuery = providerQuery.eq("profiles.governorate_key", scopeGovernorate);
       if (status !== "all") providerQuery = providerQuery.eq("status", status);
       if (category !== "all") providerQuery = providerQuery.eq(type === "worker" ? "level" : "vehicle_category", category);
       const { data: providers, count, error } = await providerQuery
@@ -434,12 +478,14 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "requests") {
-      await requireScopedAccess("has_provider_ops_access");
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("orders.read", "has_provider_ops_access", scopeType, scopeGovernorate);
       const status = typeof body.status === "string" ? body.status.slice(0, 40) : "all";
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let requestQuery = admin.from("service_requests")
         .select("id,type,status,price_estimate,created_at,pickup_text,dest_text,customer_id,provider_id")
         .order("created_at", { ascending: false }).limit(limit);
+      if (scopeType === "governorate" && scopeGovernorate) requestQuery = requestQuery.eq("governorate_key", scopeGovernorate);
       if (status !== "all") requestQuery = requestQuery.eq("status", status);
       const { data: requests, error } = await requestQuery;
       if (error) return json({ error: "requests_load_failed" }, 500);
@@ -647,7 +693,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "monitoring") {
-      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
+      // Monitoring includes platform-wide reports, blocks, and support tickets.
+      await requirePermission("analytics.view");
       const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
         admin.from("profiles").select("id", { count: "exact", head: true }),
         admin.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
@@ -766,7 +813,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "broadcast_notification") {
-      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
       const targets = ["all", "drivers", "large_drivers", "workers", "customers", "single"];
       if (!targets.includes(body.target) || typeof body.title !== "string" ||
           body.title.trim().length < 1 || body.title.length > 200 ||
@@ -775,6 +821,15 @@ Deno.serve(async (req: Request) => {
           (body.target === "single" ? !isUuid(body.user_id) :
             (body.user_id !== undefined && !isUuid(body.user_id)))) {
         return json({ error: "invalid_notification" }, 400);
+      }
+      if (body.target === "single") {
+        const { data: targetProfile, error: targetProfileError } = await admin.from("profiles")
+          .select("governorate_key").eq("id", body.user_id).maybeSingle();
+        if (targetProfileError || !targetProfile) return json({ error: "user_not_found" }, 404);
+        const governorate = targetProfile.governorate_key ?? null;
+        await requirePermission("notifications.send", governorate ? "governorate" : "global", governorate);
+      } else {
+        await requirePermission("notifications.send");
       }
       const { data, error } = await caller.rpc("admin_broadcast_notification", {
         p_target: body.target,
@@ -787,13 +842,13 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "broadcast_governorate_notification") {
-      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
       const allowedGovernorates = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
       if (typeof body.governorate_key !== "string" || !allowedGovernorates.includes(body.governorate_key) ||
           typeof body.title !== "string" || body.title.trim().length < 1 || body.title.length > 200 ||
           typeof body.body !== "string" || body.body.trim().length < 1 || body.body.length > 2000) {
         return json({ error: "invalid_governorate_notification" }, 400);
       }
+      await requirePermission("notifications.send", "governorate", body.governorate_key);
       const { data, error } = await caller.rpc("admin_broadcast_governorate_notification", {
         p_governorate_key: body.governorate_key,
         p_title: body.title.trim(),

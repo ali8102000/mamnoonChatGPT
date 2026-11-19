@@ -103,6 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRoleState] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const lastUserId = useRef<string | null>(null);
+  // Prevent an older getSession() response from overwriting a newer auth event.
+  const authRevision = useRef(0);
   // A revision invalidates restores as soon as the user requests a role switch.
   const roleRevision = useRef(0);
   // Serialize SecureStore writes so an older switch cannot finish after a newer one.
@@ -116,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Wait for any role switch already requested before reading the preference.
       await roleWriteQueue.current.catch(() => undefined);
-      if (roleRevision.current !== revisionAtStart) return;
+      if (roleRevision.current !== revisionAtStart || lastUserId.current !== uid) return;
 
       const preferenceKey = rolePreferenceKey(uid);
       const saved = await SecureStore.getItemAsync(preferenceKey);
@@ -129,11 +131,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // A profile refresh can finish after a manual role switch. Never let
       // that older restore operation replace the user's latest selection.
-      if (roleRevision.current !== revisionAtStart) return;
+      if (roleRevision.current !== revisionAtStart || lastUserId.current !== uid) return;
       setActiveRoleState(selected);
     } catch (error) {
       console.warn("[Mamnoon] Could not restore the saved role:", error);
-      if (roleRevision.current === revisionAtStart) setActiveRoleState(fallback);
+      if (roleRevision.current === revisionAtStart && lastUserId.current === uid) setActiveRoleState(fallback);
     }
   }
 
@@ -157,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // If a newer role was requested while this write was pending, its queued
     // write will become the persisted value and only it may update the UI.
-    if (roleRevision.current !== revision) return;
+    if (roleRevision.current !== revision || lastUserId.current !== uid) return;
     setActiveRoleState(role);
   }
 
@@ -242,18 +244,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (refreshInFlight.current) return refreshInFlight.current;
 
     const operation = (async () => {
+      const revisionAtStart = authRevision.current;
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
+        if (authRevision.current !== revisionAtStart) return;
         setSession(data.session);
         const uid = data.session?.user.id ?? null;
         if (uid) {
           const previousId = lastUserId.current;
+          if (previousId !== uid) roleRevision.current += 1;
           if (previousId && previousId !== uid) void clearCachedAuthProfile(previousId);
           lastUserId.current = uid;
           await loadProfile(uid);
         } else {
           const previousId = lastUserId.current;
+          if (previousId) roleRevision.current += 1;
           lastUserId.current = null;
           setProfile(null);
           setRoles([]);
@@ -263,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.warn("[offline] Could not refresh the account session:", error);
         const uid = lastUserId.current;
-        if (uid) await loadProfile(uid);
+        if (authRevision.current === revisionAtStart && uid) await loadProfile(uid);
       }
     })();
 
@@ -276,9 +282,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      authRevision.current += 1;
       setSession(nextSession);
       const nextUserId = nextSession?.user.id ?? null;
       const previousId = lastUserId.current;
+      if (previousId !== nextUserId) roleRevision.current += 1;
       if (nextUserId) {
         if (previousId && previousId !== nextUserId) void clearCachedAuthProfile(previousId);
         lastUserId.current = nextUserId;
@@ -293,18 +301,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     let active = true;
+    const initialAuthRevision = authRevision.current;
     supabase.auth
       .getSession()
       .then(async ({ data, error }) => {
         if (error) throw error;
-        if (!active) return;
+        if (!active || authRevision.current !== initialAuthRevision) return;
         setSession(data.session);
         const uid = data.session?.user.id ?? null;
         lastUserId.current = uid;
         if (uid) await loadProfile(uid);
       })
       .catch(async () => {
-        if (!active) return;
+        if (!active || authRevision.current !== initialAuthRevision) return;
         // A transient network failure must not erase a locally persisted
         // Supabase session or the last known profile and role snapshot.
         const uid = lastUserId.current;

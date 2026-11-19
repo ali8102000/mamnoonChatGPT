@@ -18,7 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import { getNotificationChannelId, loadNotificationPreferences, loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
+import { getNotificationChannelId, loadNotificationPreferences } from "@/lib/notification-sound";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import service_build from "../../assets/services/build.jpg";
@@ -209,6 +209,7 @@ export default function RequestDetail() {
   const [vehicleDetails, setVehicleDetails] = useState<any>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [largeOffers, setLargeOffers] = useState<any[]>([]);
   const [myLargeOffer, setMyLargeOffer] = useState<any>(null);
@@ -222,7 +223,10 @@ export default function RequestDetail() {
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
   const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
   const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
+  const acceptedMapRef = useRef<MapView | null>(null);
+  const acceptedMapFitKeyRef = useRef<string | null>(null);
   const roadRouteSequenceRef = useRef(0);
+  const lastRoadRouteRequestRef = useRef<{ routeKey: string; latitude: number; longitude: number; requestedAt: number } | null>(null);
   const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
   const [freshnessClock, setFreshnessClock] = useState(Date.now());
@@ -239,6 +243,7 @@ export default function RequestDetail() {
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
+  const [transitionBusy, setTransitionBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   const [dispatchClock, setDispatchClock] = useState(Date.now());
   const [urgencyAllowed, setUrgencyAllowed] = useState(false);
@@ -261,6 +266,11 @@ export default function RequestDetail() {
       (request.type === "service" && roles.includes("worker"))),
   );
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
+  const acceptedMapMode = Boolean(
+    request && (isProvider || isCustomer) && isActive &&
+    (request.type === "taxi" || request.type === "service") &&
+    (request.pickup_lat != null && request.pickup_lng != null || myLocation || otherLocation),
+  );
   const providerLiveLocation = isCustomer ? otherLocation : myLocation;
   const driverLocationFresh = Boolean(providerLiveLocation?.updatedAt && Number.isFinite(Date.parse(providerLiveLocation.updatedAt)) && freshnessClock - Date.parse(providerLiveLocation.updatedAt) < 25000);
   const currentUserId = user?.id;
@@ -276,12 +286,17 @@ export default function RequestDetail() {
   const urgentOfferFlash = activeOfferSeconds !== null && activeOfferSeconds <= 10 && activeOfferSeconds % 2 === 0;
 
   const openTaxiNavigation = useCallback((app: "google" | "waze" | "darbuna") => {
-    if (!request || request.pickup_lat == null || request.pickup_lng == null) {
-      Alert.alert("الملاحة", "إحداثيات موقع الزبون أو موقع العمل غير متوفرة لهذا الطلب.");
+    if (!request) return;
+    const customerTaxiDestination = request.type === "taxi" && isCustomer &&
+      request.dest_lat != null && request.dest_lng != null;
+    const targetLat = customerTaxiDestination ? request.dest_lat : request.pickup_lat;
+    const targetLng = customerTaxiDestination ? request.dest_lng : request.pickup_lng;
+    if (targetLat == null || targetLng == null) {
+      Alert.alert("الملاحة", customerTaxiDestination ? "إحداثيات الوجهة غير متوفرة لهذا الطلب." : "إحداثيات موقع الزبون أو موقع العمل غير متوفرة لهذا الطلب.");
       return;
     }
-    const latitude = Number(request.pickup_lat);
-    const longitude = Number(request.pickup_lng);
+    const latitude = Number(targetLat);
+    const longitude = Number(targetLng);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
       Alert.alert("الملاحة", "إحداثيات موقع الزبون غير صحيحة.");
       return;
@@ -303,7 +318,7 @@ export default function RequestDetail() {
           : "تعذر فتح تطبيق الملاحة. تأكد من اتصال الجهاز وحاول مرة أخرى.",
       );
     });
-  }, [request?.type, request?.pickup_lat, request?.pickup_lng]);
+  }, [request?.type, request?.pickup_lat, request?.pickup_lng, request?.dest_lat, request?.dest_lng, isCustomer]);
 
   const showTaxiNavigationOptions = useCallback(() => {
     Alert.alert(request?.type === "service" ? "اذهب إلى موقع العمل" : "اذهب إلى الزبون", "اختَر تطبيق الملاحة", [
@@ -314,7 +329,7 @@ export default function RequestDetail() {
     ]);
   }, [openTaxiNavigation, request?.type]);
 
-  useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);
+  useEffect(() => { void loadNotificationPreferences().then((preferences) => { setSoundEnabled(preferences.soundEnabled); setVibrationEnabled(preferences.vibrationEnabled); }); }, []);
   useEffect(() => {
     let active = true;
     void (async () => {
@@ -343,7 +358,7 @@ export default function RequestDetail() {
           sound: "default",
           data: { request_id: request.id, type: "request_countdown" },
         },
-        trigger: seconds <= 1 ? null : {
+        trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds,
           channelId: getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled),
@@ -557,7 +572,19 @@ export default function RequestDetail() {
         (payload) => {
           const incoming = payload.new as ChatMessage;
           if (incoming.sender_id !== user?.id) {
-            void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: "وصلتك رسالة جديدة من الطرف الآخر", sound: soundEnabled ? "default" : false, data: { request_id: id } }, trigger: null }).catch((error) => console.warn("[messages] sound notification failed:", error));
+            void Notifications.scheduleNotificationAsync({
+              content: {
+                title: "رسالة جديدة في ممنون",
+                body: "وصلتك رسالة جديدة من الطرف الآخر",
+                sound: soundEnabled ? "default" : false,
+                data: { request_id: id },
+              },
+              trigger: Platform.OS === "android" ? {
+                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                seconds: 1,
+                channelId: getNotificationChannelId(soundEnabled, vibrationEnabled),
+              } : null,
+            }).catch((error) => console.warn("[messages] local notification failed:", error));
           }
           void loadMessages();
         },
@@ -567,7 +594,7 @@ export default function RequestDetail() {
     return () => {
       supabase.removeChannel(sub);
     };
-  }, [chatId, loadMessages, user?.id, id, soundEnabled]);
+  }, [chatId, loadMessages, user?.id, id, soundEnabled, vibrationEnabled]);
 
   useEffect(() => {
     if (!isActive || !currentUserId) return;
@@ -810,8 +837,28 @@ export default function RequestDetail() {
       setRoadRoutePoints([]);
       return;
     }
+    // Live GPS arrives every few seconds. Reuse the current road line until
+    // the provider has moved meaningfully or the route has aged out.
+    const routeKey = [id, request?.type, request?.status,
+      destination.latitude.toFixed(5), destination.longitude.toFixed(5)].join(":");
+    const previousRouteRequest = lastRoadRouteRequestRef.current;
+    const movedMeters = previousRouteRequest
+      ? Math.hypot(
+          (origin.latitude - previousRouteRequest.latitude) * 111320,
+          (origin.longitude - previousRouteRequest.longitude) * 111320 * Math.cos(origin.latitude * Math.PI / 180),
+        )
+      : Number.POSITIVE_INFINITY;
+    if (previousRouteRequest && previousRouteRequest.routeKey === routeKey &&
+        movedMeters < 25 && Date.now() - previousRouteRequest.requestedAt < 12000) return;
+
     const sequence = ++roadRouteSequenceRef.current;
     const timeout = setTimeout(() => {
+      lastRoadRouteRequestRef.current = {
+        routeKey,
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+        requestedAt: Date.now(),
+      };
       void callMamnoonMapsApi<{ routePoints?: { lat: number; lng: number }[] }>({
         action: "route",
         from: { lat: origin.latitude, lng: origin.longitude },
@@ -849,9 +896,57 @@ export default function RequestDetail() {
     otherLocation?.longitude,
     driverLocationFresh,
   ]);
+  useEffect(() => {
+    if (!acceptedMapMode || !request || !acceptedMapRef.current) return;
+    const fitKey = `${request.id}:${request.status}`;
+    const singlePointFitKey = `${fitKey}:single`;
+    if (acceptedMapFitKeyRef.current === fitKey) return;
+    const target = request.type === "taxi" && request.status === "in_progress" &&
+      request.dest_lat != null && request.dest_lng != null
+      ? { latitude: Number(request.dest_lat), longitude: Number(request.dest_lng) }
+      : request.pickup_lat != null && request.pickup_lng != null
+        ? { latitude: Number(request.pickup_lat), longitude: Number(request.pickup_lng) }
+        : isCustomer ? myLocation : otherLocation;
+    const origin = isCustomer ? otherLocation : myLocation;
+    const coordinates = roadRoutePoints.length > 1
+      ? roadRoutePoints
+      : [origin, target].filter((point): point is Coordinates => point != null);
+    if (coordinates.length > 1) {
+      acceptedMapRef.current.fitToCoordinates(coordinates, {
+        edgePadding: { top: 90, right: 44, bottom: 360, left: 44 },
+        animated: true,
+      });
+      acceptedMapFitKeyRef.current = fitKey;
+    } else if (coordinates.length === 1 && acceptedMapFitKeyRef.current !== singlePointFitKey) {
+      // Center provisionally on the known point, but allow a later live-location
+      // update to perform the full two-point fit exactly once.
+      acceptedMapRef.current.animateToRegion({
+        ...coordinates[0],
+        latitudeDelta: 0.018,
+        longitudeDelta: 0.018,
+      }, 450);
+      acceptedMapFitKeyRef.current = singlePointFitKey;
+    }
+  }, [
+    acceptedMapMode,
+    request?.id,
+    request?.type,
+    request?.status,
+    request?.pickup_lat,
+    request?.pickup_lng,
+    request?.dest_lat,
+    request?.dest_lng,
+    isCustomer,
+    myLocation?.latitude,
+    myLocation?.longitude,
+    otherLocation?.latitude,
+    otherLocation?.longitude,
+    roadRoutePoints,
+  ]);
+
 
   useEffect(() => {
-    if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
+    if (!isCustomer || !request || request.status !== "accepted" ||
         !driverLocationFresh || !otherLocation || request.pickup_lat == null || request.pickup_lng == null) {
       setDriverEtaMinutes(null);
       lastEtaRequestRef.current = null;
@@ -1025,37 +1120,64 @@ export default function RequestDetail() {
   }
 
   async function markProviderArrived() {
-    if (!request || !isProvider || request.status !== "accepted") return;
-    const { error } = await (supabase as any).rpc("mark_service_request_arrived", {
-      _request_id: id,
-    });
-    if (error) {
-      Alert.alert("تعذر تأكيد الوصول", error.message);
-      return;
+    if (!request || !isProvider || request.status !== "accepted" || transitionBusy) return;
+    setTransitionBusy(true);
+    try {
+      const { error } = await (supabase as any).rpc("mark_service_request_arrived", {
+        _request_id: id,
+      });
+      if (error) {
+        Alert.alert("تعذر تأكيد الوصول", error.message);
+        return;
+      }
+      Alert.alert("تم تأكيد الوصول", "تم تسجيل وصولك إلى موقع الزبون.");
+      await loadRequest();
+    } finally {
+      setTransitionBusy(false);
     }
-    Alert.alert("تم تأكيد الوصول", "تم تسجيل وصولك إلى موقع الزبون.");
-    await loadRequest();
   }
 
   async function startRide() {
-    const { error } = await supabase.rpc("transition_service_request", {
-      _request_id: id,
-      _status: "in_progress",
-      _reason: null,
-    });
-    if (error) Alert.alert("خطأ", error.message);
-    else loadRequest();
+    if (!request || !isProvider || request.status !== "accepted" || transitionBusy) return;
+    const arrivalRequired = request.type === "service" ||
+      (request.type === "taxi" && request.vehicle_category === "large");
+    if (arrivalRequired && !request.provider_arrived_at) {
+      Alert.alert("تأكيد الوصول مطلوب", "أكد وصولك إلى موقع الزبون أولاً قبل بدء تنفيذ الطلب.");
+      return;
+    }
+    setTransitionBusy(true);
+    try {
+      const { error } = await supabase.rpc("transition_service_request", {
+        _request_id: id,
+        _status: "in_progress",
+        _reason: null,
+      });
+      if (error) {
+        const message = error.message?.includes("provider_not_arrived")
+          ? "لازم تأكد وصولك للموقع أولاً قبل بدء التنفيذ."
+          : error.message || "حاول مرة ثانية.";
+        Alert.alert("تعذر بدء الطلب", message);
+      } else {
+        await loadRequest();
+      }
+    } finally {
+      setTransitionBusy(false);
+    }
   }
 
   async function completeRide() {
-    const { error } = await supabase.rpc("transition_service_request", {
-      _request_id: id,
-      _status: "completed",
-      _reason: null,
-    });
-    if (error) Alert.alert("خطأ", error.message);
-    else {
-      await loadRequest();
+    if (!request || !isProvider || request.status !== "in_progress" || transitionBusy) return;
+    setTransitionBusy(true);
+    try {
+      const { error } = await supabase.rpc("transition_service_request", {
+        _request_id: id,
+        _status: "completed",
+        _reason: null,
+      });
+      if (error) Alert.alert("تعذر إنهاء الطلب", error.message || "حاول مرة ثانية.");
+      else await loadRequest();
+    } finally {
+      setTransitionBusy(false);
     }
   }
 
@@ -1158,6 +1280,13 @@ export default function RequestDetail() {
       </View>
     );
 
+  const mapRouteTarget: Coordinates | null = request.type === "taxi" &&
+    request.status === "in_progress" && request.dest_lat != null && request.dest_lng != null
+      ? { latitude: request.dest_lat, longitude: request.dest_lng }
+      : request.pickup_lat != null && request.pickup_lng != null
+        ? { latitude: request.pickup_lat, longitude: request.pickup_lng }
+        : isCustomer ? myLocation : otherLocation;
+  const mapRouteOrigin = providerLiveLocation ?? mapRouteTarget;
   const statusLabel: Record<string, string> = {
     searching: "بحث عن مزوّد...",
     pending: "بانتظار القبول",
@@ -1178,14 +1307,101 @@ export default function RequestDetail() {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View style={[styles.container, acceptedMapMode && styles.containerMap]}>
+        {acceptedMapMode && (
+          <MapView
+            ref={acceptedMapRef}
+            key={`${request.id}:${request.status}`}
+            style={styles.fullScreenTrackingMap}
+            initialRegion={{
+              latitude: mapRouteOrigin && mapRouteTarget
+                ? (mapRouteOrigin.latitude + mapRouteTarget.latitude) / 2
+                : mapRouteTarget?.latitude ?? 33.3152,
+              longitude: mapRouteOrigin && mapRouteTarget
+                ? (mapRouteOrigin.longitude + mapRouteTarget.longitude) / 2
+                : mapRouteTarget?.longitude ?? 44.3661,
+              latitudeDelta: mapRouteOrigin && mapRouteTarget
+                ? Math.max(0.018, Math.abs(mapRouteTarget.latitude - mapRouteOrigin.latitude) * 1.6)
+                : 0.018,
+              longitudeDelta: mapRouteOrigin && mapRouteTarget
+                ? Math.max(0.018, Math.abs(mapRouteTarget.longitude - mapRouteOrigin.longitude) * 1.6)
+                : 0.018,
+            }}
+            showsUserLocation={request.type !== "taxi"}
+            showsCompass
+            toolbarEnabled={false}
+            scrollEnabled
+            zoomEnabled
+            rotateEnabled
+          >
+            {roadRoutePoints.length > 1 && (
+              <Polyline coordinates={roadRoutePoints} strokeColor="#2563EB" strokeWidth={6} />
+            )}
+            {providerRoutePoints.length > 1 && (
+              <Polyline coordinates={providerRoutePoints} strokeColor="#D6A43B" strokeWidth={5} geodesic />
+            )}
+            {request.type === "taxi" ? (
+              <>
+                {request.pickup_lat != null && request.pickup_lng != null && (
+                  <LocationTargetMarker coordinate={{ latitude: request.pickup_lat, longitude: request.pickup_lng }} title="نقطة انطلاق الزبون" />
+                )}
+                {request.dest_lat != null && request.dest_lng != null && (
+                  <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
+                )}
+                {(isProvider ? myLocation : otherLocation) && (
+                  <TaxiCarMarker coordinate={(isProvider ? myLocation : otherLocation)!} heading={(isProvider ? myLocation : otherLocation)?.heading} />
+                )}
+                {(isProvider ? otherLocation : myLocation) && (
+                  <LocationTargetMarker coordinate={(isProvider ? otherLocation : myLocation)!} title={isProvider ? "موقع الزبون" : "موقعك"} />
+                )}
+              </>
+            ) : (
+              <>
+                {request.pickup_lat != null && request.pickup_lng != null && (
+                  <Marker coordinate={{ latitude: request.pickup_lat, longitude: request.pickup_lng }} title="موقع العمل" pinColor="#0f766e" />
+                )}
+                {request.dest_lat != null && request.dest_lng != null && (
+                  <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
+                )}
+                {myLocation && <LocationTargetMarker coordinate={myLocation} title={isProvider ? "موقعي كفني" : "موقعي"} />}
+                {otherLocation && <LocationTargetMarker coordinate={otherLocation} title={isProvider ? "موقع الزبون" : "موقع مقدم الخدمة"} />}
+              </>
+            )}
+          </MapView>
+        )}
+        <View style={[styles.header, acceptedMapMode && styles.headerOnMap]}>
+
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backBtn}>→</Text>
           </TouchableOpacity>
           <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>{otherLocation && request.pickup_lat != null && request.pickup_lng != null && (() => { const rad = (value: number) => value * Math.PI / 180; const dLat = rad(otherLocation.latitude - request.pickup_lat!); const dLng = rad(otherLocation.longitude - request.pickup_lng!); const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(request.pickup_lat!)) * Math.cos(rad(otherLocation.latitude)) * Math.sin(dLng / 2) ** 2; const meters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return !driverLocationFresh ? "بانتظار تحديث موقع السائق" : meters <= 50 ? "انا في نقطة الانطلاق" : driverEtaMinutes != null && driverEtaMinutes <= 2 ? "دقيقتين واوصل" : driverEtaMinutes != null ? `باقي ${driverEtaMinutes} دقيقة واوصل` : "الكابتن متجه إليك"; })()}</Text>}</View>
           <View style={{ width: 30 }} />
         </View>
+        <ScrollView
+          ref={scrollRef}
+          style={[styles.requestScroll, acceptedMapMode && styles.requestScrollOnMap]}
+          contentContainerStyle={styles.requestScrollContent}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+        {acceptedMapMode && (
+          <View style={styles.mapLiveBadge}>
+            <View style={styles.mapLiveDot} />
+            <Text style={styles.mapLiveBadgeTitle}>التتبع المباشر</Text>
+            <Text style={styles.mapLiveBadgeText}>
+              {request.type === "taxi" && request.status === "in_progress"
+                ? "الرحلة مستمرة إلى وجهتك"
+                : request.provider_arrived_at
+                  ? "وصل مقدم الخدمة إلى الموقع"
+                  : driverEtaMinutes != null
+                  ? `الوصول المتوقع خلال ${driverEtaMinutes} دقيقة`
+                  : driverLocationFresh
+                    ? "الموقع يتحدث مباشرة"
+                    : "بانتظار تحديث الموقع"}
+            </Text>
+          </View>
+        )}
         {otherProfile && !["completed", "cancelled"].includes(request.status) && (
           <View style={[styles.personCard, request.type === "taxi" && isActive && styles.personCardCompact]}>
             <View style={[styles.personAvatar, request.type === "taxi" && isActive && { width: 38, height: 38, borderRadius: 13 }]}>
@@ -1374,7 +1590,7 @@ export default function RequestDetail() {
             </TouchableOpacity>
           </View>
         )}
-        {isActive &&
+        {!acceptedMapMode && isActive &&
           (request.pickup_lat != null && request.pickup_lng != null || myLocation != null || otherLocation != null) && (
             <View style={styles.trackingCard}>
               {request.type !== "taxi" && <Text style={styles.trackingTitle}>موقع الطلب المباشر</Text>}
@@ -1421,23 +1637,43 @@ export default function RequestDetail() {
               {request.type !== "taxi" && <Text style={styles.trackingHint}>
                 {isCustomer
                   ? request.provider_arrived_at
-                    ? "الفني وصل إلى موقع العمل"
-                    : providerRoutePoints.length > 1
-                      ? "الفني بالطريق إليك · موقعه يتحدث مباشرة"
-                      : driverLocationFresh
-                        ? "تم قبول الطلب · موقع الفني مباشر"
-                        : "بانتظار تحديث موقع الفني"
+                    ? "وصل مقدم الخدمة إلى الموقع"
+                    : driverEtaMinutes != null
+                      ? `مقدم الخدمة بالطريق إليك · الوصول المتوقع خلال ${driverEtaMinutes} دقيقة`
+                      : providerRoutePoints.length > 1
+                        ? "مقدم الخدمة بالطريق إليك · موقعه يتحدث مباشرة"
+                        : driverLocationFresh
+                          ? "تم قبول الطلب · موقع مقدم الخدمة مباشر"
+                          : "بانتظار تحديث موقع مقدم الخدمة"
                   : driverLocationFresh
                     ? "موقعك وموقع الزبون ظاهران مباشرة"
                     : "بانتظار تحديث موقع الزبون"}
               </Text>}
             </View>
           )}
-        {(request.type === "taxi" || request.type === "service") && request.status === "accepted" && isProvider && (
-          <TouchableOpacity style={styles.navigationButton} onPress={showTaxiNavigationOptions}>
-            <Text style={styles.navigationButtonText}>🧭 {request.type === "service" ? "اذهب إلى موقع العمل" : "اذهب إلى الزبون"}</Text>
-            <Text style={styles.navigationButtonHint}>افتح الموقع في تطبيق الملاحة الذي تختاره</Text>
-          </TouchableOpacity>
+        {request.status === "accepted" &&
+          ((isProvider && (request.type === "taxi" || request.type === "service")) ||
+            (isCustomer && request.type === "taxi" && request.dest_lat != null && request.dest_lng != null)) && (
+          <View style={styles.navigationPanel}>
+            <Text style={styles.navigationButtonText}>
+              🧭 {isCustomer ? "الملاحة إلى وجهتك" : request.type === "service" ? "الملاحة إلى موقع العمل" : "الملاحة إلى الزبون"}
+            </Text>
+            <Text style={styles.navigationButtonHint}>اختَر التطبيق الذي تريد فتحه</Text>
+            <View style={styles.navigationAppsRow}>
+              <TouchableOpacity style={styles.navigationApp} onPress={() => openTaxiNavigation("google")}>
+                <Image source={{ uri: "https://cdn.simpleicons.org/googlemaps/4285F4" }} style={styles.navigationAppIcon} resizeMode="contain" />
+                <Text style={styles.navigationAppLabel}>خرائط Google</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.navigationApp} onPress={() => openTaxiNavigation("waze")}>
+                <Image source={{ uri: "https://cdn.simpleicons.org/waze/33CCFF" }} style={styles.navigationAppIcon} resizeMode="contain" />
+                <Text style={styles.navigationAppLabel}>Waze</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.navigationApp} onPress={() => openTaxiNavigation("darbuna")}>
+                <View style={styles.darbunaIcon}><Text style={styles.darbunaIconText}>د</Text></View>
+                <Text style={styles.navigationAppLabel}>دربونة</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
         <View style={styles.actionsRow}>
           {["pending", "searching"].includes(request.status) && canAccept && request.vehicle_category !== "large" && (
@@ -1448,22 +1684,23 @@ export default function RequestDetail() {
           {request.status === "accepted" && isProvider &&
             (request.type !== "taxi" || request.vehicle_category === "large") &&
             !request.provider_arrived_at && (
-              <TouchableOpacity style={styles.actionBtn} onPress={markProviderArrived}>
-                <Text style={styles.actionBtnText}>{request.vehicle_category === "large" ? "وصلت للزبون" : "وصلت للموقع"}</Text>
+              <TouchableOpacity style={styles.actionBtn} onPress={markProviderArrived} disabled={transitionBusy}>
+                <Text style={styles.actionBtnText}>{transitionBusy ? "جارٍ التأكيد..." : request.vehicle_category === "large" ? "وصلت للزبون" : "وصلت للموقع"}</Text>
               </TouchableOpacity>
           )}
           {request.status === "accepted" && isProvider &&
             ((request.type === "taxi" && request.vehicle_category !== "large") || !!request.provider_arrived_at) && (
-              <TouchableOpacity style={styles.actionBtn} onPress={startRide}>
-                <Text style={styles.actionBtnText}>{request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
+              <TouchableOpacity style={styles.actionBtn} onPress={startRide} disabled={transitionBusy}>
+                <Text style={styles.actionBtnText}>{transitionBusy ? "جارٍ البدء..." : request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
               </TouchableOpacity>
           )}
           {isActive && isProvider && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: palette.success }]}
               onPress={completeRide}
+              disabled={transitionBusy}
             >
-              <Text style={styles.actionBtnText}>إنهاء</Text>
+              <Text style={styles.actionBtnText}>{transitionBusy ? "جارٍ التحديث..." : "إنهاء"}</Text>
             </TouchableOpacity>
           )}
           {(isCustomer || (isProvider && request.type === "service")) &&
@@ -1503,6 +1740,7 @@ export default function RequestDetail() {
         {!["completed", "cancelled"].includes(request.status) ? null : (
           <View style={styles.chatClosed}><Text style={styles.chatClosedTitle}>{request.status === "completed" ? "اكتمل الطلب" : "تم إلغاء الطلب"}</Text><Text style={styles.chatClosedText}>انتهت المحادثة وتم إخفاء بيانات الطرف الآخر.</Text></View>
         )}
+        </ScrollView>
         {showRating && (
           <View style={styles.ratingOverlay}>
             <View style={styles.ratingCard}>
@@ -1540,6 +1778,23 @@ export default function RequestDetail() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.pageCanvas },
+  containerMap: { backgroundColor: "transparent" },
+  fullScreenTrackingMap: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
+  headerOnMap: { backgroundColor: "rgba(255,255,255,0.94)", borderBottomColor: "rgba(15,23,42,0.10)", elevation: 4 },
+  requestScrollOnMap: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "64%", backgroundColor: "rgba(255,255,255,0.96)", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden", elevation: 8 },
+  mapLiveBadge: { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: 7, marginTop: 10, marginBottom: 3, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.96)", borderWidth: 1, borderColor: palette.line, elevation: 3 },
+  mapLiveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.success },
+  mapLiveBadgeTitle: { color: palette.ink, fontSize: 11, fontWeight: "900" },
+  mapLiveBadgeText: { color: palette.muted, fontSize: 10, fontWeight: "700" },
+  requestScroll: { flex: 1 },
+  requestScrollContent: { flexGrow: 1, paddingBottom: 28 },
+  navigationPanel: { marginHorizontal: 16, marginBottom: 12, padding: 12, borderRadius: 16, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand, alignItems: "center", gap: 8 },
+  navigationAppsRow: { flexDirection: "row", width: "100%", gap: 8, marginTop: 4 },
+  navigationApp: { flex: 1, minHeight: 74, paddingVertical: 8, borderRadius: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", gap: 5 },
+  navigationAppIcon: { width: 30, height: 30 },
+  navigationAppLabel: { color: palette.ink, fontSize: 10, fontWeight: "900" },
+  darbunaIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: "#E6F4EE", alignItems: "center", justifyContent: "center" },
+  darbunaIconText: { color: "#087443", fontSize: 19, fontWeight: "900" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.pageCanvas },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 52, paddingBottom: 14, backgroundColor: palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line },
   backBtn: { fontSize: 24, color: palette.brand, fontWeight: "900" },

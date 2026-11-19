@@ -52,35 +52,45 @@ export default function AdminScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [authorized, setAuthorized] = useState(false);
   const [stats, setStats] = useState<Stats>({ users: 0, requests: 0, drivers: 0, workers: 0, active: 0 });
+  const [statsError, setStatsError] = useState("");
   const [expanded, setExpanded] = useState<string | null>("العمليات والطلبات");
 
   const load = useCallback(async () => {
     if (!user?.id) { router.replace("/auth"); setLoading(false); return; }
     setLoading(true);
-    const { data: owner, error: ownerError } = await supabase.rpc("is_super_admin", { p_user_id: user.id });
-    if (ownerError || owner !== true) {
-      const [{ data: roles, error: rolesError }, { data: assignment }] = await Promise.all([
-        supabase.rpc("get_staff_roles", { p_user_id: user.id }),
-        (supabase as any).from("staff_assignments").select("rank,department,active").eq("user_id", user.id).maybeSingle(),
+    setStatsError("");
+    try {
+      const { data: owner, error: ownerError } = await supabase.rpc("is_super_admin", { p_user_id: user.id });
+      if (ownerError) throw ownerError;
+      if (owner !== true) {
+        const [{ data: roles, error: rolesError }, { data: assignment, error: assignmentError }] = await Promise.all([
+          supabase.rpc("get_staff_roles", { p_user_id: user.id }),
+          (supabase as any).from("staff_assignments").select("rank,department,active").eq("user_id", user.id).maybeSingle(),
+        ]);
+        if (rolesError || assignmentError) throw rolesError ?? assignmentError;
+        const names = (roles ?? []).map((v: any) => typeof v === "string" ? v : v.role);
+        const hasAccess = names.some((v: string) => ["admin","support","finance","moderator","customer_service","department_finance","department_operations","department_monitoring"].includes(v)) || assignment?.active === true;
+        if (hasAccess) router.replace("/admin/staff");
+        else router.replace("/home");
+        setAuthorized(false);
+        return;
+      }
+      setAuthorized(true);
+      const [users, requests, drivers, workers, active] = await Promise.all([
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        supabase.from("service_requests").select("id", { count: "exact", head: true }),
+        supabase.from("driver_profiles").select("id", { count: "exact", head: true }),
+        supabase.from("worker_profiles").select("id", { count: "exact", head: true }),
+        supabase.from("service_requests").select("id", { count: "exact", head: true }).in("status", ["pending","searching","accepted","in_progress"]),
       ]);
-      const names = (roles ?? []).map((v: any) => typeof v === "string" ? v : v.role);
-      const hasAccess = !rolesError && (names.some((v: string) => ["admin","support","finance","moderator","customer_service","department_finance","department_operations","department_monitoring"].includes(v)) || assignment?.active === true);
-      if (hasAccess) router.replace("/admin/staff");
-      else router.replace("/home");
-      setAuthorized(false);
+      const failed = [users, requests, drivers, workers, active].find((result) => result.error);
+      if (failed?.error) throw failed.error;
+      setStats({ users: users.count ?? 0, requests: requests.count ?? 0, drivers: drivers.count ?? 0, workers: workers.count ?? 0, active: active.count ?? 0 });
+    } catch (error: any) {
+      setStatsError(String(error?.message || "تعذر تحميل إحصائيات الإدارة"));
+    } finally {
       setLoading(false);
-      return;
     }
-    setAuthorized(true);
-    const [users, requests, drivers, workers, active] = await Promise.all([
-      supabase.from("profiles").select("id", { count: "exact", head: true }),
-      supabase.from("service_requests").select("id", { count: "exact", head: true }),
-      supabase.from("driver_profiles").select("id", { count: "exact", head: true }),
-      supabase.from("worker_profiles").select("id", { count: "exact", head: true }),
-      supabase.from("service_requests").select("id", { count: "exact", head: true }).in("status", ["pending","searching","accepted","in_progress"]),
-    ]);
-    setStats({ users: users.count ?? 0, requests: requests.count ?? 0, drivers: drivers.count ?? 0, workers: workers.count ?? 0, active: active.count ?? 0 });
-    setLoading(false);
   }, [user?.id]);
 
   useEffect(() => { if (!authLoading) void load(); }, [authLoading, load]);
@@ -108,11 +118,14 @@ export default function AdminScreen() {
         </View>
       </View>
 
-      <View style={s.statsGrid}>
+      {statsError ? <View style={s.statsError}>
+        <Text style={s.statsErrorText}>تعذر تحميل بعض الإحصائيات: {statsError}</Text>
+        <TouchableOpacity onPress={() => void load()} style={s.retryButton}><Text style={s.retryText}>إعادة المحاولة</Text></TouchableOpacity>
+      </View> : <View style={s.statsGrid}>
         {[
           ["المستخدمون",stats.users,"👥"],["كل الطلبات",stats.requests,"📋"],["السائقون",stats.drivers,"🚗"],["الفنيون",stats.workers,"🧰"],["الطلبات النشطة",stats.active,"⚡"],
         ].map(([label,value,icon])=><View key={String(label)} style={s.statCard}><Text style={s.statIcon}>{icon}</Text><Text style={s.statValue}>{Number(value).toLocaleString("ar-IQ")}</Text><Text style={s.statLabel}>{label}</Text></View>)}
-      </View>
+      </View>}
 
       {GROUPS.map(group=><View key={group.title} style={s.groupCard}>
         <TouchableOpacity onPress={()=>setExpanded(current=>current===group.title?null:group.title)} style={s.groupHeader} accessibilityRole="button" accessibilityState={{expanded:expanded===group.title}}>
@@ -154,5 +167,6 @@ const s=StyleSheet.create({
   items:{paddingHorizontal:10,paddingBottom:10,gap:7},item:{flexDirection:"row",alignItems:"center",gap:10,backgroundColor:palette.canvas,borderRadius:radius.md,padding:11,minHeight:62},
   supportButton: { minHeight: 40 }, reportAction: { minHeight: 36 }, inboxOpen: { minHeight: 36 },
   itemIcon:{fontSize:21,width:28,textAlign:"center"},itemTitle:{color:palette.ink,fontSize:12,fontWeight:"900",textAlign:"right"},itemDescription:{color:palette.muted,fontSize:10,textAlign:"right",marginTop:3},arrow:{color:palette.brand,fontSize:17,fontWeight:"900"},
+  statsError:{backgroundColor:palette.surface,borderColor:palette.danger,borderWidth:1,borderRadius:radius.md,padding:12,gap:8},statsErrorText:{color:palette.danger,fontSize:12,textAlign:"right"},retryButton:{alignSelf:"flex-end",paddingHorizontal:14,paddingVertical:8,borderRadius:10,backgroundColor:palette.brand},retryText:{color:palette.white,fontSize:11,fontWeight:"900"},
   title:{color:palette.ink,fontSize:18,fontWeight:"900"},muted:{color:palette.muted,fontSize:12,textAlign:"center"},
 });

@@ -20,19 +20,24 @@ import { IncomingRequestModal } from "@/components/incoming-request-modal";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { NativeBottomNavigation } from "@/components/native-bottom-navigation";
 import { palette } from "@/styles/theme";
-import { isNotificationSoundEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
+import { loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
 LogBox.ignoreLogs(["Setting a timer", "AsyncStorage"]);
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: Platform.OS === "android" ? true : isNotificationSoundEnabled(),
-    shouldSetBadge: true,
-  }),
+  handleNotification: async () => {
+    // Read the persisted preference before deciding foreground sound; the
+    // in-memory default is enabled until SecureStore finishes loading.
+    const preferences = await loadNotificationPreferences();
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: preferences.soundEnabled,
+      shouldSetBadge: true,
+    };
+  },
 });
 
 async function configureAndroidNotificationChannels() {
@@ -72,13 +77,36 @@ function PushNotificationSetup() {
         const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!active) return;
         const localPreferences = await loadNotificationPreferences();
-        const { data: savedPreference, error: preferenceError } = await supabase.from("user_push_tokens").select("sound_enabled,vibration_enabled").eq("user_id", userId).limit(1).maybeSingle();
-        if (preferenceError) console.warn("[notifications] Could not read sound preference:", preferenceError.message);
+        let savedPreference: { sound_enabled?: boolean | null; vibration_enabled?: boolean | null } | null = null;
+        const fullPreferenceResult = await supabase.from("user_push_tokens")
+          .select("sound_enabled,vibration_enabled").eq("user_id", userId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        if (!fullPreferenceResult.error) {
+          savedPreference = fullPreferenceResult.data;
+        } else if (fullPreferenceResult.error.code === "42703" || fullPreferenceResult.error.message.toLowerCase().includes("vibration_enabled")) {
+          // Backward compatibility while the isolated vibration migration is awaiting deployment.
+          const legacyPreferenceResult = await supabase.from("user_push_tokens")
+            .select("sound_enabled").eq("user_id", userId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+          if (legacyPreferenceResult.error) console.warn("[notifications] Could not read sound preference:", legacyPreferenceResult.error.message);
+          savedPreference = legacyPreferenceResult.data;
+        } else {
+          console.warn("[notifications] Could not read notification preferences:", fullPreferenceResult.error.message);
+        }
         const soundEnabled = typeof savedPreference?.sound_enabled === "boolean" ? savedPreference.sound_enabled : localPreferences.soundEnabled;
         const vibrationEnabled = typeof savedPreference?.vibration_enabled === "boolean" ? savedPreference.vibration_enabled : localPreferences.vibrationEnabled;
         await setNotificationPreferences({ soundEnabled, vibrationEnabled });
-        const { error } = await supabase.from("user_push_tokens").upsert({ user_id: userId, expo_push_token: tokenResult.data, device_platform: Platform.OS, sound_enabled: soundEnabled, vibration_enabled: vibrationEnabled, updated_at: new Date().toISOString() }, { onConflict: "user_id,expo_push_token" });
-        if (error) console.warn("[notifications] Could not save push token:", error.message);
+        const pushTokenRow = {
+          user_id: userId,
+          expo_push_token: tokenResult.data,
+          device_platform: Platform.OS,
+          sound_enabled: soundEnabled,
+          vibration_enabled: vibrationEnabled,
+          updated_at: new Date().toISOString(),
+        };
+        let saveResult = await supabase.from("user_push_tokens").upsert(pushTokenRow, { onConflict: "user_id,expo_push_token" });
+        if (saveResult.error && (saveResult.error.code === "42703" || saveResult.error.message.toLowerCase().includes("vibration_enabled"))) {
+          saveResult = await supabase.from("user_push_tokens").upsert({ user_id: userId, expo_push_token: tokenResult.data, device_platform: Platform.OS, sound_enabled: soundEnabled, updated_at: new Date().toISOString() }, { onConflict: "user_id,expo_push_token" });
+        }
+        if (saveResult.error) console.warn("[notifications] Could not save push token:", saveResult.error.message);
       } catch (error) { console.warn("[notifications] Push registration unavailable:", error); }
     }
     async function openRequestFromResponse(response: Notifications.NotificationResponse | null) {
