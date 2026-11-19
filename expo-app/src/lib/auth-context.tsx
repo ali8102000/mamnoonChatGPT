@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
@@ -235,31 +235,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function refresh() {
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      setSession(data.session);
-      const uid = data.session?.user.id ?? null;
-      if (uid) {
-        const previousId = lastUserId.current;
-        if (previousId && previousId !== uid) void clearCachedAuthProfile(previousId);
-        lastUserId.current = uid;
-        await loadProfile(uid);
-      } else {
-        const previousId = lastUserId.current;
-        lastUserId.current = null;
-        setProfile(null);
-        setRoles([]);
-        setActiveRoleState(null);
-        await clearCachedAuthProfile(previousId);
+  // Keep the context refresh function referentially stable. Screens use it
+  // in effects; recreating it on every render can create an endless refresh loop.
+  const refreshInFlight = useRef<Promise<void> | null>(null);
+  const refresh = useCallback((): Promise<void> => {
+    if (refreshInFlight.current) return refreshInFlight.current;
+
+    const operation = (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        setSession(data.session);
+        const uid = data.session?.user.id ?? null;
+        if (uid) {
+          const previousId = lastUserId.current;
+          if (previousId && previousId !== uid) void clearCachedAuthProfile(previousId);
+          lastUserId.current = uid;
+          await loadProfile(uid);
+        } else {
+          const previousId = lastUserId.current;
+          lastUserId.current = null;
+          setProfile(null);
+          setRoles([]);
+          setActiveRoleState(null);
+          await clearCachedAuthProfile(previousId);
+        }
+      } catch (error) {
+        console.warn("[offline] Could not refresh the account session:", error);
+        const uid = lastUserId.current;
+        if (uid) await loadProfile(uid);
       }
-    } catch (error) {
-      console.warn("[offline] Could not refresh the account session:", error);
-      const uid = lastUserId.current;
-      if (uid) await loadProfile(uid);
-    }
-  }
+    })();
+
+    refreshInFlight.current = operation;
+    void operation.finally(() => {
+      if (refreshInFlight.current === operation) refreshInFlight.current = null;
+    });
+    return operation;
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
