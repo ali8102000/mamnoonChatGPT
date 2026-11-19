@@ -37,6 +37,7 @@ export default function PartnerDashboardScreen() {
 
   const change=(id:string,key:keyof PartnerProfile,value:any)=>setItems(current=>current.map(item=>item.id===id?{...item,[key]:value}:item));
   const save=async(item:PartnerProfile)=>{
+    if(item.business_vertical!=="grocery" && !(item.promotion_governorates??[]).length){Alert.alert("حدد المحافظات","اختار محافظة واحدة على الأقل حتى تظهر عروضك للزبائن.");return;}
     if(item.business_name.trim().length<2||item.phone.trim().length<7||item.city.trim().length<2||item.address.trim().length<4){Alert.alert("بيانات ناقصة","تأكد من اسم المنشأة والهاتف والمدينة والعنوان.");return;}
     setSavingId(item.id);
     const {error}=await (supabase as any).from("partner_business_profiles").update({
