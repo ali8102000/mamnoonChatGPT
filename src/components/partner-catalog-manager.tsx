@@ -22,7 +22,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
    vertical?(supabase as any).from("partner_catalog_categories").select("category_key,title,vertical").eq("vertical",vertical).eq("is_active",true).order("sort_order"):Promise.resolve({data:[],error:null}),
    (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,quantity_available,is_active,category_key").eq("business_profile_id",profileId).eq("item_type",itemType).order("sort_order").order("created_at",{ascending:false})
   ]);
-  if(catRes.error)setError(catRes.error.message);else {setCategories(catRes.data??[]);if(!categoryKey&&catRes.data?.length)setCategoryKey(catRes.data[0].category_key);}
+  if(catRes.error)setError(catRes.error.message);else {setCategories(catRes.data??[]);if(catRes.data?.length)setCategoryKey(current=>current||catRes.data[0].category_key);}
   if(itemRes.error)setError(itemRes.error.message);
   setItems((itemRes.data??[]) as CatalogItem[]);setLoading(false);
  },[profileId,itemType,vertical]);
