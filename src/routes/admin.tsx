@@ -126,6 +126,7 @@ type Section =
   | "audit"
   | "roles"
   | "staff"
+  | "company"
   | "driverTiers"
   | "dispatchZones"
   | "imageStudio";
@@ -195,6 +196,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "dispatchZones", label: "نطاقات توزيع الطلبات", icon: MapPin, roles: ["super_admin", "admin"] },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
+  { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
   { key: "imageStudio", label: "مركز الصور والتصميم", icon: ImagePlus, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
@@ -438,6 +440,7 @@ function AdminPage() {
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "imageStudio" && <AdminImageStudio />}
+          {section === "company" && <AdminImageStudio initialTab="identity" />}
           {section === "audit" && <AuditSection />}
         </div>
       </main>
