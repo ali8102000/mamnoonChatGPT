@@ -18,6 +18,7 @@ export default function MonitoringScreen() {
   const { user, loading: authLoading } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [canManage, setCanManage] = useState(false);
+  const [canUnblock, setCanUnblock] = useState(false);
   const [reportsOnly, setReportsOnly] = useState(false);
   const [canResolveReports, setCanResolveReports] = useState(false);
   const [tab, setTab] = useState<Tab>("live");
@@ -57,11 +58,12 @@ export default function MonitoringScreen() {
         });
         return !permissionError && data === true;
       };
-      const [analyticsPermission, reportsReadPermission, reportsResolvePermission, blockPermission] = await Promise.all([
+      const [analyticsPermission, reportsReadPermission, reportsResolvePermission, blockPermission, unblockPermission] = await Promise.all([
         checkPermission("analytics.view", "global", null),
         checkPermission("reports.read"),
         checkPermission("reports.resolve"),
         checkPermission("users.block"),
+        checkPermission("users.unblock"),
       ]);
       const legacyGlobal = scopeType === "global";
       const canMonitor = admin.data === true || analyticsPermission ||
@@ -73,6 +75,7 @@ export default function MonitoringScreen() {
       }
       setAllowed(true);
       setCanManage(admin.data === true || blockPermission);
+      setCanUnblock(admin.data === true || unblockPermission);
       setCanResolveReports(reportsResolvePermission ||
         (legacyGlobal && roleNames.some((role: string) => ["super_admin", "admin", "support", "moderator", "department_monitoring"].includes(role))));
       setReportsOnly(!canMonitor);
@@ -195,7 +198,7 @@ export default function MonitoringScreen() {
             <Text style={s.cardTitle}>{block.profiles?.full_name || block.user_id.slice(0, 8)}</Text>
             {!!block.reason && <Text style={s.muted}>{block.reason}</Text>}
             <Text style={s.muted}>{block.expires_at ? `ينتهي ${new Date(block.expires_at).toLocaleString("ar-IQ")}` : "حظر دائم"}</Text>
-            {canManage && <TouchableOpacity disabled={busyId === block.id} onPress={() => unblock(block)} style={s.success}><Text style={s.actionText}>رفع الحظر</Text></TouchableOpacity>}
+            {canUnblock && <TouchableOpacity disabled={busyId === block.id} onPress={() => unblock(block)} style={s.success}><Text style={s.actionText}>رفع الحظر</Text></TouchableOpacity>}
           </View>)}
         </>}
         {tab === "support" && <>
