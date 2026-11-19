@@ -135,11 +135,17 @@ Deno.serve(async (req: Request) => {
         await requireScopedAccess(legacyRpc);
       }
     };
-    const requireScopedPermissionWithLegacy = async (permissionKey: string, legacyRpc: string, scopeType: string, scopeGovernorate: string | null) => {
+    const requireScopedPermissionWithLegacy = async (
+      permissionKey: string,
+      legacyRpc: string,
+      staffScopeType: string,
+      targetScopeType: string,
+      targetGovernorate: string | null,
+    ) => {
       try {
-        await requirePermission(permissionKey, scopeType, scopeGovernorate);
+        await requirePermission(permissionKey, targetScopeType, targetGovernorate);
       } catch (error) {
-        if (scopeType !== "global") throw error;
+        if (staffScopeType !== "global") throw error;
         await requireScopedAccess(legacyRpc);
       }
     };
@@ -772,9 +778,10 @@ Deno.serve(async (req: Request) => {
         .select("governorate_key").eq("id", report.reported_id).maybeSingle();
       if (profileError || !profile) throw new Error("report_unavailable");
       const governorate = profile.governorate_key ?? null;
+      const staffScope = await getStaffScope();
       await requireScopedPermissionWithLegacy(
         "reports.resolve", "has_user_moderation_access",
-        governorate ? "governorate" : "global", governorate,
+        staffScope.scopeType, governorate ? "governorate" : "global", governorate,
       );
       const { error } = await caller.rpc("admin_resolve_report", {
         p_report_id: body.report_id,
