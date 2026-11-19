@@ -305,10 +305,10 @@ export default function AdminScreen() {
       <Text style={styles.title}>لوحة التحكم</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
         <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المراقبة والإحصائيات والمحافظات</Text>
-        <ActionButton size="default" onPress={() => router.push("/admin/monitoring") style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/live-map" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الخريطة المباشرة</Text></ActionButton>
         <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المالية والاشتراكات</Text>
-        <ActionButton size="default" onPress={() => router.push("/admin/subscriptions") style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/analytics")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الإحصائيات الشاملة</Text></ActionButton>
         <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>محتوى التطبيق والبانرات</Text>
