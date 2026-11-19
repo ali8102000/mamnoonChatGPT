@@ -43,6 +43,7 @@ alter table public.partner_business_profiles
   add column if not exists business_vertical text not null default 'store'
   check (business_vertical in ('store','grocery','restaurant'));
 grant update (business_vertical) on public.partner_business_profiles to authenticated;
+grant select (business_vertical) on public.partner_business_profiles to anon, authenticated;
 
 alter table public.partner_catalog_items
   add column if not exists category_key text references public.partner_catalog_categories(category_key);
@@ -120,10 +121,6 @@ commit;
 insert into storage.buckets (id,name,public)
 values ('partner-catalog','partner-catalog',true)
 on conflict (id) do update set public=true;
-
-drop policy if exists partner_catalog_images_public_read on storage.objects;
-create policy partner_catalog_images_public_read on storage.objects
-  for select to anon,authenticated using (bucket_id='partner-catalog');
 
 drop policy if exists partner_catalog_images_owner_insert on storage.objects;
 create policy partner_catalog_images_owner_insert on storage.objects
