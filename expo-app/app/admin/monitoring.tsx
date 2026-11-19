@@ -18,7 +18,9 @@ export default function MonitoringScreen() {
   const { user, loading: authLoading } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [canManage, setCanManage] = useState(false);
+  const [canUnblock, setCanUnblock] = useState(false);
   const [reportsOnly, setReportsOnly] = useState(false);
+  const [canResolveReports, setCanResolveReports] = useState(false);
   const [tab, setTab] = useState<Tab>("live");
   const [stats, setStats] = useState({ totalUsers: 0, activeRequests: 0, activeDrivers: 0, activeWorkers: 0 });
   const [reports, setReports] = useState<Report[]>([]);
@@ -40,17 +42,43 @@ export default function MonitoringScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const [roleNames, admin] = await Promise.all([
+      const [roleNames, admin, assignment] = await Promise.all([
         getAdminStaffRoles(user.id),
         supabase.rpc("has_admin_access", { p_user_id: user.id }),
+        (supabase as any).from("staff_assignments")
+          .select("scope_type,scope_governorate").eq("user_id", user.id).eq("active", true).maybeSingle(),
       ]);
-      const canMonitor = roleNames.some((role: string) => ["super_admin", "admin", "support"].includes(role));
-      const canReviewReports = roleNames.some((role: string) => ["super_admin", "admin", "support", "moderator", "department_monitoring"].includes(role));
+      if (assignment.error) throw assignment.error;
+      const scopeType = admin.data === true ? "global" : assignment.data?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment.data?.scope_governorate ?? null : null;
+      const checkPermission = async (permissionKey: string, requestedScope = scopeType, requestedGovernorate: string | null = scopeGovernorate) => {
+        const { data, error: permissionError } = await (supabase as any).rpc("admin_has_permission", {
+          p_permission_key: permissionKey,
+          p_scope_type: requestedScope,
+          p_scope_governorate: requestedGovernorate,
+        });
+        return !permissionError && data === true;
+      };
+      const [analyticsPermission, reportsReadPermission, reportsResolvePermission, blockPermission, unblockPermission] = await Promise.all([
+        checkPermission("analytics.view", "global", null),
+        checkPermission("reports.read"),
+        checkPermission("reports.resolve"),
+        checkPermission("users.block"),
+        checkPermission("users.unblock"),
+      ]);
+      const legacyGlobal = scopeType === "global";
+      const canMonitor = admin.data === true || analyticsPermission ||
+        (legacyGlobal && roleNames.some((role: string) => ["support", "finance", "moderator"].includes(role)));
+      const canReviewReports = canMonitor || reportsReadPermission ||
+        (legacyGlobal && roleNames.some((role: string) => ["support", "moderator", "department_monitoring"].includes(role)));
       if (!canMonitor && !canReviewReports) {
         setAllowed(false); return;
       }
       setAllowed(true);
-      setCanManage(admin.data === true);
+      setCanManage(admin.data === true || blockPermission);
+      setCanUnblock(admin.data === true || unblockPermission);
+      setCanResolveReports(reportsResolvePermission ||
+        (legacyGlobal && roleNames.some((role: string) => ["super_admin", "admin", "support", "moderator", "department_monitoring"].includes(role))));
       setReportsOnly(!canMonitor);
       if (!canMonitor) {
         setTab("reports");
@@ -160,8 +188,8 @@ export default function MonitoringScreen() {
             {!!report.details && <Text style={s.muted}>{report.details}</Text>}
             <Text style={s.muted}>رقم البلاغ: {report.id.slice(0, 8)}</Text>
             <View style={s.actions}>
-              <TouchableOpacity disabled={busyId === report.id} onPress={() => resolveReport(report)} style={s.success}><Text style={s.actionText}>حل البلاغ</Text></TouchableOpacity>
-              {canManage && <TouchableOpacity disabled={busyId === report.id} onPress={() => blockReportedUser(report)} style={s.danger}><Text style={s.actionText}>حظر المستخدم</Text></TouchableOpacity>}
+              {canResolveReports && <TouchableOpacity disabled={busyId === report.id} onPress={() => resolveReport(report)} style={s.success}><Text style={s.actionText}>حل البلاغ</Text></TouchableOpacity>}
+              {canManage && canResolveReports && <TouchableOpacity disabled={busyId === report.id} onPress={() => blockReportedUser(report)} style={s.danger}><Text style={s.actionText}>حظر المستخدم</Text></TouchableOpacity>}
             </View>
           </View>)}
         </>}
@@ -171,7 +199,7 @@ export default function MonitoringScreen() {
             <Text style={s.cardTitle}>{block.profiles?.full_name || block.user_id.slice(0, 8)}</Text>
             {!!block.reason && <Text style={s.muted}>{block.reason}</Text>}
             <Text style={s.muted}>{block.expires_at ? `ينتهي ${new Date(block.expires_at).toLocaleString("ar-IQ")}` : "حظر دائم"}</Text>
-            {canManage && <TouchableOpacity disabled={busyId === block.id} onPress={() => unblock(block)} style={s.success}><Text style={s.actionText}>رفع الحظر</Text></TouchableOpacity>}
+            {canUnblock && <TouchableOpacity disabled={busyId === block.id} onPress={() => unblock(block)} style={s.success}><Text style={s.actionText}>رفع الحظر</Text></TouchableOpacity>}
           </View>)}
         </>}
         {tab === "support" && <>

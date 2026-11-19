@@ -90,6 +90,12 @@ Deno.serve(async (req: Request) => {
       if (error || data !== true) throw new Error("forbidden");
     };
     const getStaffScope = async () => {
+      const { data: hasAdminAccess, error: adminAccessError } = await caller.rpc("has_admin_access", {
+        p_user_id: auth.user.id,
+      });
+      if (!adminAccessError && hasAdminAccess === true) {
+        return { scopeType: "global", scopeGovernorate: null };
+      }
       const { data: assignment, error } = await caller.from("staff_assignments")
         .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
       if (error) throw new Error("staff_scope_unavailable");
@@ -99,9 +105,19 @@ Deno.serve(async (req: Request) => {
       return { scopeType, scopeGovernorate };
     };
     const requireFullChatModeration = async () => {
-      await requireScopedAccess("has_chat_moderation_access");
-      const { data, error } = await caller.rpc("is_customer_service_staff", { p_user_id: auth.user.id });
-      if (error || data === true) throw new Error("forbidden");
+      const { data: customerService, error: customerServiceError } = await caller.rpc("is_customer_service_staff", {
+        p_user_id: auth.user.id,
+      });
+      if (customerServiceError) throw new Error("forbidden");
+      try {
+        // An explicit global grant is authoritative, including for customer-service
+        // staff. Keep the legacy fallback closed to customer-service accounts.
+        await requirePermission("chats.moderate", "global", null);
+        return;
+      } catch {
+        if (customerService === true) throw new Error("forbidden");
+        await requireScopedAccess("has_chat_moderation_access");
+      }
     };
     const admin = createClient(url, service, { global: { fetch: createSupabaseFetch(service) }, auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
@@ -135,12 +151,41 @@ Deno.serve(async (req: Request) => {
         await requireScopedAccess(legacyRpc);
       }
     };
+    const requireScopedPermissionWithLegacy = async (
+      permissionKey: string,
+      legacyRpc: string,
+      staffScopeType: string,
+      targetScopeType: string,
+      targetGovernorate: string | null,
+    ) => {
+      try {
+        await requirePermission(permissionKey, targetScopeType, targetGovernorate);
+      } catch (error) {
+        if (staffScopeType !== "global") throw error;
+        await requireScopedAccess(legacyRpc);
+      }
+    };
     const requireRequestPermission = async (permissionKey: string, requestId: string) => {
       const { data: request, error } = await admin.from("service_requests")
         .select("governorate_key").eq("id", requestId).maybeSingle();
-      if (error || !request) throw new Error("request_not_found");
+      if (error || !request) throw new Error("permission_required:" + permissionKey);
       const governorate = request.governorate_key ?? null;
       await requirePermission(permissionKey, governorate ? "governorate" : "global", governorate);
+    };
+    const requireGlobalStaffScope = async () => {
+      const scope = await getStaffScope();
+      if (scope.scopeType !== "global") throw new Error("global_scope_required");
+      return scope;
+    };
+    const requireGlobalAnalytics = async () => {
+      await requireGlobalStaffScope();
+      try {
+        await requirePermission("analytics.view");
+      } catch {
+        // Preserve the previous platform-wide analytics access for legacy
+        // global staff roles, but never extend it to governorate assignments.
+        requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
+      }
     };
 
     if (body.action === "customer_activity_stats") {
@@ -176,7 +221,7 @@ Deno.serve(async (req: Request) => {
       }
       const { data: existingProfile, error: existingProfileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (existingProfileError || !existingProfile) return json({ error: "user_not_found" }, 404);
+      if (existingProfileError || !existingProfile) throw new Error("permission_required:users.profile.edit");
       const oldGovernorate = existingProfile.governorate_key ?? null;
       await requirePermission("users.profile.edit", oldGovernorate ? "governorate" : "global", oldGovernorate);
       if (governorateKey !== oldGovernorate) {
@@ -219,7 +264,7 @@ Deno.serve(async (req: Request) => {
       }
       const { data: targetProfile, error: profileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (profileError || !targetProfile) return json({ error: "provider_user_not_found" }, 404);
+      if (profileError || !targetProfile) throw new Error("permission_required:providers.profile.edit");
       const governorate = targetProfile.governorate_key ?? null;
       await requirePermission("providers.profile.edit", governorate ? "governorate" : "global", governorate);
       const [driver, worker] = await Promise.all([
@@ -242,10 +287,10 @@ Deno.serve(async (req: Request) => {
       if (body.status === "rejected" && !reason) return json({ error: "rejection_reason_required" }, 400);
       const { data: request, error: requestError } = await admin.from("provider_change_requests")
         .select("user_id").eq("id", body.request_id).maybeSingle();
-      if (requestError || !request?.user_id) return json({ error: "provider_change_request_not_found" }, 404);
+      if (requestError || !request?.user_id) throw new Error("permission_required:providers.verify");
       const { data: profile, error: profileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", request.user_id).maybeSingle();
-      if (profileError || !profile) return json({ error: "provider_user_not_found" }, 404);
+      if (profileError || !profile) throw new Error("permission_required:providers.verify");
       const governorate = profile.governorate_key ?? null;
       await requirePermission("providers.verify", governorate ? "governorate" : "global", governorate);
       const { error } = await caller.rpc("admin_review_provider_change_request", {
@@ -298,7 +343,7 @@ Deno.serve(async (req: Request) => {
     if (body.action === "dashboard_stats") {
       // This payload aggregates platform-wide user, request, and revenue totals.
       // Keep it global-only; regional staff must not infer other governorates.
-      await requirePermission("analytics.view");
+      await requireGlobalAnalytics();
       const [
         usersRes, driversRes, workersRes, activeDriversRes, activeWorkersRes,
         reqAllRes, reqActiveRes, reqDoneRes, reqCancelledRes, todayTxRes, monthTxRes, yearTxRes,
@@ -507,7 +552,7 @@ Deno.serve(async (req: Request) => {
       }
       const { data: targetProfile, error: targetProfileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (targetProfileError || !targetProfile) return json({ error: "provider_user_not_found" }, 404);
+      if (targetProfileError || !targetProfile) throw new Error("permission_required:providers.verify");
       const governorate = targetProfile.governorate_key ?? null;
       await requirePermission(
         body.status === "suspended" ? "providers.suspend" : "providers.verify",
@@ -638,7 +683,7 @@ Deno.serve(async (req: Request) => {
       }
       const { data: targetProfile, error: profileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (profileError || !targetProfile) return json({ error: "user_not_found" }, 404);
+      if (profileError || !targetProfile) throw new Error("permission_required:users.block");
       const governorate = targetProfile.governorate_key ?? null;
       await requirePermission("users.block", governorate ? "governorate" : "global", governorate);
       const minutes: Record<string, number> = { "1_hour": 60, "1_day": 1440, "1_week": 10080, "1_month": 43200 };
@@ -655,7 +700,7 @@ Deno.serve(async (req: Request) => {
       if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
       const { data: targetProfile, error: profileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (profileError || !targetProfile) return json({ error: "user_not_found" }, 404);
+      if (profileError || !targetProfile) throw new Error("permission_required:users.unblock");
       const governorate = targetProfile.governorate_key ?? null;
       await requirePermission("users.unblock", governorate ? "governorate" : "global", governorate);
       const { error } = await caller.rpc("admin_unblock_user", { p_user_id: body.user_id });
@@ -664,52 +709,110 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "live_map") {
-      await requireScopedAccess("has_live_ops_access");
-      const [locations, requests] = await Promise.all([
-        admin.from("live_locations")
-          .select("*, profile:profiles!live_locations_user_id_fkey(full_name,phone)")
-          .order("updated_at", { ascending: false }).limit(500),
-        admin.from("service_requests")
-          .select("id,type,status,pickup_lat,pickup_lng,dest_lat,dest_lng,pickup_text,dest_text,created_at")
-          .in("status", ["pending", "searching", "accepted", "in_progress"])
-          .order("created_at", { ascending: false }).limit(200),
-      ]);
-      if (locations.error || requests.error) return json({ error: "live_map_load_failed" }, 500);
-      return json({ locations: locations.data ?? [], requests: requests.data ?? [] });
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("live_map.read", "has_live_ops_access", scopeType, scopeGovernorate);
+      let requestQuery = admin.from("service_requests")
+        .select("id,type,status,pickup_lat,pickup_lng,dest_lat,dest_lng,pickup_text,dest_text,created_at")
+        .in("status", ["pending", "searching", "accepted", "in_progress"])
+        .order("created_at", { ascending: false }).limit(200);
+      if (scopeType === "governorate" && scopeGovernorate) {
+        requestQuery = requestQuery.eq("governorate_key", scopeGovernorate);
+      }
+      const { data: requests, error: requestsError } = await requestQuery;
+      if (requestsError) return json({ error: "live_map_load_failed" }, 500);
+      const requestIds = (requests ?? []).map((request: any) => request.id);
+      // Location rows are sensitive even for global staff: expose only locations
+      // attached to the active requests returned by the authorized request query.
+      if (requestIds.length === 0) {
+        return json({ locations: [], requests: [] });
+      }
+      const locationQuery = admin.from("live_locations")
+        .select("*, profile:profiles!live_locations_user_id_fkey(full_name,phone)")
+        .in("request_id", requestIds)
+        .order("updated_at", { ascending: false }).limit(500);
+      const { data: locations, error: locationsError } = await locationQuery;
+      if (locationsError) return json({ error: "live_map_load_failed" }, 500);
+      return json({ locations: locations ?? [], requests: requests ?? [] });
     }
 
     if (body.action === "reports") {
-      await requireScopedAccess("has_user_moderation_access");
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("reports.read", "has_user_moderation_access", scopeType, scopeGovernorate);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(100, body.limit)) : 50;
       const status = typeof body.status === "string" ? body.status.trim().slice(0, 40) : "all";
+      let scopedUserIds: string[] | null = null;
+      if (scopeType === "governorate" && scopeGovernorate) {
+        const { data: profiles, error: profilesError } = await admin.from("profiles")
+          .select("id").eq("governorate_key", scopeGovernorate);
+        if (profilesError) return json({ error: "reports_load_failed" }, 500);
+        scopedUserIds = (profiles ?? []).map((profile: any) => profile.id).filter(isUuid);
+        if (!scopedUserIds.length) return json({ reports: [] });
+      }
       let query = admin.from("user_reports")
-        .select("*, reporter:profiles!user_reports_reporter_id_fkey(full_name,phone), reported:profiles!user_reports_reported_id_fkey(full_name,phone)")
+        // The moderation screen needs report text and the reported account ID;
+        // do not expose either participant's phone number in this read payload.
+        .select("id,reported_id,reason,details,status,created_at")
         .order("created_at", { ascending: false })
         .limit(limit);
       if (status !== "all") query = query.eq("status", status);
+      if (scopedUserIds) query = query.in("reported_id", scopedUserIds);
       const { data: reports, error } = await query;
       if (error) return json({ error: "reports_load_failed" }, 500);
       return json({ reports: reports ?? [] });
     }
 
     if (body.action === "monitoring") {
-      // Monitoring includes platform-wide reports, blocks, and support tickets.
-      await requirePermission("analytics.view");
-      const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
+      // Analytics permission grants platform totals only. Ancillary personal
+      // data must be checked independently so analytics-only staff cannot read
+      // reports, user blocks, or support conversations.
+      await requireGlobalAnalytics();
+
+      let canReadReports = false;
+      try {
+        await requireScopedReadPermission("reports.read", "has_user_moderation_access", "global", null);
+        canReadReports = true;
+      } catch {
+        // No report permission: return no report rows.
+      }
+
+      let canReadBlocks = false;
+      try {
+        await requirePermission("users.read");
+        canReadBlocks = true;
+      } catch {
+        canReadBlocks = ["super_admin", "admin", "support", "moderator"]
+          .some((role) => staffRoles.has(role));
+      }
+
+      const canReadTickets = ["super_admin", "admin", "support", "customer_service"]
+        .some((role) => staffRoles.has(role));
+
+      const [users, drivers, workers, activeRequests] = await Promise.all([
         admin.from("profiles").select("id", { count: "exact", head: true }),
         admin.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
         admin.from("worker_profiles").select("id", { count: "exact", head: true }).eq("available", true),
         admin.from("service_requests").select("id", { count: "exact", head: true })
           .in("status", ["pending", "searching", "accepted", "in_progress"]),
-        admin.from("user_reports").select("*").eq("status", "pending")
-          .order("created_at", { ascending: false }).limit(20),
-        admin.from("user_blocks").select("*, profiles!user_blocks_user_id_fkey(full_name)")
-          .order("blocked_at", { ascending: false }).limit(20),
-        admin.from("support_tickets").select("*").eq("status", "open")
-          .order("created_at", { ascending: false }).limit(20),
       ]);
-      if (users.error || drivers.error || workers.error || activeRequests.error ||
-          reports.error || blocks.error || tickets.error) {
+      if (users.error || drivers.error || workers.error || activeRequests.error) {
+        return json({ error: "monitoring_load_failed" }, 500);
+      }
+
+      const [reports, blocks, tickets] = await Promise.all([
+        canReadReports
+          ? admin.from("user_reports").select("*").eq("status", "pending")
+              .order("created_at", { ascending: false }).limit(20)
+          : Promise.resolve({ data: [], error: null }),
+        canReadBlocks
+          ? admin.from("user_blocks").select("*, profiles!user_blocks_user_id_fkey(full_name)")
+              .order("blocked_at", { ascending: false }).limit(20)
+          : Promise.resolve({ data: [], error: null }),
+        canReadTickets
+          ? admin.from("support_tickets").select("*").eq("status", "open")
+              .order("created_at", { ascending: false }).limit(20)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (reports.error || blocks.error || tickets.error) {
         return json({ error: "monitoring_load_failed" }, 500);
       }
       return json({
@@ -726,13 +829,24 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "resolve_report") {
-      await requireScopedAccess("has_user_moderation_access");
       if (!isUuid(body.report_id) || !["resolved", "closed", "dismissed"].includes(body.status)) {
         return json({ error: "invalid_report_resolution" }, 400);
       }
       if (body.note !== undefined && (typeof body.note !== "string" || body.note.length > 500)) {
         return json({ error: "invalid_report_note" }, 400);
       }
+      const { data: report, error: reportError } = await admin.from("user_reports")
+        .select("reported_id").eq("id", body.report_id).maybeSingle();
+      if (reportError || !report) throw new Error("permission_required:reports.resolve");
+      const { data: profile, error: profileError } = await admin.from("profiles")
+        .select("governorate_key").eq("id", report.reported_id).maybeSingle();
+      if (profileError || !profile) throw new Error("permission_required:reports.resolve");
+      const governorate = profile.governorate_key ?? null;
+      const staffScope = await getStaffScope();
+      await requireScopedPermissionWithLegacy(
+        "reports.resolve", "has_user_moderation_access",
+        staffScope.scopeType, governorate ? "governorate" : "global", governorate,
+      );
       const { error } = await caller.rpc("admin_resolve_report", {
         p_report_id: body.report_id,
         p_status: body.status,
@@ -743,6 +857,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "chats") {
+      await requireGlobalStaffScope();
       await requireFullChatModeration();
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       const { data: chats, error } = await admin.from("chats")
@@ -753,6 +868,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "messages") {
+      await requireGlobalStaffScope();
       await requireFullChatModeration();
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let query = admin.from("messages")
@@ -765,6 +881,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_message") {
+      await requireGlobalStaffScope();
       await requireFullChatModeration();
       if (!isUuid(body.message_id)) return json({ error: "invalid_message_id" }, 400);
       const { error } = await caller.rpc("admin_delete_message", { p_message_id: body.message_id });
@@ -773,7 +890,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "friends" || body.action === "friend_requests") {
-      await requireScopedAccess("has_friend_admin_access");
+      const globalScope = await requireGlobalStaffScope();
+      await requireScopedPermissionWithLegacy(
+        "friends.manage", "has_friend_admin_access",
+        globalScope.scopeType, "global", null,
+      );
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       if (body.action === "friends") {
         const { data, error } = await admin.from("friends")
@@ -790,7 +911,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friendship") {
-      await requireScopedAccess("has_friend_admin_access");
+      const globalScope = await requireGlobalStaffScope();
+      await requireScopedPermissionWithLegacy(
+        "friends.manage", "has_friend_admin_access",
+        globalScope.scopeType, "global", null,
+      );
       if (!isUuid(body.user1_id) || !isUuid(body.user2_id) || body.user1_id === body.user2_id) {
         return json({ error: "invalid_friendship" }, 400);
       }
@@ -803,7 +928,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friend_request") {
-      await requireScopedAccess("has_friend_admin_access");
+      const globalScope = await requireGlobalStaffScope();
+      await requireScopedPermissionWithLegacy(
+        "friends.manage", "has_friend_admin_access",
+        globalScope.scopeType, "global", null,
+      );
       if (!isUuid(body.request_id)) return json({ error: "invalid_request_id" }, 400);
       const { error } = await caller.rpc("admin_delete_friend_request", {
         p_request_id: body.request_id,

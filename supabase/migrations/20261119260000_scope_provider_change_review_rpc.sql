@@ -9,7 +9,7 @@ CREATE OR REPLACE FUNCTION public.admin_review_provider_change_request(
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 DECLARE
   r public.provider_change_requests%ROWTYPE;
@@ -29,7 +29,7 @@ BEGIN
 
   SELECT governorate_key INTO v_governorate
   FROM public.profiles WHERE id=r.user_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'provider_user_not_found'; END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION 'change_request_unavailable'; END IF;
 
   IF auth.uid() IS NULL OR NOT (
     public.has_admin_access(auth.uid())
