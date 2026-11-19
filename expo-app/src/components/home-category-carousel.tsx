@@ -1,3 +1,4 @@
+import { palette } from "@/styles/theme";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
