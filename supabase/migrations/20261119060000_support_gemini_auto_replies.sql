@@ -39,7 +39,7 @@ begin
   where id = new.conversation_id;
   return new;
 end;
-$;
+$$;
 revoke execute on function public.touch_support_conversation() from public, anon, authenticated;
 
 -- AI replies are informational only. They must not generate a second staff alert
