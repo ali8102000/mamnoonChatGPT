@@ -131,7 +131,7 @@ export default function ProfileScreen() {
         setProviderWalletOffline(false);
         return;
       }
-      const cacheKey = `mamnoon-wallet-v2:${user.id}`;
+      const cacheKey = `mamnoon-wallet-v1:${user.id}`;
       try {
         const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
         const since24Hours = new Date(Date.now() - 86400000).toISOString();
