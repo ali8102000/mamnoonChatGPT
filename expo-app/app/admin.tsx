@@ -304,21 +304,27 @@ export default function AdminScreen() {
     >
       <Text style={styles.title}>لوحة التحكم</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-        <ActionButton size="default" onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المراقبة والإحصائيات والمحافظات</Text>
+        <ActionButton size="default" onPress={() => router.push("/admin/monitoring") style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/live-map" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الخريطة المباشرة</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المالية والاشتراكات</Text>
+        <ActionButton size="default" onPress={() => router.push("/admin/subscriptions") style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/analytics")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الإحصائيات الشاملة</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>محتوى التطبيق والبانرات</Text>
         <ActionButton size="default" onPress={() => router.push("/admin/home-banners" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة بانرات الصفحة الرئيسية</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المستخدمون والخدمات والطلبات</Text>
         <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة مقدمي الخدمة</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/driver-tiers" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>معايير رتب السائقين</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/dispatch-zones" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>نطاقات توزيع الطلبات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/requests")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الطلبات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/finance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المحفظة والكوبونات</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>الموظفون والصلاحيات</Text>
         <ActionButton size="default" onPress={() => router.push("/admin/governance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الصلاحيات وسجل العمليات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/staff")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الموظفين</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/staff-hierarchy")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الهيكل الوظيفي والترقيات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>التواصل والإشعارات</Text>
         <ActionButton size="default" onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/regions" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>التحكم بالمحافظات والخدمات</Text></ActionButton>
                 <ActionButton size="default" onPress={() => router.push("/admin/import")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>مساعد استيراد البيانات</Text></ActionButton>
