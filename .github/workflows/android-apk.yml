@@ -123,6 +123,12 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_2
+          force-avd-creation: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot -wipe-data
+          cores: 2
+          ram-size: 4096
+          heap-size: 512
           disable-animations: true
           script: |
             set -euo pipefail
