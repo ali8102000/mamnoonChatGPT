@@ -201,7 +201,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
-  { key: "visualBuilder", label: "محرر الواجهة والمحتوى", icon: Eye, roles: ["super_admin"] },
+  { key: "visualBuilder", label: "محرر الأيقونات والواجهة", icon: Eye, roles: ["super_admin"] },
   { key: "homeBanners", label: "بانرات الصفحة الرئيسية", icon: ImagePlus, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
