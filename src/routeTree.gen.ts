@@ -286,6 +286,7 @@ export interface FileRoutesById {
   '/home': typeof HomeRoute
   '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
+  '/ask-mamnoon': typeof AskMamnoonRoute
   '/subscriptions': typeof SubscriptionsRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
@@ -320,6 +321,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/coupons'
     | '/messages'
+    | '/ask-mamnoon'
     | '/support-chat'
     | '/subscriptions'
     | '/privacy'
@@ -353,6 +355,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/coupons'
     | '/messages'
+    | '/ask-mamnoon'
     | '/support-chat'
     | '/subscriptions'
     | '/privacy'
