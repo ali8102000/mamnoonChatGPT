@@ -70,7 +70,7 @@ BEGIN
     GET DIAGNOSTICS v_updated = ROW_COUNT;
   END IF;
 
-  IF v_updated=0 THEN RAISE EXCEPTION 'provider_profile_not_found'; END IF;
+  IF v_updated=0 THEN RAISE EXCEPTION 'provider_unavailable'; END IF;
 
   IF p_status='approved' THEN
     INSERT INTO public.user_roles(user_id,role)
@@ -146,7 +146,7 @@ DECLARE
 BEGIN
   SELECT governorate_key INTO v_governorate
   FROM public.profiles WHERE id=p_user_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'user_not_found'; END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION 'user_unavailable'; END IF;
 
   IF auth.uid() IS NULL OR NOT (
     public.has_admin_access(auth.uid())
@@ -209,7 +209,7 @@ DECLARE
 BEGIN
   SELECT governorate_key INTO v_governorate
   FROM public.service_requests WHERE id=p_request_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_unavailable'; END IF;
 
   IF auth.uid() IS NULL OR NOT (
     public.has_admin_access(auth.uid())
