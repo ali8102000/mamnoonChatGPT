@@ -230,6 +230,7 @@ function HierarchicalGovernancePanel() {
   const [busy,setBusy] = useState(false);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
+  const [panelTab,setPanelTab] = useState<"staff"|"permissions"|"delegations"|"approvals"|"pricing">("staff");
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -277,12 +278,16 @@ function HierarchicalGovernancePanel() {
     },"تم تعيين الموظف ضمن النطاق المحدد");
   }
   async function updateRank(person:any) {
+    if (!selected || selected.user_id !== person.user_id || !person.active) {
+      Alert.alert("اختَر الموظف أولاً", "حدد الموظف الذي تريد تعديل رتبته أو قسمه.");
+      return;
+    }
     await run(async()=>{
       const {error:e}=await (supabase as any).rpc("admin_change_staff_rank",{
-        p_target_user:person.user_id,p_new_rank:rank,p_new_department:department,p_new_display_title:null,
+        p_target_user:person.user_id,p_new_rank:rank,p_new_department:department,p_new_display_title:person.display_title ?? null,
       });
       if(e) throw e;
-    },"تم تحديث رتبة الموظف وقسمه");
+    },"تم تحديث رتبة الموظف أو تنزيلها وقسمه");
   }
   async function deactivate(person:any) {
     if(reason.trim().length<3) { Alert.alert("سبب الإيقاف","اكتب سبباً واضحاً قبل الإيقاف"); return; }
@@ -331,66 +336,102 @@ function HierarchicalGovernancePanel() {
   const chip=(active:boolean)=>({backgroundColor:active?palette.brandSoft:palette.canvas,borderColor:active?palette.brand:palette.line,borderWidth:1,borderRadius:radius.pill,paddingHorizontal:9,paddingVertical:7});
   return <ScrollView contentContainerStyle={{padding:space.md,gap:12}} refreshControl={<RefreshControl refreshing={loading} onRefresh={()=>void load()}/>}>
     {!!error&&<View style={{...card,backgroundColor:palette.dangerSoft}}><Text style={{color:palette.danger,textAlign:"right"}}>{error}</Text></View>}
-    <View style={card}>
-      <Text style={title}>إضافة موظف جديد</Text>
-      <Text style={muted}>البحث يعرض الحسابات ضمن نطاقك فقط، ولا يتيح ترقية شخص إلى رتبة مساوية أو أعلى.</Text>
-      <TextInput value={query} onChangeText={setQuery} placeholder="ابحث بالاسم أو الهاتف أو البريد" placeholderTextColor={palette.muted} style={s.input}/>
-      <TouchableOpacity disabled={busy} onPress={()=>void searchUsers()} style={button}><Text style={s.buttonText}>بحث عن حساب</Text></TouchableOpacity>
-      {candidates.map(p=><TouchableOpacity key={p.user_id} onPress={()=>setSelected(p)} style={[card,{borderColor:selected?.user_id===p.user_id?palette.brand:palette.line}]}>
-        <Text style={title}>{p.full_name||"مستخدم ممنون"}</Text><Text style={muted}>{p.phone||p.email||p.user_id} · {p.governorate_key||"المحافظة غير محددة"}</Text>
-      </TouchableOpacity>)}
-      {!!selected&&<Text style={muted}>المحدد: {selected.full_name||selected.user_id}</Text>}
-      <Text style={muted}>الرتبة</Text><View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{RANKS.map(v=><TouchableOpacity key={v} onPress={()=>setRank(v)} style={chip(rank===v)}><Text style={muted}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
-      <Text style={muted}>القسم</Text><View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{DEPARTMENTS.map(v=><TouchableOpacity key={v} onPress={()=>setDepartment(v)} style={chip(department===v)}><Text style={muted}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
-      <Text style={muted}>نطاق العمل</Text><View style={{flexDirection:"row",gap:6,justifyContent:"flex-end"}}>{(["global","governorate"] as const).map(v=><TouchableOpacity key={v} onPress={()=>setScopeType(v)} style={chip(scopeType===v)}><Text style={muted}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
-      {scopeType==="governorate"&&<View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{GOVERNORATES.map(v=><TouchableOpacity key={v} onPress={()=>setGovernorate(v)} style={chip(governorate===v)}><Text style={muted}>{v}</Text></TouchableOpacity>)}</View>}
-      <TouchableOpacity disabled={busy||!selected} onPress={()=>void assign()} style={[button,{opacity:busy||!selected?0.5:1}]}><Text style={s.buttonText}>تعيين الموظف</Text></TouchableOpacity>
+    <View style={{flexDirection:"row",flexWrap:"wrap",gap:6}}>
+      {([
+        ["staff","الموظفون"],
+        ["permissions","الصلاحيات"],
+        ["delegations","التفويضات"],
+        ["approvals","الموافقات"],
+        ["pricing","التسعير"],
+      ] as const).map(([key,label])=><TouchableOpacity key={key} onPress={()=>setPanelTab(key)} style={[chip(panelTab===key),{paddingHorizontal:12,paddingVertical:10}]}><Text style={[muted,{fontWeight:"900",color:panelTab===key?palette.brand:palette.muted}]}>{label}</Text></TouchableOpacity>)}
     </View>
-    <View style={card}>
-      <Text style={title}>الموظفون ضمن صلاحيتك ({staff.length})</Text>
-      <TextInput value={reason} onChangeText={setReason} placeholder="سبب إيقاف الموظف عند الحاجة" placeholderTextColor={palette.muted} style={s.input}/>
-      {staff.map(p=><View key={p.user_id} style={{borderTopWidth:1,borderTopColor:palette.line,paddingTop:9,gap:6}}>
-        <Text style={title}>{p.full_name||p.phone||"موظف"}</Text><Text style={muted}>{LABELS[p.rank]||p.rank} · {LABELS[p.department]||p.department} · {p.scope_type==="global"?"كل المحافظات":p.scope_governorate||"نطاق قديم"}</Text>
-        <Text style={muted}>{p.phone||p.email||p.user_id}</Text>
-        {p.active&&<View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>
-          <TouchableOpacity onPress={()=>{setSelected(p);setRank(p.rank);setDepartment(p.department);}} style={chip(false)}><Text style={muted}>اختيار للتعديل والصلاحيات</Text></TouchableOpacity>
-          <TouchableOpacity disabled={busy} onPress={()=>void updateRank(p)} style={button}><Text style={s.buttonText}>حفظ الرتبة المختارة</Text></TouchableOpacity>
-          <TouchableOpacity disabled={busy||reason.trim().length<3} onPress={()=>void deactivate(p)} style={[button,{backgroundColor:palette.danger,opacity:reason.trim().length<3?0.5:1}]}><Text style={s.buttonText}>إيقاف الموظف</Text></TouchableOpacity>
-        </View>}
-      </View>)}
-      {!staff.length&&!loading&&<Text style={muted}>لا يوجد موظفون ضمن نطاق إدارتك.</Text>}
-    </View>
-    {!!selected&&<View style={card}>
-      <Text style={title}>صلاحيات وتفويض: {selected.full_name||selected.user_id}</Text>
-      <Text style={muted}>اختر صلاحية ونطاقاً لا يتجاوزان صلاحياتك.</Text>
-      <View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{PERMISSIONS.map(([key,label])=><TouchableOpacity key={key} onPress={()=>setPermission(key)} style={chip(permission===key)}><Text style={muted}>{label}</Text></TouchableOpacity>)}</View>
-      <View style={{flexDirection:"row",gap:6,justifyContent:"flex-end"}}>{(["global","governorate"] as const).map(v=><TouchableOpacity key={v} onPress={()=>setScopeType(v)} style={chip(scopeType===v)}><Text style={muted}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
-      {scopeType==="governorate"&&<View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{GOVERNORATES.map(v=><TouchableOpacity key={v} onPress={()=>setGovernorate(v)} style={chip(governorate===v)}><Text style={muted}>{v}</Text></TouchableOpacity>)}</View>}
-      <View style={{flexDirection:"row",gap:8}}><TouchableOpacity disabled={busy} onPress={()=>void grant(selected.user_id)} style={[button,{flex:1}]}><Text style={s.buttonText}>منح صلاحية</Text></TouchableOpacity><TouchableOpacity disabled={busy} onPress={()=>void delegate(selected.user_id)} style={[button,{flex:1}]}><Text style={s.buttonText}>تفويض 7 أيام</Text></TouchableOpacity></View>
-    </View>}
-    <View style={card}>
-      <Text style={title}>الصلاحيات الممنوحة ({grants.length})</Text>
-      {grants.map(g=><View key={g.id} style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:8,borderTopWidth:1,borderTopColor:palette.line,paddingTop:8}}>
-        <View style={{flex:1}}><Text style={muted}>{PERMISSIONS.find(x=>x[0]===g.permission_key)?.[1]||g.permission_key} · {g.scope_type==="global"?"كل المحافظات":g.scope_governorate}</Text><Text style={muted}>{g.user_id}</Text></View>
-        <TouchableOpacity disabled={busy} onPress={()=>void revokeGrant(g.id)} style={[button,{backgroundColor:palette.danger}]}><Text style={s.buttonText}>سحب</Text></TouchableOpacity>
-      </View>)}
-    </View>
-    <View style={card}>
+
+    {panelTab==="staff"&&<>
+      <View style={card}>
+        <Text style={title}>إضافة موظف جديد</Text>
+        <Text style={muted}>ابحث عن حساب، ثم حدّد الرتبة والقسم ونطاق العمل. النظام يمنع تجاوز صلاحياتك أو ترقية شخص فوق رتبتك.</Text>
+        <TextInput value={query} onChangeText={setQuery} placeholder="ابحث بالاسم أو الهاتف أو البريد" placeholderTextColor={palette.muted} style={s.input}/>
+        <TouchableOpacity disabled={busy} onPress={()=>void searchUsers()} style={[button,{opacity:busy?0.5:1}]}><Text style={s.buttonText}>{busy?"جاري التنفيذ...":"بحث عن حساب"}</Text></TouchableOpacity>
+        {candidates.map(p=><TouchableOpacity key={p.user_id} onPress={()=>setSelected(p)} style={[card,{borderColor:selected?.user_id===p.user_id?palette.brand:palette.line}]}>
+          <Text style={title}>{p.full_name||"مستخدم ممنون"}</Text><Text style={muted}>{p.phone||p.email||p.user_id} · {p.governorate_key||"المحافظة غير محددة"}</Text>
+          {selected?.user_id===p.user_id&&<Text style={[muted,{color:palette.brand,fontWeight:"900"}]}>هذا الحساب محدد للإضافة</Text>}
+        </TouchableOpacity>)}
+        <Text style={muted}>الرتبة الوظيفية</Text>
+        <View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{RANKS.map(v=><TouchableOpacity key={v} onPress={()=>setRank(v)} style={chip(rank===v)}><Text style={[muted,{color:rank===v?palette.brand:palette.muted}]}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
+        <Text style={muted}>القسم</Text>
+        <View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{DEPARTMENTS.map(v=><TouchableOpacity key={v} onPress={()=>setDepartment(v)} style={chip(department===v)}><Text style={[muted,{color:department===v?palette.brand:palette.muted}]}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
+        <Text style={muted}>نطاق العمل</Text>
+        <View style={{flexDirection:"row",gap:6,justifyContent:"flex-end"}}>{(["global","governorate"] as const).map(v=><TouchableOpacity key={v} onPress={()=>setScopeType(v)} style={chip(scopeType===v)}><Text style={[muted,{color:scopeType===v?palette.brand:palette.muted}]}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
+        {scopeType==="governorate"&&<View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{GOVERNORATES.map(v=><TouchableOpacity key={v} onPress={()=>setGovernorate(v)} style={chip(governorate===v)}><Text style={[muted,{color:governorate===v?palette.brand:palette.muted}]}>{v}</Text></TouchableOpacity>)}</View>}
+        <TouchableOpacity disabled={busy||!selected} onPress={()=>void assign()} style={[button,{opacity:busy||!selected?0.5:1}]}><Text style={s.buttonText}>تعيين الموظف</Text></TouchableOpacity>
+      </View>
+      <View style={card}>
+        <Text style={title}>الموظفون ضمن صلاحيتك ({staff.length})</Text>
+        <Text style={muted}>افتح الموظف الذي تريد ترقيته أو تنزيل رتبته أو تغيير قسمه، ثم احفظ التعديل من تبويب الصلاحيات.</Text>
+        <TextInput value={reason} onChangeText={setReason} placeholder="سبب إيقاف الموظف عند الحاجة" placeholderTextColor={palette.muted} style={s.input}/>
+        {staff.map(p=><View key={p.user_id} style={{borderTopWidth:1,borderTopColor:palette.line,paddingTop:10,gap:6}}>
+          <Text style={title}>{p.full_name||p.phone||"موظف"}</Text>
+          <Text style={muted}>{LABELS[p.rank]||p.rank} · {LABELS[p.department]||p.department} · {p.scope_type==="global"?"كل المحافظات":p.scope_governorate||"نطاق قديم"}</Text>
+          <Text style={muted}>{p.phone||p.email||p.user_id}</Text>
+          {p.active&&<View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>
+            <TouchableOpacity onPress={()=>{setSelected(p);setRank(p.rank);setDepartment(p.department);setScopeType(p.scope_type==="governorate"?"governorate":"global");setPanelTab("permissions");}} style={chip(selected?.user_id===p.user_id)}><Text style={[muted,{color:selected?.user_id===p.user_id?palette.brand:palette.muted}]}>تعديل الرتبة والصلاحيات</Text></TouchableOpacity>
+            <TouchableOpacity disabled={busy||reason.trim().length<3} onPress={()=>void deactivate(p)} style={[button,{backgroundColor:palette.danger,opacity:reason.trim().length<3?0.5:1}]}><Text style={s.buttonText}>إيقاف الموظف</Text></TouchableOpacity>
+          </View>}
+        </View>)}
+        {!staff.length&&!loading&&<Text style={muted}>لا يوجد موظفون ضمن نطاق إدارتك.</Text>}
+      </View>
+    </>}
+
+    {panelTab==="permissions"&&<>
+      {!!selected&&<View style={card}>
+        <Text style={title}>تعديل الموظف: {selected.full_name||selected.user_id}</Text>
+        <Text style={muted}>يمكنك اختيار رتبة أعلى للترقية أو أدنى للتنزيل، وتغيير القسم. ستتحقق قاعدة البيانات من التسلسل الإداري قبل الحفظ.</Text>
+        <Text style={muted}>الرتبة الجديدة</Text>
+        <View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{RANKS.map(v=><TouchableOpacity key={v} onPress={()=>setRank(v)} style={chip(rank===v)}><Text style={[muted,{color:rank===v?palette.brand:palette.muted}]}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
+        <Text style={muted}>القسم الجديد</Text>
+        <View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{DEPARTMENTS.map(v=><TouchableOpacity key={v} onPress={()=>setDepartment(v)} style={chip(department===v)}><Text style={[muted,{color:department===v?palette.brand:palette.muted}]}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
+        <TouchableOpacity disabled={busy||!selected.active} onPress={()=>void updateRank(selected)} style={[button,{opacity:busy||!selected.active?0.5:1}]}><Text style={s.buttonText}>حفظ الترقية أو تنزيل الرتبة</Text></TouchableOpacity>
+        <TouchableOpacity onPress={()=>setSelected(null)} style={[chip(false),{alignItems:"center"}]}><Text style={muted}>إلغاء تحديد الموظف</Text></TouchableOpacity>
+      </View>}
+      {!selected&&<View style={card}><Text style={title}>حدد موظفاً أولاً</Text><Text style={muted}>ارجع إلى تبويب الموظفون واختر الموظف المطلوب لتعديل رتبته ومنحه الصلاحيات.</Text></View>}
+      {!!selected&&<View style={card}>
+        <Text style={title}>منح صلاحية: {selected.full_name||selected.user_id}</Text>
+        <Text style={muted}>اختر صلاحية ونطاقاً لا يتجاوزان صلاحياتك.</Text>
+        <View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{PERMISSIONS.map(([key,label])=><TouchableOpacity key={key} onPress={()=>setPermission(key)} style={chip(permission===key)}><Text style={[muted,{color:permission===key?palette.brand:palette.muted}]}>{label}</Text></TouchableOpacity>)}</View>
+        <View style={{flexDirection:"row",gap:6,justifyContent:"flex-end"}}>{(["global","governorate"] as const).map(v=><TouchableOpacity key={v} onPress={()=>setScopeType(v)} style={chip(scopeType===v)}><Text style={[muted,{color:scopeType===v?palette.brand:palette.muted}]}>{LABELS[v]}</Text></TouchableOpacity>)}</View>
+        {scopeType==="governorate"&&<View style={{flexDirection:"row",flexWrap:"wrap",gap:6,justifyContent:"flex-end"}}>{GOVERNORATES.map(v=><TouchableOpacity key={v} onPress={()=>setGovernorate(v)} style={chip(governorate===v)}><Text style={[muted,{color:governorate===v?palette.brand:palette.muted}]}>{v}</Text></TouchableOpacity>)}</View>}
+        <TouchableOpacity disabled={busy||!selected.active} onPress={()=>void grant(selected.user_id)} style={[button,{opacity:busy||!selected.active?0.5:1}]}><Text style={s.buttonText}>منح الصلاحية</Text></TouchableOpacity>
+      </View>}
+      <View style={card}>
+        <Text style={title}>الصلاحيات الممنوحة ({grants.length})</Text>
+        {grants.map(g=><View key={g.id} style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:8,borderTopWidth:1,borderTopColor:palette.line,paddingTop:8}}>
+          <View style={{flex:1}}><Text style={muted}>{PERMISSIONS.find(x=>x[0]===g.permission_key)?.[1]||g.permission_key} · {g.scope_type==="global"?"كل المحافظات":g.scope_governorate}</Text><Text style={muted}>{g.user_id}</Text></View>
+          <TouchableOpacity disabled={busy} onPress={()=>void revokeGrant(g.id)} style={[button,{backgroundColor:palette.danger}]}><Text style={s.buttonText}>سحب</Text></TouchableOpacity>
+        </View>)}
+        {!grants.length&&<Text style={muted}>لا توجد صلاحيات إضافية ممنوحة.</Text>}
+      </View>
+    </>}
+
+    {panelTab==="delegations"&&<View style={card}>
       <Text style={title}>التفويضات الفعّالة ({delegations.length})</Text>
+      <Text style={muted}>التفويض يمنح صلاحية محددة لمدة سبعة أيام ويمكن إلغاؤه من هنا.</Text>
       {delegations.map(d=><View key={d.id} style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:8,borderTopWidth:1,borderTopColor:palette.line,paddingTop:8}}>
         <View style={{flex:1}}><Text style={muted}>{PERMISSIONS.find(x=>x[0]===d.permission_key)?.[1]||d.permission_key} · إلى {d.delegate_id}</Text><Text style={muted}>{d.scope_type==="global"?"كل المحافظات":d.scope_governorate} · {d.expires_at?new Date(d.expires_at).toLocaleDateString("ar-IQ"):"بدون انتهاء"}</Text></View>
         <TouchableOpacity disabled={busy} onPress={()=>void revokeDelegation(d.id)} style={[button,{backgroundColor:palette.danger}]}><Text style={s.buttonText}>إلغاء</Text></TouchableOpacity>
       </View>)}
-    </View>
-    <View style={card}>
+      {!delegations.length&&<Text style={muted}>لا توجد تفويضات فعّالة.</Text>}
+    </View>}
+
+    {panelTab==="approvals"&&<View style={card}>
       <Text style={title}>طلبات الموافقة ({approvals.length})</Text>
       {approvals.map(a=><View key={a.id} style={{borderTopWidth:1,borderTopColor:palette.line,paddingTop:8,gap:6}}>
         <Text style={title}>{a.request_type} · {a.scope_type==="global"?"كل المحافظات":a.scope_governorate}</Text><Text style={muted}>مقدم الطلب: {a.requester_id} · {new Date(a.created_at).toLocaleString("ar-IQ")}</Text>
         <View style={{flexDirection:"row",gap:8}}><TouchableOpacity disabled={busy} onPress={()=>void review(a.id,"approved")} style={[button,{flex:1}]}><Text style={s.buttonText}>موافقة</Text></TouchableOpacity><TouchableOpacity disabled={busy} onPress={()=>void review(a.id,"rejected")} style={[button,{flex:1,backgroundColor:palette.danger}]}><Text style={s.buttonText}>رفض</Text></TouchableOpacity></View>
       </View>)}
       {!approvals.length&&<Text style={muted}>لا توجد طلبات معلقة ضمن صلاحيتك.</Text>}
-    </View>
-    <TaxiPricingPanel />
+    </View>}
+
+    {panelTab==="pricing"&&<TaxiPricingPanel />}
   </ScrollView>;
 }
 
