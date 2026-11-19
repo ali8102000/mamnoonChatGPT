@@ -1420,11 +1420,13 @@ export default function RequestDetail() {
               </MapView>
               {request.type !== "taxi" && <Text style={styles.trackingHint}>
                 {isCustomer
-                  ? providerRoutePoints.length > 1
-                    ? "الفني بالطريق إليك · موقعه يتحدث مباشرة"
-                    : driverLocationFresh
-                      ? "تم قبول الطلب · موقع الفني مباشر"
-                      : "بانتظار تحديث موقع الفني"
+                  ? request.provider_arrived_at
+                    ? "الفني وصل إلى موقع العمل"
+                    : providerRoutePoints.length > 1
+                      ? "الفني بالطريق إليك · موقعه يتحدث مباشرة"
+                      : driverLocationFresh
+                        ? "تم قبول الطلب · موقع الفني مباشر"
+                        : "بانتظار تحديث موقع الفني"
                   : driverLocationFresh
                     ? "موقعك وموقع الزبون ظاهران مباشرة"
                     : "بانتظار تحديث موقع الزبون"}
