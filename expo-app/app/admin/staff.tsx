@@ -6,9 +6,9 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 const ITEMS = [
-  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager", "users_access"] },
-  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "support", "department_operations", "rank:general_manager", "providers_access"] },
-  { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "support", "department_operations", "rank:general_manager", "orders_access"] },
+  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "rank:general_manager", "users_access"] },
+  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "rank:general_manager", "providers_access"] },
+  { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "rank:general_manager", "orders_access"] },
   { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "subscriptions_access"] },
   { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "finance_access"] },
   { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"] },
@@ -71,6 +71,8 @@ export default function AdminStaffScreen() {
         }));
         if (permissionKeys.slice(0, 5).some((_, index) => permissionChecks[index])) names.push("governance_access");
         const hasPermission = (key: string) => permissionChecks[permissionKeys.indexOf(key)] === true;
+        if (scopeType === "global" && ["support","moderator","department_monitoring"].some((role) => names.includes(role))) names.push("users_access");
+        if (scopeType === "global" && ["support","department_operations"].some((role) => names.includes(role))) names.push("providers_access","orders_access");
         if (["users.read","users.profile.edit","users.block","users.unblock"].some(hasPermission)) names.push("users_access");
         if (["providers.read","providers.profile.edit","providers.verify","providers.suspend"].some(hasPermission)) names.push("providers_access");
         if (["orders.read","orders.assign","orders.override","orders.cancel","orders.reopen"].some(hasPermission)) names.push("orders_access");
