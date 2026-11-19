@@ -1186,10 +1186,8 @@ function NewRequest() {
                         active ? "ring-2 ring-primary border-primary" : "border-border/60"
                       }`}
                     >
-                      {uiVisuals[`vehicle_${c.key}`]?.icon_name ? <span className="text-3xl shrink-0">{uiVisuals[`vehicle_${c.key}`].icon_name}</span> : uiVisuals[`vehicle_${c.key}`]?.image_url || c.img ? (
-                        <img src={uiVisuals[`vehicle_${c.key}`]?.image_url || c.img} alt={uiVisuals[`vehicle_${c.key}`]?.title || c.label} style={{ width: Number(uiVisuals[`vehicle_${c.key}`]?.width_px) || 56, height: Number(uiVisuals[`vehicle_${c.key}`]?.height_px) || 38 }} className="object-contain shrink-0" />
-                      ) : (
-                        <div className="text-3xl shrink-0">{c.emoji}</div>
+                      {uiVisuals[`vehicle_${c.key}`]?.icon_name ? <span className="text-3xl shrink-0">{uiVisuals[`vehicle_${c.key}`].icon_name}</span> : (
+                        <img src={uiVisuals[`vehicle_${c.key}`]?.image_url || c.img || `/vehicle-icons/${c.key}.svg`} alt={uiVisuals[`vehicle_${c.key}`]?.title || c.label} style={{ width: Number(uiVisuals[`vehicle_${c.key}`]?.width_px) || 76, height: Number(uiVisuals[`vehicle_${c.key}`]?.height_px) || 52 }} className="object-contain shrink-0" />
                       )}
                       <div className="flex-1 font-black text-sm text-foreground">{uiVisuals[`vehicle_${c.key}`]?.title || c.label}</div>
                       <div className="font-black text-base text-primary shrink-0">

@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import Svg, { Circle, Path } from "react-native-svg";
+import { SvgXml } from "react-native-svg";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
@@ -28,6 +29,7 @@ import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
 import { ServiceArtwork, hasServiceArtwork } from "@/components/service-artwork";
 import { palette, radius } from "@/styles/theme";
+import { TAXI_VEHICLE_SVGS } from "@/lib/taxi-vehicle-art";
 
 type Coordinates = { latitude: number; longitude: number };
 type VehicleCategory = "economy" | "premium" | "luxury" | "large";
@@ -1444,7 +1446,7 @@ export default function NewRequest() {
                         const fare = routeKm !== null ? (serverTaxiFares[category.key as Exclude<VehicleCategory, "large">] ?? (active ? serverTaxiFare : null)) : null;
                         return (
                           <TouchableOpacity key={category.key} style={[styles.taxiVehicleCard, active && styles.taxiVehicleCardActive]} onPress={() => setVehicleCat(category.key as Exclude<VehicleCategory, "large">)}>
-                            {uiVisuals[`vehicle_${category.key}`]?.icon_name ? <Text style={styles.taxiVehicleEmoji}>{uiVisuals[`vehicle_${category.key}`].icon_name}</Text> : uiVisuals[`vehicle_${category.key}`]?.image_url ? <Image source={{ uri: uiVisuals[`vehicle_${category.key}`].image_url }} style={{ width: Number(uiVisuals[`vehicle_${category.key}`].width_px) || 64, height: Number(uiVisuals[`vehicle_${category.key}`].height_px) || 48 }} resizeMode="contain" /> : <Text style={styles.taxiVehicleEmoji}>{category.emoji}</Text>}
+                            {uiVisuals[`vehicle_${category.key}`]?.icon_name ? <Text style={styles.taxiVehicleEmoji}>{uiVisuals[`vehicle_${category.key}`].icon_name}</Text> : uiVisuals[`vehicle_${category.key}`]?.image_url ? <Image source={{ uri: uiVisuals[`vehicle_${category.key}`].image_url }} style={{ width: Number(uiVisuals[`vehicle_${category.key}`].width_px) || 76, height: Number(uiVisuals[`vehicle_${category.key}`].height_px) || 52 }} resizeMode="contain" /> : <SvgXml xml={TAXI_VEHICLE_SVGS[category.key as "economy" | "premium" | "luxury"]} width={86} height={54} /> }
                             <Text style={styles.taxiVehicleName}>{uiVisuals[`vehicle_${category.key}`]?.title || category.label}</Text>
                             <Text style={styles.taxiVehicleFare}>{fare !== null ? fare.toLocaleString("ar-IQ") + " د.ع" : "—"}</Text>
                           </TouchableOpacity>
