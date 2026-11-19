@@ -224,6 +224,9 @@ export default function RequestDetail() {
   const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
   const roadRouteSequenceRef = useRef(0);
   const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
+  useEffect(() => {
+    lastRoutePointRef.current = null;
+  }, [id, currentUserId]);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
   const [freshnessClock, setFreshnessClock] = useState(Date.now());
   const lastEtaRequestRef = useRef<{ latitude: number; longitude: number; requestedAt: number } | null>(null);
@@ -644,8 +647,14 @@ export default function RequestDetail() {
         const { startMamnoonBackgroundLocation } = await import("@/lib/background-location");
         try {
           await startMamnoonBackgroundLocation({ requestId: id, userId: currentUserId, role });
-        } catch (backgroundError) {
+        } catch (backgroundError: any) {
           console.warn("[Mamnoon] background tracking unavailable; foreground tracking remains active:", backgroundError);
+          if (mounted && backgroundError?.message === "background_location_denied") {
+            Alert.alert(
+              "استمرار مشاركة الموقع",
+              "الموقع المباشر يعمل والتطبيق مفتوح. حتى يستمر إذا صغّرت ممنون، فعّل إذن الموقع طوال الوقت من إعدادات التطبيق.",
+            );
+          }
         }
       } catch (error: any) {
         if (!mounted) return;
@@ -1026,7 +1035,10 @@ export default function RequestDetail() {
   }
 
   async function cancelRequest() {
-    Alert.alert("إلغاء الطلب", "هل أنت متأكد؟", [
+    Alert.alert(
+      isProvider ? "الاعتذار عن الطلب" : "إلغاء الطلب",
+      isProvider ? "راح نرجّع الطلب للبحث عن فني آخر." : "هل تريد إلغاء طلبك؟",
+      [
       { text: "تراجع", style: "cancel" },
       {
         text: "إلغاء الطلب",
@@ -1038,8 +1050,19 @@ export default function RequestDetail() {
               ? "ألغى الزبون الطلب قبل تأكيد وصول مقدم الخدمة"
               : "اعتذر الفني عن تنفيذ الطلب قبل الوصول",
           });
-          if (error) Alert.alert("تعذر الإلغاء", error.message);
-          else router.back();
+          if (error) {
+            const message = error.message?.includes("provider_already_arrived")
+              ? "الفني أكد وصوله للموقع، لذلك ما عاد الإلغاء متاحاً من التطبيق."
+              : error.message?.includes("service_already_started")
+                ? "بدأ الفني تنفيذ العمل، لذلك ما عاد الإلغاء متاحاً."
+                : error.message?.includes("forbidden")
+                  ? "ما عندك صلاحية لإلغاء هذا الطلب."
+                  : error.message || "حاول مرة ثانية.";
+            Alert.alert("تعذر الإلغاء", message);
+          } else {
+            await loadRequest();
+            router.back();
+          }
         },
       },
     ]);
@@ -1425,7 +1448,7 @@ export default function RequestDetail() {
                 style={[styles.actionBtn, { backgroundColor: palette.danger }]}
                 onPress={cancelRequest}
               >
-                <Text style={styles.actionBtnText}>إلغاء</Text>
+                <Text style={styles.actionBtnText}>{isProvider ? "اعتذار وإعادة البحث عن فني" : "إلغاء الطلب"}</Text>
               </TouchableOpacity>
             )}
         </View>
