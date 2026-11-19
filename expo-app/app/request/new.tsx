@@ -151,7 +151,7 @@ function ActiveRequestConfirmModal({
         <View style={{ borderRadius: 24, padding: 18, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold, gap: 12 }}>
           <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right" }}>عندك طلب سابق نشط</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Image source={{ uri: getServiceImage(imageSlug) }} style={{ width: 82, height: 72, borderRadius: 14, backgroundColor: palette.canvas }} resizeMode="cover" />
+            <Image source={getServiceImage(imageSlug)} style={{ width: 82, height: 72, borderRadius: 14, backgroundColor: palette.canvas }} resizeMode="cover" />
             <View style={{ flex: 1, alignItems: "flex-end", gap: 5 }}>
               <Text style={{ color: palette.ink, fontWeight: "900", fontSize: 14 }}>{request.serviceName || (request.type === "taxi" ? request.vehicle_category === "large" ? "سيارة كبيرة" : "طلب تكسي" : "طلب خدمة")}</Text>
               <Text style={{ color: palette.muted, fontSize: 11 }}>رمز الطلب: {request.id.slice(0, 8).toUpperCase()}</Text>
@@ -1545,7 +1545,7 @@ export default function NewRequest() {
                 <TouchableOpacity
                   style={[styles.taxiPrimaryButton, (busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))) && styles.taxiButtonDisabled]}
                   disabled={busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))}
-                  onPress={submit}
+                  onPress={() => void submit()}
                 >
                   {busy ? <ActivityIndicator color={palette.white} /> : <Text style={styles.taxiPrimaryButtonText}>{isLargeVehicle ? "إرسال الطلب" : "اطلب الآن"}</Text>}
                 </TouchableOpacity>
@@ -2046,7 +2046,7 @@ export default function NewRequest() {
         </View>
       )}
       <View style={{ height: 24 }} />
-      <Button title="إرسال الطلب" onPress={submit} loading={busy} />
+      <Button title="إرسال الطلب" onPress={() => void submit()} loading={busy} />
       <GovernoratePickerModal visible={governoratePickerVisible} selectedKey={activeGovernorateKey} onClose={() => setGovernoratePickerVisible(false)} onSelect={(key) => { chooseGovernorate(key); setGovernoratePickerVisible(false); }} />
     </ScrollView>
   );
