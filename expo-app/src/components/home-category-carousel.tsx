@@ -3,9 +3,18 @@ import { Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, P
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 
-type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; is_active: boolean; scroll_speed: number; badge_text: string | null };
+type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; banner_type: "category" | "poll" | "contest" | "ad"; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; badge_text: string | null };
 const width = (Dimensions.get("window").width - 40) * 0.65;
 const height = width * 0.88;
+
+function openBanner(item: Banner) {
+  if (item.banner_type === "ad") return;
+  if ((item.banner_type === "poll" || item.banner_type === "contest") && item.target_campaign_id) {
+    router.push({ pathname: "/campaign/[id]", params: { id: item.target_campaign_id } });
+    return;
+  }
+  if (item.banner_type === "category") router.push({ pathname: "/discover/[category]", params: { category: item.target_category } });
+}
 
 export function HomeCategoryCarousel() {
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -15,28 +24,24 @@ export function HomeCategoryCarousel() {
   const resumeAt = useRef(0);
   const refresh = useCallback(async () => {
     const { data, error } = await (supabase as any).from("home_carousel_banners")
-      .select("id,image_url,target_category,is_active,scroll_speed,badge_text,display_order")
+      .select("id,image_url,target_category,banner_type,target_campaign_id,is_active,scroll_speed,badge_text,display_order")
       .eq("is_active", true).order("display_order").order("created_at");
     if (error) { console.warn("[home-banners] load failed:", error.message); return; }
-    setBanners(data ?? []);
-    setFailedImages([]);
-    setIndex(0);
-    resumeAt.current = 0;
+    setBanners(data ?? []); setFailedImages([]); setIndex(0); resumeAt.current = 0;
     list.current?.scrollToOffset({ offset: 0, animated: false });
   }, []);
   useEffect(() => {
     void refresh();
     const channel = supabase.channel("home-category-banners-native")
-      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh())
-      .subscribe();
+      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh()).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [refresh]);
   useEffect(() => {
-    if (banners.length < 2 || index >= banners.length - 1) return;
+    if (banners.length < 2) return;
     const speed = Math.max(1, Math.min(60, Number(banners[index]?.scroll_speed) || 5));
     const timer = setInterval(() => {
       if (Date.now() < resumeAt.current) return;
-      const next = Math.min(index + 1, banners.length - 1);
+      const next = (index + 1) % banners.length;
       setIndex(next);
       list.current?.scrollToIndex({ index: next, animated: true });
     }, speed * 1000);
@@ -47,31 +52,18 @@ export function HomeCategoryCarousel() {
     if (next >= 0 && next < banners.length) setIndex(next);
     resumeAt.current = Date.now() + 5000;
   };
-  if (!banners.length) return (
-    <View style={{ width: "100%", height, backgroundColor: "#173F35", borderRadius: 22, padding: 14, justifyContent: "center", alignItems: "center" }}>
-      <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 16, textAlign: "center" }}>اكتشف شركاء ممنون</Text>
-      <Text style={{ color: "#FFFFFF", opacity: 0.9, fontWeight: "700", fontSize: 11, textAlign: "center", marginTop: 6 }}>المطاعم والفنادق والمتاجر المنشورة تظهر هنا</Text>
-    </View>
-  );
-  return (
-    <View style={{ width: "100%", height, borderRadius: 22, overflow: "hidden", backgroundColor: "transparent" }}>
-      <FlatList ref={list} data={banners} horizontal snapToInterval={width} snapToAlignment="start" decelerationRate="fast" showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id} onMomentumScrollEnd={onScrollEnd}
-        onTouchStart={() => { resumeAt.current = Date.now() + 5000; }}
-        onTouchEnd={() => { resumeAt.current = Date.now() + 5000; }}
-        getItemLayout={(_, itemIndex) => ({ length: width, offset: width * itemIndex, index: itemIndex })}
-        renderItem={({ item }) => (
-          <Pressable onPress={() => router.push({ pathname: "/discover/[category]", params: { category: item.target_category } })} accessibilityRole="button" accessibilityLabel={item.target_category === "restaurant" ? "عرض المطاعم" : item.target_category === "hotel" ? "عرض الفنادق" : "عرض المتاجر"} style={{ width, height, position: "relative", backgroundColor: "#173F35", justifyContent: "center", alignItems: "center" }}>
-            {!failedImages.includes(item.id) && !!item.image_url ? <Image source={{ uri: item.image_url }} onError={() => setFailedImages(current => current.includes(item.id) ? current : [...current, item.id])} style={{ width: "100%", height: "100%" }} resizeMode="cover" /> : <View style={{ padding: 12, alignItems: "center" }}><Text style={{ color: "#fff", fontWeight: "900", fontSize: 15, textAlign: "center" }}>{item.target_category === "restaurant" ? "المطاعم" : item.target_category === "hotel" ? "الفنادق" : "المتاجر"}</Text><Text style={{ color: "#fff", fontSize: 11, fontWeight: "800", marginTop: 8 }}>اضغط لاستعراض المحتويات والخدمات</Text></View>}
-            {!!item.badge_text && <View style={{ position: "absolute", top: 12, right: 12, backgroundColor: "#0009", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
-              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{item.badge_text}</Text>
-            </View>}
-          </Pressable>
-        )}
-      />
-      {banners.length > 1 && <View pointerEvents="none" style={{ position: "absolute", bottom: 10, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 6 }}>
-        {banners.map((banner, i) => <View key={banner.id} style={{ width: i === index ? 18 : 6, height: 6, borderRadius: 9, backgroundColor: "#FFFFFF" }} />)}
-      </View>}
-    </View>
-  );
+  if (!banners.length) return <View style={{ width: "100%", height, backgroundColor: "#173F35", borderRadius: 22, padding: 14, justifyContent: "center", alignItems: "center" }}><Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 16, textAlign: "center" }}>اكتشف شركاء ممنون</Text><Text style={{ color: "#FFFFFF", opacity: 0.9, fontWeight: "700", fontSize: 11, textAlign: "center", marginTop: 6 }}>المطاعم والفنادق والمتاجر المنشورة تظهر هنا</Text></View>;
+  return <View style={{ width: "100%", height, borderRadius: 22, overflow: "hidden", backgroundColor: "transparent" }}>
+    <FlatList ref={list} data={banners} horizontal snapToInterval={width} snapToAlignment="start" decelerationRate="fast" showsHorizontalScrollIndicator={false}
+      keyExtractor={item => item.id} onMomentumScrollEnd={onScrollEnd}
+      onTouchStart={() => { resumeAt.current = Date.now() + 5000; }} onTouchEnd={() => { resumeAt.current = Date.now() + 5000; }}
+      getItemLayout={(_, itemIndex) => ({ length: width, offset: width * itemIndex, index: itemIndex })}
+      renderItem={({ item }) => <Pressable disabled={item.banner_type === "ad"} onPress={() => openBanner(item)} accessibilityRole={item.banner_type === "ad" ? "image" : "button"} accessibilityLabel={item.banner_type === "ad" ? "إعلان" : item.banner_type === "poll" ? "المشاركة في الاستطلاع" : item.banner_type === "contest" ? "فتح المسابقة" : item.target_category === "restaurant" ? "عرض المطاعم" : item.target_category === "hotel" ? "عرض الفنادق" : "عرض المتاجر"} style={{ width, height, position: "relative", backgroundColor: "#173F35", justifyContent: "center", alignItems: "center" }}>
+        {!failedImages.includes(item.id) && !!item.image_url ? <Image source={{ uri: item.image_url }} onError={() => setFailedImages(current => current.includes(item.id) ? current : [...current,item.id])} style={{ width:"100%",height:"100%" }} resizeMode="cover"/> : <View style={{padding:12,alignItems:"center"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:15,textAlign:"center"}}>{item.banner_type==="ad"?"إعلان":item.banner_type==="poll"?"استطلاع رأي":item.banner_type==="contest"?"مسابقة":item.target_category==="restaurant"?"المطاعم":item.target_category==="hotel"?"الفنادق":"المتاجر"}</Text></View>}
+        {item.banner_type !== "ad" ? <View style={{ position:"absolute",bottom:10,right:8,backgroundColor:"#0009",borderRadius:16,paddingHorizontal:10,paddingVertical:6 }}><Text style={{color:"#fff",fontSize:10,fontWeight:"900"}}>{item.banner_type==="poll"?"شارك برأيك ←":item.banner_type==="contest"?"شاهد المسابقة وشارك ←":"استعراض المحتويات ←"}</Text></View> : null}
+        {!!item.badge_text && <View style={{position:"absolute",top:12,right:12,backgroundColor:"#0009",borderRadius:20,paddingHorizontal:12,paddingVertical:6}}><Text style={{color:"#fff",fontWeight:"800",fontSize:11}}>{item.badge_text}</Text></View>}
+      </Pressable>}
+    />
+    {banners.length > 1 && <View pointerEvents="none" style={{position:"absolute",bottom:10,left:0,right:0,flexDirection:"row",justifyContent:"center",gap:6}}>{banners.map((banner,i)=><View key={banner.id} style={{width:i===index?18:6,height:6,borderRadius:9,backgroundColor:"#FFFFFF"}}/>)}</View>}
+  </View>;
 }

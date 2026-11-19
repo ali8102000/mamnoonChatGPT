@@ -18,11 +18,15 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 type BannerCategory = "restaurant" | "hotel" | "store";
+type BannerKind = "category" | "poll" | "contest" | "ad";
+type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string };
 type Banner = {
   id: string;
   image_url: string;
   storage_path: string | null;
   target_category: BannerCategory;
+  banner_type: BannerKind;
+  target_campaign_id: string | null;
   is_active: boolean;
   scroll_speed: number;
   display_order: number;
@@ -40,6 +44,9 @@ export default function AdminHomeBannersScreen() {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [rows, setRows] = useState<Banner[]>([]);
   const [category, setCategory] = useState<BannerCategory>("restaurant");
+  const [bannerType, setBannerType] = useState<BannerKind>("category");
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignId, setCampaignId] = useState("");
   const [speed, setSpeed] = useState("5");
   const [order, setOrder] = useState("0");
   const [badge, setBadge] = useState("");
@@ -67,7 +74,7 @@ export default function AdminHomeBannersScreen() {
     setAuthorized(true);
     const { data, error } = await (supabase as any)
       .from("home_carousel_banners")
-      .select("id,image_url,storage_path,target_category,is_active,scroll_speed,display_order,badge_text")
+      .select("id,image_url,storage_path,target_category,banner_type,target_campaign_id,is_active,scroll_speed,display_order,badge_text")
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) {
@@ -76,6 +83,8 @@ export default function AdminHomeBannersScreen() {
       setRows((data ?? []) as Banner[]);
       setMessage("");
     }
+    const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status").eq("status","published").order("sort_order").order("created_at",{ascending:false});
+    setCampaigns((campaignRows ?? []) as Campaign[]);
     setLoading(false);
     setRefreshing(false);
   }, [user?.id]);
@@ -117,6 +126,14 @@ export default function AdminHomeBannersScreen() {
   };
 
   const publish = async () => {
+    if ((bannerType === "poll" || bannerType === "contest") && !campaignId) {
+      Alert.alert("الحملة مطلوبة", "اختار الاستطلاع أو المسابقة المرتبطة بالبانر.");
+      return;
+    }
+    if ((bannerType === "poll" || bannerType === "contest") && !campaigns.some((item) => item.id === campaignId && item.campaign_type === bannerType)) {
+      Alert.alert("اختيار غير صحيح", "نوع الحملة لا يطابق نوع البانر.");
+      return;
+    }
     if (!asset) {
       Alert.alert("الصورة مطلوبة", "اختار صورة البانر أولاً.");
       return;
@@ -151,6 +168,8 @@ export default function AdminHomeBannersScreen() {
           image_url: publicData.publicUrl,
           storage_path: path,
           target_category: category,
+          banner_type: bannerType,
+          target_campaign_id: bannerType === "poll" || bannerType === "contest" ? campaignId : null,
           is_active: true,
           scroll_speed: numericSpeed,
           display_order: numericOrder,
@@ -257,7 +276,15 @@ export default function AdminHomeBannersScreen() {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>إضافة بانر جديد</Text>
-          <Text style={styles.label}>القسم</Text>
+          <Text style={styles.label}>نوع البانر</Text>
+          <View style={styles.categoryRow}>
+            {([{key:"category",label:"مطاعم وفنادق"},{key:"poll",label:"استطلاع"},{key:"contest",label:"مسابقة"},{key:"ad",label:"إعلان"}] as {key:BannerKind;label:string}[]).map((item) => (
+              <TouchableOpacity key={item.key} onPress={() => {setBannerType(item.key);setCampaignId("");}} style={[styles.categoryButton,bannerType===item.key&&styles.categorySelected]}>
+                <Text style={[styles.categoryText,bannerType===item.key&&styles.categoryTextSelected]}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {bannerType === "category" ? <><Text style={styles.label}>القسم</Text>
           <View style={styles.categoryRow}>
             {(["restaurant", "hotel", "store"] as BannerCategory[]).map((value) => (
               <TouchableOpacity
@@ -270,7 +297,15 @@ export default function AdminHomeBannersScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </View></> : null}
+          {(bannerType === "poll" || bannerType === "contest") ? <>
+            <Text style={styles.label}>الحملة المرتبطة</Text>
+            <View style={{gap:7}}>
+              {campaigns.filter((item)=>item.campaign_type===bannerType).map((item)=><TouchableOpacity key={item.id} onPress={()=>setCampaignId(item.id)} style={[styles.categoryButton,campaignId===item.id&&styles.categorySelected]}><Text style={[styles.categoryText,campaignId===item.id&&styles.categoryTextSelected]}>{item.title}</Text></TouchableOpacity>)}
+              {!campaigns.some((item)=>item.campaign_type===bannerType) ? <Text style={styles.muted}>ماكو {bannerType==="poll"?"استطلاع":"مسابقة"} منشورة حالياً. انشرها أولاً من إدارة الحملات.</Text> : null}
+            </View>
+          </> : null}
+          {bannerType === "ad" ? <Text style={styles.muted}>الإعلان يظهر كصورة فقط، والضغط عليه لا يفتح أي صفحة.</Text> : null}
           <View style={styles.fieldsRow}>
             <View style={styles.field}>
               <Text style={styles.label}>مدة عرض الصورة (1–60 ثانية)</Text>
@@ -337,7 +372,7 @@ export default function AdminHomeBannersScreen() {
           <View key={banner.id} style={styles.bannerCard}>
             <Image source={{ uri: banner.image_url }} style={styles.bannerImage} />
             <View style={styles.bannerDetails}>
-              <Text style={styles.bannerTitle}>{CATEGORY_LABELS[banner.target_category]}</Text>
+              <Text style={styles.bannerTitle}>{banner.banner_type === "poll" ? "استطلاع رأي" : banner.banner_type === "contest" ? "مسابقة" : banner.banner_type === "ad" ? "إعلان صوري فقط" : CATEGORY_LABELS[banner.target_category]}</Text>
               <Text style={styles.muted}>الترتيب {banner.display_order} · كل {banner.scroll_speed} ثوانٍ</Text>
               <Text style={[styles.status, banner.is_active ? styles.active : styles.inactive]}>
                 {banner.is_active ? "منشور" : "متوقف"}

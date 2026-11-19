@@ -23,6 +23,7 @@ import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as CouponsRouteImport } from './routes/coupons'
+import { Route as CampaignRouteImport } from './routes/campaign.$id'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as AskMamnoonRouteImport } from './routes/ask-mamnoon'
 import { Route as SupportChatRouteImport } from './routes/support-chat'
@@ -112,6 +113,11 @@ const HomeRoute = HomeRouteImport.update({
 const CouponsRoute = CouponsRouteImport.update({
   id: '/coupons',
   path: '/coupons',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CampaignRoute = CampaignRouteImport.update({
+  id: '/campaign/$id',
+  path: '/campaign/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MessagesRoute = MessagesRouteImport.update({
@@ -230,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/coupons': typeof CouponsRoute
+  '/campaign/$id': typeof CampaignRoute
   '/messages': typeof MessagesRoute
   '/ask-mamnoon': typeof AskMamnoonRoute
   '/support-chat': typeof SupportChatRoute
@@ -266,6 +273,7 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/coupons': typeof CouponsRoute
+  '/campaign/$id': typeof CampaignRoute
   '/messages': typeof MessagesRoute
   '/support-chat': typeof SupportChatRoute
   '/subscriptions': typeof SubscriptionsRoute
@@ -302,6 +310,7 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
   '/coupons': typeof CouponsRoute
+  '/campaign/$id': typeof CampaignRoute
   '/messages': typeof MessagesRoute
   '/ask-mamnoon': typeof AskMamnoonRoute
   '/subscriptions': typeof SubscriptionsRoute
@@ -339,6 +348,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/home'
     | '/coupons'
+    | '/campaign/$id'
     | '/messages'
     | '/ask-mamnoon'
     | '/support-chat'
@@ -375,6 +385,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/home'
     | '/coupons'
+    | '/campaign/$id'
     | '/messages'
     | '/ask-mamnoon'
     | '/support-chat'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/history'
     | '/home'
     | '/coupons'
+    | '/campaign/$id'
     | '/messages'
     | '/subscriptions'
     | '/privacy'
@@ -446,6 +458,7 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
   CouponsRoute: typeof CouponsRoute
+  CampaignRoute: typeof CampaignRoute
   MessagesRoute: typeof MessagesRoute
   AskMamnoonRoute: typeof AskMamnoonRoute
   SupportChatRoute: typeof SupportChatRoute
@@ -563,6 +576,13 @@ declare module '@tanstack/react-router' {
       path: '/coupons'
       fullPath: '/coupons'
       preLoaderRoute: typeof CouponsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/campaign/$id': {
+      id: '/campaign/$id'
+      path: '/campaign/$id'
+      fullPath: '/campaign/$id'
+      preLoaderRoute: typeof CampaignRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/messages': {
@@ -737,6 +757,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
   CouponsRoute: CouponsRoute,
+  CampaignRoute: CampaignRoute,
   MessagesRoute: MessagesRoute,
   AskMamnoonRoute: AskMamnoonRoute,
   SupportChatRoute: SupportChatRoute,

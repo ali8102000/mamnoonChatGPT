@@ -112,6 +112,70 @@ function GovernoratePickerModal({ visible, selectedKey, onClose, onSelect }: { v
   );
 }
 
+type ActiveRequestPreview = {
+  id: string;
+  type: string;
+  status: string;
+  provider_arrived_at: string | null;
+  vehicle_category: string | null;
+  vehicle_type: string | null;
+  service_id: string | null;
+  serviceSlug?: string | null;
+  serviceName?: string | null;
+};
+
+function ActiveRequestConfirmModal({
+  request, choice, visible, busy, onChoice, onConfirm, onClose,
+}: {
+  request: ActiveRequestPreview | null;
+  choice: "keep" | "cancel";
+  visible: boolean;
+  busy: boolean;
+  onChoice: (choice: "keep" | "cancel") => void;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  if (!request) return null;
+  const canCancel = !request.provider_arrived_at && request.status !== "in_progress";
+  const statusLabel = request.status === "pending" || request.status === "searching"
+    ? "قيد البحث عن سائق أو فني"
+    : request.status === "accepted" ? "تم قبول الطلب" : "قيد التنفيذ";
+  const imageSlug = request.type === "service"
+    ? request.serviceSlug || "general"
+    : request.vehicle_category === "large"
+      ? request.vehicle_type === "kia_cargo" ? "goods_transport" : request.vehicle_type === "bus" ? "bus" : "kia_driver"
+      : "kia_driver";
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: "rgba(5,10,18,0.78)", justifyContent: "center", padding: 20 }}>
+        <View style={{ borderRadius: 24, padding: 18, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold, gap: 12 }}>
+          <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right" }}>عندك طلب سابق نشط</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <Image source={getServiceImage(imageSlug)} style={{ width: 82, height: 72, borderRadius: 14, backgroundColor: palette.canvas }} resizeMode="cover" />
+            <View style={{ flex: 1, alignItems: "flex-end", gap: 5 }}>
+              <Text style={{ color: palette.ink, fontWeight: "900", fontSize: 14 }}>{request.serviceName || (request.type === "taxi" ? request.vehicle_category === "large" ? "سيارة كبيرة" : "طلب تكسي" : "طلب خدمة")}</Text>
+              <Text style={{ color: palette.muted, fontSize: 11 }}>رمز الطلب: {request.id.slice(0, 8).toUpperCase()}</Text>
+              <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900" }}>{statusLabel}</Text>
+            </View>
+          </View>
+          <TouchableOpacity onPress={() => onChoice("keep")} style={{ padding: 12, borderRadius: 13, borderWidth: 1.5, borderColor: choice === "keep" ? palette.brand : palette.line, backgroundColor: choice === "keep" ? palette.brandSoft : palette.canvas }}>
+            <Text style={{ color: palette.ink, textAlign: "right", fontWeight: "900" }}>{choice === "keep" ? "● " : "○ "}الاحتفاظ بالطلب السابق وإرسال طلب جديد</Text>
+          </TouchableOpacity>
+          <TouchableOpacity disabled={!canCancel} onPress={() => onChoice("cancel")} style={{ padding: 12, borderRadius: 13, borderWidth: 1.5, borderColor: choice === "cancel" ? palette.danger : palette.line, opacity: canCancel ? 1 : 0.45 }}>
+            <Text style={{ color: palette.ink, textAlign: "right", fontWeight: "900" }}>{choice === "cancel" ? "● " : "○ "}إلغاء الطلب السابق وإرسال طلب جديد</Text>
+            {!canCancel && <Text style={{ color: palette.danger, textAlign: "right", fontSize: 10, marginTop: 5 }}>لا يمكن الإلغاء بعد وصول مقدم الخدمة أو بدء التنفيذ</Text>}
+          </TouchableOpacity>
+          <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right" }}>لن يتغير أي طلب قبل الضغط على «تأكيد الاختيار»</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TouchableOpacity onPress={onClose} disabled={busy} style={{ flex: 1, padding: 13, borderRadius: 13, backgroundColor: palette.canvas, alignItems: "center" }}><Text style={{ color: palette.ink, fontWeight: "900" }}>رجوع</Text></TouchableOpacity>
+            <TouchableOpacity onPress={onConfirm} disabled={busy || (choice === "cancel" && !canCancel)} style={{ flex: 1, padding: 13, borderRadius: 13, backgroundColor: palette.brand, alignItems: "center", opacity: busy || (choice === "cancel" && !canCancel) ? 0.55 : 1 }}><Text style={{ color: palette.white, fontWeight: "900" }}>{busy ? "جارٍ التنفيذ..." : "تأكيد الاختيار"}</Text></TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function NewRequest() {
   const { type, vehicle } = useLocalSearchParams<{ type: string; vehicle?: string }>();
   const { user } = useAuth();
@@ -204,6 +268,9 @@ export default function NewRequest() {
   const [pricingMode, setPricingMode] = useState<"fixed" | "hourly" | "negotiable">("fixed");
   const [workHours, setWorkHours] = useState("");
   const [busy, setBusy] = useState(false);
+  const [activeRequestPreview, setActiveRequestPreview] = useState<ActiveRequestPreview | null>(null);
+  const [activeRequestChoice, setActiveRequestChoice] = useState<"keep" | "cancel">("keep");
+  const [activeRequestPromptVisible, setActiveRequestPromptVisible] = useState(false);
   const [routeKm, setRouteKm] = useState<number | null>(null);
   const [serverTaxiFare, setServerTaxiFare] = useState<number | null>(null);
   const [serverTaxiFares, setServerTaxiFares] = useState<Partial<Record<"economy" | "premium" | "luxury", number>>>({});
@@ -854,7 +921,7 @@ export default function NewRequest() {
     setDestinationConfirmed(true);
   }
 
-  async function submit() {
+  async function submit(skipActiveRequestPrompt = false) {
     if (!user) {
       Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول قبل إرسال الطلب.");
       return;
@@ -903,6 +970,30 @@ export default function NewRequest() {
 
     setBusy(true);
     try {
+      if (!skipActiveRequestPrompt) {
+        const { data: previousRequest, error: previousRequestError } = await (supabase as any)
+          .from("service_requests")
+          .select("id,type,status,provider_arrived_at,vehicle_category,vehicle_type,service_id")
+          .eq("customer_id", user.id)
+          .in("status", ["pending", "searching", "accepted", "in_progress"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (previousRequestError) throw previousRequestError;
+        if (previousRequest) {
+          let serviceSlug: string | null = null;
+          let serviceName: string | null = null;
+          if (previousRequest.service_id) {
+            const { data: serviceInfo } = await (supabase as any).from("services").select("slug,name_ar").eq("id", previousRequest.service_id).maybeSingle();
+            serviceSlug = serviceInfo?.slug ?? null;
+            serviceName = serviceInfo?.name_ar ?? null;
+          }
+          setActiveRequestPreview({ ...previousRequest, serviceSlug, serviceName });
+          setActiveRequestChoice("keep");
+          setActiveRequestPromptVisible(true);
+          return;
+        }
+      }
       const effectivePickupGovernorateKey = pickupGovernorateKey || await resolveGovernorate(pickupCoords);
       await SecureStore.setItemAsync("mamnoon_governorate", effectivePickupGovernorateKey).catch(() => {});
       if (isTaxi && !isLargeVehicle && (routeKm === null || serverTaxiFare === null)) {
@@ -1031,9 +1122,38 @@ export default function NewRequest() {
     }
   }
 
+  async function confirmActiveRequestChoice() {
+    if (!activeRequestPreview) return;
+    setActiveRequestPromptVisible(false);
+    if (activeRequestChoice === "cancel") {
+      if (activeRequestPreview.provider_arrived_at || activeRequestPreview.status === "in_progress") {
+        Alert.alert("لا يمكن الإلغاء", "وصل مقدم الخدمة أو بدأ التنفيذ، لذلك يبقى الطلب السابق فعالاً.");
+        return;
+      }
+      setBusy(true);
+      try {
+        const { error } = await (supabase as any).rpc("cancel_service_request", {
+          _request_id: activeRequestPreview.id,
+          _reason: "ألغى الزبون الطلب لفتح طلب جديد",
+        });
+        if (error) throw error;
+      } catch (error) {
+        Alert.alert("تعذر إلغاء الطلب السابق", error instanceof Error ? error.message : "حاول مرة ثانية. لم يتم إرسال الطلب الجديد.");
+        setBusy(false);
+        return;
+      }
+      setActiveRequestPreview(null);
+      await submit(true);
+      return;
+    }
+    setActiveRequestPreview(null);
+    await submit(true);
+  }
+
   if (isTaxi) {
     return (
       <View style={styles.taxiScreen}>
+        <ActiveRequestConfirmModal request={activeRequestPreview} visible={activeRequestPromptVisible} choice={activeRequestChoice} busy={busy} onChoice={setActiveRequestChoice} onConfirm={() => void confirmActiveRequestChoice()} onClose={() => setActiveRequestPromptVisible(false)} />
         <MapView
           ref={mapRef}
           style={StyleSheet.absoluteFillObject}
@@ -1425,7 +1545,7 @@ export default function NewRequest() {
                 <TouchableOpacity
                   style={[styles.taxiPrimaryButton, (busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))) && styles.taxiButtonDisabled]}
                   disabled={busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))}
-                  onPress={submit}
+                  onPress={() => void submit()}
                 >
                   {busy ? <ActivityIndicator color={palette.white} /> : <Text style={styles.taxiPrimaryButtonText}>{isLargeVehicle ? "إرسال الطلب" : "اطلب الآن"}</Text>}
                 </TouchableOpacity>
@@ -1466,6 +1586,7 @@ export default function NewRequest() {
       contentContainerStyle={{ paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
     >
+      <ActiveRequestConfirmModal request={activeRequestPreview} visible={activeRequestPromptVisible} choice={activeRequestChoice} busy={busy} onChoice={setActiveRequestChoice} onConfirm={() => void confirmActiveRequestChoice()} onClose={() => setActiveRequestPromptVisible(false)} />
       <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "تفاصيل طلب الفني"}</Text>
       {!isTaxi && serviceDetailsStep && <TouchableOpacity onPress={() => setServiceDetailsStep(false)} style={{ marginBottom: 12 }}><Text style={{ color: palette.brand, textAlign: "right", fontWeight: "900" }}>← قائمة الفنيين</Text></TouchableOpacity>}
       {isLargeVehicle && (
@@ -1925,7 +2046,7 @@ export default function NewRequest() {
         </View>
       )}
       <View style={{ height: 24 }} />
-      <Button title="إرسال الطلب" onPress={submit} loading={busy} />
+      <Button title="إرسال الطلب" onPress={() => void submit()} loading={busy} />
       <GovernoratePickerModal visible={governoratePickerVisible} selectedKey={activeGovernorateKey} onClose={() => setGovernoratePickerVisible(false)} onSelect={(key) => { chooseGovernorate(key); setGovernoratePickerVisible(false); }} />
     </ScrollView>
   );

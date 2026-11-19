@@ -308,6 +308,9 @@ function NewRequest() {
   const [routeRetry, setRouteRetry] = useState(0);
   const runLookup = useServerFn(lookupMapPlace);
   const [busy, setBusy] = useState(false);
+  const [activeRequestPreview, setActiveRequestPreview] = useState<any>(null);
+  const [activeRequestChoice, setActiveRequestChoice] = useState<"keep" | "cancel">("keep");
+  const [activeRequestPromptVisible, setActiveRequestPromptVisible] = useState(false);
   const serviceWorkerCount = type === "service" ? (level === "khabir" ? (khabirMode === "alone" ? 1 : 1 + workersCount) : workersCount) : 1;
   const servicePriceMultiplier = serviceWorkerCount + (level === "khabir" ? 1 : 0);
   const serviceTotalPrice = Number(customerPrice || 0) * servicePriceMultiplier;
@@ -523,7 +526,7 @@ function NewRequest() {
   }
 
   // Submit Request
-  async function submit() {
+  async function submit(skipActiveRequestPrompt = false) {
     if (!session) return;
     if (!pickupCoords) {
       toast.error("يرجى تحديد موقع الانطلاق");
@@ -573,6 +576,31 @@ function NewRequest() {
 
     setBusy(true);
     try {
+      if (!skipActiveRequestPrompt) {
+        const { data: previousRequest, error: previousRequestError } = await (supabase as any)
+          .from("service_requests")
+          .select("id,type,status,provider_arrived_at,vehicle_category,vehicle_type,service_id")
+          .eq("customer_id", session.user.id)
+          .in("status", ["pending", "searching", "accepted", "in_progress"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (previousRequestError) throw previousRequestError;
+        if (previousRequest) {
+          let serviceSlug: string | null = null;
+          let serviceName: string | null = null;
+          if (previousRequest.service_id) {
+            const { data: serviceInfo } = await (supabase as any).from("services").select("slug,name_ar").eq("id", previousRequest.service_id).maybeSingle();
+            serviceSlug = serviceInfo?.slug ?? null;
+            serviceName = serviceInfo?.name_ar ?? null;
+          }
+          setActiveRequestPreview({ ...previousRequest, serviceSlug, serviceName });
+          setActiveRequestChoice("keep");
+          setActiveRequestPromptVisible(true);
+          setBusy(false);
+          return;
+        }
+      }
       if (type === "taxi" && vehicle !== "large") {
         if (routeKm === null || routeDurationMin === null || serverTaxiFare === null) throw new Error("لم يصل تسعير موثوق من الخادم. أعد تحديد الوجهة وحاول مرة ثانية.");
         verifiedRouteKm = routeKm;
@@ -702,6 +730,71 @@ function NewRequest() {
     }
   }
 
+  async function confirmActiveRequestChoice() {
+    if (!activeRequestPreview) return;
+    setActiveRequestPromptVisible(false);
+    if (activeRequestChoice === "cancel") {
+      if (activeRequestPreview.provider_arrived_at || activeRequestPreview.status === "in_progress") {
+        toast.error("وصل مقدم الخدمة أو بدأ التنفيذ، لذلك لا يمكن إلغاء الطلب السابق.");
+        return;
+      }
+      setBusy(true);
+      try {
+        const { error } = await (supabase as any).rpc("cancel_service_request", {
+          _request_id: activeRequestPreview.id,
+          _reason: "ألغى الزبون الطلب لفتح طلب جديد",
+        });
+        if (error) throw error;
+      } catch (error: any) {
+        toast.error(error?.message ?? "تعذر إلغاء الطلب السابق. لم يتم إرسال الطلب الجديد.");
+        setBusy(false);
+        return;
+      }
+    }
+    setActiveRequestPreview(null);
+    await submit(true);
+  }
+
+  function activeRequestConfirmation() {
+    if (!activeRequestPreview) return null;
+    const canCancel = !activeRequestPreview.provider_arrived_at && activeRequestPreview.status !== "in_progress";
+    const statusLabel = activeRequestPreview.status === "pending" || activeRequestPreview.status === "searching"
+      ? "قيد البحث عن سائق أو فني"
+      : activeRequestPreview.status === "accepted" ? "تم قبول الطلب" : "قيد التنفيذ";
+    const imageSlug = activeRequestPreview.type === "service"
+      ? activeRequestPreview.serviceSlug || "general"
+      : activeRequestPreview.vehicle_category === "large"
+        ? activeRequestPreview.vehicle_type === "kia_cargo" ? "goods_transport" : activeRequestPreview.vehicle_type === "bus" ? "bus" : "kia_driver"
+        : "kia_driver";
+    return (
+      <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm grid place-items-center p-5" dir="rtl" role="dialog" aria-modal="true" aria-labelledby="active-request-title">
+        <div className="w-full max-w-md rounded-3xl border border-amber-400/70 bg-background p-5 shadow-2xl space-y-4">
+          <h2 id="active-request-title" className="text-lg font-black text-right">عندك طلب سابق نشط</h2>
+          <div className="flex items-center gap-3">
+            <img src={serviceIcon(imageSlug)} alt="" className="w-24 h-20 rounded-xl object-cover bg-muted" />
+            <div className="min-w-0 flex-1 text-right space-y-1">
+              <div className="font-black">{activeRequestPreview.serviceName || (activeRequestPreview.type === "taxi" ? activeRequestPreview.vehicle_category === "large" ? "سيارة كبيرة" : "طلب تكسي" : "طلب خدمة")}</div>
+              <div className="text-xs text-muted-foreground">رمز الطلب: {String(activeRequestPreview.id).slice(0,8).toUpperCase()}</div>
+              <div className="text-sm font-black text-primary">{statusLabel}</div>
+            </div>
+          </div>
+          <button type="button" onClick={() => setActiveRequestChoice("keep")} className={`w-full rounded-xl border p-3 text-right font-bold ${activeRequestChoice === "keep" ? "border-primary bg-primary/10" : "border-border"}`}>
+            {activeRequestChoice === "keep" ? "● " : "○ "}الاحتفاظ بالطلب السابق وإرسال طلب جديد
+          </button>
+          <button type="button" disabled={!canCancel} onClick={() => setActiveRequestChoice("cancel")} className={`w-full rounded-xl border p-3 text-right font-bold disabled:opacity-40 ${activeRequestChoice === "cancel" ? "border-destructive bg-destructive/10" : "border-border"}`}>
+            {activeRequestChoice === "cancel" ? "● " : "○ "}إلغاء الطلب السابق وإرسال طلب جديد
+            {!canCancel && <span className="block mt-1 text-xs text-destructive">لا يمكن الإلغاء بعد وصول مقدم الخدمة أو بدء التنفيذ</span>}
+          </button>
+          <p className="text-xs text-muted-foreground text-right">لن يتغير أي طلب قبل الضغط على «تأكيد الاختيار»</p>
+          <div className="flex gap-2">
+            <button type="button" disabled={busy} onClick={() => setActiveRequestPromptVisible(false)} className="flex-1 rounded-xl border border-border py-3 font-bold">رجوع</button>
+            <button type="button" disabled={busy || (activeRequestChoice === "cancel" && !canCancel)} onClick={() => void confirmActiveRequestChoice()} className="flex-1 rounded-xl bg-primary py-3 font-black text-primary-foreground disabled:opacity-50">{busy ? "جارٍ التنفيذ..." : "تأكيد الاختيار"}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Active calculated taxi fare
   const activeFare = serverTaxiFare ?? FARE_TABLE[vehicleCategory].minimum;
 
@@ -743,6 +836,7 @@ function NewRequest() {
 
     return (
       <div className="fixed inset-0 overflow-hidden flex flex-col bg-slate-900 select-none">
+      {activeRequestConfirmation()}
         {govReady && (!gov || govPickerOpen) && (
           <div
             className="absolute inset-0 z-50 backdrop-blur p-5 overflow-y-auto"
@@ -1159,7 +1253,7 @@ function NewRequest() {
             <button
               type="button"
               disabled={busy || !pickupCoords || (vehicle !== "large" && (!destCoords || routeKm === null || !!routeError))}
-              onClick={submit}
+              onClick={() => void submit()}
               className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-xl btn-press disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>{vehicle === "large" ? "إرسال الطلب" : "اطلب الآن"}</span>}
@@ -1177,6 +1271,7 @@ function NewRequest() {
 
   return (
     <div className="min-h-screen px-5 pt-10 pb-36">
+      {activeRequestConfirmation()}
       <button onClick={() => setServiceDetailsStep(false)} className="text-sm text-muted-foreground mb-4 flex items-center gap-1">← قائمة الفنيين</button>
       <h1 className="text-3xl font-black flex items-center gap-2">
         <img
@@ -1433,7 +1528,7 @@ function NewRequest() {
       <div className="fixed bottom-0 inset-x-0 p-4 glass-strong border-t border-border z-30">
         <button
           disabled={busy}
-          onClick={submit}
+          onClick={() => void submit()}
           className="w-full max-w-md mx-auto py-4 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-bold btn-press glow-primary disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {busy && <Loader2 className="h-5 w-5 animate-spin" />}
