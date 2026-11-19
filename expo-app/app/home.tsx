@@ -19,7 +19,6 @@ import { ActiveCustomerRequestBanner } from "@/components/active-customer-reques
 import { palette, radius, space } from "@/styles/theme";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { useThemePreference } from "@/lib/theme-preference";
-import { getServiceImage } from "@/lib/service-visuals";
 import Svg, { Circle, Path } from "react-native-svg";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
@@ -570,14 +569,14 @@ function CustomerHome({ userId }: { userId: string | null }) {
               }}
             >
               {tile.key === "service" ? (
-                visuals.home_customer_service?.icon_name ? <Text style={{ fontSize: 34 }}>{visuals.home_customer_service.icon_name}</Text> : <ServiceIconPanorama />
+                <ServiceIconPanorama />
               ) : (
                 visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.icon_name ? <Text style={{ fontSize: 30 }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].icon_name}</Text> : <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 54, height: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 42 }} resizeMode="contain" />
               )}
             </LinearGradient>
             <View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.title || tile.title}</Text>
+                <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>{(tile.key === "taxi" && visuals.home_customer_taxi?.title === "طلب سيارة") ? "طلب تكسي" : (visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.title || tile.title)}</Text>
                 <HomeGlyph name="arrow" color={palette.muted} size={14} />
               </View>
               <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", marginTop: 3, textAlign: "right" }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.subtitle || tile.subtitle}</Text>
