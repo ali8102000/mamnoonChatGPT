@@ -3,6 +3,7 @@ import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { MobileShell } from "@/components/mobile-shell";
+import { PartnerCatalogManager } from "@/components/partner-catalog-manager";
 import { Building2, MapPin, Phone, ArrowRight, Save, Eye, EyeOff, RefreshCw } from "lucide-react";
 
 type PartnerProfile = {
@@ -79,6 +80,7 @@ function PartnerDashboardPage() {
         <button type="button" onClick={()=>change(item.id,"is_published",!item.is_published)} className="w-full flex items-center justify-center gap-2 rounded-xl border border-border p-3 text-xs font-bold">{item.is_published?<><EyeOff className="h-4 w-4"/> إيقاف حالة النشر</>:<><Eye className="h-4 w-4"/> تفعيل حالة النشر</>}</button>
         <button disabled={savingId===item.id} onClick={()=>void save(item)} className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground p-3 text-sm font-black disabled:opacity-50"><Save className="h-4 w-4"/>{savingId===item.id?"جارٍ الحفظ...":"حفظ التعديلات"}</button>
         <div className="text-[10px] text-muted-foreground flex items-center gap-2"><MapPin className="h-3.5 w-3.5"/>{item.city} · {item.address}<Phone className="h-3.5 w-3.5 mr-2"/><span dir="ltr">{item.phone}</span></div>
+        <PartnerCatalogManager profileId={item.id} partnerType={item.partner_type}/>
       </article>)}
       <div className="rounded-xl bg-muted/60 p-3 text-xs leading-6 text-muted-foreground">حالة النشر تُحفظ بملف الشريك. ربط الدليل العام للزبائن وإدارة الحجوزات والغرف وقائمة الطعام والمنتجات يحتاج وحدات عرض وتشغيل مستقلة.</div>
     </main>
