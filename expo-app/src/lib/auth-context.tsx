@@ -226,7 +226,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mappedRoles.includes("customer")) mappedRoles.unshift("customer");
       setProfile(resolvedProfile);
       setRoles(mappedRoles);
-      await restoreActiveRole(uid, mappedRoles);
+      await withStartupTimeout(restoreActiveRole(uid, mappedRoles), 5000, "active_role_restore_timeout").catch((error) => {
+        console.warn("[startup] Active role restore timed out; retaining safe role fallback:", error);
+      });
 
       if (
         !profileResult.error &&
@@ -234,10 +236,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         !driverResult.error &&
         !workerResult.error
       ) {
-        await writeCachedAuthProfile(uid, {
+        await withStartupTimeout(writeCachedAuthProfile(uid, {
           profile: resolvedProfile,
           roles: mappedRoles,
           cachedAt: Date.now(),
+        }), 5000, "account_cache_write_timeout").catch((error) => {
+          console.warn("[startup] Could not finish saving the account cache:", error);
         });
       }
     } catch (error) {
@@ -246,7 +250,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(cached?.profile ?? null);
       const fallbackRoles: AppRole[] = cached?.roles?.length ? cached.roles : ["customer"];
       setRoles(fallbackRoles);
-      await restoreActiveRole(uid, fallbackRoles);
+      await withStartupTimeout(restoreActiveRole(uid, fallbackRoles), 5000, "active_role_fallback_timeout").catch((roleError) => {
+        console.warn("[startup] Could not restore the active role; using customer fallback:", roleError);
+        if (lastUserId.current === uid) setActiveRoleState("customer");
+      });
     }
   }
 
