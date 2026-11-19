@@ -19,6 +19,8 @@ concurrency:
 
 jobs:
   build:
+    # Release APK generation is manual-only; CI validates the Android export without producing artifacts.
+    if: github.event_name == 'workflow_dispatch'
     name: Build standalone Mamnoon release APK
     runs-on: ubuntu-latest
     defaults:
