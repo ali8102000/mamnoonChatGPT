@@ -189,7 +189,7 @@ export default function MonitoringScreen() {
             <Text style={s.muted}>رقم البلاغ: {report.id.slice(0, 8)}</Text>
             <View style={s.actions}>
               {canResolveReports && <TouchableOpacity disabled={busyId === report.id} onPress={() => resolveReport(report)} style={s.success}><Text style={s.actionText}>حل البلاغ</Text></TouchableOpacity>}
-              {canManage && <TouchableOpacity disabled={busyId === report.id} onPress={() => blockReportedUser(report)} style={s.danger}><Text style={s.actionText}>حظر المستخدم</Text></TouchableOpacity>}
+              {canManage && canResolveReports && <TouchableOpacity disabled={busyId === report.id} onPress={() => blockReportedUser(report)} style={s.danger}><Text style={s.actionText}>حظر المستخدم</Text></TouchableOpacity>}
             </View>
           </View>)}
         </>}
