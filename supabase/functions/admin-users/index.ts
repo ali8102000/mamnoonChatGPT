@@ -90,6 +90,12 @@ Deno.serve(async (req: Request) => {
       if (error || data !== true) throw new Error("forbidden");
     };
     const getStaffScope = async () => {
+      const { data: hasAdminAccess, error: adminAccessError } = await caller.rpc("has_admin_access", {
+        p_user_id: auth.user.id,
+      });
+      if (!adminAccessError && hasAdminAccess === true) {
+        return { scopeType: "global", scopeGovernorate: null };
+      }
       const { data: assignment, error } = await caller.from("staff_assignments")
         .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
       if (error) throw new Error("staff_scope_unavailable");
