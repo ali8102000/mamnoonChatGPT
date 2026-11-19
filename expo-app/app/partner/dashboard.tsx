@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
+import { PartnerCatalogManager } from "@/components/partner-catalog-manager";
 
 type PartnerProfile = { id:string; application_id:string; partner_type:"hotel"|"restaurant"|"store"|"mall"; business_name:string; phone:string; email:string|null; city:string; address:string; description:string|null; is_published:boolean };
 const typeLabels:Record<string,string>={hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"};
@@ -60,6 +61,7 @@ export default function PartnerDashboardScreen() {
       <Text style={styles.label}>نبذة المنشأة</Text><TextInput value={item.description??""} onChangeText={v=>change(item.id,"description",v)} multiline maxLength={1000} style={[styles.input,styles.multiline]}/>
       <View style={styles.switchRow}><Text style={styles.label}>تفعيل حالة النشر</Text><Switch value={item.is_published} onValueChange={v=>change(item.id,"is_published",v)} trackColor={{true:palette.brand}}/></View>
       <TouchableOpacity disabled={savingId===item.id} onPress={()=>void save(item)} style={[styles.save,savingId===item.id&&{opacity:0.5}]}><Text style={styles.saveText}>{savingId===item.id?"جارٍ الحفظ...":"حفظ التعديلات"}</Text></TouchableOpacity>
+      <PartnerCatalogManager profileId={item.id} partnerType={item.partner_type}/>
     </View>)}
     <View style={styles.notice}><Text style={styles.noticeText}>حالة النشر تُحفظ بملف الشريك. ربط الدليل العام للزبائن وإدارة الحجوزات والغرف وقائمة الطعام والمنتجات يحتاج وحدات عرض وتشغيل مستقلة.</Text></View>
   </ScrollView></SafeAreaView>;
