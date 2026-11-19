@@ -178,54 +178,93 @@ async function autocomplete(admin:any,input:string,key:string) {
   const governorate=governorates.find(g=>g[0]===key);
   const bounds=boundsFor(key);
   if(!governorate||!bounds) return json({error:"اختر المحافظة أولاً حتى تظهر اقتراحاتها فقط."},400);
-  const q=input.trim(); if(q.length<2) return json({suggestions:[],attribution:"بيانات الأماكن © OpenStreetMap"});
+  const q=input.trim();
+  if(q.length<2) return json({suggestions:[],attribution:"بيانات الأماكن © OpenStreetMap"});
+
+  const LIMIT=50;
   const [cached,initial]=await Promise.all([
     admin.from("map_place_search_cache").select("expires_at").eq("governorate_key",key).eq("normalized_query",normalized(q)).maybeSingle(),
-    admin.rpc("search_map_place_suggestions",{p_governorate_key:key,p_query:q,p_limit:30}),
+    admin.rpc("search_map_place_suggestions",{p_governorate_key:key,p_query:q,p_limit:LIMIT}),
   ]);
   if(initial.error) throw new Error("تعذّر تحميل اقتراحات الأماكن من قاعدة البيانات.");
-  const mapRows=(rows:any[]) => (rows??[]).map(row=>({id:row.id?.startsWith?.("db:")?row.id:"db:"+row.id,
-    text:row.name_ar,address:row.address||row.name_ar,coords:{lat:Number(row.latitude),lng:Number(row.longitude)},governorateKey:key}));
+
+  const mapRows=(rows:any[]) => (rows??[]).flatMap(row=>{
+    const point={lat:Number(row.latitude),lng:Number(row.longitude)};
+    if(!validPoint(point)||!isInGovernorate(point,key)||!row.id||!row.name_ar) return [];
+    return [{id:row.id?.startsWith?.("db:")?row.id:"db:"+row.id,
+      text:String(row.name_ar),address:String(row.address||row.name_ar),coords:point,governorateKey:key}];
+  });
   const initialSuggestions=mapRows(initial.data);
-  const cacheFresh=cached.data?.expires_at&&new Date(cached.data.expires_at).getTime()>Date.now();
-  // Return already-known matches immediately. A slow external geocoder must not
-  // block useful cached results while the customer is selecting a destination.
-  if(!cacheFresh&&initialSuggestions.length===0) {
+  const cacheFresh=!!cached.data?.expires_at&&new Date(cached.data.expires_at).getTime()>Date.now();
+
+  // A fresh query cache is authoritative for this query. Return it immediately;
+  // otherwise enrich partial local results from Photon instead of only searching
+  // externally when the local database is completely empty.
+  if(cacheFresh) {
+    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
+  }
+
+  let fetchedRows:any[]=[];
+  if(initialSuggestions.length<LIMIT) {
     const url=new URL("https://photon.komoot.io/api/");
-    url.searchParams.set("q",q);url.searchParams.set("limit","30");url.searchParams.set("countrycode","IQ");
+    url.searchParams.set("q",q);
+    url.searchParams.set("limit",String(LIMIT));
+    url.searchParams.set("countrycode","IQ");
     url.searchParams.set("bbox",[bounds.low.lng,bounds.low.lat,bounds.high.lng,bounds.high.lat].join(","));
-    url.searchParams.set("lat",String(governorate[2]));url.searchParams.set("lon",String(governorate[3]));url.searchParams.set("zoom","12");
+    url.searchParams.set("lat",String(governorate[2]));
+    url.searchParams.set("lon",String(governorate[3]));
+    url.searchParams.set("zoom","12");
     try {
-      const response=await fetch(url,{headers:{Accept:"application/geo+json","User-Agent":"Mamnoon/1.0"},signal:AbortSignal.timeout(3500)});
+      const response=await fetch(url,{headers:{Accept:"application/geo+json","User-Agent":"Mamnoon/1.0"},
+        signal:AbortSignal.timeout(3500)});
       if(response.ok) {
         const features=(await response.json() as any).features??[];
-        const rows=features.flatMap((feature:any)=>{
+        fetchedRows=features.flatMap((feature:any)=>{
           const c=feature.geometry?.coordinates,p=feature.properties??{};
           if(!Array.isArray(c)||c.length<2) return [];
           const point={lat:Number(c[1]),lng:Number(c[0])};
           if(!validPoint(point)||!isInGovernorate(point,key)) return [];
-          const name=[p.name,p.locality,p.suburb,p.city,p.district,p.street].find(v=>typeof v==="string"&&v.trim());
+          const fields=[p.name,p.locality,p.suburb,p.district,p.city,p.county,p.state,p.street]
+            .filter(v=>typeof v==="string"&&v.trim());
+          const name=fields[0];
           if(!name) return [];
-          const parts=[p.street,p.locality,p.suburb,p.district,p.city,p.county,p.state,p.country].filter(v=>typeof v==="string"&&v.trim());
-          return [{governorate_key:key,source:"photon",source_key:"photon:"+(p.osm_type||"P")+":"+(p.osm_id||point.lat.toFixed(6)+":"+point.lng.toFixed(6)),
-            name_ar:String(name).trim(),address:[...new Set(parts)].join("، ")||String(name),search_terms:[name,q,normalized(q)].join(" "),
-            latitude:point.lat,longitude:point.lng,is_active:true,updated_at:new Date().toISOString()}];
+          const parts=[p.street,p.locality,p.suburb,p.district,p.city,p.county,p.state,p.country]
+            .filter(v=>typeof v==="string"&&v.trim());
+          const terms=[...new Set([...fields,q,normalized(q),p.type,p.osm_value]
+            .filter(v=>typeof v==="string"&&v.trim()))];
+          return [{governorate_key:key,source:"photon",
+            source_key:"photon:"+(p.osm_type||"P")+":"+(p.osm_id||point.lat.toFixed(6)+":"+point.lng.toFixed(6)),
+            name_ar:String(name).trim(),address:[...new Set(parts)].join("، ")||String(name),
+            search_terms:terms.join(" "),latitude:point.lat,longitude:point.lng,
+            is_active:true,updated_at:new Date().toISOString()}];
         });
-        if(rows.length) {
-          const {error}=await admin.from("map_place_suggestions").upsert(rows,{onConflict:"governorate_key,source_key"});
+        let suggestionsPersisted=fetchedRows.length===0;
+        if(fetchedRows.length) {
+          const {error}=await admin.from("map_place_suggestions").upsert(fetchedRows,{onConflict:"governorate_key,source_key"});
+          suggestionsPersisted=!error;
           if(error) console.error("[maps-proxy] suggestions upsert failed",error.code);
         }
-        await admin.from("map_place_search_cache").upsert({governorate_key:key,normalized_query:normalized(q),
-          expires_at:new Date(Date.now()+(rows.length?7*86400000:300000)).toISOString(),updated_at:new Date().toISOString()},
-          {onConflict:"governorate_key,normalized_query"});
+        const {error:cacheError}=await admin.from("map_place_search_cache").upsert({
+          governorate_key:key,normalized_query:normalized(q),
+          expires_at:new Date(Date.now()+(suggestionsPersisted&&fetchedRows.length?7*86400000:300000)).toISOString(),
+          updated_at:new Date().toISOString()
+        },{onConflict:"governorate_key,normalized_query"});
+        if(cacheError) console.warn("[maps-proxy] search cache write failed",cacheError.code);
       }
-    } catch(error) { console.warn("[maps-proxy] Photon unavailable",error instanceof Error?error.message:"unknown"); }
+    } catch(error) {
+      console.warn("[maps-proxy] Photon unavailable",error instanceof Error?error.message:"unknown");
+    }
   }
-  const {data,error}=await admin.rpc("search_map_place_suggestions",{p_governorate_key:key,p_query:q,p_limit:30});
+
+  const {data,error}=await admin.rpc("search_map_place_suggestions",{
+    p_governorate_key:key,p_query:q,p_limit:LIMIT
+  });
   if(error) throw new Error("تعذّر تحميل اقتراحات الأماكن.");
-  const suggestions=mapRows(data);
-  return json({suggestions:suggestions.length?suggestions:initialSuggestions.slice(0,30),
-    attribution:"بيانات الأماكن © OpenStreetMap"});
+  const refreshed=mapRows(data);
+  const merged=new Map<string,any>();
+  for(const item of [...refreshed,...initialSuggestions]) merged.set(item.id,item);
+  const suggestions=Array.from(merged.values()).slice(0,LIMIT);
+  return json({suggestions,attribution:"بيانات الأماكن © OpenStreetMap"});
 }
 
 Deno.serve(async (req:Request)=>{
