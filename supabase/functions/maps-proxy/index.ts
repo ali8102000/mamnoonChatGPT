@@ -110,7 +110,7 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
       const url=new URL(osrmBase+"/route/v1/driving/"+from.lng+","+from.lat+";"+to.lng+","+to.lat);
       url.searchParams.set("overview",includeGeometry?"full":"false");
       url.searchParams.set("geometries","geojson");
-      url.searchParams.set("alternatives","true");
+      url.searchParams.set("alternatives","false");
       url.searchParams.set("steps","false");
       const response=await fetch(url,{headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000)});
       if(!response.ok) throw new Error("OSRM HTTP "+response.status);
@@ -136,7 +136,7 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
       body:JSON.stringify({
         origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
         destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
-        travelMode:"DRIVE",routingPreference:"TRAFFIC_UNAWARE",computeAlternativeRoutes:true,
+        travelMode:"DRIVE",routingPreference:"TRAFFIC_UNAWARE",computeAlternativeRoutes:false,
         languageCode:"ar",units:"METRIC"
       }),
       signal:AbortSignal.timeout(9000)
