@@ -160,11 +160,14 @@ export default function AccountSettingsScreen() {
           : value === "worker"
             ? "worker_profiles"
             : null;
-      const previousProviderTable = providerTableForRole(activeRole);
       const nextProviderTable = providerTableForRole(nextRole);
-      if (previousProviderTable && previousProviderTable !== nextProviderTable) {
+      // A user can have more than one provider profile. Deactivate every
+      // provider category except the one being entered, so stale availability
+      // cannot keep receiving dispatches after switching to customer/another role.
+      for (const providerTable of ["driver_profiles", "worker_profiles"]) {
+        if (providerTable === nextProviderTable) continue;
         const { error: availabilityError } = await (supabase as any)
-          .from(previousProviderTable)
+          .from(providerTable)
           .update({ available: false })
           .eq("user_id", user.id);
         if (availabilityError) {
