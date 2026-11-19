@@ -5,7 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import { palette,radius,space } from "@/styles/theme";
 type PartnerType="hotel"|"restaurant"|"store"|"mall";
 type Category={category_key:string;title:string;vertical:string};
-type CatalogItem={id:string;name:string;description:string|null;price_amount:number;currency:"IQD"|"USD";quantity_available:number|null;is_active:boolean;category_key:string|null};
+type CatalogItem={id:string;name:string;description:string|null;price_amount:number;currency:"IQD"|"USD";quantity_available:number|null;is_active:boolean;category_key:string|null;image_urls:string[]};
 export function PartnerCatalogManager({profileId,partnerType,businessVertical="store"}:{profileId:string;partnerType:PartnerType;businessVertical?:"store"|"grocery"|"restaurant"}) {
  const itemType=partnerType==="hotel"?"room":partnerType==="restaurant"?"menu_item":"product";
  const vertical=partnerType==="restaurant"?"restaurant":partnerType==="hotel"?"":businessVertical;
@@ -18,7 +18,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
   setLoading(true);
   const [cats,rows]=await Promise.all([
    vertical?(supabase as any).from("partner_catalog_categories").select("category_key,title,vertical").eq("vertical",vertical).eq("is_active",true).order("sort_order"):Promise.resolve({data:[],error:null}),
-   (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,quantity_available,is_active,category_key").eq("business_profile_id",profileId).eq("item_type",itemType).order("sort_order").order("created_at",{ascending:false})
+   (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,quantity_available,is_active,category_key,image_urls").eq("business_profile_id",profileId).eq("item_type",itemType).order("sort_order").order("created_at",{ascending:false})
   ]);
   if(cats.error)Alert.alert("تعذر تحميل الفئات",cats.error.message);else{setCategories(cats.data??[]);if(cats.data?.length)setCategoryKey(current=>current||cats.data[0].category_key);}
   if(rows.error)Alert.alert("تعذر تحميل الكتالوج",rows.error.message);
