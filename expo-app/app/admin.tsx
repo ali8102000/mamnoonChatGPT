@@ -32,7 +32,6 @@ const GROUPS: NavGroup[] = [
   { title: "المحتوى وهوية الشركة", description: "الشعار والبانرات ومحتوى التطبيق", icon: "🎨", items: [
     { title: "هوية الشركة والشعار", description: "اسم الشركة وشعار الترحيب", route: "/admin/company", icon: "🏢" },
     { title: "بانرات الصفحة الرئيسية", description: "إعلانات واستطلاعات ومسابقات", route: "/admin/home-banners", icon: "🖼️" },
-    { title: "محرر الواجهة", description: "الأقسام والجداول والحملات", route: "/admin/visual-builder", icon: "🧩" },
     { title: "الإشعارات", description: "إرسال تنبيهات للمستخدمين", route: "/admin/notifications", icon: "🔔" },
   ]},
   { title: "الموظفون والحوكمة", description: "التعيين والترقية والتنزيل والصلاحيات", icon: "🧑‍💼", items: [
