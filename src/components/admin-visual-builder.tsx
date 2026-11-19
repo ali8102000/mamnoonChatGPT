@@ -285,7 +285,7 @@ export default function AdminVisualBuilder() {
                 })}
               </div>
               <div className="mt-5">
-                <h4 className="mb-2 text-sm font-black">محرر أيقونات فئات السيارات</h4><p className="mb-2 text-[11px] text-muted-foreground">اختار الاقتصادي أو المتميز أو الفاخر لتغيير الصورة من جهازك أو عبر رابط، ثم احفظ وانشر. التغيير ينعكس على الويب والأندرويد.</p>
+                <h4 className="mb-2 text-sm font-black">محرر أيقونات فئات السيارات</h4><p className="mb-2 text-[11px] text-muted-foreground">فئات التكسي: اقتصادي، متميز، فاخر. افتح أي فئة وارفع صورة سيارة واقعية من جهازك أو ضع رابطها، واضبط العرض والارتفاع ثم احفظ وانشر؛ الصورة المنشورة تظهر في الويب والأندرويد.</p>
                 <div className="grid grid-cols-3 gap-2">
                   {elements.filter((item) => item.element_type === "vehicle").map((item) => {
                     const visual = item.element_key === selected?.element_key ? draft : item.published_config ?? {};
