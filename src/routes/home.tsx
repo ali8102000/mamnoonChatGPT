@@ -112,7 +112,7 @@ function HomePage() {
             >
               <span>لوحة الإدارة</span>
               <ArrowUpLeft className="h-3.5 w-3.5" />
-            </Link>
+            </a>
           </div>
         )}
 
@@ -261,7 +261,7 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.content" />
 
-      <Link to="/ask-mamnoon" className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-right transition hover:bg-primary/10">
+      <a href="/ask-mamnoon" className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-right transition hover:bg-primary/10">
         <span><span className="block text-sm font-black text-foreground">🤖 اسأل ممنون</span><span className="mt-1 block text-xs text-muted-foreground">مساعد ذكي يجاوبك عن خدمات التطبيق</span></span>
         <span className="text-xs font-black text-primary">ابدأ المحادثة ←</span>
       </Link>
