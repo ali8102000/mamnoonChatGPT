@@ -61,7 +61,14 @@ Deno.serve(async (req: Request) => {
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
 
     const body = await req.json().catch(() => null);
-    if (!body || body.action !== "chat" || typeof body.message !== "string") {
+    // Older installed app builds sent { message } before the action field was added.
+    // Treat an omitted action as chat, while rejecting every other explicit action.
+    if (!body || typeof body !== "object" || Array.isArray(body) ||
+      (body.action != null && body.action !== "chat") || typeof body.message !== "string") {
+      console.warn("mamnoon-ai rejected request shape", {
+        hasBody: Boolean(body), action: body?.action ?? null,
+        messageType: typeof body?.message,
+      });
       return json({ error: "invalid_request" }, 400);
     }
     const message = body.message.trim();
