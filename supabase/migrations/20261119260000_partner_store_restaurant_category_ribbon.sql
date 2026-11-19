@@ -115,7 +115,6 @@ create policy partner_catalog_owner_update on public.partner_catalog_items
     )
   );
 
-commit;
 
 -- Public product photos; uploads are scoped to the owning approved partner profile.
 insert into storage.buckets (id,name,public)
@@ -158,3 +157,5 @@ create policy partner_catalog_images_owner_delete on storage.objects
         and (p.user_id=(select auth.uid()) or public.has_admin_access((select auth.uid())))
     )
   );
+
+commit;
