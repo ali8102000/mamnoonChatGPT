@@ -56,10 +56,12 @@ function HomePage() {
   const { theme, toggle } = useTheme();
   const greet = useMemo(greetingByHour, []);
   const [companyName, setCompanyName] = useState("شركة ممنون");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
 
   useEffect(() => {
-    (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
-      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
+    (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); if (data?.company_logo_url) setCompanyLogoUrl(data.company_logo_url); if (data?.welcome_message) setWelcomeMessage(data.welcome_message); });
   }, []);
 
   if (loading) return null;
@@ -95,7 +97,8 @@ function HomePage() {
                 <Crown className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-xs font-black text-amber-600 dark:text-amber-400">
+                <div className="flex items-center gap-2 text-xs font-black text-amber-600 dark:text-amber-400">
+                  {companyLogoUrl && <img src={companyLogoUrl} alt="" className="h-7 w-7 rounded-lg object-contain bg-white p-0.5" />}
                   إدارة {companyName}
                 </div>
                 <div className="text-[10px] text-muted-foreground font-medium">
@@ -293,11 +296,12 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [results, setResults] = useState<Record<string, any[]>>({});
   const [voting, setVoting] = useState<string | null>(null);
+  const [popupCampaignId, setPopupCampaignId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [sectionResult, campaignResult] = await Promise.all([
       (supabase as any).from("app_content_sections_public").select("id,title,section_type,placement_key,sort_order,published_config").eq("placement_key", placementKey).order("sort_order"),
-      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,starts_at,ends_at,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", placementKey).order("sort_order").order("created_at", { ascending: false }),
+      (supabase as any).from("app_campaigns").select("id,campaign_type,title,description,image_url,popup_display_seconds,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order)").eq("status", "published").eq("placement_key", placementKey).order("sort_order").order("created_at", { ascending: false }),
     ]);
     if (!sectionResult.error) setSections(sectionResult.data ?? []);
     if (!campaignResult.error) {
@@ -307,6 +311,7 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
         (!item.ends_at || new Date(item.ends_at).getTime() > now || item.result_visibility === "public" || item.result_visibility === "after_end")
       );
       setCampaigns(active);
+      setPopupCampaignId(active.find((item: any) => item.image_url)?.id ?? null);
       if (session?.user?.id && active.length) {
         const ids = active.map((item: any) => item.id);
         const { data: own } = await (supabase as any).from("app_campaign_responses").select("campaign_id,option_id").in("campaign_id", ids);
@@ -323,6 +328,17 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
   }, [session?.user?.id, placementKey]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (!popupCampaignId) return;
+    const current = campaigns.find((item) => item.id === popupCampaignId);
+    if (!current?.image_url) return;
+    const timer = window.setTimeout(() => {
+      const next = campaigns.find((item) => item.image_url && item.id !== popupCampaignId);
+      setPopupCampaignId(next?.id ?? null);
+    }, Math.max(1, Math.min(60, Number(current.popup_display_seconds) || 5)) * 1000);
+    return () => window.clearTimeout(timer);
+  }, [popupCampaignId, campaigns]);
 
   const vote = async (campaign: any, optionId: string) => {
     const now = Date.now();
@@ -345,8 +361,16 @@ function HomeCustomContent({ placementKey }: { placementKey: string }) {
   };
 
   if (!sections.length && !campaigns.length) return null;
+  const popupCampaign = campaigns.find((item) => item.id === popupCampaignId && item.image_url);
   return (
     <div className="space-y-3">
+      {popupCampaign && <div className="fixed inset-0 z-[100] grid place-items-center bg-black/75 p-5" role="dialog" aria-modal="true" aria-label={popupCampaign.title}>
+        <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-card shadow-2xl">
+          <button type="button" onClick={() => { const next = campaigns.find((item) => item.image_url && item.id !== popupCampaign.id); setPopupCampaignId(next?.id ?? null); }} className="absolute left-3 top-3 z-10 rounded-full bg-black/70 px-3 py-2 text-sm font-bold text-white">إغلاق</button>
+          <img src={popupCampaign.image_url} alt={popupCampaign.title} className="max-h-[70vh] w-full object-contain" />
+          <div className="p-3 text-center text-sm font-black">{popupCampaign.title}</div>
+        </div>
+      </div>}
       {sections.map((section) => {
         const config = section.published_config ?? {};
         if (section.section_type === "table") {
