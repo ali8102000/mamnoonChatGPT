@@ -3,7 +3,7 @@ begin;
 
 alter table public.support_messages
   add column if not exists is_ai boolean not null default false,
-  add column if not exists ai_reply_to uuid references public.support_messages(id) on delete set null;
+  add column if not exists ai_reply_to uuid;
 
 create unique index if not exists support_messages_one_ai_reply_per_customer_message
   on public.support_messages(ai_reply_to)
@@ -14,6 +14,33 @@ alter table public.support_conversations
     check (ai_status in ('active', 'ai_answered', 'waiting_human')),
   add column if not exists ticket_status text not null default 'new'
     check (ticket_status in ('new', 'in_progress', 'resolved'));
+
+-- Keep ticket workflow state synchronized with human/customer activity.
+create or replace function public.touch_support_conversation()
+returns trigger language plpgsql security definer set search_path = public as $
+declare
+  v_user_id uuid;
+begin
+  select user_id into v_user_id
+  from public.support_conversations where id = new.conversation_id;
+
+  update public.support_conversations
+  set updated_at = now(),
+      ai_status = case
+        when new.sender_id <> v_user_id and new.is_ai = false then 'active'
+        when new.sender_id = v_user_id and new.is_ai = false then 'active'
+        else ai_status
+      end,
+      ticket_status = case
+        when new.sender_id <> v_user_id and new.is_ai = false then 'in_progress'
+        when new.sender_id = v_user_id and new.is_ai = false then 'new'
+        else ticket_status
+      end
+  where id = new.conversation_id;
+  return new;
+end;
+$;
+revoke execute on function public.touch_support_conversation() from public, anon, authenticated;
 
 -- AI replies are informational only. They must not generate a second staff alert
 -- as though the customer had sent another message.
