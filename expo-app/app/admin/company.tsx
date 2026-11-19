@@ -22,17 +22,22 @@ export default function CompanySettingsScreen() {
     let active = true;
     void (async () => {
       if (!user?.id) { if (active) setLoading(false); return; }
-      const [{ data: owner, error: permissionError }, { data, error }] = await Promise.all([
-        supabase.rpc("is_super_admin", { p_user_id: user.id }),
-        (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id",1).maybeSingle(),
-      ]);
-      if (!active) return;
-      setAllowed(!permissionError && owner === true);
-      if (error) Alert.alert("تعذر تحميل بيانات الشركة", error.message);
-      setName(data?.company_name || branding.companyName);
-      setLogoUrl(data?.company_logo_url || branding.logoUrl);
-      setWelcome(data?.welcome_message || branding.welcomeMessage);
-      setLoading(false);
+      try {
+        const [{ data: owner, error: permissionError }, { data, error }] = await Promise.all([
+          supabase.rpc("is_super_admin", { p_user_id: user.id }),
+          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id",1).maybeSingle(),
+        ]);
+        if (!active) return;
+        setAllowed(!permissionError && owner === true);
+        if (error) Alert.alert("تعذر تحميل بيانات الشركة", error.message);
+        setName(data?.company_name || branding.companyName);
+        setLogoUrl(data?.company_logo_url || branding.logoUrl);
+        setWelcome(data?.welcome_message || branding.welcomeMessage);
+      } catch (error: any) {
+        if (active) Alert.alert("تعذر تحميل بيانات الشركة", error?.message || "تحقق من الاتصال وحاول مرة ثانية.");
+      } finally {
+        if (active) setLoading(false);
+      }
     })();
     return () => { active = false; };
   }, [user?.id, branding.companyName, branding.logoUrl, branding.welcomeMessage]);
