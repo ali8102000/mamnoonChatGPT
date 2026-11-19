@@ -37,7 +37,7 @@ export default function AdminLiveMapScreen() {
         (supabase as any).from("staff_assignments")
           .select("scope_type,scope_governorate").eq("user_id", user.id).eq("active", true).maybeSingle(),
       ]);
-      const scopeType = assignment.data?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeType = names.some((role: string) => ["super_admin", "admin"].includes(role)) ? "global" : assignment.data?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment.data?.scope_governorate ?? null : null;
       const { data: explicitPermission, error: permissionError } = await (supabase as any).rpc("admin_has_permission", {
         p_permission_key: "live_map.read",
