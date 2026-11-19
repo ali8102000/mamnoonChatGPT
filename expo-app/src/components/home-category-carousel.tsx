@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabase";
 
 type Banner = { id:string; image_url:string; target_category:"restaurant"|"hotel"|"store"; banner_type:"category"|"poll"|"contest"|"ad"; target_campaign_id:string|null; is_active:boolean; scroll_speed:number; badge_text:string|null };
 const width=(Dimensions.get("window").width-40)*0.65;
-const height=132;
 function openBanner(item:Banner){
  if(item.banner_type==="ad")return;
  if((item.banner_type==="poll"||item.banner_type==="contest")&&item.target_campaign_id){router.push({pathname:"/campaign/[id]",params:{id:item.target_campaign_id}});return;}
