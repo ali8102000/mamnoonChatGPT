@@ -1,7 +1,7 @@
 -- Extend the shared home carousel with explicit destinations.
 alter table public.home_carousel_banners
   add column if not exists banner_type text not null default 'category',
-  add column if not exists target_campaign_id uuid references public.app_campaigns(id) on delete cascade;
+  add column if not exists target_campaign_id uuid references public.app_campaigns(id) on delete restrict;
 
 alter table public.home_carousel_banners
   drop constraint if exists home_carousel_banners_banner_type_check,
