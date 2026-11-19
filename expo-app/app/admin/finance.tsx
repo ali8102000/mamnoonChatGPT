@@ -82,9 +82,9 @@ export default function AdminFinanceScreen() {
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.read",p_scope_type:"global",p_scope_governorate:null}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.read",p_scope_type:"global",p_scope_governorate:null}),
         (supabase as any).rpc("admin_has_permission",{p_permission_key:"finance.wallet.adjust",p_scope_type:scopeType,p_scope_governorate:scopeGovernorate}),
-        (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.create",p_scope_type:"global",p_scope_governorate:null}),
-        (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.publish",p_scope_type:"global",p_scope_governorate:null}),
-        (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.delete",p_scope_type:"global",p_scope_governorate:null}),
+        (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.manage",p_scope_type:"global",p_scope_governorate:null}),
+        (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.manage",p_scope_type:"global",p_scope_governorate:null}),
+        (supabase as any).rpc("admin_has_permission",{p_permission_key:"promotions.manage",p_scope_type:"global",p_scope_governorate:null}),
       ]);
       const isPlatformAdmin=!adminAccess.error&&adminAccess.data===true;
       const canReadFinance=isPlatformAdmin||(!financeRead.error&&financeRead.data===true);
