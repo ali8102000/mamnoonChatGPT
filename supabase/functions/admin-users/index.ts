@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
     const requireFullChatModeration = async () => {
       await requireScopedAccess("has_chat_moderation_access");
       const { data, error } = await caller.rpc("is_customer_service_staff", { p_user_id: auth.user.id });
-      if (!error && data === true) throw new Error("forbidden");
+      if (error || data === true) throw new Error("forbidden");
     };
     const admin = createClient(url, service, { global: { fetch: createSupabaseFetch(service) }, auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
