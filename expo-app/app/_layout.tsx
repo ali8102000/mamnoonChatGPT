@@ -99,8 +99,7 @@ function PushNotificationSetup() {
         };
         let saveResult = await supabase.from("user_push_tokens").upsert(pushTokenRow, { onConflict: "user_id,expo_push_token" });
         if (saveResult.error && (saveResult.error.code === "42703" || saveResult.error.message.toLowerCase().includes("vibration_enabled"))) {
-          const { vibration_enabled: _unsupportedVibration, ...legacyPushTokenRow } = pushTokenRow;
-          saveResult = await supabase.from("user_push_tokens").upsert(legacyPushTokenRow, { onConflict: "user_id,expo_push_token" });
+          saveResult = await supabase.from("user_push_tokens").upsert({ user_id: userId, expo_push_token: tokenResult.data, device_platform: Platform.OS, sound_enabled: soundEnabled, updated_at: new Date().toISOString() }, { onConflict: "user_id,expo_push_token" });
         }
         if (saveResult.error) console.warn("[notifications] Could not save push token:", saveResult.error.message);
       } catch (error) { console.warn("[notifications] Push registration unavailable:", error); }
