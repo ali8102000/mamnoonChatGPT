@@ -23,6 +23,9 @@ BEGIN
   END IF;
   IF r.status IN ('completed', 'cancelled') THEN RAISE EXCEPTION 'request_finished'; END IF;
   IF r.provider_arrived_at IS NOT NULL THEN RAISE EXCEPTION 'provider_already_arrived'; END IF;
+  IF r.type::text = 'service' AND r.status = 'in_progress' THEN
+    RAISE EXCEPTION 'service_already_started';
+  END IF;
   IF r.type::text = 'taxi' AND r.status = 'in_progress' THEN
     RAISE EXCEPTION 'taxi_trip_already_started';
   END IF;
