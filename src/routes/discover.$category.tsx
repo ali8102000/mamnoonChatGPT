@@ -30,7 +30,7 @@ function DiscoverCategoryPage() {
     if (queryError) setError("تعذر تحميل المنشآت حالياً. حاول مرة ثانية.");
     setItems((data ?? []) as Business[]);
     setLoading(false);
-  }, [categoryKey]);
+  }, [category]);
 
   useEffect(() => { void load(); }, [load]);
 
