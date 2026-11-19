@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
 import { ActionButton } from "@/components/ui";
+import * as ImagePicker from "expo-image-picker";
 
 type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number; totalWorkers: number; activeDrivers: number; activeWorkers: number; activeRequests: number; completedRequests: number; cancelledRequests: number; dailyRevenue: number; monthlyRevenue: number; yearlyRevenue: number };
 type PricingRule = {
@@ -43,6 +44,9 @@ export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [companyName, setCompanyName] = useState("شركة ممنون");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
+  const [companyLogoAsset, setCompanyLogoAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [savingCompanyName, setSavingCompanyName] = useState(false);
   const [supportInbox, setSupportInbox] = useState<any[]>([]);
   const [unreadSupport, setUnreadSupport] = useState(0);
@@ -91,8 +95,10 @@ export default function AdminScreen() {
       setLoading(false);
       return;
     }
-    const { data: company } = await (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle();
+    const { data: company } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle();
     if (company?.company_name) setCompanyName(company.company_name);
+    setCompanyLogoUrl(company?.company_logo_url ?? null);
+    setWelcomeMessage(company?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد.");
     const now = new Date();
     const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -192,18 +198,42 @@ export default function AdminScreen() {
   useEffect(() => {
     load();
   }, [load]);
+  const chooseCompanyLogo = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.85 });
+    if (!result.canceled && result.assets[0]) setCompanyLogoAsset(result.assets[0]);
+  };
+
   const saveCompanyName = async () => {
     const value = companyName.trim();
+    const welcome = welcomeMessage.trim();
     if (value.length < 2 || value.length > 80) { Alert.alert("تنبيه", "اكتب اسماً من حرفين إلى 80 حرفاً"); return; }
+    if (welcome.length < 2 || welcome.length > 180) { Alert.alert("تنبيه", "رسالة الترحيب لازم تكون بين حرفين و180 حرفاً"); return; }
     setSavingCompanyName(true);
     const { data: allowed, error: permissionError } = await supabase.rpc("is_super_admin", { p_user_id: user?.id });
     if (permissionError || allowed !== true) {
-      Alert.alert("غير مصرّح", "تغيير الاسم متاح لصاحب الحساب فقط");
+      Alert.alert("غير مصرّح", "تغيير هوية الشركة متاح لصاحب الحساب فقط");
       setSavingCompanyName(false);
       return;
     }
-    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, updated_by: user?.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
-    Alert.alert(error ? "تعذر الحفظ" : "تم الحفظ", error ? error.message : "تم تحديث اسم الشركة");
+    let nextLogoUrl = companyLogoUrl;
+    if (companyLogoAsset) {
+      if (!companyLogoAsset.mimeType?.startsWith("image/") || (companyLogoAsset.fileSize != null && companyLogoAsset.fileSize > 8 * 1024 * 1024)) {
+        Alert.alert("صورة غير مناسبة", "اختار صورة شعار حجمها 8 ميغابايت أو أقل"); setSavingCompanyName(false); return;
+      }
+      const path = `company-branding/logo-${Date.now()}.jpg`;
+      const response = await fetch(companyLogoAsset.uri);
+      if (!response.ok) { Alert.alert("تعذر قراءة الصورة"); setSavingCompanyName(false); return; }
+      const bytes = await response.arrayBuffer();
+      const { error: uploadError } = await supabase.storage.from("app-visuals").upload(path, bytes, { upsert: false, contentType: companyLogoAsset.mimeType || "image/jpeg" });
+      if (uploadError) { Alert.alert("تعذر رفع الشعار", uploadError.message); setSavingCompanyName(false); return; }
+      nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
+    }
+    const { error } = await (supabase as any).from("company_settings").upsert({
+      id: 1, company_name: value, company_logo_url: nextLogoUrl, welcome_message: welcome,
+      updated_by: user?.id, updated_at: new Date().toISOString(),
+    }, { onConflict: "id" });
+    if (!error) { setCompanyLogoUrl(nextLogoUrl); setCompanyLogoAsset(null); }
+    Alert.alert(error ? "تعذر الحفظ" : "تم الحفظ", error ? error.message : "تم تحديث اسم الشركة والشعار ورسالة الترحيب");
     setSavingCompanyName(false);
   };
 
@@ -295,10 +325,13 @@ export default function AdminScreen() {
       </View>
       <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
-        <Text style={styles.companyHint}>تغيير الاسم الظاهر للمنصة</Text>
+        <Text style={styles.companyHint}>الاسم والشعار ورسالة الترحيب التي تظهر داخل التطبيق</Text>
         <TextInput value={companyName} onChangeText={setCompanyName} maxLength={80} placeholder="اسم الشركة" style={styles.companyInput} textAlign="right" />
+        {companyLogoAsset ? <Image source={{ uri: companyLogoAsset.uri }} style={{ width: 76, height: 76, borderRadius: 16, alignSelf: "flex-end" }} resizeMode="contain" /> : companyLogoUrl ? <Image source={{ uri: companyLogoUrl }} style={{ width: 76, height: 76, borderRadius: 16, alignSelf: "flex-end" }} resizeMode="contain" /> : null}
+        <ActionButton onPress={() => void chooseCompanyLogo()} size="default" style={styles.companySave}><Text style={styles.companySaveText}>اختيار شعار ممنون</Text></ActionButton>
+        <TextInput value={welcomeMessage} onChangeText={setWelcomeMessage} maxLength={180} multiline placeholder="رسالة الترحيب" style={[styles.companyInput, { minHeight: 76, textAlignVertical: "top" }]} textAlign="right" />
         <ActionButton onPress={saveCompanyName} disabled={savingCompanyName} size="default" style={styles.companySave}>
-          <Text style={styles.companySaveText}>{savingCompanyName ? "جاري الحفظ..." : "حفظ اسم الشركة"}</Text>
+          <Text style={styles.companySaveText}>{savingCompanyName ? "جاري الحفظ..." : "حفظ إعدادات الشركة"}</Text>
         </ActionButton>
       </View>
       <ActionButton size="default" onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></ActionButton>
