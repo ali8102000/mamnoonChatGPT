@@ -6,8 +6,6 @@ on:
     paths:
       - "expo-app/**"
       - ".github/workflows/android-apk.yml"
-  # Pull requests are validated by mobile-ci (TypeScript, Expo Doctor and Android export).
-  # Build the full APK only for main so obsolete PR builds do not queue behind release builds.
   workflow_dispatch:
 
 permissions:
@@ -19,8 +17,8 @@ concurrency:
 
 jobs:
   build:
-    # Release APK generation is manual-only; CI validates the Android export without producing artifacts.
-    if: github.event_name == 'workflow_dispatch'
+    # Build on main workflow changes and allow manual reruns.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     name: Build standalone Mamnoon release APK
     runs-on: ubuntu-latest
     defaults:
@@ -47,9 +45,6 @@ jobs:
           fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-          # Install the exact NDK version required by the generated Android project
-          # before Gradle starts, retrying in case Google's package mirror returns a
-          # truncated/corrupt archive.
           for attempt in 1 2 3; do
             rm -rf "$SDK_ROOT/ndk/$ANDROID_NDK_VERSION"
             if "$SDKMANAGER" --install "ndk;$ANDROID_NDK_VERSION" &&
@@ -77,7 +72,6 @@ jobs:
       - name: Expo dependency compatibility
         run: bunx expo install --check
       - name: Check EAS environment access
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
@@ -90,9 +84,6 @@ jobs:
             echo "::error::EAS project ID does not match expo-app/app.json."
             exit 1
           fi
-      - name: Skip secret-dependent APK build for fork pull requests
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
-        run: echo "Skipping EAS-dependent APK build because fork pull requests do not receive repository secrets."
       - name: Build standalone APK locally with the production upload key
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -115,7 +106,6 @@ jobs:
           sha256sum "$APK" > release-artifacts/mamnoon-test.apk.sha256
           du -h "$APK"
       - name: Upload installable APK
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/upload-artifact@v4
         with:
           name: mamnoon-test-apk
@@ -126,10 +116,8 @@ jobs:
             expo-app/release-artifacts/apk-signing-certificate.txt
           if-no-files-found: error
           retention-days: 14
-          # APKs are already compressed ZIP containers; avoid recompressing them.
           compression-level: 0
       - name: Install and launch APK on Android emulator
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
