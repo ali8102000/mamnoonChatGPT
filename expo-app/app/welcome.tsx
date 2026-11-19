@@ -33,7 +33,7 @@ export default function WelcomeScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       {logoUrl ? <Image source={{ uri: logoUrl }} style={styles.logo} resizeMode="contain" /> : <View style={styles.mark}><Text style={styles.markText}>م</Text></View>}
       <Text style={styles.brand}>{companyName}</Text>
-      <Text style={styles.title}>أهلاً بك في {companyName}</Text>
+      <Text style={styles.title}>أهلاً بك في ممنون</Text>
       <Text style={styles.desc}>{welcomeMessage}</Text>
       <ActivityIndicator size="small" color={palette.gold} style={styles.loader} />
     </View>
