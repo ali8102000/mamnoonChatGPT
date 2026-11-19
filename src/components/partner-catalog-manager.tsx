@@ -15,6 +15,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
  const [categoryKey,setCategoryKey]=useState("");
  const [items,setItems]=useState<CatalogItem[]>([]);
  const [draft,setDraft]=useState<Draft>(emptyDraft);
+ const [imageFile,setImageFile]=useState<File|null>(null);
  const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [error,setError]=useState("");
  const load=useCallback(async()=>{
   setLoading(true);setError("");
@@ -31,8 +32,16 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
   const selectedCategory=grocery?"grocery":itemType==="room"?null:categoryKey;
   if(draft.name.trim().length<2||draft.price_amount.trim()===""||!Number.isFinite(Number(draft.price_amount))||Number(draft.price_amount)<0||(!selectedCategory&&itemType!=="room")){setError("اكتب الاسم والسعر وحدد الفئة الصحيحة.");return;}
   setSaving(true);setError("");
-  const {error}=await (supabase as any).from("partner_catalog_items").insert({business_profile_id:profileId,item_type:itemType,category_key:selectedCategory,name:draft.name.trim(),description:draft.description.trim()||null,price_amount:Number(draft.price_amount),currency:draft.currency,quantity_available:draft.quantity_available.trim()===""?null:Number(draft.quantity_available),is_active:true});
-  setSaving(false);if(error){setError(error.message);return;}setDraft(emptyDraft);await load();
+  let imageUrls:string[]=[];
+  if(imageFile){
+   const safe=imageFile.name.replace(/[^a-zA-Z0-9._-]/g,"-");
+   const storagePath=profileId+"/"+Date.now()+"-"+safe;
+   const uploaded=await supabase.storage.from("partner-catalog").upload(storagePath,imageFile,{upsert:false,contentType:imageFile.type});
+   if(uploaded.error){setSaving(false);setError("تعذر رفع الصورة: "+uploaded.error.message);return;}
+   imageUrls=[supabase.storage.from("partner-catalog").getPublicUrl(storagePath).data.publicUrl];
+  }
+  const {error}=await (supabase as any).from("partner_catalog_items").insert({business_profile_id:profileId,item_type:itemType,category_key:selectedCategory,name:draft.name.trim(),description:draft.description.trim()||null,price_amount:Number(draft.price_amount),currency:draft.currency,quantity_available:draft.quantity_available.trim()===""?null:Number(draft.quantity_available),image_urls:imageUrls,is_active:true});
+  setSaving(false);if(error){setError(error.message);return;}setDraft(emptyDraft);setImageFile(null);await load();
  };
  const remove=async(item:CatalogItem)=>{if(!window.confirm("تأكيد حذف هذا العنصر؟"))return;const {error}=await (supabase as any).from("partner_catalog_items").delete().eq("id",item.id).eq("business_profile_id",profileId);if(error){setError(error.message);return;}await load();};
  const categoryName=(key:string|null)=>categories.find(c=>c.category_key===key)?.title??(key==="grocery"?"بقالة وخضروات":"بدون تصنيف");
@@ -45,6 +54,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
    <label className="text-xs font-bold">العملة<select value={draft.currency} onChange={e=>setDraft(v=>({...v,currency:e.target.value as "IQD"|"USD"}))} className="input-base mt-1 w-full rounded-xl"><option value="IQD">دينار عراقي</option><option value="USD">دولار</option></select></label>
    <label className="text-xs font-bold">الكمية المتاحة<input type="number" min="0" step="1" value={draft.quantity_available} onChange={e=>setDraft(v=>({...v,quantity_available:e.target.value}))} className="input-base mt-1 w-full rounded-xl"/></label>
    <label className="text-xs font-bold sm:col-span-2">الوصف<textarea value={draft.description} onChange={e=>setDraft(v=>({...v,description:e.target.value}))} maxLength={1000} className="input-base mt-1 min-h-16 w-full rounded-xl"/></label>
+   <label className="text-xs font-bold sm:col-span-2">صورة المنتج<input type="file" accept="image/*" onChange={e=>setImageFile(e.target.files?.[0]??null)} className="mt-1 block w-full text-xs"/>{imageFile&&<span className="mt-1 block text-[10px] text-muted-foreground">{imageFile.name}</span>}</label>
   </div>
   <button type="button" disabled={saving} onClick={()=>void add()} className="w-full rounded-xl bg-primary p-3 text-sm font-black text-primary-foreground disabled:opacity-50"><Plus className="ml-1 inline h-4 w-4"/>{saving?"جارٍ الإضافة...":"إضافة إلى الكتالوج"}</button>
   {error&&<p role="alert" className="rounded-lg bg-red-500/10 p-2 text-xs text-red-700">{error}</p>}
