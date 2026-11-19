@@ -246,7 +246,7 @@ export default function NewRequest() {
   const outsideGovernoratePromptShownRef = useRef(false);
   const nearbySelectionRef = useRef(0);
   const placeSelectionRef = useRef(0);
-  const confirmDestinationPendingRef = useRef(false);
+  const [confirmDestinationPending, setConfirmDestinationPending] = useState(false);
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
@@ -602,15 +602,15 @@ export default function NewRequest() {
           : { [vehicleCat]: Number(route.priceEstimate) });
         // If the user tapped confirm while the authoritative quote was loading,
         // complete the confirmation immediately when that quote arrives.
-        if (confirmDestinationPendingRef.current) {
-          confirmDestinationPendingRef.current = false;
+        if (confirmDestinationPending) {
+          setConfirmDestinationPending(false);
           setDestinationConfirmed(true);
         }
       } catch (error) {
         if (!active) return;
         setRouteKm(null);
         setRouteDurationMin(null);
-        confirmDestinationPendingRef.current = false;
+        setConfirmDestinationPending(false);
         setRouteError(error instanceof Error ? error.message : "تعذّر حساب مسافة الطريق.");
       } finally {
         if (active) setRouteLoading(false);
@@ -942,10 +942,10 @@ export default function NewRequest() {
     if (routeLoading || routeKm === null || !pickupGovernorateKey || !destinationGovernorateKey) {
       // Accept the tap immediately; the quote is already running in parallel.
       // Auto-advance as soon as the validated route and fare return.
-      confirmDestinationPendingRef.current = true;
+      setConfirmDestinationPending(true);
       return;
     }
-    confirmDestinationPendingRef.current = false;
+    setConfirmDestinationPending(false);
     setDestinationConfirmed(true);
   }
 
@@ -1382,12 +1382,12 @@ export default function NewRequest() {
                   </View>
                 )}
                 <TouchableOpacity
-                  style={[styles.taxiPrimaryButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPendingRef.current) && styles.taxiButtonDisabled]}
-                  disabled={mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPendingRef.current}
+                  style={[styles.taxiPrimaryButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPending) && styles.taxiButtonDisabled]}
+                  disabled={mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPending}
                   onPress={mapMode === "pickup" ? confirmPickupStep : confirmDestinationStep}
                 >
                   <Text style={styles.taxiPrimaryButtonText}>
-                    {mapMode === "pickup" ? "تأكيد الانطلاق" : confirmDestinationPendingRef.current ? "جارٍ تأكيد الوجهة..." : "تأكيد الوجهة"}
+                    {mapMode === "pickup" ? "تأكيد الانطلاق" : confirmDestinationPending ? "جارٍ تأكيد الوجهة..." : "تأكيد الوجهة"}
                   </Text>
                   <View style={styles.taxiPrimaryArrow}>
                     <Svg width={18} height={18} viewBox="0 0 24 24">
