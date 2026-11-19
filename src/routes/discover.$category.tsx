@@ -6,7 +6,7 @@ import { MobileShell } from "@/components/mobile-shell";
 
 type PartnerType="hotel"|"restaurant"|"store"|"mall";
 type Business={id:string;partner_type:PartnerType;business_name:string;city:string;address:string;description:string|null;phone:string};
-type Product={id:string;name:string;description:string|null;price_amount:number;currency:string;image_urls:string[];profile:{id:string;business_name:string;city:string;address:string}};
+type Product={id:string;name:string;description:string|null;price_amount:number;currency:string;image_urls:string[];profile:{id:string;business_name:string;city:string;address:string;business_vertical:string;governorate_key:string;promotion_governorates:string[];promotion_radius_km:number;promotion_latitude:number|null;promotion_longitude:number|null}};
 export const Route=createFileRoute("/discover/$category")({ssr:false,component:DiscoverCategoryPage});
 function DiscoverCategoryPage(){
  const {category:raw}=Route.useParams();
@@ -18,13 +18,22 @@ function DiscoverCategoryPage(){
  const load=useCallback(async()=>{
   setLoading(true);setError("");
   if(categoryKey){
-   const [cat,rows]=await Promise.all([
-    (supabase as any).from("partner_catalog_categories").select("title").eq("category_key",categoryKey).maybeSingle(),
-    (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address)").eq("category_key",categoryKey).eq("is_active",true).eq("profile.is_published",true).order("created_at",{ascending:false})
-   ]);
+   const [{data:userData},cat]=await Promise.all([supabase.auth.getUser(),(supabase as any).from("partner_catalog_categories").select("title").eq("category_key",categoryKey).maybeSingle()]);
+   let customerGovernorate:string|null=null;
+   if(userData.user?.id){const profileResult=await (supabase as any).from("profiles").select("governorate_key").eq("id",userData.user.id).maybeSingle();customerGovernorate=profileResult.data?.governorate_key??null;}
+   let customerLocation:{latitude:number;longitude:number}|null=null;
+   if(isGrocery&&typeof navigator!=="undefined"&&navigator.geolocation){customerLocation=await new Promise(resolve=>navigator.geolocation.getCurrentPosition(pos=>resolve({latitude:pos.coords.latitude,longitude:pos.coords.longitude}),()=>resolve(null),{enableHighAccuracy:false,timeout:8000,maximumAge:60000}));}
+   const rows=await (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,governorate_key,promotion_governorates,promotion_radius_km,promotion_latitude,promotion_longitude)").eq("category_key",categoryKey).eq("is_active",true).eq("profile.is_published",true).order("created_at",{ascending:false});
    if(cat.data?.title)setTitle(cat.data.title);
    if(rows.error)setError("تعذر تحميل المنتجات حالياً.");
-   setProducts((rows.data??[]) as Product[]);setItems([]);setLoading(false);return;
+   let visible=(rows.data??[]) as Product[];
+   if(isStore||isRestaurant)visible=visible.filter(p=>(p.profile.promotion_governorates??[]).includes(customerGovernorate??""));
+   if(isGrocery){
+    const distanceKm=(a:number,b:number,c:number,d:number)=>{const rad=(v:number)=>v*Math.PI/180;const x=rad(c-a),y=rad(d-b);const h=Math.sin(x/2)**2+Math.cos(rad(a))*Math.cos(rad(c))*Math.sin(y/2)**2;return 6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));};
+    visible=customerLocation?visible.filter(p=>p.profile.business_vertical==="grocery"&&p.profile.promotion_latitude!=null&&p.profile.promotion_longitude!=null&&distanceKm(customerLocation!.latitude,customerLocation!.longitude,p.profile.promotion_latitude!,p.profile.promotion_longitude!)<=Number(p.profile.promotion_radius_km||5)): [];
+    if(!customerLocation)setError("فعّل موقع الجهاز حتى نعرض البقالات القريبة ضمن نطاقها الجغرافي.");
+   }
+   setProducts(visible);setItems([]);setLoading(false);return;
   }
   const types:PartnerType[]=raw==="restaurant"?["restaurant"]:raw==="hotel"?["hotel"]:raw==="store"?["store","mall"]:[];
   if(!types.length){setError("هذا القسم غير متاح.");setLoading(false);return;}
