@@ -261,6 +261,11 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.content" />
 
+      <a href="/ask-mamnoon" className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-right transition hover:bg-primary/10">
+        <span><span className="block text-sm font-black text-foreground">🤖 اسأل ممنون</span><span className="mt-1 block text-xs text-muted-foreground">مساعد ذكي يجاوبك عن خدمات التطبيق</span></span>
+        <span className="text-xs font-black text-primary">ابدأ المحادثة ←</span>
+      </a>
+
       <div className="grid grid-cols-2 gap-2.5 animate-pop-in" style={{ animationDelay: "0.15s" }}>
         <MiniStat icon={<Clock className="h-4 w-4" />} label="أقل من" value="٣ د" />
         <MiniStat icon={<ShieldCheck className="h-4 w-4" />} label="مزودون" value="موثق" />

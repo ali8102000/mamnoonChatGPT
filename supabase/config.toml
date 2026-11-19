@@ -58,3 +58,9 @@ verify_jwt = false
 
 [functions.zaincash-webhook]
 verify_jwt = false
+
+[functions.support-ai-reply]
+verify_jwt = true
+
+[functions.mamnoon-ai]
+verify_jwt = true
