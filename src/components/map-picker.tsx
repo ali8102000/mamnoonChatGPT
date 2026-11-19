@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { loadGoogleMaps } from "@/lib/google-maps";
+import { getMapProvider, loadGoogleMaps } from "@/lib/google-maps";
 import { getCurrentLocation, locationError } from "@/lib/location";
 import { lookupMapPlace } from "@/lib/maps.functions";
 import {
@@ -349,6 +349,7 @@ export function MapPicker({
             sessionToken: sessionTokenRef.current,
             center: c,
             governorateKey,
+            mapProvider: getMapProvider(),
           },
         });
         if (stale) return;
