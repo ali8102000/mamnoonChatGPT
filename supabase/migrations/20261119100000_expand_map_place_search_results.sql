@@ -34,16 +34,16 @@ as $$
         cardinality(qd.tokens) > 0
         and not exists (
           select 1
-          from unnest(qd.tokens) as token
-          where token <> ''
-            and position(token in lower(concat_ws(' ', s.name_ar, s.address, s.search_terms))) = 0
+          from unnest(qd.tokens) as token(value)
+          where token.value <> ''
+            and position(token.value in lower(concat_ws(' ', s.name_ar, s.address, s.search_terms))) = 0
         )
       )
     )
   order by
     case when lower(s.name_ar) = qd.q then 0
-         when lower(s.name_ar) like qd.q || '%' then 1
-         when lower(s.address) like qd.q || '%' then 2
+         when left(lower(s.name_ar), length(qd.q)) = qd.q then 1
+         when left(lower(s.address), length(qd.q)) = qd.q then 2
          when position(qd.q in lower(s.name_ar)) > 0 then 3
          else 4 end,
     length(s.name_ar),
