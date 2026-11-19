@@ -212,7 +212,8 @@ export function MapPicker({
       Math.abs(center.lat() - value.lat) < 0.00002 &&
       Math.abs(center.lng() - value.lng) < 0.00002) return;
     suppressIdleRef.current = true;
-    mapRef.current.setCenter?.(value) ?? mapRef.current.panTo(value);
+    if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(value);
+    else mapRef.current.panTo(value);
   }, [value]);
 
   useEffect(() => {
@@ -302,7 +303,8 @@ export function MapPicker({
         setLocating(false);
         if (mapRef.current) {
           suppressIdleRef.current = true;
-          mapRef.current.setCenter?.(c) ?? mapRef.current.panTo(c);
+          if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(c);
+          else mapRef.current.panTo(c);
           mapRef.current.setZoom(16);
         }
         report(c);
@@ -412,7 +414,8 @@ export function MapPicker({
     setSearchQuery("");
     suppressIdleRef.current = true;
     if (mapRef.current) {
-      mapRef.current.setCenter?.(place.coords) ?? mapRef.current.panTo(place.coords);
+      if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(place.coords);
+      else mapRef.current.panTo(place.coords);
       mapRef.current.setZoom(16);
     }
     report(place.coords, addr);
