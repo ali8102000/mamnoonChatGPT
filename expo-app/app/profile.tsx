@@ -8,7 +8,6 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 type AccountWallet = { balance_iqd: number; currency?: string };
-type DriverWallet = { balance: number; total_earned: number; total_commission: number };
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
 type EarningsSummary = { last24h: number; week: number; month: number; year: number };
 
@@ -53,16 +52,9 @@ export default function ProfileScreen() {
   const [accountWalletTransactions, setAccountWalletTransactions] = useState<any[]>([]);
   const [accountWalletOffline, setAccountWalletOffline] = useState(false);
   const [walletTopupLoading, setWalletTopupLoading] = useState(false);
-  const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
-  const [walletOffline, setWalletOffline] = useState(false);
-  const [providerWallet, setProviderWallet] = useState<DriverWallet | null>(null);
-  const [providerTransactions, setProviderTransactions] = useState<WalletTransaction[]>([]);
   const [providerEarnings, setProviderEarnings] = useState<EarningsSummary>({ last24h: 0, week: 0, month: 0, year: 0 });
   const [showProviderEarningsDetails, setShowProviderEarningsDetails] = useState(false);
-  const [showProviderWalletDetails, setShowProviderWalletDetails] = useState(false);
-  const [showProviderRecentTransactions, setShowProviderRecentTransactions] = useState(false);
-  const [providerWalletOffline, setProviderWalletOffline] = useState(false);
   const [staffRank, setStaffRank] = useState<string | null>(null);
   const isGeneralManager = staffRank === "general_manager";
   const hasStaffRank = ["general_manager", "department_manager", "supervisor"].includes(staffRank ?? "");
@@ -146,32 +138,22 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     let active = true;
-    async function loadProviderWallet() {
+    async function loadProviderEarnings() {
       if (!user?.id || !isProvider) {
-        setProviderWallet(null);
-        setProviderTransactions([]);
         setProviderEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
-        setProviderWalletOffline(false);
         return;
       }
-      const cacheKey = `mamnoon-wallet-v1:${user.id}`;
       try {
         const earningsStart = getProviderEarningsQueryStart();
-        const since24Hours = new Date(Date.now() - 86400000).toISOString();
-        const [walletResult, recentResult] = await Promise.all([
-          supabase.from("driver_wallets").select("balance,total_earned,total_commission").eq("user_id", user.id).maybeSingle(),
-          supabase.from("transactions").select("id,type,created_at,amount").eq("user_id", user.id)
-            .gte("created_at", since24Hours).order("created_at", { ascending: false }).limit(30),
-        ]);
-        if (walletResult.error) throw walletResult.error;
-        if (recentResult.error) throw recentResult.error;
-
         const earningsRows: WalletTransaction[] = [];
         let offset = 0;
         while (true) {
           const { data, error } = await supabase.from("transactions")
-            .select("id,type,created_at,amount").eq("user_id", user.id).eq("type", "earning")
-            .gte("created_at", earningsStart).order("created_at", { ascending: true })
+            .select("id,type,created_at,amount")
+            .eq("user_id", user.id)
+            .eq("type", "earning")
+            .gte("created_at", earningsStart)
+            .order("created_at", { ascending: true })
             .range(offset, offset + 999);
           if (error) throw error;
           const page = (data || []) as WalletTransaction[];
@@ -179,40 +161,13 @@ export default function ProfileScreen() {
           if (page.length < 1000) break;
           offset += 1000;
         }
-        const nextWallet = walletResult.data as DriverWallet | null;
-        const nextTransactions = (recentResult.data || []) as WalletTransaction[];
-        const nextEarnings = summarizeProviderEarnings(earningsRows);
-        if (!active) return;
-        setProviderWallet(nextWallet);
-        setProviderTransactions(nextTransactions);
-        setProviderEarnings(nextEarnings);
-        setProviderWalletOffline(false);
-        try {
-          await SecureStore.setItemAsync(cacheKey, JSON.stringify({
-            wallet: nextWallet, transactions: nextTransactions, earnings: nextEarnings, cachedAt: Date.now(),
-          }));
-        } catch (cacheError) {
-          console.warn("[offline] Could not save provider wallet snapshot:", cacheError);
-        }
+        if (active) setProviderEarnings(summarizeProviderEarnings(earningsRows));
       } catch (error) {
-        console.warn("[offline] Provider wallet unavailable; restoring saved wallet snapshot.", error);
-        try {
-          const raw = await SecureStore.getItemAsync(cacheKey);
-          const saved = raw ? JSON.parse(raw) : null;
-          if (!active) return;
-          setProviderWallet(saved?.wallet ?? null);
-          setProviderTransactions(Array.isArray(saved?.transactions) ? saved.transactions : []);
-          setProviderEarnings(saved?.earnings ?? { last24h: 0, week: 0, month: 0, year: 0 });
-        } catch {
-          if (!active) return;
-          setProviderWallet(null);
-          setProviderTransactions([]);
-          setProviderEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
-        }
-        if (active) setProviderWalletOffline(true);
+        console.warn("[earnings] Could not load provider earnings:", error);
+        if (active) setProviderEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
       }
     }
-    void loadProviderWallet();
+    void loadProviderEarnings();
     return () => { active = false; };
   }, [user?.id, isProvider]);
 
