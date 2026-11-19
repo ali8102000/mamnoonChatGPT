@@ -283,7 +283,7 @@ export default function NewRequest() {
   const [tripType, setTripType] = useState<"one_way" | "round_trip" | "second_trip" | "stop">("one_way");
   const [extraMinutes, setExtraMinutes] = useState(0);
   const [placeQuery, setPlaceQuery] = useState("");
-  const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number } }>>([]);
+  const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }>>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [placeSearchError, setPlaceSearchError] = useState<string | null>(null);
   const [focusSearchAfterProvince, setFocusSearchAfterProvince] = useState(false);
@@ -642,7 +642,7 @@ export default function NewRequest() {
       } finally {
         if (active) setSearchingPlaces(false);
       }
-    }, 500);
+    }, 250);
     return () => {
       active = false;
       clearTimeout(timer);
@@ -805,7 +805,7 @@ export default function NewRequest() {
     }
   }
 
-  async function choosePlaceSuggestion(item: { id: string; text: string; address?: string; coords?: { lat: number; lng: number } }) {
+  async function choosePlaceSuggestion(item: { id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }) {
     try {
       setSearchingPlaces(true);
       let point = item.coords;
@@ -823,7 +823,9 @@ export default function NewRequest() {
       if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
         throw new Error("لم تتوفر إحداثيات دقيقة لهذا المكان.");
       }
-      if (activeGovernorateKey) {
+      // Maps-proxy autocomplete already filters every returned point against
+      // this governorate polygon; keep the extra check for older clients/sources.
+      if (activeGovernorateKey && item.governorateKey !== activeGovernorateKey) {
         const validation = await callMamnoonMapsApi<{ valid: boolean }>({
           action: "validateGovernorate",
           center: { lat: point.lat, lng: point.lng },
@@ -892,28 +894,8 @@ export default function NewRequest() {
       Alert.alert("حدد الوجهة", "حرّك الخريطة إلى مكان الوصول أو ابحث عن الوجهة.");
       return;
     }
-    const targetGovernorateKey = destinationGovernorateKey ?? pickupGovernorateKey;
-    if (!targetGovernorateKey) {
-      Alert.alert("حدد المحافظة", "اختر محافظة الانطلاق أولاً.");
-      return;
-    }
-    try {
-      const validation = await callMamnoonMapsApi<{ valid: boolean }>({
-        action: "validateGovernorate",
-        center: { lat: destinationCoords.latitude, lng: destinationCoords.longitude },
-        governorateKey: targetGovernorateKey,
-      });
-      if (!validation.valid) {
-        Alert.alert("أنت خارج محافظتك", "يرجى تحديد المحافظة المراد التوجه إليها.", [
-          { text: "تحديد المحافظة", onPress: () => setGovernoratePickerVisible(true) },
-          { text: "إلغاء", style: "cancel" },
-        ]);
-        return;
-      }
-    } catch (error) {
-      Alert.alert("تعذر التحقق من المحافظة", error instanceof Error ? error.message : "حاول مرة ثانية.");
-      return;
-    }
+    // The authoritative quote validates both points against Iraq's governorate
+    // polygons and returns the resolved keys; don't repeat the network request.
     if (routeLoading || routeKm === null || routeError || !pickupGovernorateKey || !destinationGovernorateKey) {
       Alert.alert("انتظر تأكيد الطريق", routeError || "نحسب مسافة الطريق ونحدد المحافظتين بدقة.");
       return;
