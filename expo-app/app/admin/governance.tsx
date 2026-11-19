@@ -191,6 +191,7 @@ const s=StyleSheet.create({
 
 const PERMISSIONS: [string,string][] = [
   ["dashboard.view","لوحة القيادة"],["analytics.view","عرض التحليلات"],
+  ["live_map.read","عرض الخريطة المباشرة"],["reports.read","عرض البلاغات"],["reports.resolve","معالجة البلاغات"],
   ["users.read","عرض العملاء"],["users.profile.edit","تعديل بيانات العملاء"],["users.block","حظر العملاء"],["users.unblock","إلغاء حظر العملاء"],
   ["providers.read","عرض مقدمي الخدمة"],["providers.profile.edit","تعديل بيانات مقدمي الخدمة"],
   ["providers.verify","توثيق مقدمي الخدمة"],["providers.suspend","إيقاف مقدمي الخدمة"],
