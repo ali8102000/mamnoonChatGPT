@@ -22,8 +22,8 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
       return;
     }
     const context = JSON.parse(raw) as TrackingContext;
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || authData.user?.id !== context.userId) {
+    const { data: authData, error: authError } = await supabase.auth.getSession();
+    if (authError || authData.session?.user.id !== context.userId) {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK).catch(() => undefined);
       await SecureStore.deleteItemAsync(CONTEXT_KEY);
       return;
@@ -127,8 +127,8 @@ TaskManager.defineTask(PROVIDER_PRESENCE_TASK, async ({ data, error }) => {
       return;
     }
     const context = JSON.parse(raw) as ProviderPresenceContext;
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || authData.user?.id !== context.userId) {
+    const { data: authData, error: authError } = await supabase.auth.getSession();
+    if (authError || authData.session?.user.id !== context.userId) {
       await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK).catch(() => undefined);
       await SecureStore.deleteItemAsync(PROVIDER_CONTEXT_KEY);
       return;
