@@ -132,10 +132,21 @@ function PushNotificationSetup() {
         Alert.alert("تعذّر فتح الإشعار", "افتح التطبيق وانتقل إلى الطلب من قائمة الطلبات.");
       }
     }
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(openRequestFromResponse);
-    void Notifications.getLastNotificationResponseAsync().then((response) => { if (active) openRequestFromResponse(response); }).catch((error) => console.warn("[notifications] Could not read notification response:", error));
+    let responseSubscription: ReturnType<typeof Notifications.addNotificationResponseReceivedListener> | null = null;
+    try {
+      responseSubscription = Notifications.addNotificationResponseReceivedListener(openRequestFromResponse);
+    } catch (error) {
+      console.warn("[notifications] Response listener unavailable; app startup will continue:", error);
+    }
+    void Promise.resolve()
+      .then(() => Notifications.getLastNotificationResponseAsync())
+      .then((response) => { if (active) return openRequestFromResponse(response); })
+      .catch((error) => console.warn("[notifications] Could not read notification response:", error));
     void registerPushToken();
-    return () => { active = false; responseSubscription.remove(); };
+    return () => {
+      active = false;
+      responseSubscription?.remove();
+    };
   }, [user?.id]);
   return null;
 }
