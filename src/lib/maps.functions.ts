@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 type MapLookupInput =
-  | { action: "autocomplete"; input: string; sessionToken: string; center: { lat: number; lng: number }; governorateKey?: string }
+  | { action: "autocomplete"; input: string; sessionToken: string; center: { lat: number; lng: number }; governorateKey?: string; mapProvider?: "google" | "leaflet" | null }
   | { action: "details"; placeId: string; sessionToken: string }
   | { action: "reverse"; center: { lat: number; lng: number } }
   | { action: "route"; from: { lat: number; lng: number }; to: { lat: number; lng: number } }

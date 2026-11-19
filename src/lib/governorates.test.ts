@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { governorateOf, isInGovernorate, governorateBounds, getGovernorate } from "./governorates";
+import { GOVERNORATES, governorateOf, isInGovernorate, governorateBounds, getGovernorate } from "./governorates";
 
 describe("governorateOf", () => {
   it("restores Najaf from either its Arabic name or stored key, not Baghdad", () => {
@@ -27,5 +27,29 @@ describe("governorateOf", () => {
     expect(b.high.latitude).toBeGreaterThan(32.0259);
     expect(b.low.longitude).toBeLessThan(44.3462);
     expect(b.high.longitude).toBeGreaterThan(44.3462);
+  });
+});
+
+
+describe("Iraq-wide local map coverage", () => {
+  it("has a valid administrative boundary and searchable center for every configured governorate", () => {
+    expect(GOVERNORATES).toHaveLength(18);
+    for (const governorate of GOVERNORATES) {
+      expect(isInGovernorate(
+        { lat: governorate.lat, lng: governorate.lng },
+        governorate.key,
+      ), `center must fall inside ${governorate.name}`).toBe(true);
+      const bounds = governorateBounds(governorate.key);
+      expect(bounds.low.latitude).toBeLessThan(governorate.lat);
+      expect(bounds.high.latitude).toBeGreaterThan(governorate.lat);
+      expect(bounds.low.longitude).toBeLessThan(governorate.lng);
+      expect(bounds.high.longitude).toBeGreaterThan(governorate.lng);
+    }
+  });
+
+  it("keeps Halabja under the Sulaymaniyah selection without adding a separate governorate", () => {
+    expect(getGovernorate("sulaymaniyah")?.key).toBe("sulaymaniyah");
+    expect(getGovernorate("halabja")?.key).toBe("sulaymaniyah");
+    expect(getGovernorate("حلبجة")?.key).toBe("sulaymaniyah");
   });
 });

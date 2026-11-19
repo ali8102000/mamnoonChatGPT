@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { loadGoogleMaps } from "@/lib/google-maps";
+import { getMapProvider, loadGoogleMaps } from "@/lib/google-maps";
 import { getCurrentLocation, locationError } from "@/lib/location";
 import { lookupMapPlace } from "@/lib/maps.functions";
 import {
@@ -212,7 +212,8 @@ export function MapPicker({
       Math.abs(center.lat() - value.lat) < 0.00002 &&
       Math.abs(center.lng() - value.lng) < 0.00002) return;
     suppressIdleRef.current = true;
-    mapRef.current.panTo(value);
+    if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(value);
+    else mapRef.current.panTo(value);
   }, [value]);
 
   useEffect(() => {
@@ -302,7 +303,8 @@ export function MapPicker({
         setLocating(false);
         if (mapRef.current) {
           suppressIdleRef.current = true;
-          mapRef.current.panTo(c);
+          if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(c);
+          else mapRef.current.panTo(c);
           mapRef.current.setZoom(16);
         }
         report(c);
@@ -349,6 +351,7 @@ export function MapPicker({
             sessionToken: sessionTokenRef.current,
             center: c,
             governorateKey,
+            mapProvider: getMapProvider(),
           },
         });
         if (stale) return;
@@ -359,7 +362,8 @@ export function MapPicker({
               const id = "g:" + s.id;
               if (s.coords)
                 placeCacheRef.current.set(id, { coords: s.coords, address: s.address || s.text });
-              return { id, text: s.text, secondary: s.address || "" };
+              const details = [s.category, s.address].filter(Boolean);
+              return { id, text: s.text, secondary: details.join(" · ") };
             }),
           );
           return;
@@ -372,7 +376,7 @@ export function MapPicker({
           setGeoError(arabicWarning(e));
         }
       }
-    }, 250);
+    }, 100);
     return () => {
       stale = true;
       clearTimeout(timer);
@@ -410,7 +414,8 @@ export function MapPicker({
     setSearchQuery("");
     suppressIdleRef.current = true;
     if (mapRef.current) {
-      mapRef.current.panTo(place.coords);
+      if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(place.coords);
+      else mapRef.current.panTo(place.coords);
       mapRef.current.setZoom(16);
     }
     report(place.coords, addr);

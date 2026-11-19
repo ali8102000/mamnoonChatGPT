@@ -420,7 +420,7 @@ export default function NewRequest() {
 
   function moveMap(nextRegion: typeof region) {
     setRegion(nextRegion);
-    mapRef.current?.animateToRegion(nextRegion, 180);
+    mapRef.current?.animateToRegion(nextRegion, 0);
   }
 
   useEffect(() => {
@@ -645,7 +645,7 @@ export default function NewRequest() {
       } finally {
         if (active) setSearchingPlaces(false);
       }
-    }, 250);
+    }, 100);
     return () => {
       active = false;
       clearTimeout(timer);
