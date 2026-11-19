@@ -1586,6 +1586,7 @@ export default function NewRequest() {
       contentContainerStyle={{ paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
     >
+      <ActiveRequestConfirmModal request={activeRequestPreview} visible={activeRequestPromptVisible} choice={activeRequestChoice} busy={busy} onChoice={setActiveRequestChoice} onConfirm={() => void confirmActiveRequestChoice()} onClose={() => setActiveRequestPromptVisible(false)} />
       <Text style={styles.title}>{vehicle === "large" ? "طلب سيارة كبيرة" : "تفاصيل طلب الفني"}</Text>
       {!isTaxi && serviceDetailsStep && <TouchableOpacity onPress={() => setServiceDetailsStep(false)} style={{ marginBottom: 12 }}><Text style={{ color: palette.brand, textAlign: "right", fontWeight: "900" }}>← قائمة الفنيين</Text></TouchableOpacity>}
       {isLargeVehicle && (
