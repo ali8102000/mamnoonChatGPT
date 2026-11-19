@@ -23,6 +23,14 @@ const ITEMS = [
   { label: "موظفو القسم والترقيات", route: "/admin/staff-hierarchy", roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor"] },
 ] as const;
 
+const ITEM_GROUPS = [
+  { title: "الزبائن ومقدمو الخدمات والطلبات", routes: ["/admin/users", "/admin/providers", "/admin/requests"] },
+  { title: "المراقبة والتواصل", routes: ["/admin/monitoring", "/admin/live-map", "/admin/chats", "/admin/friends", "/support-chat"] },
+  { title: "المالية والاشتراكات", routes: ["/admin/subscriptions", "/admin/finance"] },
+  { title: "الموظفون والصلاحيات", routes: ["/admin/governance", "/admin/staff-hierarchy"] },
+  { title: "إعدادات المنصة والتشغيل", routes: ["/admin/regions", "/admin/import", "/admin/notifications"] },
+] as const;
+
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "الرئيس المؤسس الأعلى", admin: "مدير", support: "الدعم",
   finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء", department_finance: "قسم المالية", department_operations: "قسم التشغيل", department_monitoring: "قسم المراقبة", department_executive: "الإدارة التنفيذية",
@@ -129,12 +137,25 @@ export default function AdminStaffScreen() {
           {roles.filter((role) => ROLE_LABELS[role]).map((role) => <View key={role} style={s.role}><Text style={s.roleText}>{ROLE_LABELS[role]}</Text></View>)}
         </View>
         {roles.includes("super_admin") && <TouchableOpacity onPress={() => router.push("/admin")} style={s.superButton}><Text style={s.superText}>لوحة التحكم العليا</Text></TouchableOpacity>}
-        {visible.map((item) => (
-          <TouchableOpacity key={item.route} onPress={() => router.push(item.route as any)} style={s.item}>
-            <Text style={s.itemText}>{item.label}</Text>
-            <Text style={s.arrow}>←</Text>
-          </TouchableOpacity>
-        ))}
+        {ITEM_GROUPS.map((group) => {
+          const groupItems = group.routes
+            .map((route) => visible.find((item) => item.route === route))
+            .filter((item): item is (typeof ITEMS)[number] => Boolean(item));
+          if (!groupItems.length) return null;
+          return (
+            <View key={group.title} style={s.group}>
+              <Text style={s.groupTitle}>{group.title}</Text>
+              <View style={s.groupItems}>
+                {groupItems.map((item) => (
+                  <TouchableOpacity key={item.route} onPress={() => router.push(item.route as any)} style={s.item}>
+                    <Text style={s.itemText}>{item.label}</Text>
+                    <Text style={s.arrow}>←</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -142,7 +163,10 @@ export default function AdminStaffScreen() {
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: palette.pageCanvas },
-  content: { padding: space.lg, paddingBottom: 48, gap: 10 },
+  content: { padding: space.lg, paddingBottom: 48, gap: 14 },
+  group: { gap: 8 },
+  groupTitle: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
+  groupItems: { gap: 8 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.pageCanvas, padding: 24, gap: 10 },
   title: { color: palette.ink, fontSize: 22, fontWeight: "900", textAlign: "right" },
   muted: { color: palette.muted, fontSize: 12, textAlign: "right", lineHeight: 20 },

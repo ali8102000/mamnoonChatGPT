@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   build:
+    # Signed production artifacts are created only when explicitly requested.
+    if: github.event_name == 'workflow_dispatch'
     name: Validate and build signed Mamnoon Android App Bundle
     runs-on: ubuntu-latest
     defaults:
