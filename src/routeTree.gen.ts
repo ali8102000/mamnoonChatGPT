@@ -367,7 +367,7 @@ export interface FileRouteTypes {
     | '/partner/dashboard'
     | '/partner/$id'
     | '/discover/$category'
-    | '/
+    | '/$'
     | '/admin'
     | '/auth'
     | '/forgot-password'
@@ -403,7 +403,7 @@ export interface FileRouteTypes {
     | '/partner/$id'
     | '/discover/$category'
     | '/'
-    | '/
+    | '/$'
     | '/admin'
     | '/auth'
     | '/forgot-password'
@@ -431,40 +431,6 @@ export interface FileRouteTypes {
     | '/api/mobile-maps'
   fileRoutesById: FileRoutesById
 }
-export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  SplatRoute: typeof SplatRoute
-  AdminRoute: typeof AdminRouteWithChildren
-  AuthRoute: typeof AuthRoute
-  AuthCallbackRoute: typeof AuthCallbackRoute
-  AccountSettingsRoute: typeof AccountSettingsRoute
-  PartnerDashboardRoute: typeof PartnerDashboardRoute
-  PublicPartnerRoute: typeof PublicPartnerRoute
-  DiscoverCategoryRoute: typeof DiscoverCategoryRoute
-  ForgotPasswordRoute: typeof ForgotPasswordRoute
-  FriendsRoute: typeof FriendsRoute
-  HistoryRoute: typeof HistoryRoute
-  HomeRoute: typeof HomeRoute
-  CouponsRoute: typeof CouponsRoute
-  MessagesRoute: typeof MessagesRoute
-  AskMamnoonRoute: typeof AskMamnoonRoute
-  SupportChatRoute: typeof SupportChatRoute
-  SubscriptionsRoute: typeof SubscriptionsRoute
-  PrivacyRoute: typeof PrivacyRoute
-  ProfileRoute: typeof ProfileRoute
-  ResetPasswordRoute: typeof ResetPasswordRoute
-  SelectRoleRoute: typeof SelectRoleRoute
-  SupportRoute: typeof SupportRoute
-  TermsRoute: typeof TermsRoute
-  WelcomeRoute: typeof WelcomeRoute
-  AdminImportRoute: typeof AdminImportRoute
-  OnboardingDriverRoute: typeof OnboardingDriverRoute
-  OnboardingWorkerRoute: typeof OnboardingWorkerRoute
-  RequestIdRoute: typeof RequestIdRoute
-  RequestNewRoute: typeof RequestNewRoute
-  ApiMobileMapsRoute: typeof ApiMobileMapsRoute
-}
-
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/': {
