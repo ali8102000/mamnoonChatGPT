@@ -55,6 +55,14 @@ const secureStoreKey = (value: string, fallback: string) => {
 const authCacheKey = (uid: string) => secureStoreKey(`${CACHE_VERSION}_${uid}`, "mamnoon-auth-profile-v1");
 const rolePreferenceKey = (uid: string) => secureStoreKey(`mamnoon-active-role-v1_${uid}`, "mamnoon-active-role-v1");
 
+function withStartupTimeout<T>(operation: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    operation,
+    new Promise<T>((_, reject) => { timer = setTimeout(() => reject(new Error(message)), timeoutMs); }),
+  ]).finally(() => { if (timer) clearTimeout(timer); });
+}
+
 async function readCachedAuthProfile(uid: string): Promise<CachedAuthProfile | null> {
   try {
     const raw = await SecureStore.getItemAsync(authCacheKey(uid));
@@ -164,9 +172,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function loadProfile(uid: string) {
-    const cached = await readCachedAuthProfile(uid);
+    let cached: CachedAuthProfile | null = null;
     try {
-      const [profileResult, rolesResult, driverResult, workerResult] = await Promise.all([
+      cached = await withStartupTimeout(readCachedAuthProfile(uid), 5000, "local_account_cache_timeout");
+    } catch (error) {
+      console.warn("[startup] Local account cache unavailable; continuing:", error);
+    }
+    try {
+      const [profileResult, rolesResult, driverResult, workerResult] = await withStartupTimeout(Promise.all([
         supabase
           .from("profiles")
           .select("id, phone, full_name, avatar_url")
@@ -175,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from("user_roles").select("role").eq("user_id", uid),
         supabase.from("driver_profiles").select("user_id,vehicle_category").eq("user_id", uid).maybeSingle(),
         supabase.from("worker_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
-      ]);
+      ]), 12000, "account_bootstrap_timeout");
 
       // Ignore stale lookups when a different account signed in while these
       // parallel Supabase requests were still running.
@@ -213,7 +226,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mappedRoles.includes("customer")) mappedRoles.unshift("customer");
       setProfile(resolvedProfile);
       setRoles(mappedRoles);
-      await restoreActiveRole(uid, mappedRoles);
+      await withStartupTimeout(restoreActiveRole(uid, mappedRoles), 5000, "active_role_restore_timeout").catch((error) => {
+        console.warn("[startup] Active role restore timed out; retaining safe role fallback:", error);
+      });
 
       if (
         !profileResult.error &&
@@ -221,10 +236,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         !driverResult.error &&
         !workerResult.error
       ) {
-        await writeCachedAuthProfile(uid, {
+        await withStartupTimeout(writeCachedAuthProfile(uid, {
           profile: resolvedProfile,
           roles: mappedRoles,
           cachedAt: Date.now(),
+        }), 5000, "account_cache_write_timeout").catch((error) => {
+          console.warn("[startup] Could not finish saving the account cache:", error);
         });
       }
     } catch (error) {
@@ -233,7 +250,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(cached?.profile ?? null);
       const fallbackRoles: AppRole[] = cached?.roles?.length ? cached.roles : ["customer"];
       setRoles(fallbackRoles);
-      await restoreActiveRole(uid, fallbackRoles);
+      await withStartupTimeout(restoreActiveRole(uid, fallbackRoles), 5000, "active_role_fallback_timeout").catch((roleError) => {
+        console.warn("[startup] Could not restore the active role; using customer fallback:", roleError);
+        if (lastUserId.current === uid) setActiveRoleState("customer");
+      });
     }
   }
 
@@ -246,7 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const operation = (async () => {
       const revisionAtStart = authRevision.current;
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await withStartupTimeout(supabase.auth.getSession(), 12000, "auth_session_restore_timeout");
         if (error) throw error;
         if (authRevision.current !== revisionAtStart) return;
         setSession(data.session);
@@ -274,9 +294,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
 
     refreshInFlight.current = operation;
-    void operation.finally(() => {
-      if (refreshInFlight.current === operation) refreshInFlight.current = null;
-    });
+    void operation.then(
+      () => { if (refreshInFlight.current === operation) refreshInFlight.current = null; },
+      (error) => {
+        console.warn("[auth] Background refresh failed:", error);
+        if (refreshInFlight.current === operation) refreshInFlight.current = null;
+      },
+    );
     return operation;
   }, []);
 
@@ -302,8 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let active = true;
     const initialAuthRevision = authRevision.current;
-    supabase.auth
-      .getSession()
+    withStartupTimeout(supabase.auth.getSession(), 12000, "auth_session_restore_timeout")
       .then(async ({ data, error }) => {
         if (error) throw error;
         if (!active || authRevision.current !== initialAuthRevision) return;
