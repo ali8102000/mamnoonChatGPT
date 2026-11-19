@@ -1217,9 +1217,9 @@ export default function RequestDetail() {
             showsUserLocation={request.type !== "taxi"}
             showsCompass
             toolbarEnabled={false}
-            scrollEnabled={false}
-            zoomEnabled={false}
-            rotateEnabled={false}
+            scrollEnabled
+            zoomEnabled
+            rotateEnabled
           >
             {roadRoutePoints.length > 1 && (
               <Polyline coordinates={roadRoutePoints} strokeColor="#2563EB" strokeWidth={6} />
