@@ -13,6 +13,8 @@
 
 `MAPS_GOOGLE_TEXT_SEARCH_ENABLED=true`
 
+لن تُستخدم نتائج Google إلا عندما تكون الخريطة المعروضة Google Maps فعلاً؛ عند التحول إلى Leaflet/OpenStreetMap يبقى البحث من OpenStreetMap فقط. كما لا تُخزّن أسماء أو عناوين أو إحداثيات نتائج Google في قاعدة ممنون.
+
 ويحتاج أيضاً إلى السر الموجود مسبقاً:
 
 `GOOGLE_MAPS_API_KEY`
