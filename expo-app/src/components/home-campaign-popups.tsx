@@ -40,7 +40,7 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
     setItems(active);
     if (userId && active.length) {
       const { data: own } = await (supabase as any).from("app_campaign_responses")
-        .select("campaign_id,option_id").eq("user_id", userId).in("campaign_id", active.map((item) => item.id));
+        .select("campaign_id,option_id").eq("user_id", userId).in("campaign_id", active.map((item: Campaign) => item.id));
       const ownMap: Record<string, string> = {};
       for (const row of own ?? []) ownMap[row.campaign_id] = row.option_id;
       setAnswered(ownMap);
