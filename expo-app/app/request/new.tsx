@@ -244,6 +244,7 @@ export default function NewRequest() {
   const activeGovernorate = getMobileGovernorate(activeGovernorateKey);
   const [governoratePickerVisible, setGovernoratePickerVisible] = useState(false);
   const outsideGovernoratePromptShownRef = useRef(false);
+  const nearbySelectionRef = useRef(0);
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
@@ -859,6 +860,27 @@ export default function NewRequest() {
       moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
       setPlaceQuery("");
       setPlaceSuggestions([]);
+
+      // Nearby landmarks are fetched after the native pin has already moved.
+      const nearbyRequest = ++nearbySelectionRef.current;
+      const selectedGovernorate = item.governorateKey ?? activeGovernorateKey;
+      if (selectedGovernorate) {
+        void callMamnoonMapsApi<{ landmarks?: Array<{ name: string; distanceMeters: number }> }>({
+          action: "nearby",
+          center: { lat: point.lat, lng: point.lng },
+          governorateKey: selectedGovernorate,
+        }).then((result) => {
+          if (nearbyRequest !== nearbySelectionRef.current) return;
+          const labels = (result.landmarks ?? []).map((landmark) => {
+            const distance = Number(landmark.distanceMeters);
+            return `${landmark.name} (${distance >= 1000 ? `${(distance / 1000).toFixed(1)} كم` : `${Math.round(distance)} م`})`;
+          });
+          if (!labels.length) return;
+          const detailedLabel = `${label} · قريب من ${labels.join("، ")}`;
+          if (mapMode === "pickup") setPickup(detailedLabel);
+          else setDestination(detailedLabel);
+        }).catch(() => {});
+      }
     } catch (error) {
       Alert.alert("تعذر تحديد المكان", error instanceof Error ? error.message : "حاول اختيار اقتراح آخر.");
     } finally {
