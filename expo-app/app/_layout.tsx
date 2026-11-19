@@ -30,25 +30,28 @@ Notifications.setNotificationHandler({
   handleNotification: async () => {
     // Read the persisted preference before deciding foreground sound; the
     // in-memory default is enabled until SecureStore finishes loading.
-    const preferences = await loadNotificationPreferences();
-    return {
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: preferences.soundEnabled,
-      shouldSetBadge: true,
-    };
+    try {
+      const preferences = await loadNotificationPreferences();
+      return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: preferences.soundEnabled, shouldSetBadge: true };
+    } catch (error) {
+      console.warn("[notifications] Preference load failed; using defaults:", error);
+      return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: true };
+    }
   },
 });
 
 async function configureAndroidNotificationChannels() {
   if (Platform.OS !== "android") return;
   const common = { importance: Notifications.AndroidImportance.MAX, lightColor: "#D4AF37", enableLights: true };
-  await Promise.all([
+  const results = await Promise.allSettled([
     Notifications.setNotificationChannelAsync("mamnoon_sound_vibrate", { ...common, name: "ممنون - صوت واهتزاز", sound: "default", enableVibrate: true, vibrationPattern: [0, 250, 180, 250, 180, 350] }),
     Notifications.setNotificationChannelAsync("mamnoon_sound_only", { ...common, name: "ممنون - صوت فقط", sound: "default", enableVibrate: false, vibrationPattern: [] }),
     Notifications.setNotificationChannelAsync("mamnoon_vibrate_only", { ...common, name: "ممنون - اهتزاز فقط", sound: null, enableVibrate: true, vibrationPattern: [0, 250, 180, 250, 180, 350] }),
     Notifications.setNotificationChannelAsync("mamnoon_silent", { ...common, name: "ممنون - صامت", sound: null, enableVibrate: false, vibrationPattern: [] }),
   ]);
+  results.forEach((result, index) => {
+    if (result.status === "rejected") console.warn("[notifications] Channel setup failed:", index, result.reason);
+  });
 }
 
 function PushNotificationSetup() {
@@ -111,18 +114,23 @@ function PushNotificationSetup() {
     }
     async function openRequestFromResponse(response: Notifications.NotificationResponse | null) {
       if (!response) return;
-      const responseId = response.notification.request.identifier;
-      if (handledResponseId.current === responseId) return;
-      const data = response.notification.request.content.data as { request_id?: unknown; type?: unknown };
-      handledResponseId.current = responseId;
-      if (typeof data?.request_id === "string" && response.actionIdentifier === "accept") {
-        const { error } = await supabase.rpc("accept_service_request", { _request_id: data.request_id });
-        if (error) Alert.alert("تعذّر قبول الطلب", error.message || "قد يكون العرض انتهى أو قبله مزوّد آخر.");
-        else router.push({ pathname: "/request/[id]", params: { id: data.request_id } });
-      } else if (typeof data?.request_id === "string") router.push({ pathname: "/request/[id]", params: { id: data.request_id } });
-      else if (data?.type === "taxi_high_demand") router.push("/subscriptions" as any);
-      else if (data?.type === "subscription_granted" || data?.type === "company_announcement") router.push("/home");
-      else router.push("/profile");
+      try {
+        const responseId = response.notification.request.identifier;
+        if (handledResponseId.current === responseId) return;
+        const data = response.notification.request.content.data as { request_id?: unknown; type?: unknown };
+        handledResponseId.current = responseId;
+        if (typeof data?.request_id === "string" && response.actionIdentifier === "accept") {
+          const { error } = await supabase.rpc("accept_service_request", { _request_id: data.request_id });
+          if (error) Alert.alert("تعذّر قبول الطلب", error.message || "قد يكون العرض انتهى أو قبله مزوّد آخر.");
+          else router.push({ pathname: "/request/[id]", params: { id: data.request_id } });
+        } else if (typeof data?.request_id === "string") router.push({ pathname: "/request/[id]", params: { id: data.request_id } });
+        else if (data?.type === "taxi_high_demand") router.push("/subscriptions" as any);
+        else if (data?.type === "subscription_granted" || data?.type === "company_announcement") router.push("/home");
+        else router.push("/profile");
+      } catch (error) {
+        console.warn("[notifications] Response handling failed:", error);
+        Alert.alert("تعذّر فتح الإشعار", "افتح التطبيق وانتقل إلى الطلب من قائمة الطلبات.");
+      }
     }
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(openRequestFromResponse);
     void Notifications.getLastNotificationResponseAsync().then((response) => { if (active) openRequestFromResponse(response); }).catch((error) => console.warn("[notifications] Could not read notification response:", error));
@@ -167,10 +175,14 @@ function ApplicationBackdrop() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [fontsLoaded] = useFonts({ Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black });
-  if (!fontsLoaded) return null;
-  (Text as any).defaultProps = { ...(Text as any).defaultProps, style: [{ fontFamily: "Tajawal_400Regular" }, (Text as any).defaultProps?.style] };
-  (TextInput as any).defaultProps = { ...(TextInput as any).defaultProps, style: [{ fontFamily: "Tajawal_400Regular" }, (TextInput as any).defaultProps?.style] };
+  const [fontsLoaded, fontError] = useFonts({ Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold, Tajawal_800ExtraBold, Tajawal_900Black });
+  if (!fontsLoaded && !fontError) return null;
+  if (fontsLoaded) {
+    (Text as any).defaultProps = { ...(Text as any).defaultProps, style: [{ fontFamily: "Tajawal_400Regular" }, (Text as any).defaultProps?.style] };
+    (TextInput as any).defaultProps = { ...(TextInput as any).defaultProps, style: [{ fontFamily: "Tajawal_400Regular" }, (TextInput as any).defaultProps?.style] };
+  } else {
+    console.warn("[startup] Tajawal font loading failed; continuing with system fonts:", fontError);
+  }
   return (
     <ThemePreferenceProvider>
       <AuthProvider>
