@@ -176,7 +176,7 @@ async function reverse(point:Point) {
   const p=(await response.json() as any).features?.[0]?.properties??{};
   return {address:[p.name,p.street,p.district,p.city,p.state,p.country].filter(Boolean).join("، ")};
 }
-async function autocomplete(admin:any,input:string,key:string,requestedCenter?:Point) {
+async function autocomplete(admin:any,input:string,key:string,requestedCenter?:Point,mapProvider?:string) {
   const governorate=governorates.find(g=>g[0]===key);
   const bounds=boundsFor(key);
   if(!governorate||!bounds) return json({error:"اختر المحافظة أولاً حتى تظهر اقتراحاتها فقط."},400);
@@ -264,7 +264,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // Google Places is an optional second index for Iraqi POIs that may be missing from OSM.
   // Keep it explicitly opt-in because Text Search is a billable Google Maps Platform request.
   let googleSuggestions:any[]=[];
-  if(Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")==="true" && q.length>=3 && initialSuggestions.length<10) {
+  if(mapProvider==="google" && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")==="true" && q.length>=3 && initialSuggestions.length<10) {
     const googleKey=Deno.env.get("GOOGLE_MAPS_API_KEY");
     if(googleKey) {
       try {
@@ -273,7 +273,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
           headers:{"Content-Type":"application/json","X-Goog-Api-Key":googleKey,
             "X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.primaryTypeDisplayName,places.types"},
           body:JSON.stringify({
-            textQuery:q,languageCode:"ar",regionCode:"IQ",pageSize:20,rankPreference:"RELEVANCE",
+            textQuery:`${q}، ${governorate[1]}، العراق`,languageCode:"ar",regionCode:"IQ",pageSize:20,rankPreference:"RELEVANCE",
             locationBias:{circle:{center:{latitude:searchCenter.lat,longitude:searchCenter.lng},radius:25000}}
           }),
           signal:AbortSignal.timeout(4500)
@@ -283,7 +283,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
           googleSuggestions=(result.places??[]).flatMap((place:any)=>{
             const point={lat:Number(place.location?.latitude),lng:Number(place.location?.longitude)};
             const name=String(place.displayName?.text??"").trim();
-            if(!place.id||!name||!validPoint(point)||!isInGovernorate(point,key)) return [];
+            if(!place.id||!name||!validPoint(point)) return [];
             const category=String(place.primaryTypeDisplayName?.text??place.primaryType??"").trim();
             return [{id:String(place.id),text:name,
               address:String(place.formattedAddress??name),coords:point,category,source:"google_places"}];
@@ -334,7 +334,7 @@ Deno.serve(async (req:Request)=>{
     if(action==="autocomplete") {
       if(typeof body.input!=="string"||body.input.trim().length<2||body.input.length>160||
         typeof body.governorateKey!=="string") return json({error:"بيانات البحث غير صحيحة."},400);
-      return await autocomplete(admin,body.input,body.governorateKey,body.center);
+      return await autocomplete(admin,body.input,body.governorateKey,body.center,body.mapProvider);
     }
     if(action==="details") {
       if(typeof body.placeId!=="string"||body.placeId.length>320||!/^(db:)?[A-Za-z0-9_-]+$/.test(body.placeId))
