@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
+import boundaries from "./iraq-governorate-boundaries.json" with { type: "json" };
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,9 +11,140 @@ const corsHeaders = {
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: corsHeaders });
 type Category = "economy" | "premium" | "luxury";
 type Point = { lat: number; lng: number };
+const names: Record<string,string> = {
+  baghdad:"Baghdad",basra:"Al-Basrah",nineveh:"Ninawa",erbil:"Erbil",
+  sulaymaniyah:"Al-Sulaimaniyah",duhok:"Dohuk",kirkuk:"Kirkuk",najaf:"An-Najaf",
+  karbala:"Karbala",babil:"Babil",anbar:"Al-Anbar",diyala:"Diyala",
+  saladin:"Salah al-Din",wasit:"Wasit",dhiqar:"Dhi Qar",maysan:"Maysan",
+  muthanna:"Al-Muthanna",qadisiyah:"Al-Qadisiyah",
+};
+const governorates = [
+  ["baghdad","بغداد",33.3152,44.3661],["basra","البصرة",30.5085,47.7804],
+  ["nineveh","نينوى",36.34,43.13],["erbil","أربيل",36.1911,44.0092],
+  ["sulaymaniyah","السليمانية",35.5613,45.4306],["duhok","دهوك",36.8669,42.9503],
+  ["kirkuk","كركوك",35.4681,44.3922],["najaf","النجف",32.0259,44.3462],
+  ["karbala","كربلاء",32.616,44.0249],["babil","بابل",32.4637,44.4196],
+  ["anbar","الأنبار",33.4206,43.3058],["diyala","ديالى",33.7502,44.6066],
+  ["saladin","صلاح الدين",34.6,43.68],["wasit","واسط",32.5128,45.8182],
+  ["dhiqar","ذي قار",31.0439,46.2573],["maysan","ميسان",31.8356,47.1449],
+  ["muthanna","المثنى",31.3099,45.2803],["qadisiyah","القادسية",31.9929,44.925],
+] as const;
 function validPoint(p: any): p is Point {
   return p && Number.isFinite(p.lat) && Number.isFinite(p.lng) &&
     p.lat >= -90 && p.lat <= 90 && p.lng >= -180 && p.lng <= 180;
+}
+function inRing(point: Point, ring: number[][]) {
+  let hit=false;
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const a=ring[i],b=ring[j]; if(!a||!b) continue;
+    if(a[1]>point.lat!==b[1]>point.lat &&
+      point.lng<((b[0]-a[0])*(point.lat-a[1]))/(b[1]-a[1])+a[0]) hit=!hit;
+  }
+  return hit;
+}
+function featureFor(key:string) {
+  const shape=names[key];
+  return (boundaries as any).features.find((f:any)=>f.properties?.shapeName===shape);
+}
+function isInGovernorate(point:Point,key:string) {
+  const feature=featureFor(key); if(!feature) return false;
+  const rings=feature.geometry.coordinates;
+  return !!rings[0] && inRing(point,rings[0]) && !rings.slice(1).some((ring:number[][])=>inRing(point,ring));
+}
+
+function governorateKeyFor(point: Point): string | null {
+  return governorates.find((item) => isInGovernorate(point, item[0]))?.[0] ?? null;
+}
+
+function decodeGooglePolyline(encoded:string):Point[] {
+  const points:Point[]=[]; let index=0,lat=0,lng=0;
+  while(index<encoded.length) {
+    let result=0,shift=0,byte=0;
+    do { byte=encoded.charCodeAt(index++)-63; result|=(byte&0x1f)<<shift; shift+=5; } while(byte>=0x20&&index<encoded.length);
+    lat+=(result&1)?~(result>>1):(result>>1);
+    result=0;shift=0;
+    do { byte=encoded.charCodeAt(index++)-63; result|=(byte&0x1f)<<shift; shift+=5; } while(byte>=0x20&&index<encoded.length);
+    lng+=(result&1)?~(result>>1):(result>>1);
+    points.push({lat:lat/1e5,lng:lng/1e5});
+  }
+  return points;
+}
+async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
+  const osrmBase=Deno.env.get("OSRM_ROUTING_URL")?.trim().replace(/\/+$/,"")||"";
+  const cacheScope=osrmBase?new URL(osrmBase).host:"google-routes";
+  const cacheInput=["mamnoon-driving-route-v1",cacheScope,from.lat.toFixed(6),from.lng.toFixed(6),to.lat.toFixed(6),to.lng.toFixed(6)].join("|");
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(cacheInput));
+  const routeKey=Array.from(new Uint8Array(digest)).map((b)=>b.toString(16).padStart(2,"0")).join("");
+  const now=new Date().toISOString();
+  const {data:cached,error:cacheReadError}=await admin.from("route_distance_cache")
+    .select("distance_meters,duration_seconds,route_source")
+    .eq("route_key",routeKey).gt("expires_at",now).maybeSingle();
+  if(!includeGeometry&&!cacheReadError&&cached&&Number(cached.distance_meters)>0&&Number(cached.duration_seconds)>0) {
+    return {distanceKm:Number(cached.distance_meters)/1000,durationMin:Number(cached.duration_seconds)/60,
+      routeSource:String(cached.route_source),cacheHit:true};
+  }
+  if(cacheReadError) console.warn("[route] cache read unavailable",cacheReadError.code||"unknown");
+
+  let routed:{distanceKm:number;durationMin:number;routeSource:string;routePoints?:Point[]}|null=null;
+  if(osrmBase) {
+    try {
+      const url=new URL(osrmBase+"/route/v1/driving/"+from.lng+","+from.lat+";"+to.lng+","+to.lat);
+      url.searchParams.set("overview",includeGeometry?"full":"false");
+      url.searchParams.set("geometries","geojson");
+      url.searchParams.set("alternatives","false");
+      url.searchParams.set("steps","false");
+      const response=await fetch(url,{headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000)});
+      if(!response.ok) throw new Error("OSRM HTTP "+response.status);
+      const result=await response.json() as any;
+      const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distance)&&r.distance>0&&Number.isFinite(r.duration)&&r.duration>0);
+      if(result.code!=="Ok"||!routes.length) throw new Error("OSRM returned no valid driving route");
+      const selected=routes.reduce((a:any,b:any)=>b.distance<a.distance?b:a);
+      routed={distanceKm:selected.distance/1000,durationMin:selected.duration/60,routeSource:"osrm",
+        ...(includeGeometry&&Array.isArray(selected.geometry?.coordinates)?{routePoints:selected.geometry.coordinates.map((p:number[])=>({lat:Number(p[1]),lng:Number(p[0])})).filter((p:Point)=>validPoint(p))}:{})};
+      if(includeGeometry&&(routed.routePoints?.length??0)<2) routed=null;
+    } catch(error) {
+      console.warn("[route] configured OSRM unavailable; trying Google Routes",error instanceof Error?error.message:"unknown");
+    }
+  }
+
+  if(!routed) {
+    const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
+    if(!key) throw new Error("تعذّر حساب مسافة الطريق الفعلية حالياً. أعد المحاولة لاحقاً.");
+    const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
+        "X-Goog-FieldMask":includeGeometry?"routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline":"routes.distanceMeters,routes.duration"},
+      body:JSON.stringify({
+        origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
+        destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
+        travelMode:"DRIVE",routingPreference:"TRAFFIC_UNAWARE",computeAlternativeRoutes:false,
+        languageCode:"ar",units:"METRIC"
+      }),
+      signal:AbortSignal.timeout(9000)
+    });
+    if(!response.ok) throw new Error("تعذّر حساب مسافة الطريق الفعلية من خدمة الخرائط. أعد المحاولة.");
+    const result=await response.json() as any;
+    const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distanceMeters)&&r.distanceMeters>0&&
+      typeof r.duration==="string"&&/^\d+(\.\d+)?s$/.test(r.duration)&&parseFloat(r.duration)>0);
+    if(!routes.length) throw new Error("لم يتم العثور على طريق سيارة صالح بين النقطتين.");
+    const selected=routes.reduce((a:any,b:any)=>b.distanceMeters<a.distanceMeters?b:a);
+    routed={distanceKm:selected.distanceMeters/1000,durationMin:parseFloat(selected.duration)/60,routeSource:"google_routes",
+      ...(includeGeometry&&typeof selected.polyline?.encodedPolyline==="string"?{routePoints:decodeGooglePolyline(selected.polyline.encodedPolyline)}:{})};
+  }
+
+  if(!Number.isFinite(routed.distanceKm)||routed.distanceKm<=0||
+     !Number.isFinite(routed.durationMin)||routed.durationMin<=0) {
+    throw new Error("خدمة الطرق أعادت مسافة أو مدة غير صالحة. أعد المحاولة.");
+  }
+  if(includeGeometry&&(routed.routePoints?.length??0)<2) {
+    throw new Error("تعذّر الحصول على شكل الطريق من خدمة الخرائط. أعد المحاولة.");
+  }
+  const {error:cacheWriteError}=await admin.from("route_distance_cache").upsert({
+    route_key:routeKey,distance_meters:routed.distanceKm*1000,duration_seconds:routed.durationMin*60,
+    route_source:routed.routeSource,expires_at:new Date(Date.now()+24*60*60*1000).toISOString()
+  },{onConflict:"route_key"});
+  if(cacheWriteError) console.warn("[route] cache write unavailable",cacheWriteError.code||"unknown");
+  return {...routed,cacheHit:false};
 }
 function fare(
   category: Category,
@@ -74,24 +206,23 @@ Deno.serve(async (req) => {
   const suppliedDestinationKey = typeof body.destinationGovernorateKey === "string"
     ? body.destinationGovernorateKey
     : null;
-  // Use the same polygon-validated route service as the map UI. Never trust
-  // client-supplied governorate names for intercity pricing.
-  const routeResponse = await fetch(`${url.replace(/\/+$/, "")}/functions/v1/maps-proxy`, {
-    method: "POST",
-    headers: { Authorization: auth, apikey: anon, "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "route", from: body.from, to: body.to }),
-    signal: AbortSignal.timeout(15000),
-  });
-  const routeData = await routeResponse.json().catch(() => null) as any;
-  if (!routeResponse.ok || !routeData) {
-    const status = routeResponse.status >= 400 && routeResponse.status < 500 ? routeResponse.status : 503;
-    return json({ error: routeData?.error || "تعذّر التحقق من مسار الرحلة داخل العراق", code: "ROUTE_VALIDATION_FAILED" }, status);
+  // Validate both coordinates against the exact same Iraq governorate polygons
+  // used by maps-proxy, then use the same route cache/provider directly. This
+  // removes a second Edge Function hop and duplicate auth validation.
+  const fromGovernorate = governorateKeyFor(body.from);
+  const toGovernorate = governorateKeyFor(body.to);
+  if (!fromGovernorate || !toGovernorate) {
+    return json({ error: "يجب أن تكون نقطتا الانطلاق والوجهة داخل حدود العراق", code: "ROUTE_VALIDATION_FAILED" }, 400);
   }
-  const fromGovernorate = typeof routeData.fromGovernorateKey === "string" ? routeData.fromGovernorateKey : "";
-  const toGovernorate = typeof routeData.toGovernorateKey === "string" ? routeData.toGovernorateKey : "";
-  const isIntercity = routeData.isIntercity === true;
-  if (!fromGovernorate || !toGovernorate || typeof routeData.isIntercity !== "boolean" ||
-      !Number.isFinite(Number(routeData.distanceKm)) || Number(routeData.distanceKm) <= 0 ||
+  const isIntercity = fromGovernorate !== toGovernorate;
+  let routeData: any;
+  try {
+    routeData = await route(body.from, body.to, admin);
+  } catch (error) {
+    console.error("[auto-taxi-pricing] driving route unavailable", error instanceof Error ? error.message : "unknown");
+    return json({ error: error instanceof Error ? error.message : "تعذّر حساب مسار الطريق", code: "ROUTE_VALIDATION_FAILED" }, 503);
+  }
+  if (!Number.isFinite(Number(routeData.distanceKm)) || Number(routeData.distanceKm) <= 0 ||
       !Number.isFinite(Number(routeData.durationMin)) || Number(routeData.durationMin) <= 0) {
     return json({ error: "أعادت خدمة الخرائط بيانات مسار غير صالحة", code: "ROUTE_VALIDATION_FAILED" }, 503);
   }
