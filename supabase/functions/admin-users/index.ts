@@ -167,6 +167,16 @@ Deno.serve(async (req: Request) => {
       if (scope.scopeType !== "global") throw new Error("global_scope_required");
       return scope;
     };
+    const requireGlobalAnalytics = async () => {
+      await requireGlobalStaffScope();
+      try {
+        await requirePermission("analytics.view");
+      } catch {
+        // Preserve the previous platform-wide analytics access for legacy
+        // global staff roles, but never extend it to governorate assignments.
+        requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
+      }
+    };
 
     if (body.action === "customer_activity_stats") {
       await requirePermission("analytics.view");
@@ -323,7 +333,7 @@ Deno.serve(async (req: Request) => {
     if (body.action === "dashboard_stats") {
       // This payload aggregates platform-wide user, request, and revenue totals.
       // Keep it global-only; regional staff must not infer other governorates.
-      await requirePermission("analytics.view");
+      await requireGlobalAnalytics();
       const [
         usersRes, driversRes, workersRes, activeDriversRes, activeWorkersRes,
         reqAllRes, reqActiveRes, reqDoneRes, reqCancelledRes, todayTxRes, monthTxRes, yearTxRes,
@@ -739,7 +749,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "monitoring") {
       // Monitoring includes platform-wide reports, blocks, and support tickets.
-      await requirePermission("analytics.view");
+      await requireGlobalAnalytics();
       const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
         admin.from("profiles").select("id", { count: "exact", head: true }),
         admin.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
