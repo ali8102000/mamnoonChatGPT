@@ -20,6 +20,7 @@ const roles = ["admin", "support", "finance", "moderator"];
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  let actionForLog = "unknown";
   try {
     const url = required("SUPABASE_URL"), anon = getSupabasePublishableKey();
     const service = getSupabaseSecretKey();
@@ -37,6 +38,7 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(url, service, { global: { fetch: createSupabaseFetch(service) }, auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
+    actionForLog = body.action;
     const requireAdmin = async () => {
       const { data, error } = await caller.rpc("has_admin_access", { p_user_id: auth.user.id });
       if (error || data !== true) throw new Error("admin_required");
@@ -127,11 +129,18 @@ Deno.serve(async (req: Request) => {
     }
     return json({ error: "unknown_action" }, 400);
   } catch (error) {
-    const message = String(error);
-    if (message.includes("missing_")) return json({ error: "server_configuration_incomplete" }, 503);
-    if (message.includes("permission_required:")) return json({ error: "permission_required" }, 403);
-    if (message.includes("super_admin_required")) return json({ error: "super_admin_required" }, 403);
-    if (message.includes("admin_required")) return json({ error: "admin_required" }, 403);
-    return json({ error: "internal_error" }, 500);
+    const message = error instanceof Error ? error.message : String(error);
+    const requestId = crypto.randomUUID();
+    console.error("admin-governance request failed", {
+      requestId,
+      action: actionForLog,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      errorMessage: message.slice(0, 500),
+    });
+    if (message.includes("missing_")) return json({ error: "server_configuration_incomplete", request_id: requestId }, 503);
+    if (message.includes("permission_required:")) return json({ error: "permission_required", request_id: requestId }, 403);
+    if (message.includes("super_admin_required")) return json({ error: "super_admin_required", request_id: requestId }, 403);
+    if (message.includes("admin_required")) return json({ error: "admin_required", request_id: requestId }, 403);
+    return json({ error: "internal_error", request_id: requestId }, 500);
   }
 });

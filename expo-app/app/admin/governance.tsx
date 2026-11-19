@@ -25,7 +25,12 @@ export default function AdminGovernanceScreen() {
   const [selected, setSelected] = useState<UserRow | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [logs, setLogs] = useState<AuditRow[]>([]);
+  const [canReadAudit, setCanReadAudit] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState("");
   const [staffActivity, setStaffActivity] = useState<StaffActivityRow[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -56,14 +61,11 @@ export default function AdminGovernanceScreen() {
       if (staffRead.error || staffRead.data !== true) { setAllowed(false); return; }
       setAllowed(true);
       setSuperAdmin(root.data === true);
-      if (root.data === true) {
-        const activityResult = await invoke({ action: "staff_activity", limit: 100 });
-        setStaffActivity(activityResult.rows ?? []);
-      } else setStaffActivity([]);
-      if (auditRead.data === true) {
-        const r = await invoke({ action: "audit_logs", limit: 100 });
-        setLogs(r.logs ?? []);
-      } else setLogs([]);
+      // Staff activity is an optional audit view. Do not let its Edge Function
+      // failure block the employee hierarchy, rank changes, or permission panel.
+      if (root.data !== true) setStaffActivity([]);
+      setCanReadAudit(auditRead.data === true);
+      if (auditRead.data !== true) setLogs([]);
     } catch (e: any) {
       setError(String(e?.message || "تعذر تحميل الصلاحيات والسجل"));
     } finally { setLoading(false); }
@@ -75,6 +77,44 @@ export default function AdminGovernanceScreen() {
       else void load();
     }
   }, [authLoading, user, load]);
+
+  useEffect(() => {
+    if (tab !== "activity" || !superAdmin) return;
+    let active = true;
+    setActivityLoading(true);
+    setActivityError("");
+    // Read the audit stream through the authenticated client. RLS grants
+    // this view to the owner; do not make the entire admin page depend on an
+    // optional Edge Function response for this secondary tab.
+    void (supabase as any).from("staff_activity_log")
+      .select("id,activity,created_at,staff_user_id,actor_user_id,message_id")
+      .order("created_at", { ascending: false })
+      .limit(100)
+      .then(({ data, error: queryError }: { data: StaffActivityRow[] | null; error: any }) => {
+        if (!active) return;
+        if (queryError) throw queryError;
+        setStaffActivity(data ?? []);
+      })
+      .catch((e: any) => {
+        if (active) setActivityError(String(e?.message || "تعذر تحميل نشاط الموظفين"));
+      })
+      .finally(() => { if (active) setActivityLoading(false); });
+    return () => { active = false; };
+  }, [tab, superAdmin, invoke]);
+
+  useEffect(() => {
+    if (tab !== "audit" || !canReadAudit) return;
+    let active = true;
+    setAuditLoading(true);
+    setAuditError("");
+    void invoke({ action: "audit_logs", limit: 100 })
+      .then((result) => { if (active) setLogs(result.logs ?? []); })
+      .catch((e: any) => {
+        if (active) setAuditError(String(e?.message || "تعذر تحميل سجل العمليات"));
+      })
+      .finally(() => { if (active) setAuditLoading(false); });
+    return () => { active = false; };
+  }, [tab, canReadAudit, invoke]);
 
   const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
   const search = async () => {
@@ -146,6 +186,8 @@ export default function AdminGovernanceScreen() {
       </>}
       {tab==="activity" && superAdmin && <>
         <Text style={s.title}>سجل نشاط الموظفين</Text>
+        {!!activityError && <View style={s.error}><Text style={s.errorText}>{activityError}</Text></View>}
+        {activityLoading && <ActivityIndicator color={palette.brand} />}
         <Text style={s.muted}>آخر {staffActivity.length.toLocaleString("ar-IQ")} نشاط مسجل لخدمة العملاء وتغييرات الرتب، للمدير الأعلى فقط.</Text>
         {staffActivity.map((entry) => <View key={entry.id} style={s.card}>
           <Text style={s.cardTitle}>{({ view_support_message: "شاهد رسالة دعم", reply_support_message: "رد على رسالة دعم", rank_changed: "تغيير رتبة", department_changed: "تغيير قسم", staff_activated: "تفعيل موظف", staff_deactivated: "إيقاف موظف" } as Record<string, string>)[entry.activity] ?? entry.activity}</Text>
@@ -157,6 +199,8 @@ export default function AdminGovernanceScreen() {
       </>}
       {tab==="audit" && <>
         <Text style={s.title}>سجل العمليات الإدارية</Text>
+        {!!auditError && <View style={s.error}><Text style={s.errorText}>{auditError}</Text></View>}
+        {auditLoading && <ActivityIndicator color={palette.brand} />}
         <Text style={s.muted}>آخر {logs.length} عملية مسجلة. السجل للقراءة فقط من التطبيق.</Text>
         {logs.map((log,i)=><View key={String(log.id||i)} style={s.card}>
           <Text style={s.cardTitle}>{log.action||log.table_name||"عملية إدارية"}</Text>
