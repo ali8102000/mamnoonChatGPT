@@ -296,7 +296,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "dashboard_stats") {
-      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
+      // This payload aggregates platform-wide user, request, and revenue totals.
+      // Keep it global-only; regional staff must not infer other governorates.\n      await requirePermission("analytics.view");
       const [
         usersRes, driversRes, workersRes, activeDriversRes, activeWorkersRes,
         reqAllRes, reqActiveRes, reqDoneRes, reqCancelledRes, todayTxRes, monthTxRes, yearTxRes,
@@ -691,7 +692,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "monitoring") {
-      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
+      // Monitoring includes platform-wide reports, blocks, and support tickets.
+      await requirePermission("analytics.view");
       const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
         admin.from("profiles").select("id", { count: "exact", head: true }),
         admin.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
