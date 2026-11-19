@@ -112,5 +112,8 @@ export function governorateOf(p: { lat: number; lng: number }): Governorate {
 
 export function getGovernorate(key: string | null | undefined) {
   const normalized = key?.trim().toLowerCase();
+  if (normalized === "halabja" || normalized === "حلبجة" || normalized === "حلبجه") {
+    return GOVERNORATES.find((g) => g.key === "sulaymaniyah") ?? null;
+  }
   return GOVERNORATES.find((g) => g.key === normalized || g.name === normalized) ?? null;
 }
