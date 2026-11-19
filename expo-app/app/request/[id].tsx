@@ -308,7 +308,7 @@ export default function RequestDetail() {
           : "تعذر فتح تطبيق الملاحة. تأكد من اتصال الجهاز وحاول مرة أخرى.",
       );
     });
-  }, [request?.type, request?.pickup_lat, request?.pickup_lng]);
+  }, [request?.type, request?.pickup_lat, request?.pickup_lng, request?.dest_lat, request?.dest_lng, isCustomer]);
 
   const showTaxiNavigationOptions = useCallback(() => {
     Alert.alert(request?.type === "service" ? "اذهب إلى موقع العمل" : "اذهب إلى الزبون", "اختَر تطبيق الملاحة", [
@@ -856,7 +856,7 @@ export default function RequestDetail() {
   ]);
 
   useEffect(() => {
-    if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
+    if (!isCustomer || !request || request.status !== "accepted" ||
         !driverLocationFresh || !otherLocation || request.pickup_lat == null || request.pickup_lng == null) {
       setDriverEtaMinutes(null);
       lastEtaRequestRef.current = null;
@@ -1434,12 +1434,14 @@ export default function RequestDetail() {
               {request.type !== "taxi" && <Text style={styles.trackingHint}>
                 {isCustomer
                   ? request.provider_arrived_at
-                    ? "الفني وصل إلى موقع العمل"
-                    : providerRoutePoints.length > 1
-                      ? "الفني بالطريق إليك · موقعه يتحدث مباشرة"
-                      : driverLocationFresh
-                        ? "تم قبول الطلب · موقع الفني مباشر"
-                        : "بانتظار تحديث موقع الفني"
+                    ? "وصل مقدم الخدمة إلى الموقع"
+                    : driverEtaMinutes != null
+                      ? `مقدم الخدمة بالطريق إليك · الوصول المتوقع خلال ${driverEtaMinutes} دقيقة`
+                      : providerRoutePoints.length > 1
+                        ? "مقدم الخدمة بالطريق إليك · موقعه يتحدث مباشرة"
+                        : driverLocationFresh
+                          ? "تم قبول الطلب · موقع مقدم الخدمة مباشر"
+                          : "بانتظار تحديث موقع مقدم الخدمة"
                   : driverLocationFresh
                     ? "موقعك وموقع الزبون ظاهران مباشرة"
                     : "بانتظار تحديث موقع الزبون"}
