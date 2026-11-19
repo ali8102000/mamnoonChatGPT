@@ -1,10 +1,18 @@
-const required = [
-  "EXPO_PUBLIC_SUPABASE_URL",
-  "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-  "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY",
-];
+import publicBackend from "../../config/public-backend.json" with { type: "json" };
+
+const required = ["EXPO_PUBLIC_GOOGLE_MAPS_API_KEY"];
 
 const easProjectId = process.env.EAS_PROJECT_ID || process.env.EAS_BUILD_PROJECT_ID;
+const supabaseUrl = publicBackend.VITE_SUPABASE_URL.trim();
+const publishableKey = publicBackend.VITE_SUPABASE_PUBLISHABLE_KEY.trim();
+const staleEasUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
+const staleEasKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+if (staleEasUrl && staleEasUrl !== supabaseUrl) {
+  console.warn("Ignoring stale EAS Supabase URL; Android uses the verified shared backend config.");
+}
+if (staleEasKey && staleEasKey !== publishableKey) {
+  console.warn("Ignoring stale EAS Supabase publishable key; Android uses the verified shared backend config.");
+}
 const missing = required.filter((name) => !process.env[name]?.trim());
 if (!easProjectId?.trim()) missing.push("EAS_PROJECT_ID (or EAS_BUILD_PROJECT_ID)");
 if (missing.length) {
@@ -16,7 +24,7 @@ if (missing.length) {
 
 let supabaseHost;
 try {
-  const parsed = new URL(process.env.EXPO_PUBLIC_SUPABASE_URL);
+  const parsed = new URL(supabaseUrl);
   if (parsed.protocol !== "https:") throw new Error("protocol");
   supabaseHost = parsed.hostname;
 } catch {
@@ -26,18 +34,17 @@ try {
 
 // Log only the public hostname (never the URL path, query, or API keys) to
 // identify which EAS project/environment value reached the build.
-console.log(`Supabase URL host loaded from EAS production: ${supabaseHost}`);
+console.log(`Supabase URL host loaded from shared Mamnoon backend config: ${supabaseHost}`);
 
 // The mobile app must use the same Supabase project as the Mamnoon web app.
 const expectedSupabaseProjectRef = "enteiolvirenbhkyskgb";
 if (supabaseHost.split(".")[0] !== expectedSupabaseProjectRef) {
   console.error(
-    `قيمة Supabase التي وصلتنا من EAS تشير إلى المضيف "${supabaseHost}" بدلاً من مشروع ممنون الصحيح "${expectedSupabaseProjectRef}". راجع مشروع Expo المرتبط وبيئة Production والمتغيرات المكررة.`,
+    `إعداد Supabase المشترك يشير إلى المضيف "${supabaseHost}" بدلاً من مشروع ممنون الصحيح "${expectedSupabaseProjectRef}". راجع ملف config/public-backend.json.`,
   );
   process.exit(1);
 }
 
-const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.trim();
 if (process.env.MAMNOON_CI_CONFIG_ONLY === "true") {
   // CI uses a deliberately fake placeholder: validate the shape/project wiring
   // without sending that placeholder to the live Supabase Auth endpoint.
@@ -49,14 +56,14 @@ if (process.env.MAMNOON_CI_CONFIG_ONLY === "true") {
   if (!authSettingsResponse.ok) {
     const responseText = await authSettingsResponse.text();
     console.error(
-      `Supabase rejected the Production publishable key (HTTP ${authSettingsResponse.status}). Update EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY in EAS Production; response: ${responseText.slice(0, 240)}`,
+      `Supabase rejected the Production publishable key (HTTP ${authSettingsResponse.status}). Check config/public-backend.json publishable key; response: ${responseText.slice(0, 240)}`,
     );
     process.exit(1);
   }
   console.log("Supabase Production publishable key accepted by the project.");
 }
 
-if (process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
+if (publishableKey.startsWith("sb_secret_")) {
   console.error("لا يجوز وضع Supabase secret key داخل تطبيق الهاتف؛ استخدم Publishable key.");
   process.exit(1);
 }

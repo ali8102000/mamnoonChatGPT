@@ -12,7 +12,7 @@
 
 - Bun 1.4 أو أحدث
 - حساب Supabase للمشروع الصحيح
-- مفاتيح Google Maps وFirebase عند تفعيل ميزاتهما
+- مفتاح Google Maps عند تفعيل خدمات الخرائط
 - حساب Expo/EAS لبناء نسخة Android الإنتاجية
 
 ## تشغيل الويب محلياً
@@ -52,7 +52,7 @@ bun run build
 
 ## ترحيلات قاعدة البيانات
 
-بعد ضبط `LOVABLE_DB_MIGRATION_URL` في بيئة محلية آمنة، نفّذ:
+بعد ضبط `SUPABASE_DB_URL` (رابط اتصال PostgreSQL من مشروع Supabase الصحيح) في بيئة محلية آمنة، نفّذ:
 
 ```bash
 bun run db:migrate

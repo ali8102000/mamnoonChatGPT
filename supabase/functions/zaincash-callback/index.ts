@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 const b64url=(s:string)=>s.replace(/-/g,"+").replace(/_/g,"/").padEnd(Math.ceil(s.length/4)*4,"=");
 function decodePart(s:string){return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64url(s)),c=>c.charCodeAt(0))));}
@@ -26,13 +27,13 @@ Deno.serve(async(req:Request)=>{
   const u=new URL(req.url); const signedToken=u.searchParams.get("token"); let finalStatus="pending";
   if(!signedToken) throw new Error("missing_token");
   const apiKey=Deno.env.get("ZAINCASH_API_KEY"); const clientId=Deno.env.get("ZAINCASH_CLIENT_ID"); const clientSecret=Deno.env.get("ZAINCASH_CLIENT_SECRET");
-  const url=Deno.env.get("SUPABASE_URL"); const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url=Deno.env.get("SUPABASE_URL"); const serviceKey=getSupabaseSecretKey();
   const base=(Deno.env.get("ZAINCASH_BASE_URL")||"https://pg-api-uat.zaincash.iq").replace(/\/$/,"");
   if(!apiKey||!clientId||!clientSecret||!url||!serviceKey) throw new Error("configuration_incomplete");
   const claims=await verifyHs256(signedToken,apiKey);
   const data=claims.data||{}; const transactionId=data.transactionId; const reference=data.merchantReferenceId;
   if(typeof transactionId!=="string"||typeof reference!=="string") throw new Error("invalid_callback_claims");
-  const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const admin=createClient(url,serviceKey,{global:{fetch:createSupabaseFetch(serviceKey)},auth:{persistSession:false,autoRefreshToken:false}});
   const {data:payment,error}=await admin.from("payment_transactions").select("id,amount,currency,external_reference_id,status,gateway_transaction_id,metadata").eq("external_reference_id",reference).maybeSingle();
   if(error||!payment) throw new Error("payment_not_found");
   if(payment.status==="paid") finalStatus="success";

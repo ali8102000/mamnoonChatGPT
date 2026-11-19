@@ -120,7 +120,6 @@ type Section =
   | "coupons"
   | "wallet"
   | "stats"
-  | "governorateStats"
   | "map"
   | "notifications"
   | "regions"
@@ -142,7 +141,6 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "finance", "moderator"],
   },
   { key: "stats", label: "الإحصائيات", icon: Activity, roles: ["super_admin", "admin", "finance"] },
-  { key: "governorateStats", label: "إحصائيات المستخدمين حسب المحافظة", icon: MapPin, roles: ["super_admin", "admin"] },
   {
     key: "users",
     label: "المستخدمون",
@@ -202,8 +200,18 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
   { key: "visualBuilder", label: "محرر الواجهة والمحتوى", icon: Eye, roles: ["super_admin"] },
-  { key: "homeBanners", label: "بانرات المطاعم والفنادق والمتاجر", icon: ImagePlus, roles: ["super_admin"] },
+  { key: "homeBanners", label: "بانرات الصفحة الرئيسية", icon: ImagePlus, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
+];
+
+const NAV_GROUPS: { title: string; keys: Section[] }[] = [
+  { title: "الرئيسية", keys: ["overview"] },
+  { title: "الإحصائيات والمحافظات", keys: ["stats", "regions"] },
+  { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"] },
+  { title: "المالية والعروض", keys: ["subscriptions", "coupons", "wallet"] },
+  { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones"] },
+  { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "company", "visualBuilder", "homeBanners"] },
+  { title: "الموظفون والأمان", keys: ["roles", "staff", "audit"] },
 ];
 
 function AdminPage() {
@@ -312,24 +320,28 @@ function AdminPage() {
             <ScrollText className="h-4 w-4 shrink-0" />
             مساعد استيراد البيانات
           </Link>
-          <nav className="space-y-1">
-            {visibleItems.map((item) => (
-              <button
-                key={item.key}
-                onClick={() => {
-                  setSection(item.key);
-                  setSidebarOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                  section === item.key
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-muted-foreground hover:bg-surface-2"
-                }`}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
-              </button>
-            ))}
+          <nav className="space-y-4">
+            {NAV_GROUPS.map((group) => {
+              const items = group.keys.map((key) => visibleItems.find((item) => item.key === key)).filter(Boolean) as typeof visibleItems;
+              if (!items.length) return null;
+              return (
+                <section key={group.title} className="space-y-1">
+                  <h2 className="px-4 pb-1 text-[10px] font-black tracking-wide text-muted-foreground">{group.title}</h2>
+                  {items.map((item) => (
+                    <button
+                      key={item.key}
+                      onClick={() => { setSection(item.key); setSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                        section === item.key ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-surface-2"
+                      }`}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      {item.label}
+                    </button>
+                  ))}
+                </section>
+              );
+            })}
           </nav>
           <Link
             to="/"
@@ -357,6 +369,35 @@ function AdminPage() {
           {section === "overview" && (
             <>
               <OverviewSection />
+              <section className="mt-6 space-y-3" dir="rtl">
+                <div>
+                  <h2 className="text-lg font-black">شبكة أقسام الإدارة</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">اختصارات مرئية لكل قسم تسمح به صلاحيات حسابك.</p>
+                </div>
+                <div className="space-y-4">
+                  {NAV_GROUPS.filter((group) => group.keys.some((key) => key !== "overview" && visibleItems.some((item) => item.key === key))).map((group) => (
+                    <section key={group.title} className="space-y-2">
+                      <h3 className="text-xs font-black text-muted-foreground">{group.title}</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {group.keys.filter((key) => key !== "overview").map((key) => {
+                          const item = visibleItems.find((entry) => entry.key === key);
+                          if (!item) return null;
+                          const Icon = item.icon;
+                          return (
+                            <button key={item.key} onClick={() => setSection(item.key)}
+                              className="group min-h-24 glass rounded-2xl border border-border p-3 text-right transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                              <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                <Icon className="h-4 w-4" />
+                              </span>
+                              <span className="block text-xs sm:text-sm font-black leading-5">{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </section>
               {(staffRoles.includes("super_admin") || staffRoles.includes("admin")) && (
                 <section className="mt-6 space-y-3" dir="rtl">
                   <div>
@@ -381,8 +422,7 @@ function AdminPage() {
               )}
             </>
           )}
-          {section === "stats" && <StatsSection />}
-          {section === "governorateStats" && <GovernorateUserStatsSection />}
+          {section === "stats" && <StatsSection canViewGovernorates={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "users" && <UsersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "providers" && <ProvidersSection />}
           {section === "requests" && <RequestsSection />}
@@ -402,6 +442,7 @@ function AdminPage() {
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
           {section === "visualBuilder" && <AdminVisualBuilder />}
+          {section === "homeBanners" && <AdminHomeBanners />}
           {section === "audit" && <AuditSection />}
         </div>
       </main>
@@ -412,51 +453,39 @@ function AdminPage() {
 function OverviewSection() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const getStats = adminGetDashboardStats;
-  useEffect(() => {
-    (async () => {
-      try {
-        setStats(await getStats());
-      } catch (e) {
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setStats(await getStats());
+    } catch (e: any) {
+      setError(e?.message || "تعذّر تحميل مؤشرات لوحة الإدارة");
+    } finally {
+      setLoading(false);
+    }
   }, [getStats]);
-  if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
-  if (!stats) return <div className="text-sm text-muted-foreground">تعذّر تحميل البيانات</div>;
+  useEffect(() => { void load(); }, [load]);
+  if (loading && !stats) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
+  if (error && !stats) return <div role="alert" className="glass rounded-xl p-4 text-sm text-red-600">{error}<button onClick={() => void load()} className="mr-3 text-primary font-bold">إعادة المحاولة</button></div>;
+  if (!stats) return <div className="text-sm text-muted-foreground">لا توجد مؤشرات متاحة حالياً.</div>;
   return (
-    <div>
-      <h2 className="text-xl font-black mb-4">نظرة عامة</h2>
+    <div dir="rtl">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="text-xl font-black">نظرة عامة</h2>
+        <button onClick={() => void load()} disabled={loading} className="px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold disabled:opacity-50">{loading ? "جارٍ التحديث..." : "تحديث"}</button>
+      </div>
+      {error && <div role="status" className="mb-3 text-xs text-amber-700">{error} · الأرقام المعروضة هي آخر بيانات تم تحميلها</div>}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatCard icon={Users} label="المستخدمون" value={stats.totalUsers} />
         <StatCard icon={Car} label="السائقون" value={stats.totalDrivers} />
         <StatCard icon={Activity} label="الفنيون" value={stats.totalWorkers} />
         <StatCard icon={ListChecks} label="الطلبات" value={stats.totalRequests} />
-        <StatCard
-          icon={Activity}
-          label="طلبات نشطة"
-          value={stats.activeRequests}
-          accent="text-amber-500"
-        />
-        <StatCard
-          icon={ListChecks}
-          label="مكتملة"
-          value={stats.completedRequests}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={Wallet}
-          label="أرباح اليوم"
-          value={`${stats.dailyRevenue?.toLocaleString() ?? 0}`}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={Wallet}
-          label="أرباح الشهر"
-          value={`${stats.monthlyRevenue?.toLocaleString() ?? 0}`}
-          accent="text-emerald-600"
-        />
+        <StatCard icon={Activity} label="طلبات نشطة" value={stats.activeRequests} accent="text-amber-500" />
+        <StatCard icon={ListChecks} label="مكتملة" value={stats.completedRequests} accent="text-emerald-600" />
+        <StatCard icon={Wallet} label="أرباح اليوم" value={stats.dailyRevenue?.toLocaleString("ar-IQ") ?? 0} accent="text-emerald-600" />
+        <StatCard icon={Wallet} label="أرباح الشهر" value={stats.monthlyRevenue?.toLocaleString("ar-IQ") ?? 0} accent="text-emerald-600" />
       </div>
     </div>
   );
@@ -603,84 +632,79 @@ function GovernorateUserStatsSection() {
   );
 }
 
-function StatsSection() {
+function StatsSection({ canViewGovernorates = false }: { canViewGovernorates?: boolean }) {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const getStats = adminGetDashboardStats;
-  useEffect(() => {
-    (async () => {
-      try {
-        setStats(await getStats());
-      } catch (e) {
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setStats(await getStats());
+    } catch (e: any) {
+      setError(e?.message || "تعذّر تحميل إحصائيات المنصة");
+    } finally {
+      setLoading(false);
+    }
   }, [getStats]);
-  if (loading) return <Loader2 className="h-6 w-6 animate-spin mx-auto" />;
-  if (!stats) return <div className="text-sm text-muted-foreground">تعذّر تحميل البيانات</div>;
+  useEffect(() => { void load(); }, [load]);
+
   return (
-    <div>
-      <h2 className="text-xl font-black mb-4">الإحصائيات</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-        <StatCard icon={Users} label="إجمالي المستخدمين" value={stats.totalUsers} />
-        <StatCard icon={Car} label="إجمالي السائقين" value={stats.totalDrivers} />
-        <StatCard icon={Activity} label="إجمالي الفنيين" value={stats.totalWorkers} />
-        <StatCard
-          icon={Car}
-          label="سائقون عاملون"
-          value={stats.activeDrivers}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={Activity}
-          label="فنيون عاملون"
-          value={stats.activeWorkers}
-          accent="text-emerald-600"
-        />
-        <StatCard icon={ListChecks} label="إجمالي الطلبات" value={stats.totalRequests} />
-        <StatCard
-          icon={Activity}
-          label="طلبات نشطة"
-          value={stats.activeRequests}
-          accent="text-amber-500"
-        />
-        <StatCard
-          icon={ListChecks}
-          label="طلبات مكتملة"
-          value={stats.completedRequests}
-          accent="text-emerald-600"
-        />
-        <StatCard
-          icon={AlertCircle}
-          label="طلبات ملغاة"
-          value={stats.cancelledRequests}
-          accent="text-red-500"
-        />
+    <div dir="rtl" className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-black">الإحصائيات الشاملة</h2>
+          <p className="mt-1 text-xs text-muted-foreground">مركز واحد لمؤشرات المنصة والإيرادات وتوزيع الحسابات حسب المحافظة.</p>
+        </div>
+        <button onClick={() => void load()} disabled={loading} className="px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold disabled:opacity-50">
+          {loading ? "جارٍ التحديث..." : "تحديث الإحصائيات"}
+        </button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="glass rounded-2xl p-5">
-          <Wallet className="h-5 w-5 text-emerald-600 mb-2" />
-          <div className="text-2xl font-black text-emerald-600">
-            {stats.dailyRevenue?.toLocaleString() ?? 0} د.ع
-          </div>
-          <div className="text-xs text-muted-foreground font-bold">أرباح اليوم</div>
-        </div>
-        <div className="glass rounded-2xl p-5">
-          <Wallet className="h-5 w-5 text-amber-600 mb-2" />
-          <div className="text-2xl font-black text-amber-600">
-            {stats.monthlyRevenue?.toLocaleString() ?? 0} د.ع
-          </div>
-          <div className="text-xs text-muted-foreground font-bold">أرباح الشهر</div>
-        </div>
-        <div className="glass rounded-2xl p-5">
-          <Wallet className="h-5 w-5 text-primary mb-2" />
-          <div className="text-2xl font-black text-primary">
-            {stats.yearlyRevenue?.toLocaleString() ?? 0} د.ع
-          </div>
-          <div className="text-xs text-muted-foreground font-bold">أرباح السنة</div>
-        </div>
-      </div>
+      {loading && !stats ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : error ? (
+        <div role="alert" className="glass rounded-xl p-4 text-sm text-red-600">{error}</div>
+      ) : stats ? (
+        <>
+          <section className="glass rounded-2xl p-4">
+            <h3 className="font-black mb-3">مؤشرات المنصة</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+              <StatCard icon={Users} label="إجمالي المستخدمين" value={stats.totalUsers} />
+              <StatCard icon={Car} label="إجمالي السائقين" value={stats.totalDrivers} />
+              <StatCard icon={Activity} label="إجمالي الفنيين" value={stats.totalWorkers} />
+              <StatCard icon={Car} label="سائقون عاملون" value={stats.activeDrivers} accent="text-emerald-600" />
+              <StatCard icon={Activity} label="فنيون عاملون" value={stats.activeWorkers} accent="text-emerald-600" />
+              <StatCard icon={ListChecks} label="إجمالي الطلبات" value={stats.totalRequests} />
+              <StatCard icon={Activity} label="طلبات نشطة" value={stats.activeRequests} accent="text-amber-500" />
+              <StatCard icon={ListChecks} label="طلبات مكتملة" value={stats.completedRequests} accent="text-emerald-600" />
+              <StatCard icon={AlertCircle} label="طلبات ملغاة" value={stats.cancelledRequests} accent="text-red-500" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-2xl bg-surface-2 p-4">
+                <Wallet className="h-5 w-5 text-emerald-600 mb-2" />
+                <div className="text-2xl font-black text-emerald-600">{stats.dailyRevenue?.toLocaleString("ar-IQ") ?? 0} د.ع</div>
+                <div className="text-xs text-muted-foreground font-bold">إيرادات اليوم</div>
+              </div>
+              <div className="rounded-2xl bg-surface-2 p-4">
+                <Wallet className="h-5 w-5 text-amber-600 mb-2" />
+                <div className="text-2xl font-black text-amber-600">{stats.monthlyRevenue?.toLocaleString("ar-IQ") ?? 0} د.ع</div>
+                <div className="text-xs text-muted-foreground font-bold">إيرادات الشهر</div>
+              </div>
+              <div className="rounded-2xl bg-surface-2 p-4">
+                <Wallet className="h-5 w-5 text-primary mb-2" />
+                <div className="text-2xl font-black text-primary">{stats.yearlyRevenue?.toLocaleString("ar-IQ") ?? 0} د.ع</div>
+                <div className="text-xs text-muted-foreground font-bold">إيرادات السنة</div>
+              </div>
+            </div>
+          </section>
+          {canViewGovernorates && (
+            <section className="glass rounded-2xl p-4">
+              <GovernorateUserStatsSection />
+            </section>
+          )}
+        </>
+      ) : (
+        <div className="glass rounded-xl p-4 text-sm text-muted-foreground">لا توجد بيانات إحصائية متاحة حالياً.</div>
+      )}
     </div>
   );
 }
@@ -721,20 +745,20 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
   async function viewUser(userId: string) {
     try {
       setSelectedUser(await getUserDetail({ data: { user_id: userId } }));
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleBlock(userId: string, reason: string, expiresAt: string | null) {
     try {
       await blockUser({ data: { user_id: userId, reason, expires_at: expiresAt ?? undefined } });
       setBlockModal(null);
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleUnblock(userId: string) {
     try {
       await unblockUser({ data: { user_id: userId } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   return (
     <div>
@@ -1620,13 +1644,13 @@ function RequestsSection() {
     try {
       await cancelRequest({ data: { request_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleReopen(id: string) {
     try {
       await reopenRequest({ data: { request_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   const statusLabels: Record<string, string> = {
     pending: "بانتظار",
@@ -1767,7 +1791,7 @@ function ChatSection() {
     try {
       await deleteMessage({ data: { message_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   return (
     <div>
@@ -1907,7 +1931,7 @@ function FriendsSection() {
                         data: { user1_id: f.user_id, user2_id: f.friend_id },
                       });
                       load();
-                    } catch (e) {}
+                    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
                   }}
                   className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
                 >
@@ -1936,7 +1960,7 @@ function FriendsSection() {
                   try {
                     await deleteRequest({ data: { request_id: r.id } });
                     load();
-                  } catch (e) {}
+                  } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
                 }}
                 className="text-xs px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"
               >
@@ -1972,7 +1996,7 @@ function ReportsSection() {
     try {
       await resolveReport({ data: { report_id: id, status: status as any, note } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   return (
     <div>
@@ -2150,7 +2174,7 @@ function CouponsSection() {
     try {
       await deleteCoupon({ data: { coupon_id: id } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleDistribute(id: string) {
     if (distributionTarget === "single" && !singleUserId.trim()) {
@@ -2426,7 +2450,7 @@ function WalletSection() {
       await adjustWallet({ data: { user_id: userId, amount, type, note } });
       setAdjustModal(false);
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   return (
     <div>
@@ -2725,13 +2749,13 @@ function RolesSection() {
       await grantRole({ data: { target_user_id: userId, role } });
       setRoleModal(null);
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleRevoke(userId: string, role: string) {
     try {
       await revokeRole({ data: { target_user_id: userId, role } });
       load();
-    } catch (e) {}
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
   }
   async function handleAssign(userId: string, rank: string, department: string, displayTitle: string) {
     try {
@@ -2915,6 +2939,7 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }:
 function StaffHierarchySection() {
   const [staff, setStaff] = useState<any[]>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
+  const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [grants, setGrants] = useState<any[]>([]);
   const [delegations, setDelegations] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -2981,6 +3006,11 @@ function StaffHierarchySection() {
       if (delegationResult.error) throw delegationResult.error;
       setGrants(grantResult.data ?? []);
       setDelegations(delegationResult.data ?? []);
+      const { data: partnerRows, error: partnerError } = await (supabase as any).from("partner_applications")
+        .select("id,user_id,partner_type,business_name,contact_name,phone,email,governorate_key,city,address,description,mall_unit_type,status,admin_note,created_at")
+        .order("created_at", { ascending: false }).limit(100);
+      if (partnerError) console.warn("[partner-applications] admin list unavailable:", partnerError.message);
+      else setPartnerApplications(partnerRows ?? []);
     } catch (e: any) { toast.error(e?.message || "تعذر تحميل الإدارة"); }
     finally { setLoading(false); }
   }, [listStaff]);
@@ -3007,6 +3037,19 @@ function StaffHierarchySection() {
       <h2 className="text-xl font-black mb-1">إدارة الموظفين والصلاحيات</h2>
       <p className="text-xs text-muted-foreground">الصلاحيات تُفحص من قاعدة البيانات حسب رتبتك ونطاقك، وكل تغيير يُسجل بالتدقيق.</p>
     </div>
+    <section className="glass rounded-2xl p-4 space-y-3 border border-amber-500/30">
+      <div className="flex items-center justify-between gap-2"><div><h3 className="font-black">طلبات الشراكة</h3><p className="text-[10px] text-muted-foreground mt-1">طلبات الفنادق والمطاعم والمحلات والمولات الواردة من إعدادات الحساب.</p></div><span className="rounded-full bg-amber-500/10 text-amber-700 px-2 py-1 text-xs font-bold">{partnerApplications.filter((item:any)=>item.status==="pending").length} معلّق</span></div>
+      {partnerApplications.length===0 ? <EmptyState text="لا توجد طلبات شراكة حالياً"/> : <div className="space-y-2">
+        {partnerApplications.map((item:any)=><div key={item.id} className="rounded-xl border border-border p-3 space-y-2">
+          <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="font-black text-sm">{item.business_name}</div><div className="text-[10px] text-muted-foreground mt-1">{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {item.city} · {item.governorate_key}</div></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${item.status==="approved"?"bg-emerald-500/10 text-emerald-700":item.status==="suspended"?"bg-slate-500/10 text-slate-700":item.status==="rejected"?"bg-red-500/10 text-red-700":"bg-amber-500/10 text-amber-700"}`}>{item.status==="approved"?"موافق عليه":item.status==="suspended"?"موقوف":item.status==="rejected"?"مرفوض":"قيد المراجعة"}</span></div>
+          <div className="text-xs leading-6 text-muted-foreground">المسؤول: {item.contact_name} · الهاتف: <b dir="ltr">{item.phone}</b>{item.email? " · "+item.email:""}<br/>العنوان: {item.address}</div>
+          {item.description&&<p className="text-xs text-muted-foreground">{item.description}</p>}
+          {item.status==="pending"&&<div className="flex gap-2"><button disabled={busy} onClick={()=>void runAction(async()=>{const {data:{user}}=await supabase.auth.getUser();const {error}=await (supabase as any).from("partner_applications").update({status:"approved",reviewed_by:user?.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString(),admin_note:null}).eq("id",item.id);if(error)throw error;},"تمت الموافقة وإنشاء ملف الشريك")} className="flex-1 rounded-lg bg-emerald-600 text-white py-2 text-xs font-bold disabled:opacity-50">موافقة وتفعيل</button><button disabled={busy} onClick={()=>void runAction(async()=>{const {data:{user}}=await supabase.auth.getUser();const {error}=await (supabase as any).from("partner_applications").update({status:"rejected",reviewed_by:user?.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString(),admin_note:"يرجى مراجعة البيانات وإعادة التقديم"}).eq("id",item.id);if(error)throw error;},"تم رفض طلب الشراكة")} className="flex-1 rounded-lg bg-red-600 text-white py-2 text-xs font-bold disabled:opacity-50">رفض الطلب</button></div>}
+          {item.status==="approved"&&<button disabled={busy} onClick={()=>void runAction(async()=>{const {data:{user}}=await supabase.auth.getUser();const {error}=await (supabase as any).from("partner_applications").update({status:"suspended",reviewed_by:user?.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString(),admin_note:"تم إيقاف الشراكة من الإدارة"}).eq("id",item.id);if(error)throw error;},"تم إيقاف الشريك وإخفاء منشأته")} className="w-full rounded-lg border border-red-500/30 text-red-700 py-2 text-xs font-bold disabled:opacity-50">إيقاف الشريك وإخفاء منشأته</button>}
+          {item.status==="suspended"&&<button disabled={busy} onClick={()=>void runAction(async()=>{const {data:{user}}=await supabase.auth.getUser();const {error}=await (supabase as any).from("partner_applications").update({status:"approved",reviewed_by:user?.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString(),admin_note:null}).eq("id",item.id);if(error)throw error;},"تمت إعادة تفعيل الشريك")} className="w-full rounded-lg bg-emerald-600 text-white py-2 text-xs font-bold disabled:opacity-50">إعادة تفعيل الشريك</button>}
+        </div>)}
+      </div>}
+    </section>
     <section className="glass rounded-2xl p-4 space-y-3">
       <h3 className="font-black">إضافة موظف جديد</h3>
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث بالاسم أو رقم الهاتف أو البريد" className="w-full rounded-xl border bg-background px-3 py-2 text-sm" />
@@ -3128,7 +3171,7 @@ function AuditSection() {
       }
     })();
   }, [listLogs]);
-  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e) {} })(); }, [listStaffActivity]);
+  useEffect(() => { void (async () => { try { setStaffActivity(await listStaffActivity({ data: { limit: 100 } })); } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } })(); }, [listStaffActivity]);
   const staffActionLabels: Record<string, string> = { view_support_message: "شاهد رسالة دعم", reply_support_message: "رد على رسالة دعم", rank_changed: "تغيير رتبة", department_changed: "تغيير قسم", staff_activated: "تفعيل موظف", staff_deactivated: "إيقاف موظف" };
   const actionLabels: Record<string, string> = {
     grant_role: "منح صلاحية",

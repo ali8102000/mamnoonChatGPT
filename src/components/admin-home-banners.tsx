@@ -57,7 +57,7 @@ export default function AdminHomeBanners() {
     {message && <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm">{message}</div>}
     <section className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-2">
       <label className="text-sm font-bold">القسم<select className={input+" mt-2"} value={category} onChange={e=>setCategory(e.target.value as any)}><option value="restaurant">المطاعم</option><option value="hotel">الفنادق</option><option value="store">المتاجر</option></select></label>
-      <label className="text-sm font-bold">سرعة التبديل بالثواني<input className={input+" mt-2"} type="number" min="2" max="30" value={speed} onChange={e=>setSpeed(Math.max(2,Math.min(30,Number(e.target.value)||5)))}/></label>
+      <label className="text-sm font-bold">مدة عرض الصورة بالثواني (1–60)<input className={input+" mt-2"} type="number" min="1" max="60" value={speed} onChange={e=>setSpeed(Math.max(1,Math.min(60,Number(e.target.value)||5)))}/></label>
       <label className="text-sm font-bold">ترتيب العرض<input className={input+" mt-2"} type="number" value={order} onChange={e=>setOrder(Number(e.target.value)||0)}/></label>
       <label className="text-sm font-bold">شارة اختيارية<input className={input+" mt-2"} value={badge} onChange={e=>setBadge(e.target.value)} placeholder="مثلاً: قريباً"/></label>
       <label className="md:col-span-2 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border p-4"><ImagePlus className="h-6 w-6"/><span className="text-sm">{file?.name || "اختيار صورة البانر (حتى 8 ميغابايت)"}</span><input type="file" accept="image/*" className="hidden" onChange={e=>setFile(e.target.files?.[0] ?? null)}/></label>

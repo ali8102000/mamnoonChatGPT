@@ -98,6 +98,7 @@ type RequestRecord = {
   attachment_path?: string | null;
   created_at?: string;
   searching_started_at?: string | null;
+  provider_arrived_at?: string | null;
   cancellation_reason?: string | null;
   distance_km?: number | null;
   taxi_urgency_enabled?: boolean;
@@ -220,6 +221,8 @@ export default function RequestDetail() {
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
   const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
+  const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
+  const roadRouteSequenceRef = useRef(0);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
   const [freshnessClock, setFreshnessClock] = useState(Date.now());
   const lastEtaRequestRef = useRef<{ latitude: number; longitude: number; requestedAt: number } | null>(null);
@@ -731,6 +734,44 @@ export default function RequestDetail() {
   }, [id, isActive, currentUserId]);
 
   useEffect(() => {
+    if (!isActive || !myLocation || !otherLocation || !driverLocationFresh) {
+      roadRouteSequenceRef.current += 1;
+      setRoadRoutePoints([]);
+      return;
+    }
+    // Both views draw the same real road route. After a taxi passenger boards,
+    // route from the provider's live GPS to the saved trip destination instead.
+    const origin = isCustomer ? otherLocation : myLocation;
+    const tripStarted = request?.type === "taxi" && request.status === "in_progress" &&
+      request.dest_lat != null && request.dest_lng != null;
+    const destination = tripStarted
+      ? { latitude: Number(request!.dest_lat), longitude: Number(request!.dest_lng) }
+      : isCustomer ? myLocation : otherLocation;
+    const sequence = ++roadRouteSequenceRef.current;
+    const timeout = setTimeout(() => {
+      void callMamnoonMapsApi<{ routePoints?: { lat: number; lng: number }[] }>({
+        action: "route",
+        from: { lat: origin.latitude, lng: origin.longitude },
+        to: { lat: destination.latitude, lng: destination.longitude },
+        includeGeometry: true,
+      }).then((route) => {
+        if (sequence !== roadRouteSequenceRef.current) return;
+        const points = (route.routePoints ?? []).filter((point) =>
+          Number.isFinite(point.lat) && Number.isFinite(point.lng) &&
+          Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180,
+        );
+        setRoadRoutePoints(points.length > 1 ? points.map((point) => ({ latitude: point.lat, longitude: point.lng })) : []);
+      }).catch((error) => {
+        if (sequence === roadRouteSequenceRef.current) {
+          setRoadRoutePoints([]);
+          console.warn("[Mamnoon] road route unavailable:", error instanceof Error ? error.message : "unknown");
+        }
+      });
+    }, 350);
+    return () => clearTimeout(timeout);
+  }, [isActive, isCustomer, request?.type, request?.status, request?.dest_lat, request?.dest_lng, myLocation?.latitude, myLocation?.longitude, otherLocation?.latitude, otherLocation?.longitude, driverLocationFresh]);
+
+  useEffect(() => {
     if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
         !driverLocationFresh || !otherLocation || request.pickup_lat == null || request.pickup_lng == null) {
       setDriverEtaMinutes(null);
@@ -901,6 +942,19 @@ export default function RequestDetail() {
       Alert.alert("تعذر رفض العرض", error.message);
       return;
     }
+    await loadRequest();
+  }
+
+  async function markProviderArrived() {
+    if (!request || !isProvider || request.status !== "accepted") return;
+    const { error } = await (supabase as any).rpc("mark_service_request_arrived", {
+      _request_id: id,
+    });
+    if (error) {
+      Alert.alert("تعذر تأكيد الوصول", error.message);
+      return;
+    }
+    Alert.alert("تم تأكيد الوصول", "تم تسجيل وصولك إلى موقع الزبون.");
     await loadRequest();
   }
 
@@ -1241,6 +1295,13 @@ export default function RequestDetail() {
                 }}
                 showsUserLocation={request.type !== "taxi"}
               >
+                {roadRoutePoints.length > 1 && (
+                  <Polyline
+                    coordinates={roadRoutePoints}
+                    strokeColor="#2563EB"
+                    strokeWidth={6}
+                  />
+                )}
                 {providerRoutePoints.length > 1 && (
                   <Polyline
                     coordinates={providerRoutePoints}
@@ -1278,10 +1339,18 @@ export default function RequestDetail() {
               <Text style={styles.actionBtnText}>قبول الطلب</Text>
             </TouchableOpacity>
           )}
-          {request.status === "accepted" && isProvider && (
-            <TouchableOpacity style={styles.actionBtn} onPress={startRide}>
-              <Text style={styles.actionBtnText}>{request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
-            </TouchableOpacity>
+          {request.status === "accepted" && isProvider &&
+            (request.type !== "taxi" || request.vehicle_category === "large") &&
+            !request.provider_arrived_at && (
+              <TouchableOpacity style={styles.actionBtn} onPress={markProviderArrived}>
+                <Text style={styles.actionBtnText}>{request.vehicle_category === "large" ? "وصلت للزبون" : "وصلت للموقع"}</Text>
+              </TouchableOpacity>
+          )}
+          {request.status === "accepted" && isProvider &&
+            ((request.type === "taxi" && request.vehicle_category !== "large") || !!request.provider_arrived_at) && (
+              <TouchableOpacity style={styles.actionBtn} onPress={startRide}>
+                <Text style={styles.actionBtnText}>{request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
+              </TouchableOpacity>
           )}
           {isActive && isProvider && (
             <TouchableOpacity
@@ -1294,7 +1363,8 @@ export default function RequestDetail() {
           {(isCustomer || (isProvider && request.type !== "taxi")) &&
             request.status !== "cancelled" &&
             request.status !== "completed" &&
-            request.status !== "in_progress" && (
+            request.status !== "in_progress" &&
+            !request.provider_arrived_at && (
               <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: palette.danger }]}
                 onPress={cancelRequest}

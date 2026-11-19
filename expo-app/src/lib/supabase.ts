@@ -6,11 +6,11 @@ import "react-native-url-polyfill/auto";
 
 // These are public client values only. Never place a Supabase service-role key here.
 const configuredUrl =
-  process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() ||
-  String(Constants.expoConfig?.extra?.supabaseUrl ?? "").trim();
+  String(Constants.expoConfig?.extra?.supabaseUrl ?? "").trim() ||
+  process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
 const configuredPublishableKey =
-  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-  String(Constants.expoConfig?.extra?.supabasePublishableKey ?? "").trim();
+  String(Constants.expoConfig?.extra?.supabasePublishableKey ?? "").trim() ||
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
 
 export const isSupabaseConfigured = Boolean(
   configuredUrl && configuredPublishableKey,
@@ -22,13 +22,22 @@ export const isSupabaseConfigured = Boolean(
 const supabaseUrl = configuredUrl || "https://missing-config.invalid";
 const supabaseAnonKey = configuredPublishableKey || "missing-publishable-key";
 
+// Expo SecureStore rejects empty keys and characters outside [A-Za-z0-9._-].
+// Use a stable, explicit Supabase auth storage key below and defensively
+// normalize any key supplied by auth-js before it reaches the native module.
+function secureStorageKey(key: string): string {
+  const normalized = String(key ?? "").replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 200);
+  return normalized || "mamnoon-auth-session-v1";
+}
+
 const storageAdapter =
   Platform.OS === "web"
     ? undefined
     : {
-        getItem: (key: string) => SecureStore.getItemAsync(key),
-        setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-        removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+        getItem: (key: string) => SecureStore.getItemAsync(secureStorageKey(key)),
+        setItem: (key: string, value: string) =>
+          SecureStore.setItemAsync(secureStorageKey(key), value),
+        removeItem: (key: string) => SecureStore.deleteItemAsync(secureStorageKey(key)),
       };
 
 function createSupabaseFetch(apiKey: string): typeof fetch {
@@ -52,6 +61,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: { fetch: createSupabaseFetch(supabaseAnonKey) },
   auth: {
     storage: storageAdapter,
+    storageKey: "mamnoon-auth-session-v1",
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

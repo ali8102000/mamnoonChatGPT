@@ -16,6 +16,7 @@ on:
       - "supabase/functions/import-assist/**"
       - ".github/workflows/admin-subscriptions-edge.yml"
   push:
+    branches: [main]
     paths:
       - "supabase/functions/admin-subscriptions/**"
       - "supabase/functions/admin-users/**"
@@ -32,6 +33,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: mamnoon-edge-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deno-check:

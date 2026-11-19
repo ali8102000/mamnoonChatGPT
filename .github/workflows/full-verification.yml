@@ -2,12 +2,13 @@ name: Mamnoon full verification
 
 on:
   pull_request:
-  push:
-    branches:
-      - chore/decouple-lovable-backend
 
 permissions:
   contents: read
+
+concurrency:
+  group: mamnoon-full-verification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   web:

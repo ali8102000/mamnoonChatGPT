@@ -1,7 +1,7 @@
 # جرد وظائف لوحة إدارة ممنون — خطة نقل الإدارة إلى Supabase
 
 تاريخ الجرد: 17 نوفمبر 2026
-الفرع: `chore/decouple-lovable-backend`
+الفرع: `feature/admin-control-center-unified-analytics`
 Supabase project ref: `enteiolvirenbhkyskgb`
 
 ## النتيجة التنفيذية

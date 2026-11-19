@@ -3,8 +3,7 @@ name: Mamnoon Android standalone preview APK
 on:
   push:
     branches:
-      - feat/admin-governance-rebased-20261117
-      - feat/mamnoon-3-role-switch-settings
+      - main
   pull_request:
     branches:
       - main
@@ -14,8 +13,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: mamnoon-android-preview-${{ github.sha }}
-  cancel-in-progress: false
+  group: mamnoon-android-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-preview-apk:

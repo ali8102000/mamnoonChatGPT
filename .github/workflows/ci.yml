@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - chore/decouple-lovable-backend
   pull_request:
     branches:
       - main
@@ -25,18 +24,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-      - name: Inventory remaining backend dependencies
-        run: |
-          echo "=== Lovable references ==="
-          git grep -n -i -E 'lovable|connector-gateway\\.lovable' -- . ':!docs/**' || true
-          echo "=== Service-role client references ==="
-          git grep -n 'supabaseAdmin' -- . ':!docs/**' || true
-          echo "=== Map-place search helper references ==="
-          git grep -n 'searchMapPlaceSuggestions' -- . ':!docs/**' || true
-          echo "=== TanStack server function declarations ==="
-          git grep -n 'createServerFn' -- src || true
-          echo "=== Vercel-only map helper references ==="
-          git grep -n 'map-place-search.server' -- src || true
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:

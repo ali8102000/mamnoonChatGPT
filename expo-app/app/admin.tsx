@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity, TextInput, Image } from "react-native";
 import { router } from "expo-router";
 import { Linking } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
 import { ActionButton } from "@/components/ui";
+import * as ImagePicker from "expo-image-picker";
 
 type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number; totalWorkers: number; activeDrivers: number; activeWorkers: number; activeRequests: number; completedRequests: number; cancelledRequests: number; dailyRevenue: number; monthlyRevenue: number; yearlyRevenue: number };
 type PricingRule = {
@@ -43,11 +44,15 @@ export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [companyName, setCompanyName] = useState("شركة ممنون");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
+  const [companyLogoAsset, setCompanyLogoAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [savingCompanyName, setSavingCompanyName] = useState(false);
   const [supportInbox, setSupportInbox] = useState<any[]>([]);
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [reports, setReports] = useState<any[]>([]);
   const [changeRequests, setChangeRequests] = useState<any[]>([]);
+  const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [rejectingChangeId, setRejectingChangeId] = useState<string | null>(null);
   const [changeRejectReason, setChangeRejectReason] = useState("");
   const [reviewingChangeId, setReviewingChangeId] = useState<string | null>(null);
@@ -90,8 +95,10 @@ export default function AdminScreen() {
       setLoading(false);
       return;
     }
-    const { data: company } = await (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle();
+    const { data: company } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle();
     if (company?.company_name) setCompanyName(company.company_name);
+    setCompanyLogoUrl(company?.company_logo_url ?? null);
+    setWelcomeMessage(company?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد.");
     const now = new Date();
     const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -180,24 +187,53 @@ export default function AdminScreen() {
       }));
       setChangeRequests(enriched);
     }
+    const { data: partnerRows, error: partnerError } = await (supabase as any).from("partner_applications")
+      .select("id,user_id,partner_type,business_name,contact_name,phone,email,governorate_key,city,address,description,status,created_at")
+      .order("created_at", { ascending: false }).limit(200);
+    if (partnerError) console.warn("[admin] partner applications unavailable:", partnerError.message);
+    setPartnerApplications(partnerRows ?? []);
     setLoading(false);
   }, [user?.id, reportFilter]);
 
   useEffect(() => {
     load();
   }, [load]);
+  const chooseCompanyLogo = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.85 });
+    if (!result.canceled && result.assets[0]) setCompanyLogoAsset(result.assets[0]);
+  };
+
   const saveCompanyName = async () => {
     const value = companyName.trim();
+    const welcome = welcomeMessage.trim();
     if (value.length < 2 || value.length > 80) { Alert.alert("تنبيه", "اكتب اسماً من حرفين إلى 80 حرفاً"); return; }
+    if (welcome.length < 2 || welcome.length > 180) { Alert.alert("تنبيه", "رسالة الترحيب لازم تكون بين حرفين و180 حرفاً"); return; }
     setSavingCompanyName(true);
     const { data: allowed, error: permissionError } = await supabase.rpc("is_super_admin", { p_user_id: user?.id });
     if (permissionError || allowed !== true) {
-      Alert.alert("غير مصرّح", "تغيير الاسم متاح لصاحب الحساب فقط");
+      Alert.alert("غير مصرّح", "تغيير هوية الشركة متاح لصاحب الحساب فقط");
       setSavingCompanyName(false);
       return;
     }
-    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, updated_by: user?.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
-    Alert.alert(error ? "تعذر الحفظ" : "تم الحفظ", error ? error.message : "تم تحديث اسم الشركة");
+    let nextLogoUrl = companyLogoUrl;
+    if (companyLogoAsset) {
+      if (!companyLogoAsset.mimeType?.startsWith("image/") || (companyLogoAsset.fileSize != null && companyLogoAsset.fileSize > 8 * 1024 * 1024)) {
+        Alert.alert("صورة غير مناسبة", "اختار صورة شعار حجمها 8 ميغابايت أو أقل"); setSavingCompanyName(false); return;
+      }
+      const path = `company-branding/logo-${Date.now()}.jpg`;
+      const response = await fetch(companyLogoAsset.uri);
+      if (!response.ok) { Alert.alert("تعذر قراءة الصورة"); setSavingCompanyName(false); return; }
+      const bytes = await response.arrayBuffer();
+      const { error: uploadError } = await supabase.storage.from("app-visuals").upload(path, bytes, { upsert: false, contentType: companyLogoAsset.mimeType || "image/jpeg" });
+      if (uploadError) { Alert.alert("تعذر رفع الشعار", uploadError.message); setSavingCompanyName(false); return; }
+      nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
+    }
+    const { error } = await (supabase as any).from("company_settings").upsert({
+      id: 1, company_name: value, company_logo_url: nextLogoUrl, welcome_message: welcome,
+      updated_by: user?.id, updated_at: new Date().toISOString(),
+    }, { onConflict: "id" });
+    if (!error) { setCompanyLogoUrl(nextLogoUrl); setCompanyLogoAsset(null); }
+    Alert.alert(error ? "تعذر الحفظ" : "تم الحفظ", error ? error.message : "تم تحديث اسم الشركة والشعار ورسالة الترحيب");
     setSavingCompanyName(false);
   };
 
@@ -243,6 +279,15 @@ export default function AdminScreen() {
     await load();
     setRefreshing(false);
   };
+  const reviewPartnerApplication = async (applicationId: string, status: "approved" | "rejected" | "suspended") => {
+    const { error } = await (supabase as any).from("partner_applications").update({
+      status, reviewed_by: user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      admin_note: status === "rejected" ? "يرجى مراجعة البيانات وإعادة التقديم" : status === "suspended" ? "تم إيقاف الشراكة من الإدارة" : null,
+    }).eq("id", applicationId);
+    if (error) { Alert.alert("تعذر تحديث طلب الشراكة", error.message); return; }
+    Alert.alert("تم", status === "approved" ? "تمت الموافقة على الشراكة." : status === "suspended" ? "تم إيقاف الشريك وإخفاء منشأته." : "تم رفض طلب الشراكة.");
+    await load();
+  };
 
   if (loading)
     return (
@@ -259,35 +304,66 @@ export default function AdminScreen() {
     >
       <Text style={styles.title}>لوحة التحكم</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المراقبة والإحصائيات والمحافظات</Text>
         <ActionButton size="default" onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/live-map" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الخريطة المباشرة</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المالية والاشتراكات</Text>
         <ActionButton size="default" onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/analytics")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إحصائيات المحافظات</Text></ActionButton>
+        <ActionButton size="default" onPress={() => router.push("/admin/analytics")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الإحصائيات الشاملة</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>محتوى التطبيق والبانرات</Text>
+        <ActionButton size="default" onPress={() => router.push("/admin/home-banners" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة بانرات الصفحة الرئيسية</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المستخدمون والخدمات والطلبات</Text>
         <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة مقدمي الخدمة</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/driver-tiers" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>معايير رتب السائقين</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/dispatch-zones" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>نطاقات توزيع الطلبات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/requests")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الطلبات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/finance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المحفظة والكوبونات</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>الموظفون والصلاحيات</Text>
         <ActionButton size="default" onPress={() => router.push("/admin/governance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الصلاحيات وسجل العمليات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/staff")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الموظفين</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/staff-hierarchy")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الهيكل الوظيفي والترقيات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></ActionButton>
+        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>التواصل والإشعارات</Text>
         <ActionButton size="default" onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></ActionButton>
         <ActionButton size="default" onPress={() => router.push("/admin/regions" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>التحكم بالمحافظات والخدمات</Text></ActionButton>
                 <ActionButton size="default" onPress={() => router.push("/admin/import")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>مساعد استيراد البيانات</Text></ActionButton>
       </View>
       <View style={styles.companyCard}>
         <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
-        <Text style={styles.companyHint}>تغيير الاسم الظاهر للمنصة</Text>
+        <Text style={styles.companyHint}>الاسم والشعار ورسالة الترحيب التي تظهر داخل التطبيق</Text>
         <TextInput value={companyName} onChangeText={setCompanyName} maxLength={80} placeholder="اسم الشركة" style={styles.companyInput} textAlign="right" />
+        {companyLogoAsset ? <Image source={{ uri: companyLogoAsset.uri }} style={{ width: 76, height: 76, borderRadius: 16, alignSelf: "flex-end" }} resizeMode="contain" /> : companyLogoUrl ? <Image source={{ uri: companyLogoUrl }} style={{ width: 76, height: 76, borderRadius: 16, alignSelf: "flex-end" }} resizeMode="contain" /> : null}
+        <ActionButton onPress={() => void chooseCompanyLogo()} size="default" style={styles.companySave}><Text style={styles.companySaveText}>اختيار شعار ممنون</Text></ActionButton>
+        <TextInput value={welcomeMessage} onChangeText={setWelcomeMessage} maxLength={180} multiline placeholder="رسالة الترحيب" style={[styles.companyInput, { minHeight: 76, textAlignVertical: "top" }]} textAlign="right" />
         <ActionButton onPress={saveCompanyName} disabled={savingCompanyName} size="default" style={styles.companySave}>
-          <Text style={styles.companySaveText}>{savingCompanyName ? "جاري الحفظ..." : "حفظ اسم الشركة"}</Text>
+          <Text style={styles.companySaveText}>{savingCompanyName ? "جاري الحفظ..." : "حفظ إعدادات الشركة"}</Text>
         </ActionButton>
       </View>
       <ActionButton size="default" onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></ActionButton>
       <ActionButton size="default" onPress={() => router.push("/admin/chats")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة الدردشة الخاصة والرسائل</Text></ActionButton>
       <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة السائقين والفنيين ومراجعة المستمسكات</Text></ActionButton>
+      <View style={styles.inboxHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sectionTitle}>طلبات الشراكة الجديدة</Text>
+          <Text style={styles.inboxHint}>{partnerApplications.length} طلب شراكة مسجل</Text>
+        </View>
+        <ActionButton size="sm" onPress={onRefresh}><Text style={styles.inboxOpenText}>تحديث</Text></ActionButton>
+      </View>
+      {partnerApplications.length === 0 ? <Text style={styles.emptyHint}>ماكو طلبات شراكة حالياً</Text> : partnerApplications.map((item) => (
+        <View key={item.id} style={styles.reportCard}>
+          <Text style={styles.inboxName}>{item.business_name}</Text>
+          <Text style={styles.reportMeta}>{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {item.city} · {item.governorate_key}</Text>
+          <Text style={styles.reportMeta}>المسؤول: {item.contact_name} · الهاتف: {item.phone}</Text>
+          <Text style={styles.reportDetails}>{item.address}</Text>
+          {!!item.description && <Text style={styles.reportDetails}>{item.description}</Text>}
+          <Text style={styles.reportMeta}>الحالة: {item.status==="approved"?"معتمد":item.status==="suspended"?"موقوف":item.status==="rejected"?"مرفوض":"قيد المراجعة"}</Text>
+          {item.status==="pending" ? <View style={{ flexDirection:"row",gap:8,marginTop:8 }}>
+            <ActionButton size="sm" onPress={()=>void reviewPartnerApplication(item.id,"approved")} style={{flex:1,backgroundColor:"#15803d"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>موافقة وتفعيل</Text></ActionButton>
+            <ActionButton size="sm" onPress={()=>Alert.alert("رفض طلب الشراكة","تأكد من رفض الطلب؟",[{text:"رجوع",style:"cancel"},{text:"رفض",style:"destructive",onPress:()=>void reviewPartnerApplication(item.id,"rejected")}])} style={{flex:1,backgroundColor:"#b91c1c"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>رفض الطلب</Text></ActionButton>
+          </View> : item.status==="approved" ? <ActionButton size="sm" onPress={()=>Alert.alert("إيقاف الشريك","سيتم إخفاء المنشأة وإيقاف لوحة الشريك. متأكد؟",[{text:"رجوع",style:"cancel"},{text:"إيقاف",style:"destructive",onPress:()=>void reviewPartnerApplication(item.id,"suspended")}])} style={{backgroundColor:"#b91c1c"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>إيقاف الشريك وإخفاء المنشأة</Text></ActionButton> : item.status==="suspended" ? <ActionButton size="sm" onPress={()=>void reviewPartnerApplication(item.id,"approved")} style={{backgroundColor:"#15803d"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>إعادة تفعيل الشريك</Text></ActionButton> : null}
+        </View>
+      ))}
       <View style={styles.inboxHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>رسائل المستخدمين إلى الإدارة</Text>

@@ -1,4 +1,4 @@
--- lovable-cron-fallback-reviewed: Time-based 60-second driver offers require persisted transitions; wake only on enqueue and unschedule after drain, 5-second delivery tolerance.
+-- taxi-dispatch-scheduler-reviewed: Time-based 60-second driver offers require persisted transitions; wake only on enqueue and unschedule after drain, 5-second delivery tolerance.
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE TABLE public.taxi_dispatch_queue (
  request_id uuid PRIMARY KEY REFERENCES public.service_requests(id) ON DELETE CASCADE,

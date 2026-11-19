@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -19,9 +19,69 @@ function AccountSettingsPage() {
   const [phonePending, setPhonePending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [companyName, setCompanyName] = useState("شركة ممنون");
+  const [partnerFormOpen, setPartnerFormOpen] = useState(false);
+  const [partnerType, setPartnerType] = useState<"hotel" | "restaurant" | "store" | "mall">("hotel");
+  const [partnerName, setPartnerName] = useState("");
+  const [partnerContact, setPartnerContact] = useState(profile?.full_name ?? "");
+  const [partnerPhone, setPartnerPhone] = useState(profile?.phone ?? "");
+  const [partnerEmail, setPartnerEmail] = useState(actualEmail);
+  const [partnerGovernorate, setPartnerGovernorate] = useState("najaf");
+  const [partnerCity, setPartnerCity] = useState("");
+  const [partnerAddress, setPartnerAddress] = useState("");
+  const [partnerDescription, setPartnerDescription] = useState("");
+  const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
+  const [partnerBusy, setPartnerBusy] = useState(false);
+  const governorateLabels: Record<string,string> = {baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
+
   const isCompanyAdmin = session?.user.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
   useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
+  useEffect(() => {
+    if (!session?.user.id) return;
+    void loadPartnerApplications();
+  }, [session?.user.id]);
+
+  async function loadPartnerApplications() {
+    if (!session?.user.id) return;
+    const { data, error } = await (supabase as any).from("partner_applications")
+      .select("id,partner_type,business_name,status,admin_note,created_at")
+      .eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(10);
+    if (error) { console.warn("[partner-applications] load failed:", error.message); return; }
+    setPartnerApplications(data ?? []);
+  }
+
+  async function submitPartnerApplication(event: React.FormEvent) {
+    event.preventDefault();
+    if (!session?.user.id) return;
+    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4) {
+      toast.error("كمّل اسم المنشأة واسم المسؤول والهاتف والمحافظة والمدينة والعنوان");
+      return;
+    }
+    setPartnerBusy(true);
+    try {
+      const { error } = await (supabase as any).from("partner_applications").insert({
+        user_id: session.user.id,
+        partner_type: partnerType,
+        business_name: partnerName.trim(),
+        contact_name: partnerContact.trim(),
+        phone: partnerPhone.trim(),
+        email: partnerEmail.trim() || null,
+        governorate_key: partnerGovernorate,
+        city: partnerCity.trim(),
+        address: partnerAddress.trim(),
+        description: partnerDescription.trim() || null,
+        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null
+      });
+      if (error) throw error;
+      toast.success("وصل طلب الشراكة للإدارة وبانتظار المراجعة");
+      setPartnerFormOpen(false);
+      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription("");
+      await loadPartnerApplications();
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر إرسال طلب الشراكة");
+    } finally { setPartnerBusy(false); }
+  }
+
 
   useEffect(() => {
     if (!isCompanyAdmin) return;
@@ -133,14 +193,33 @@ function AccountSettingsPage() {
 
     <section className="mb-6 rounded-3xl border border-amber-500/25 bg-card/75 p-4 shadow-soft">
       <div className="flex items-center gap-3 mb-3">
-        <span className="h-11 w-11 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md grid place-items-center">
-          <ShieldCheck className="h-5 w-5" />
-        </span>
-        <div>
-          <h2 className="font-black text-sm">سجّل معنا</h2>
-          <p className="text-[10px] text-muted-foreground mt-1">كل الحسابات تبدأ كزبون. اختار مجال العمل إذا تحب تنضم إلى فريق ممنون.</p>
-        </div>
+        <span className="h-11 w-11 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md grid place-items-center"><ShieldCheck className="h-5 w-5" /></span>
+        <div><h2 className="font-black text-sm">انضم كشريك</h2><p className="text-[10px] text-muted-foreground mt-1">قدّم طلباً واحداً واختر نوع منشأتك، والإدارة تراجع بياناتك قبل التفعيل.</p></div>
       </div>
+      <button type="button" onClick={() => setPartnerFormOpen(v => !v)} className="w-full rounded-2xl bg-primary text-primary-foreground p-4 text-sm font-black shadow-md">
+        {partnerFormOpen ? "إغلاق تسجيل الشريك" : "انضم كشريك"}
+      </button>
+      {partnerFormOpen && <form onSubmit={submitPartnerApplication} className="mt-4 space-y-3 rounded-2xl border border-border bg-background/70 p-3">
+        <div className="text-xs font-black">اختار نوع الشراكة</div>
+        <div className="grid grid-cols-2 gap-2">
+          {([{value:"hotel",label:"شريك فندق",mark:"🏨"},{value:"restaurant",label:"شريك مطعم",mark:"🍽️"},{value:"store",label:"شريك محل",mark:"🏪"},{value:"mall",label:"شريك مول",mark:"🏬"}] as const).map(item => <button key={item.value} type="button" onClick={() => setPartnerType(item.value)} className={`rounded-xl border p-3 text-xs font-black ${partnerType===item.value?"border-primary bg-primary/10 text-primary":"border-border bg-card"}`}><span className="block text-xl mb-1">{item.mark}</span>{item.label}</button>)}
+        </div>
+        <label className="block text-xs font-bold">اسم المنشأة<input required minLength={2} maxLength={120} value={partnerName} onChange={e=>setPartnerName(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="اسم الفندق أو المطعم أو المحل" /></label>
+        <label className="block text-xs font-bold">اسم الشخص المسؤول<input required minLength={2} maxLength={100} value={partnerContact} onChange={e=>setPartnerContact(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="الاسم الكامل" /></label>
+        <label className="block text-xs font-bold">رقم الهاتف<input required value={partnerPhone} onChange={e=>setPartnerPhone(e.target.value)} dir="ltr" className="input-base mt-1 w-full rounded-xl text-left" placeholder="07XXXXXXXXX" /></label>
+        <label className="block text-xs font-bold">البريد الإلكتروني (اختياري)<input type="email" value={partnerEmail} onChange={e=>setPartnerEmail(e.target.value)} dir="ltr" className="input-base mt-1 w-full rounded-xl text-left" placeholder="name@example.com" /></label>
+        <label className="block text-xs font-bold">المحافظة<select value={partnerGovernorate} onChange={e=>setPartnerGovernorate(e.target.value)} className="input-base mt-1 w-full rounded-xl">{Object.entries(governorateLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+        <label className="block text-xs font-bold">المدينة / القضاء<input required minLength={2} maxLength={80} value={partnerCity} onChange={e=>setPartnerCity(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="مثال: النجف الأشرف" /></label>
+        <label className="block text-xs font-bold">العنوان التفصيلي<input required minLength={4} maxLength={240} value={partnerAddress} onChange={e=>setPartnerAddress(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="الحي والشارع وأقرب نقطة دالة" /></label>
+        <label className="block text-xs font-bold">نبذة عن المنشأة (اختياري)<textarea maxLength={1000} value={partnerDescription} onChange={e=>setPartnerDescription(e.target.value)} className="input-base mt-1 min-h-20 w-full rounded-xl" placeholder="الخدمات أو المنتجات التي تقدمها" /></label>
+        <button type="submit" disabled={partnerBusy} className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black disabled:opacity-50">{partnerBusy?"جارٍ إرسال الطلب...":"إرسال طلب الشراكة"}</button>
+      </form>}
+      {partnerApplications.length>0 && <div className="mt-4 space-y-2"><h3 className="text-xs font-black">طلبات الشراكة السابقة</h3>{partnerApplications.map((item:any)=><div key={item.id} className="rounded-xl border border-border p-3 text-xs"><div className="flex items-center justify-between gap-2"><b>{item.business_name}</b><span className={`rounded-full px-2 py-1 font-bold ${item.status==="approved"?"bg-emerald-500/10 text-emerald-700":item.status==="rejected"?"bg-red-500/10 text-red-700":"bg-amber-500/10 text-amber-700"}`}>{item.status==="approved"?"تمت الموافقة":item.status==="suspended"?"موقوف من الإدارة":item.status==="rejected"?"مرفوض":"قيد المراجعة"}</span></div><p className="mt-1 text-muted-foreground">{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {new Date(item.created_at).toLocaleDateString("ar-IQ")}</p>{item.admin_note&&<p className="mt-1 text-muted-foreground">ملاحظة الإدارة: {item.admin_note}</p>}</div>)}</div>}
+      {partnerApplications.some((item:any)=>item.status==="approved") && <Link to="/partner/dashboard" className="block w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 p-3 text-center text-xs font-black">فتح لوحة الشريك</Link>}
+    </section>
+
+    <section className="mb-6 rounded-3xl border border-border/60 bg-card/60 p-4">
+      <div className="mb-3"><h2 className="font-black text-sm">سجّل كسائق أو فني</h2><p className="text-[10px] text-muted-foreground mt-1">طلبات التكسي والسيارات الكبيرة والفنيين تبقى ضمن مساراتها الحالية.</p></div>
       <div className="grid grid-cols-1 gap-3">
         {roleItems.filter(item => item.role !== "customer").map(item => {
           const Icon = item.icon;
@@ -150,15 +229,11 @@ function AccountSettingsPage() {
             else navigate({ to: item.role === "driver" ? "/onboarding/driver" : "/onboarding/worker" });
           }} className="w-full rounded-2xl border border-border/70 bg-background/70 p-4 flex items-center gap-3 text-right transition active:scale-[0.99] hover:border-primary/40">
             <span className={`h-11 w-11 shrink-0 rounded-2xl grid place-items-center ${item.style}`}><Icon className="h-5 w-5" /></span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-black">{item.title}</span>
-              <span className="block text-[10px] text-muted-foreground mt-1">{item.subtitle}</span>
-            </span>
+            <span className="flex-1 min-w-0"><span className="block text-sm font-black">{item.title}</span><span className="block text-[10px] text-muted-foreground mt-1">{item.subtitle}</span></span>
             <span className="shrink-0 rounded-xl bg-primary/10 text-primary px-3 py-2 text-[10px] font-black">{alreadyRegistered ? "متابعة / تحديث" : "ابدأ التسجيل"}</span>
           </button>;
         })}
       </div>
-      <p className="text-[10px] text-muted-foreground mt-3">أكمل بياناتك ومستنداتك من هنا، وبعدها تراجع الإدارة طلب الانضمام.</p>
     </section>
 
     {isCompanyAdmin && <section className="mb-6">

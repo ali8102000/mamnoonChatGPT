@@ -53,6 +53,8 @@ export default function AdminVisualBuilder() {
   const [campaignStarts, setCampaignStarts] = useState("");
   const [campaignEnds, setCampaignEnds] = useState("");
   const [campaignSortOrder, setCampaignSortOrder] = useState(0);
+  const [campaignImageFile, setCampaignImageFile] = useState<File | null>(null);
+  const [campaignPopupSeconds, setCampaignPopupSeconds] = useState(5);
   const [resultRows, setResultRows] = useState<Record<string, any[]>>({});
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -172,22 +174,32 @@ export default function AdminVisualBuilder() {
     const options = campaignOptions.split("\n").map((value) => value.trim()).filter(Boolean);
     if (!campaignTitle.trim() || options.length < 2) { setMessage("اكتب عنواناً وخيارين على الأقل."); return; }
     setSaving(true);
+    let campaignImageUrl: string | null = null;
+    let campaignImagePath: string | null = null;
+    if (campaignImageFile) {
+      if (!campaignImageFile.type.startsWith("image/") || campaignImageFile.size > 8 * 1024 * 1024) { setMessage("صورة الاستطلاع لازم تكون صورة وحجمها أقل من 8 ميغابايت."); setSaving(false); return; }
+      campaignImagePath = `campaign-popups/${Date.now()}-${campaignImageFile.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+      const upload = await supabase.storage.from("app-visuals").upload(campaignImagePath, campaignImageFile, { upsert: false, contentType: campaignImageFile.type });
+      if (upload.error) { setMessage("تعذر رفع صورة الاستطلاع: " + upload.error.message); setSaving(false); return; }
+      campaignImageUrl = supabase.storage.from("app-visuals").getPublicUrl(campaignImagePath).data.publicUrl;
+    }
     const { data, error } = await (supabase as any).from("app_campaigns").insert({
       campaign_type: campaignType, title: campaignTitle.trim(),
       description: campaignDescription.trim() || null, placement_key: campaignPlacement,
+      image_url: campaignImageUrl, popup_display_seconds: Math.max(1, Math.min(60, Number(campaignPopupSeconds) || 5)),
       starts_at: campaignStarts ? new Date(campaignStarts).toISOString() : null,
       ends_at: campaignEnds ? new Date(campaignEnds).toISOString() : null,
       sort_order: Number(campaignSortOrder) || 0,
       status: "draft", result_visibility: "public",
     }).select("id").single();
-    if (error || !data?.id) setMessage("تعذر إنشاء الاستطلاع: " + (error?.message ?? "خطأ غير معروف"));
+    if (error || !data?.id) { if (campaignImagePath) await supabase.storage.from("app-visuals").remove([campaignImagePath]); setMessage("تعذر إنشاء الاستطلاع: " + (error?.message ?? "خطأ غير معروف")); }
     else {
       const { error: optionError } = await (supabase as any).from("app_campaign_options").insert(
         options.map((label, index) => ({ campaign_id: data.id, label, sort_order: index + 1 })),
       );
       if (optionError) setMessage("تم إنشاء الحملة لكن تعذر حفظ الخيارات: " + optionError.message);
       else {
-        setCampaignTitle(""); setCampaignDescription(""); setCampaignSortOrder(0);
+        setCampaignTitle(""); setCampaignDescription(""); setCampaignSortOrder(0); setCampaignImageFile(null);
         setMessage("انحفظت كمسودة. راجعها ثم انشرها.");
       }
       await load();
@@ -350,6 +362,11 @@ export default function AdminVisualBuilder() {
             <select className={inputClass} value={campaignType} onChange={(e) => setCampaignType(e.target.value as any)}><option value="poll">استطلاع رأي</option><option value="contest">مسابقة تصويت</option></select>
             <input className={inputClass} placeholder="عنوان الاستطلاع أو المسابقة" value={campaignTitle} onChange={(e) => setCampaignTitle(e.target.value)} />
             <textarea className={inputClass} placeholder="وصف مختصر" value={campaignDescription} onChange={(e) => setCampaignDescription(e.target.value)} />
+            <label className="text-xs font-bold">صورة منبثقة للاستبيان أو السؤال (اختياري)</label>
+            <input type="file" accept="image/*" className={inputClass} onChange={(e) => setCampaignImageFile(e.target.files?.[0] ?? null)} />
+            {campaignImageFile && <p className="text-xs text-muted-foreground">الصورة المختارة: {campaignImageFile.name}</p>}
+            <label className="text-xs font-bold">مدة ظهور الصورة المنبثقة (من ثانية إلى دقيقة)</label>
+            <input type="number" min={1} max={60} className={inputClass} value={campaignPopupSeconds} onChange={(e) => setCampaignPopupSeconds(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} />
             <label className="text-xs font-bold">الخيارات (كل خيار بسطر)</label>
             <textarea className={inputClass + " min-h-28"} value={campaignOptions} onChange={(e) => setCampaignOptions(e.target.value)} />
             <select className={inputClass} value={campaignPlacement} onChange={(e) => setCampaignPlacement(e.target.value)}><option value="home.customer.top">أعلى الصفحة الرئيسية</option><option value="home.customer.content">بعد أزرار الطلب</option><option value="home.customer.after_stats">أسفل الإحصائيات</option></select>
