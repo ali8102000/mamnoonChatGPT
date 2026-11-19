@@ -58,7 +58,7 @@
 الملفات:
 - `src/components/partner-catalog-manager.tsx`
 - `src/routes/partner.dashboard.tsx`
-- `expo-app/components/partner-catalog-manager.tsx`
+- `expo-app/src/components/partner-catalog-manager.tsx`
 - `expo-app/app/partner/dashboard.tsx`
 
 ما لم يكتمل بعد:
