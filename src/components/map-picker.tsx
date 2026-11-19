@@ -359,7 +359,8 @@ export function MapPicker({
               const id = "g:" + s.id;
               if (s.coords)
                 placeCacheRef.current.set(id, { coords: s.coords, address: s.address || s.text });
-              return { id, text: s.text, secondary: s.address || "" };
+              const details = [s.category, s.address].filter(Boolean);
+              return { id, text: s.text, secondary: details.join(" · ") };
             }),
           );
           return;
