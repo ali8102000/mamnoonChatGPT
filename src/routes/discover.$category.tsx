@@ -8,7 +8,7 @@ type PartnerType = "hotel" | "restaurant" | "store" | "mall";
 type Coordinates = { latitude: number; longitude: number };
 type Category = { category_key: string; vertical: "store" | "restaurant" | "hotel"; title: string; image_url: string };
 type Business = { id: string; partner_type: PartnerType; business_name: string; city: string; address: string; description: string | null; phone: string; promotion_latitude: number | null; promotion_longitude: number | null };
-type Product = { id: string; name: string; description: string | null; price_amount: number; currency: string; image_urls: string[]; profile: { id: string; business_name: string; city: string; address: string; business_vertical: string; promotion_latitude: number | null; promotion_longitude: number | null } };
+type Product = { id: string; name: string; description: string | null; price_amount: number; currency: string; image_urls: string[]; profile: { id: string; business_name: string; city: string; address: string; business_vertical: string; partner_type: PartnerType; promotion_latitude: number | null; promotion_longitude: number | null } };
 
 export const Route = createFileRoute("/discover/$category")({ ssr: false, component: DiscoverCategoryPage });
 
@@ -57,7 +57,9 @@ function DiscoverCategoryPage() {
     if (vertical && !categoryKey) {
       const [categoryResult, businessResult] = await Promise.all([
         (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").eq("vertical", vertical).eq("is_active", true).order("sort_order"),
-        (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,phone,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]).eq("business_vertical", vertical).order("business_name"),
+        (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,phone,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]);
+      if (vertical !== "hotel") businessResult = businessResult.eq("business_vertical", vertical);
+      businessResult = businessResult.order("business_name"),
       ]);
       if (categoryResult.error || businessResult.error) setError("تعذر تحميل القسم حالياً.");
       setCategories((categoryResult.data ?? []) as Category[]);
@@ -70,11 +72,11 @@ function DiscoverCategoryPage() {
     if (categoryKey) {
       const [cat, rows] = await Promise.all([
         (supabase as any).from("partner_catalog_categories").select("title").eq("category_key", categoryKey).maybeSingle(),
-        (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,promotion_latitude,promotion_longitude)").eq("category_key", categoryKey).eq("is_active", true).eq("profile.is_published", true).order("created_at", { ascending: false }),
+        (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,partner_type,promotion_latitude,promotion_longitude)").eq("category_key", categoryKey).eq("is_active", true).eq("profile.is_published", true).order("created_at", { ascending: false }),
       ]);
       if (cat.data?.title) setTitle(cat.data.title);
       if (rows.error) setError("تعذر تحميل المنتجات حالياً.");
-      const visible = ((rows.data ?? []) as Product[]).filter(p => isGrocery ? p.profile.business_vertical === "grocery" : true);
+      const visible = ((rows.data ?? []) as Product[]).filter(p => isGrocery ? p.profile.business_vertical === "grocery" : isHotelCategory ? p.profile.partner_type === "hotel" : true);
       const ordered = currentLocation ? [...visible].sort((a, b) => {
         const dist = (p: Product) => p.profile.promotion_latitude == null || p.profile.promotion_longitude == null ? Number.POSITIVE_INFINITY : distanceKm(currentLocation, { latitude: p.profile.promotion_latitude, longitude: p.profile.promotion_longitude });
         return dist(a) - dist(b);
@@ -107,7 +109,7 @@ function DiscoverCategoryPage() {
 
   return <MobileShell><main dir="rtl" className="mx-auto min-h-[75vh] max-w-3xl space-y-5 px-4 pb-12 pt-6">
     <Link to="/home" className="inline-flex items-center gap-2 text-sm font-black text-primary"><ArrowRight className="h-4 w-4" /> رجوع للرئيسية</Link>
-    <section className="rounded-3xl bg-gradient-to-br from-primary to-primary-glow p-6 text-primary-foreground"><div className="flex items-center gap-3"><Store className="h-8 w-8" /><div><h1 className="text-2xl font-black">{title}</h1><p className="mt-1 text-sm opacity-90">{categoryKey ? "المنتجات المنشورة ضمن هذه الفئة" : "اختار القسم اللي تريده وتصفح الأقرب إلك"}</p></div></div><p className="mt-4 text-xs opacity-80">{categoryKey ? products.length : items.length} {categoryKey ? "منتج" : "منشأة"}</p></section>
+    <section className="rounded-3xl bg-gradient-to-br from-primary to-primary-glow p-6 text-primary-foreground"><div className="flex items-center gap-3"><Store className="h-8 w-8" /><div><h1 className="text-2xl font-black">{title}</h1><p className="mt-1 text-sm opacity-90">{categoryKey ? (isHotelCategory ? "الغرف المنشورة ضمن هذه الفئة" : "المنتجات المنشورة ضمن هذه الفئة") : "اختار القسم اللي تريده وتصفح الأقرب إلك"}</p></div></div><p className="mt-4 text-xs opacity-80">{categoryKey ? products.length : items.length} {categoryKey ? "منتج" : "منشأة"}</p></section>
     {!location && !loading && <p className="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">فعّل إذن الموقع حتى نرتّب النتائج حسب الأقرب إلك. ما تحتاج تحدد محافظتك.</p>}
     {loading ? <div className="rounded-2xl border p-8 text-center text-sm">جارٍ تحديد موقعك وتحميل الأقرب...</div> : error ? <div role="alert" className="rounded-2xl border border-destructive/30 p-5 text-sm text-destructive">{error}<button onClick={() => void load()} className="mr-3 inline-flex items-center gap-1 font-bold"><RefreshCw className="h-3.5 w-3.5" /> إعادة المحاولة</button></div> : <>
       {categories.length > 0 && <section className="space-y-2"><h2 className="font-black">الأقسام</h2><div ref={categoryStripRef} dir="rtl" className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{categories.map(c => <Link key={c.category_key} to="/discover/$category" params={{ category: c.vertical + "-" + c.category_key }} className="relative h-[76px] w-[76px] shrink-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm"><img src={c.image_url} alt={c.title} loading="lazy" className="h-full w-full object-cover" /><span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-2 py-1 text-right text-[11px] font-black text-white">{c.title}</span></Link>)}</div></section>}
