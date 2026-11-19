@@ -4,7 +4,7 @@ import { Plus, Trash2, RefreshCw, Package } from "lucide-react";
 
 type PartnerType="hotel"|"restaurant"|"store"|"mall";
 type Category={category_key:string;title:string;vertical:string};
-type CatalogItem={id:string;name:string;description:string|null;price_amount:number;currency:"IQD"|"USD";quantity_available:number|null;is_active:boolean;category_key:string|null};
+type CatalogItem={id:string;name:string;description:string|null;price_amount:number;currency:"IQD"|"USD";quantity_available:number|null;is_active:boolean;category_key:string|null;image_urls:string[]};
 type Draft={name:string;description:string;price_amount:string;currency:"IQD"|"USD";quantity_available:string};
 const emptyDraft:Draft={name:"",description:"",price_amount:"",currency:"IQD",quantity_available:""};
 export function PartnerCatalogManager({profileId,partnerType,businessVertical="store"}:{profileId:string;partnerType:PartnerType;businessVertical?:"store"|"grocery"|"restaurant"}) {
@@ -21,7 +21,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
   setLoading(true);setError("");
   const [catRes,itemRes]=await Promise.all([
    vertical?(supabase as any).from("partner_catalog_categories").select("category_key,title,vertical").eq("vertical",vertical).eq("is_active",true).order("sort_order"):Promise.resolve({data:[],error:null}),
-   (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,quantity_available,is_active,category_key").eq("business_profile_id",profileId).eq("item_type",itemType).order("sort_order").order("created_at",{ascending:false})
+   (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,quantity_available,is_active,category_key,image_urls").eq("business_profile_id",profileId).eq("item_type",itemType).order("sort_order").order("created_at",{ascending:false})
   ]);
   if(catRes.error)setError(catRes.error.message);else {setCategories(catRes.data??[]);if(catRes.data?.length)setCategoryKey(current=>current||catRes.data[0].category_key);}
   if(itemRes.error)setError(itemRes.error.message);
