@@ -190,9 +190,12 @@ const s=StyleSheet.create({
 
 
 const PERMISSIONS: [string,string][] = [
-  ["dashboard.view","لوحة القيادة"],["users.read","عرض العملاء"],["users.block","حظر العملاء"],
-  ["providers.read","عرض مقدمي الخدمة"],["providers.verify","توثيق مقدمي الخدمة"],["providers.suspend","إيقاف مقدمي الخدمة"],
+  ["dashboard.view","لوحة القيادة"],["analytics.view","عرض التحليلات"],
+  ["users.read","عرض العملاء"],["users.profile.edit","تعديل بيانات العملاء"],["users.block","حظر العملاء"],["users.unblock","إلغاء حظر العملاء"],
+  ["providers.read","عرض مقدمي الخدمة"],["providers.profile.edit","تعديل بيانات مقدمي الخدمة"],
+  ["providers.verify","توثيق مقدمي الخدمة"],["providers.suspend","إيقاف مقدمي الخدمة"],
   ["orders.read","عرض الطلبات"],["orders.assign","إدارة التعيين"],["orders.override","التدخل بالطلبات"],
+  ["orders.cancel","إلغاء الطلبات إدارياً"],["orders.reopen","إعادة فتح الطلبات"],
   ["pricing.taxi.read","عرض تعرفة التاكسي"],["pricing.taxi.edit","تعديل تعرفة التاكسي"],
   ["pricing.peak.edit","الذروة والاستعجال"],["pricing.services.edit","تسعير الخدمات"],
   ["promotions.read","عرض الخصومات"],["promotions.manage","إدارة الخصومات"],
