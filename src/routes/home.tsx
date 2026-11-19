@@ -129,9 +129,13 @@ function HomePage() {
                 {roleTitle}
               </span>
             </div>
-            <div className="text-2xl font-black leading-tight mt-0.5 text-foreground">
-              {firstName} <span className="inline-block animate-float">👋</span>
+            <div className="flex items-center gap-2">
+              {companyLogoUrl && <img src={companyLogoUrl} alt="" className="h-8 w-8 rounded-lg bg-white object-contain p-1" />}
+              <div className="text-2xl font-black leading-tight mt-0.5 text-foreground">
+                {firstName} <span className="inline-block animate-float">👋</span>
+              </div>
             </div>
+            <p className="mt-1 text-xs font-semibold text-muted-foreground">{welcomeMessage}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
