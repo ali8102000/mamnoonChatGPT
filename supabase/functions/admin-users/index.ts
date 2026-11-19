@@ -766,7 +766,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "broadcast_notification") {
-      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
       const targets = ["all", "drivers", "large_drivers", "workers", "customers", "single"];
       if (!targets.includes(body.target) || typeof body.title !== "string" ||
           body.title.trim().length < 1 || body.title.length > 200 ||
@@ -775,6 +774,15 @@ Deno.serve(async (req: Request) => {
           (body.target === "single" ? !isUuid(body.user_id) :
             (body.user_id !== undefined && !isUuid(body.user_id)))) {
         return json({ error: "invalid_notification" }, 400);
+      }
+      if (body.target === "single") {
+        const { data: targetProfile, error: targetProfileError } = await admin.from("profiles")
+          .select("governorate_key").eq("id", body.user_id).maybeSingle();
+        if (targetProfileError || !targetProfile) return json({ error: "user_not_found" }, 404);
+        const governorate = targetProfile.governorate_key ?? null;
+        await requirePermission("notifications.send", governorate ? "governorate" : "global", governorate);
+      } else {
+        await requirePermission("notifications.send");
       }
       const { data, error } = await caller.rpc("admin_broadcast_notification", {
         p_target: body.target,
@@ -787,13 +795,13 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "broadcast_governorate_notification") {
-      requireRoles(["super_admin", "admin", "support", "finance", "moderator"]);
       const allowedGovernorates = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
       if (typeof body.governorate_key !== "string" || !allowedGovernorates.includes(body.governorate_key) ||
           typeof body.title !== "string" || body.title.trim().length < 1 || body.title.length > 200 ||
           typeof body.body !== "string" || body.body.trim().length < 1 || body.body.length > 2000) {
         return json({ error: "invalid_governorate_notification" }, 400);
       }
+      await requirePermission("notifications.send", "governorate", body.governorate_key);
       const { data, error } = await caller.rpc("admin_broadcast_governorate_notification", {
         p_governorate_key: body.governorate_key,
         p_title: body.title.trim(),
