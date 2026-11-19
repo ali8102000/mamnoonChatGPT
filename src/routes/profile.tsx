@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   ChevronLeft,
   CreditCard,
+  Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationsBell } from "@/components/notifications-bell";
@@ -33,13 +34,37 @@ export const Route = createFileRoute("/profile")({
   component: ProfilePage,
 });
 
+type ProviderWallet = { balance: number; total_earned: number; total_commission: number };
+type WalletTransaction = { id: string; type: string; created_at: string; amount: number; note?: string | null };
+type EarningsSummary = { last24h: number; week: number; month: number; year: number };
+
+function summarizeProviderEarnings(rows: WalletTransaction[]): EarningsSummary {
+  const now = new Date();
+  const last24hStart = now.getTime() - 86400000;
+  const weekStart = new Date(now);
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+  const sumSince = (start: number) => rows.reduce((sum, row) => {
+    const createdAt = Date.parse(row.created_at);
+    return row.type === "earning" && Number.isFinite(createdAt) && createdAt >= start ? sum + Number(row.amount || 0) : sum;
+  }, 0);
+  return { last24h: sumSince(last24hStart), week: sumSince(weekStart.getTime()), month: sumSince(monthStart.getTime()), year: sumSince(yearStart.getTime()) };
+}
+
 function ProfilePage() {
   const { session, profile, roles, activeRole, loading, signOut, refresh } = useAuth();
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<any>(null);
   const [txs, setTxs] = useState<any[]>([]);
-  const [earnings, setEarnings] = useState({ today: 0, week: 0, month: 0 });
+  const [earnings, setEarnings] = useState<EarningsSummary>({ last24h: 0, week: 0, month: 0, year: 0 });
+  const [providerWallet, setProviderWallet] = useState<ProviderWallet | null>(null);
+  const [providerTxs, setProviderTxs] = useState<WalletTransaction[]>([]);
+  const [providerWalletOffline, setProviderWalletOffline] = useState(false);
   const [showEarningsDetails, setShowEarningsDetails] = useState(false);
+  const [showProviderWalletDetails, setShowProviderWalletDetails] = useState(false);
+  const [showProviderRecentTransactions, setShowProviderRecentTransactions] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [reputation, setReputation] = useState<ReputationData | null>(null);
@@ -58,8 +83,14 @@ function ProfilePage() {
 
   useEffect(() => {
     if (!uid) return;
-    if (activeRole === "customer") {
-      (supabase as any).rpc("get_my_customer_wallet").then(({ data, error }: any) => {
+    let active = true;
+    async function loadWallets() {
+      if (activeRole === "customer") {
+        setProviderWallet(null);
+        setProviderTxs([]);
+        setEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
+        const { data, error } = await (supabase as any).rpc("get_my_customer_wallet");
+        if (!active) return;
         if (error) {
           console.warn("[wallet] customer wallet unavailable:", error.message);
           setWallet(null);
@@ -68,19 +99,62 @@ function ProfilePage() {
         }
         setWallet(data?.wallet ?? null);
         setTxs(Array.isArray(data?.transactions) ? data.transactions : []);
-      });
-    } else {
+        return;
+      }
       setWallet(null);
       setTxs([]);
+      if (!isProvider) {
+        setProviderWallet(null);
+        setProviderTxs([]);
+        setEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
+        setProviderWalletOffline(false);
+        return;
+      }
+      try {
+        const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+        const since24Hours = new Date(Date.now() - 86400000).toISOString();
+        const [walletResult, recentResult] = await Promise.all([
+          (supabase as any).from("driver_wallets").select("balance,total_earned,total_commission").eq("user_id", uid).maybeSingle(),
+          (supabase as any).from("transactions").select("id,type,created_at,amount,note").eq("user_id", uid)
+            .gte("created_at", since24Hours).order("created_at", { ascending: false }).limit(30),
+        ]);
+        if (walletResult.error) throw walletResult.error;
+        if (recentResult.error) throw recentResult.error;
+        const earningRows: WalletTransaction[] = [];
+        let offset = 0;
+        while (true) {
+          const { data, error } = await (supabase as any).from("transactions")
+            .select("id,type,created_at,amount").eq("user_id", uid).eq("type", "earning")
+            .gte("created_at", yearStart).order("created_at", { ascending: true })
+            .range(offset, offset + 999);
+          if (error) throw error;
+          const page = (data || []) as WalletTransaction[];
+          earningRows.push(...page);
+          if (page.length < 1000) break;
+          offset += 1000;
+        }
+        if (!active) return;
+        setProviderWallet(walletResult.data as ProviderWallet | null);
+        setProviderTxs((recentResult.data || []) as WalletTransaction[]);
+        setEarnings(summarizeProviderEarnings(earningRows));
+        setProviderWalletOffline(false);
+      } catch (error) {
+        console.warn("[wallet] provider wallet unavailable:", error);
+        if (!active) return;
+        setProviderWallet(null);
+        setProviderTxs([]);
+        setEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
+        setProviderWalletOffline(true);
+      }
     }
-    (supabase as any)
-      .rpc("has_admin_access", { p_user_id: uid })
-      .then(({ data }: any) => setIsAdmin(!!data));
-    if (isProvider && uid) {
-      getRepFn({ data: { userId: uid } })
-        .then((rep) => setReputation(rep))
-        .catch(() => {});
-    }
+    void loadWallets();
+    (supabase as any).rpc("has_admin_access", { p_user_id: uid }).then(({ data }: any) => {
+      if (active) setIsAdmin(!!data);
+    });
+    if (isProvider) getRepFn({ data: { userId: uid } }).then((rep) => {
+      if (active) setReputation(rep);
+    }).catch(() => {});
+    return () => { active = false; };
   }, [uid, activeRole, isProvider, getRepFn]);
 
   async function uploadAvatar(file?: File) {
@@ -266,21 +340,51 @@ function ProfilePage() {
             )}
           </div>
         )}
+        {isProvider && (
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <section className="min-w-0 rounded-2xl border border-primary-foreground/10 bg-gradient-to-br from-primary to-primary-glow p-3 text-primary-foreground shadow-card">
+              {providerWalletOffline && <p className="mb-2 rounded-lg bg-white/15 p-2 text-[9px] leading-4">تعذر تحديث المحفظة؛ الأرقام الحالية غير متاحة.</p>}
+              <div className="flex items-center gap-1.5 text-xs font-black"><Wallet className="h-4 w-4" /> محفظتي</div>
+              <div className="mt-2 text-xl font-black tabular-nums break-words">{Number(providerWallet?.balance ?? 0).toLocaleString("ar-IQ")} <span className="text-[10px] opacity-80">د.ع</span></div>
+              <button type="button" onClick={() => setShowProviderWalletDetails((v) => !v)} aria-expanded={showProviderWalletDetails} className="mt-3 w-full rounded-xl bg-white/15 px-2 py-2 text-[10px] font-black flex items-center justify-between">
+                <span>{showProviderWalletDetails ? "إخفاء" : "تفاصيل المحفظة"}</span><ChevronLeft className={"h-3.5 w-3.5 transition-transform " + (showProviderWalletDetails ? "-rotate-90" : "")} />
+              </button>
+              {showProviderWalletDetails && <div className="mt-2 space-y-2">
+                <div className="rounded-lg bg-white/10 p-2"><div className="text-[9px] opacity-75">إجمالي الأرباح</div><div className="text-xs font-black">{Number(providerWallet?.total_earned ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
+                <div className="rounded-lg bg-white/10 p-2"><div className="text-[9px] opacity-75">العمولة</div><div className="text-xs font-black">{Number(providerWallet?.total_commission ?? 0).toLocaleString("ar-IQ")} د.ع</div></div>
+                <button type="button" onClick={() => setShowProviderRecentTransactions((v) => !v)} className="w-full rounded-lg bg-white/15 p-2 text-[10px] font-black text-right">{showProviderRecentTransactions ? "إخفاء حركات آخر ٢٤ ساعة" : "حركات آخر ٢٤ ساعة"}</button>
+                {showProviderRecentTransactions && (providerTxs.length ? providerTxs.map((t) => <div key={t.id} className="rounded-lg bg-white/10 p-2 flex items-center justify-between gap-2"><div className="min-w-0"><div className="text-[10px] font-bold">{t.note || (t.type === "earning" ? "أرباح" : t.type === "commission" ? "عمولة" : t.type === "withdrawal" ? "سحب" : t.type === "refund" ? "استرجاع" : "تسوية")}</div><div className="text-[9px] opacity-75">{new Date(t.created_at).toLocaleString("ar-IQ")}</div></div><div className="shrink-0 text-[10px] font-black">{Number(t.amount).toLocaleString("ar-IQ")} د.ع</div></div>) : <p className="rounded-lg bg-white/10 p-2 text-center text-[10px]">ماكو حركات خلال آخر ٢٤ ساعة</p>)}
+              </div>}
+            </section>
+            <section className="min-w-0 rounded-2xl border border-emerald-200/20 bg-gradient-to-br from-emerald-700 to-teal-600 p-3 text-white shadow-card">
+              <div className="text-xs font-black">أرباحي · آخر ٢٤ ساعة</div>
+              <div className="mt-2 text-xl font-black tabular-nums break-words">{earnings.last24h.toLocaleString("ar-IQ")} <span className="text-[10px] opacity-80">د.ع</span></div>
+              <button type="button" onClick={() => setShowEarningsDetails((v) => !v)} aria-expanded={showEarningsDetails} className="mt-3 w-full rounded-xl bg-white/15 px-2 py-2 text-[10px] font-black flex items-center justify-between">
+                <span>{showEarningsDetails ? "إخفاء" : "تفاصيل الأرباح"}</span><ChevronLeft className={"h-3.5 w-3.5 transition-transform " + (showEarningsDetails ? "-rotate-90" : "")} />
+              </button>
+              {showEarningsDetails && <div className="mt-2 space-y-2">
+                <div className="rounded-lg bg-white/10 p-2"><div className="text-[9px] opacity-75">هذا الأسبوع</div><div className="text-xs font-black">{earnings.week.toLocaleString("ar-IQ")} د.ع</div></div>
+                <div className="rounded-lg bg-white/10 p-2"><div className="text-[9px] opacity-75">هذا الشهر</div><div className="text-xs font-black">{earnings.month.toLocaleString("ar-IQ")} د.ع</div></div>
+                <div className="rounded-lg bg-white/10 p-2"><div className="text-[9px] opacity-75">هذه السنة</div><div className="text-xs font-black">{earnings.year.toLocaleString("ar-IQ")} د.ع</div></div>
+              </div>}
+            </section>
+          </div>
+        )}
         {activeRole === "customer" && (
-          <div className="mt-5 rounded-3xl p-5 bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-elegant">
-            <div className="flex items-center gap-2 mb-3"><TrendingUp className="h-4 w-4" /><span className="text-sm font-black">محفظتي</span></div>
-            <div className="text-xs opacity-80 mb-1">رصيدك المتاح</div>
-            <div className="text-3xl font-black tabular-nums">{Number(wallet?.balance ?? 0).toLocaleString("ar-IQ")} <span className="text-base font-bold opacity-80">د.ع</span></div>
-            <div className="mt-3 rounded-2xl bg-white/15 p-3 text-xs leading-6">رصيد المحفظة وحركاتها محفوظة في حسابك. شحن الرصيد والسحب عبر زين كاش سيتفعّلان بعد ربط مفاتيح التاجر الرسمية.</div>
-            <button type="button" onClick={() => setShowRecentTransactions((v) => !v)} aria-expanded={showRecentTransactions} className="mt-3 w-full flex items-center justify-between rounded-xl bg-white/15 px-3 py-3 text-xs font-black">
-              <span className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> سجل حركات المحفظة</span>
-              <ChevronLeft className={`h-4 w-4 transition-transform ${showRecentTransactions ? "-rotate-90" : ""}`} />
+          <div className="mt-5 rounded-2xl p-4 bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-card">
+            <div className="flex items-center gap-2"><Wallet className="h-4 w-4" /><span className="text-sm font-black">محفظتي</span></div>
+            <div className="mt-1 text-[10px] opacity-80">رصيدك المتاح</div>
+            <div className="text-2xl font-black tabular-nums mt-1">{Number(wallet?.balance ?? 0).toLocaleString("ar-IQ")} <span className="text-xs font-bold opacity-80">د.ع</span></div>
+            <div className="mt-2 rounded-xl bg-white/15 p-2 text-[10px] leading-5">شحن الرصيد والسحب عبر زين كاش يتفعّلان بعد ربط مفاتيح التاجر الرسمية.</div>
+            <button type="button" onClick={() => setShowRecentTransactions((v) => !v)} aria-expanded={showRecentTransactions} className="mt-2 w-full flex items-center justify-between rounded-xl bg-white/15 px-3 py-2.5 text-[10px] font-black">
+              <span className="flex items-center gap-2"><TrendingUp className="h-3.5 w-3.5" /> سجل حركات المحفظة</span>
+              <ChevronLeft className={"h-3.5 w-3.5 transition-transform " + (showRecentTransactions ? "-rotate-90" : "")} />
             </button>
-            {showRecentTransactions && <ul className="mt-3 space-y-2">
-              {txs.length === 0 ? <li className="rounded-xl bg-white/10 p-3 text-center text-xs opacity-80">لا توجد حركات مسجلة في المحفظة حالياً</li> : txs.map((t) => (
+            {showRecentTransactions && <ul className="mt-2 space-y-2">
+              {txs.length === 0 ? <li className="rounded-xl bg-white/10 p-3 text-center text-[10px] opacity-80">لا توجد حركات مسجلة في المحفظة حالياً</li> : txs.map((t) => (
                 <li key={t.id} className="rounded-xl bg-white/10 p-3 flex items-center justify-between gap-3">
                   <div><div className="text-xs font-bold">{t.note ?? (t.type === "deposit" ? "إيداع رصيد" : t.type === "withdrawal" ? "سحب" : t.type === "payment" ? "دفع من المحفظة" : t.type === "refund" ? "استرجاع مبلغ" : t.type === "adjustment" ? "تسوية رصيد" : t.type)}</div><div className="text-[10px] opacity-75">{new Date(t.created_at).toLocaleString("ar-IQ")}</div></div>
-                  <div className={`text-sm font-black whitespace-nowrap ${Number(t.amount) >= 0 ? "text-emerald-200" : "text-red-200"}`}>{Number(t.amount) >= 0 ? "+" : ""}{Number(t.amount).toLocaleString("ar-IQ")} د.ع</div>
+                  <div className={"text-sm font-black whitespace-nowrap " + (Number(t.amount) >= 0 ? "text-emerald-200" : "text-red-200")}>{Number(t.amount) >= 0 ? "+" : ""}{Number(t.amount).toLocaleString("ar-IQ")} د.ع</div>
                 </li>
               ))}
             </ul>}
