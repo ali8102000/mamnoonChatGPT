@@ -52,8 +52,10 @@ export default function AdminNotificationsScreen() {
             .select("scope_type,scope_governorate")
             .eq("user_id", user.id).eq("active", true).maybeSingle(),
         ]);
-        if (admin.error || assignment.error) throw admin.error ?? assignment.error;
+        if (admin.error) throw admin.error;
         const isPlatformAdmin = admin.data === true;
+        if (isPlatformAdmin) { setScopedGovernorate(null); setAllowed(true); return; }
+        if (assignment.error) throw assignment.error;
         const scopeType = assignment.data?.scope_type === "governorate" ? "governorate" : "global";
         const scopeGovernorate = scopeType === "governorate" ? assignment.data?.scope_governorate ?? null : null;
         const { data: canSend, error: permissionError } = await (supabase as any).rpc("admin_has_permission", {
@@ -108,7 +110,7 @@ export default function AdminNotificationsScreen() {
         <Text style={s.muted}>اختر الفئة واكتب عنوان الإشعار ونصه. سيظهر للمستخدم داخل التطبيق.</Text>
         <Text style={s.label}>الهدف</Text>
         <View style={s.targets}>{TARGETS.filter((item) => !scopedGovernorate || item.value === "governorate" || item.value === "single").map((item) => <TouchableOpacity key={item.value} onPress={() => setTarget(item.value)} style={[s.target, target === item.value && s.targetActive]}><Text style={[s.targetText, target === item.value && s.targetTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
-        {target === "governorate" && <><Text style={s.label}>المحافظة المستهدفة</Text><View style={s.targets}>{IRAQ_GOVERNORATES.filter((gov:any) => !scopedGovernorate || gov.key === scopedGovernorate).map((gov:any) => <TouchableOpacity key={gov.key} disabled={!!scopedGovernorate} onPress={() => setGovernorateKey(gov.key)} style={[s.target, governorateKey === gov.key && s.targetActive]}><Text style={[s.targetText, governorateKey === gov.key && s.targetActive && s.targetTextActive]}>{gov.name}</Text></TouchableOpacity>)}</View></>}
+        {target === "governorate" && <><Text style={s.label}>المحافظة المستهدفة</Text><View style={s.targets}>{IRAQ_GOVERNORATES.filter((gov:any) => !scopedGovernorate || gov.key === scopedGovernorate).map((gov:any) => <TouchableOpacity key={gov.key} disabled={!!scopedGovernorate} onPress={() => setGovernorateKey(gov.key)} style={[s.target, governorateKey === gov.key && s.targetActive]}><Text style={[s.targetText, governorateKey === gov.key && s.targetTextActive]}>{gov.name}</Text></TouchableOpacity>)}</View></>}
         {target === "single" && <><Text style={s.label}>معرّف المستخدم UUID</Text><TextInput value={userId} onChangeText={setUserId} autoCapitalize="none" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" placeholderTextColor={palette.muted} style={s.input}/></>}
         <Text style={s.label}>عنوان الإشعار</Text>
         <TextInput value={title} onChangeText={setTitle} maxLength={200} placeholder="عنوان واضح ومختصر" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
