@@ -223,6 +223,7 @@ export default function RequestDetail() {
   const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
   const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
   const acceptedMapRef = useRef<MapView | null>(null);
+  const acceptedMapFitKeyRef = useRef<string | null>(null);
   const roadRouteSequenceRef = useRef(0);
   const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
@@ -862,6 +863,8 @@ export default function RequestDetail() {
   ]);
   useEffect(() => {
     if (!acceptedMapMode || !request || !acceptedMapRef.current) return;
+    const fitKey = `${request.id}:${request.status}`;
+    if (acceptedMapFitKeyRef.current === fitKey) return;
     const target = request.type === "taxi" && request.status === "in_progress" &&
       request.dest_lat != null && request.dest_lng != null
       ? { latitude: Number(request.dest_lat), longitude: Number(request.dest_lng) }
@@ -877,12 +880,14 @@ export default function RequestDetail() {
         edgePadding: { top: 90, right: 44, bottom: 360, left: 44 },
         animated: true,
       });
+      acceptedMapFitKeyRef.current = fitKey;
     } else if (coordinates.length === 1) {
       acceptedMapRef.current.animateToRegion({
         ...coordinates[0],
         latitudeDelta: 0.018,
         longitudeDelta: 0.018,
       }, 450);
+      acceptedMapFitKeyRef.current = fitKey;
     }
   }, [
     acceptedMapMode,
