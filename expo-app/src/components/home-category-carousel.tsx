@@ -34,13 +34,13 @@ export function HomeCategoryCarousel() {
   useEffect(() => {
     if (banners.length < 2 || index >= banners.length - 1) return;
     const speed = Math.max(1, Math.min(60, Number(banners[index]?.scroll_speed) || 5));
-    const timer = setTimeout(() => {
+    const timer = setInterval(() => {
       if (Date.now() < resumeAt.current) return;
       const next = Math.min(index + 1, banners.length - 1);
       setIndex(next);
       list.current?.scrollToIndex({ index: next, animated: true });
     }, speed * 1000);
-    return () => clearTimeout(timer);
+    return () => clearInterval(timer);
   }, [banners, index]);
   const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const next = Math.round(event.nativeEvent.contentOffset.x / width);
