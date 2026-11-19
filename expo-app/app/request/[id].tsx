@@ -224,9 +224,6 @@ export default function RequestDetail() {
   const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
   const roadRouteSequenceRef = useRef(0);
   const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
-  useEffect(() => {
-    lastRoutePointRef.current = null;
-  }, [id, currentUserId]);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
   const [freshnessClock, setFreshnessClock] = useState(Date.now());
   const lastEtaRequestRef = useRef<{ latitude: number; longitude: number; requestedAt: number } | null>(null);
@@ -266,6 +263,9 @@ export default function RequestDetail() {
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
   const driverLocationFresh = Boolean(otherLocation?.updatedAt && Number.isFinite(Date.parse(otherLocation.updatedAt)) && freshnessClock - Date.parse(otherLocation.updatedAt) < 25000);
   const currentUserId = user?.id;
+  useEffect(() => {
+    lastRoutePointRef.current = null;
+  }, [id, currentUserId]);
   const currentRequestType = request?.type;
   const currentProviderId = request?.provider_id;
   const currentCustomerId = request?.customer_id;
