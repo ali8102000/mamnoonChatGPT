@@ -11,7 +11,7 @@ const ITEMS = [
   { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "orders_access"] },
   { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "subscriptions_access"] },
   { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "finance_access"] },
-  { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager", "reports_access"] },
+  { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager", "reports_access", "analytics_access"] },
   { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support", "department_operations", "department_monitoring", "rank:general_manager", "live_map_access"] },
   { label: "إدارة الأصدقاء", route: "/admin/friends", roles: ["super_admin", "admin", "moderator", "department_monitoring", "rank:general_manager", "friends_access"] },
   { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager", "notifications_access"] },
@@ -26,7 +26,7 @@ const ITEMS = [
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "الرئيس المؤسس الأعلى", admin: "مدير", support: "الدعم",
   finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء", department_finance: "قسم المالية", department_operations: "قسم التشغيل", department_monitoring: "قسم المراقبة", department_executive: "الإدارة التنفيذية",
-  reports_access: "صلاحية البلاغات", live_map_access: "صلاحية الخريطة المباشرة", friends_access: "صلاحية إدارة الأصدقاء", chats_access: "صلاحية إدارة الدردشة",
+  reports_access: "صلاحية البلاغات", analytics_access: "صلاحية التحليلات العامة", live_map_access: "صلاحية الخريطة المباشرة", friends_access: "صلاحية إدارة الأصدقاء", chats_access: "صلاحية إدارة الدردشة",
   "rank:owner": "الرئيس المؤسس الأعلى", "rank:general_manager": "مدير عام", "rank:department_manager": "مدير قسم", "rank:supervisor": "مشرف", "rank:employee": "موظف",
 };
 
@@ -66,7 +66,7 @@ export default function AdminStaffScreen() {
           "orders.read","orders.assign","orders.override","orders.cancel","orders.reopen",
           "pricing.taxi.edit","pricing.peak.edit","finance.read","finance.wallet.adjust",
           "promotions.read","promotions.manage","notifications.send",
-          "live_map.read","reports.read","reports.resolve","chats.moderate","friends.manage",
+          "analytics.view","live_map.read","reports.read","reports.resolve","chats.moderate","friends.manage",
         ];
         const permissionChecks = await Promise.all(permissionKeys.map(async (permission_key) => {
           const { data } = await (supabase as any).rpc("admin_has_permission", {
@@ -83,6 +83,7 @@ export default function AdminStaffScreen() {
         if (["orders.read","orders.assign","orders.override","orders.cancel","orders.reopen"].some(hasPermission)) names.push("orders_access");
         if (scopeType === "global" && hasPermission("finance.read") && hasPermission("promotions.read")) names.push("finance_access");
         if (hasPermission("notifications.send")) names.push("notifications_access");
+        if (scopeType === "global" && hasPermission("analytics.view")) names.push("analytics_access");
         if (hasPermission("reports.read")) names.push("reports_access");
         if (hasPermission("live_map.read")) names.push("live_map_access");
         if (scopeType === "global" && hasPermission("friends.manage")) names.push("friends_access");
@@ -108,7 +109,7 @@ export default function AdminStaffScreen() {
     return <View style={s.center}><Text style={s.title}>غير مصرّح</Text><Text style={s.muted}>هذه الصفحة مخصصة لموظفي ممنون المخوّلين.</Text></View>;
   }
 
-  const customerServiceOnly = roles.includes("customer_service") && !roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager", "rank:department_manager", "rank:supervisor", "users_access", "providers_access", "orders_access", "finance_access", "subscriptions_access", "notifications_access", "governance_access", "reports_access", "live_map_access", "friends_access", "chats_access"].includes(role));
+  const customerServiceOnly = roles.includes("customer_service") && !roles.some((role) => ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager", "rank:department_manager", "rank:supervisor", "users_access", "providers_access", "orders_access", "finance_access", "subscriptions_access", "notifications_access", "governance_access", "reports_access", "analytics_access", "live_map_access", "friends_access", "chats_access"].includes(role));
   const visible = ITEMS.filter((item) =>
     item.roles.some((role) => roles.includes(role)) &&
     (staffScopeType === "global" ||
