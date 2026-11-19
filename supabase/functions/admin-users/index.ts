@@ -717,13 +717,15 @@ Deno.serve(async (req: Request) => {
       const { data: requests, error: requestsError } = await requestQuery;
       if (requestsError) return json({ error: "live_map_load_failed" }, 500);
       const requestIds = (requests ?? []).map((request: any) => request.id);
-      if (scopeType === "governorate" && requestIds.length === 0) {
+      // Location rows are sensitive even for global staff: expose only locations
+      // attached to the active requests returned by the authorized request query.
+      if (requestIds.length === 0) {
         return json({ locations: [], requests: [] });
       }
-      let locationQuery = admin.from("live_locations")
+      const locationQuery = admin.from("live_locations")
         .select("*, profile:profiles!live_locations_user_id_fkey(full_name,phone)")
+        .in("request_id", requestIds)
         .order("updated_at", { ascending: false }).limit(500);
-      if (scopeType === "governorate") locationQuery = locationQuery.in("request_id", requestIds);
       const { data: locations, error: locationsError } = await locationQuery;
       if (locationsError) return json({ error: "live_map_load_failed" }, 500);
       return json({ locations: locations ?? [], requests: requests ?? [] });
