@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { router } from "expo-router";
 import {
-  View, Text, StyleSheet, ScrollView, Alert, Pressable,
+  View, Text, StyleSheet, ScrollView, Alert, Pressable, Image,
   KeyboardAvoidingView, Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,6 +13,7 @@ import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
 import { palette, space } from "@/styles/theme";
+import { useCompanyBranding } from "@/lib/company-branding";
 
 type Mode = "signup" | "login";
 type AuthSessionTokens = Pick<Session, "access_token" | "refresh_token">;
@@ -27,6 +28,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const { refresh } = useAuth();
+  const { companyName, logoUrl, welcomeMessage } = useCompanyBranding();
 
   async function onSubmit() {
     if (password.length < 6) {
@@ -123,16 +125,15 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandTop}>
-            <LinearGradient
-              colors={[palette.brand, palette.brandGlow]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.brandMark}
-            >
-              <Text style={styles.brandLetter}>م</Text>
-            </LinearGradient>
-            <Text style={styles.brandName}>ممنون</Text>
-            <Text style={styles.brandCaption}>منصة النقل والخدمات الفاخرة</Text>
+            {logoUrl ? (
+              <Image source={{ uri: logoUrl }} style={styles.companyLogo} resizeMode="contain" />
+            ) : (
+              <LinearGradient colors={[palette.brand, palette.brandGlow]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.brandMark}>
+                <Text style={styles.brandLetter}>م</Text>
+              </LinearGradient>
+            )}
+            <Text style={styles.brandName}>{companyName}</Text>
+            <Text style={styles.brandCaption}>{welcomeMessage}</Text>
           </View>
 
           <View style={styles.modeSwitch}>
@@ -314,6 +315,7 @@ const styles = StyleSheet.create({
   welcomeLink: { alignSelf: "flex-start", paddingVertical: 6, marginBottom: 12 },
   welcomeLinkText: { color: palette.brand, fontSize: 12, fontWeight: "800" },
   brandTop: { alignItems: "center", paddingBottom: 24 },
+  companyLogo: { width: 88, height: 88, borderRadius: 24, backgroundColor: "#FFFFFF", marginBottom: 6 },
   brandMark: {
     width: 80,
     height: 80,

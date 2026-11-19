@@ -9,6 +9,7 @@ import { useWelcomePreferences } from "@/lib/welcome-preferences";
 import { Button } from "@/components/ui/button";
 import { signupSchema } from "@/lib/signup-validation";
 import { checkSuperAdminExists } from "@/lib/admin.functions";
+import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -47,6 +48,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { refresh } = useAuth();
+  const { companyName, logoUrl, welcomeMessage } = useCompanyBranding();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -219,13 +221,15 @@ function AuthPage() {
         <Link to="/welcome">{t("اللغة والترحيب", "Language & welcome")}</Link>
       </Button>
       <div className="text-center mb-6">
-        <div className="inline-flex items-center justify-center h-20 w-20 rounded-3xl bg-gradient-to-br from-primary to-primary-glow glow-primary mb-4 shadow-elegant">
-          <span className="text-3xl font-black text-primary-foreground">م</span>
-        </div>
-        <h1 className="text-4xl font-black text-gradient">{t("ممنون", "Mamnoon")}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t("منصة النقل والخدمات الفاخرة", "Rides and home services")}
-        </p>
+        {logoUrl ? (
+          <img src={logoUrl} alt={`شعار ${companyName}`} className="mx-auto mb-4 h-20 w-20 rounded-3xl bg-white object-contain p-2 shadow-elegant" />
+        ) : (
+          <div className="inline-flex items-center justify-center h-20 w-20 rounded-3xl bg-gradient-to-br from-primary to-primary-glow glow-primary mb-4 shadow-elegant">
+            <span className="text-3xl font-black text-primary-foreground">م</span>
+          </div>
+        )}
+        <h1 className="text-4xl font-black text-gradient">{companyName || t("ممنون", "Mamnoon")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{welcomeMessage || t("منصة النقل والخدمات", "Rides and home services")}</p>
       </div>
 
       <div className="flex flex-col">

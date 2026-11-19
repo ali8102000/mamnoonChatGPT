@@ -1,12 +1,12 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ArrowLeft, ArrowRight, Car, Check, Globe2, MapPin, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
 import welcomeImage from "@/assets/welcome.jpg";
 import { serviceIcon } from "@/lib/service-visuals";
-import { supabase } from "@/integrations/supabase/client";
+import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/welcome")({
   ssr: false,
@@ -99,16 +99,7 @@ function WelcomePage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const [companyName, setCompanyName] = useState("ممنون");
-  const [companyLogoUrl, setCompanyLogoUrl] = useState("");
-  const [welcomeMessage, setWelcomeMessage] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle()
-      .then(({ data }: any) => { if (!active || !data) return; setCompanyName(data.company_name || "ممنون"); setCompanyLogoUrl(data.company_logo_url || ""); setWelcomeMessage(data.welcome_message || ""); });
-    return () => { active = false; };
-  }, []);
+  const { companyName, logoUrl: companyLogoUrl, welcomeMessage } = useCompanyBranding();
   const text = copy[language];
   const slide = text.slides[step];
   const Forward = language === "ar" ? ArrowLeft : ArrowRight;
@@ -130,7 +121,7 @@ function WelcomePage() {
     >
       <header className="mx-auto w-full max-w-3xl flex items-center justify-between px-6 pt-6 sm:pt-8">
         <span className="flex items-center gap-2 text-2xl font-black text-primary">
-          {companyLogoUrl && <img src={companyLogoUrl} alt="" className="h-9 w-9 rounded-lg bg-white object-contain p-1" />}
+          {companyLogoUrl ? <img src={companyLogoUrl} alt={`شعار ${companyName}`} className="h-11 w-11 rounded-xl bg-white object-contain p-1 shadow-sm" /> : <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-xl font-black text-primary-foreground">م</span>}
           {companyName}
           <span className="text-accent">.</span>
         </span>

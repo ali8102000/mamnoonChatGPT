@@ -5,6 +5,7 @@ import { Crosshair, Loader2, MapPin } from "lucide-react";
 import { GOVERNORATES, GOV_STORAGE_KEY, governorateOf } from "@/lib/governorates";
 import { getCurrentLocation, locationError } from "@/lib/location";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
+import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { loading, session, roles, profile } = useAuth();
   const { ready, completed } = useWelcomePreferences();
+  const { companyName, logoUrl, welcomeMessage } = useCompanyBranding();
   const [splashFinished, setSplashFinished] = useState(false);
   const [governorate, setGovernorate] = useState<string | null>(null);
   const [governorateReady, setGovernorateReady] = useState(false);
@@ -65,9 +67,11 @@ function Index() {
     return (
       <main className="min-h-screen grid place-items-center bg-transparent px-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <img src="/icon-192.png" alt="شعار ممنون" className="h-28 w-28 object-contain" />
-          <div className="text-3xl font-black tracking-wide text-[#17324D]">أهلاً بك في ممنون</div>
-          <div className="text-sm font-semibold text-[#758394]">مشوارك وخدماتك… بمكان واحد</div>
+          <div className="grid h-28 w-28 place-items-center overflow-hidden rounded-[28px] bg-white shadow-lg">
+            {logoUrl ? <img src={logoUrl} alt={`شعار ${companyName}`} className="h-full w-full object-contain p-2" /> : <span className="text-5xl font-black text-[#17324D]">م</span>}
+          </div>
+          <div className="text-3xl font-black tracking-wide text-[#17324D]">أهلاً بك في {companyName}</div>
+          <div className="text-sm font-semibold text-[#758394]">{welcomeMessage}</div>
           {loading || !ready ? <Loader2 className="mt-5 h-5 w-5 animate-spin text-amber-600" /> : <div className="mt-5 h-5" />}
         </div>
       </main>
@@ -78,7 +82,9 @@ function Index() {
     return (
       <main dir="rtl" className="min-h-screen bg-transparent px-4 py-10 text-[#17324D]">
         <section className="mx-auto flex min-h-[80vh] w-full max-w-xl flex-col items-center justify-center">
-          <div className="grid h-20 w-20 place-items-center rounded-[26px] bg-[#17324D] text-4xl font-black text-white shadow-xl">م</div>
+          <div className="grid h-20 w-20 place-items-center overflow-hidden rounded-[26px] bg-white shadow-xl">
+            {logoUrl ? <img src={logoUrl} alt={`شعار ${companyName}`} className="h-full w-full object-contain p-2" /> : <span className="text-4xl font-black text-[#17324D]">م</span>}
+          </div>
           <h1 className="mt-4 text-3xl font-black">بأي محافظة أنت؟</h1>
           <p className="mt-2 max-w-sm text-center text-sm leading-7 text-slate-500">اختَر محافظتك حتى نعرض لك السائقين والفنيين والخدمات الأقرب إلك.</p>
           <button type="button" onClick={() => void detectGovernorate()} disabled={locatingGovernorate} className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-[#D6A43B] bg-[#17324D] px-4 font-black text-white shadow-lg disabled:opacity-70">
