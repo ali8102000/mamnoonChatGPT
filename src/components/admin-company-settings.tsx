@@ -8,9 +8,17 @@ export default function AdminCompanySettings() {
   const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!logoFile) { setLogoPreview(""); return; }
+    const previewUrl = URL.createObjectURL(logoFile);
+    setLogoPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [logoFile]);
 
   useEffect(() => {
     let active = true;
@@ -67,7 +75,7 @@ export default function AdminCompanySettings() {
       <input id="company-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" placeholder="مثلاً: شركة ممنون" />
       <label className="block text-sm font-bold" htmlFor="company-logo-upload">شعار الشركة الظاهر بالتطبيق</label>
       <div className="flex flex-wrap items-center gap-3">
-        {logoUrl ? <img src={logoUrl} alt={`شعار ${name || "الشركة"} الحالي`} className="h-20 w-20 rounded-2xl border border-border bg-background object-contain p-2" /> : <div className="grid h-20 w-20 place-items-center rounded-2xl bg-primary text-3xl font-black text-primary-foreground">م</div>}
+        {logoPreview || logoUrl ? <img src={logoPreview || logoUrl} alt={`معاينة شعار ${name || "الشركة"}`} className="h-20 w-20 rounded-2xl border border-border bg-background object-contain p-2" /> : <div className="grid h-20 w-20 place-items-center rounded-2xl bg-primary text-3xl font-black text-primary-foreground">م</div>}
         <div className="flex flex-col gap-2">
           <label htmlFor="company-logo-upload" className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90">
             {logoFile ? "اختيار صورة أخرى" : "اختيار صورة الشعار"}
