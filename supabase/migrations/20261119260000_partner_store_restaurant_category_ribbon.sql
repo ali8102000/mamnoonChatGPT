@@ -115,3 +115,43 @@ create policy partner_catalog_owner_update on public.partner_catalog_items
   );
 
 commit;
+
+-- Public product photos; uploads are scoped to the owning approved partner profile.
+insert into storage.buckets (id,name,public)
+values ('partner-catalog','partner-catalog',true)
+on conflict (id) do update set public=true;
+
+drop policy if exists partner_catalog_images_public_read on storage.objects;
+create policy partner_catalog_images_public_read on storage.objects
+  for select to anon,authenticated using (bucket_id='partner-catalog');
+
+drop policy if exists partner_catalog_images_owner_insert on storage.objects;
+create policy partner_catalog_images_owner_insert on storage.objects
+  for insert to authenticated with check (
+    bucket_id='partner-catalog' and exists (
+      select 1 from public.partner_business_profiles p
+      join public.partner_applications a on a.id=p.application_id
+      where p.id::text=(storage.foldername(name))[1]
+        and p.user_id=(select auth.uid()) and a.status='approved'
+    )
+  );
+
+drop policy if exists partner_catalog_images_owner_update on storage.objects;
+create policy partner_catalog_images_owner_update on storage.objects
+  for update to authenticated using (
+    bucket_id='partner-catalog' and exists (
+      select 1 from public.partner_business_profiles p
+      where p.id::text=(storage.foldername(name))[1]
+        and (p.user_id=(select auth.uid()) or public.has_admin_access((select auth.uid())))
+    )
+  ) with check (bucket_id='partner-catalog');
+
+drop policy if exists partner_catalog_images_owner_delete on storage.objects;
+create policy partner_catalog_images_owner_delete on storage.objects
+  for delete to authenticated using (
+    bucket_id='partner-catalog' and exists (
+      select 1 from public.partner_business_profiles p
+      where p.id::text=(storage.foldername(name))[1]
+        and (p.user_id=(select auth.uid()) or public.has_admin_access((select auth.uid())))
+    )
+  );
