@@ -238,13 +238,15 @@ async function autocomplete(admin:any,input:string,key:string) {
             search_terms:terms.join(" "),latitude:point.lat,longitude:point.lng,
             is_active:true,updated_at:new Date().toISOString()}];
         });
+        let suggestionsPersisted=fetchedRows.length===0;
         if(fetchedRows.length) {
           const {error}=await admin.from("map_place_suggestions").upsert(fetchedRows,{onConflict:"governorate_key,source_key"});
+          suggestionsPersisted=!error;
           if(error) console.error("[maps-proxy] suggestions upsert failed",error.code);
         }
         const {error:cacheError}=await admin.from("map_place_search_cache").upsert({
           governorate_key:key,normalized_query:normalized(q),
-          expires_at:new Date(Date.now()+(fetchedRows.length?7*86400000:300000)).toISOString(),
+          expires_at:new Date(Date.now()+(suggestionsPersisted&&fetchedRows.length?7*86400000:300000)).toISOString(),
           updated_at:new Date().toISOString()
         },{onConflict:"governorate_key,normalized_query"});
         if(cacheError) console.warn("[maps-proxy] search cache write failed",cacheError.code);
