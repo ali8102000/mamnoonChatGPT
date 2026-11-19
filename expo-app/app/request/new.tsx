@@ -1272,7 +1272,7 @@ export default function NewRequest() {
           </View>
           </View>
           <View style={styles.taxiSearchRow}>
-            <TextInput style={styles.taxiSearchInput} value={placeQuery} onChangeText={setPlaceQuery} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
+            <TextInput style={styles.taxiSearchInput} value={placeQuery} onChangeText={(value) => { placeSelectionRef.current += 1; setPlaceQuery(value); }} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
           </View>
           {searchingPlaces && <ActivityIndicator style={{ marginTop: 6 }} color={palette.brand} />}
           {!!placeSearchError && <Text style={styles.taxiErrorText}>{placeSearchError}</Text>}
