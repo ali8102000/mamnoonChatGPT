@@ -27,10 +27,10 @@ export default function AdminImageStudioScreen() {
         <Text style={styles.heroTitle}>مركز الصور والتصميم</Text>
         <Text style={styles.heroText}>كل صور التطبيق ورسوماته بمكان واحد. اختار القسم وعدّل الصورة والحجم وإعدادات العرض والنشر.</Text>
         <View style={styles.art}>
-          <View style={[styles.artBuilding,{height:40,width:52}]}><View style={styles.windows}><View/><View/><View/><View/></View></View>
-          <View style={[styles.artBuilding,{height:68,width:64}]}><View style={styles.windows}><View/><View/><View/><View/><View/><View/></View></View>
-          <View style={[styles.artBuilding,{height:50,width:50}]}><View style={styles.windows}><View/><View/><View/><View/></View></View>
-          <View style={[styles.artBuilding,{height:32,width:42}]}><View style={styles.windows}><View/><View/></View></View>
+          <View style={[styles.artBuilding,{height:40,width:52}]}><View style={styles.windows}><View style={styles.window}/><View style={styles.window}/><View style={styles.window}/><View style={styles.window}/></View></View>
+          <View style={[styles.artBuilding,{height:68,width:64}]}><View style={styles.windows}><View style={styles.window}/><View style={styles.window}/><View style={styles.window}/><View style={styles.window}/><View style={styles.window}/><View style={styles.window}/></View></View>
+          <View style={[styles.artBuilding,{height:50,width:50}]}><View style={styles.windows}><View style={styles.window}/><View style={styles.window}/><View style={styles.window}/><View style={styles.window}/></View></View>
+          <View style={[styles.artBuilding,{height:32,width:42}]}><View style={styles.windows}><View style={styles.window}/><View style={styles.window}/></View></View>
         </View>
       </LinearGradient>
       <View style={styles.tabs}>
