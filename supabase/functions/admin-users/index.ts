@@ -142,6 +142,11 @@ Deno.serve(async (req: Request) => {
       const governorate = request.governorate_key ?? null;
       await requirePermission(permissionKey, governorate ? "governorate" : "global", governorate);
     };
+    const requireGlobalStaffScope = async () => {
+      const scope = await getStaffScope();
+      if (scope.scopeType !== "global") throw new Error("global_scope_required");
+      return scope;
+    };
 
     if (body.action === "customer_activity_stats") {
       await requirePermission("analytics.view");
@@ -664,29 +669,49 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "live_map") {
-      await requireScopedAccess("has_live_ops_access");
-      const [locations, requests] = await Promise.all([
-        admin.from("live_locations")
-          .select("*, profile:profiles!live_locations_user_id_fkey(full_name,phone)")
-          .order("updated_at", { ascending: false }).limit(500),
-        admin.from("service_requests")
-          .select("id,type,status,pickup_lat,pickup_lng,dest_lat,dest_lng,pickup_text,dest_text,created_at")
-          .in("status", ["pending", "searching", "accepted", "in_progress"])
-          .order("created_at", { ascending: false }).limit(200),
-      ]);
-      if (locations.error || requests.error) return json({ error: "live_map_load_failed" }, 500);
-      return json({ locations: locations.data ?? [], requests: requests.data ?? [] });
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("live_map.read", "has_live_ops_access", scopeType, scopeGovernorate);
+      let requestQuery = admin.from("service_requests")
+        .select("id,type,status,pickup_lat,pickup_lng,dest_lat,dest_lng,pickup_text,dest_text,created_at")
+        .in("status", ["pending", "searching", "accepted", "in_progress"])
+        .order("created_at", { ascending: false }).limit(200);
+      if (scopeType === "governorate" && scopeGovernorate) {
+        requestQuery = requestQuery.eq("governorate_key", scopeGovernorate);
+      }
+      const { data: requests, error: requestsError } = await requestQuery;
+      if (requestsError) return json({ error: "live_map_load_failed" }, 500);
+      const requestIds = (requests ?? []).map((request: any) => request.id);
+      if (scopeType === "governorate" && requestIds.length === 0) {
+        return json({ locations: [], requests: [] });
+      }
+      let locationQuery = admin.from("live_locations")
+        .select("*, profile:profiles!live_locations_user_id_fkey(full_name,phone)")
+        .order("updated_at", { ascending: false }).limit(500);
+      if (scopeType === "governorate") locationQuery = locationQuery.in("request_id", requestIds);
+      const { data: locations, error: locationsError } = await locationQuery;
+      if (locationsError) return json({ error: "live_map_load_failed" }, 500);
+      return json({ locations: locations ?? [], requests: requests ?? [] });
     }
 
     if (body.action === "reports") {
-      await requireScopedAccess("has_user_moderation_access");
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("reports.read", "has_user_moderation_access", scopeType, scopeGovernorate);
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(100, body.limit)) : 50;
       const status = typeof body.status === "string" ? body.status.trim().slice(0, 40) : "all";
+      let scopedUserIds: string[] | null = null;
+      if (scopeType === "governorate" && scopeGovernorate) {
+        const { data: profiles, error: profilesError } = await admin.from("profiles")
+          .select("id").eq("governorate_key", scopeGovernorate);
+        if (profilesError) return json({ error: "reports_load_failed" }, 500);
+        scopedUserIds = (profiles ?? []).map((profile: any) => profile.id).filter(isUuid);
+        if (!scopedUserIds.length) return json({ reports: [] });
+      }
       let query = admin.from("user_reports")
         .select("*, reporter:profiles!user_reports_reporter_id_fkey(full_name,phone), reported:profiles!user_reports_reported_id_fkey(full_name,phone)")
         .order("created_at", { ascending: false })
         .limit(limit);
       if (status !== "all") query = query.eq("status", status);
+      if (scopedUserIds) query = query.in("reported_id", scopedUserIds);
       const { data: reports, error } = await query;
       if (error) return json({ error: "reports_load_failed" }, 500);
       return json({ reports: reports ?? [] });
@@ -726,13 +751,20 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "resolve_report") {
-      await requireScopedAccess("has_user_moderation_access");
       if (!isUuid(body.report_id) || !["resolved", "closed", "dismissed"].includes(body.status)) {
         return json({ error: "invalid_report_resolution" }, 400);
       }
       if (body.note !== undefined && (typeof body.note !== "string" || body.note.length > 500)) {
         return json({ error: "invalid_report_note" }, 400);
       }
+      const { data: report, error: reportError } = await admin.from("user_reports")
+        .select("reported_id").eq("id", body.report_id).maybeSingle();
+      if (reportError || !report) throw new Error("report_unavailable");
+      const { data: profile, error: profileError } = await admin.from("profiles")
+        .select("governorate_key").eq("id", report.reported_id).maybeSingle();
+      if (profileError || !profile) throw new Error("report_unavailable");
+      const governorate = profile.governorate_key ?? null;
+      await requirePermission("reports.resolve", governorate ? "governorate" : "global", governorate);
       const { error } = await caller.rpc("admin_resolve_report", {
         p_report_id: body.report_id,
         p_status: body.status,
@@ -743,6 +775,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "chats") {
+      await requireGlobalStaffScope();
       await requireFullChatModeration();
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       const { data: chats, error } = await admin.from("chats")
@@ -753,6 +786,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "messages") {
+      await requireGlobalStaffScope();
       await requireFullChatModeration();
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let query = admin.from("messages")
@@ -765,6 +799,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_message") {
+      await requireGlobalStaffScope();
       await requireFullChatModeration();
       if (!isUuid(body.message_id)) return json({ error: "invalid_message_id" }, 400);
       const { error } = await caller.rpc("admin_delete_message", { p_message_id: body.message_id });
@@ -773,6 +808,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "friends" || body.action === "friend_requests") {
+      await requireGlobalStaffScope();
       await requireScopedAccess("has_friend_admin_access");
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       if (body.action === "friends") {
@@ -790,6 +826,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friendship") {
+      await requireGlobalStaffScope();
       await requireScopedAccess("has_friend_admin_access");
       if (!isUuid(body.user1_id) || !isUuid(body.user2_id) || body.user1_id === body.user2_id) {
         return json({ error: "invalid_friendship" }, 400);
@@ -803,6 +840,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friend_request") {
+      await requireGlobalStaffScope();
       await requireScopedAccess("has_friend_admin_access");
       if (!isUuid(body.request_id)) return json({ error: "invalid_request_id" }, 400);
       const { error } = await caller.rpc("admin_delete_friend_request", {
