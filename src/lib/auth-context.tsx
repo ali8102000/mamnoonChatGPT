@@ -62,16 +62,6 @@ function safeStorageRemove(key: string): void {
   try { if (typeof window !== "undefined") window.localStorage.removeItem(key); } catch { /* Ignore unavailable storage. */ }
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Authentication initialization timed out")), timeoutMs);
-    promise.then(
-      (value) => { clearTimeout(timer); resolve(value); },
-      (error) => { clearTimeout(timer); reject(error); },
-    );
-  });
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -92,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = useCallback(async (uid: string) => {
     try {
-      const [{ data: prof }, { data: roleRows }, { data: blockRow }, { data: driverProfile }, { data: workerProfile }] = await Promise.all([
+      const [profileResult, rolesResult, blockResult, driverResult, workerResult] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, phone, full_name, avatar_url, email")
@@ -103,6 +93,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from("driver_profiles").select("user_id,vehicle_category").eq("user_id", uid).maybeSingle(),
         supabase.from("worker_profiles").select("user_id").eq("user_id", uid).maybeSingle(),
       ]);
+
+      const lookupError = profileResult.error ?? rolesResult.error ?? blockResult.error ?? driverResult.error ?? workerResult.error;
+      if (lookupError) throw lookupError;
+      const prof = profileResult.data;
+      const roleRows = rolesResult.data;
+      const blockRow = blockResult.data;
+      const driverProfile = driverResult.data;
+      const workerProfile = workerResult.data;
 
       // Provider applications are selectable even while awaiting admin approval.
       // Actual provider permissions remain enforced by database policies/status checks.
@@ -144,10 +142,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : mappedRoles.includes("customer") ? "customer" : mappedRoles[0] ?? null;
       setActiveRoleState(selected);
       if (selected) safeStorageSet(preferenceKey, selected);
-    } catch {
-      setProfile(null);
-      setRoles([]);
-      setBanStatus(null);
+    } catch (error) {
+      // A temporary profile/RLS/network lookup failure must not erase roles
+      // already loaded for this signed-in user or make role switching vanish.
+      console.warn("[Mamnoon] Profile lookup failed; preserving the last known account state.", error);
     }
   }, []);
 
@@ -162,10 +160,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles([]);
         setBanStatus(null);
       }
-    } catch {
-      setProfile(null);
-      setRoles([]);
-      setBanStatus(null);
+    } catch (error) {
+      // Do not turn a transient getSession failure into a local sign-out.
+      console.warn("[Mamnoon] Session refresh failed; preserving the current account state.", error);
     }
   }, [loadProfile]);
 
@@ -191,30 +188,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const startupTimer = setTimeout(() => {
-      console.error("[Mamnoon] Auth startup timed out; continuing in guest mode");
-      if (mounted) {
-        setSession(null);
-        setProfile(null);
-        setRoles([]);
-        setBanStatus(null);
-      }
+      console.warn("[Mamnoon] Auth startup is taking longer than expected; keeping session state and waiting for Auth to finish.");
       finishStartup();
     }, AUTH_STARTUP_TIMEOUT_MS);
 
-    void withTimeout(supabase.auth.getSession(), AUTH_STARTUP_TIMEOUT_MS)
-      .then(async ({ data }) => {
+    void supabase.auth.getSession()
+      .then(async ({ data, error }) => {
+        if (error) throw error;
         if (!mounted) return;
         setSession(data.session);
         if (data.session?.user) await loadProfile(data.session.user.id);
       })
       .catch((error) => {
-        console.error("[Mamnoon] Initial session lookup failed", error);
-        if (mounted) {
-          setSession(null);
-          setProfile(null);
-          setRoles([]);
-          setBanStatus(null);
-        }
+        // A failed startup read is not proof that the persisted session is gone.
+        // A later INITIAL_SESSION/auth event can still restore it.
+        console.warn("[Mamnoon] Initial session lookup failed; preserving auth state.", error);
       })
       .finally(() => {
         clearTimeout(startupTimer);
@@ -230,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: "local" });
     } catch {}
     setProfile(null);
     setRoles([]);
