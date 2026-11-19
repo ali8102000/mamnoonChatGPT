@@ -65,9 +65,17 @@ export default function AdminCompanySettings() {
     <div className="glass rounded-2xl p-5 space-y-4">
       <label className="block text-sm font-bold" htmlFor="company-name">اسم الشركة</label>
       <input id="company-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" placeholder="مثلاً: شركة ممنون" />
-      <label className="block text-sm font-bold">شعار ممنون الظاهر بالتطبيق</label>
-      {logoUrl && <img src={logoUrl} alt="شعار ممنون الحالي" className="h-20 w-20 rounded-2xl border border-border bg-background object-contain p-2" />}
-      <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} className="block w-full text-sm" />
+      <label className="block text-sm font-bold" htmlFor="company-logo-upload">شعار الشركة الظاهر بالتطبيق</label>
+      <div className="flex flex-wrap items-center gap-3">
+        {logoUrl ? <img src={logoUrl} alt={`شعار ${name || "الشركة"} الحالي`} className="h-20 w-20 rounded-2xl border border-border bg-background object-contain p-2" /> : <div className="grid h-20 w-20 place-items-center rounded-2xl bg-primary text-3xl font-black text-primary-foreground">م</div>}
+        <div className="flex flex-col gap-2">
+          <label htmlFor="company-logo-upload" className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90">
+            {logoFile ? "اختيار صورة أخرى" : "اختيار صورة الشعار"}
+          </label>
+          <input id="company-logo-upload" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} className="sr-only" />
+          <span className="text-[11px] text-muted-foreground">PNG أو JPG أو WEBP · الحد الأعلى 8 ميغابايت</span>
+        </div>
+      </div>
       {logoFile && <p className="text-xs text-muted-foreground">الصورة المختارة: {logoFile.name}</p>}
       <label className="block text-sm font-bold" htmlFor="company-welcome">رسالة الترحيب الظاهرة بالتطبيق</label>
       <textarea id="company-welcome" value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} maxLength={180} rows={3} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" placeholder="مشوارك وخدمات بيتك، بمكان واحد." />
