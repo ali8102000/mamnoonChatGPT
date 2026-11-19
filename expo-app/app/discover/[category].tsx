@@ -9,7 +9,7 @@ type PartnerType = "hotel" | "restaurant" | "store" | "mall";
 type Coordinates = { latitude: number; longitude: number };
 type Category = { category_key: string; vertical: "store" | "restaurant" | "hotel"; title: string; image_url: string };
 type Business = { id: string; partner_type: PartnerType; business_name: string; city: string; address: string; description: string | null; promotion_latitude: number | null; promotion_longitude: number | null };
-type Product = { id: string; name: string; description: string | null; price_amount: number; currency: string; image_urls: string[]; profile: { id: string; business_name: string; city: string; address: string; business_vertical: string; promotion_latitude: number | null; promotion_longitude: number | null } };
+type Product = { id: string; name: string; description: string | null; price_amount: number; currency: string; image_urls: string[]; profile: { id: string; business_name: string; city: string; address: string; business_vertical: string; partner_type: PartnerType; promotion_latitude: number | null; promotion_longitude: number | null } };
 function distanceKm(a: Coordinates, b: Coordinates) {
   const rad = (v: number) => v * Math.PI / 180;
   const dLat = rad(b.latitude - a.latitude), dLng = rad(b.longitude - a.longitude);
@@ -61,6 +61,8 @@ export default function DiscoverCategoryScreen() {
         (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").eq("vertical", vertical).eq("is_active", true).order("sort_order"),
         (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]).eq("business_vertical", vertical).order("business_name"),
       ]);
+      if (vertical !== "hotel") businessResult = await businessResult.eq("business_vertical", vertical);
+      businessResult = await businessResult.order("business_name");
       if (categoryResult.error || businessResult.error) setError("تعذر تحميل القسم حالياً.");
       setCategories((categoryResult.data ?? []) as Category[]);
       setItems(sortByNearest((businessResult.data ?? []) as Business[], currentLocation));
@@ -70,11 +72,11 @@ export default function DiscoverCategoryScreen() {
     if (categoryKey) {
       const [cat, rows] = await Promise.all([
         (supabase as any).from("partner_catalog_categories").select("title").eq("category_key", categoryKey).maybeSingle(),
-        (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,promotion_latitude,promotion_longitude)").eq("category_key", categoryKey).eq("is_active", true).eq("profile.is_published", true).order("created_at", { ascending: false }),
+        (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,partner_type,promotion_latitude,promotion_longitude)").eq("category_key", categoryKey).eq("is_active", true).eq("profile.is_published", true).order("created_at", { ascending: false }),
       ]);
       if (cat.data?.title) setTitle(cat.data.title);
       if (rows.error) setError("تعذر تحميل المنتجات حالياً.");
-      const visible = ((rows.data ?? []) as Product[]).filter(p => isGrocery ? p.profile.business_vertical === "grocery" : true);
+      const visible = ((rows.data ?? []) as Product[]).filter(p => isGrocery ? p.profile.business_vertical === "grocery" : isHotelCategory ? p.profile.partner_type === "hotel" : true);
       const ordered = currentLocation ? [...visible].sort((a, b) => {
         const dist = (p: Product) => p.profile.promotion_latitude == null || p.profile.promotion_longitude == null ? Number.POSITIVE_INFINITY : distanceKm(currentLocation, { latitude: p.profile.promotion_latitude, longitude: p.profile.promotion_longitude });
         return dist(a) - dist(b);
@@ -106,7 +108,7 @@ export default function DiscoverCategoryScreen() {
 
   return <ScrollView style={{ flex: 1, backgroundColor: palette.pageCanvas }} contentContainerStyle={{ padding: space.lg, paddingBottom: 48, gap: 14 }}>
     <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start", paddingVertical: 8 }}><Text style={{ color: palette.brand, fontWeight: "900" }}>→ رجوع</Text></Pressable>
-    <View style={{ backgroundColor: palette.brand, borderRadius: radius.xl, padding: 20, gap: 6 }}><Text style={{ color: "#fff", fontSize: 24, fontWeight: "900", textAlign: "right" }}>{title}</Text><Text style={{ color: "#fff", opacity: .9, fontSize: 12, textAlign: "right" }}>{categoryKey ? "المنتجات المنشورة ضمن هذه الفئة" : "اختار القسم اللي تريده وتصفح الأقرب إلك"}</Text><Text style={{ color: "#fff", opacity: .8, fontSize: 11, textAlign: "right" }}>{categoryKey ? products.length : items.length} {categoryKey ? "منتج" : "منشأة"}</Text></View>
+    <View style={{ backgroundColor: palette.brand, borderRadius: radius.xl, padding: 20, gap: 6 }}><Text style={{ color: "#fff", fontSize: 24, fontWeight: "900", textAlign: "right" }}>{title}</Text><Text style={{ color: "#fff", opacity: .9, fontSize: 12, textAlign: "right" }}>{categoryKey ? (isHotelCategory ? "الغرف المنشورة ضمن هذه الفئة" : "المنتجات المنشورة ضمن هذه الفئة") : "اختار القسم اللي تريده وتصفح الأقرب إلك"}</Text><Text style={{ color: "#fff", opacity: .8, fontSize: 11, textAlign: "right" }}>{categoryKey ? products.length : items.length} {categoryKey ? "منتج" : "منشأة"}</Text></View>
     {!location && !loading ? <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>اسمح بالوصول للموقع حتى نرتّب النتائج حسب الأقرب إلك. ما تحتاج تحدد محافظتك.</Text> : null}
     {loading ? <ActivityIndicator color={palette.brand} style={{ marginTop: 30 }} /> : error ? <View style={{ backgroundColor: palette.surface, borderRadius: radius.lg, padding: 18, gap: 10 }}><Text style={{ color: palette.danger, textAlign: "right" }}>{error}</Text><Pressable onPress={() => void load()}><Text style={{ color: palette.brand, fontWeight: "900", textAlign: "right" }}>إعادة المحاولة</Text></Pressable></View> : <>
       {categories.length > 0 ? <View style={{ gap: 8 }}><Text style={{ color: palette.ink, fontWeight: "900", textAlign: "right" }}>الأقسام</Text><ScrollView ref={categoryScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }} onScroll={event => { categoryScrollX.current = event.nativeEvent.contentOffset.x; }} scrollEventThrottle={100} onContentSizeChange={width => { categoryScrollMax.current = Math.max(0, width - 24); }}>{categories.map(c => <Pressable key={c.category_key} onPress={() => router.push({ pathname: "/discover/[category]", params: { category: c.vertical + "-" + c.category_key } })} style={{ width: 76, height: 76, borderRadius: 16, borderWidth: 1, borderColor: palette.line, overflow: "hidden", backgroundColor: palette.surface }}><Image source={{ uri: c.image_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" /><View style={{ position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "#0009", paddingHorizontal: 7, paddingVertical: 5 }}><Text numberOfLines={1} style={{ color: "#fff", fontSize: 11, fontWeight: "900", textAlign: "right" }}>{c.title}</Text></View></Pressable>)}</ScrollView></View> : null}
