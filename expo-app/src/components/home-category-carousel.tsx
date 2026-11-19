@@ -34,7 +34,7 @@ export function HomeCategoryCarousel() {
   }, [refresh]);
   useEffect(() => {
     if (banners.length < 2) return;
-    const speed = Math.max(2, Math.min(30, Number(banners[index]?.scroll_speed) || 5));
+    const speed = Math.max(1, Math.min(60, Number(banners[index]?.scroll_speed) || 5));
     const timer = setInterval(() => {
       if (Date.now() >= resumeAt.current) {
         const next = (index + 1) % banners.length;
