@@ -83,8 +83,18 @@ export default function AdminGovernanceScreen() {
     let active = true;
     setActivityLoading(true);
     setActivityError("");
-    void invoke({ action: "staff_activity", limit: 100 })
-      .then((result) => { if (active) setStaffActivity(result.rows ?? []); })
+    // Read the audit stream through the authenticated client. RLS grants
+    // this view to the owner; do not make the entire admin page depend on an
+    // optional Edge Function response for this secondary tab.
+    void (supabase as any).from("staff_activity_log")
+      .select("id,activity,created_at,staff_user_id,actor_user_id,message_id")
+      .order("created_at", { ascending: false })
+      .limit(100)
+      .then(({ data, error: queryError }: { data: StaffActivityRow[] | null; error: any }) => {
+        if (!active) return;
+        if (queryError) throw queryError;
+        setStaffActivity(data ?? []);
+      })
       .catch((e: any) => {
         if (active) setActivityError(String(e?.message || "تعذر تحميل نشاط الموظفين"));
       })
