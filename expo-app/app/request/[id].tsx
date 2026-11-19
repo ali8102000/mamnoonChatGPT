@@ -1247,7 +1247,7 @@ export default function RequestDetail() {
             )}
           </MapView>
         )}
-        <View style={[styles.header, acceptedMapMode && styles.headerOnMap]>
+        <View style={[styles.header, acceptedMapMode && styles.headerOnMap]}>
 
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backBtn}>→</Text>
