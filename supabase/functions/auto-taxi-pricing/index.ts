@@ -51,16 +51,6 @@ function isInGovernorate(point:Point,key:string) {
   const rings=feature.geometry.coordinates;
   return !!rings[0] && inRing(point,rings[0]) && !rings.slice(1).some((ring:number[][])=>inRing(point,ring));
 }
-function governorateOf(point:Point) {
-  const exact=governorates.find(g=>isInGovernorate(point,g[0]));
-  if(exact) return exact;
-  const cos=Math.cos(point.lat*Math.PI/180);
-  return governorates.reduce((best,g)=>{
-    const d=(point.lat-g[2])**2+((point.lng-g[3])*cos)**2;
-    const bd=(point.lat-best[2])**2+((point.lng-best[3])*cos)**2;
-    return d<bd?g:best;
-  },governorates[0]);
-}
 
 function governorateKeyFor(point: Point): string | null {
   return governorates.find((item) => isInGovernorate(point, item[0]))?.[0] ?? null;
@@ -217,7 +207,7 @@ Deno.serve(async (req) => {
     ? body.destinationGovernorateKey
     : null;
   // Validate both coordinates against the exact same Iraq governorate polygons
-  // used by maps-proxy, then use the shared route cache/provider directly. This
+  // used by maps-proxy, then use the same route cache/provider directly. This
   // removes a second Edge Function hop and duplicate auth validation.
   const fromGovernorate = governorateKeyFor(body.from);
   const toGovernorate = governorateKeyFor(body.to);
