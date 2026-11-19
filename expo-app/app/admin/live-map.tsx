@@ -32,8 +32,24 @@ export default function AdminLiveMapScreen() {
     if (!user?.id) return;
     setError("");
     try {
-      const names = await getAdminStaffRoles(user.id);
-      if (!names.some((role: string) => ["super_admin", "admin", "support", "department_operations", "department_monitoring"].includes(role))) {
+      const [names, assignment] = await Promise.all([
+        getAdminStaffRoles(user.id),
+        (supabase as any).from("staff_assignments")
+          .select("scope_type,scope_governorate").eq("user_id", user.id).eq("active", true).maybeSingle(),
+      ]);
+      const scopeType = assignment.data?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment.data?.scope_governorate ?? null : null;
+      const { data: explicitPermission, error: permissionError } = await (supabase as any).rpc("admin_has_permission", {
+        p_permission_key: "live_map.read",
+        p_scope_type: scopeType,
+        p_scope_governorate: scopeGovernorate,
+      });
+      const legacyGlobalAccess = scopeType === "global" &&
+        names.some((role: string) => ["super_admin", "admin", "support", "department_operations", "department_monitoring"].includes(role));
+      if ((!permissionError && explicitPermission !== true) && !legacyGlobalAccess) {
+        setAllowed(false); setLocations([]); setRequests([]); return;
+      }
+      if (permissionError && !legacyGlobalAccess) {
         setAllowed(false); setLocations([]); setRequests([]); return;
       }
       setAllowed(true);
