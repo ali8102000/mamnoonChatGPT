@@ -18,7 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import { getNotificationChannelId, loadNotificationPreferences, loadNotificationSoundPreference } from "@/lib/notification-sound";
+import { getNotificationChannelId, loadNotificationPreferences } from "@/lib/notification-sound";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import service_build from "../../assets/services/build.jpg";
@@ -209,6 +209,7 @@ export default function RequestDetail() {
   const [vehicleDetails, setVehicleDetails] = useState<any>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [largeOffers, setLargeOffers] = useState<any[]>([]);
   const [myLargeOffer, setMyLargeOffer] = useState<any>(null);
@@ -326,7 +327,7 @@ export default function RequestDetail() {
     ]);
   }, [openTaxiNavigation, request?.type]);
 
-  useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);
+  useEffect(() => { void loadNotificationPreferences().then((preferences) => { setSoundEnabled(preferences.soundEnabled); setVibrationEnabled(preferences.vibrationEnabled); }); }, []);
   useEffect(() => {
     let active = true;
     void (async () => {
@@ -569,7 +570,19 @@ export default function RequestDetail() {
         (payload) => {
           const incoming = payload.new as ChatMessage;
           if (incoming.sender_id !== user?.id) {
-            void Notifications.scheduleNotificationAsync({ content: { title: "رسالة جديدة في ممنون", body: "وصلتك رسالة جديدة من الطرف الآخر", sound: soundEnabled ? "default" : false, data: { request_id: id } }, trigger: null }).catch((error) => console.warn("[messages] sound notification failed:", error));
+            void Notifications.scheduleNotificationAsync({
+              content: {
+                title: "رسالة جديدة في ممنون",
+                body: "وصلتك رسالة جديدة من الطرف الآخر",
+                sound: soundEnabled ? "default" : false,
+                data: { request_id: id },
+              },
+              trigger: Platform.OS === "android" ? {
+                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                seconds: 1,
+                channelId: getNotificationChannelId(soundEnabled, vibrationEnabled),
+              } : null,
+            }).catch((error) => console.warn("[messages] local notification failed:", error));
           }
           void loadMessages();
         },
@@ -579,7 +592,7 @@ export default function RequestDetail() {
     return () => {
       supabase.removeChannel(sub);
     };
-  }, [chatId, loadMessages, user?.id, id, soundEnabled]);
+  }, [chatId, loadMessages, user?.id, id, soundEnabled, vibrationEnabled]);
 
   useEffect(() => {
     if (!isActive || !currentUserId) return;
