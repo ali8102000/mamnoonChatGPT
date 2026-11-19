@@ -409,3 +409,20 @@ REVOKE ALL ON FUNCTION public.admin_delete_friendship(uuid,uuid) FROM PUBLIC, an
 GRANT EXECUTE ON FUNCTION public.admin_delete_friendship(uuid,uuid) TO authenticated;
 REVOKE ALL ON FUNCTION public.admin_delete_friend_request(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_delete_friend_request(uuid) TO authenticated;
+
+
+-- Register the additional permission keys used by the scoped monitoring APIs.
+INSERT INTO public.admin_permission_catalog
+  (permission_key,domain,label_ar,risk_level,description,active)
+VALUES
+  ('live_map.read','operations','عرض الخريطة المباشرة','sensitive','قراءة مواقع الطلبات النشطة ضمن نطاق المحافظة',true),
+  ('reports.read','reports','عرض البلاغات','normal','قراءة البلاغات عن المستخدمين ضمن نطاق المحافظة',true),
+  ('reports.resolve','reports','معالجة البلاغات','sensitive','إغلاق أو معالجة بلاغات المستخدمين ضمن نطاق المحافظة',true),
+  ('chats.moderate','communications','إدارة الدردشة الخاصة','sensitive','مراجعة وحذف الرسائل ضمن الصلاحية العامة الممنوحة',true),
+  ('friends.manage','social','إدارة الأصدقاء','sensitive','مراجعة وإدارة علاقات وطلبات الصداقة بصلاحية عامة',true)
+ON CONFLICT (permission_key) DO UPDATE
+SET domain=EXCLUDED.domain,
+    label_ar=EXCLUDED.label_ar,
+    risk_level=EXCLUDED.risk_level,
+    description=EXCLUDED.description,
+    active=true;
