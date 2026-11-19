@@ -13,10 +13,11 @@ const SERVICES = [
 export function ServiceIconPanorama() {
   const track = useRef<HTMLDivElement>(null);
   const [seconds, setSeconds] = useState(2);
+  const [imageSize, setImageSize] = useState(40);
   useEffect(() => {
     let active = true;
-    (supabase as any).from("company_settings").select("service_icon_display_seconds").eq("id",1).maybeSingle()
-      .then(({data}: any) => { if(active && Number.isInteger(data?.service_icon_display_seconds)) setSeconds(Math.min(10,Math.max(1,data.service_icon_display_seconds))); });
+    (supabase as any).from("company_settings").select("service_icon_display_seconds,service_icon_image_size_px").eq("id",1).maybeSingle()
+      .then(({data}: any) => { if(active && Number.isInteger(data?.service_icon_display_seconds)) setSeconds(Math.min(10,Math.max(1,data.service_icon_display_seconds))); if(active && Number.isInteger(data?.service_icon_image_size_px)) setImageSize(Math.min(64,Math.max(24,data.service_icon_image_size_px))); });
     return () => { active = false; };
   }, []);
   useEffect(() => {
@@ -32,7 +33,7 @@ export function ServiceIconPanorama() {
   return <div dir="ltr" className="h-full w-full overflow-hidden flex items-center">
     <div ref={track} className="flex h-full w-full items-center gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {SERVICES.map(([slug,label]) => <div key={slug} className="flex min-w-[54px] flex-col items-center justify-center gap-0.5">
-        <img src={serviceIcon(slug)} alt="" className="h-10 w-10 rounded-xl object-cover" />
+        <img src={serviceIcon(slug)} alt="" style={{width:imageSize,height:imageSize}} className="rounded-xl object-cover" />
         <span className="max-w-[54px] truncate text-[8px] font-bold text-white">{label}</span>
       </div>)}
     </div>
