@@ -17,7 +17,7 @@ alter table public.support_conversations
 
 -- Keep ticket workflow state synchronized with human/customer activity.
 create or replace function public.touch_support_conversation()
-returns trigger language plpgsql security definer set search_path = public as $
+returns trigger language plpgsql security definer set search_path = public as $$
 declare
   v_user_id uuid;
 begin
