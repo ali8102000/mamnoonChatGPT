@@ -803,7 +803,6 @@ function NewRequest() {
   if (type === "service" && !serviceDetailsStep) {
     return (
       <div className="min-h-screen px-5 pt-10 pb-12" dir="rtl">
-      {activeRequestConfirmation()}
         <button onClick={goBack} className="text-sm text-muted-foreground mb-4">رجوع</button>
         <h1 className="text-2xl font-black">الفنيون والخدمات</h1>
         <p className="mt-2 text-sm text-muted-foreground">اختَر اختصاص الفني حتى نعرض لك تفاصيل الطلب بالخطوة التالية.</p>
@@ -836,8 +835,8 @@ function NewRequest() {
     });
 
     return (
-      <div className="fixed inset-0 overflow-hidden flex
-        {activeRequestConfirmation()} flex-col bg-slate-900 select-none">
+      <div className="fixed inset-0 overflow-hidden flex flex-col bg-slate-900 select-none">
+      {activeRequestConfirmation()}
         {govReady && (!gov || govPickerOpen) && (
           <div
             className="absolute inset-0 z-50 backdrop-blur p-5 overflow-y-auto"
@@ -1272,6 +1271,7 @@ function NewRequest() {
 
   return (
     <div className="min-h-screen px-5 pt-10 pb-36">
+      {activeRequestConfirmation()}
       <button onClick={() => setServiceDetailsStep(false)} className="text-sm text-muted-foreground mb-4 flex items-center gap-1">← قائمة الفنيين</button>
       <h1 className="text-3xl font-black flex items-center gap-2">
         <img
