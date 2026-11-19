@@ -560,8 +560,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.width_px) || (tile.key === "service" ? 68 : 48), 48),
-                height: Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.height_px) || (tile.key === "service" ? 68 : 48), 48),
+                width: tile.key === "service" ? 68 : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 48, 48),
+                height: tile.key === "service" ? 68 : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 48, 48),
                 borderRadius: 18,
                 alignItems: "center",
                 justifyContent: "center",

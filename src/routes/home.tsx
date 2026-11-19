@@ -237,7 +237,7 @@ function CustomerHome() {
           title={visuals.home_customer_service?.title || "طلب فني"}
           subtitle={visuals.home_customer_service?.subtitle || "١٦ خدمة"}
           icon={<ServiceIconPanorama />}
-          iconBoxSize={Math.max(Number(visuals.home_customer_service?.width_px) || 64, 48)}
+          iconBoxSize={68}
           sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
