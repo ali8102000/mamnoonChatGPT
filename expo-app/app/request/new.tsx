@@ -245,6 +245,7 @@ export default function NewRequest() {
   const [governoratePickerVisible, setGovernoratePickerVisible] = useState(false);
   const outsideGovernoratePromptShownRef = useRef(false);
   const nearbySelectionRef = useRef(0);
+  const placeSelectionRef = useRef(0);
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
@@ -810,6 +811,7 @@ export default function NewRequest() {
   }
 
   async function choosePlaceSuggestion(item: { id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }) {
+    const selectionRequest = ++placeSelectionRef.current;
     try {
       setSearchingPlaces(true);
       let point = item.coords;
@@ -824,6 +826,7 @@ export default function NewRequest() {
         point = details.coords;
         label = details.address || label;
       }
+      if (selectionRequest !== placeSelectionRef.current) return;
       if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
         throw new Error("لم تتوفر إحداثيات دقيقة لهذا المكان.");
       }
@@ -835,6 +838,7 @@ export default function NewRequest() {
           center: { lat: point.lat, lng: point.lng },
           governorateKey: activeGovernorateKey,
         });
+        if (selectionRequest !== placeSelectionRef.current) return;
         if (!validation.valid) {
           if (mapMode === "destination") {
             outsideGovernoratePromptShownRef.current = false;
@@ -882,9 +886,11 @@ export default function NewRequest() {
         }).catch(() => {});
       }
     } catch (error) {
-      Alert.alert("تعذر تحديد المكان", error instanceof Error ? error.message : "حاول اختيار اقتراح آخر.");
+      if (selectionRequest === placeSelectionRef.current) {
+        Alert.alert("تعذر تحديد المكان", error instanceof Error ? error.message : "حاول اختيار اقتراح آخر.");
+      }
     } finally {
-      setSearchingPlaces(false);
+      if (selectionRequest === placeSelectionRef.current) setSearchingPlaces(false);
     }
   }
 
@@ -1266,7 +1272,7 @@ export default function NewRequest() {
           </View>
           </View>
           <View style={styles.taxiSearchRow}>
-            <TextInput style={styles.taxiSearchInput} value={placeQuery} onChangeText={setPlaceQuery} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
+            <TextInput style={styles.taxiSearchInput} value={placeQuery} onChangeText={(value) => { placeSelectionRef.current += 1; setPlaceQuery(value); }} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
           </View>
           {searchingPlaces && <ActivityIndicator style={{ marginTop: 6 }} color={palette.brand} />}
           {!!placeSearchError && <Text style={styles.taxiErrorText}>{placeSearchError}</Text>}
