@@ -39,7 +39,7 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(url, service, { global: { fetch: createSupabaseFetch(service) }, auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
-    const requirePermission = async (permissionKey: string, allowLegacyFinance = true, scopeType = "global", scopeGovernorate: string | null = null) => {
+    const requirePermission = async (permissionKey: string, allowLegacyFinance = false, scopeType = "global", scopeGovernorate: string | null = null) => {
       const { data: permission, error: permissionError } = await caller.rpc("admin_has_permission", {
         p_permission_key: permissionKey, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
       });
