@@ -435,6 +435,7 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
 
 function CustomerHome({ userId }: { userId: string | null }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
+  const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(132);
   useEffect(() => {
     let active = true;
     (supabase as any).from("app_ui_elements_public")
@@ -532,6 +533,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
             accessibilityRole="button"
             accessibilityLabel={tile.title}
             activeOpacity={0.86}
+            onLayout={tile.key === "large" ? (event) => {
+              const nextHeight = Math.round(event.nativeEvent.layout.height);
+              setLargeVehicleCardHeight((current) => current === nextHeight ? current : nextHeight);
+            } : undefined}
             onPress={() => {
               if (tile.key === "taxi") {
                 router.push("/request/taxi");
@@ -584,7 +589,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
           </TouchableOpacity>
         ))}
         <View style={{ width: "65%", direction: "rtl" }}>
-          <HomeCategoryCarousel />
+          <HomeCategoryCarousel height={largeVehicleCardHeight} />
         </View>
       </View>
 
