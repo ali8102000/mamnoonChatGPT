@@ -198,6 +198,13 @@ function createLeafletAdapter(L: any): any {
           const lng = typeof pos.lng === "function" ? pos.lng() : pos.lng;
           this._map.panTo([lat, lng]);
         }
+        setCenter(pos: any) {
+          if (!pos) return;
+          const lat = typeof pos.lat === "function" ? pos.lat() : pos.lat;
+          const lng = typeof pos.lng === "function" ? pos.lng() : pos.lng;
+          // No animated pan: the fixed centre pin lands on the chosen coordinates immediately.
+          this._map.setView([lat, lng], this._map.getZoom(), { animate: false });
+        }
         setZoom(z: number) {
           this._map.setZoom(z);
         }
