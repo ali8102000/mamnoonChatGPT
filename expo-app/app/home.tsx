@@ -473,7 +473,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "كيا حمل أو كيا ركاب أو باص",
       emoji: "🚚",
       colors: ["#F97316", "#D97706"] as const,
-      width: "31.5%" as const,
+      width: "65%" as const,
       type: "taxi" as const,
       vehicle: "large" as const,
     },
