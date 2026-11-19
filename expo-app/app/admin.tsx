@@ -152,7 +152,7 @@ const s=StyleSheet.create({
   groupHeader:{flexDirection:"row",alignItems:"center",gap:10,padding:13},groupIcon:{width:42,height:42,borderRadius:14,backgroundColor:palette.brandSoft,alignItems:"center",justifyContent:"center"},
   groupTitle:{color:palette.ink,fontSize:14,fontWeight:"900",textAlign:"right"},groupDescription:{color:palette.muted,fontSize:10,textAlign:"right",marginTop:3},expand:{fontSize:24,color:palette.brand,fontWeight:"900",paddingHorizontal:5},
   items:{paddingHorizontal:10,paddingBottom:10,gap:7},item:{flexDirection:"row",alignItems:"center",gap:10,backgroundColor:palette.canvas,borderRadius:radius.md,padding:11,minHeight:62},
-  supportButton:{minHeight:40},reportAction:{minHeight:36},inboxOpen:{minHeight:36},
+  supportButton: { minHeight: 40 }, reportAction: { minHeight: 36 }, inboxOpen: { minHeight: 36 },
   itemIcon:{fontSize:21,width:28,textAlign:"center"},itemTitle:{color:palette.ink,fontSize:12,fontWeight:"900",textAlign:"right"},itemDescription:{color:palette.muted,fontSize:10,textAlign:"right",marginTop:3},arrow:{color:palette.brand,fontSize:17,fontWeight:"900"},
   title:{color:palette.ink,fontSize:18,fontWeight:"900"},muted:{color:palette.muted,fontSize:12,textAlign:"center"},
 });
