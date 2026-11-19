@@ -255,7 +255,7 @@ function CustomerHome() {
           span={1}
           delay={0.15}
         />
-        <div dir="rtl" className="col-span-2 min-w-0" style={{ order: 40 }}>
+        <div dir="rtl" className="col-span-2 min-w-0 h-full" style={{ order: 40 }}>
           <HomeCategoryCarousel />
         </div>
       </div>
