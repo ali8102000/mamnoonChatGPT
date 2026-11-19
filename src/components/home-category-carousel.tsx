@@ -30,7 +30,7 @@ export function HomeCategoryCarousel() {
   }, [refresh]);
   useEffect(() => {
     if (banners.length < 2) return;
-    const delay = Math.max(2, Math.min(30, Number(banners[index]?.scroll_speed) || 5)) * 1000;
+    const delay = Math.max(1, Math.min(60, Number(banners[index]?.scroll_speed) || 5)) * 1000;
     const timer = window.setInterval(() => {
       if (Date.now() >= resumeAt.current) setIndex((current) => (current + 1) % banners.length);
     }, delay);
