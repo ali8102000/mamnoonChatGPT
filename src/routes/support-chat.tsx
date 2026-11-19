@@ -61,10 +61,10 @@ function SupportChatPage() {
       const { data: profiles } = ids.length ? await supabase.from("profiles").select("id,full_name,phone,avatar_url").in("id", ids) : { data: [] };
       const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
       const conversationIds = (data ?? []).map((c: any) => c.id);
-      const { data: latestMessages } = conversationIds.length ? await (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : { data: [] };
+      const { data: latestMessages } = conversationIds.length ? await (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at,is_ai").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : { data: [] };
       const latestByConversation = new Map<string, any>();
       for (const message of latestMessages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
-      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: byId.get(c.user_id), lastMessage, unanswered: !!lastMessage && lastMessage.sender_id === c.user_id }; }).sort((a: any, b: any) => new Date(b.lastMessage?.created_at ?? b.updated_at).getTime() - new Date(a.lastMessage?.created_at ?? a.updated_at).getTime());
+      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: byId.get(c.user_id), lastMessage, unanswered: !!lastMessage && lastMessage.sender_id === c.user_id && !lastMessage.is_ai }; }).sort((a: any, b: any) => new Date(b.lastMessage?.created_at ?? b.updated_at).getTime() - new Date(a.lastMessage?.created_at ?? a.updated_at).getTime());
       setConversations(rows);
       if (selected) setSelected(rows.find((c: any) => c.id === selected.id) ?? null);
     } else {
@@ -108,10 +108,7 @@ function SupportChatPage() {
     const channel = supabase.channel("support-" + selected.id)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: "conversation_id=eq." + selected.id }, (payload: any) => {
         setMessages((current) => current.some((m) => m.id === payload.new.id) ? current : [...current, payload.new]);
-        if (payload.new.sender_id !== uid) {
-          notifyIncoming(payload.new);
-          (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
-        }
+        if (payload.new.is_ai === true && !isStaff) {\n          notifyIncoming(payload.new);\n        } else if (payload.new.is_ai !== true && payload.new.sender_id !== uid) {\n          notifyIncoming(payload.new);\n          (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});\n        }
         loadConversations().catch(() => {});
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -161,7 +158,7 @@ function SupportChatPage() {
     const { data: sentMessage, error } = await (supabase as any).from("support_messages").insert({ conversation_id: selected.id, sender_id: uid, body }).select("*").single();
     setBusy(false);
     if (error) { setDraft(body); toast.error(error.message); }
-    else if (sentMessage) setMessages((current) => current.some((m) => m.id === sentMessage.id) ? current : [...current, sentMessage]);
+    else if (sentMessage) {\n      setMessages((current) => current.some((m) => m.id === sentMessage.id) ? current : [...current, sentMessage]);\n      if (!isStaff) {\n        const { error: aiError } = await supabase.functions.invoke("support-ai-reply", { body: { message_id: sentMessage.id } });\n        if (aiError) console.warn("Support AI reply unavailable; staff can answer from inbox.", aiError.message);\n      }\n    }
   }
 
   return <div className="min-h-screen bg-background p-4 md:p-8">
@@ -189,7 +186,7 @@ function SupportChatPage() {
           <div className="p-4 border-b border-border flex items-center justify-between gap-3"><div className="flex items-center gap-3 min-w-0"><div className="h-11 w-11 rounded-full bg-muted overflow-hidden shrink-0 grid place-items-center">{selected?.profile?.avatar_url ? <img src={selected.profile.avatar_url} alt="" className="h-full w-full object-cover" /> : <MessageCircle className="text-primary" />}</div><div className="min-w-0"><div className="font-black truncate">{isStaff ? selected?.profile?.full_name || "اختر محادثة" : "فريق دعم ممنون"}</div>{isStaff && <div className="text-xs text-muted-foreground" dir="ltr">{selected?.profile?.phone || ""}</div>}</div></div>{isStaff && <div className="flex items-center gap-1"><button title={muted ? "تشغيل الصوت" : "كتم الصوت"} onClick={() => { const next = !muted; setMuted(next); window.localStorage.setItem("mamnoon-support-muted", next ? "1" : "0"); }} className="rounded-xl border border-border p-2">{muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}</button><button title="السماح بالإشعارات" onClick={() => { if ("Notification" in window) void Notification.requestPermission(); }} className="rounded-xl border border-border p-2"><Bell className="h-4 w-4" /></button></div>}</div>
           {loadError && <div role="alert" className="mx-3 mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{loadError} — حدّث الصفحة وحاول مرة ثانية</div>}
           <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-            {messages.length === 0 ? <div className="text-center text-sm text-muted-foreground py-12">أهلاً بك، اكتب رسالتك وسيقوم فريق ممنون بالرد عليك.</div> : messages.map((m) => { const isCompanyMessage = isStaff ? m.sender_id === uid : m.sender_id !== uid; return <div key={m.id} className={"max-w-[85%] rounded-2xl px-3 py-2 text-sm border shadow-sm " + (isCompanyMessage ? "ml-auto border-[#B98A24] bg-gradient-to-br from-[#F8E7A1] via-[#E5BD50] to-[#C99A2E] text-[#2C2108] shadow-[#C99A2E]/20" : "mr-auto border-primary/20 bg-primary text-primary-foreground")}>
+            {messages.length === 0 ? <div className="text-center text-sm text-muted-foreground py-12">أهلاً بك، اكتب رسالتك وسيقوم فريق ممنون بالرد عليك.</div> : messages.map((m) => { const isCompanyMessage = m.is_ai === true || (isStaff ? m.sender_id === uid : m.sender_id !== uid); return <div key={m.id} className={"max-w-[85%] rounded-2xl px-3 py-2 text-sm border shadow-sm " + (isCompanyMessage ? "ml-auto border-[#B98A24] bg-gradient-to-br from-[#F8E7A1] via-[#E5BD50] to-[#C99A2E] text-[#2C2108] shadow-[#C99A2E]/20" : "mr-auto border-primary/20 bg-primary text-primary-foreground")}>
               {isCompanyMessage && <div className="flex items-center gap-1 text-[10px] font-black mb-1.5 text-[#5B4210]"><ShieldCheck className="h-3 w-3" /> شركة ممنون <span className="rounded-full bg-[#6D5015] text-[#FFF4C2] px-1.5 py-0.5 text-[9px]">موثّقة</span></div>}
               <p className="whitespace-pre-wrap break-words">{m.body}</p><div className={"text-[10px] mt-1 " + (isCompanyMessage ? "text-[#5B4210]/75" : "opacity-70")}>{new Date(m.created_at).toLocaleString("ar-IQ")}</div>
             </div>; })}
