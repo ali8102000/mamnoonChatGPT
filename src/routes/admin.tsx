@@ -772,8 +772,7 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
         setUsers(d.users);
         setTotal(d.total);
       }
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
     }
   }, [page, searchQuery, listUsers, searchUsers]);
@@ -1670,8 +1669,7 @@ function RequestsSection() {
     setLoading(true);
     try {
       setRequests(await listRequests({ data: { status: statusFilter } }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
     }
   }, [statusFilter, listRequests]);
@@ -1797,8 +1795,7 @@ function ChatSection() {
     try {
       if (tab === "chats") setChats(await listChats({ data: {} }));
       else setMessages(await listMessages({ data: {} }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
     }
   }, [tab, listChats, listMessages, customerServiceOnly]);
@@ -1923,8 +1920,7 @@ function FriendsSection() {
     try {
       if (tab === "friends") setFriends(await listFriends({ data: {} }));
       else setRequests(await listFriendRequests({ data: {} }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
     }
   }, [tab, listFriends, listFriendRequests]);
@@ -2022,8 +2018,7 @@ function ReportsSection() {
     setLoading(true);
     try {
       setReports(await listReports({ data: { status: statusFilter } }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
     }
   }, [statusFilter, listReports]);
@@ -2475,8 +2470,7 @@ function WalletSection() {
     setLoading(true);
     try {
       setTransactions(await listTx({ data: {} }));
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
     }
   }, [listTx]);
@@ -2600,8 +2594,7 @@ function MapSection() {
         const [l, r] = await Promise.all([getLocations(), getRequests()]);
         setLocations(l);
         setRequests(r);
-      } catch (e) {
-      } finally {
+      } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
         setLoading(false);
       }
     })();
@@ -2774,8 +2767,7 @@ function RolesSection() {
         const d = await listUsers({ data: { page: 1, limit: 50 } });
         setUsers(d.users);
       }
-    } catch (e) {
-    } finally {
+    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
     }
   }, [searchQuery, searchUsers, listUsers]);
@@ -2893,8 +2885,7 @@ function RoleModal({ user, onGrant, onRevoke, onAssign, onDeactivate, onClose }:
           .select("role")
           .eq("user_id", user.id);
         setRoles((data ?? []).map((r: any) => r.role));
-      } catch (e) {
-      } finally {
+      } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
         setLoading(false);
       }
     })();
@@ -3203,8 +3194,7 @@ function AuditSection() {
     (async () => {
       try {
         setLogs(await listLogs({ data: {} }));
-      } catch (e) {
-      } finally {
+      } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
         setLoading(false);
       }
     })();
