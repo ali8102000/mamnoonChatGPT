@@ -15,10 +15,11 @@ export function ServiceIconPanorama() {
   const scroll = useRef<ScrollView>(null);
   const offset = useRef(0);
   const [seconds,setSeconds] = useState(2);
+  const [imageSize,setImageSize] = useState(40);
   useEffect(() => {
     let active = true;
-    (supabase as any).from("company_settings").select("service_icon_display_seconds").eq("id",1).maybeSingle()
-      .then(({data}: any) => { if(active && Number.isInteger(data?.service_icon_display_seconds)) setSeconds(Math.min(10,Math.max(1,data.service_icon_display_seconds))); });
+    (supabase as any).from("company_settings").select("service_icon_display_seconds,service_icon_image_size_px").eq("id",1).maybeSingle()
+      .then(({data}: any) => { if(active && Number.isInteger(data?.service_icon_display_seconds)) setSeconds(Math.min(10,Math.max(1,data.service_icon_display_seconds))); if(active && Number.isInteger(data?.service_icon_image_size_px)) setImageSize(Math.min(64,Math.max(24,data.service_icon_image_size_px))); });
     return () => { active = false; };
   },[]);
   useEffect(() => {
@@ -31,7 +32,7 @@ export function ServiceIconPanorama() {
   },[seconds]);
   return <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} scrollEnabled={false} style={{width:68,height:68}} contentContainerStyle={{alignItems:"center",gap:5}}>
     {SERVICES.map(([slug,label]) => <View key={slug} style={{width:53,alignItems:"center",justifyContent:"center",gap:2}}>
-      <Image source={getServiceImage(slug)} style={{width:38,height:38,borderRadius:9}} resizeMode="cover" />
+      <Image source={getServiceImage(slug)} style={{width:imageSize,height:imageSize,borderRadius:9}} resizeMode="cover" />
       <Text numberOfLines={1} style={{fontSize:8,fontWeight:"800",color:"#fff"}}>{label}</Text>
     </View>)}
   </ScrollView>;
