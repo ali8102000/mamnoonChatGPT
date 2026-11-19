@@ -1370,7 +1370,17 @@ export default function RequestDetail() {
                   </>
                 )}
               </MapView>
-              {request.type !== "taxi" && <Text style={styles.trackingHint}>{otherLocation ? "يتم استقبال موقع الطرف الآخر" : "بانتظار مشاركة موقع الطرف الآخر"}</Text>}
+              {request.type !== "taxi" && <Text style={styles.trackingHint}>
+                {isCustomer
+                  ? providerRoutePoints.length > 1
+                    ? "الفني بالطريق إليك · موقعه يتحدث مباشرة"
+                    : driverLocationFresh
+                      ? "تم قبول الطلب · موقع الفني مباشر"
+                      : "بانتظار تحديث موقع الفني"
+                  : driverLocationFresh
+                    ? "موقعك وموقع الزبون ظاهران مباشرة"
+                    : "بانتظار تحديث موقع الزبون"}
+              </Text>}
             </View>
           )}
         {(request.type === "taxi" || request.type === "service") && request.status === "accepted" && isProvider && (
