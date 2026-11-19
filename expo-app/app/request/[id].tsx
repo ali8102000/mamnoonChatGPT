@@ -1656,7 +1656,7 @@ const styles = StyleSheet.create({
   containerMap: { backgroundColor: "transparent" },
   fullScreenTrackingMap: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
   headerOnMap: { backgroundColor: "rgba(255,255,255,0.94)", borderBottomColor: "rgba(15,23,42,0.10)", elevation: 4 },
-  requestScrollOnMap: { backgroundColor: "transparent" },
+  requestScrollOnMap: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "64%", backgroundColor: "rgba(255,255,255,0.96)", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden", elevation: 8 },
   mapLiveBadge: { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: 7, marginTop: 10, marginBottom: 3, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.96)", borderWidth: 1, borderColor: palette.line, elevation: 3 },
   mapLiveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.success },
   mapLiveBadgeTitle: { color: palette.ink, fontSize: 11, fontWeight: "900" },
