@@ -185,15 +185,18 @@ async function autocomplete(admin:any,input:string,key:string) {
   ]);
   if(initial.error) throw new Error("تعذّر تحميل اقتراحات الأماكن من قاعدة البيانات.");
   const mapRows=(rows:any[]) => (rows??[]).map(row=>({id:row.id?.startsWith?.("db:")?row.id:"db:"+row.id,
-    text:row.name_ar,address:row.address||row.name_ar,coords:{lat:Number(row.latitude),lng:Number(row.longitude)}}));
+    text:row.name_ar,address:row.address||row.name_ar,coords:{lat:Number(row.latitude),lng:Number(row.longitude)},governorateKey:key}));
+  const initialSuggestions=mapRows(initial.data);
   const cacheFresh=cached.data?.expires_at&&new Date(cached.data.expires_at).getTime()>Date.now();
-  if(!cacheFresh&&(initial.data??[]).length<30) {
+  // Return already-known matches immediately. A slow external geocoder must not
+  // block useful cached results while the customer is selecting a destination.
+  if(!cacheFresh&&initialSuggestions.length===0) {
     const url=new URL("https://photon.komoot.io/api/");
-    url.searchParams.set("q",q);url.searchParams.set("limit","50");url.searchParams.set("countrycode","IQ");
+    url.searchParams.set("q",q);url.searchParams.set("limit","30");url.searchParams.set("countrycode","IQ");
     url.searchParams.set("bbox",[bounds.low.lng,bounds.low.lat,bounds.high.lng,bounds.high.lat].join(","));
     url.searchParams.set("lat",String(governorate[2]));url.searchParams.set("lon",String(governorate[3]));url.searchParams.set("zoom","12");
     try {
-      const response=await fetch(url,{headers:{Accept:"application/geo+json","User-Agent":"Mamnoon/1.0"},signal:AbortSignal.timeout(7000)});
+      const response=await fetch(url,{headers:{Accept:"application/geo+json","User-Agent":"Mamnoon/1.0"},signal:AbortSignal.timeout(3500)});
       if(response.ok) {
         const features=(await response.json() as any).features??[];
         const rows=features.flatMap((feature:any)=>{
@@ -221,7 +224,7 @@ async function autocomplete(admin:any,input:string,key:string) {
   const {data,error}=await admin.rpc("search_map_place_suggestions",{p_governorate_key:key,p_query:q,p_limit:30});
   if(error) throw new Error("تعذّر تحميل اقتراحات الأماكن.");
   const suggestions=mapRows(data);
-  return json({suggestions:suggestions.length?suggestions:mapRows(initial.data).slice(0,30),
+  return json({suggestions:suggestions.length?suggestions:initialSuggestions.slice(0,30),
     attribution:"بيانات الأماكن © OpenStreetMap"});
 }
 

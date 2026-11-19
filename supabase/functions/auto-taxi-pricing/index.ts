@@ -113,9 +113,17 @@ Deno.serve(async (req) => {
   };
   // Read through the authenticated customer session: pricing_settings grants
   // SELECT to authenticated only. Keep service-role access for request creation.
-  const {data:settingsRows,error:settingsError}=await userClient.from("pricing_settings").select("*")
-    .in("governorate_key",["all",fromGovernorate])
-    .in("service_type",["economy","premium","luxury"]).eq("is_intercity",isIntercity);
+  const [
+    {data:settingsRows,error:settingsError},
+    {data:controlRows,error:controlError},
+  ] = await Promise.all([
+    userClient.from("pricing_settings").select("*")
+      .in("governorate_key",["all",fromGovernorate])
+      .in("service_type",["economy","premium","luxury"]).eq("is_intercity",isIntercity),
+    userClient.from("taxi_pricing_controls")
+      .select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent")
+      .in("governorate_key",["all",fromGovernorate]),
+  ]);
   if(settingsError||!settingsRows?.length) {
     console.error("[auto-taxi-pricing] pricing settings lookup failed", settingsError?.code || "no_row");
     return json({error:"تعذّر قراءة تعريفة السيارة حالياً",code:"PRICING_SETTINGS_READ_FAILED"},503);
@@ -128,9 +136,6 @@ Deno.serve(async (req) => {
     console.error("[auto-taxi-pricing] category pricing row missing",category,isIntercity);
     return json({error:"تعذّر قراءة تعريفة السيارة المختارة",code:"PRICING_SETTINGS_READ_FAILED"},503);
   }
-  const {data:controlRows,error:controlError}=await userClient.from("taxi_pricing_controls")
-    .select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent")
-    .in("governorate_key",["all",fromGovernorate]);
   if(controlError) {
     console.error("[auto-taxi-pricing] controls lookup failed",controlError.code||"unknown");
     return json({error:"تعذّر قراءة إعدادات الذروة والاستعجال",code:"TAXI_CONTROLS_READ_FAILED"},503);
