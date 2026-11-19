@@ -1,6 +1,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 import { MAMNOON_KNOWLEDGE_AR } from "../_shared/mamnoon-knowledge-ar.ts";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
+};
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: cors });
+const required = (name: string) => {
+  const value = Deno.env.get(name)?.trim();
+  if (!value) throw new Error("missing_" + name);
+  return value;
+};
 function normalizeQuery(value: string) {
   return value.trim().replace(/[,%()_*]/g, " ").replace(/\s+/g, " ").slice(0, 80);
 }
@@ -90,7 +104,7 @@ Deno.serve(async (req: Request) => {
         "إحالة تلقائية من مساعد ممنون",
         "سؤال المستخدم: " + question.slice(0, 1200),
         safeReason ? "سبب الإحالة: " + safeReason : "",
-      ].filter(Boolean).join("\\n");
+      ].filter(Boolean).join("\n");
       const { error: messageError } = await admin.from("support_messages").insert({
         conversation_id: conversationId,
         sender_id: auth.user.id,
