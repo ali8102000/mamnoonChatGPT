@@ -100,17 +100,27 @@ begin
     v_body := 'وصلك طلب خدمة جديد من زبون قريب. افتح ممنون للتفاصيل.';
   end if;
 
-  insert into public.notifications(user_id, type, title, body, link, data)
-  values (
-    new.provider_id, 'request_offer', v_title, v_body,
-    '/request/' || new.request_id::text,
-    jsonb_build_object(
-      'type', 'request_offer',
-      'request_id', new.request_id,
-      'offer_id', new.id,
-      'urgency_multiplier', coalesce(v_urgency, 1)
-    )
-  );
+  -- A requeued offer reuses the same offer id. Keep its original in-app
+  -- notification instead of creating a duplicate row for every requeue.
+  if not exists (
+    select 1
+    from public.notifications n
+    where n.user_id = new.provider_id
+      and n.type = 'request_offer'
+      and n.data->>'offer_id' = new.id::text
+  ) then
+    insert into public.notifications(user_id, type, title, body, link, data)
+    values (
+      new.provider_id, 'request_offer', v_title, v_body,
+      '/request/' || new.request_id::text,
+      jsonb_build_object(
+        'type', 'request_offer',
+        'request_id', new.request_id,
+        'offer_id', new.id,
+        'urgency_multiplier', coalesce(v_urgency, 1)
+      )
+    );
+  end if;
 
   insert into public.push_delivery_outbox(offer_id, request_id, provider_id, expo_push_token, payload)
   select
