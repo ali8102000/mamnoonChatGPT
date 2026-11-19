@@ -1,572 +1,158 @@
-import { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity, TextInput, Image } from "react-native";
-import { router } from "expo-router";
-import { Linking } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Stack, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { palette, radius } from "@/styles/theme";
-import { ActionButton } from "@/components/ui";
-import * as ImagePicker from "expo-image-picker";
+import { useCompanyBranding } from "@/lib/company-branding";
+import { palette, radius, space } from "@/styles/theme";
 
-type AdminStats = { totalRequests: number; totalUsers: number; totalDrivers: number; totalWorkers: number; activeDrivers: number; activeWorkers: number; activeRequests: number; completedRequests: number; cancelledRequests: number; dailyRevenue: number; monthlyRevenue: number; yearlyRevenue: number };
-type PricingRule = {
-  id: string;
-  vehicle_category: string;
-  base_fare: number | null;
-  per_km: number | null;
-};
-type RecentRequest = {
-  id: string;
-  type: string;
-  customer?: { full_name: string | null } | null;
-  created_at: string;
-  status: string;
-};
+type Stats = { users: number; requests: number; drivers: number; workers: number; active: number };
+type NavItem = { title: string; description: string; route: string; icon: string };
+type NavGroup = { title: string; description: string; icon: string; items: NavItem[] };
+
+const GROUPS: NavGroup[] = [
+  { title: "العمليات والطلبات", description: "إدارة الرحلات والخدمات ومقدمي الخدمة", icon: "🚕", items: [
+    { title: "الطلبات", description: "متابعة الطلبات وحالاتها", route: "/admin/requests", icon: "📋" },
+    { title: "السائقون والفنيون", description: "الحسابات والتوثيق والتوفر", route: "/admin/providers", icon: "🧑‍🔧" },
+    { title: "الخريطة المباشرة", description: "مواقع الطلبات ومقدمي الخدمة", route: "/admin/live-map", icon: "🗺️" },
+    { title: "نطاقات التوزيع", description: "حدود وصول الطلبات", route: "/admin/dispatch-zones", icon: "📍" },
+    { title: "رتب السائقين", description: "معايير الأداء والتقييم", route: "/admin/driver-tiers", icon: "🏅" },
+  ]},
+  { title: "المستخدمون وخدمة العملاء", description: "الحسابات والتواصل والبلاغات", icon: "👥", items: [
+    { title: "المستخدمون", description: "بحث وإدارة حسابات العملاء", route: "/admin/users", icon: "👤" },
+    { title: "المراقبة والبلاغات", description: "مراجعة البلاغات ومتابعة الحالات", route: "/admin/monitoring", icon: "🛡️" },
+    { title: "محادثات الدعم", description: "متابعة محادثات الدعم", route: "/admin/chats", icon: "💬" },
+    { title: "الأصدقاء", description: "إدارة طلبات وعلاقات الأصدقاء", route: "/admin/friends", icon: "🤝" },
+  ]},
+  { title: "المالية والاشتراكات", description: "المحافظ والاشتراكات والتقارير", icon: "💰", items: [
+    { title: "الاشتراكات", description: "الباقات وطلبات الاشتراك", route: "/admin/subscriptions", icon: "👑" },
+    { title: "المالية والكوبونات", description: "المحفظة والحركات والعروض", route: "/admin/finance", icon: "💳" },
+    { title: "الإحصائيات", description: "تقارير المنصة ومؤشراتها", route: "/admin/analytics", icon: "📊" },
+  ]},
+  { title: "المحتوى وهوية الشركة", description: "الشعار والبانرات ومحتوى التطبيق", icon: "🎨", items: [
+    { title: "هوية الشركة والشعار", description: "اسم الشركة وشعار الترحيب", route: "/admin/company", icon: "🏢" },
+    { title: "بانرات الصفحة الرئيسية", description: "إعلانات واستطلاعات ومسابقات", route: "/admin/home-banners", icon: "🖼️" },
+    { title: "محرر الواجهة", description: "الأقسام والجداول والحملات", route: "/admin/visual-builder", icon: "🧩" },
+    { title: "الإشعارات", description: "إرسال تنبيهات للمستخدمين", route: "/admin/notifications", icon: "🔔" },
+  ]},
+  { title: "الموظفون والحوكمة", description: "التعيين والترقية والتنزيل والصلاحيات", icon: "🧑‍💼", items: [
+    { title: "إدارة الموظفين والصلاحيات", description: "تعيين الموظفين وتحديد صلاحياتهم", route: "/admin/governance", icon: "🔐" },
+    { title: "الهيكل الوظيفي والترقيات", description: "إدارة الرتب والأقسام", route: "/admin/staff-hierarchy", icon: "📈" },
+    { title: "مركز الموظفين", description: "الأدوات المتاحة حسب الصلاحية", route: "/admin/staff", icon: "🗂️" },
+  ]},
+  { title: "الإعدادات المتقدمة", description: "المحافظات والاستيراد", icon: "⚙️", items: [
+    { title: "التحكم بالمحافظات", description: "تفعيل الخدمات حسب المحافظة", route: "/admin/regions", icon: "🌍" },
+    { title: "استيراد البيانات", description: "أدوات استيراد ومراجعة البيانات", route: "/admin/import", icon: "📥" },
+  ]},
+];
 
 export default function AdminScreen() {
-  const { user } = useAuth();
-  const [stats, setStats] = useState<AdminStats>({
-    totalRequests: 0,
-    totalUsers: 0,
-    totalDrivers: 0,
-    totalWorkers: 0,
-    activeDrivers: 0,
-    activeWorkers: 0,
-    activeRequests: 0,
-    completedRequests: 0,
-    cancelledRequests: 0,
-    dailyRevenue: 0,
-    monthlyRevenue: 0,
-    yearlyRevenue: 0,
-  });
-  const [pricing, setPricing] = useState<PricingRule[]>([]);
-  const [recent, setRecent] = useState<RecentRequest[]>([]);
+  const { user, loading: authLoading } = useAuth();
+  const { companyName, logoUrl } = useCompanyBranding();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [companyName, setCompanyName] = useState("شركة ممنون");
-  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
-  const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
-  const [companyLogoAsset, setCompanyLogoAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [savingCompanyName, setSavingCompanyName] = useState(false);
-  const [supportInbox, setSupportInbox] = useState<any[]>([]);
-  const [unreadSupport, setUnreadSupport] = useState(0);
-  const [reports, setReports] = useState<any[]>([]);
-  const [changeRequests, setChangeRequests] = useState<any[]>([]);
-  const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
-  const [rejectingChangeId, setRejectingChangeId] = useState<string | null>(null);
-  const [changeRejectReason, setChangeRejectReason] = useState("");
-  const [reviewingChangeId, setReviewingChangeId] = useState<string | null>(null);
-  const [statsWarning, setStatsWarning] = useState("");
-  const [reportFilter, setReportFilter] = useState("all");
-  const [resolvingReportId, setResolvingReportId] = useState<string | null>(null);
+  const [authorized, setAuthorized] = useState(false);
+  const [stats, setStats] = useState<Stats>({ users: 0, requests: 0, drivers: 0, workers: 0, active: 0 });
+  const [expanded, setExpanded] = useState<string | null>("العمليات والطلبات");
 
   const load = useCallback(async () => {
-    const { data: superAdminCheck, error: permissionError } = await supabase.rpc("is_super_admin", {
-      p_user_id: user?.id,
-    });
-    if (permissionError || superAdminCheck !== true) {
-      const { data: staffRoles, error: staffRolesError } = await supabase.rpc("get_staff_roles", { p_user_id: user?.id });
-      const { data: assignment } = await (supabase as any)
-        .from("staff_assignments").select("rank,department").eq("user_id", user?.id).eq("active", true).maybeSingle();
-      const roleNames = (staffRoles ?? []).map((entry: any) => typeof entry === "string" ? entry : entry.role);
-      const scopeType = assignment?.scope_type ?? "global";
-      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate : null;
-      const permissionChecks = await Promise.all([
-        "staff.read","staff.assign","staff.manage_created","staff.delegate","staff.approve",
-        "pricing.taxi.edit","pricing.peak.edit","finance.read","promotions.read",
-      ].map(async (permission_key) => {
-        const { data } = await (supabase as any).rpc("admin_has_permission", {
-          p_permission_key: permission_key, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
-        });
-        return data === true;
-      }));
-      const hasStaffAccess = !staffRolesError && (
-        roleNames.some((role: string) => ["admin", "support", "finance", "moderator", "customer_service", "department_finance", "department_operations", "department_monitoring"].includes(role)) ||
-        ["general_manager", "department_manager", "supervisor", "employee"].includes(assignment?.rank) ||
-        permissionChecks.some(Boolean)
-      );
-      if (hasStaffAccess) {
-        router.replace("/admin/staff");
-        setLoading(false);
-        return;
-      }
-      Alert.alert("غير مصرّح", "هذه الصفحة مخصصة للمدير الأعلى والموظفين المخوّلين فقط");
-      router.replace("/home");
+    if (!user?.id) return;
+    setLoading(true);
+    const { data: owner, error: ownerError } = await supabase.rpc("is_super_admin", { p_user_id: user.id });
+    if (ownerError || owner !== true) {
+      const [{ data: roles, error: rolesError }, { data: assignment }] = await Promise.all([
+        supabase.rpc("get_staff_roles", { p_user_id: user.id }),
+        (supabase as any).from("staff_assignments").select("rank,department,active").eq("user_id", user.id).maybeSingle(),
+      ]);
+      const names = (roles ?? []).map((v: any) => typeof v === "string" ? v : v.role);
+      const hasAccess = !rolesError && (names.some((v: string) => ["admin","support","finance","moderator","customer_service","department_finance","department_operations","department_monitoring"].includes(v)) || assignment?.active === true);
+      if (hasAccess) router.replace("/admin/staff");
+      else router.replace("/home");
+      setAuthorized(false);
       setLoading(false);
       return;
     }
-    const { data: company } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle();
-    if (company?.company_name) setCompanyName(company.company_name);
-    setCompanyLogoUrl(company?.company_logo_url ?? null);
-    setWelcomeMessage(company?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد.");
-    const now = new Date();
-    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
-    const [reqs, users, drivers, workers, activeDrivers, activeWorkers, activeRequests, completedRequests, cancelledRequests, todayTx, monthTx, yearTx, pricingRules, recentReqs] = await Promise.all([
-      supabase.from("service_requests").select("id", { count: "exact", head: true }),
+    setAuthorized(true);
+    const [users, requests, drivers, workers, active] = await Promise.all([
       supabase.from("profiles").select("id", { count: "exact", head: true }),
+      supabase.from("service_requests").select("id", { count: "exact", head: true }),
       supabase.from("driver_profiles").select("id", { count: "exact", head: true }),
       supabase.from("worker_profiles").select("id", { count: "exact", head: true }),
-      supabase.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
-      supabase.from("worker_profiles").select("id", { count: "exact", head: true }).eq("available", true),
-      supabase.from("service_requests").select("id", { count: "exact", head: true }).in("status", ["pending", "searching", "accepted", "in_progress"]),
-      supabase.from("service_requests").select("id", { count: "exact", head: true }).eq("status", "completed"),
-      supabase.from("service_requests").select("id", { count: "exact", head: true }).eq("status", "cancelled"),
-      (supabase as any).from("transactions").select("amount,type").gte("created_at", dayStart),
-      (supabase as any).from("transactions").select("amount,type").gte("created_at", monthStart),
-      (supabase as any).from("transactions").select("amount,type").gte("created_at", yearStart),
-      supabase.from("pricing_rules").select("*").order("vehicle_category"),
-      supabase.from("service_requests").select("*, customer:profiles!service_requests_customer_id_fkey(full_name)").order("created_at", { ascending: false }).limit(20),
+      supabase.from("service_requests").select("id", { count: "exact", head: true }).in("status", ["pending","searching","accepted","in_progress"]),
     ]);
-    const metricResults = [reqs, users, drivers, workers, activeDrivers, activeWorkers, activeRequests, completedRequests, cancelledRequests, todayTx, monthTx, yearTx, pricingRules, recentReqs];
-    const failedMetricCount = metricResults.filter((result: any) => !!result?.error).length;
-    setStatsWarning(failedMetricCount ? `تعذر تحميل ${failedMetricCount} من مصادر الإحصائيات؛ الأرقام المتأثرة قد لا تكون مكتملة. اسحب للتحديث.` : "");
-    const commissionTotal = (rows: any[] | null | undefined) => (rows ?? [])
-      .filter((row: any) => row.type === "commission")
-      .reduce((sum: number, row: any) => sum + Math.abs(Number(row.amount) || 0), 0);
-    setStats({
-      totalRequests: reqs.count || 0,
-      totalUsers: users.count || 0,
-      totalDrivers: drivers.count || 0,
-      totalWorkers: workers.count || 0,
-      activeDrivers: activeDrivers.count || 0,
-      activeWorkers: activeWorkers.count || 0,
-      activeRequests: activeRequests.count || 0,
-      completedRequests: completedRequests.count || 0,
-      cancelledRequests: cancelledRequests.count || 0,
-      dailyRevenue: commissionTotal(todayTx.data),
-      monthlyRevenue: commissionTotal(monthTx.data),
-      yearlyRevenue: commissionTotal(yearTx.data),
-    });
-    setPricing(pricingRules.data || []);
-    setRecent(recentReqs.data || []);
-    const { data: conversations } = await (supabase as any).from("support_conversations").select("id,user_id,status,updated_at").order("updated_at", { ascending: false }).limit(12);
-    const conversationRows = conversations ?? [];
-    const conversationIds = conversationRows.map((row: any) => row.id);
-    const userIds = [...new Set(conversationRows.map((row: any) => row.user_id))];
-    let reportQuery = (supabase as any).from("user_reports").select("id,reporter_id,reported_id,request_id,reason,details,status,created_at").order("created_at", { ascending: false }).limit(100);
-    if (reportFilter !== "all") reportQuery = reportQuery.eq("status", reportFilter);
-    const [{ data: supportProfiles }, { data: supportMessages }, { data: reportRows }] = await Promise.all([
-      userIds.length ? supabase.from("profiles").select("id,full_name,phone").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
-      conversationIds.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,read_at,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [] as any[] }),
-      reportQuery,
-    ]);
-    const profileById = new Map((supportProfiles ?? []).map((profile: any) => [profile.id, profile]));
-    const latestByConversation = new Map<string, any>();
-    let unread = 0;
-    for (const message of supportMessages ?? []) {
-      if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
-      if (message.sender_id !== user?.id && !message.read_at) unread += 1;
-    }
-    setUnreadSupport(unread);
-    setSupportInbox(conversationRows.map((row: any) => ({ ...row, profile: profileById.get(row.user_id), latest: latestByConversation.get(row.id) })));
-    const reportUserIds = [...new Set((reportRows ?? []).flatMap((report: any) => [report.reporter_id, report.reported_id]).filter(Boolean))];
-    const { data: reportProfiles } = reportUserIds.length
-      ? await supabase.from("profiles").select("id,full_name,phone").in("id", reportUserIds)
-      : { data: [] as any[] };
-    const reportProfileById = new Map((reportProfiles ?? []).map((profile: any) => [profile.id, profile]));
-    setReports((reportRows ?? []).map((report: any) => ({ ...report, reporter: reportProfileById.get(report.reporter_id), reported: reportProfileById.get(report.reported_id) })));
-
-    const { data: pendingChanges, error: changeError } = await (supabase as any)
-      .from("provider_change_requests")
-      .select("*, profiles!provider_change_requests_user_id_fkey(full_name,phone)")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
-    if (!changeError) {
-      const serviceIds = [...new Set((pendingChanges ?? []).flatMap((row: any) =>
-        row.provider_type === "worker" && Array.isArray(row.requested_data?.service_ids) ? row.requested_data.service_ids : [],
-      ))];
-      const { data: serviceRows } = serviceIds.length
-        ? await (supabase as any).from("services").select("id,name_ar").in("id", serviceIds)
-        : { data: [] };
-      const serviceNames = new Map((serviceRows ?? []).map((row: any) => [row.id, row.name_ar]));
-      const enriched = (pendingChanges ?? []).map((row: any) => ({
-        ...row,
-        requested_service_names: (row.requested_data?.service_ids ?? []).map((id: string) => serviceNames.get(id) ?? "اختصاص غير معروف"),
-      }));
-      setChangeRequests(enriched);
-    }
-    const { data: partnerRows, error: partnerError } = await (supabase as any).from("partner_applications")
-      .select("id,user_id,partner_type,business_name,contact_name,phone,email,governorate_key,city,address,description,status,created_at")
-      .order("created_at", { ascending: false }).limit(200);
-    if (partnerError) console.warn("[admin] partner applications unavailable:", partnerError.message);
-    setPartnerApplications(partnerRows ?? []);
+    setStats({ users: users.count ?? 0, requests: requests.count ?? 0, drivers: drivers.count ?? 0, workers: workers.count ?? 0, active: active.count ?? 0 });
     setLoading(false);
-  }, [user?.id, reportFilter]);
+  }, [user?.id]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-  const chooseCompanyLogo = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.85 });
-    if (!result.canceled && result.assets[0]) setCompanyLogoAsset(result.assets[0]);
-  };
+  useEffect(() => { if (!authLoading) void load(); }, [authLoading, load]);
+  const refresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
 
-  const saveCompanyName = async () => {
-    const value = companyName.trim();
-    const welcome = welcomeMessage.trim();
-    if (value.length < 2 || value.length > 80) { Alert.alert("تنبيه", "اكتب اسماً من حرفين إلى 80 حرفاً"); return; }
-    if (welcome.length < 2 || welcome.length > 180) { Alert.alert("تنبيه", "رسالة الترحيب لازم تكون بين حرفين و180 حرفاً"); return; }
-    setSavingCompanyName(true);
-    const { data: allowed, error: permissionError } = await supabase.rpc("is_super_admin", { p_user_id: user?.id });
-    if (permissionError || allowed !== true) {
-      Alert.alert("غير مصرّح", "تغيير هوية الشركة متاح لصاحب الحساب فقط");
-      setSavingCompanyName(false);
-      return;
-    }
-    let nextLogoUrl = companyLogoUrl;
-    if (companyLogoAsset) {
-      if (!companyLogoAsset.mimeType?.startsWith("image/") || (companyLogoAsset.fileSize != null && companyLogoAsset.fileSize > 8 * 1024 * 1024)) {
-        Alert.alert("صورة غير مناسبة", "اختار صورة شعار حجمها 8 ميغابايت أو أقل"); setSavingCompanyName(false); return;
-      }
-      const path = `company-branding/logo-${Date.now()}.jpg`;
-      const response = await fetch(companyLogoAsset.uri);
-      if (!response.ok) { Alert.alert("تعذر قراءة الصورة"); setSavingCompanyName(false); return; }
-      const bytes = await response.arrayBuffer();
-      const { error: uploadError } = await supabase.storage.from("app-visuals").upload(path, bytes, { upsert: false, contentType: companyLogoAsset.mimeType || "image/jpeg" });
-      if (uploadError) { Alert.alert("تعذر رفع الشعار", uploadError.message); setSavingCompanyName(false); return; }
-      nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
-    }
-    const { error } = await (supabase as any).from("company_settings").upsert({
-      id: 1, company_name: value, company_logo_url: nextLogoUrl, welcome_message: welcome,
-      updated_by: user?.id, updated_at: new Date().toISOString(),
-    }, { onConflict: "id" });
-    if (!error) { setCompanyLogoUrl(nextLogoUrl); setCompanyLogoAsset(null); }
-    Alert.alert(error ? "تعذر الحفظ" : "تم الحفظ", error ? error.message : "تم تحديث اسم الشركة والشعار ورسالة الترحيب");
-    setSavingCompanyName(false);
-  };
+  if (authLoading || loading) return <View style={s.center}><ActivityIndicator color={palette.brand} size="large"/><Text style={s.muted}>جاري تجهيز مركز الإدارة...</Text></View>;
+  if (!authorized) return <View style={s.center}><Text style={s.title}>جارٍ تحويلك إلى القسم المسموح</Text></View>;
 
-  const reviewProviderChange = async (requestId: string, status: "approved" | "rejected", reason?: string) => {
-    if (status === "rejected" && !reason?.trim()) {
-      Alert.alert("سبب الرفض مطلوب", "اكتب سبب الرفض حتى يصل لمقدم الخدمة.");
-      return;
-    }
-    setReviewingChangeId(requestId);
-    const { error } = await (supabase as any).rpc("admin_review_provider_change_request", {
-      _request_id: requestId,
-      _status: status,
-      _reason: reason?.trim() || null,
-    });
-    setReviewingChangeId(null);
-    if (error) {
-      Alert.alert("تعذر تنفيذ الطلب", error.message);
-      return;
-    }
-    setRejectingChangeId(null);
-    setChangeRejectReason("");
-    Alert.alert("تم", status === "approved" ? "تمت الموافقة وتفعيل التحديث." : "تم رفض طلب التحديث.");
-    await load();
-  };
-
-  const resolveReport = async (reportId: string, status: "resolved" | "closed" | "dismissed") => {
-    setResolvingReportId(reportId);
-    const { error } = await (supabase as any).rpc("admin_resolve_report", {
-      p_report_id: reportId,
-      p_status: status,
-      p_note: null,
-    });
-    setResolvingReportId(null);
-    if (error) {
-      Alert.alert("تعذر تحديث البلاغ", error.message);
-      return;
-    }
-    await load();
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
-  const reviewPartnerApplication = async (applicationId: string, status: "approved" | "rejected" | "suspended") => {
-    const { error } = await (supabase as any).from("partner_applications").update({
-      status, reviewed_by: user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      admin_note: status === "rejected" ? "يرجى مراجعة البيانات وإعادة التقديم" : status === "suspended" ? "تم إيقاف الشراكة من الإدارة" : null,
-    }).eq("id", applicationId);
-    if (error) { Alert.alert("تعذر تحديث طلب الشراكة", error.message); return; }
-    Alert.alert("تم", status === "approved" ? "تمت الموافقة على الشراكة." : status === "suspended" ? "تم إيقاف الشريك وإخفاء منشأته." : "تم رفض طلب الشراكة.");
-    await load();
-  };
-
-  if (loading)
-    return (
-      <View style={styles.center}>
-        <Text style={{ color: "#64748b" }}>جاري التحميل...</Text>
-      </View>
-    );
-
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 40 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <Text style={styles.title}>لوحة التحكم</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المراقبة والإحصائيات والمحافظات</Text>
-        <ActionButton size="default" onPress={() => router.push("/admin/monitoring")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المراقبة المباشرة</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/live-map" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الخريطة المباشرة</Text></ActionButton>
-        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المالية والاشتراكات</Text>
-        <ActionButton size="default" onPress={() => router.push("/admin/subscriptions")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الاشتراكات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/users")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة المستخدمين</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/analytics")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الإحصائيات الشاملة</Text></ActionButton>
-        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>محتوى التطبيق والبانرات</Text>
-        <ActionButton size="default" onPress={() => router.push("/admin/home-banners" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة بانرات الصفحة الرئيسية</Text></ActionButton>
-        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>المستخدمون والخدمات والطلبات</Text>
-        <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة مقدمي الخدمة</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/driver-tiers" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>معايير رتب السائقين</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/dispatch-zones" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>نطاقات توزيع الطلبات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/requests")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الطلبات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/finance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>المحفظة والكوبونات</Text></ActionButton>
-        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>الموظفون والصلاحيات</Text>
-        <ActionButton size="default" onPress={() => router.push("/admin/governance")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الصلاحيات وسجل العمليات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/staff")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الموظفين</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/staff-hierarchy")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>الهيكل الوظيفي والترقيات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/friends")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إدارة الأصدقاء</Text></ActionButton>
-        <Text style={{ width: "100%", color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right", marginTop: 8 }}>التواصل والإشعارات</Text>
-        <ActionButton size="default" onPress={() => router.push("/admin/notifications")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>إرسال الإشعارات</Text></ActionButton>
-        <ActionButton size="default" onPress={() => router.push("/admin/regions" as any)} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>التحكم بالمحافظات والخدمات</Text></ActionButton>
-                <ActionButton size="default" onPress={() => router.push("/admin/import")} style={[styles.supportButton, { flex: 1, minWidth: "45%" }]}><Text style={styles.supportButtonText}>مساعد استيراد البيانات</Text></ActionButton>
-      </View>
-      <View style={styles.companyCard}>
-        <Text style={styles.sectionTitle}>إعدادات شركة ممنون</Text>
-        <Text style={styles.companyHint}>الاسم والشعار ورسالة الترحيب التي تظهر داخل التطبيق</Text>
-        <TextInput value={companyName} onChangeText={setCompanyName} maxLength={80} placeholder="اسم الشركة" style={styles.companyInput} textAlign="right" />
-        {companyLogoAsset ? <Image source={{ uri: companyLogoAsset.uri }} style={{ width: 76, height: 76, borderRadius: 16, alignSelf: "flex-end" }} resizeMode="contain" /> : companyLogoUrl ? <Image source={{ uri: companyLogoUrl }} style={{ width: 76, height: 76, borderRadius: 16, alignSelf: "flex-end" }} resizeMode="contain" /> : null}
-        <ActionButton onPress={() => void chooseCompanyLogo()} size="default" style={styles.companySave}><Text style={styles.companySaveText}>اختيار شعار ممنون</Text></ActionButton>
-        <TextInput value={welcomeMessage} onChangeText={setWelcomeMessage} maxLength={180} multiline placeholder="رسالة الترحيب" style={[styles.companyInput, { minHeight: 76, textAlignVertical: "top" }]} textAlign="right" />
-        <ActionButton onPress={saveCompanyName} disabled={savingCompanyName} size="default" style={styles.companySave}>
-          <Text style={styles.companySaveText}>{savingCompanyName ? "جاري الحفظ..." : "حفظ إعدادات الشركة"}</Text>
-        </ActionButton>
-      </View>
-      <ActionButton size="default" onPress={() => router.push("/support-chat")} style={styles.supportButton}><Text style={styles.supportButtonText}>محادثات الدعم مع الفنيين والسائقين</Text></ActionButton>
-      <ActionButton size="default" onPress={() => router.push("/admin/chats")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة الدردشة الخاصة والرسائل</Text></ActionButton>
-      <ActionButton size="default" onPress={() => router.push("/admin/providers")} style={styles.supportButton}><Text style={styles.supportButtonText}>إدارة السائقين والفنيين ومراجعة المستمسكات</Text></ActionButton>
-      <View style={styles.inboxHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.sectionTitle}>طلبات الشراكة الجديدة</Text>
-          <Text style={styles.inboxHint}>{partnerApplications.length} طلب شراكة مسجل</Text>
+  return <View style={s.page}>
+    <Stack.Screen options={{ title: "مركز إدارة ممنون" }}/>
+    <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
+      <View style={s.hero}>
+        <View style={s.brandRow}>
+          {logoUrl ? <Image source={{ uri: logoUrl }} style={s.logo} resizeMode="contain"/> : <View style={s.logoFallback}><Text style={s.logoLetter}>م</Text></View>}
+          <View style={{flex:1}}><Text style={s.brandName}>{companyName}</Text><Text style={s.heroCaption}>مركز التحكم والإدارة العليا</Text></View>
         </View>
-        <ActionButton size="sm" onPress={onRefresh}><Text style={styles.inboxOpenText}>تحديث</Text></ActionButton>
-      </View>
-      {partnerApplications.length === 0 ? <Text style={styles.emptyHint}>ماكو طلبات شراكة حالياً</Text> : partnerApplications.map((item) => (
-        <View key={item.id} style={styles.reportCard}>
-          <Text style={styles.inboxName}>{item.business_name}</Text>
-          <Text style={styles.reportMeta}>{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {item.city} · {item.governorate_key}</Text>
-          <Text style={styles.reportMeta}>المسؤول: {item.contact_name} · الهاتف: {item.phone}</Text>
-          <Text style={styles.reportDetails}>{item.address}</Text>
-          {!!item.description && <Text style={styles.reportDetails}>{item.description}</Text>}
-          <Text style={styles.reportMeta}>الحالة: {item.status==="approved"?"معتمد":item.status==="suspended"?"موقوف":item.status==="rejected"?"مرفوض":"قيد المراجعة"}</Text>
-          {item.status==="pending" ? <View style={{ flexDirection:"row",gap:8,marginTop:8 }}>
-            <ActionButton size="sm" onPress={()=>void reviewPartnerApplication(item.id,"approved")} style={{flex:1,backgroundColor:"#15803d"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>موافقة وتفعيل</Text></ActionButton>
-            <ActionButton size="sm" onPress={()=>Alert.alert("رفض طلب الشراكة","تأكد من رفض الطلب؟",[{text:"رجوع",style:"cancel"},{text:"رفض",style:"destructive",onPress:()=>void reviewPartnerApplication(item.id,"rejected")}])} style={{flex:1,backgroundColor:"#b91c1c"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>رفض الطلب</Text></ActionButton>
-          </View> : item.status==="approved" ? <ActionButton size="sm" onPress={()=>Alert.alert("إيقاف الشريك","سيتم إخفاء المنشأة وإيقاف لوحة الشريك. متأكد؟",[{text:"رجوع",style:"cancel"},{text:"إيقاف",style:"destructive",onPress:()=>void reviewPartnerApplication(item.id,"suspended")}])} style={{backgroundColor:"#b91c1c"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>إيقاف الشريك وإخفاء المنشأة</Text></ActionButton> : item.status==="suspended" ? <ActionButton size="sm" onPress={()=>void reviewPartnerApplication(item.id,"approved")} style={{backgroundColor:"#15803d"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:11}}>إعادة تفعيل الشريك</Text></ActionButton> : null}
-        </View>
-      ))}
-      <View style={styles.inboxHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.sectionTitle}>رسائل المستخدمين إلى الإدارة</Text>
-          <Text style={styles.inboxHint}>{unreadSupport} رسالة غير مقروءة</Text>
-        </View>
-        <ActionButton size="sm" onPress={() => router.push("/support-chat")} style={styles.inboxOpen}><Text style={styles.inboxOpenText}>فتح الصندوق</Text></ActionButton>
-      </View>
-      {supportInbox.length === 0 ? <Text style={styles.emptyHint}>ماكو رسائل دعم واردة حالياً</Text> : supportInbox.slice(0, 5).map((conversation) => (
-        <TouchableOpacity key={conversation.id} onPress={() => router.push("/support-chat")} style={styles.inboxCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.inboxName}>{conversation.profile?.full_name || "مستخدم ممنون"}</Text>
-            <Text style={styles.inboxPreview} numberOfLines={1}>{conversation.latest?.body || "بدأ محادثة دعم جديدة"}</Text>
+        <Text style={s.heroTitle}>كل أقسام الشركة بمكان واحد</Text>
+        <Text style={s.heroText}>اختَر القسم حتى تفتح أدواته ومحتوياته وحدها، بدون تكدّس بقية الأقسام أسفل الصفحة.</Text>
+        <View style={s.flow}>
+          <View style={s.flowNode}><Text style={s.flowIcon}>🏢</Text><Text style={s.flowLabel}>الإدارة العليا</Text></View>
+          <Text style={s.flowArrow}>↓</Text>
+          <View style={s.flowBranches}>
+            {["العمليات","المالية","المحتوى","الموظفون"].map((v,i)=><View key={v} style={s.flowBranch}><Text style={s.flowBranchIcon}>{["🚕","💰","🎨","🧑‍💼"][i]}</Text><Text style={s.flowBranchText}>{v}</Text></View>)}
           </View>
-          {!conversation.latest?.read_at && conversation.latest?.sender_id !== user?.id ? <Text style={styles.unreadMark}>جديد</Text> : null}
+        </View>
+      </View>
+
+      <View style={s.statsGrid}>
+        {[
+          ["المستخدمون",stats.users,"👥"],["كل الطلبات",stats.requests,"📋"],["السائقون",stats.drivers,"🚗"],["الفنيون",stats.workers,"🧰"],["الطلبات النشطة",stats.active,"⚡"],
+        ].map(([label,value,icon])=><View key={String(label)} style={s.statCard}><Text style={s.statIcon}>{icon}</Text><Text style={s.statValue}>{Number(value).toLocaleString("ar-IQ")}</Text><Text style={s.statLabel}>{label}</Text></View>)}
+      </View>
+
+      {GROUPS.map(group=><View key={group.title} style={s.groupCard}>
+        <TouchableOpacity onPress={()=>setExpanded(current=>current===group.title?null:group.title)} style={s.groupHeader} accessibilityRole="button" accessibilityState={{expanded:expanded===group.title}}>
+          <View style={s.groupIcon}><Text style={{fontSize:23}}>{group.icon}</Text></View>
+          <View style={{flex:1}}><Text style={s.groupTitle}>{group.title}</Text><Text style={s.groupDescription}>{group.description}</Text></View>
+          <Text style={s.expand}>{expanded===group.title?"−":"+"}</Text>
         </TouchableOpacity>
-      ))}
-      <View style={styles.inboxHeader}>
-        <Text style={styles.sectionTitle}>إدارة البلاغات</Text>
-        <ActionButton size="sm" onPress={() => onRefresh()}><Text style={styles.inboxOpenText}>تحديث</Text></ActionButton>
-      </View>
-      <View style={styles.reportFilters}>
-        {(["all", "pending", "resolved", "closed", "dismissed"] as const).map((status) => (
-          <TouchableOpacity key={status} onPress={() => setReportFilter(status)} style={[styles.reportFilter, reportFilter === status && styles.reportFilterActive]}>
-            <Text style={[styles.reportFilterText, reportFilter === status && styles.reportFilterTextActive]}>{status === "all" ? "الكل" : status === "pending" ? "معلقة" : status === "resolved" ? "محلولة" : status === "closed" ? "مغلقة" : "مرفوضة"}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {reports.length === 0 ? <Text style={styles.emptyHint}>لا توجد بلاغات بهذا التصنيف</Text> : reports.map((report) => (
-        <View key={report.id} style={styles.reportCard}>
-          <Text style={styles.inboxName}>{report.reason || "بلاغ بدون عنوان"}</Text>
-          {!!report.details && <Text style={styles.reportDetails}>{report.details}</Text>}
-          <Text style={styles.reportMeta}>من: {report.reporter?.full_name || "مستخدم"} · ضد: {report.reported?.full_name || "مستخدم"}</Text>
-          <Text style={styles.reportMeta}>الحالة: {report.status} · {new Date(report.created_at).toLocaleString("ar-IQ")}</Text>
-          {!!report.request_id && <Text style={styles.reportMeta}>رقم الطلب: {report.request_id}</Text>}
-          {report.status === "pending" && <View style={styles.reportActions}>
-            <ActionButton size="sm" disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "resolved")} style={[styles.reportAction, { backgroundColor: "#dcfce7" }]}><Text style={{ color: "#166534", fontWeight: "900", fontSize: 11 }}>{resolvingReportId === report.id ? "..." : "حل البلاغ"}</Text></ActionButton>
-            <ActionButton size="sm" disabled={resolvingReportId === report.id} onPress={() => void resolveReport(report.id, "closed")} style={[styles.reportAction, { backgroundColor: "#e2e8f0" }]}><Text style={{ color: "#334155", fontWeight: "900", fontSize: 11 }}>إغلاق</Text></ActionButton>
-            <ActionButton size="sm" disabled={resolvingReportId === report.id} onPress={() => Alert.alert("رفض البلاغ", "تريد رفض هذا البلاغ؟", [{ text: "رجوع", style: "cancel" }, { text: "رفض", style: "destructive", onPress: () => void resolveReport(report.id, "dismissed") }])} style={[styles.reportAction, { backgroundColor: "#fee2e2" }]}><Text style={{ color: "#991b1b", fontWeight: "900", fontSize: 11 }}>رفض</Text></ActionButton>
-          </View>}
-        </View>
-      ))}
-      <View style={styles.inboxHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.sectionTitle}>طلبات تحديث بيانات السائقين والفنيين</Text>
-          <Text style={styles.inboxHint}>التغييرات تبقى معلّقة حتى موافقة الإدارة</Text>
-        </View>
-        <ActionButton size="sm" onPress={onRefresh}><Text style={styles.inboxOpenText}>تحديث</Text></ActionButton>
-      </View>
-      {changeRequests.length === 0 ? <Text style={styles.emptyHint}>ماكو طلبات تحديث معلّقة</Text> : changeRequests.map((request) => (
-        <View key={request.id} style={styles.reportCard}>
-          <Text style={styles.inboxName}>{request.profiles?.full_name || "مستخدم ممنون"}</Text>
-          <Text style={styles.reportMeta}>{request.profiles?.phone || "—"} · {request.provider_type === "worker" ? "فني" : request.provider_type === "large_driver" ? "سائق مركبة كبيرة" : "سائق تكسي"}</Text>
-          {request.provider_type === "worker" ? (
-            <Text style={styles.reportDetails}>الاختصاصات: {(request.requested_service_names ?? []).join("، ")}</Text>
-          ) : request.requested_data?.vehicle_update || Object.keys(request.requested_data?.documents ?? {}).length ? (
-            <View>
-              {Object.entries(request.requested_data?.vehicle_update ?? {}).map(([key, value]) => (
-                <Text key={key} style={styles.reportMeta}>{({
-                  vehicle_make: "الشركة", vehicle_model: "الموديل", vehicle_year: "سنة الصنع",
-                  vehicle_plate: "رقم اللوحة", vehicle_color: "اللون",
-                  vehicle_category: "الفئة", vehicle_type: "نوع المركبة",
-                } as Record<string, string>)[key] ?? key}: {String(value)}</Text>
-              ))}
-              {Object.entries(request.requested_data?.documents ?? {}).map(([kind]) => {
-                const path = request.requested_data?.documents?.[kind] as string | undefined;
-                const label = ({ vehicle_document: "سنوية المركبة", face_photo: "صورة الوجه", id_card: "الهوية الأمامية", id_card_back: "الهوية الخلفية" } as Record<string, string>)[kind] ?? "المستند";
-                return path ? (
-                  <TouchableOpacity key={kind} onPress={async () => {
-                    const { data: signed, error } = await supabase.storage.from("provider-verification").createSignedUrl(path, 600);
-                    if (error || !signed?.signedUrl) { Alert.alert("تعذر فتح المستند", "حدّث القائمة وحاول مرة ثانية."); return; }
-                    await Linking.openURL(signed.signedUrl);
-                  }}>
-                    <Text style={{ color: palette.brand, textAlign: "right", fontWeight: "800", marginTop: 6 }}>عرض {label}</Text>
-                  </TouchableOpacity>
-                ) : <Text key={kind} style={styles.reportMeta}>{label} غير متوفر</Text>;
-              })}
-            </View>
-          ) : (
-            <Text style={styles.reportDetails}>{request.provider_type === "large_driver" ? "نوع المركبة: " + (request.requested_data?.vehicle_type ?? "غير محدد") : "فئة التكسي: " + (request.requested_data?.vehicle_category ?? "غير محدد")}</Text>
-          )}
-          {rejectingChangeId === request.id ? (
-            <View style={{ marginTop: 10 }}>
-              <TextInput value={changeRejectReason} onChangeText={setChangeRejectReason} placeholder="اكتب سبب الرفض" placeholderTextColor={palette.muted} multiline style={styles.companyInput} textAlign="right" />
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <TouchableOpacity disabled={!!reviewingChangeId} onPress={() => void reviewProviderChange(request.id, "rejected", changeRejectReason)} style={[styles.companySave, { flex: 1, backgroundColor: "#b91c1c" }]}>
-                  <Text style={styles.companySaveText}>{reviewingChangeId === request.id ? "جارٍ التنفيذ..." : "تأكيد الرفض"}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { setRejectingChangeId(null); setChangeRejectReason(""); }} style={[styles.companySave, { flex: 1, backgroundColor: palette.muted }]}>
-                  <Text style={styles.companySaveText}>إلغاء</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
-              <TouchableOpacity disabled={!!reviewingChangeId} onPress={() => void reviewProviderChange(request.id, "approved")} style={[styles.companySave, { flex: 1, backgroundColor: "#15803d" }]}>
-                <Text style={styles.companySaveText}>{reviewingChangeId === request.id ? "جارٍ التنفيذ..." : "موافقة وتفعيل"}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity disabled={!!reviewingChangeId} onPress={() => { setRejectingChangeId(request.id); setChangeRejectReason(""); }} style={[styles.companySave, { flex: 1, backgroundColor: "#b91c1c" }]}>
-                <Text style={styles.companySaveText}>رفض</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      ))}
-      {!!statsWarning && <Text accessibilityRole="alert" style={styles.statsWarning}>{statsWarning}</Text>}
-      <Text style={styles.sectionTitle}>إحصائيات المنصة</Text>
-      <View style={styles.statsGrid}>
-        {([
-          ["المستخدمون", stats.totalUsers],
-          ["السائقون", stats.totalDrivers],
-          ["الفنيون", stats.totalWorkers],
-          ["السائقون المتاحون", stats.activeDrivers],
-          ["الفنيون المتاحون", stats.activeWorkers],
-          ["الطلبات النشطة", stats.activeRequests],
-          ["الطلبات المكتملة", stats.completedRequests],
-          ["الطلبات الملغاة", stats.cancelledRequests],
-          ["إجمالي الطلبات", stats.totalRequests],
-        ] as [string, number][]).map(([label, value]) => (
-          <View key={label} style={styles.statCard}>
-            <Text style={styles.statValue}>{value.toLocaleString("ar-IQ")}</Text>
-            <Text style={styles.statLabel}>{label}</Text>
-          </View>
-        ))}
-      </View>
-      <Text style={styles.sectionTitle}>عمولات المنصة</Text>
-      <View style={styles.statsGrid}>
-        {([
-          ["اليوم", stats.dailyRevenue],
-          ["هذا الشهر", stats.monthlyRevenue],
-          ["هذه السنة", stats.yearlyRevenue],
-        ] as [string, number][]).map(([label, value]) => (
-          <View key={label} style={styles.statCard}>
-            <Text style={styles.statValue}>{value.toLocaleString("ar-IQ")}</Text>
-            <Text style={styles.statLabel}>{label} · د.ع</Text>
-          </View>
-        ))}
-      </View>
-      <Text style={styles.sectionTitle}>قواعد التسعير</Text>
-      {pricing.map((p) => (
-        <View key={p.id} style={styles.pricingCard}>
-          <Text style={styles.pricingCategory}>{p.vehicle_category}</Text>
-          <Text style={styles.pricingValues}>
-            {p.base_fare?.toLocaleString("en")} + {p.per_km?.toLocaleString("en")}/كم
-          </Text>
-        </View>
-      ))}
-      <Text style={styles.sectionTitle}>أحدث الطلبات</Text>
-      {recent.map((req) => (
-        <View key={req.id} style={styles.reqCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.reqType}>{req.type === "taxi" ? "🚕" : `🔧 ${req.type}`}</Text>
-            <Text style={styles.reqCustomer}>{req.customer?.full_name || "زبون"}</Text>
-            <Text style={styles.reqDate}>{new Date(req.created_at).toLocaleDateString("ar")}</Text>
-          </View>
-          <Text style={styles.reqStatus}>{req.status}</Text>
-        </View>
-      ))}
+        {expanded===group.title&&<View style={s.items}>
+          {group.items.map(item=><TouchableOpacity key={item.route} onPress={()=>router.push(item.route as any)} style={s.item}>
+            <Text style={s.itemIcon}>{item.icon}</Text>
+            <View style={{flex:1}}><Text style={s.itemTitle}>{item.title}</Text><Text style={s.itemDescription}>{item.description}</Text></View>
+            <Text style={s.arrow}>←</Text>
+          </TouchableOpacity>)}
+        </View>}
+      </View>)}
     </ScrollView>
-  );
+  </View>;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.pageCanvas, paddingHorizontal: 18, paddingTop: 52 },
-  companyCard: { backgroundColor: palette.surface, borderRadius: radius.lg, padding: 16, marginBottom: 18, borderWidth: 1, borderColor: palette.line },
-  companyHint: { color: palette.muted, fontSize: 11, marginBottom: 10, lineHeight: 18 },
-  companyInput: { minHeight: 52, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: palette.ink, marginBottom: 10, backgroundColor: palette.canvas },
-  companySave: { backgroundColor: palette.brand, borderRadius: radius.md, padding: 14, alignItems: "center" },
-  companySaveText: { color: palette.white, fontWeight: "900" },
-  supportButton: { minHeight: 40, backgroundColor: palette.brand, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 18, alignItems: "center", justifyContent: "center" },
-  supportButtonText: { color: palette.white, fontWeight: "900", textAlign: "center" },
-  inboxHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, marginBottom: 8 },
-  inboxHint: { color: palette.muted, fontSize: 11, marginTop: -5, marginBottom: 8 },
-  inboxOpen: { minHeight: 36, backgroundColor: palette.brandSoft, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, alignItems: "center", justifyContent: "center" },
-  inboxOpenText: { color: palette.brand, fontSize: 11, fontWeight: "900" },
-  inboxCard: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, marginBottom: 7 },
-  inboxName: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
-  inboxPreview: { color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 },
-  unreadMark: { color: palette.white, backgroundColor: palette.brand, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "900" },
-  emptyHint: { color: palette.muted, fontSize: 12, textAlign: "center", padding: 12 },
-  reportCard: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, marginBottom: 8 },
-  reportDetails: { color: palette.ink, fontSize: 12, lineHeight: 20, textAlign: "right", marginTop: 5 },
-  reportMeta: { color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 5 },
-  reportFilters: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
-  reportFilter: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line },
-  reportFilterActive: { backgroundColor: palette.brand, borderColor: palette.brand },
-  reportFilterText: { color: palette.ink, fontSize: 10, fontWeight: "800" },
-  reportFilterTextActive: { color: palette.white },
-  reportActions: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
-  reportAction: { minHeight: 36, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 18 },
-  statsWarning: { color: "#B45309", backgroundColor: "#FEF3C7", borderRadius: radius.md, padding: 10, textAlign: "right", fontSize: 11, marginBottom: 10 },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 22 },
-  statCard: { flexBasis: "30%", flexGrow: 1, backgroundColor: palette.surface, borderRadius: radius.lg, padding: 15, alignItems: "center", borderWidth: 1, borderColor: palette.line },
-  statValue: { fontSize: 26, fontWeight: "900", color: palette.brand },
-  statLabel: { fontSize: 11, color: palette.muted, marginTop: 5, textAlign: "center" },
-  sectionTitle: { fontSize: 16, fontWeight: "900", color: palette.ink, marginBottom: 12 },
-  pricingCard: { flexDirection: "row", justifyContent: "space-between", backgroundColor: palette.surface, borderRadius: radius.md, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: palette.line },
-  pricingCategory: { fontSize: 13, fontWeight: "900", color: palette.ink },
-  pricingValues: { fontSize: 12, color: palette.muted },
-  reqCard: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.md, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: palette.line },
-  reqType: { fontSize: 17 },
-  reqCustomer: { fontSize: 13, fontWeight: "900", color: palette.ink, marginTop: 3 },
-  reqDate: { fontSize: 11, color: palette.muted, marginTop: 3 },
-  reqStatus: { fontSize: 11, fontWeight: "900", color: palette.muted },
+const s=StyleSheet.create({
+  page:{flex:1,backgroundColor:palette.pageCanvas},content:{padding:space.lg,paddingBottom:50,gap:12},
+  center:{flex:1,alignItems:"center",justifyContent:"center",gap:12,backgroundColor:palette.pageCanvas,padding:24},
+  hero:{backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:radius.xl,padding:16,gap:10},
+  brandRow:{flexDirection:"row",alignItems:"center",gap:12},
+  logo:{width:58,height:58,borderRadius:18,backgroundColor:"#fff"},logoFallback:{width:58,height:58,borderRadius:18,backgroundColor:palette.brand,alignItems:"center",justifyContent:"center"},
+  logoLetter:{color:palette.white,fontSize:30,fontWeight:"900"},brandName:{color:palette.ink,fontSize:20,fontWeight:"900",textAlign:"right"},heroCaption:{color:palette.muted,fontSize:11,textAlign:"right",marginTop:3},
+  heroTitle:{color:palette.ink,fontSize:21,fontWeight:"900",textAlign:"right",marginTop:8},heroText:{color:palette.muted,fontSize:12,lineHeight:20,textAlign:"right"},
+  flow:{backgroundColor:palette.canvas,borderRadius:radius.lg,padding:10,alignItems:"center",gap:7,marginTop:4},
+  flowNode:{backgroundColor:palette.brandSoft,borderColor:palette.brand,borderWidth:1,borderRadius:14,paddingHorizontal:20,paddingVertical:8,alignItems:"center",minWidth:140},
+  flowIcon:{fontSize:20},flowLabel:{fontSize:11,fontWeight:"900",color:palette.ink},flowArrow:{fontSize:20,color:palette.brand,fontWeight:"900"},
+  flowBranches:{width:"100%",flexDirection:"row",flexWrap:"wrap",justifyContent:"center",gap:7},
+  flowBranch:{minWidth:"22%",flexGrow:1,backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:12,padding:8,alignItems:"center",gap:4},
+  flowBranchIcon:{fontSize:17},flowBranchText:{fontSize:10,color:palette.ink,fontWeight:"800"},
+  statsGrid:{flexDirection:"row",flexWrap:"wrap",gap:8},statCard:{flexBasis:"30%",flexGrow:1,backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:radius.md,padding:11,alignItems:"center",gap:3},
+  statIcon:{fontSize:19},statValue:{fontSize:21,color:palette.brand,fontWeight:"900"},statLabel:{fontSize:10,color:palette.muted,fontWeight:"800"},
+  groupCard:{backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:radius.lg,overflow:"hidden"},
+  groupHeader:{flexDirection:"row",alignItems:"center",gap:10,padding:13},groupIcon:{width:42,height:42,borderRadius:14,backgroundColor:palette.brandSoft,alignItems:"center",justifyContent:"center"},
+  groupTitle:{color:palette.ink,fontSize:14,fontWeight:"900",textAlign:"right"},groupDescription:{color:palette.muted,fontSize:10,textAlign:"right",marginTop:3},expand:{fontSize:24,color:palette.brand,fontWeight:"900",paddingHorizontal:5},
+  items:{paddingHorizontal:10,paddingBottom:10,gap:7},item:{flexDirection:"row",alignItems:"center",gap:10,backgroundColor:palette.canvas,borderRadius:radius.md,padding:11,minHeight:62},
+  itemIcon:{fontSize:21,width:28,textAlign:"center"},itemTitle:{color:palette.ink,fontSize:12,fontWeight:"900",textAlign:"right"},itemDescription:{color:palette.muted,fontSize:10,textAlign:"right",marginTop:3},arrow:{color:palette.brand,fontSize:17,fontWeight:"900"},
+  title:{color:palette.ink,fontSize:18,fontWeight:"900"},muted:{color:palette.muted,fontSize:12,textAlign:"center"},
 });
