@@ -22,15 +22,23 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
       return;
     }
     const context = JSON.parse(raw) as TrackingContext;
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || authData.user?.id !== context.userId) {
+      await Location.stopLocationUpdatesAsync(LOCATION_TASK).catch(() => undefined);
+      await SecureStore.deleteItemAsync(CONTEXT_KEY);
+      return;
+    }
     const { data: request, error: requestError } = await supabase
       .from("service_requests")
       .select("customer_id, provider_id, status")
       .eq("id", context.requestId)
       .maybeSingle();
-    const isParticipant = request &&
-      (request.customer_id === context.userId || request.provider_id === context.userId);
+    const isCorrectParticipant = request && (
+      (context.role === "customer" && request.customer_id === context.userId) ||
+      (context.role === "provider" && request.provider_id === context.userId)
+    );
     const isActive = request && ["accepted", "in_progress"].includes(request.status);
-    if (requestError || !isParticipant || !isActive) {
+    if (requestError || !isCorrectParticipant || !isActive) {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK).catch(() => undefined);
       await SecureStore.deleteItemAsync(CONTEXT_KEY);
       return;
@@ -48,18 +56,49 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
       }, { onConflict: "request_id,user_id" });
       if (writeError) console.warn("[Mamnoon background location] update failed:", writeError.message);
 
-      if (context.role === "provider") {
-        const { error: pointError } = await supabase.from("trip_location_points").insert({
-          request_id: context.requestId,
-          user_id: context.userId,
-          role: context.role,
-          lat: location.coords.latitude,
-          lng: location.coords.longitude,
-          heading: location.coords.heading,
-          accuracy_m: location.coords.accuracy,
-          recorded_at: new Date(location.timestamp).toISOString(),
-        });
-        if (pointError) console.warn("[Mamnoon background location] route point insert failed:", pointError.message);
+      if (
+        context.role === "provider" &&
+        Number.isFinite(location.coords.accuracy) &&
+        Number(location.coords.accuracy) <= 100
+      ) {
+        // Foreground GPS already records denser breadcrumbs (8 m / 10 s).
+        // Background tracking adds a point only after a larger movement or
+        // a longer gap, avoiding near-duplicate route points while both run.
+        const { data: lastPoint, error: lastPointError } = await supabase
+          .from("trip_location_points")
+          .select("lat,lng,recorded_at")
+          .eq("request_id", context.requestId)
+          .eq("role", "provider")
+          .order("recorded_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastPointError) {
+          console.warn("[Mamnoon background location] route history check failed:", lastPointError.message);
+        } else {
+          const elapsed = lastPoint?.recorded_at
+            ? location.timestamp - Date.parse(lastPoint.recorded_at)
+            : Number.POSITIVE_INFINITY;
+          const distance = lastPoint
+            ? Math.hypot(
+                (location.coords.latitude - lastPoint.lat) * 111320,
+                (location.coords.longitude - lastPoint.lng) * 111320 *
+                  Math.cos(location.coords.latitude * Math.PI / 180),
+              )
+            : Number.POSITIVE_INFINITY;
+          if (!lastPoint || distance >= 25 || elapsed >= 30_000) {
+            const { error: pointError } = await supabase.from("trip_location_points").insert({
+              request_id: context.requestId,
+              user_id: context.userId,
+              role: context.role,
+              lat: location.coords.latitude,
+              lng: location.coords.longitude,
+              heading: location.coords.heading,
+              accuracy_m: location.coords.accuracy,
+              recorded_at: new Date(location.timestamp).toISOString(),
+            });
+            if (pointError) console.warn("[Mamnoon background location] route point insert failed:", pointError.message);
+          }
+        }
       }
     }
   } catch (taskError) {
@@ -88,6 +127,12 @@ TaskManager.defineTask(PROVIDER_PRESENCE_TASK, async ({ data, error }) => {
       return;
     }
     const context = JSON.parse(raw) as ProviderPresenceContext;
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || authData.user?.id !== context.userId) {
+      await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK).catch(() => undefined);
+      await SecureStore.deleteItemAsync(PROVIDER_CONTEXT_KEY);
+      return;
+    }
     const table = context.role === "worker" ? "worker_profiles" : "driver_profiles";
     const { data: profile, error: profileError } = await supabase
       .from(table)
