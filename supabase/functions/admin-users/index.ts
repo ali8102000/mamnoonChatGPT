@@ -108,10 +108,14 @@ Deno.serve(async (req: Request) => {
       const { data: customerService, error: customerServiceError } = await caller.rpc("is_customer_service_staff", {
         p_user_id: auth.user.id,
       });
-      if (customerServiceError || customerService === true) throw new Error("forbidden");
+      if (customerServiceError) throw new Error("forbidden");
       try {
+        // An explicit global grant is authoritative, including for customer-service
+        // staff. Keep the legacy fallback closed to customer-service accounts.
         await requirePermission("chats.moderate", "global", null);
+        return;
       } catch {
+        if (customerService === true) throw new Error("forbidden");
         await requireScopedAccess("has_chat_moderation_access");
       }
     };
