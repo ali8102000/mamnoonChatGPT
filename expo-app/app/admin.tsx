@@ -55,7 +55,7 @@ export default function AdminScreen() {
   const [expanded, setExpanded] = useState<string | null>("العمليات والطلبات");
 
   const load = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) { router.replace("/auth"); setLoading(false); return; }
     setLoading(true);
     const { data: owner, error: ownerError } = await supabase.rpc("is_super_admin", { p_user_id: user.id });
     if (ownerError || owner !== true) {
