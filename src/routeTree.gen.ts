@@ -16,6 +16,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AccountSettingsRouteImport } from './routes/account-settings'
 import { Route as PartnerDashboardRouteImport } from './routes/partner.dashboard'
+import { Route as PublicPartnerRouteImport } from './routes/partner.$id'
+import { Route as DiscoverCategoryRouteImport } from './routes/discover.$category'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as HistoryRouteImport } from './routes/history'
@@ -70,6 +72,16 @@ const AccountSettingsRoute = AccountSettingsRouteImport.update({
 const PartnerDashboardRoute = PartnerDashboardRouteImport.update({
   id: '/partner/dashboard',
   path: '/partner/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicPartnerRoute = PublicPartnerRouteImport.update({
+  id: '/partner/$id',
+  path: '/partner/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscoverCategoryRoute = DiscoverCategoryRouteImport.update({
+  id: '/discover/$category',
+  path: '/discover/$category',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -211,6 +223,8 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
   '/partner/dashboard': typeof PartnerDashboardRoute
+  '/partner/$id': typeof PublicPartnerRoute
+  '/discover/$category': typeof DiscoverCategoryRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/friends': typeof FriendsRoute
   '/history': typeof HistoryRoute
@@ -241,6 +255,8 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
   '/partner/dashboard': typeof PartnerDashboardRoute
+  '/partner/$id': typeof PublicPartnerRoute
+  '/discover/$category': typeof DiscoverCategoryRoute
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/admin': typeof AdminRouteWithChildren
@@ -274,6 +290,8 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
   '/partner/dashboard': typeof PartnerDashboardRoute
+  '/partner/$id': typeof PublicPartnerRoute
+  '/discover/$category': typeof DiscoverCategoryRoute
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
@@ -314,6 +332,8 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/account-settings'
     | '/partner/dashboard'
+    | '/partner/$id'
+    | '/discover/$category'
     | '/forgot-password'
     | '/friends'
     | '/history'
@@ -345,6 +365,8 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/account-settings'
     | '/partner/dashboard'
+    | '/partner/$id'
+    | '/discover/$category'
     | '/$'
     | '/admin'
     | '/auth'
@@ -378,6 +400,8 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/account-settings'
     | '/partner/dashboard'
+    | '/partner/$id'
+    | '/discover/$category'
     | '/'
     | '/$'
     | '/admin'
@@ -415,6 +439,8 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   AccountSettingsRoute: typeof AccountSettingsRoute
   PartnerDashboardRoute: typeof PartnerDashboardRoute
+  PublicPartnerRoute: typeof PublicPartnerRoute
+  DiscoverCategoryRoute: typeof DiscoverCategoryRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   FriendsRoute: typeof FriendsRoute
   HistoryRoute: typeof HistoryRoute
@@ -481,6 +507,20 @@ declare module '@tanstack/react-router' {
       path: '/partner/dashboard'
       fullPath: '/partner/dashboard'
       preLoaderRoute: typeof PartnerDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner/$id': {
+      id: '/partner/$id'
+      path: '/partner/$id'
+      fullPath: '/partner/$id'
+      preLoaderRoute: typeof PublicPartnerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discover/$category': {
+      id: '/discover/$category'
+      path: '/discover/$category'
+      fullPath: '/discover/$category'
+      preLoaderRoute: typeof DiscoverCategoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -690,6 +730,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   AccountSettingsRoute: AccountSettingsRoute,
   PartnerDashboardRoute: PartnerDashboardRoute,
+  PublicPartnerRoute: PublicPartnerRoute,
+  DiscoverCategoryRoute: DiscoverCategoryRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   FriendsRoute: FriendsRoute,
   HistoryRoute: HistoryRoute,

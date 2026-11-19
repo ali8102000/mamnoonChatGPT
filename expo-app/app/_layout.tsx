@@ -156,6 +156,8 @@ export default function RootLayout() {
             <Stack.Screen name="auth/callback" />
             <Stack.Screen name="account-settings" />
             <Stack.Screen name="partner/dashboard" />
+            <Stack.Screen name="partner/[id]" options={{ presentation: "card", animation: "slide_from_right" }} />
+            <Stack.Screen name="discover/[category]" options={{ presentation: "card", animation: "slide_from_right" }} />
             <Stack.Screen name="select-role" />
             <Stack.Screen name="home" />
             <Stack.Screen name="request/new" />
