@@ -204,6 +204,16 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
 
+const NAV_GROUPS: { title: string; keys: Section[] }[] = [
+  { title: "الرئيسية", keys: ["overview"] },
+  { title: "الإحصائيات والمحافظات", keys: ["stats", "regions"] },
+  { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"] },
+  { title: "المالية والعروض", keys: ["subscriptions", "coupons", "wallet"] },
+  { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones"] },
+  { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "company", "visualBuilder", "homeBanners"] },
+  { title: "الموظفون والأمان", keys: ["roles", "staff", "audit"] },
+];
+
 function AdminPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { session, loading } = useAuth();
@@ -310,24 +320,28 @@ function AdminPage() {
             <ScrollText className="h-4 w-4 shrink-0" />
             مساعد استيراد البيانات
           </Link>
-          <nav className="space-y-1">
-            {visibleItems.map((item) => (
-              <button
-                key={item.key}
-                onClick={() => {
-                  setSection(item.key);
-                  setSidebarOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                  section === item.key
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-muted-foreground hover:bg-surface-2"
-                }`}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
-              </button>
-            ))}
+          <nav className="space-y-4">
+            {NAV_GROUPS.map((group) => {
+              const items = group.keys.map((key) => visibleItems.find((item) => item.key === key)).filter(Boolean) as typeof visibleItems;
+              if (!items.length) return null;
+              return (
+                <section key={group.title} className="space-y-1">
+                  <h2 className="px-4 pb-1 text-[10px] font-black tracking-wide text-muted-foreground">{group.title}</h2>
+                  {items.map((item) => (
+                    <button
+                      key={item.key}
+                      onClick={() => { setSection(item.key); setSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                        section === item.key ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-surface-2"
+                      }`}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      {item.label}
+                    </button>
+                  ))}
+                </section>
+              );
+            })}
           </nav>
           <Link
             to="/"
