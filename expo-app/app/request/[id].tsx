@@ -223,6 +223,7 @@ export default function RequestDetail() {
   const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
   const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
   const roadRouteSequenceRef = useRef(0);
+  const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
   const [freshnessClock, setFreshnessClock] = useState(Date.now());
   const lastEtaRequestRef = useRef<{ latitude: number; longitude: number; requestedAt: number } | null>(null);
@@ -260,8 +261,12 @@ export default function RequestDetail() {
       (request.type === "service" && roles.includes("worker"))),
   );
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
-  const driverLocationFresh = Boolean(otherLocation?.updatedAt && Number.isFinite(Date.parse(otherLocation.updatedAt)) && freshnessClock - Date.parse(otherLocation.updatedAt) < 25000);
+  const providerLiveLocation = isCustomer ? otherLocation : myLocation;
+  const driverLocationFresh = Boolean(providerLiveLocation?.updatedAt && Number.isFinite(Date.parse(providerLiveLocation.updatedAt)) && freshnessClock - Date.parse(providerLiveLocation.updatedAt) < 25000);
   const currentUserId = user?.id;
+  useEffect(() => {
+    lastRoutePointRef.current = null;
+  }, [id, currentUserId]);
   const currentRequestType = request?.type;
   const currentProviderId = request?.provider_id;
   const currentCustomerId = request?.customer_id;
@@ -271,8 +276,8 @@ export default function RequestDetail() {
   const urgentOfferFlash = activeOfferSeconds !== null && activeOfferSeconds <= 10 && activeOfferSeconds % 2 === 0;
 
   const openTaxiNavigation = useCallback((app: "google" | "waze" | "darbuna") => {
-    if (!request || request.type !== "taxi" || request.pickup_lat == null || request.pickup_lng == null) {
-      Alert.alert("الملاحة", "إحداثيات موقع الزبون غير متوفرة لهذا الطلب.");
+    if (!request || request.pickup_lat == null || request.pickup_lng == null) {
+      Alert.alert("الملاحة", "إحداثيات موقع الزبون أو موقع العمل غير متوفرة لهذا الطلب.");
       return;
     }
     const latitude = Number(request.pickup_lat);
@@ -301,13 +306,13 @@ export default function RequestDetail() {
   }, [request?.type, request?.pickup_lat, request?.pickup_lng]);
 
   const showTaxiNavigationOptions = useCallback(() => {
-    Alert.alert("اذهب إلى الزبون", "اختَر تطبيق الملاحة", [
+    Alert.alert(request?.type === "service" ? "اذهب إلى موقع العمل" : "اذهب إلى الزبون", "اختَر تطبيق الملاحة", [
       { text: "Google Maps", onPress: () => openTaxiNavigation("google") },
       { text: "Waze", onPress: () => openTaxiNavigation("waze") },
       { text: "دربونة", onPress: () => openTaxiNavigation("darbuna") },
       { text: "إلغاء", style: "cancel" },
     ]);
-  }, [openTaxiNavigation]);
+  }, [openTaxiNavigation, request?.type]);
 
   useEffect(() => { void loadNotificationSoundPreference().then(setSoundEnabled); }, []);
   useEffect(() => {
@@ -369,7 +374,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "id, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
+        "id, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, provider_arrived_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
       )
       .eq("id", id)
       .maybeSingle();
@@ -567,55 +572,105 @@ export default function RequestDetail() {
   useEffect(() => {
     if (!isActive || !currentUserId) return;
     let mounted = true;
+    let subscription: Location.LocationSubscription | null = null;
     const role = isCustomer ? "customer" : "provider";
+
+    const publishLocation = async (location: Location.LocationObject) => {
+      if (!mounted) return;
+      const latitude = location.coords.latitude;
+      const longitude = location.coords.longitude;
+      const timestamp = new Date(location.timestamp || Date.now()).toISOString();
+      const coords: Coordinates = {
+        latitude,
+        longitude,
+        heading: location.coords.heading,
+        updatedAt: timestamp,
+      };
+      setMyLocation(coords);
+
+      const { error } = await supabase.from("live_locations").upsert({
+        request_id: id,
+        user_id: currentUserId,
+        role,
+        lat: latitude,
+        lng: longitude,
+        heading: location.coords.heading,
+        updated_at: timestamp,
+      }, { onConflict: "request_id,user_id" });
+      if (error) {
+        console.warn("[Mamnoon] live location update failed:", error.message);
+        return;
+      }
+
+      // Keep a useful provider breadcrumb without writing every noisy GPS sample.
+      if (role === "provider" && Number.isFinite(location.coords.accuracy) && Number(location.coords.accuracy) <= 100) {
+        const previous = lastRoutePointRef.current;
+        const elapsed = previous ? Date.now() - previous.timestamp : Number.POSITIVE_INFINITY;
+        const distance = previous
+          ? Math.hypot(
+              (latitude - previous.latitude) * 111320,
+              (longitude - previous.longitude) * 111320 * Math.cos(latitude * Math.PI / 180),
+            )
+          : Number.POSITIVE_INFINITY;
+        if (!previous || distance >= 8 || elapsed >= 10000) {
+          lastRoutePointRef.current = { latitude, longitude, timestamp: Date.now() };
+          const { error: pointError } = await supabase.from("trip_location_points").insert({
+            request_id: id,
+            user_id: currentUserId,
+            role: "provider",
+            lat: latitude,
+            lng: longitude,
+            heading: location.coords.heading,
+            accuracy_m: location.coords.accuracy,
+            recorded_at: timestamp,
+          });
+          if (pointError) console.warn("[Mamnoon] route point insert failed:", pointError.message);
+        }
+      }
+    };
+
     void (async () => {
       try {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") throw new Error("foreground_location_denied");
-        const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+
+        const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
         if (!mounted) return;
-        const coords = {
-          latitude: first.coords.latitude,
-          longitude: first.coords.longitude,
-          heading: first.coords.heading,
-          updatedAt: new Date().toISOString(),
-        };
-        setMyLocation(coords);
-        const { error } = await supabase.from("live_locations").upsert({
-          request_id: id,
-          user_id: currentUserId,
-          role,
-          lat: coords.latitude,
-          lng: coords.longitude,
-          heading: first.coords.heading,
-          updated_at: coords.updatedAt,
-        }, { onConflict: "request_id,user_id" });
-        if (error) throw error;
-        if (role === "provider") {
-          const { error: pointError } = await supabase.from("trip_location_points").insert({
-            request_id: id,
-            user_id: currentUserId,
-            role,
-            lat: coords.latitude,
-            lng: coords.longitude,
-            heading: first.coords.heading,
-            accuracy_m: first.coords.accuracy,
-            recorded_at: coords.updatedAt,
-          });
-          if (pointError) console.warn("[Mamnoon] initial route point insert failed:", pointError.message);
-        }
+        await publishLocation(first);
+
+        // Foreground GPS tracking must work even when Android's optional
+        // background permission is denied.
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 5 },
+          (location) => { void publishLocation(location); },
+        );
+
         const { startMamnoonBackgroundLocation } = await import("@/lib/background-location");
-        await startMamnoonBackgroundLocation({ requestId: id, userId: currentUserId, role });
+        try {
+          await startMamnoonBackgroundLocation({ requestId: id, userId: currentUserId, role });
+        } catch (backgroundError: any) {
+          console.warn("[Mamnoon] background tracking unavailable; foreground tracking remains active:", backgroundError);
+          if (mounted && backgroundError?.message === "background_location_denied") {
+            Alert.alert(
+              "استمرار مشاركة الموقع",
+              "الموقع المباشر يعمل والتطبيق مفتوح. حتى يستمر إذا صغّرت ممنون، فعّل إذن الموقع طوال الوقت من إعدادات التطبيق.",
+            );
+          }
+        }
       } catch (error: any) {
         if (!mounted) return;
-        const message = error?.message === "background_location_denied"
-          ? "اسمح بإذن الموقع طوال الوقت حتى يبقى موقعك ظاهراً أثناء الرحلة عند تصغير التطبيق."
-          : "تعذر تشغيل مشاركة الموقع. تحقق من أذونات الموقع وGPS وحاول مرة أخرى.";
+        const message = error?.message === "foreground_location_denied"
+          ? "اسمح لممنون بالوصول إلى الموقع حتى نعرض موقعك للطرف الآخر."
+          : "تعذر تشغيل تحديد الموقع. تحقق من أذونات الموقع وGPS وحاول مرة أخرى.";
         Alert.alert("مشاركة الموقع", message);
       }
     })();
-    return () => { mounted = false; };
-  }, [id, isActive, isCustomer, currentRequestType, currentUserId]);
+
+    return () => {
+      mounted = false;
+      subscription?.remove();
+    };
+  }, [id, isActive, isCustomer, currentUserId]);
 
   useEffect(() => {
     if (isActive) return;
@@ -734,19 +789,27 @@ export default function RequestDetail() {
   }, [id, isActive, currentUserId]);
 
   useEffect(() => {
-    if (!isActive || !myLocation || !otherLocation || !driverLocationFresh) {
+    if (!isActive || !providerLiveLocation || !driverLocationFresh) {
       roadRouteSequenceRef.current += 1;
       setRoadRoutePoints([]);
       return;
     }
-    // Both views draw the same real road route. After a taxi passenger boards,
-    // route from the provider's live GPS to the saved trip destination instead.
-    const origin = isCustomer ? otherLocation : myLocation;
+    // The provider always routes to the saved work/pickup point for a service.
+    // For taxis, route to the passenger until boarding, then to the trip destination.
+    const origin = providerLiveLocation;
     const tripStarted = request?.type === "taxi" && request.status === "in_progress" &&
       request.dest_lat != null && request.dest_lng != null;
+    const serviceTarget = request?.type === "service" &&
+      request.pickup_lat != null && request.pickup_lng != null
+      ? { latitude: Number(request.pickup_lat), longitude: Number(request.pickup_lng) }
+      : null;
     const destination = tripStarted
       ? { latitude: Number(request!.dest_lat), longitude: Number(request!.dest_lng) }
-      : isCustomer ? myLocation : otherLocation;
+      : serviceTarget ?? (isCustomer ? myLocation : otherLocation);
+    if (!destination) {
+      setRoadRoutePoints([]);
+      return;
+    }
     const sequence = ++roadRouteSequenceRef.current;
     const timeout = setTimeout(() => {
       void callMamnoonMapsApi<{ routePoints?: { lat: number; lng: number }[] }>({
@@ -769,7 +832,23 @@ export default function RequestDetail() {
       });
     }, 350);
     return () => clearTimeout(timeout);
-  }, [isActive, isCustomer, request?.type, request?.status, request?.dest_lat, request?.dest_lng, myLocation?.latitude, myLocation?.longitude, otherLocation?.latitude, otherLocation?.longitude, driverLocationFresh]);
+  }, [
+    isActive,
+    isCustomer,
+    request?.type,
+    request?.status,
+    request?.dest_lat,
+    request?.dest_lng,
+    request?.pickup_lat,
+    request?.pickup_lng,
+    providerLiveLocation?.latitude,
+    providerLiveLocation?.longitude,
+    myLocation?.latitude,
+    myLocation?.longitude,
+    otherLocation?.latitude,
+    otherLocation?.longitude,
+    driverLocationFresh,
+  ]);
 
   useEffect(() => {
     if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
@@ -981,7 +1060,10 @@ export default function RequestDetail() {
   }
 
   async function cancelRequest() {
-    Alert.alert("إلغاء الطلب", "هل أنت متأكد؟", [
+    Alert.alert(
+      isProvider ? "الاعتذار عن الطلب" : "إلغاء الطلب",
+      isProvider ? "راح نرجّع الطلب للبحث عن فني آخر." : "هل تريد إلغاء طلبك؟",
+      [
       { text: "تراجع", style: "cancel" },
       {
         text: "إلغاء الطلب",
@@ -989,10 +1071,23 @@ export default function RequestDetail() {
         onPress: async () => {
           const { error } = await (supabase as any).rpc("cancel_service_request", {
             _request_id: id,
-            _reason: "ألغى الزبون الطلب قبل تأكيد وصول مقدم الخدمة",
+            _reason: isCustomer
+              ? "ألغى الزبون الطلب قبل تأكيد وصول مقدم الخدمة"
+              : "اعتذر الفني عن تنفيذ الطلب قبل الوصول",
           });
-          if (error) Alert.alert("تعذر الإلغاء", error.message);
-          else router.back();
+          if (error) {
+            const message = error.message?.includes("provider_already_arrived")
+              ? "الفني أكد وصوله للموقع، لذلك ما عاد الإلغاء متاحاً من التطبيق."
+              : error.message?.includes("service_already_started")
+                ? "بدأ الفني تنفيذ العمل، لذلك ما عاد الإلغاء متاحاً."
+                : error.message?.includes("forbidden")
+                  ? "ما عندك صلاحية لإلغاء هذا الطلب."
+                  : error.message || "حاول مرة ثانية.";
+            Alert.alert("تعذر الإلغاء", message);
+          } else {
+            await loadRequest();
+            router.back();
+          }
         },
       },
     ]);
@@ -1280,15 +1375,14 @@ export default function RequestDetail() {
           </View>
         )}
         {isActive &&
-          request.pickup_lat != null &&
-          request.pickup_lng != null && (
+          (request.pickup_lat != null && request.pickup_lng != null || myLocation != null || otherLocation != null) && (
             <View style={styles.trackingCard}>
               {request.type !== "taxi" && <Text style={styles.trackingTitle}>موقع الطلب المباشر</Text>}
               <MapView
                 style={[styles.trackingMap, request.type === "taxi" && styles.trackingMapTaxi]}
                 initialRegion={{
-                  latitude: request.pickup_lat,
-                  longitude: request.pickup_lng,
+                  latitude: request.pickup_lat ?? (isProvider ? otherLocation?.latitude : myLocation?.latitude) ?? myLocation?.latitude ?? 33.3152,
+                  longitude: request.pickup_lng ?? (isProvider ? otherLocation?.longitude : myLocation?.longitude) ?? myLocation?.longitude ?? 44.3661,
                   latitudeDelta: 0.018,
                   longitudeDelta: 0.018,
                 }}
@@ -1316,20 +1410,33 @@ export default function RequestDetail() {
                   </>
                 ) : (
                   <>
-                    <Marker coordinate={{ latitude: request.pickup_lat!, longitude: request.pickup_lng! }} title="نقطة الانطلاق" pinColor="#0f766e" />
+                    {(request.pickup_lat != null && request.pickup_lng != null) && <Marker coordinate={{ latitude: request.pickup_lat, longitude: request.pickup_lng }} title="موقع العمل" pinColor="#0f766e" />}
+                    {request.pickup_lat == null && request.pickup_lng == null && (isProvider ? otherLocation : myLocation) && <LocationTargetMarker coordinate={(isProvider ? otherLocation : myLocation)!} title="موقع الزبون" />}
                     {request.dest_lat != null && request.dest_lng != null && <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />}
-                    {myLocation && <LocationTargetMarker coordinate={myLocation} title="موقعي" />}
-                    {otherLocation && <LocationTargetMarker coordinate={otherLocation} title="موقع مقدم الخدمة" />}
+                    {myLocation && <LocationTargetMarker coordinate={myLocation} title={isProvider ? "موقعي كفني" : "موقعي"} />}
+                    {otherLocation && <LocationTargetMarker coordinate={otherLocation} title={isProvider ? "موقع الزبون" : "موقع الفني"} />}
                   </>
                 )}
               </MapView>
-              {request.type !== "taxi" && <Text style={styles.trackingHint}>{otherLocation ? "يتم استقبال موقع الطرف الآخر" : "بانتظار مشاركة موقع الطرف الآخر"}</Text>}
+              {request.type !== "taxi" && <Text style={styles.trackingHint}>
+                {isCustomer
+                  ? request.provider_arrived_at
+                    ? "الفني وصل إلى موقع العمل"
+                    : providerRoutePoints.length > 1
+                      ? "الفني بالطريق إليك · موقعه يتحدث مباشرة"
+                      : driverLocationFresh
+                        ? "تم قبول الطلب · موقع الفني مباشر"
+                        : "بانتظار تحديث موقع الفني"
+                  : driverLocationFresh
+                    ? "موقعك وموقع الزبون ظاهران مباشرة"
+                    : "بانتظار تحديث موقع الزبون"}
+              </Text>}
             </View>
           )}
-        {request.type === "taxi" && request.status === "accepted" && isProvider && (
+        {(request.type === "taxi" || request.type === "service") && request.status === "accepted" && isProvider && (
           <TouchableOpacity style={styles.navigationButton} onPress={showTaxiNavigationOptions}>
-            <Text style={styles.navigationButtonText}>🧭 اذهب إلى الزبون</Text>
-            <Text style={styles.navigationButtonHint}>افتح الوجهة في تطبيق الملاحة الذي تختاره</Text>
+            <Text style={styles.navigationButtonText}>🧭 {request.type === "service" ? "اذهب إلى موقع العمل" : "اذهب إلى الزبون"}</Text>
+            <Text style={styles.navigationButtonHint}>افتح الموقع في تطبيق الملاحة الذي تختاره</Text>
           </TouchableOpacity>
         )}
         <View style={styles.actionsRow}>
@@ -1359,7 +1466,7 @@ export default function RequestDetail() {
               <Text style={styles.actionBtnText}>إنهاء</Text>
             </TouchableOpacity>
           )}
-          {(isCustomer || (isProvider && request.type !== "taxi")) &&
+          {(isCustomer || (isProvider && request.type === "service")) &&
             request.status !== "cancelled" &&
             request.status !== "completed" &&
             request.status !== "in_progress" &&
@@ -1368,7 +1475,7 @@ export default function RequestDetail() {
                 style={[styles.actionBtn, { backgroundColor: palette.danger }]}
                 onPress={cancelRequest}
               >
-                <Text style={styles.actionBtnText}>إلغاء</Text>
+                <Text style={styles.actionBtnText}>{isProvider ? "اعتذار وإعادة البحث عن فني" : "إلغاء الطلب"}</Text>
               </TouchableOpacity>
             )}
         </View>

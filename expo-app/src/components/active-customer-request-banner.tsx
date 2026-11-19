@@ -7,6 +7,8 @@ import { palette, radius } from "@/styles/theme";
 
 type ActiveRequest = {
   id: string;
+  provider_id: string | null;
+  provider_arrived_at: string | null;
   type: string;
   status: string;
   pickup_text: string;
@@ -17,6 +19,7 @@ type ActiveRequest = {
 export function ActiveCustomerRequestBanner() {
   const { user, roles } = useAuth();
   const [request, setRequest] = useState<ActiveRequest | null>(null);
+  const [providerMoving, setProviderMoving] = useState(false);
 
   const load = useCallback(async () => {
     if (!user || !roles.includes("customer")) {
@@ -25,13 +28,35 @@ export function ActiveCustomerRequestBanner() {
     }
     const { data, error } = await supabase
       .from("service_requests")
-      .select("id, type, status, pickup_text, price_estimate, customer_price")
+      .select("id, provider_id, provider_arrived_at, type, status, pickup_text, price_estimate, customer_price")
       .eq("customer_id", user.id)
       .in("status", ["pending", "searching", "accepted", "in_progress"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!error) setRequest(data as ActiveRequest | null);
+    if (!error) {
+      setRequest(data as ActiveRequest | null);
+      if (data?.provider_id && ["accepted", "in_progress"].includes(data.status)) {
+        const { data: points } = await supabase
+          .from("trip_location_points")
+          .select("lat,lng,recorded_at")
+          .eq("request_id", data.id)
+          .eq("role", "provider")
+          .order("recorded_at", { ascending: false })
+          .limit(2);
+        if (points && points.length >= 2) {
+          const [latest, previous] = points;
+          const ageMs = Date.now() - Date.parse(latest.recorded_at);
+          const latMeters = (latest.lat - previous.lat) * 111320;
+          const lngMeters = (latest.lng - previous.lng) * 111320 * Math.cos(latest.lat * Math.PI / 180);
+          setProviderMoving(ageMs >= 0 && ageMs < 45000 && Math.hypot(latMeters, lngMeters) >= 12);
+        } else {
+          setProviderMoving(false);
+        }
+      } else {
+        setProviderMoving(false);
+      }
+    }
   }, [user, roles]);
 
   useEffect(() => {
@@ -59,7 +84,7 @@ export function ActiveCustomerRequestBanner() {
 
   if (!request) return null;
   const status = request.status === "accepted"
-    ? "تم قبول طلبك"
+    ? request.provider_arrived_at ? "الفني وصل إلى موقع العمل" : providerMoving ? "الفني بالطريق إليك" : "تم قبول طلبك"
     : request.status === "in_progress"
       ? "طلبك قيد التنفيذ"
       : "طلبك نشط ونبحث عن مقدم خدمة";
