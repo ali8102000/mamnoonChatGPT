@@ -286,7 +286,7 @@ BEGIN
 
   UPDATE public.user_reports
   SET status=p_status,
-      resolution_note=NULLIF(trim(coalesce(p_note,''),''),
+      resolution_note=NULLIF(trim(coalesce(p_note,'')),''),
       resolved_by=auth.uid(),
       resolved_at=now()
   WHERE id=p_report_id;
