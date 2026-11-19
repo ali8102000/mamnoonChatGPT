@@ -69,7 +69,7 @@ export function HomeCategoryCarousel() {
           </Pressable>
         )}
       />
-      {banners.length > 1 && <View style={{ position: "absolute", bottom: 10, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 6, pointerEvents: "none" }}>
+      {banners.length > 1 && <View pointerEvents="none" style={{ position: "absolute", bottom: 10, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 6 }}>
         {banners.map((banner, i) => <View key={banner.id} style={{ width: i === index ? 18 : 6, height: 6, borderRadius: 9, backgroundColor: "#FFFFFF" }} />)}
       </View>}
     </View>
