@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
@@ -132,7 +131,6 @@ export default function ProfileScreen() {
       { text: "٥٬٠٠٠ د.ع", onPress: () => { void handleWalletTopup(5000); } },
       { text: "١٠٬٠٠٠ د.ع", onPress: () => { void handleWalletTopup(10000); } },
       { text: "٢٥٬٠٠٠ د.ع", onPress: () => { void handleWalletTopup(25000); } },
-      { text: "إلغاء", style: "cancel" },
     ]);
   }
 
