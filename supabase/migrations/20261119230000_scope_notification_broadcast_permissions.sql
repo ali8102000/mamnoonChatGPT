@@ -155,3 +155,6 @@ GRANT EXECUTE ON FUNCTION public.admin_broadcast_notification(text,text,text,uui
 
 REVOKE ALL ON FUNCTION public.admin_broadcast_governorate_notification(text,text,text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_broadcast_governorate_notification(text,text,text) TO authenticated;
+
+-- This SECURITY DEFINER function is a trigger implementation, not an RPC API.
+REVOKE ALL ON FUNCTION public.validate_home_carousel_banner_campaign() FROM PUBLIC, anon, authenticated;
