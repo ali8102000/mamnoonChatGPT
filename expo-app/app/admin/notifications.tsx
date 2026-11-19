@@ -39,7 +39,7 @@ export default function AdminNotificationsScreen() {
     if (callError) throw new Error(callError.message || "تعذر الاتصال بخدمة الإشعارات");
     if (data?.error) throw new Error(data.error);
     return data;
-  }, [target, title, body, userId]);
+  }, [target, title, body, userId, governorateKey]);
 
   useEffect(() => {
     if (authLoading) return;
