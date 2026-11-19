@@ -27,12 +27,17 @@ I18nManager.allowRTL(true);
 LogBox.ignoreLogs(["Setting a timer", "AsyncStorage"]);
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: isNotificationSoundEnabled(),
-    shouldSetBadge: true,
-  }),
+  handleNotification: async () => {
+    // Read the persisted preference before deciding foreground sound; the
+    // in-memory default is enabled until SecureStore finishes loading.
+    const preferences = await loadNotificationPreferences();
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: preferences.soundEnabled,
+      shouldSetBadge: true,
+    };
+  },
 });
 
 async function configureAndroidNotificationChannels() {
@@ -74,13 +79,13 @@ function PushNotificationSetup() {
         const localPreferences = await loadNotificationPreferences();
         let savedPreference: { sound_enabled?: boolean | null; vibration_enabled?: boolean | null } | null = null;
         const fullPreferenceResult = await supabase.from("user_push_tokens")
-          .select("sound_enabled,vibration_enabled").eq("user_id", userId).limit(1).maybeSingle();
+          .select("sound_enabled,vibration_enabled").eq("user_id", userId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
         if (!fullPreferenceResult.error) {
           savedPreference = fullPreferenceResult.data;
         } else if (fullPreferenceResult.error.code === "42703" || fullPreferenceResult.error.message.toLowerCase().includes("vibration_enabled")) {
           // Backward compatibility while the isolated vibration migration is awaiting deployment.
           const legacyPreferenceResult = await supabase.from("user_push_tokens")
-            .select("sound_enabled").eq("user_id", userId).limit(1).maybeSingle();
+            .select("sound_enabled").eq("user_id", userId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
           if (legacyPreferenceResult.error) console.warn("[notifications] Could not read sound preference:", legacyPreferenceResult.error.message);
           savedPreference = legacyPreferenceResult.data;
         } else {
