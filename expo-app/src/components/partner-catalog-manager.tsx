@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { View,Text,TextInput,TouchableOpacity,ActivityIndicator,Alert,Switch,StyleSheet } from "react-native";
+import { View,Text,TextInput,TouchableOpacity,ActivityIndicator,Alert,Switch,StyleSheet,Image } from "react-native";
 import { supabase } from "@/lib/supabase";
+import * as ImagePicker from "expo-image-picker";
 import { palette,radius,space } from "@/styles/theme";
 type PartnerType="hotel"|"restaurant"|"store"|"mall";
 type Category={category_key:string;title:string;vertical:string};
@@ -11,7 +12,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
  const grocery=vertical==="grocery";
  const [categories,setCategories]=useState<Category[]>([]);const [categoryKey,setCategoryKey]=useState("");
  const [items,setItems]=useState<CatalogItem[]>([]);
- const [name,setName]=useState("");const [description,setDescription]=useState("");const [price,setPrice]=useState("");const [currency,setCurrency]=useState<"IQD"|"USD">("IQD");const [quantity,setQuantity]=useState("");
+ const [name,setName]=useState("");const [description,setDescription]=useState("");const [price,setPrice]=useState("");const [currency,setCurrency]=useState<"IQD"|"USD">("IQD");const [quantity,setQuantity]=useState("");const [imageUri,setImageUri]=useState<string|null>(null);
  const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);
  const load=useCallback(async()=>{
   setLoading(true);
@@ -27,9 +28,19 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
  const add=async()=>{
   if(name.trim().length<2||price.trim()===""||!Number.isFinite(Number(price))||Number(price)<0||(itemType!=="room"&&!grocery&&!categoryKey)){Alert.alert("بيانات غير مكتملة","اكتب الاسم والسعر وحدد الفئة.");return;}
   setSaving(true);
-  const {error}=await (supabase as any).from("partner_catalog_items").insert({business_profile_id:profileId,item_type:itemType,category_key:itemType==="room"?null:grocery?"grocery":categoryKey,name:name.trim(),description:description.trim()||null,price_amount:Number(price),currency,quantity_available:quantity.trim()===""?null:Number(quantity),is_active:true});
+  let imageUrls:string[]=[];
+  if(imageUri){
+   try{
+    const response=await fetch(imageUri);const blob=await response.blob();
+    const path=profileId+"/"+Date.now()+"-product.jpg";
+    const uploaded=await supabase.storage.from("partner-catalog").upload(path,blob,{upsert:false,contentType:blob.type||"image/jpeg"});
+    if(uploaded.error){setSaving(false);Alert.alert("تعذر رفع الصورة",uploaded.error.message);return;}
+    imageUrls=[supabase.storage.from("partner-catalog").getPublicUrl(path).data.publicUrl];
+   }catch(e){setSaving(false);Alert.alert("تعذر رفع الصورة",e instanceof Error?e.message:"حاول مرة ثانية");return;}
+  }
+  const {error}=await (supabase as any).from("partner_catalog_items").insert({business_profile_id:profileId,item_type:itemType,category_key:itemType==="room"?null:grocery?"grocery":categoryKey,name:name.trim(),description:description.trim()||null,price_amount:Number(price),currency,quantity_available:quantity.trim()===""?null:Number(quantity),image_urls:imageUrls,is_active:true});
   setSaving(false);if(error){Alert.alert("تعذر الإضافة",error.message);return;}
-  setName("");setDescription("");setPrice("");setQuantity("");await load();
+  setName("");setDescription("");setPrice("");setQuantity("");setImageUri(null);await load();
  };
  const toggle=async(item:CatalogItem)=>{const {error}=await (supabase as any).from("partner_catalog_items").update({is_active:!item.is_active,updated_at:new Date().toISOString()}).eq("id",item.id).eq("business_profile_id",profileId);if(error)Alert.alert("تعذر التحديث",error.message);else await load();};
  const remove=(item:CatalogItem)=>Alert.alert("حذف العنصر",`تريد تحذف «${item.name}»؟`,[{text:"رجوع",style:"cancel"},{text:"حذف",style:"destructive",onPress:async()=>{const {error}=await (supabase as any).from("partner_catalog_items").delete().eq("id",item.id).eq("business_profile_id",profileId);if(error)Alert.alert("تعذر الحذف",error.message);else await load();}}]);
@@ -40,6 +51,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
   <Text style={s.label}>اسم العنصر</Text><TextInput value={name} onChangeText={setName} maxLength={140} style={s.input}/>
   <Text style={s.label}>الوصف</Text><TextInput value={description} onChangeText={setDescription} multiline maxLength={1000} style={[s.input,s.multi]}/>
   <Text style={s.label}>السعر</Text><TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" style={s.input}/>
+  <TouchableOpacity onPress={async()=>{const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!permission.granted){Alert.alert("صلاحية الصور","اسمح بالوصول إلى الصور لاختيار صورة المنتج.");return;}const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],quality:0.82});if(!result.canceled&&result.assets[0])setImageUri(result.assets[0].uri);}} style={s.currency}><Text style={s.currencyText}>{imageUri?"تم اختيار صورة المنتج":"اختيار صورة المنتج"}</Text></TouchableOpacity>{imageUri?<Image source={{uri:imageUri}} style={{width:88,height:88,borderRadius:10}}/>:null}
   <View style={s.row}><TouchableOpacity onPress={()=>setCurrency(v=>v==="IQD"?"USD":"IQD")} style={s.currency}><Text style={s.currencyText}>{currency==="IQD"?"دينار عراقي":"دولار"}</Text></TouchableOpacity><View style={{flex:1}}><Text style={s.label}>الكمية</Text><TextInput value={quantity} onChangeText={setQuantity} keyboardType="number-pad" style={s.input}/></View></View>
   <TouchableOpacity disabled={saving} onPress={()=>void add()} style={[s.add,saving&&{opacity:.5}]}><Text style={s.addText}>{saving?"جارٍ الإضافة...":"إضافة عنصر"}</Text></TouchableOpacity>
   {loading?<ActivityIndicator color={palette.brand}/>:items.length===0?<Text style={s.empty}>ماكو عناصر مضافة حالياً.</Text>:items.map(item=><View key={item.id} style={s.item}><View style={{flex:1}}><Text style={s.itemName}>{item.name}</Text><Text style={s.meta}>{categoryName(item.category_key)} · {Number(item.price_amount).toLocaleString("en-US")} {item.currency}</Text></View><View style={s.actions}><Switch value={item.is_active} onValueChange={()=>void toggle(item)} trackColor={{true:palette.brand}}/><TouchableOpacity onPress={()=>remove(item)}><Text style={s.delete}>حذف</Text></TouchableOpacity></View></View>)}
