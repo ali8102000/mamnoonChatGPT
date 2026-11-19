@@ -4,6 +4,7 @@ type MapLookupInput =
   | { action: "autocomplete"; input: string; sessionToken: string; center: { lat: number; lng: number }; governorateKey?: string; mapProvider?: "google" | "leaflet" | null }
   | { action: "details"; placeId: string; sessionToken: string }
   | { action: "reverse"; center: { lat: number; lng: number } }
+  | { action: "nearby"; center: { lat: number; lng: number }; governorateKey: string }
   | { action: "route"; from: { lat: number; lng: number }; to: { lat: number; lng: number } }
   | { action: "validateGovernorate"; center: { lat: number; lng: number }; governorateKey: string }
   | { action: "detectGovernorate"; center: { lat: number; lng: number } };
