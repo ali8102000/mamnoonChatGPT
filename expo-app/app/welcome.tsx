@@ -3,20 +3,11 @@ import { View, Text, StyleSheet, ActivityIndicator, Image } from "react-native";
 import { router, Stack } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
 import { palette } from "@/styles/theme";
-import { supabase } from "@/lib/supabase";
+import { useCompanyBranding } from "@/lib/company-branding";
 
 export default function WelcomeScreen() {
   const { session, loading, roles } = useAuth();
-  const [companyName, setCompanyName] = useState("ممنون");
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدماتك… بمكان واحد");
-
-  useEffect(() => {
-    let active = true;
-    (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle()
-      .then(({ data }: any) => { if (!active || !data) return; setCompanyName(data.company_name || "ممنون"); setLogoUrl(data.company_logo_url || null); setWelcomeMessage(data.welcome_message || "مشوارك وخدماتك… بمكان واحد"); });
-    return () => { active = false; };
-  }, []);
+  const { companyName, logoUrl, welcomeMessage } = useCompanyBranding();
 
   useEffect(() => {
     if (loading) return;
