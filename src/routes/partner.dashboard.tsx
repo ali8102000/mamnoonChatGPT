@@ -9,7 +9,7 @@ import { Building2, MapPin, Phone, ArrowRight, Save, Eye, EyeOff, RefreshCw } fr
 type PartnerProfile = {
   id: string; application_id: string; partner_type: "hotel"|"restaurant"|"store"|"mall";
   business_name: string; phone: string; email: string|null; city: string; address: string;
-  description: string|null; is_published: boolean;
+  description: string|null; is_published: boolean; business_vertical:"store"|"grocery"|"restaurant";
 };
 
 const typeLabels: Record<string,string> = {hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"};
@@ -32,7 +32,7 @@ function PartnerDashboardPage() {
     const ids = (approved ?? []).map((row:any)=>row.id);
     if (!ids.length) { setProfiles([]); setBusy(false); return; }
     const { data, error } = await (supabase as any).from("partner_business_profiles")
-      .select("id,application_id,partner_type,business_name,phone,email,city,address,description,is_published")
+      .select("id,application_id,partner_type,business_name,phone,email,city,address,description,is_published,business_vertical")
       .eq("user_id", session.user.id).in("application_id", ids).order("created_at", { ascending: false });
     if (error) setError(error.message);
     setProfiles(data ?? []);
@@ -52,7 +52,7 @@ function PartnerDashboardPage() {
     const { error } = await (supabase as any).from("partner_business_profiles").update({
       business_name:item.business_name.trim(), phone:item.phone.trim(), email:item.email?.trim()||null,
       city:item.city.trim(), address:item.address.trim(), description:item.description?.trim()||null,
-      is_published:item.is_published, updated_at:new Date().toISOString()
+      is_published:item.is_published, business_vertical:item.business_vertical, updated_at:new Date().toISOString()
     }).eq("id",item.id).eq("user_id",session?.user.id);
     setSavingId(null);
     if(error){setError(error.message);return;}
@@ -80,7 +80,8 @@ function PartnerDashboardPage() {
         <button type="button" onClick={()=>change(item.id,"is_published",!item.is_published)} className="w-full flex items-center justify-center gap-2 rounded-xl border border-border p-3 text-xs font-bold">{item.is_published?<><EyeOff className="h-4 w-4"/> إيقاف حالة النشر</>:<><Eye className="h-4 w-4"/> تفعيل حالة النشر</>}</button>
         <button disabled={savingId===item.id} onClick={()=>void save(item)} className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground p-3 text-sm font-black disabled:opacity-50"><Save className="h-4 w-4"/>{savingId===item.id?"جارٍ الحفظ...":"حفظ التعديلات"}</button>
         <div className="text-[10px] text-muted-foreground flex items-center gap-2"><MapPin className="h-3.5 w-3.5"/>{item.city} · {item.address}<Phone className="h-3.5 w-3.5 mr-2"/><span dir="ltr">{item.phone}</span></div>
-        <PartnerCatalogManager profileId={item.id} partnerType={item.partner_type}/>
+        {["store","mall"].includes(item.partner_type)&&<label className="block text-xs font-bold">نوع النشاط التجاري<select value={item.business_vertical} onChange={e=>change(item.id,"business_vertical",e.target.value)} className="input-base mt-1 w-full rounded-xl"><option value="store">محلات ومتاجر (ملابس وإكسسوارات وغيرها)</option><option value="grocery">بقالة وخضروات (قسم مستقل)</option></select></label>}
+        <PartnerCatalogManager profileId={item.id} partnerType={item.partner_type} businessVertical={item.business_vertical}/>
       </article>)}
       <div className="rounded-xl bg-muted/60 p-3 text-xs leading-6 text-muted-foreground">حالة النشر تُحفظ بملف الشريك. ربط الدليل العام للزبائن وإدارة الحجوزات والغرف وقائمة الطعام والمنتجات يحتاج وحدات عرض وتشغيل مستقلة.</div>
     </main>
