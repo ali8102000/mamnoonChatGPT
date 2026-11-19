@@ -19,7 +19,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
    vertical?(supabase as any).from("partner_catalog_categories").select("category_key,title,vertical").eq("vertical",vertical).eq("is_active",true).order("sort_order"):Promise.resolve({data:[],error:null}),
    (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,quantity_available,is_active,category_key").eq("business_profile_id",profileId).eq("item_type",itemType).order("sort_order").order("created_at",{ascending:false})
   ]);
-  if(cats.error)Alert.alert("تعذر تحميل الفئات",cats.error.message);else{setCategories(cats.data??[]);if(!categoryKey&&cats.data?.length)setCategoryKey(cats.data[0].category_key);}
+  if(cats.error)Alert.alert("تعذر تحميل الفئات",cats.error.message);else{setCategories(cats.data??[]);if(cats.data?.length)setCategoryKey(current=>current||cats.data[0].category_key);}
   if(rows.error)Alert.alert("تعذر تحميل الكتالوج",rows.error.message);
   setItems((rows.data??[]) as CatalogItem[]);setLoading(false);
  },[profileId,itemType,vertical]);
