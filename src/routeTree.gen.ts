@@ -22,6 +22,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as CouponsRouteImport } from './routes/coupons'
 import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as AskMamnoonRouteImport } from './routes/ask-mamnoon'
 import { Route as SupportChatRouteImport } from './routes/support-chat'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -104,6 +105,11 @@ const CouponsRoute = CouponsRouteImport.update({
 const MessagesRoute = MessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AskMamnoonRoute = AskMamnoonRouteImport.update({
+  id: '/ask-mamnoon',
+  path: '/ask-mamnoon',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SupportChatRoute = SupportChatRouteImport.update({
@@ -211,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/home': typeof HomeRoute
   '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
+  '/ask-mamnoon': typeof AskMamnoonRoute
   '/support-chat': typeof SupportChatRoute
   '/subscriptions': typeof SubscriptionsRoute
   '/privacy': typeof PrivacyRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByTo {
   '/home': typeof HomeRoute
   '/coupons': typeof CouponsRoute
   '/messages': typeof MessagesRoute
+  '/ask-mamnoon': typeof AskMamnoonRoute
   '/support-chat': typeof SupportChatRoute
   '/subscriptions': typeof SubscriptionsRoute
   '/privacy': typeof PrivacyRoute
@@ -411,6 +419,7 @@ export interface RootRouteChildren {
   HomeRoute: typeof HomeRoute
   CouponsRoute: typeof CouponsRoute
   MessagesRoute: typeof MessagesRoute
+  AskMamnoonRoute: typeof AskMamnoonRoute
   SupportChatRoute: typeof SupportChatRoute
   SubscriptionsRoute: typeof SubscriptionsRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -519,6 +528,13 @@ declare module '@tanstack/react-router' {
       path: '/messages'
       fullPath: '/messages'
       preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ask-mamnoon': {
+      id: '/ask-mamnoon'
+      path: '/ask-mamnoon'
+      fullPath: '/ask-mamnoon'
+      preLoaderRoute: typeof AskMamnoonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/support-chat': {
@@ -678,6 +694,7 @@ const rootRouteChildren: RootRouteChildren = {
   HomeRoute: HomeRoute,
   CouponsRoute: CouponsRoute,
   MessagesRoute: MessagesRoute,
+  AskMamnoonRoute: AskMamnoonRoute,
   SupportChatRoute: SupportChatRoute,
   SubscriptionsRoute: SubscriptionsRoute,
   PrivacyRoute: PrivacyRoute,
