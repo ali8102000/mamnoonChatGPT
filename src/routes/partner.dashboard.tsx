@@ -9,10 +9,11 @@ import { Building2, MapPin, Phone, ArrowRight, Save, Eye, EyeOff, RefreshCw } fr
 type PartnerProfile = {
   id: string; application_id: string; partner_type: "hotel"|"restaurant"|"store"|"mall";
   business_name: string; phone: string; email: string|null; city: string; address: string;
-  description: string|null; is_published: boolean; business_vertical:"store"|"grocery"|"restaurant";
+  description: string|null; is_published: boolean; business_vertical:"store"|"grocery"|"restaurant"; governorate_key:string; promotion_governorates:string[]; promotion_radius_km:number; promotion_latitude:number|null; promotion_longitude:number|null;
 };
 
 const typeLabels: Record<string,string> = {hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"};
+const governorates=[["baghdad","بغداد"],["basra","البصرة"],["nineveh","نينوى"],["erbil","أربيل"],["sulaymaniyah","السليمانية"],["duhok","دهوك"],["kirkuk","كركوك"],["najaf","النجف"],["karbala","كربلاء"],["babil","بابل"],["anbar","الأنبار"],["diyala","ديالى"],["saladin","صلاح الدين"],["wasit","واسط"],["dhiqar","ذي قار"],["maysan","ميسان"],["muthanna","المثنى"],["qadisiyah","القادسية"]] as const;
 
 export const Route = createFileRoute("/partner/dashboard")({ ssr: false, component: PartnerDashboardPage });
 
@@ -27,12 +28,12 @@ function PartnerDashboardPage() {
     if (!session?.user.id) return;
     setBusy(true); setError("");
     const { data: approved, error: approvalError } = await (supabase as any).from("partner_applications")
-      .select("id").eq("user_id", session.user.id).eq("status", "approved");
+      .select("id,partner_type").eq("user_id", session.user.id).eq("status", "approved").in("partner_type",["store","restaurant"]);
     if (approvalError) { setError(approvalError.message); setProfiles([]); setBusy(false); return; }
     const ids = (approved ?? []).map((row:any)=>row.id);
     if (!ids.length) { setProfiles([]); setBusy(false); return; }
     const { data, error } = await (supabase as any).from("partner_business_profiles")
-      .select("id,application_id,partner_type,business_name,phone,email,city,address,description,is_published,business_vertical")
+      .select("id,application_id,partner_type,business_name,phone,email,city,address,description,is_published,business_vertical,governorate_key,promotion_governorates,promotion_radius_km,promotion_latitude,promotion_longitude")
       .eq("user_id", session.user.id).in("application_id", ids).order("created_at", { ascending: false });
     if (error) setError(error.message);
     setProfiles(data ?? []);
@@ -52,12 +53,15 @@ function PartnerDashboardPage() {
     const { error } = await (supabase as any).from("partner_business_profiles").update({
       business_name:item.business_name.trim(), phone:item.phone.trim(), email:item.email?.trim()||null,
       city:item.city.trim(), address:item.address.trim(), description:item.description?.trim()||null,
-      is_published:item.is_published, business_vertical:item.business_vertical, updated_at:new Date().toISOString()
+      is_published:item.is_published, business_vertical:item.business_vertical, promotion_governorates:item.business_vertical==="grocery"?[]:(item.promotion_governorates?.length?item.promotion_governorates:[item.governorate_key]), promotion_radius_km:item.promotion_radius_km, promotion_latitude:item.promotion_latitude, promotion_longitude:item.promotion_longitude, updated_at:new Date().toISOString()
     }).eq("id",item.id).eq("user_id",session?.user.id);
     setSavingId(null);
     if(error){setError(error.message);return;}
     await load();
   };
+
+  const toggleGovernorate=(id:string,key:string)=>setProfiles(current=>current.map(item=>item.id!==id?item:{...item,promotion_governorates:(item.promotion_governorates??[]).includes(key)?item.promotion_governorates.filter(v=>v!==key):[...(item.promotion_governorates??[]),key]}));
+  const captureBusinessLocation=(id:string)=>{if(!navigator.geolocation){setError("المتصفح لا يدعم تحديد الموقع.");return;}navigator.geolocation.getCurrentPosition(pos=>setProfiles(current=>current.map(item=>item.id===id?{...item,promotion_latitude:pos.coords.latitude,promotion_longitude:pos.coords.longitude}:item)),()=>setError("اسمح للموقع بالوصول حتى نحدد موقع البقالة."),{enableHighAccuracy:false,timeout:10000,maximumAge:60000});};
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
@@ -65,7 +69,7 @@ function PartnerDashboardPage() {
     <main dir="rtl" className="max-w-2xl mx-auto px-4 pt-6 pb-12 space-y-5">
       <Link to="/account-settings" className="inline-flex items-center gap-2 text-sm text-primary font-bold"><ArrowRight className="h-4 w-4"/> الإعدادات</Link>
       <div className="rounded-3xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground p-6 shadow-lg">
-        <div className="flex items-center gap-3"><Building2 className="h-8 w-8"/><div><h1 className="text-2xl font-black">لوحة الشريك</h1><p className="text-xs opacity-80 mt-1">إدارة بيانات منشآتك وحالة نشرها في ممنون</p></div></div>
+        <div className="flex items-center gap-3"><Building2 className="h-8 w-8"/><div><h1 className="text-2xl font-black">إعدادات أعمالي</h1><p className="text-xs opacity-80 mt-1">تحكم بانتشار منتجاتك وعروضك حسب المحافظات أو النطاق الجغرافي</p></div></div>
       </div>
       <div className="flex items-center justify-between"><h2 className="font-black">منشآتي المعتمدة</h2><button onClick={()=>void load()} className="inline-flex items-center gap-2 text-xs text-primary"><RefreshCw className="h-4 w-4"/> تحديث</button></div>
       {error&&<div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-700">{error}</div>}
@@ -81,6 +85,19 @@ function PartnerDashboardPage() {
         <button disabled={savingId===item.id} onClick={()=>void save(item)} className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground p-3 text-sm font-black disabled:opacity-50"><Save className="h-4 w-4"/>{savingId===item.id?"جارٍ الحفظ...":"حفظ التعديلات"}</button>
         <div className="text-[10px] text-muted-foreground flex items-center gap-2"><MapPin className="h-3.5 w-3.5"/>{item.city} · {item.address}<Phone className="h-3.5 w-3.5 mr-2"/><span dir="ltr">{item.phone}</span></div>
         {["store","mall"].includes(item.partner_type)&&<label className="block text-xs font-bold">نوع النشاط التجاري<select value={item.business_vertical} onChange={e=>change(item.id,"business_vertical",e.target.value)} className="input-base mt-1 w-full rounded-xl"><option value="store">محلات ومتاجر (ملابس وإكسسوارات وغيرها)</option><option value="grocery">بقالة وخضروات (قسم مستقل)</option></select></label>}
+        <section className="rounded-2xl bg-primary/5 border border-primary/10 p-3 space-y-3">
+          <h4 className="text-sm font-black text-primary">نطاق عرض وترويج البضاعة</h4>
+          {item.business_vertical==="grocery" ? <>
+            <p className="text-xs text-muted-foreground">البقالة تظهر ضمن دائرة حول موقع منشأتك فقط. النطاق الافتراضي ٥ كم.</p>
+            <div className="flex items-center justify-between gap-3"><strong className="text-xs">نطاق الترويج: {Number(item.promotion_radius_km||5)} كم</strong><div className="flex gap-2"><button type="button" onClick={()=>change(item.id,"promotion_radius_km",Math.max(1,Number(item.promotion_radius_km||5)-1))} className="rounded-lg border px-3 py-2">−</button><button type="button" onClick={()=>change(item.id,"promotion_radius_km",Math.min(100,Number(item.promotion_radius_km||5)+1))} className="rounded-lg border px-3 py-2">+</button></div></div>
+            <p className="text-[11px] text-muted-foreground">{item.promotion_latitude!=null&&item.promotion_longitude!=null?"تم تحديد موقع المنشأة":"حدد موقع البقالة حتى نطبق نطاقها الجغرافي بدقة."}</p>
+            <button type="button" onClick={()=>captureBusinessLocation(item.id)} className="w-full rounded-xl border border-primary/30 bg-card p-3 text-xs font-black text-primary">تحديد موقع المنشأة الحالي</button>
+          </> : <>
+            <p className="text-xs text-muted-foreground">اختار محافظة أو أكثر حتى تظهر منتجاتك وعروضك للزبائن داخل المحافظات المحددة فقط.</p>
+            <div className="flex flex-wrap justify-end gap-2">{governorates.map(([key,label])=>{const selected=(item.promotion_governorates??[]).includes(key);return <button key={key} type="button" onClick={()=>toggleGovernorate(item.id,key)} className={"rounded-full border px-3 py-2 text-[11px] font-bold "+(selected?"bg-primary text-primary-foreground border-primary":"bg-background border-border")}>{label}{selected?" ✓":""}</button>;})}</div>
+          </>}
+          <button disabled={savingId===item.id} onClick={()=>void save(item)} className="w-full rounded-xl bg-primary text-primary-foreground p-3 text-sm font-black disabled:opacity-50">{savingId===item.id?"جارٍ الحفظ...":"حفظ إعدادات الانتشار"}</button>
+        </section>
         <PartnerCatalogManager profileId={item.id} partnerType={item.partner_type} businessVertical={item.business_vertical}/>
       </article>)}
       <div className="rounded-xl bg-muted/60 p-3 text-xs leading-6 text-muted-foreground">حالة النشر تُحفظ بملف الشريك. ربط الدليل العام للزبائن وإدارة الحجوزات والغرف وقائمة الطعام والمنتجات يحتاج وحدات عرض وتشغيل مستقلة.</div>
