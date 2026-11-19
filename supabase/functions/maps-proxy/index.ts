@@ -174,12 +174,15 @@ async function reverse(point:Point) {
   const p=(await response.json() as any).features?.[0]?.properties??{};
   return {address:[p.name,p.street,p.district,p.city,p.state,p.country].filter(Boolean).join("، ")};
 }
-async function autocomplete(admin:any,input:string,key:string) {
+async function autocomplete(admin:any,input:string,key:string,requestedCenter?:Point) {
   const governorate=governorates.find(g=>g[0]===key);
   const bounds=boundsFor(key);
   if(!governorate||!bounds) return json({error:"اختر المحافظة أولاً حتى تظهر اقتراحاتها فقط."},400);
   const q=input.trim();
   if(q.length<2) return json({suggestions:[],attribution:"بيانات الأماكن © OpenStreetMap"});
+  // Bias local discovery to the map viewport/current selection, not the governorate centroid.
+  const searchCenter=validPoint(requestedCenter)&&isInGovernorate(requestedCenter,key)
+    ? requestedCenter : {lat:governorate[2],lng:governorate[3]};
 
   const LIMIT=50;
   const [cached,initial]=await Promise.all([
@@ -211,9 +214,9 @@ async function autocomplete(admin:any,input:string,key:string) {
     url.searchParams.set("limit",String(LIMIT));
     url.searchParams.set("countrycode","IQ");
     url.searchParams.set("bbox",[bounds.low.lng,bounds.low.lat,bounds.high.lng,bounds.high.lat].join(","));
-    url.searchParams.set("lat",String(governorate[2]));
-    url.searchParams.set("lon",String(governorate[3]));
-    url.searchParams.set("zoom","12");
+    url.searchParams.set("lat",String(searchCenter.lat));
+    url.searchParams.set("lon",String(searchCenter.lng));
+    url.searchParams.set("zoom","16");
     try {
       const response=await fetch(url,{headers:{Accept:"application/geo+json","User-Agent":"Mamnoon/1.0"},
         signal:AbortSignal.timeout(3500)});
@@ -256,6 +259,42 @@ async function autocomplete(admin:any,input:string,key:string) {
     }
   }
 
+  // Google Places is an optional second index for Iraqi POIs that may be missing from OSM.
+  // Keep it explicitly opt-in because Text Search is a billable Google Maps Platform request.
+  let googleSuggestions:any[]=[];
+  if(Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")==="true") {
+    const googleKey=Deno.env.get("GOOGLE_MAPS_API_KEY");
+    if(googleKey) {
+      try {
+        const response=await fetch("https://places.googleapis.com/v1/places:searchText",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","X-Goog-Api-Key":googleKey,
+            "X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.primaryTypeDisplayName,places.types"},
+          body:JSON.stringify({
+            textQuery:q,languageCode:"ar",regionCode:"IQ",pageSize:20,rankPreference:"RELEVANCE",
+            locationBias:{circle:{center:{latitude:searchCenter.lat,longitude:searchCenter.lng},radius:25000}}
+          }),
+          signal:AbortSignal.timeout(4500)
+        });
+        if(response.ok) {
+          const result=await response.json() as any;
+          googleSuggestions=(result.places??[]).flatMap((place:any)=>{
+            const point={lat:Number(place.location?.latitude),lng:Number(place.location?.longitude)};
+            const name=String(place.displayName?.text??"").trim();
+            if(!place.id||!name||!validPoint(point)||!isInGovernorate(point,key)) return [];
+            const category=String(place.primaryTypeDisplayName?.text??place.primaryType??"").trim();
+            return [{id:String(place.id),text:name,
+              address:String(place.formattedAddress??name),coords:point,category,source:"google_places"}];
+          });
+        } else {
+          console.warn("[maps-proxy] Google Places Text Search unavailable",response.status);
+        }
+      } catch(error) {
+        console.warn("[maps-proxy] Google Places Text Search failed",error instanceof Error?error.message:"unknown");
+      }
+    }
+  }
+
   const {data,error}=await admin.rpc("search_map_place_suggestions",{
     p_governorate_key:key,p_query:q,p_limit:LIMIT
   });
@@ -263,8 +302,16 @@ async function autocomplete(admin:any,input:string,key:string) {
   const refreshed=mapRows(data);
   const merged=new Map<string,any>();
   for(const item of [...refreshed,...initialSuggestions]) merged.set(item.id,item);
-  const suggestions=Array.from(merged.values()).slice(0,LIMIT);
-  return json({suggestions,attribution:"بيانات الأماكن © OpenStreetMap"});
+  const osmSuggestions=Array.from(merged.values());
+  const seen=new Set(osmSuggestions.map((item:any)=>`${normalized(item.text)}|${Number(item.coords.lat).toFixed(4)}|${Number(item.coords.lng).toFixed(4)}`));
+  for(const item of googleSuggestions) {
+    const dedupeKey=`${normalized(item.text)}|${Number(item.coords.lat).toFixed(4)}|${Number(item.coords.lng).toFixed(4)}`;
+    if(!seen.has(dedupeKey)) { osmSuggestions.push(item); seen.add(dedupeKey); }
+  }
+  const suggestions=osmSuggestions.slice(0,LIMIT);
+  return json({suggestions,attribution:googleSuggestions.length
+    ?"بيانات الأماكن من OpenStreetMap وGoogle Maps"
+    :"بيانات الأماكن © OpenStreetMap"});
 }
 
 Deno.serve(async (req:Request)=>{
@@ -285,7 +332,7 @@ Deno.serve(async (req:Request)=>{
     if(action==="autocomplete") {
       if(typeof body.input!=="string"||body.input.trim().length<2||body.input.length>160||
         typeof body.governorateKey!=="string") return json({error:"بيانات البحث غير صحيحة."},400);
-      return await autocomplete(admin,body.input,body.governorateKey);
+      return await autocomplete(admin,body.input,body.governorateKey,body.center);
     }
     if(action==="details") {
       if(typeof body.placeId!=="string"||body.placeId.length>320||!/^(db:)?[A-Za-z0-9_-]+$/.test(body.placeId))
