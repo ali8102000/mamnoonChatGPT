@@ -28,14 +28,14 @@ async function findPublicCatalog(admin: any, query: string) {
       .select("id,partner_type,business_name,governorate_key,city,address,description,phone")
       .eq("is_published", true).ilike("business_name", pattern).limit(5),
     admin.from("partner_products")
-      .select("id,business_profile_id,name,description,price,currency,stock_quantity")
-      .eq("is_active", true).gt("stock_quantity", 0).ilike("name", pattern).limit(6),
+      .select("id,business_profile_id,name,description,price,currency,stock_quantity,partner_business_profiles!inner(is_published)")
+      .eq("is_active", true).eq("partner_business_profiles.is_published", true).gt("stock_quantity", 0).ilike("name", pattern).limit(6),
     admin.from("restaurant_menu_items")
-      .select("id,business_profile_id,name,description,price,currency")
-      .eq("is_available", true).ilike("name", pattern).limit(6),
+      .select("id,business_profile_id,name,description,price,currency,partner_business_profiles!inner(is_published)")
+      .eq("is_available", true).eq("partner_business_profiles.is_published", true).ilike("name", pattern).limit(6),
     admin.from("hotel_room_types")
-      .select("id,business_profile_id,name,description,capacity,price_per_night,currency")
-      .eq("is_active", true).ilike("name", pattern).limit(4),
+      .select("id,business_profile_id,name,description,capacity,price_per_night,currency,partner_business_profiles!inner(is_published)")
+      .eq("is_active", true).eq("partner_business_profiles.is_published", true).ilike("name", pattern).limit(4),
   ]);
   return {
     businesses: businesses.error ? [] : businesses.data ?? [],
