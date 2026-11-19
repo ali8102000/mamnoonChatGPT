@@ -99,9 +99,14 @@ Deno.serve(async (req: Request) => {
       return { scopeType, scopeGovernorate };
     };
     const requireFullChatModeration = async () => {
-      await requireScopedAccess("has_chat_moderation_access");
-      const { data, error } = await caller.rpc("is_customer_service_staff", { p_user_id: auth.user.id });
-      if (error || data === true) throw new Error("forbidden");
+      try {
+        await requirePermission("chats.moderate", "global", null);
+        return;
+      } catch {
+        await requireScopedAccess("has_chat_moderation_access");
+        const { data, error } = await caller.rpc("is_customer_service_staff", { p_user_id: auth.user.id });
+        if (error || data === true) throw new Error("forbidden");
+      }
     };
     const admin = createClient(url, service, { global: { fetch: createSupabaseFetch(service) }, auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
@@ -826,8 +831,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "friends" || body.action === "friend_requests") {
-      await requireGlobalStaffScope();
-      await requireScopedAccess("has_friend_admin_access");
+      const globalScope = await requireGlobalStaffScope();
+      await requireScopedPermissionWithLegacy(
+        "friends.manage", "has_friend_admin_access",
+        globalScope.scopeType, "global", null,
+      );
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       if (body.action === "friends") {
         const { data, error } = await admin.from("friends")
@@ -844,8 +852,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friendship") {
-      await requireGlobalStaffScope();
-      await requireScopedAccess("has_friend_admin_access");
+      const globalScope = await requireGlobalStaffScope();
+      await requireScopedPermissionWithLegacy(
+        "friends.manage", "has_friend_admin_access",
+        globalScope.scopeType, "global", null,
+      );
       if (!isUuid(body.user1_id) || !isUuid(body.user2_id) || body.user1_id === body.user2_id) {
         return json({ error: "invalid_friendship" }, 400);
       }
@@ -858,8 +869,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "delete_friend_request") {
-      await requireGlobalStaffScope();
-      await requireScopedAccess("has_friend_admin_access");
+      const globalScope = await requireGlobalStaffScope();
+      await requireScopedPermissionWithLegacy(
+        "friends.manage", "has_friend_admin_access",
+        globalScope.scopeType, "global", null,
+      );
       if (!isUuid(body.request_id)) return json({ error: "invalid_request_id" }, 400);
       const { error } = await caller.rpc("admin_delete_friend_request", {
         p_request_id: body.request_id,
