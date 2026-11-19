@@ -20,7 +20,7 @@ import { IncomingRequestModal } from "@/components/incoming-request-modal";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { NativeBottomNavigation } from "@/components/native-bottom-navigation";
 import { palette } from "@/styles/theme";
-import { isNotificationSoundEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
+import { loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
