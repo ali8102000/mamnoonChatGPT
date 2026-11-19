@@ -243,6 +243,7 @@ export default function RequestDetail() {
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
+  const [transitionBusy, setTransitionBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   const [dispatchClock, setDispatchClock] = useState(Date.now());
   const [urgencyAllowed, setUrgencyAllowed] = useState(false);
@@ -1132,24 +1133,46 @@ export default function RequestDetail() {
   }
 
   async function startRide() {
-    const { error } = await supabase.rpc("transition_service_request", {
-      _request_id: id,
-      _status: "in_progress",
-      _reason: null,
-    });
-    if (error) Alert.alert("خطأ", error.message);
-    else loadRequest();
+    if (!request || !isProvider || request.status !== "accepted" || transitionBusy) return;
+    const arrivalRequired = request.type === "service" ||
+      (request.type === "taxi" && request.vehicle_category === "large");
+    if (arrivalRequired && !request.provider_arrived_at) {
+      Alert.alert("تأكيد الوصول مطلوب", "أكد وصولك إلى موقع الزبون أولاً قبل بدء تنفيذ الطلب.");
+      return;
+    }
+    setTransitionBusy(true);
+    try {
+      const { error } = await supabase.rpc("transition_service_request", {
+        _request_id: id,
+        _status: "in_progress",
+        _reason: null,
+      });
+      if (error) {
+        const message = error.message?.includes("provider_not_arrived")
+          ? "لازم تأكد وصولك للموقع أولاً قبل بدء التنفيذ."
+          : error.message || "حاول مرة ثانية.";
+        Alert.alert("تعذر بدء الطلب", message);
+      } else {
+        await loadRequest();
+      }
+    } finally {
+      setTransitionBusy(false);
+    }
   }
 
   async function completeRide() {
-    const { error } = await supabase.rpc("transition_service_request", {
-      _request_id: id,
-      _status: "completed",
-      _reason: null,
-    });
-    if (error) Alert.alert("خطأ", error.message);
-    else {
-      await loadRequest();
+    if (!request || !isProvider || request.status !== "in_progress" || transitionBusy) return;
+    setTransitionBusy(true);
+    try {
+      const { error } = await supabase.rpc("transition_service_request", {
+        _request_id: id,
+        _status: "completed",
+        _reason: null,
+      });
+      if (error) Alert.alert("تعذر إنهاء الطلب", error.message || "حاول مرة ثانية.");
+      else await loadRequest();
+    } finally {
+      setTransitionBusy(false);
     }
   }
 
