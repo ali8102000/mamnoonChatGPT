@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION public.admin_set_provider_status(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_role public.app_role;
@@ -96,7 +96,7 @@ CREATE OR REPLACE FUNCTION public.admin_block_user(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_governorate text;
@@ -139,7 +139,7 @@ CREATE OR REPLACE FUNCTION public.admin_unblock_user(p_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_governorate text;
@@ -168,7 +168,7 @@ CREATE OR REPLACE FUNCTION public.admin_cancel_request(p_request_id uuid,p_reaso
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_governorate text;
@@ -202,7 +202,7 @@ CREATE OR REPLACE FUNCTION public.admin_reopen_request(p_request_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_governorate text;
@@ -244,7 +244,7 @@ CREATE OR REPLACE FUNCTION public.admin_resolve_report(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_reported_id uuid;
@@ -302,7 +302,7 @@ CREATE OR REPLACE FUNCTION public.admin_delete_message(p_message_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_chat_id uuid;
@@ -336,7 +336,7 @@ CREATE OR REPLACE FUNCTION public.admin_delete_friendship(p_user1_id uuid,p_user
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 BEGIN
   IF p_user1_id IS NULL OR p_user2_id IS NULL OR p_user1_id=p_user2_id THEN
@@ -373,7 +373,7 @@ CREATE OR REPLACE FUNCTION public.admin_delete_friend_request(p_request_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 BEGIN
   IF p_request_id IS NULL OR NOT EXISTS(
