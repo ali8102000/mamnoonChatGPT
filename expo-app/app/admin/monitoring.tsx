@@ -48,6 +48,7 @@ export default function MonitoringScreen() {
         (supabase as any).from("staff_assignments")
           .select("scope_type,scope_governorate").eq("user_id", user.id).eq("active", true).maybeSingle(),
       ]);
+      if (assignment.error) throw assignment.error;
       const scopeType = admin.data === true ? "global" : assignment.data?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment.data?.scope_governorate ?? null : null;
       const checkPermission = async (permissionKey: string, requestedScope = scopeType, requestedGovernorate: string | null = scopeGovernorate) => {
