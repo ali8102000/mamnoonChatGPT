@@ -33,7 +33,7 @@ BEGIN
 
   SELECT governorate_key INTO v_governorate
   FROM public.profiles WHERE id = p_user_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'provider_user_not_found'; END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION 'provider_unavailable'; END IF;
 
   v_permission := CASE WHEN p_status = 'suspended' THEN 'providers.suspend' ELSE 'providers.verify' END;
   IF auth.uid() IS NULL OR NOT (
@@ -44,7 +44,7 @@ BEGIN
       v_governorate
     )
   ) THEN
-    RAISE EXCEPTION 'permission_required:%', v_permission;
+    RAISE EXCEPTION 'provider_unavailable';
   END IF;
 
   IF p_type = 'driver' THEN
@@ -103,7 +103,7 @@ DECLARE
 BEGIN
   SELECT governorate_key INTO v_governorate
   FROM public.profiles WHERE id=p_user_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'user_not_found'; END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION 'user_unavailable'; END IF;
 
   IF auth.uid() IS NULL OR NOT (
     public.has_admin_access(auth.uid())
@@ -113,7 +113,7 @@ BEGIN
       v_governorate
     )
   ) THEN
-    RAISE EXCEPTION 'permission_required:users.block';
+    RAISE EXCEPTION 'user_unavailable';
   END IF;
 
   IF EXISTS (SELECT 1 FROM public.user_roles WHERE user_id=p_user_id AND role='super_admin') THEN
@@ -156,7 +156,7 @@ BEGIN
       v_governorate
     )
   ) THEN
-    RAISE EXCEPTION 'permission_required:users.unblock';
+    RAISE EXCEPTION 'user_unavailable';
   END IF;
 
   DELETE FROM public.user_blocks WHERE user_id=p_user_id;
@@ -175,7 +175,7 @@ DECLARE
 BEGIN
   SELECT governorate_key INTO v_governorate
   FROM public.service_requests WHERE id=p_request_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_unavailable'; END IF;
 
   IF auth.uid() IS NULL OR NOT (
     public.has_admin_access(auth.uid())
@@ -185,7 +185,7 @@ BEGIN
       v_governorate
     )
   ) THEN
-    RAISE EXCEPTION 'permission_required:orders.cancel';
+    RAISE EXCEPTION 'request_unavailable';
   END IF;
 
   UPDATE public.service_requests
@@ -219,7 +219,7 @@ BEGIN
       v_governorate
     )
   ) THEN
-    RAISE EXCEPTION 'permission_required:orders.reopen';
+    RAISE EXCEPTION 'request_unavailable';
   END IF;
 
   UPDATE public.service_requests
