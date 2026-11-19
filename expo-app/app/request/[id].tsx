@@ -1120,16 +1120,21 @@ export default function RequestDetail() {
   }
 
   async function markProviderArrived() {
-    if (!request || !isProvider || request.status !== "accepted") return;
-    const { error } = await (supabase as any).rpc("mark_service_request_arrived", {
-      _request_id: id,
-    });
-    if (error) {
-      Alert.alert("تعذر تأكيد الوصول", error.message);
-      return;
+    if (!request || !isProvider || request.status !== "accepted" || transitionBusy) return;
+    setTransitionBusy(true);
+    try {
+      const { error } = await (supabase as any).rpc("mark_service_request_arrived", {
+        _request_id: id,
+      });
+      if (error) {
+        Alert.alert("تعذر تأكيد الوصول", error.message);
+        return;
+      }
+      Alert.alert("تم تأكيد الوصول", "تم تسجيل وصولك إلى موقع الزبون.");
+      await loadRequest();
+    } finally {
+      setTransitionBusy(false);
     }
-    Alert.alert("تم تأكيد الوصول", "تم تسجيل وصولك إلى موقع الزبون.");
-    await loadRequest();
   }
 
   async function startRide() {
@@ -1679,22 +1684,23 @@ export default function RequestDetail() {
           {request.status === "accepted" && isProvider &&
             (request.type !== "taxi" || request.vehicle_category === "large") &&
             !request.provider_arrived_at && (
-              <TouchableOpacity style={styles.actionBtn} onPress={markProviderArrived}>
-                <Text style={styles.actionBtnText}>{request.vehicle_category === "large" ? "وصلت للزبون" : "وصلت للموقع"}</Text>
+              <TouchableOpacity style={styles.actionBtn} onPress={markProviderArrived} disabled={transitionBusy}>
+                <Text style={styles.actionBtnText}>{transitionBusy ? "جارٍ التأكيد..." : request.vehicle_category === "large" ? "وصلت للزبون" : "وصلت للموقع"}</Text>
               </TouchableOpacity>
           )}
           {request.status === "accepted" && isProvider &&
             ((request.type === "taxi" && request.vehicle_category !== "large") || !!request.provider_arrived_at) && (
-              <TouchableOpacity style={styles.actionBtn} onPress={startRide}>
-                <Text style={styles.actionBtnText}>{request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
+              <TouchableOpacity style={styles.actionBtn} onPress={startRide} disabled={transitionBusy}>
+                <Text style={styles.actionBtnText}>{transitionBusy ? "جارٍ البدء..." : request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
               </TouchableOpacity>
           )}
           {isActive && isProvider && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: palette.success }]}
               onPress={completeRide}
+              disabled={transitionBusy}
             >
-              <Text style={styles.actionBtnText}>إنهاء</Text>
+              <Text style={styles.actionBtnText}>{transitionBusy ? "جارٍ التحديث..." : "إنهاء"}</Text>
             </TouchableOpacity>
           )}
           {(isCustomer || (isProvider && request.type === "service")) &&
