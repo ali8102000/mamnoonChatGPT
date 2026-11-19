@@ -262,7 +262,8 @@ export default function RequestDetail() {
   );
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
   const acceptedMapMode = Boolean(
-    request && isActive && (request.type === "taxi" || request.type === "service") &&
+    request && (isProvider || isCustomer) && isActive &&
+    (request.type === "taxi" || request.type === "service") &&
     (request.pickup_lat != null && request.pickup_lng != null || myLocation || otherLocation),
   );
   const providerLiveLocation = isCustomer ? otherLocation : myLocation;
@@ -1167,6 +1168,13 @@ export default function RequestDetail() {
       </View>
     );
 
+  const mapRouteTarget: Coordinates | null = request.type === "taxi" &&
+    request.status === "in_progress" && request.dest_lat != null && request.dest_lng != null
+      ? { latitude: request.dest_lat, longitude: request.dest_lng }
+      : request.pickup_lat != null && request.pickup_lng != null
+        ? { latitude: request.pickup_lat, longitude: request.pickup_lng }
+        : isCustomer ? myLocation : otherLocation;
+  const mapRouteOrigin = providerLiveLocation ?? mapRouteTarget;
   const statusLabel: Record<string, string> = {
     searching: "بحث عن مزوّد...",
     pending: "بانتظار القبول",
@@ -1190,19 +1198,20 @@ export default function RequestDetail() {
       <View style={[styles.container, acceptedMapMode && styles.containerMap]}>
         {acceptedMapMode && (
           <MapView
+            key={`${request.id}:${request.status}`}
             style={styles.fullScreenTrackingMap}
             initialRegion={{
-              latitude: request.type === "taxi" && request.dest_lat != null
-                ? ((request.pickup_lat ?? request.dest_lat) + request.dest_lat) / 2
-                : request.pickup_lat ?? (isProvider ? otherLocation?.latitude : myLocation?.latitude) ?? myLocation?.latitude ?? 33.3152,
-              longitude: request.type === "taxi" && request.dest_lng != null
-                ? ((request.pickup_lng ?? request.dest_lng) + request.dest_lng) / 2
-                : request.pickup_lng ?? (isProvider ? otherLocation?.longitude : myLocation?.longitude) ?? myLocation?.longitude ?? 44.3661,
-              latitudeDelta: request.type === "taxi" && request.dest_lat != null
-                ? Math.max(0.018, Math.abs(request.dest_lat - (request.pickup_lat ?? request.dest_lat)) * 1.6)
+              latitude: mapRouteOrigin && mapRouteTarget
+                ? (mapRouteOrigin.latitude + mapRouteTarget.latitude) / 2
+                : mapRouteTarget?.latitude ?? 33.3152,
+              longitude: mapRouteOrigin && mapRouteTarget
+                ? (mapRouteOrigin.longitude + mapRouteTarget.longitude) / 2
+                : mapRouteTarget?.longitude ?? 44.3661,
+              latitudeDelta: mapRouteOrigin && mapRouteTarget
+                ? Math.max(0.018, Math.abs(mapRouteTarget.latitude - mapRouteOrigin.latitude) * 1.6)
                 : 0.018,
-              longitudeDelta: request.type === "taxi" && request.dest_lng != null
-                ? Math.max(0.018, Math.abs(request.dest_lng - (request.pickup_lng ?? request.dest_lng)) * 1.6)
+              longitudeDelta: mapRouteOrigin && mapRouteTarget
+                ? Math.max(0.018, Math.abs(mapRouteTarget.longitude - mapRouteOrigin.longitude) * 1.6)
                 : 0.018,
             }}
             showsUserLocation={request.type !== "taxi"}
