@@ -864,6 +864,7 @@ export default function RequestDetail() {
   useEffect(() => {
     if (!acceptedMapMode || !request || !acceptedMapRef.current) return;
     const fitKey = `${request.id}:${request.status}`;
+    const singlePointFitKey = `${fitKey}:single`;
     if (acceptedMapFitKeyRef.current === fitKey) return;
     const target = request.type === "taxi" && request.status === "in_progress" &&
       request.dest_lat != null && request.dest_lng != null
@@ -881,13 +882,15 @@ export default function RequestDetail() {
         animated: true,
       });
       acceptedMapFitKeyRef.current = fitKey;
-    } else if (coordinates.length === 1) {
+    } else if (coordinates.length === 1 && acceptedMapFitKeyRef.current !== singlePointFitKey) {
+      // Center provisionally on the known point, but allow a later live-location
+      // update to perform the full two-point fit exactly once.
       acceptedMapRef.current.animateToRegion({
         ...coordinates[0],
         latitudeDelta: 0.018,
         longitudeDelta: 0.018,
       }, 450);
-      acceptedMapFitKeyRef.current = fitKey;
+      acceptedMapFitKeyRef.current = singlePointFitKey;
     }
   }, [
     acceptedMapMode,
