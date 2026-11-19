@@ -114,7 +114,9 @@ export default function SupportChatScreen() {
         const incoming = payload.new.is_ai === true ? !staff : payload.new.sender_id !== user.id;
         if (payload.new.conversation_id === selected?.id) {
           setMessages((old) => old.some((m) => m.id === payload.new.id) ? old : [...old, payload.new]);
-          if (incoming && payload.new.is_ai !== true) {\n            void (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id);\n          }
+          if (incoming && payload.new.is_ai !== true) {
+            void (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id);
+          }
         }
         if (incoming && !muted) {
           void Notifications.scheduleNotificationAsync({
@@ -168,7 +170,13 @@ export default function SupportChatScreen() {
     const { data: sentMessage, error } = await (supabase as any).from("support_messages").insert({ conversation_id: selected.id, sender_id: user.id, body }).select("*").single();
     setSending(false);
     if (error) { setDraft(body); Alert.alert("تعذر الإرسال", error.message); }
-    else if (sentMessage) {\n      setMessages((current) => current.some((m) => m.id === sentMessage.id) ? current : [...current, sentMessage]);\n      if (!staff) {\n        const { error: aiError } = await supabase.functions.invoke("support-ai-reply", { body: { message_id: sentMessage.id } });\n        if (aiError) console.warn("Support AI reply unavailable; staff can answer from inbox.", aiError.message);\n      }\n    }
+    else if (sentMessage) {
+      setMessages((current) => current.some((m) => m.id === sentMessage.id) ? current : [...current, sentMessage]);
+      if (!staff) {
+        const { error: aiError } = await supabase.functions.invoke("support-ai-reply", { body: { message_id: sentMessage.id } });
+        if (aiError) console.warn("Support AI reply unavailable; staff can answer from inbox.", aiError.message);
+      }
+    }
   }
 
   if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
