@@ -8,6 +8,7 @@ import { palette, radius } from "@/styles/theme";
 type ActiveRequest = {
   id: string;
   provider_id: string | null;
+  provider_arrived_at: string | null;
   type: string;
   status: string;
   pickup_text: string;
@@ -27,7 +28,7 @@ export function ActiveCustomerRequestBanner() {
     }
     const { data, error } = await supabase
       .from("service_requests")
-      .select("id, provider_id, type, status, pickup_text, price_estimate, customer_price")
+      .select("id, provider_id, provider_arrived_at, type, status, pickup_text, price_estimate, customer_price")
       .eq("customer_id", user.id)
       .in("status", ["pending", "searching", "accepted", "in_progress"])
       .order("created_at", { ascending: false })
@@ -83,7 +84,7 @@ export function ActiveCustomerRequestBanner() {
 
   if (!request) return null;
   const status = request.status === "accepted"
-    ? providerMoving ? "الفني بالطريق إليك" : "تم قبول طلبك"
+    ? request.provider_arrived_at ? "الفني وصل إلى موقع العمل" : providerMoving ? "الفني بالطريق إليك" : "تم قبول طلبك"
     : request.status === "in_progress"
       ? "طلبك قيد التنفيذ"
       : "طلبك نشط ونبحث عن مقدم خدمة";
