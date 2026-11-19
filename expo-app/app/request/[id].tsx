@@ -261,7 +261,8 @@ export default function RequestDetail() {
       (request.type === "service" && roles.includes("worker"))),
   );
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
-  const driverLocationFresh = Boolean(otherLocation?.updatedAt && Number.isFinite(Date.parse(otherLocation.updatedAt)) && freshnessClock - Date.parse(otherLocation.updatedAt) < 25000);
+  const providerLiveLocation = isCustomer ? otherLocation : myLocation;
+  const driverLocationFresh = Boolean(providerLiveLocation?.updatedAt && Number.isFinite(Date.parse(providerLiveLocation.updatedAt)) && freshnessClock - Date.parse(providerLiveLocation.updatedAt) < 25000);
   const currentUserId = user?.id;
   useEffect(() => {
     lastRoutePointRef.current = null;
@@ -788,19 +789,27 @@ export default function RequestDetail() {
   }, [id, isActive, currentUserId]);
 
   useEffect(() => {
-    if (!isActive || !myLocation || !otherLocation || !driverLocationFresh) {
+    if (!isActive || !providerLiveLocation || !driverLocationFresh) {
       roadRouteSequenceRef.current += 1;
       setRoadRoutePoints([]);
       return;
     }
-    // Both views draw the same real road route. After a taxi passenger boards,
-    // route from the provider's live GPS to the saved trip destination instead.
-    const origin = isCustomer ? otherLocation : myLocation;
+    // The provider always routes to the saved work/pickup point for a service.
+    // For taxis, route to the passenger until boarding, then to the trip destination.
+    const origin = providerLiveLocation;
     const tripStarted = request?.type === "taxi" && request.status === "in_progress" &&
       request.dest_lat != null && request.dest_lng != null;
+    const serviceTarget = request?.type === "service" &&
+      request.pickup_lat != null && request.pickup_lng != null
+      ? { latitude: Number(request.pickup_lat), longitude: Number(request.pickup_lng) }
+      : null;
     const destination = tripStarted
       ? { latitude: Number(request!.dest_lat), longitude: Number(request!.dest_lng) }
-      : isCustomer ? myLocation : otherLocation;
+      : serviceTarget ?? (isCustomer ? myLocation : otherLocation);
+    if (!destination) {
+      setRoadRoutePoints([]);
+      return;
+    }
     const sequence = ++roadRouteSequenceRef.current;
     const timeout = setTimeout(() => {
       void callMamnoonMapsApi<{ routePoints?: { lat: number; lng: number }[] }>({
@@ -823,7 +832,23 @@ export default function RequestDetail() {
       });
     }, 350);
     return () => clearTimeout(timeout);
-  }, [isActive, isCustomer, request?.type, request?.status, request?.dest_lat, request?.dest_lng, myLocation?.latitude, myLocation?.longitude, otherLocation?.latitude, otherLocation?.longitude, driverLocationFresh]);
+  }, [
+    isActive,
+    isCustomer,
+    request?.type,
+    request?.status,
+    request?.dest_lat,
+    request?.dest_lng,
+    request?.pickup_lat,
+    request?.pickup_lng,
+    providerLiveLocation?.latitude,
+    providerLiveLocation?.longitude,
+    myLocation?.latitude,
+    myLocation?.longitude,
+    otherLocation?.latitude,
+    otherLocation?.longitude,
+    driverLocationFresh,
+  ]);
 
   useEffect(() => {
     if (!isCustomer || request?.type !== "taxi" || request.status !== "accepted" ||
@@ -1388,8 +1413,8 @@ export default function RequestDetail() {
                     {(request.pickup_lat != null && request.pickup_lng != null) && <Marker coordinate={{ latitude: request.pickup_lat, longitude: request.pickup_lng }} title="موقع العمل" pinColor="#0f766e" />}
                     {request.pickup_lat == null && request.pickup_lng == null && (isProvider ? otherLocation : myLocation) && <LocationTargetMarker coordinate={(isProvider ? otherLocation : myLocation)!} title="موقع الزبون" />}
                     {request.dest_lat != null && request.dest_lng != null && <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />}
-                    {myLocation && <LocationTargetMarker coordinate={myLocation} title="موقعي" />}
-                    {otherLocation && <LocationTargetMarker coordinate={otherLocation} title="موقع مقدم الخدمة" />}
+                    {myLocation && <LocationTargetMarker coordinate={myLocation} title={isProvider ? "موقعي كفني" : "موقعي" />}
+                    {otherLocation && <LocationTargetMarker coordinate={otherLocation} title={isProvider ? "موقع الزبون" : "موقع الفني"} />}
                   </>
                 )}
               </MapView>
