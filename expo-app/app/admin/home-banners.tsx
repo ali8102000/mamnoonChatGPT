@@ -125,7 +125,7 @@ export default function AdminHomeBannersScreen() {
       Alert.alert("الصورة غير مناسبة", "اختار ملف صورة حجمه 8 ميغابايت أو أقل.");
       return;
     }
-    const numericSpeed = Math.max(2, Math.min(30, Number(speed) || 5));
+    const numericSpeed = Math.max(1, Math.min(60, Number(speed) || 5));
     const numericOrder = Number.isFinite(Number(order)) ? Number(order) : 0;
     setBusy(true);
     setMessage("");
@@ -273,7 +273,7 @@ export default function AdminHomeBannersScreen() {
           </View>
           <View style={styles.fieldsRow}>
             <View style={styles.field}>
-              <Text style={styles.label}>سرعة التبديل (ثانية)</Text>
+              <Text style={styles.label}>مدة عرض الصورة (1–60 ثانية)</Text>
               <TextInput
                 value={speed}
                 onChangeText={setSpeed}
