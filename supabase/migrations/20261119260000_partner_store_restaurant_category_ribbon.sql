@@ -104,9 +104,9 @@ create policy partner_catalog_owner_update on public.partner_catalog_items
         and (p.user_id = (select auth.uid()) or public.has_admin_access((select auth.uid())))
         and (p.user_id <> (select auth.uid()) or a.status = 'approved')
         and (
-          (p.partner_type = 'hotel' and item_type = 'room' and category_key is null)
-          or (p.partner_type = 'restaurant' and item_type = 'menu_item' and exists(select 1 from public.partner_catalog_categories c where c.category_key=partner_catalog_items.category_key and c.vertical='restaurant'))
-          or (p.partner_type in ('store','mall') and item_type = 'product' and exists(
+          (p.partner_type = 'hotel' and partner_catalog_items.item_type = 'room' and partner_catalog_items.category_key is null)
+          or (p.partner_type = 'restaurant' and partner_catalog_items.item_type = 'menu_item' and exists(select 1 from public.partner_catalog_categories c where c.category_key=partner_catalog_items.category_key and c.vertical='restaurant'))
+          or (p.partner_type in ('store','mall') and partner_catalog_items.item_type = 'product' and exists(
             select 1 from public.partner_catalog_categories c where c.category_key=partner_catalog_items.category_key
               and ((p.business_vertical='grocery' and c.vertical='grocery' and c.category_key='grocery')
                 or (p.business_vertical='store' and c.vertical='store'))
