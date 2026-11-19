@@ -13,7 +13,7 @@ export default function AdminVisualBuilderScreen(){
   const {data:owner,error:permissionError}=await supabase.rpc("is_super_admin",{p_user_id:user.id});
   if(permissionError||owner!==true){setAllowed(false);setLoading(false);return;}setAllowed(true);
   const {data,error}=await (supabase as any).from("app_ui_elements").select("*").order("sort_order");
-  if(error)Alert.alert("تعذر تحميل عناصر الصور",error.message);else{const list=(data??[]) as Element[];setRows(list);if(selected){}}
+  if(error)Alert.alert("تعذر تحميل عناصر الصور",error.message);else{const list=(data??[]) as Element[];setRows(list);}
   setLoading(false);
  },[user?.id]);
  const choose=(item:Element)=>{setSelected(item);const d=item.config??{};setTitle(String(d.title??item.title??""));setSubtitle(String(d.subtitle??item.subtitle??""));setUrl(String(d.image_url??item.image_url??""));setWidth(String(d.width_px??item.width_px??64));setHeight(String(d.height_px??item.height_px??64));};
