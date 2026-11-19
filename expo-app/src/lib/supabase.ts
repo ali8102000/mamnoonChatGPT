@@ -130,11 +130,18 @@ const storageAdapter =
               Array.from({ length: previous.count }, (_, index) =>
                 SecureStore.deleteItemAsync(chunkKey(safeKey, previous!.generation, index)),
               ),
-            );
+            ).catch((error) => {
+              // The new manifest is already committed. Old-generation cleanup
+              // is best-effort and must not make auth-js treat the write as failed.
+              console.warn("[auth] Could not clean the previous secure session generation:", error);
+            });
           }
           // Remove the legacy single-item value only after the chunked value
-          // has been committed successfully.
-          await SecureStore.deleteItemAsync(safeKey);
+          // has been committed successfully. Cleanup must not undo a committed
+          // token rotation if the platform refuses to delete the old key.
+          await SecureStore.deleteItemAsync(safeKey).catch((error) => {
+            console.warn("[auth] Could not clean the legacy secure session key:", error);
+          });
         },
 
         async removeItem(key: string): Promise<void> {
