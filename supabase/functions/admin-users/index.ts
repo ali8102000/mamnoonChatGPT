@@ -749,7 +749,9 @@ Deno.serve(async (req: Request) => {
         if (!scopedUserIds.length) return json({ reports: [] });
       }
       let query = admin.from("user_reports")
-        .select("*, reporter:profiles!user_reports_reporter_id_fkey(full_name,phone), reported:profiles!user_reports_reported_id_fkey(full_name,phone)")
+        // The moderation screen needs report text and the reported account ID;
+        // do not expose either participant's phone number in this read payload.
+        .select("id,reported_id,reason,details,status,created_at")
         .order("created_at", { ascending: false })
         .limit(limit);
       if (status !== "all") query = query.eq("status", status);
