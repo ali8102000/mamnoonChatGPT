@@ -621,6 +621,9 @@ export default function NewRequest() {
       return;
     }
     let active = true;
+    // Never leave predictions from the previous query selectable while a new
+    // search is pending; this prevents tapping a stale destination.
+    setPlaceSuggestions([]);
     const timer = setTimeout(async () => {
       setSearchingPlaces(true);
       setPlaceSearchError(null);
