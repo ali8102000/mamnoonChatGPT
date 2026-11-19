@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 export default function AdminCompanySettings() {
   const [name, setName] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
+  const [driverVideoMaxDurationSeconds, setDriverVideoMaxDurationSeconds] = useState(10);
+  const [serviceIconDisplaySeconds, setServiceIconDisplaySeconds] = useState(2);
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
@@ -33,10 +35,10 @@ export default function AdminCompanySettings() {
         if (active) { setMessage("لا توجد صلاحية المدير الأعلى لهذا الحساب."); setLoading(false); }
         return;
       }
-      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle();
+      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,driver_video_max_duration_seconds,service_icon_display_seconds").eq("id", 1).maybeSingle();
       if (active) {
         if (error) setMessage("تعذر تحميل اسم الشركة: " + error.message);
-        else { setName(data?.company_name ?? "شركة ممنون"); setLogoUrl(data?.company_logo_url ?? ""); setWelcomeMessage(data?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد."); }
+        else { setName(data?.company_name ?? "شركة ممنون"); setLogoUrl(data?.company_logo_url ?? ""); setWelcomeMessage(data?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد."); setDriverVideoMaxDurationSeconds(Number.isInteger(data?.driver_video_max_duration_seconds) ? data.driver_video_max_duration_seconds : 10); setServiceIconDisplaySeconds(Number.isInteger(data?.service_icon_display_seconds) ? data.service_icon_display_seconds : 2); }
         setLoading(false);
       }
     })();
@@ -48,6 +50,8 @@ export default function AdminCompanySettings() {
     if (value.length < 2 || value.length > 80) { setMessage("اكتب اسماً من حرفين إلى 80 حرفاً."); return; }
     const welcome = welcomeMessage.trim();
     if (welcome.length < 2 || welcome.length > 180) { setMessage("رسالة الترحيب لازم تكون بين حرفين و180 حرفاً."); return; }
+    if (!Number.isInteger(driverVideoMaxDurationSeconds) || driverVideoMaxDurationSeconds < 1 || driverVideoMaxDurationSeconds > 60) { setMessage("مدة فيديو السيارة لازم تكون بين 1 و60 ثانية."); return; }
+    if (!Number.isInteger(serviceIconDisplaySeconds) || serviceIconDisplaySeconds < 1 || serviceIconDisplaySeconds > 10) { setMessage("مدة عرض أيقونات الفنيين لازم تكون بين 1 و10 ثوانٍ."); return; }
     setSaving(true); setMessage("");
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { setMessage("سجّل الدخول أولاً."); setSaving(false); return; }
@@ -61,7 +65,7 @@ export default function AdminCompanySettings() {
       if (uploaded.error) { setMessage("تعذر رفع الشعار: " + uploaded.error.message); setSaving(false); return; }
       nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
     }
-    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, company_logo_url: nextLogoUrl || null, welcome_message: welcome, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, company_logo_url: nextLogoUrl || null, welcome_message: welcome, driver_video_max_duration_seconds: driverVideoMaxDurationSeconds, service_icon_display_seconds: serviceIconDisplaySeconds, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
     if (!error) { setLogoUrl(nextLogoUrl); setLogoFile(null); }
     setMessage(error ? "فشل الحفظ: " + error.message : "تم حفظ إعدادات هوية ممنون ورسالة الترحيب.");
     setSaving(false);
@@ -85,6 +89,16 @@ export default function AdminCompanySettings() {
         </div>
       </div>
       {logoFile && <p className="text-xs text-muted-foreground">الصورة المختارة: {logoFile.name}</p>}
+      <label className="block text-sm font-bold" htmlFor="driver-video-max-duration">الحد الأعلى لمدة فيديو توثيق السيارة (ثانية)</label>
+      <div className="flex items-center gap-3">
+        <input id="driver-video-max-duration" type="number" min={1} max={60} step={1} value={driverVideoMaxDurationSeconds} onChange={(e) => setDriverVideoMaxDurationSeconds(Number(e.target.value))} className="w-28 rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" />
+        <span className="text-xs text-muted-foreground">الإعداد الافتراضي 10 ثوانٍ. يطبّق على تسجيل السائقين وسائقي المركبات الكبيرة في الويب والأندرويد.</span>
+      </div>
+      <label className="block text-sm font-bold" htmlFor="service-icon-display-seconds">مدة عرض كل أيقونة فني (ثانية)</label>
+      <div className="flex items-center gap-3">
+        <input id="service-icon-display-seconds" type="number" min={1} max={10} step={1} value={serviceIconDisplaySeconds} onChange={(e) => setServiceIconDisplaySeconds(Number(e.target.value))} className="w-28 rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" />
+        <span className="text-xs text-muted-foreground">تتحكم بسرعة انتقال الأيقونات في الشريط البانورامي للفنيين على الويب والأندرويد (1–10 ثوانٍ).</span>
+      </div>
       <label className="block text-sm font-bold" htmlFor="company-welcome">رسالة الترحيب الظاهرة بالتطبيق</label>
       <textarea id="company-welcome" value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} maxLength={180} rows={3} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" placeholder="مشوارك وخدمات بيتك، بمكان واحد." />
       <button type="button" onClick={save} disabled={saving || !name.trim()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-bold text-primary-foreground disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} حفظ إعدادات الشركة</button>

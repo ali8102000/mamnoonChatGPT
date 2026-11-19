@@ -45,6 +45,7 @@ export default function DriverOnboarding() {
   const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<PickedImage | null>(null);
   const [vehicleVideo, setVehicleVideo] = useState<PickedVideo | null>(null);
   const [vehicleVideoPath, setVehicleVideoPath] = useState<string | null>(null);
+  const [vehicleVideoMaxDurationSeconds, setVehicleVideoMaxDurationSeconds] = useState(10);
   const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
   const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: "", model: "", year: "", plate: "", color: "", category: largeDriverMode ? "large" : "economy", vehicleType: "kia_cargo" });
   const [status, setStatus] = useState<string | null>(null);
@@ -56,8 +57,11 @@ export default function DriverOnboarding() {
   const [pendingVehicleChange, setPendingVehicleChange] = useState(false);
 
   useEffect(() => {
-    (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
-      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
+    (supabase as any).from("company_settings").select("company_name,driver_video_max_duration_seconds").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.company_name) setCompanyName(data.company_name);
+        if (Number.isInteger(data?.driver_video_max_duration_seconds)) setVehicleVideoMaxDurationSeconds(Math.min(60, Math.max(1, data.driver_video_max_duration_seconds)));
+      });
   }, []);
 
   useEffect(() => {
@@ -204,7 +208,7 @@ export default function DriverOnboarding() {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) { Alert.alert("إذن الفيديوهات", "اسمح لممنون بالوصول إلى الفيديوهات لاختيار فيديو السيارة."); return; }
       }
-      const options = { mediaTypes: ["videos"] as any, allowsEditing: false };
+      const options = { mediaTypes: ["videos"] as any, allowsEditing: false, videoMaxDuration: vehicleVideoMaxDurationSeconds };
       const result = source === "camera"
         ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync(options);
@@ -212,6 +216,13 @@ export default function DriverOnboarding() {
       const asset = result.assets[0] as any;
       if (typeof asset.fileSize === "number" && asset.fileSize > 50 * 1024 * 1024) {
         Alert.alert("حجم الفيديو كبير", "الحد الأعلى للفيديو 50 ميغابايت. اختَر فيديو أقل حجماً."); return;
+      }
+      const durationMs = typeof asset.duration === "number" ? asset.duration : null;
+      if (durationMs === null || !Number.isFinite(durationMs) || durationMs <= 0) {
+        Alert.alert("تعذر قراءة مدة الفيديو", "اختَر فيديو آخر حتى نتحقق من مدته قبل الرفع."); return;
+      }
+      if (durationMs > vehicleVideoMaxDurationSeconds * 1000) {
+        Alert.alert("الفيديو أطول من المسموح", `الحد الأعلى لمدة فيديو السيارة ${vehicleVideoMaxDurationSeconds} ثوانٍ. قصّ الفيديو ثم أعد اختياره.`); return;
       }
       setVehicleVideo({ uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName, fileSize: asset.fileSize, duration: asset.duration });
       setVehicleVideoPath(null);
@@ -589,7 +600,7 @@ export default function DriverOnboarding() {
       </TouchableOpacity>
 
       <Text style={styles.label}>فيديو السيارة *</Text>
-      <Text style={styles.note}>أرفق فيديو واضحاً للسيارة من الخارج بحيث تظهر السيارة كاملة من الأمام والخلف والجوانب، ويكون رقم لوحة السيارة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.</Text>
+      <Text style={styles.note}>أرفق فيديو واضحاً للسيارة من الخارج بحيث تظهر السيارة كاملة من الأمام والخلف والجوانب، ويكون رقم اللوحة واضحاً ومقروءاً. مدة الفيديو لا تتجاوز {vehicleVideoMaxDurationSeconds} ثوانٍ.</Text>
       <View style={styles.photoButton}>
         <Text style={styles.photoText}>{vehicleVideo ? (vehicleVideo.fileName || "تم اختيار فيديو السيارة") : vehicleVideoPath ? "يوجد فيديو محفوظ مرفق سابقاً ✓" : "لم يتم إرفاق فيديو السيارة بعد"}</Text>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
