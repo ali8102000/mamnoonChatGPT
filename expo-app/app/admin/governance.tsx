@@ -25,6 +25,9 @@ export default function AdminGovernanceScreen() {
   const [selected, setSelected] = useState<UserRow | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [logs, setLogs] = useState<AuditRow[]>([]);
+  const [canReadAudit, setCanReadAudit] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState("");
   const [staffActivity, setStaffActivity] = useState<StaffActivityRow[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState("");
@@ -61,10 +64,8 @@ export default function AdminGovernanceScreen() {
       // Staff activity is an optional audit view. Do not let its Edge Function
       // failure block the employee hierarchy, rank changes, or permission panel.
       if (root.data !== true) setStaffActivity([]);
-      if (auditRead.data === true) {
-        const r = await invoke({ action: "audit_logs", limit: 100 });
-        setLogs(r.logs ?? []);
-      } else setLogs([]);
+      setCanReadAudit(auditRead.data === true);
+      if (auditRead.data !== true) setLogs([]);
     } catch (e: any) {
       setError(String(e?.message || "تعذر تحميل الصلاحيات والسجل"));
     } finally { setLoading(false); }
@@ -90,6 +91,20 @@ export default function AdminGovernanceScreen() {
       .finally(() => { if (active) setActivityLoading(false); });
     return () => { active = false; };
   }, [tab, superAdmin, invoke]);
+
+  useEffect(() => {
+    if (tab !== "audit" || !canReadAudit) return;
+    let active = true;
+    setAuditLoading(true);
+    setAuditError("");
+    void invoke({ action: "audit_logs", limit: 100 })
+      .then((result) => { if (active) setLogs(result.logs ?? []); })
+      .catch((e: any) => {
+        if (active) setAuditError(String(e?.message || "تعذر تحميل سجل العمليات"));
+      })
+      .finally(() => { if (active) setAuditLoading(false); });
+    return () => { active = false; };
+  }, [tab, canReadAudit, invoke]);
 
   const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
   const search = async () => {
@@ -174,6 +189,8 @@ export default function AdminGovernanceScreen() {
       </>}
       {tab==="audit" && <>
         <Text style={s.title}>سجل العمليات الإدارية</Text>
+        {!!auditError && <View style={s.error}><Text style={s.errorText}>{auditError}</Text></View>}
+        {auditLoading && <ActivityIndicator color={palette.brand} />}
         <Text style={s.muted}>آخر {logs.length} عملية مسجلة. السجل للقراءة فقط من التطبيق.</Text>
         {logs.map((log,i)=><View key={String(log.id||i)} style={s.card}>
           <Text style={s.cardTitle}>{log.action||log.table_name||"عملية إدارية"}</Text>
