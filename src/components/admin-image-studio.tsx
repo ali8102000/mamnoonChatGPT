@@ -13,8 +13,8 @@ const tabs: { id: StudioTab; title: string; detail: string; icon: typeof Image }
   { id: "identity", title: "هوية ممنون", detail: "شعار الشركة وصورها الأساسية", icon: Building2 },
 ];
 
-export default function AdminImageStudio() {
-  const [active, setActive] = useState<StudioTab>("visuals");
+export default function AdminImageStudio({ initialTab = "visuals" }: { initialTab?: StudioTab }) {
+  const [active, setActive] = useState<StudioTab>(initialTab);
   return <div dir="rtl" className="space-y-5">
     <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-l from-[#071b34] via-[#123d61] to-[#087e8b] p-5 text-white shadow-xl sm:p-7">
       <div className="pointer-events-none absolute -left-8 -top-10 h-48 w-48 rounded-full border-[22px] border-white/10"/>
