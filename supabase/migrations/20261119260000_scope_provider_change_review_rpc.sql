@@ -9,7 +9,7 @@ CREATE OR REPLACE FUNCTION public.admin_review_provider_change_request(
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public'
+SET search_path TO 'pg_catalog', 'public', 'pg_temp'
 AS $function$
 DECLARE
   r public.provider_change_requests%ROWTYPE;
