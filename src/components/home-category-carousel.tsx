@@ -36,11 +36,12 @@ export function HomeCategoryCarousel() {
   useEffect(() => {
     if (banners.length < 2 || index >= banners.length - 1) return;
     const delay = Math.max(1, Math.min(60, Number(banners[index]?.scroll_speed) || 5)) * 1000;
-    const timer = window.setTimeout(() => {
-      if (Date.now() < resumeAt.current) return;
-      setIndex(current => Math.min(current + 1, banners.length - 1));
+    const timer = window.setInterval(() => {
+      if (Date.now() >= resumeAt.current) {
+        setIndex(current => Math.min(current + 1, banners.length - 1));
+      }
     }, delay);
-    return () => window.clearTimeout(timer);
+    return () => window.clearInterval(timer);
   }, [banners, index]);
   if (!banners.length) return (
     <div className="flex aspect-[1.13/1] w-full items-center justify-center rounded-[24px] bg-[#173F35] p-4 text-center text-white">
