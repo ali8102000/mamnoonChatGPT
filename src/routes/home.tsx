@@ -112,7 +112,7 @@ function HomePage() {
             >
               <span>لوحة الإدارة</span>
               <ArrowUpLeft className="h-3.5 w-3.5" />
-            </a>
+            </Link>
           </div>
         )}
 
