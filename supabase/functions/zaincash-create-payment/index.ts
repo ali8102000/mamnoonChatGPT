@@ -41,6 +41,7 @@ Deno.serve(async (req: Request) => {
     if(!gatewaySettings?.payment_gateway_enabled) return json({error:"payments_temporarily_disabled"},503);
     const body=await req.json().catch(()=>null);
     if(!body || !["subscription","service_request","wallet_topup"].includes(body.purpose)) return json({error:"invalid_request"},400);
+    if(body.purpose==="wallet_topup" && Deno.env.get("ZAINCASH_WALLET_TOPUP_ENABLED")!=="true") return json({error:"wallet_topups_not_enabled"},503);
     let amount:number, planId:string|null=null, requestId:string|null=null;
     if(body.purpose==="subscription") {
       if(typeof body.planId!=="string") return json({error:"plan_required"},400);
