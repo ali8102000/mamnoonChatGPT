@@ -325,6 +325,7 @@ export function MapPicker({
 
   // Authenticated Supabase-backed search; province changes invalidate previous suggestions.
   const placeCacheRef = useRef<Map<string, { coords: Coords; address: string }>>(new Map());
+  const nearbySelectionRef = useRef(0);
   useEffect(() => {
     if (!searchOpen || searchQuery.trim().length < 2) {
       setSuggestions([]);
@@ -420,6 +421,27 @@ export function MapPicker({
     }
     report(place.coords, addr);
     onSelectPlaceRef.current?.(place.coords, addr);
+
+    // The pin and selected coordinates update immediately; nearby details load in the background.
+    const nearbyRequest = ++nearbySelectionRef.current;
+    if (governorateKey) {
+      void lookupMapPlace({
+        data: { action: "nearby", center: place.coords, governorateKey },
+      }).then((result: any) => {
+        if (nearbyRequest !== nearbySelectionRef.current) return;
+        const labels = (result.landmarks ?? []).map((item: any) => {
+          const distance = Number(item.distanceMeters);
+          const distanceLabel = distance >= 1000
+            ? `${(distance / 1000).toFixed(1)} كم`
+            : `${Math.round(distance)} م`;
+          return `${item.name} (${distanceLabel})`;
+        });
+        if (!labels.length) return;
+        const detailedAddress = `${addr} · قريب من ${labels.join("، ")}`;
+        setAddress(detailedAddress);
+        report(place.coords, detailedAddress);
+      }).catch(() => {});
+    }
   }
 
   return (

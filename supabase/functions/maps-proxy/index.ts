@@ -167,6 +167,43 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
   if(cacheWriteError) console.warn("[route] cache write unavailable",cacheWriteError.code||"unknown");
   return {...routed,cacheHit:false};
 }
+async function nearbyLandmarks(admin:any,center:Point,key:string) {
+  if(!names[key]||!isInGovernorate(center,key)) return json({error:"الموقع خارج المحافظة المختارة."},400);
+  const radiusMeters=1800;
+  const latDelta=radiusMeters/111000;
+  const lngDelta=radiusMeters/(111000*Math.max(0.2,Math.cos(center.lat*Math.PI/180)));
+  const {data,error}=await admin.from("map_place_suggestions")
+    .select("name_ar,address,latitude,longitude")
+    .eq("governorate_key",key).eq("is_active",true)
+    .gte("latitude",center.lat-latDelta).lte("latitude",center.lat+latDelta)
+    .gte("longitude",center.lng-lngDelta).lte("longitude",center.lng+lngDelta)
+    .limit(1200);
+  if(error) throw new Error("تعذّر تحميل المعالم القريبة.");
+  const distance=(a:Point,b:Point)=>{
+    const rad=Math.PI/180, dLat=(b.lat-a.lat)*rad, dLng=(b.lng-a.lng)*rad;
+    const h=Math.sin(dLat/2)**2+Math.cos(a.lat*rad)*Math.cos(b.lat*rad)*Math.sin(dLng/2)**2;
+    return 6371000*2*Math.atan2(Math.sqrt(h),Math.sqrt(Math.max(0,1-h)));
+  };
+  const candidates=(data??[]).flatMap((row:any)=>{
+    const point={lat:Number(row.latitude),lng:Number(row.longitude)};
+    if(!validPoint(point)||!isInGovernorate(point,key)||!row.name_ar) return [];
+    const meters=distance(center,point);
+    if(meters<25||meters>radiusMeters) return [];
+    const address=String(row.address??"");
+    const category=address.split(" · ")[0]||"مكان محلي";
+    if(["شارع أو طريق","منطقة أو حي أو قرية","مكان محلي"].includes(category)) return [];
+    return [{name:String(row.name_ar),category,distanceMeters:Math.round(meters/10)*10,address,point}];
+  }).sort((a:any,b:any)=>a.distanceMeters-b.distanceMeters);
+  const unique:any[]=[];
+  const seen=new Set<string>();
+  for(const item of candidates){
+    const keyName=normalized(item.name)+"|"+item.point.lat.toFixed(4)+"|"+item.point.lng.toFixed(4);
+    if(seen.has(keyName)) continue;
+    seen.add(keyName); unique.push(item);
+    if(unique.length===3) break;
+  }
+  return json({landmarks:unique.map(({name,category,distanceMeters,address})=>({name,category,distanceMeters,address})),radiusMeters});
+}
 async function reverse(point:Point) {
   const url=new URL("https://photon.komoot.io/reverse");
   url.searchParams.set("lat",String(point.lat));url.searchParams.set("lon",String(point.lng));url.searchParams.set("lang","ar");
@@ -356,6 +393,11 @@ Deno.serve(async (req:Request)=>{
       if(!result.location) return json({error:"لا يتوفر موقع لهذا المكان."},404);
       return json({coords:{lat:result.location.latitude,lng:result.location.longitude},
         address:result.formattedAddress||result.displayName?.text||""});
+    }
+    if(action==="nearby") {
+      if(!validPoint(body.center)||typeof body.governorateKey!=="string"||!names[body.governorateKey])
+        return json({error:"بيانات البحث عن المعالم القريبة غير صحيحة."},400);
+      return await nearbyLandmarks(admin,body.center,body.governorateKey);
     }
     if(action==="reverse") {
       if(!validPoint(body.center)) return json({error:"الإحداثيات غير صحيحة."},400);
