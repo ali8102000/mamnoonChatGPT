@@ -297,7 +297,8 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "dashboard_stats") {
       // This payload aggregates platform-wide user, request, and revenue totals.
-      // Keep it global-only; regional staff must not infer other governorates.\n      await requirePermission("analytics.view");
+      // Keep it global-only; regional staff must not infer other governorates.
+      await requirePermission("analytics.view");
       const [
         usersRes, driversRes, workersRes, activeDriversRes, activeWorkersRes,
         reqAllRes, reqActiveRes, reqDoneRes, reqCancelledRes, todayTxRes, monthTxRes, yearTxRes,
