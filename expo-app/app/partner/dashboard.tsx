@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 import { PartnerCatalogManager } from "@/components/partner-catalog-manager";
 
-type PartnerProfile = { id:string; application_id:string; partner_type:"hotel"|"restaurant"|"store"|"mall"; business_name:string; phone:string; email:string|null; city:string; address:string; description:string|null; is_published:boolean };
+type PartnerProfile = { id:string; application_id:string; partner_type:"hotel"|"restaurant"|"store"|"mall"; business_name:string; phone:string; email:string|null; city:string; address:string; description:string|null; is_published:boolean; business_vertical:"store"|"grocery"|"restaurant" };
 const typeLabels:Record<string,string>={hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"};
 
 export default function PartnerDashboardScreen() {
@@ -25,7 +25,7 @@ export default function PartnerDashboardScreen() {
     const ids=(approved??[]).map((row:any)=>row.id);
     if(!ids.length){setItems([]);setLoading(false);return;}
     const {data,error}=await (supabase as any).from("partner_business_profiles")
-      .select("id,application_id,partner_type,business_name,phone,email,city,address,description,is_published")
+      .select("id,application_id,partner_type,business_name,phone,email,city,address,description,is_published,business_vertical")
       .eq("user_id",user.id).in("application_id",ids).order("created_at",{ascending:false});
     if(error)Alert.alert("تعذر تحميل لوحة الشريك",error.message);
     setItems(data??[]);setLoading(false);
@@ -39,7 +39,7 @@ export default function PartnerDashboardScreen() {
     const {error}=await (supabase as any).from("partner_business_profiles").update({
       business_name:item.business_name.trim(),phone:item.phone.trim(),email:item.email?.trim()||null,
       city:item.city.trim(),address:item.address.trim(),description:item.description?.trim()||null,
-      is_published:item.is_published,updated_at:new Date().toISOString()
+      is_published:item.is_published,business_vertical:item.business_vertical,updated_at:new Date().toISOString()
     }).eq("id",item.id).eq("user_id",user?.id);
     setSavingId(null);
     if(error){Alert.alert("تعذر الحفظ",error.message);return;}
@@ -61,7 +61,8 @@ export default function PartnerDashboardScreen() {
       <Text style={styles.label}>نبذة المنشأة</Text><TextInput value={item.description??""} onChangeText={v=>change(item.id,"description",v)} multiline maxLength={1000} style={[styles.input,styles.multiline]}/>
       <View style={styles.switchRow}><Text style={styles.label}>تفعيل حالة النشر</Text><Switch value={item.is_published} onValueChange={v=>change(item.id,"is_published",v)} trackColor={{true:palette.brand}}/></View>
       <TouchableOpacity disabled={savingId===item.id} onPress={()=>void save(item)} style={[styles.save,savingId===item.id&&{opacity:0.5}]}><Text style={styles.saveText}>{savingId===item.id?"جارٍ الحفظ...":"حفظ التعديلات"}</Text></TouchableOpacity>
-      <PartnerCatalogManager profileId={item.id} partnerType={item.partner_type}/>
+      {["store","mall"].includes(item.partner_type)?<View style={styles.switchRow}><Text style={styles.label}>نوع النشاط: {item.business_vertical==="grocery"?"بقالة وخضروات مستقلة":"محلات ومتاجر"}</Text><TouchableOpacity onPress={()=>change(item.id,"business_vertical",item.business_vertical==="grocery"?"store":"grocery")}><Text style={{color:palette.brand,fontWeight:"900"}}>تغيير</Text></TouchableOpacity></View>:null}
+      <PartnerCatalogManager profileId={item.id} partnerType={item.partner_type} businessVertical={item.business_vertical}/>
     </View>)}
     <View style={styles.notice}><Text style={styles.noticeText}>حالة النشر تُحفظ بملف الشريك. ربط الدليل العام للزبائن وإدارة الحجوزات والغرف وقائمة الطعام والمنتجات يحتاج وحدات عرض وتشغيل مستقلة.</Text></View>
   </ScrollView></SafeAreaView>;
