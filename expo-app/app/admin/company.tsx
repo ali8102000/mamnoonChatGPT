@@ -35,7 +35,7 @@ export default function CompanySettingsScreen() {
       setLoading(false);
     })();
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, branding.companyName, branding.logoUrl, branding.welcomeMessage]);
 
   async function chooseLogo() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
