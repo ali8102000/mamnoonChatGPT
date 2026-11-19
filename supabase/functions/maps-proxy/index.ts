@@ -72,7 +72,9 @@ function boundsFor(key:string) {
 }
 function normalized(value:string) {
   return value.normalize("NFKC").replace(/[\u064B-\u065F\u0670]/g,"")
-    .replace(/[إأآ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
+    .replace(/ـ/g,"").replace(/[إأآٱ]/g,"ا").replace(/ؤ/g,"و")
+    .replace(/[ئىي]/g,"ي").replace(/ة/g,"ه")
+    .replace(/[،؛؟!,.()[\]{}"'`]/g," ")
     .replace(/\s+/g," ").trim().toLocaleLowerCase("ar");
 }
 function decodeGooglePolyline(encoded:string):Point[] {
@@ -187,7 +189,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   const LIMIT=50;
   const [cached,initial]=await Promise.all([
     admin.from("map_place_search_cache").select("expires_at").eq("governorate_key",key).eq("normalized_query",normalized(q)).maybeSingle(),
-    admin.rpc("search_map_place_suggestions",{p_governorate_key:key,p_query:q,p_limit:LIMIT}),
+    admin.rpc("search_map_place_suggestions",{p_governorate_key:key,p_query:normalized(q),p_limit:LIMIT}),
   ]);
   if(initial.error) throw new Error("تعذّر تحميل اقتراحات الأماكن من قاعدة البيانات.");
 
@@ -203,7 +205,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // A fresh query cache is authoritative for this query. Return it immediately;
   // otherwise enrich partial local results from Photon instead of only searching
   // externally when the local database is completely empty.
-  if(cacheFresh) {
+  if(cacheFresh && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
     return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
   }
 
@@ -262,7 +264,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // Google Places is an optional second index for Iraqi POIs that may be missing from OSM.
   // Keep it explicitly opt-in because Text Search is a billable Google Maps Platform request.
   let googleSuggestions:any[]=[];
-  if(Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")==="true") {
+  if(Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")==="true" && q.length>=3 && initialSuggestions.length<10) {
     const googleKey=Deno.env.get("GOOGLE_MAPS_API_KEY");
     if(googleKey) {
       try {
@@ -296,7 +298,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   }
 
   const {data,error}=await admin.rpc("search_map_place_suggestions",{
-    p_governorate_key:key,p_query:q,p_limit:LIMIT
+    p_governorate_key:key,p_query:normalized(q),p_limit:LIMIT
   });
   if(error) throw new Error("تعذّر تحميل اقتراحات الأماكن.");
   const refreshed=mapRows(data);
