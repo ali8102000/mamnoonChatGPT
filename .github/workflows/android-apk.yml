@@ -17,7 +17,6 @@ concurrency:
 
 jobs:
   build:
-    # Build on main workflow changes and allow manual reruns.
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     name: Build standalone Mamnoon release APK
     runs-on: ubuntu-latest
@@ -131,11 +130,37 @@ jobs:
             adb install -r expo-app/release-artifacts/mamnoon-test.apk
             adb logcat -c
             adb shell monkey -p com.mamnoon.app 1
-            sleep 20
-            adb logcat -d -t 4000 > expo-app/release-artifacts/emulator-logcat.txt
-            APP_PID="$(adb shell pidof com.mamnoon.app || true)"
-            test -n "$APP_PID" || { echo "::error::Mamnoon process was not running after launch."; exit 1; }
-            ! grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt || { echo "::error::Mamnoon crashed during the Android emulator launch smoke test."; exit 1; }
+
+            # Wait for the React Native JS entry point instead of relying on pidof,
+            # which can report an empty result on a heavily loaded emulator.
+            STARTED=0
+            for attempt in $(seq 1 60); do
+              adb logcat -d -t 6000 > expo-app/release-artifacts/emulator-logcat.txt
+              if grep -Fq 'ReactNativeJS: Running "main"' expo-app/release-artifacts/emulator-logcat.txt; then
+                STARTED=1
+                break
+              fi
+              if grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt; then
+                echo "::error::Mamnoon raised a fatal Android exception during launch."
+                tail -n 160 expo-app/release-artifacts/emulator-logcat.txt
+                exit 1
+              fi
+              sleep 2
+            done
+
+            if [ "$STARTED" -ne 1 ]; then
+              echo "::error::Mamnoon did not reach the React Native main entry point within 120 seconds."
+              tail -n 160 expo-app/release-artifacts/emulator-logcat.txt
+              exit 1
+            fi
+
+            sleep 5
+            adb logcat -d -t 6000 > expo-app/release-artifacts/emulator-logcat.txt
+            ! grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt || {
+              echo "::error::Mamnoon crashed after the React Native entry point started."
+              tail -n 160 expo-app/release-artifacts/emulator-logcat.txt
+              exit 1
+            }
             adb shell screencap -p /sdcard/mamnoon-screen.png
             adb pull /sdcard/mamnoon-screen.png expo-app/release-artifacts/emulator-screen.png
       - name: Upload Android emulator smoke evidence
