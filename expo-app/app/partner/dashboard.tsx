@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
-import { PartnerCatalogManager } from "@/src/components/partner-catalog-manager";
+import { PartnerCatalogManager } from "@/components/partner-catalog-manager";
 
 type PartnerProfile = { id:string; application_id:string; partner_type:"hotel"|"restaurant"|"store"|"mall"; business_name:string; phone:string; email:string|null; city:string; address:string; description:string|null; is_published:boolean };
 const typeLabels:Record<string,string>={hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"};
