@@ -18,8 +18,8 @@ concurrency:
 
 jobs:
   build-preview-apk:
-    # Preview APKs are created only when explicitly requested.
-    if: github.event_name == 'workflow_dispatch'
+    # Build a preview for this explicitly requested auth-fix PR as well as manual runs.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     name: Build standalone Android preview APK
     runs-on: ubuntu-latest
     timeout-minutes: 60

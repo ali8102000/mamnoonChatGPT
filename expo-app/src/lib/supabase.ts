@@ -30,14 +30,149 @@ function secureStorageKey(key: string): string {
   return normalized || "mamnoon-auth-session-v1";
 }
 
+// SecureStore has a practical per-item size limit on Android. Supabase rotates
+// refresh tokens and must persist the replacement token before the old one is
+// reused. A large session written as one value can fail silently on some
+// Android devices, leaving the revoked refresh token on disk and causing
+// refresh_token_not_found on the next launch. Store bounded chunks and publish
+// the manifest last so readers only see a complete generation.
+const SECURE_CHUNK_CODEPOINTS = 400;
+type SecureManifest = { version: 1; generation: string; count: number };
+
+function splitSecureValue(value: string): string[] {
+  const points = Array.from(value);
+  const chunks: string[] = [];
+  for (let index = 0; index < points.length; index += SECURE_CHUNK_CODEPOINTS) {
+    chunks.push(points.slice(index, index + SECURE_CHUNK_CODEPOINTS).join(""));
+  }
+  return chunks.length ? chunks : [""];
+}
+
+function manifestKey(key: string): string {
+  return `${secureStorageKey(key).slice(0, 140)}.manifest`;
+}
+
+function chunkKey(key: string, generation: string, index: number): string {
+  return `${secureStorageKey(key).slice(0, 100)}.${generation}.${index}`;
+}
+
 const storageAdapter =
   Platform.OS === "web"
     ? undefined
     : {
-        getItem: (key: string) => SecureStore.getItemAsync(secureStorageKey(key)),
-        setItem: (key: string, value: string) =>
-          SecureStore.setItemAsync(secureStorageKey(key), value),
-        removeItem: (key: string) => SecureStore.deleteItemAsync(secureStorageKey(key)),
+        async getItem(key: string): Promise<string | null> {
+          const safeKey = secureStorageKey(key);
+          const rawManifest = await SecureStore.getItemAsync(manifestKey(safeKey));
+          if (!rawManifest) {
+            // Backward compatibility with sessions written by the previous
+            // single-value adapter. The next refresh will migrate it to chunks.
+            return SecureStore.getItemAsync(safeKey);
+          }
+
+          let manifest: SecureManifest;
+          try {
+            manifest = JSON.parse(rawManifest) as SecureManifest;
+          } catch {
+            return null;
+          }
+          if (
+            manifest.version !== 1 ||
+            typeof manifest.generation !== "string" ||
+            !Number.isInteger(manifest.count) ||
+            manifest.count < 1 ||
+            manifest.count > 100
+          ) {
+            return null;
+          }
+
+          const parts = await Promise.all(
+            Array.from({ length: manifest.count }, (_, index) =>
+              SecureStore.getItemAsync(chunkKey(safeKey, manifest.generation, index)),
+            ),
+          );
+          if (parts.some((part) => part === null)) return null;
+          return (parts as string[]).join("");
+        },
+
+        async setItem(key: string, value: string): Promise<void> {
+          const safeKey = secureStorageKey(key);
+          const manifestName = manifestKey(safeKey);
+          const previousRaw = await SecureStore.getItemAsync(manifestName);
+          let previous: SecureManifest | null = null;
+          if (previousRaw) {
+            try {
+              previous = JSON.parse(previousRaw) as SecureManifest;
+            } catch {
+              previous = null;
+            }
+          }
+
+          const generation = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+          const chunks = splitSecureValue(value);
+          if (chunks.length > 100) {
+            throw new Error("Supabase auth session exceeds the secure storage capacity.");
+          }
+
+          // Write a new generation first. The manifest switch is the commit
+          // point, so a process interruption cannot expose a half-written token.
+          await Promise.all(
+            chunks.map((chunk, index) =>
+              SecureStore.setItemAsync(chunkKey(safeKey, generation, index), chunk),
+            ),
+          );
+          await SecureStore.setItemAsync(
+            manifestName,
+            JSON.stringify({ version: 1, generation, count: chunks.length } satisfies SecureManifest),
+          );
+
+          if (previous?.generation && previous.generation !== generation) {
+            await Promise.all(
+              Array.from({ length: previous.count }, (_, index) =>
+                SecureStore.deleteItemAsync(chunkKey(safeKey, previous!.generation, index)),
+              ),
+            ).catch((error) => {
+              // The new manifest is already committed. Old-generation cleanup
+              // is best-effort and must not make auth-js treat the write as failed.
+              console.warn("[auth] Could not clean the previous secure session generation:", error);
+            });
+          }
+          // Remove the legacy single-item value only after the chunked value
+          // has been committed successfully. Cleanup must not undo a committed
+          // token rotation if the platform refuses to delete the old key.
+          await SecureStore.deleteItemAsync(safeKey).catch((error) => {
+            console.warn("[auth] Could not clean the legacy secure session key:", error);
+          });
+        },
+
+        async removeItem(key: string): Promise<void> {
+          const safeKey = secureStorageKey(key);
+          const manifestName = manifestKey(safeKey);
+          const rawManifest = await SecureStore.getItemAsync(manifestName);
+          if (rawManifest) {
+            try {
+              const manifest = JSON.parse(rawManifest) as SecureManifest;
+              if (
+                manifest.version === 1 &&
+                typeof manifest.generation === "string" &&
+                Number.isInteger(manifest.count) &&
+                manifest.count > 0 &&
+                manifest.count <= 100
+              ) {
+                await Promise.all(
+                  Array.from({ length: manifest.count }, (_, index) =>
+                    SecureStore.deleteItemAsync(chunkKey(safeKey, manifest.generation, index)),
+                  ),
+                );
+              }
+            } catch {
+              // Continue removing the manifest and legacy key even if corrupt.
+            }
+          }
+          await Promise.all([
+            SecureStore.deleteItemAsync(manifestName),
+            SecureStore.deleteItemAsync(safeKey),
+          ]);
+        },
       };
 
 function createSupabaseFetch(apiKey: string): typeof fetch {
