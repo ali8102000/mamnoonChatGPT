@@ -75,7 +75,7 @@ Deno.serve(async (req: Request) => {
       const token=await getGatewayToken(baseUrl,clientId,clientSecret);
       const success=callbackBase+"?return=success";
       const failure=callbackBase+"?return=failure";
-      const returnPath=body.purpose==="subscription"?"/subscriptions":body.purpose==="wallet_topup"?"/wallet":"/request/"+requestId;
+      const returnPath=body.purpose==="subscription"?"/subscriptions":body.purpose==="wallet_topup"?"/":"/request/"+requestId;
       const appReturnUrl=new URL(returnPath,publicUrl).toString();
       const initResponse=await fetch(baseUrl+"/api/v2/payment-gateway/transaction/init",{
         method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
