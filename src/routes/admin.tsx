@@ -92,6 +92,7 @@ import AdminVisualBuilder from "@/components/admin-visual-builder";
 import AdminHomeBanners from "@/components/admin-home-banners";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
+import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -217,6 +218,7 @@ const NAV_GROUPS: { title: string; keys: Section[] }[] = [
 function AdminPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { session, loading } = useAuth();
+  const { companyName, logoUrl } = useCompanyBranding();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [staffRoles, setStaffRoles] = useState<string[]>([]);
   const [staffDisplayTitle, setStaffDisplayTitle] = useState<string | null>(null);
@@ -310,8 +312,8 @@ function AdminPage() {
       >
         <div className="p-5">
           <div className="flex items-center gap-2 mb-6">
-            <ShieldCheck className="h-6 w-6 text-primary" />
-            <h1 className="text-lg font-black">{staffDisplayTitle ?? "لوحة الإدارة"}</h1>
+            {logoUrl ? <img src={logoUrl} alt={`شعار ${companyName}`} className="h-9 w-9 rounded-xl bg-white object-contain p-1" /> : <ShieldCheck className="h-6 w-6 text-primary" />}
+            <h1 className="text-lg font-black">{staffDisplayTitle ?? companyName ?? "لوحة الإدارة"}</h1>
           </div>
           <Link
             to="/admin/import"
@@ -362,7 +364,7 @@ function AdminPage() {
           <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg bg-surface-2">
             <LayoutDashboard className="h-5 w-5" />
           </button>
-          <span className="font-black text-sm">{staffDisplayTitle ?? "لوحة الإدارة"}</span>
+          <span className="font-black text-sm">{staffDisplayTitle ?? companyName ?? "لوحة الإدارة"}</span>
           <div className="w-9" />
         </div>
         <div className="p-4 lg:p-8 max-w-5xl mx-auto">
