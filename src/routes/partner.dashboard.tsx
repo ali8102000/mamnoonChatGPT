@@ -46,6 +46,7 @@ function PartnerDashboardPage() {
     setProfiles(current => current.map(item => item.id===id ? {...item,[key]:value} : item));
 
   const save = async (item:PartnerProfile) => {
+    if (item.business_vertical!=="grocery" && !(item.promotion_governorates??[]).length) { setError("اختار محافظة واحدة على الأقل حتى تظهر عروضك للزبائن."); return; }
     if (item.business_name.trim().length<2 || item.phone.trim().length<7 || item.city.trim().length<2 || item.address.trim().length<4) {
       setError("تأكد من اسم المنشأة والهاتف والمدينة والعنوان قبل الحفظ."); return;
     }
