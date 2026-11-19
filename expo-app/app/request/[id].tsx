@@ -987,10 +987,9 @@ export default function RequestDetail() {
         text: "إلغاء الطلب",
         style: "destructive",
         onPress: async () => {
-          const { error } = await supabase.rpc("transition_service_request", {
+          const { error } = await (supabase as any).rpc("cancel_service_request", {
             _request_id: id,
-            _status: "cancelled",
-            _reason: null,
+            _reason: "ألغى الزبون الطلب قبل تأكيد وصول مقدم الخدمة",
           });
           if (error) Alert.alert("تعذر الإلغاء", error.message);
           else router.back();
