@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
     const requirePermission = async (permissionKey: string) => {
       // Resolve the caller's active scope from the database; never trust a
       // client-supplied governorate when checking scoped administrative access.
-      const { data: assignment, error: assignmentError } = await caller
+      const { data: assignment, error: assignmentError } = await admin
         .from("staff_assignments")
         .select("scope_type,scope_governorate")
         .eq("user_id", auth.user.id)
