@@ -42,10 +42,21 @@ Deno.serve(async (req: Request) => {
       if (error || data !== true) throw new Error("admin_required");
     };
     const requirePermission = async (permissionKey: string) => {
+      // Resolve the caller's active scope from the database; never trust a
+      // client-supplied governorate when checking scoped administrative access.
+      const { data: assignment, error: assignmentError } = await caller
+        .from("staff_assignments")
+        .select("scope_type,scope_governorate")
+        .eq("user_id", auth.user.id)
+        .eq("active", true)
+        .maybeSingle();
+      if (assignmentError) throw new Error("permission_scope_lookup_failed");
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
       const { data, error } = await caller.rpc("admin_has_permission", {
         p_permission_key: permissionKey,
-        p_scope_type: "global",
-        p_scope_governorate: null,
+        p_scope_type: scopeType,
+        p_scope_governorate: scopeGovernorate,
       });
       if (error || data !== true) throw new Error("permission_required:" + permissionKey);
     };
