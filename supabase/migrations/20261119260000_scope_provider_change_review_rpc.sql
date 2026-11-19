@@ -39,7 +39,7 @@ BEGIN
       v_governorate
     )
   ) THEN
-    RAISE EXCEPTION 'permission_required:providers.verify';
+    RAISE EXCEPTION 'change_request_unavailable';
   END IF;
 
   IF _status='approved' THEN
