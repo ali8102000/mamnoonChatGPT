@@ -754,23 +754,57 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "monitoring") {
-      // Monitoring includes platform-wide reports, blocks, and support tickets.
+      // Analytics permission grants platform totals only. Ancillary personal
+      // data must be checked independently so analytics-only staff cannot read
+      // reports, user blocks, or support conversations.
       await requireGlobalAnalytics();
-      const [users, drivers, workers, activeRequests, reports, blocks, tickets] = await Promise.all([
+
+      let canReadReports = false;
+      try {
+        await requireScopedReadPermission("reports.read", "has_user_moderation_access", "global", null);
+        canReadReports = true;
+      } catch {
+        // No report permission: return no report rows.
+      }
+
+      let canReadBlocks = false;
+      try {
+        await requirePermission("users.read");
+        canReadBlocks = true;
+      } catch {
+        canReadBlocks = ["super_admin", "admin", "support", "moderator"]
+          .some((role) => staffRoles.has(role));
+      }
+
+      const canReadTickets = ["super_admin", "admin", "support", "customer_service"]
+        .some((role) => staffRoles.has(role));
+
+      const [users, drivers, workers, activeRequests] = await Promise.all([
         admin.from("profiles").select("id", { count: "exact", head: true }),
         admin.from("driver_profiles").select("id", { count: "exact", head: true }).eq("available", true),
         admin.from("worker_profiles").select("id", { count: "exact", head: true }).eq("available", true),
         admin.from("service_requests").select("id", { count: "exact", head: true })
           .in("status", ["pending", "searching", "accepted", "in_progress"]),
-        admin.from("user_reports").select("*").eq("status", "pending")
-          .order("created_at", { ascending: false }).limit(20),
-        admin.from("user_blocks").select("*, profiles!user_blocks_user_id_fkey(full_name)")
-          .order("blocked_at", { ascending: false }).limit(20),
-        admin.from("support_tickets").select("*").eq("status", "open")
-          .order("created_at", { ascending: false }).limit(20),
       ]);
-      if (users.error || drivers.error || workers.error || activeRequests.error ||
-          reports.error || blocks.error || tickets.error) {
+      if (users.error || drivers.error || workers.error || activeRequests.error) {
+        return json({ error: "monitoring_load_failed" }, 500);
+      }
+
+      const [reports, blocks, tickets] = await Promise.all([
+        canReadReports
+          ? admin.from("user_reports").select("*").eq("status", "pending")
+              .order("created_at", { ascending: false }).limit(20)
+          : Promise.resolve({ data: [], error: null }),
+        canReadBlocks
+          ? admin.from("user_blocks").select("*, profiles!user_blocks_user_id_fkey(full_name)")
+              .order("blocked_at", { ascending: false }).limit(20)
+          : Promise.resolve({ data: [], error: null }),
+        canReadTickets
+          ? admin.from("support_tickets").select("*").eq("status", "open")
+              .order("created_at", { ascending: false }).limit(20)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (reports.error || blocks.error || tickets.error) {
         return json({ error: "monitoring_load_failed" }, 500);
       }
       return json({
