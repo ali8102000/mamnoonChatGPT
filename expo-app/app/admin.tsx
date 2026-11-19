@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity, TextInput, Image } from "react-native";
 import { router } from "expo-router";
 import { Linking } from "react-native";
 import { supabase } from "@/lib/supabase";
