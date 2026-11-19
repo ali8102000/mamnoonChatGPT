@@ -246,6 +246,8 @@ export default function NewRequest() {
   const outsideGovernoratePromptShownRef = useRef(false);
   const nearbySelectionRef = useRef(0);
   const placeSelectionRef = useRef(0);
+  const [confirmDestinationPending, setConfirmDestinationPending] = useState(false);
+  const confirmDestinationPendingRef = useRef(false);
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
@@ -599,15 +601,24 @@ export default function NewRequest() {
         setServerTaxiFares(route.categoryPrices && typeof route.categoryPrices === "object"
           ? route.categoryPrices
           : { [vehicleCat]: Number(route.priceEstimate) });
+        // If the user tapped confirm while the authoritative quote was loading,
+        // complete the confirmation immediately when that quote arrives.
+        if (confirmDestinationPendingRef.current) {
+          confirmDestinationPendingRef.current = false;
+        setConfirmDestinationPending(false);
+          setDestinationConfirmed(true);
+        }
       } catch (error) {
         if (!active) return;
         setRouteKm(null);
         setRouteDurationMin(null);
+        confirmDestinationPendingRef.current = false;
+        setConfirmDestinationPending(false);
         setRouteError(error instanceof Error ? error.message : "تعذّر حساب مسافة الطريق.");
       } finally {
         if (active) setRouteLoading(false);
       }
-    }, 180);
+    }, 0);
     return () => {
       active = false;
       clearTimeout(timer);
@@ -927,10 +938,19 @@ export default function NewRequest() {
     }
     // The authoritative quote validates both points against Iraq's governorate
     // polygons and returns the resolved keys; don't repeat the network request.
-    if (routeLoading || routeKm === null || routeError || !pickupGovernorateKey || !destinationGovernorateKey) {
-      Alert.alert("انتظر تأكيد الطريق", routeError || "نحسب مسافة الطريق ونحدد المحافظتين بدقة.");
+    if (routeError) {
+      Alert.alert("تعذّر تأكيد الطريق", routeError);
       return;
     }
+    if (routeLoading || routeKm === null || !pickupGovernorateKey || !destinationGovernorateKey) {
+      // Accept the tap immediately; the quote is already running in parallel.
+      // Auto-advance as soon as the validated route and fare return.
+      confirmDestinationPendingRef.current = true;
+      setConfirmDestinationPending(true);
+      return;
+    }
+    confirmDestinationPendingRef.current = false;
+        setConfirmDestinationPending(false);
     setDestinationConfirmed(true);
   }
 
@@ -1367,12 +1387,12 @@ export default function NewRequest() {
                   </View>
                 )}
                 <TouchableOpacity
-                  style={[styles.taxiPrimaryButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || routeLoading || routeKm === null || !!routeError) && styles.taxiButtonDisabled]}
-                  disabled={mapMode === "pickup" ? !pickupCoords : !destinationCoords || routeLoading || routeKm === null || !!routeError}
+                  style={[styles.taxiPrimaryButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPending) && styles.taxiButtonDisabled]}
+                  disabled={mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPending}
                   onPress={mapMode === "pickup" ? confirmPickupStep : confirmDestinationStep}
                 >
                   <Text style={styles.taxiPrimaryButtonText}>
-                    {mapMode === "pickup" ? "تأكيد الانطلاق" : routeLoading ? "جارٍ حساب الطريق..." : "تأكيد الوجهة"}
+                    {mapMode === "pickup" ? "تأكيد الانطلاق" : confirmDestinationPending ? "جارٍ تأكيد الوجهة..." : "تأكيد الوجهة"}
                   </Text>
                   <View style={styles.taxiPrimaryArrow}>
                     <Svg width={18} height={18} viewBox="0 0 24 24">
