@@ -21,7 +21,7 @@ Deno.serve(async (req: Request) => {
     const url = required("SUPABASE_URL");
     const publishable = getSupabasePublishableKey();
     const secret = getSupabaseSecretKey();
-    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\\s+/i, "");
+    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!token || token.length > 8192) return json({ error: "unauthorized" }, 401);
 
     const caller = createClient(url, publishable, {
@@ -72,7 +72,7 @@ Deno.serve(async (req: Request) => {
       "لا تخترع سياسات أو أسعاراً أو معلومات غير موجودة في رسالة العميل.",
       "إذا كان الموضوع يتعلق بمدفوعات أو استرداد أو شكوى/تهديد/سلامة أو بيانات حساب خاصة أو يحتاج صلاحية موظف أو لم تكن متأكداً، اجعل handoff=true ولا تعطِ تعليمات تخمينية.",
       "أعد JSON فقط بالشكل: {\"reply\":\"نص الرد\",\"handoff\":false,\"reason\":\"سبب مختصر\"}.",
-    ].join("\\n");
+    ].join("\n");
     const upstream = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
