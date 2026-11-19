@@ -46,8 +46,14 @@ const knownRoles = new Set<AppRole>([
   "customer", "driver", "large_driver", "worker", "admin",
   "super_admin", "support", "finance", "moderator",
 ]);
-const authCacheKey = (uid: string) => `${CACHE_VERSION}:${uid}`;
-const rolePreferenceKey = (uid: string) => `mamnoon-active-role-v1:${uid}`;
+// SecureStore keys must contain only [A-Za-z0-9._-]. The previous colon
+// separator caused native role switching to fail on Android.
+const secureStoreKey = (value: string, fallback: string) => {
+  const safe = String(value ?? "").replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 200);
+  return safe || fallback;
+};
+const authCacheKey = (uid: string) => secureStoreKey(`${CACHE_VERSION}_${uid}`, "mamnoon-auth-profile-v1");
+const rolePreferenceKey = (uid: string) => secureStoreKey(`mamnoon-active-role-v1_${uid}`, "mamnoon-active-role-v1");
 
 async function readCachedAuthProfile(uid: string): Promise<CachedAuthProfile | null> {
   try {
@@ -81,9 +87,9 @@ async function clearCachedAuthProfile(uid: string | null) {
   try {
     await Promise.all([
       SecureStore.deleteItemAsync(authCacheKey(uid)),
-      SecureStore.deleteItemAsync(`mamnoon-history-v1:${uid}`),
-      SecureStore.deleteItemAsync(`mamnoon-wallet-v1:${uid}`),
-      SecureStore.deleteItemAsync(`mamnoon-chats-v1:${uid}`),
+      SecureStore.deleteItemAsync(secureStoreKey(`mamnoon-history-v1_${uid}`, "mamnoon-history-v1")),
+      SecureStore.deleteItemAsync(secureStoreKey(`mamnoon-wallet-v1_${uid}`, "mamnoon-wallet-v1")),
+      SecureStore.deleteItemAsync(secureStoreKey(`mamnoon-chats-v1_${uid}`, "mamnoon-chats-v1")),
     ]);
   } catch (error) {
     console.warn("[offline] Could not clear the local account snapshot:", error);
