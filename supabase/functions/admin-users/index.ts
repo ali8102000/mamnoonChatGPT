@@ -125,6 +125,16 @@ Deno.serve(async (req: Request) => {
       });
       if (error || data !== true) throw new Error("permission_required:" + permissionKey);
     };
+    const requireScopedReadPermission = async (permissionKey: string, legacyRpc: string, scopeType: string, scopeGovernorate: string | null) => {
+      try {
+        await requirePermission(permissionKey, scopeType, scopeGovernorate);
+      } catch (error) {
+        // Preserve legacy global staff access only; regional access must use an
+        // explicitly scoped permission to avoid exposing other governorates.
+        if (scopeType !== "global") throw error;
+        await requireScopedAccess(legacyRpc);
+      }
+    };
     const requireRequestPermission = async (permissionKey: string, requestId: string) => {
       const { data: request, error } = await admin.from("service_requests")
         .select("governorate_key").eq("id", requestId).maybeSingle();
@@ -316,7 +326,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "list" || body.action === "search") {
       const { scopeType, scopeGovernorate } = await getStaffScope();
-      await requirePermission("users.read", scopeType, scopeGovernorate);
+      await requireScopedReadPermission("users.read", "has_user_moderation_access", scopeType, scopeGovernorate);
       const isSearch = body.action === "search";
       if (isSearch && (typeof body.query !== "string" || body.query.trim().length < 1 || body.query.length > 100)) {
         return json({ error: "query_too_short" }, 400);
@@ -360,7 +370,9 @@ Deno.serve(async (req: Request) => {
         .select("governorate_key").eq("id", id).maybeSingle();
       if (targetProfileError || !targetProfile) return json({ error: "user_not_found" }, 404);
       const governorate = targetProfile.governorate_key ?? null;
-      await requirePermission("users.read", governorate ? "governorate" : "global", governorate);
+      const staffScope = await getStaffScope();
+      if (staffScope.scopeType === "governorate" && staffScope.scopeGovernorate !== governorate) throw new Error("permission_required:users.read");
+      await requireScopedReadPermission("users.read", "has_user_moderation_access", governorate ? "governorate" : "global", governorate);
       const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications] = await Promise.all([
         admin.from("profiles").select("*").eq("id", id).maybeSingle(),
         admin.from("user_roles").select("role,created_at").eq("user_id", id),
@@ -409,7 +421,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "providers") {
       const { scopeType, scopeGovernorate } = await getStaffScope();
-      await requirePermission("providers.read", scopeType, scopeGovernorate);
+      await requireScopedReadPermission("providers.read", "has_provider_ops_access", scopeType, scopeGovernorate);
       const type = ["driver", "large_driver", "worker"].includes(body.type) ? body.type : "driver";
       const status = ["all", "approved", "pending", "suspended", "rejected"].includes(body.status) ? body.status : "all";
       const category = typeof body.category === "string" ? body.category.slice(0, 80) : "all";
@@ -452,7 +464,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "requests") {
       const { scopeType, scopeGovernorate } = await getStaffScope();
-      await requirePermission("orders.read", scopeType, scopeGovernorate);
+      await requireScopedReadPermission("orders.read", "has_provider_ops_access", scopeType, scopeGovernorate);
       const status = typeof body.status === "string" ? body.status.slice(0, 40) : "all";
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let requestQuery = admin.from("service_requests")
