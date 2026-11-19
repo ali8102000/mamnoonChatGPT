@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import Constants from "expo-constants";
 import "react-native-url-polyfill/auto";
 
@@ -67,6 +67,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+// Supabase cannot reliably infer foreground/background state in React Native.
+// Keep token refresh active while the app is visible and pause it in background.
+// Register this once beside the singleton client, not from individual screens.
+if (Platform.OS !== "web") {
+  const syncAuthRefreshWithAppState = (state: string | null) => {
+    if (state === "active") {
+      void supabase.auth.startAutoRefresh().catch((error) => {
+        console.warn("[auth] Could not start token auto-refresh:", error);
+      });
+    } else {
+      void supabase.auth.stopAutoRefresh().catch((error) => {
+        console.warn("[auth] Could not stop token auto-refresh:", error);
+      });
+    }
+  };
+
+  AppState.addEventListener("change", syncAuthRefreshWithAppState);
+  syncAuthRefreshWithAppState(AppState.currentState);
+}
 
 export async function authProxy<T>(path: string, body: Record<string, unknown>): Promise<T> {
   if (!isSupabaseConfigured) {
