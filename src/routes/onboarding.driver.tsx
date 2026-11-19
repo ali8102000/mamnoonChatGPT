@@ -141,6 +141,13 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [vehicleDocumentPhoto, setVehicleDocumentPhoto] = useState<string | null>(null);
   const [vehicleVideoFile, setVehicleVideoFile] = useState<File | null>(null);
   const [vehicleVideoPath, setVehicleVideoPath] = useState<string | null>(null);
+  const [vehicleVideoMaxDurationSeconds, setVehicleVideoMaxDurationSeconds] = useState(10);
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("company_settings").select("driver_video_max_duration_seconds").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (active && Number.isInteger(data?.driver_video_max_duration_seconds)) setVehicleVideoMaxDurationSeconds(Math.min(60, Math.max(1, data.driver_video_max_duration_seconds))); });
+    return () => { active = false; };
+  }, []);
   const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
   const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: largeDriverMode ? "كيا" : "تويوتا", model: largeDriverMode ? "" : "كورولا", year: String(new Date().getFullYear() - 2), plate: "", color: "أبيض", category: largeDriverMode ? "large" : "economy", vehicleType: null });
   const [documentType, setDocumentType] = useState<"national_id" | "driver_license">("national_id");
@@ -329,6 +336,16 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     if (!file) return;
     if (!["video/mp4", "video/quicktime", "video/webm"].includes(file.type)) { toast.error("صيغة الفيديو غير مدعومة. استخدم MP4 أو MOV أو WEBM."); e.target.value = ""; return; }
     if (file.size > 50 * 1024 * 1024) { toast.error("حجم فيديو السيارة يجب ألا يتجاوز 50 ميغابايت."); e.target.value = ""; return; }
+    const previewUrl = URL.createObjectURL(file);
+    const duration = await new Promise<number>((resolve, reject) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => resolve(video.duration);
+      video.onerror = () => reject(new Error("تعذر قراءة مدة الفيديو"));
+      video.src = previewUrl;
+    }).finally(() => URL.revokeObjectURL(previewUrl)).catch(() => null);
+    if (!Number.isFinite(duration) || duration === null) { toast.error("تعذر التأكد من مدة الفيديو. جرّب فيديو آخر."); e.target.value = ""; return; }
+    if (duration > vehicleVideoMaxDurationSeconds) { toast.error(`مدة الفيديو يجب ألا تتجاوز ${vehicleVideoMaxDurationSeconds} ثوانٍ.`); e.target.value = ""; return; }
     setVehicleVideoFile(file);
     setVehicleVideoPath(null);
     setChangedDocuments((current) => ({ ...current, vehicle_video: true }));
@@ -861,7 +878,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
           <div className="p-4 rounded-2xl bg-white border border-border/80 shadow-sm space-y-3">
             <div className="font-black text-sm">فيديو السيارة *</div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              أرفق فيديو واضحاً للسيارة من الخارج بحيث تظهر كاملة من الأمام والخلف والجوانب، ويكون رقم اللوحة واضحاً ومقروءاً. لا تقص السيارة أو اللوحة من إطار الفيديو.
+              أرفق فيديو واضحاً للسيارة من الخارج بحيث تظهر كاملة من الأمام والخلف والجوانب، ويكون رقم اللوحة واضحاً ومقروءاً. مدة الفيديو لا تتجاوز {vehicleVideoMaxDurationSeconds} ثوانٍ.
             </p>
             <input ref={vehicleVideoInputRef} type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={handleVehicleVideoChange} />
             <div className="flex items-center gap-3">
