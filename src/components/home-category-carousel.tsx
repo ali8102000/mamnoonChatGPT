@@ -17,6 +17,7 @@ export function HomeCategoryCarousel() {
   const resumeAt = useRef(0);
   const touchStartX = useRef<number | null>(null);
   const movedBySwipe = useRef(false);
+  const pause = () => { resumeAt.current = Date.now() + 5000; };
   const refresh = useCallback(async () => {
     const { data, error } = await (supabase as any).from("home_carousel_banners")
       .select("id,image_url,target_category,banner_type,target_campaign_id,is_active,scroll_speed,badge_text,display_order")
@@ -79,7 +80,6 @@ export function HomeCategoryCarousel() {
     }
     if (current.banner_type === "category") void navigate({ to: "/discover/$category", params: { category: current.target_category } });
   };
-  const pause = () => { resumeAt.current = Date.now() + 5000; };
   const image = <img src={current.image_url} alt={current.banner_type === "ad" ? "إعلان" : current.banner_type === "poll" ? "استطلاع رأي" : current.banner_type === "contest" ? "مسابقة" : categoryCopy[current.target_category].title} draggable={false} className="h-full w-full object-cover" />;
   return <>{categoryStrip}<div className="relative aspect-[1.13/1] w-full overflow-hidden rounded-[24px] border border-border bg-transparent shadow-sm"
     onPointerDown={event => { pause(); touchStartX.current = event.clientX; movedBySwipe.current = false; }}
