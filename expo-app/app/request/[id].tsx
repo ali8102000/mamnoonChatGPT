@@ -18,7 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import { getNotificationChannelId, loadNotificationPreferences, loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
+import { getNotificationChannelId, loadNotificationPreferences, loadNotificationSoundPreference } from "@/lib/notification-sound";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import service_build from "../../assets/services/build.jpg";
@@ -355,7 +355,7 @@ export default function RequestDetail() {
           sound: "default",
           data: { request_id: request.id, type: "request_countdown" },
         },
-        trigger: seconds <= 1 ? null : {
+        trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds,
           channelId: getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled),
