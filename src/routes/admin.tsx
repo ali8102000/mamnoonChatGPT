@@ -90,6 +90,7 @@ import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
 import AdminDispatchZones from "@/components/admin-dispatch-zones";
 import AdminVisualBuilder from "@/components/admin-visual-builder";
 import AdminHomeBanners from "@/components/admin-home-banners";
+import AdminBusinessCategories from "@/components/admin-business-categories";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
 import { useCompanyBranding } from "@/lib/company-branding";
@@ -445,6 +446,7 @@ function AdminPage() {
           {section === "staff" && <StaffHierarchySection />}
           {section === "company" && <AdminCompanySettings />}
           {section === "visualBuilder" && <AdminVisualBuilder />}
+          {section === "visualBuilder" && <AdminBusinessCategories />}
           {section === "homeBanners" && <AdminHomeBanners />}
           {section === "audit" && <AuditSection />}
         </div>
