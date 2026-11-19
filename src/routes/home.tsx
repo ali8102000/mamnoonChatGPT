@@ -27,6 +27,7 @@ import { playClick } from "@/lib/click-sound";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { serviceIcon } from "@/lib/service-visuals";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
+import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 
 export const Route = createFileRoute("/home")({
   ssr: false,
@@ -222,7 +223,7 @@ function CustomerHome() {
         <QuickTile
           to="/request/new"
           type="taxi"
-          title={visuals.home_customer_taxi?.title || "طلب سيارة"}
+          title={visuals.home_customer_taxi?.title || "طلب تكسي"}
           subtitle={visuals.home_customer_taxi?.subtitle || "خلال دقائق"}
           icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: Number(visuals.home_customer_taxi?.width_px) || 44, height: Number(visuals.home_customer_taxi?.height_px) || 44, objectFit: "contain" }} />}
           iconBoxSize={Math.max(Number(visuals.home_customer_taxi?.width_px) || 48, 48)}
@@ -236,7 +237,7 @@ function CustomerHome() {
           type="service"
           title={visuals.home_customer_service?.title || "طلب فني"}
           subtitle={visuals.home_customer_service?.subtitle || "١٦ خدمة"}
-          icon={visuals.home_customer_service?.icon_name ? <span className="text-3xl">{visuals.home_customer_service.icon_name}</span> : <img src={visuals.home_customer_service?.image_url || serviceIcon("build")} alt="" style={{ width: Number(visuals.home_customer_service?.width_px) || 64, height: Number(visuals.home_customer_service?.height_px) || 64, objectFit: "cover" }} />}
+          icon={visuals.home_customer_service?.icon_name ? <span className="text-3xl">{visuals.home_customer_service.icon_name}</span> : <ServiceIconPanorama />}
           iconBoxSize={Math.max(Number(visuals.home_customer_service?.width_px) || 64, 48)}
           sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
           gradient="from-emerald-500 to-teal-400"
