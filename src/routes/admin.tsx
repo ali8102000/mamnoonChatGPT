@@ -374,18 +374,22 @@ function AdminPage() {
                   <h2 className="text-lg font-black">شبكة أقسام الإدارة</h2>
                   <p className="mt-1 text-xs text-muted-foreground">اختصارات مرئية لكل قسم تسمح به صلاحيات حسابك.</p>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {visibleItems.filter((item) => item.key !== "overview").map((item) => (
-                    <button
-                      key={item.key}
-                      onClick={() => setSection(item.key)}
-                      className="group min-h-24 glass rounded-2xl border border-border p-3 text-right transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                        <item.icon className="h-4 w-4" />
-                      </span>
-                      <span className="block text-xs sm:text-sm font-black leading-5">{item.label}</span>
-                    </button>
+                <div className="space-y-4">
+                  {NAV_GROUPS.filter((group) => group.keys.some((key) => key !== "overview" && visibleItems.some((item) => item.key === key))).map((group) => (
+                    <section key={group.title} className="space-y-2">
+                      <h3 className="text-xs font-black text-muted-foreground">{group.title}</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {group.keys.filter((key) => key !== "overview").map((key) => visibleItems.find((item) => item.key === key)).filter(Boolean).map((item) => (
+                          <button key={item!.key} onClick={() => setSection(item!.key)}
+                            className="group min-h-24 glass rounded-2xl border border-border p-3 text-right transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                            <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                              <item!.icon className="h-4 w-4" />
+                            </span>
+                            <span className="block text-xs sm:text-sm font-black leading-5">{item!.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
                   ))}
                 </div>
               </section>
