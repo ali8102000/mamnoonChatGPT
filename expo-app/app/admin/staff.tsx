@@ -9,7 +9,7 @@ const ITEMS = [
   { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"] },
   { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "support", "department_operations", "rank:general_manager"] },
   { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "support", "department_operations", "rank:general_manager"] },
-  { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager"] },
+  { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "subscriptions_access"] },
   { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager"] },
   { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"] },
   { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support", "department_operations", "department_monitoring", "rank:general_manager"] },
@@ -67,6 +67,10 @@ export default function AdminStaffScreen() {
         }));
         if (permissionChecks.some(Boolean)) names.push("governance_access");
         if (permissionChecks[permissionKeys.indexOf("notifications.send")]) names.push("notifications_access");
+        const { data: canManageSubscriptions } = await (supabase as any).rpc("admin_has_permission", {
+          p_permission_key: "subscriptions.manage", p_scope_type: "global", p_scope_governorate: null,
+        });
+        if (canManageSubscriptions === true) names.push("subscriptions_access");
         setRoles([...new Set(names)]);
 
       } catch {
