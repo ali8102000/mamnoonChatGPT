@@ -61,22 +61,32 @@ Deno.serve(async (req: Request) => {
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
 
     const body = await req.json().catch(() => null);
-    if (!body || body.action !== "chat" || typeof body.message !== "string") {
+    // Older installed app builds sent { message } before the action field was added.
+    // Treat an omitted action as chat, while rejecting every other explicit action.
+    if (!body || typeof body !== "object" || Array.isArray(body) ||
+      (body.action != null && body.action !== "chat") || typeof body.message !== "string") {
+      console.warn("mamnoon-ai rejected request shape", {
+        hasBody: Boolean(body), action: body?.action ?? null,
+        messageType: typeof body?.message,
+      });
       return json({ error: "invalid_request" }, 400);
     }
     const message = body.message.trim();
     if (message.length < 2 || message.length > 1200) return json({ error: "message_length_invalid" }, 400);
 
     const geminiKey = required("GEMINI_API_KEY");
-    const model = Deno.env.get("GEMINI_CHAT_MODEL")?.trim() || "gemini-2.5-flash-lite";
+    const fallbackModel = "gemini-3.5-flash-lite";
+    const configuredModel = Deno.env.get("GEMINI_CHAT_MODEL")?.trim();
+    let model = configuredModel || fallbackModel;
     const admin = createClient(url, secret, {
       global: { fetch: createSupabaseFetch(secret) },
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const catalog = await findPublicCatalog(admin, message);
     const context = JSON.stringify(catalog);
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(geminiKey)}`;
-    const upstream = await fetch(endpoint, {
+    const requestModel = async (modelName: string) => {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+      return await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -91,7 +101,15 @@ Deno.serve(async (req: Request) => {
         }],
         generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
       }),
-    });
+      });
+    };
+    let upstream = await requestModel(model);
+    if (upstream.status === 404 && model !== fallbackModel) {
+      const retiredModelDetail = await upstream.text().catch(() => "");
+      console.warn("Configured Gemini model unavailable; retrying supported fallback", model, retiredModelDetail.slice(0, 300));
+      model = fallbackModel;
+      upstream = await requestModel(model);
+    }
     if (!upstream.ok) {
       const detail = await upstream.text().catch(() => "");
       console.error("Gemini request failed", upstream.status, detail.slice(0, 500));
