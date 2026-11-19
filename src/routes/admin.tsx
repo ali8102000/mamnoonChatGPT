@@ -369,6 +369,7 @@ function AdminPage() {
           {section === "overview" && (
             <>
               <OverviewSection />
+              <AdminArchitectureDiagram />
               <section className="mt-6 space-y-3" dir="rtl">
                 <div>
                   <h2 className="text-lg font-black">شبكة أقسام الإدارة</h2>
@@ -447,6 +448,41 @@ function AdminPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+function AdminArchitectureDiagram() {
+  const nodes = [
+    { title: "العمليات", detail: "الرحلات والخدمات", icon: Car },
+    { title: "العملاء والدعم", detail: "الحسابات والبلاغات", icon: Users },
+    { title: "المالية", detail: "المحافظ والاشتراكات", icon: Wallet },
+    { title: "المحتوى", detail: "الشعار والبانرات", icon: ImagePlus },
+    { title: "الموظفون", detail: "الرتب والصلاحيات", icon: ShieldCheck },
+  ];
+  return (
+    <section dir="rtl" className="glass rounded-2xl border border-border p-4 mb-6">
+      <div className="mb-3">
+        <h3 className="font-black text-base">خريطة أقسام الشركة</h3>
+        <p className="mt-1 text-xs text-muted-foreground">توضيح بصري لكيفية ارتباط أقسام الإدارة بمركز التحكم الرئيسي.</p>
+      </div>
+      <div className="mx-auto w-full max-w-sm rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-center">
+        <ShieldCheck className="mx-auto mb-1 h-6 w-6 text-primary" />
+        <div className="text-sm font-black">الإدارة العليا</div>
+        <div className="text-[10px] text-muted-foreground">مركز التحكم والحوكمة</div>
+      </div>
+      <svg viewBox="0 0 320 34" className="mx-auto block h-8 w-full max-w-sm" role="img" aria-label="مسارات ربط الإدارة العليا بالأقسام">
+        <path d="M160 0 V13 H32 V33 M160 13 H96 V33 M160 13 V33 M160 13 H224 V33 M160 13 H288 V33" fill="none" stroke="currentColor" strokeOpacity=".35" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        {nodes.map(({title,detail,icon:Icon})=>(
+          <div key={title} className="rounded-xl border border-border bg-background/70 p-3 text-center">
+            <span className="mx-auto mb-2 grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="h-4 w-4"/></span>
+            <div className="text-xs font-black">{title}</div>
+            <div className="mt-1 text-[10px] leading-4 text-muted-foreground">{detail}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
