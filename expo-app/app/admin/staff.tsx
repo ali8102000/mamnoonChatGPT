@@ -6,9 +6,9 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 const ITEMS = [
-  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "rank:general_manager", "users_access"] },
-  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "rank:general_manager", "providers_access"] },
-  { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "rank:general_manager", "orders_access"] },
+  { label: "إدارة المستخدمين", route: "/admin/users", roles: ["super_admin", "admin", "users_access"] },
+  { label: "إدارة مقدمي الخدمة", route: "/admin/providers", roles: ["super_admin", "admin", "providers_access"] },
+  { label: "إدارة الطلبات", route: "/admin/requests", roles: ["super_admin", "admin", "orders_access"] },
   { label: "الاشتراكات والباقات", route: "/admin/subscriptions", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "subscriptions_access"] },
   { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "finance_access"] },
   { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"] },
