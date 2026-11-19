@@ -49,6 +49,7 @@ describe("Iraq-wide local map coverage", () => {
 
   it("keeps Halabja under the Sulaymaniyah selection without adding a separate governorate", () => {
     expect(getGovernorate("sulaymaniyah")?.key).toBe("sulaymaniyah");
-    expect(getGovernorate("halabja")).toBeNull();
+    expect(getGovernorate("halabja")?.key).toBe("sulaymaniyah");
+    expect(getGovernorate("حلبجة")?.key).toBe("sulaymaniyah");
   });
 });
