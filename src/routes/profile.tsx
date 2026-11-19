@@ -38,6 +38,17 @@ type ProviderWallet = { balance: number; total_earned: number; total_commission:
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number; note?: string | null };
 type EarningsSummary = { last24h: number; week: number; month: number; year: number };
 
+function getProviderEarningsQueryStart(): string {
+  const now = new Date();
+  const last24h = now.getTime() - 86400000;
+  const week = new Date(now);
+  week.setHours(0, 0, 0, 0);
+  week.setDate(week.getDate() - ((week.getDay() + 6) % 7));
+  const month = new Date(now.getFullYear(), now.getMonth(), 1);
+  const year = new Date(now.getFullYear(), 0, 1);
+  return new Date(Math.min(last24h, week.getTime(), month.getTime(), year.getTime())).toISOString();
+}
+
 function summarizeProviderEarnings(rows: WalletTransaction[]): EarningsSummary {
   const now = new Date();
   const last24hStart = now.getTime() - 86400000;
@@ -111,7 +122,7 @@ function ProfilePage() {
         return;
       }
       try {
-        const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+        const earningsStart = getProviderEarningsQueryStart();
         const since24Hours = new Date(Date.now() - 86400000).toISOString();
         const [walletResult, recentResult] = await Promise.all([
           (supabase as any).from("driver_wallets").select("balance,total_earned,total_commission").eq("user_id", uid).maybeSingle(),
@@ -125,7 +136,7 @@ function ProfilePage() {
         while (true) {
           const { data, error } = await (supabase as any).from("transactions")
             .select("id,type,created_at,amount").eq("user_id", uid).eq("type", "earning")
-            .gte("created_at", yearStart).order("created_at", { ascending: true })
+            .gte("created_at", earningsStart).order("created_at", { ascending: true })
             .range(offset, offset + 999);
           if (error) throw error;
           const page = (data || []) as WalletTransaction[];
