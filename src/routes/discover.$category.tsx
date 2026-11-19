@@ -27,7 +27,7 @@ function DiscoverCategoryPage(){
    if(cat.data?.title)setTitle(cat.data.title);
    if(rows.error)setError("تعذر تحميل المنتجات حالياً.");
    let visible=(rows.data??[]) as Product[];
-   if(isStore||isRestaurant)visible=visible.filter(p=>(p.profile.promotion_governorates??[]).includes(customerGovernorate??""));
+   if(isStore||isRestaurant){if(!customerGovernorate)setError("حدد محافظتك من ملفك الشخصي حتى نعرض لك المحلات والمطاعم ضمن نطاق محافظتك.");visible=visible.filter(p=>(p.profile.promotion_governorates??[]).includes(customerGovernorate??""));}
    if(isGrocery){
     const distanceKm=(a:number,b:number,c:number,d:number)=>{const rad=(v:number)=>v*Math.PI/180;const x=rad(c-a),y=rad(d-b);const h=Math.sin(x/2)**2+Math.cos(rad(a))*Math.cos(rad(c))*Math.sin(y/2)**2;return 6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));};
     visible=customerLocation?visible.filter(p=>p.profile.business_vertical==="grocery"&&p.profile.promotion_latitude!=null&&p.profile.promotion_longitude!=null&&distanceKm(customerLocation!.latitude,customerLocation!.longitude,p.profile.promotion_latitude!,p.profile.promotion_longitude!)<=Number(p.profile.promotion_radius_km||5)): [];
