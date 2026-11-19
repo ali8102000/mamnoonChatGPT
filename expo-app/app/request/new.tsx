@@ -247,6 +247,7 @@ export default function NewRequest() {
   const nearbySelectionRef = useRef(0);
   const placeSelectionRef = useRef(0);
   const [confirmDestinationPending, setConfirmDestinationPending] = useState(false);
+  const confirmDestinationPendingRef = useRef(false);
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
@@ -602,14 +603,16 @@ export default function NewRequest() {
           : { [vehicleCat]: Number(route.priceEstimate) });
         // If the user tapped confirm while the authoritative quote was loading,
         // complete the confirmation immediately when that quote arrives.
-        if (confirmDestinationPending) {
-          setConfirmDestinationPending(false);
+        if (confirmDestinationPendingRef.current) {
+          confirmDestinationPendingRef.current = false;
+        setConfirmDestinationPending(false);
           setDestinationConfirmed(true);
         }
       } catch (error) {
         if (!active) return;
         setRouteKm(null);
         setRouteDurationMin(null);
+        confirmDestinationPendingRef.current = false;
         setConfirmDestinationPending(false);
         setRouteError(error instanceof Error ? error.message : "تعذّر حساب مسافة الطريق.");
       } finally {
@@ -942,10 +945,12 @@ export default function NewRequest() {
     if (routeLoading || routeKm === null || !pickupGovernorateKey || !destinationGovernorateKey) {
       // Accept the tap immediately; the quote is already running in parallel.
       // Auto-advance as soon as the validated route and fare return.
+      confirmDestinationPendingRef.current = true;
       setConfirmDestinationPending(true);
       return;
     }
-    setConfirmDestinationPending(false);
+    confirmDestinationPendingRef.current = false;
+        setConfirmDestinationPending(false);
     setDestinationConfirmed(true);
   }
 
