@@ -22,6 +22,7 @@ import { useThemePreference } from "@/lib/theme-preference";
 import { getServiceImage } from "@/lib/service-visuals";
 import Svg, { Circle, Path } from "react-native-svg";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
+import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 
 type IncomingRequest = {
@@ -451,7 +452,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
   const tiles = [
     {
       key: "taxi",
-      title: "طلب سيارة",
+      title: "طلب تكسي",
       subtitle: "خلال دقائق",
       emoji: "🚕",
       colors: ["#E9AB2B", "#F97316"] as const,
@@ -569,7 +570,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
               }}
             >
               {tile.key === "service" ? (
-                visuals.home_customer_service?.icon_name ? <Text style={{ fontSize: 34 }}>{visuals.home_customer_service.icon_name}</Text> : <Image source={visuals.home_customer_service?.image_url ? { uri: visuals.home_customer_service.image_url } : getServiceImage("build")} style={{ width: Number(visuals.home_customer_service?.width_px) || 68, height: Number(visuals.home_customer_service?.height_px) || 68 }} resizeMode="cover" />
+                visuals.home_customer_service?.icon_name ? <Text style={{ fontSize: 34 }}>{visuals.home_customer_service.icon_name}</Text> : <ServiceIconPanorama />
               ) : (
                 visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.icon_name ? <Text style={{ fontSize: 30 }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].icon_name}</Text> : <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 54, height: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 42 }} resizeMode="contain" />
               )}
