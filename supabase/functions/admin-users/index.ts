@@ -258,11 +258,24 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "provider_change_requests") {
-      await requirePermission("providers.read");
-      const { data, error } = await admin.from("provider_change_requests")
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("providers.read", "has_provider_ops_access", scopeType, scopeGovernorate);
+
+      let scopedUserIds: string[] | null = null;
+      if (scopeType === "governorate" && scopeGovernorate) {
+        const { data: scopedProfiles, error: scopedProfilesError } = await admin.from("profiles")
+          .select("id").eq("governorate_key", scopeGovernorate);
+        if (scopedProfilesError) return json({ error: "provider_change_requests_load_failed" }, 500);
+        scopedUserIds = (scopedProfiles ?? []).map((profile: any) => profile.id).filter(isUuid);
+        if (!scopedUserIds.length) return json({ requests: [] });
+      }
+
+      let query = admin.from("provider_change_requests")
         .select("*, profiles!provider_change_requests_user_id_fkey(full_name,phone)")
         .eq("status", "pending")
         .order("created_at", { ascending: true });
+      if (scopedUserIds) query = query.in("user_id", scopedUserIds);
+      const { data, error } = await query;
       if (error) return json({ error: "provider_change_requests_load_failed" }, 500);
       const serviceIds = [...new Set((data ?? []).flatMap((row: any) =>
         row.provider_type === "worker" && Array.isArray(row.requested_data?.service_ids)
