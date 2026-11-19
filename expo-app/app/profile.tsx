@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 type AccountWallet = { balance_iqd: number; currency?: string };
+type DriverWallet = { balance: number; total_earned: number; total_commission: number };
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
 type EarningsSummary = { last24h: number; week: number; month: number; year: number };
 
@@ -53,9 +55,14 @@ export default function ProfileScreen() {
   const [walletTopupLoading, setWalletTopupLoading] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [providerEarnings, setProviderEarnings] = useState<EarningsSummary>({ last24h: 0, week: 0, month: 0, year: 0 });
+  const [providerWallet, setProviderWallet] = useState<DriverWallet | null>(null);
+  const [providerTransactions, setProviderTransactions] = useState<WalletTransaction[]>([]);
+  const [providerWalletOffline, setProviderWalletOffline] = useState(false);
   const [showProviderEarningsDetails, setShowProviderEarningsDetails] = useState(false);
   const [staffRank, setStaffRank] = useState<string | null>(null);
   const isGeneralManager = staffRank === "general_manager";
+  void providerWallet;
+  void providerTransactions;
   const hasStaffRank = ["general_manager", "department_manager", "supervisor"].includes(staffRank ?? "");
 
   useEffect(() => {
@@ -139,19 +146,28 @@ export default function ProfileScreen() {
     async function loadProviderEarnings() {
       if (!user?.id || !isProvider) {
         setProviderEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
+        setProviderWallet(null);
+        setProviderTransactions([]);
+        setProviderWalletOffline(false);
         return;
       }
+      const cacheKey = `mamnoon-wallet-v1:${user.id}`;
       try {
         const earningsStart = getProviderEarningsQueryStart();
+        const since24Hours = new Date(Date.now() - 86400000).toISOString();
+        const [walletResult, recentResult] = await Promise.all([
+          supabase.from("driver_wallets").select("balance,total_earned,total_commission").eq("user_id", user.id).maybeSingle(),
+          supabase.from("transactions").select("id,type,created_at,amount").eq("user_id", user.id)
+            .gte("created_at", since24Hours).order("created_at", { ascending: false }).limit(30),
+        ]);
+        if (walletResult.error) throw walletResult.error;
+        if (recentResult.error) throw recentResult.error;
         const earningsRows: WalletTransaction[] = [];
         let offset = 0;
         while (true) {
           const { data, error } = await supabase.from("transactions")
-            .select("id,type,created_at,amount")
-            .eq("user_id", user.id)
-            .eq("type", "earning")
-            .gte("created_at", earningsStart)
-            .order("created_at", { ascending: true })
+            .select("id,type,created_at,amount").eq("user_id", user.id).eq("type", "earning")
+            .gte("created_at", earningsStart).order("created_at", { ascending: true })
             .range(offset, offset + 999);
           if (error) throw error;
           const page = (data || []) as WalletTransaction[];
@@ -159,10 +175,37 @@ export default function ProfileScreen() {
           if (page.length < 1000) break;
           offset += 1000;
         }
-        if (active) setProviderEarnings(summarizeProviderEarnings(earningsRows));
+        const nextWallet = walletResult.data as DriverWallet | null;
+        const nextTransactions = (recentResult.data || []) as WalletTransaction[];
+        const nextEarnings = summarizeProviderEarnings(earningsRows);
+        if (!active) return;
+        setProviderWallet(nextWallet);
+        setProviderTransactions(nextTransactions);
+        setProviderEarnings(nextEarnings);
+        setProviderWalletOffline(false);
+        try {
+          await SecureStore.setItemAsync(cacheKey, JSON.stringify({
+            wallet: nextWallet, transactions: nextTransactions, earnings: nextEarnings, cachedAt: Date.now(),
+          }));
+        } catch (cacheError) {
+          console.warn("[offline] Could not save provider wallet snapshot:", cacheError);
+        }
       } catch (error) {
-        console.warn("[earnings] Could not load provider earnings:", error);
-        if (active) setProviderEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
+        console.warn("[offline] Provider wallet unavailable; restoring saved wallet snapshot.", error);
+        try {
+          const raw = await SecureStore.getItemAsync(cacheKey);
+          const saved = raw ? JSON.parse(raw) : null;
+          if (!active) return;
+          setProviderWallet(saved?.wallet ?? null);
+          setProviderTransactions(Array.isArray(saved?.transactions) ? saved.transactions : []);
+          setProviderEarnings(saved?.earnings ?? { last24h: 0, week: 0, month: 0, year: 0 });
+        } catch {
+          if (!active) return;
+          setProviderWallet(null);
+          setProviderTransactions([]);
+          setProviderEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
+        }
+        if (active) setProviderWalletOffline(true);
       }
     }
     void loadProviderEarnings();
@@ -283,6 +326,7 @@ export default function ProfileScreen() {
             )}
           </View>
           <View style={[styles.walletCard, styles.compactEarningsCard]}>
+            {providerWalletOffline && <View style={styles.walletOfflineNotice}><Text style={styles.walletOfflineText}>بيانات الأرباح المحفوظة معروضة مؤقتاً وقد لا تكون محدثة.</Text></View>}
             <Text style={styles.walletTitle}>أرباحي · آخر ٢٤ ساعة</Text>
             <Text style={styles.compactWalletBalance}>{providerEarnings.last24h.toLocaleString("en")} د.ع</Text>
             <TouchableOpacity style={styles.compactDetailsButton} onPress={() => setShowProviderEarningsDetails((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showProviderEarningsDetails }}>
