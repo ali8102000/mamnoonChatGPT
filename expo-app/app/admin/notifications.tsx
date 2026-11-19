@@ -4,7 +4,6 @@ import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
-import { getAdminStaffRoles } from "@/lib/admin-access";
 import { IRAQ_GOVERNORATES } from "@/lib/governorates";
 
 type Target = "all" | "drivers" | "large_drivers" | "workers" | "customers" | "governorate" | "single";
@@ -21,6 +20,7 @@ const TARGETS: { value: Target; label: string }[] = [
 export default function AdminNotificationsScreen() {
   const { user, loading: authLoading } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [scopedGovernorate, setScopedGovernorate] = useState<string | null>(null);
   const [target, setTarget] = useState<Target>("all");
   const [userId, setUserId] = useState("");
   const [governorateKey, setGovernorateKey] = useState("najaf");
@@ -46,8 +46,28 @@ export default function AdminNotificationsScreen() {
     if (!user?.id) { setAllowed(false); return; }
     void (async () => {
       try {
-        const roles = await getAdminStaffRoles(user.id);
-        setAllowed(roles.some((role: string) => ["super_admin", "admin", "support", "finance", "moderator"].includes(role)));
+        const [admin, assignment] = await Promise.all([
+          supabase.rpc("has_admin_access", { p_user_id: user.id }),
+          (supabase as any).from("staff_assignments")
+            .select("scope_type,scope_governorate")
+            .eq("user_id", user.id).eq("active", true).maybeSingle(),
+        ]);
+        if (admin.error || assignment.error) throw admin.error ?? assignment.error;
+        const isPlatformAdmin = admin.data === true;
+        const scopeType = assignment.data?.scope_type === "governorate" ? "governorate" : "global";
+        const scopeGovernorate = scopeType === "governorate" ? assignment.data?.scope_governorate ?? null : null;
+        const { data: canSend, error: permissionError } = await (supabase as any).rpc("admin_has_permission", {
+          p_permission_key: "notifications.send",
+          p_scope_type: scopeType,
+          p_scope_governorate: scopeGovernorate,
+        });
+        if (permissionError) throw permissionError;
+        setScopedGovernorate(!isPlatformAdmin && canSend === true && scopeType === "governorate" ? scopeGovernorate : null);
+        if (!isPlatformAdmin && canSend === true && scopeType === "governorate" && scopeGovernorate) {
+          setTarget("governorate");
+          setGovernorateKey(scopeGovernorate);
+        }
+        setAllowed(isPlatformAdmin || canSend === true);
       } catch {
         setAllowed(false);
       }
@@ -87,8 +107,8 @@ export default function AdminNotificationsScreen() {
         <Text style={s.title}>إرسال إشعار من إدارة ممنون</Text>
         <Text style={s.muted}>اختر الفئة واكتب عنوان الإشعار ونصه. سيظهر للمستخدم داخل التطبيق.</Text>
         <Text style={s.label}>الهدف</Text>
-        <View style={s.targets}>{TARGETS.map((item) => <TouchableOpacity key={item.value} onPress={() => setTarget(item.value)} style={[s.target, target === item.value && s.targetActive]}><Text style={[s.targetText, target === item.value && s.targetTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
-        {target === "governorate" && <><Text style={s.label}>المحافظة المستهدفة</Text><View style={s.targets}>{IRAQ_GOVERNORATES.map((gov:any) => <TouchableOpacity key={gov.key} onPress={() => setGovernorateKey(gov.key)} style={[s.target, governorateKey === gov.key && s.targetActive]}><Text style={[s.targetText, governorateKey === gov.key && s.targetTextActive]}>{gov.name}</Text></TouchableOpacity>)}</View></>}
+        <View style={s.targets}>{TARGETS.filter((item) => !scopedGovernorate || item.value === "governorate" || item.value === "single").map((item) => <TouchableOpacity key={item.value} onPress={() => setTarget(item.value)} style={[s.target, target === item.value && s.targetActive]}><Text style={[s.targetText, target === item.value && s.targetTextActive]}>{item.label}</Text></TouchableOpacity>)}</View>
+        {target === "governorate" && <><Text style={s.label}>المحافظة المستهدفة</Text><View style={s.targets}>{IRAQ_GOVERNORATES.filter((gov:any) => !scopedGovernorate || gov.key === scopedGovernorate).map((gov:any) => <TouchableOpacity key={gov.key} disabled={!!scopedGovernorate} onPress={() => setGovernorateKey(gov.key)} style={[s.target, governorateKey === gov.key && s.targetActive]}><Text style={[s.targetText, governorateKey === gov.key && s.targetActive && s.targetTextActive]}>{gov.name}</Text></TouchableOpacity>)}</View></>}
         {target === "single" && <><Text style={s.label}>معرّف المستخدم UUID</Text><TextInput value={userId} onChangeText={setUserId} autoCapitalize="none" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" placeholderTextColor={palette.muted} style={s.input}/></>}
         <Text style={s.label}>عنوان الإشعار</Text>
         <TextInput value={title} onChangeText={setTitle} maxLength={200} placeholder="عنوان واضح ومختصر" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
