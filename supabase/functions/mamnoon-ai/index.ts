@@ -23,7 +23,7 @@ async function findPublicCatalog(admin: any, query: string) {
   const term = normalizeQuery(query);
   if (term.length < 2) return { businesses: [], products: [], menu: [], rooms: [] };
   const pattern = `%${term}%`;
-  const [businesses, catalogue] = await Promise.all([
+  const [businesses, catalogue, serviceTypes] = await Promise.all([
     admin.from("partner_business_profiles")
       .select("id,partner_type,business_name,governorate_key,city,address,description,phone")
       .eq("is_published", true).ilike("business_name", pattern).limit(5),
@@ -33,9 +33,11 @@ async function findPublicCatalog(admin: any, query: string) {
       .eq("partner_business_profiles.is_published", true)
       .ilike("name", pattern)
       .limit(12),
+    admin.from("services").select("slug,name_ar,name_en,icon").order("sort_order", { ascending: true }).limit(100),
   ]);
   const items = catalogue.error ? [] : catalogue.data ?? [];
   return {
+    serviceTypes: serviceTypes.error ? [] : serviceTypes.data ?? [],
     businesses: businesses.error ? [] : businesses.data ?? [],
     products: items.filter((item: any) => item.item_type === "product"),
     menu: items.filter((item: any) => item.item_type === "menu_item"),
@@ -138,7 +140,7 @@ Deno.serve(async (req: Request) => {
           role: "user",
           parts: [{ text: `سؤال المستخدم: ${message}\n\nبيانات الكتالوج العام المنشور في ممنون (قد تكون فارغة): ${context}` }],
         }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 500, responseMimeType: "application/json" },
       }),
       });
     };
