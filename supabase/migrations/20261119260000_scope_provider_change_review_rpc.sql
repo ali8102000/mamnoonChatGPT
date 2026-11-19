@@ -29,7 +29,7 @@ BEGIN
 
   SELECT governorate_key INTO v_governorate
   FROM public.profiles WHERE id=r.user_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'provider_user_not_found'; END IF;
+  IF NOT FOUND THEN RAISE EXCEPTION 'change_request_unavailable'; END IF;
 
   IF auth.uid() IS NULL OR NOT (
     public.has_admin_access(auth.uid())
