@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
     const requireRequestPermission = async (permissionKey: string, requestId: string) => {
       const { data: request, error } = await admin.from("service_requests")
         .select("governorate_key").eq("id", requestId).maybeSingle();
-      if (error || !request) throw new Error("request_not_found");
+      if (error || !request) throw new Error("permission_required:" + permissionKey);
       const governorate = request.governorate_key ?? null;
       await requirePermission(permissionKey, governorate ? "governorate" : "global", governorate);
     };
@@ -217,7 +217,7 @@ Deno.serve(async (req: Request) => {
       }
       const { data: existingProfile, error: existingProfileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (existingProfileError || !existingProfile) return json({ error: "user_not_found" }, 404);
+      if (existingProfileError || !existingProfile) throw new Error("permission_required:users.profile.edit");
       const oldGovernorate = existingProfile.governorate_key ?? null;
       await requirePermission("users.profile.edit", oldGovernorate ? "governorate" : "global", oldGovernorate);
       if (governorateKey !== oldGovernorate) {
@@ -260,7 +260,7 @@ Deno.serve(async (req: Request) => {
       }
       const { data: targetProfile, error: profileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (profileError || !targetProfile) return json({ error: "provider_user_not_found" }, 404);
+      if (profileError || !targetProfile) throw new Error("permission_required:providers.profile.edit");
       const governorate = targetProfile.governorate_key ?? null;
       await requirePermission("providers.profile.edit", governorate ? "governorate" : "global", governorate);
       const [driver, worker] = await Promise.all([
@@ -283,10 +283,10 @@ Deno.serve(async (req: Request) => {
       if (body.status === "rejected" && !reason) return json({ error: "rejection_reason_required" }, 400);
       const { data: request, error: requestError } = await admin.from("provider_change_requests")
         .select("user_id").eq("id", body.request_id).maybeSingle();
-      if (requestError || !request?.user_id) return json({ error: "provider_change_request_not_found" }, 404);
+      if (requestError || !request?.user_id) throw new Error("permission_required:providers.verify");
       const { data: profile, error: profileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", request.user_id).maybeSingle();
-      if (profileError || !profile) return json({ error: "provider_user_not_found" }, 404);
+      if (profileError || !profile) throw new Error("permission_required:providers.verify");
       const governorate = profile.governorate_key ?? null;
       await requirePermission("providers.verify", governorate ? "governorate" : "global", governorate);
       const { error } = await caller.rpc("admin_review_provider_change_request", {
@@ -548,7 +548,7 @@ Deno.serve(async (req: Request) => {
       }
       const { data: targetProfile, error: targetProfileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (targetProfileError || !targetProfile) return json({ error: "provider_user_not_found" }, 404);
+      if (targetProfileError || !targetProfile) throw new Error("permission_required:providers.verify");
       const governorate = targetProfile.governorate_key ?? null;
       await requirePermission(
         body.status === "suspended" ? "providers.suspend" : "providers.verify",
@@ -679,7 +679,7 @@ Deno.serve(async (req: Request) => {
       }
       const { data: targetProfile, error: profileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (profileError || !targetProfile) return json({ error: "user_not_found" }, 404);
+      if (profileError || !targetProfile) throw new Error("permission_required:users.block");
       const governorate = targetProfile.governorate_key ?? null;
       await requirePermission("users.block", governorate ? "governorate" : "global", governorate);
       const minutes: Record<string, number> = { "1_hour": 60, "1_day": 1440, "1_week": 10080, "1_month": 43200 };
@@ -696,7 +696,7 @@ Deno.serve(async (req: Request) => {
       if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
       const { data: targetProfile, error: profileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
-      if (profileError || !targetProfile) return json({ error: "user_not_found" }, 404);
+      if (profileError || !targetProfile) throw new Error("permission_required:users.unblock");
       const governorate = targetProfile.governorate_key ?? null;
       await requirePermission("users.unblock", governorate ? "governorate" : "global", governorate);
       const { error } = await caller.rpc("admin_unblock_user", { p_user_id: body.user_id });
@@ -795,10 +795,10 @@ Deno.serve(async (req: Request) => {
       }
       const { data: report, error: reportError } = await admin.from("user_reports")
         .select("reported_id").eq("id", body.report_id).maybeSingle();
-      if (reportError || !report) throw new Error("report_unavailable");
+      if (reportError || !report) throw new Error("permission_required:reports.resolve");
       const { data: profile, error: profileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", report.reported_id).maybeSingle();
-      if (profileError || !profile) throw new Error("report_unavailable");
+      if (profileError || !profile) throw new Error("permission_required:reports.resolve");
       const governorate = profile.governorate_key ?? null;
       const staffScope = await getStaffScope();
       await requireScopedPermissionWithLegacy(
