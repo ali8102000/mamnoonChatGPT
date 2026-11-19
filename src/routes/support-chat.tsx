@@ -108,7 +108,12 @@ function SupportChatPage() {
     const channel = supabase.channel("support-" + selected.id)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: "conversation_id=eq." + selected.id }, (payload: any) => {
         setMessages((current) => current.some((m) => m.id === payload.new.id) ? current : [...current, payload.new]);
-        if (payload.new.is_ai === true && !isStaff) {\n          notifyIncoming(payload.new);\n        } else if (payload.new.is_ai !== true && payload.new.sender_id !== uid) {\n          notifyIncoming(payload.new);\n          (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});\n        }
+        if (payload.new.is_ai === true && !isStaff) {
+          notifyIncoming(payload.new);
+        } else if (payload.new.is_ai !== true && payload.new.sender_id !== uid) {
+          notifyIncoming(payload.new);
+          (supabase as any).from("support_messages").update({ read_at: new Date().toISOString() }).eq("id", payload.new.id).then(() => {});
+        }
         loadConversations().catch(() => {});
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -158,7 +163,13 @@ function SupportChatPage() {
     const { data: sentMessage, error } = await (supabase as any).from("support_messages").insert({ conversation_id: selected.id, sender_id: uid, body }).select("*").single();
     setBusy(false);
     if (error) { setDraft(body); toast.error(error.message); }
-    else if (sentMessage) {\n      setMessages((current) => current.some((m) => m.id === sentMessage.id) ? current : [...current, sentMessage]);\n      if (!isStaff) {\n        const { error: aiError } = await supabase.functions.invoke("support-ai-reply", { body: { message_id: sentMessage.id } });\n        if (aiError) console.warn("Support AI reply unavailable; staff can answer from inbox.", aiError.message);\n      }\n    }
+    else if (sentMessage) {
+      setMessages((current) => current.some((m) => m.id === sentMessage.id) ? current : [...current, sentMessage]);
+      if (!isStaff) {
+        const { error: aiError } = await supabase.functions.invoke("support-ai-reply", { body: { message_id: sentMessage.id } });
+        if (aiError) console.warn("Support AI reply unavailable; staff can answer from inbox.", aiError.message);
+      }
+    }
   }
 
   return <div className="min-h-screen bg-background p-4 md:p-8">
