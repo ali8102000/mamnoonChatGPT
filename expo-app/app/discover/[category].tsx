@@ -32,7 +32,7 @@ export default function DiscoverCategoryScreen() {
     if (queryError) setError("تعذر تحميل المنشآت حالياً. حاول تحديث الصفحة.");
     setItems((data ?? []) as Business[]);
     setLoading(false);
-  }, [category?.title, rawCategory]);
+  }, [category]);
 
   useEffect(() => { void load(); }, [load]);
 
