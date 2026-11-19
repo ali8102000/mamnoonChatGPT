@@ -68,7 +68,7 @@ export default function AdminStaffScreen() {
         }));
         if (permissionKeys.slice(0, 5).some((_, index) => permissionChecks[index])) names.push("governance_access");
         const hasPermission = (key: string) => permissionChecks[permissionKeys.indexOf(key)] === true;
-        if (hasPermission("finance.read") && hasPermission("promotions.read")) names.push("finance_access");
+        if (scopeType === "global" && hasPermission("finance.read") && hasPermission("promotions.read")) names.push("finance_access");
         if (hasPermission("notifications.send")) names.push("notifications_access");
         const { data: canManageSubscriptions } = await (supabase as any).rpc("admin_has_permission", {
           p_permission_key: "subscriptions.manage", p_scope_type: "global", p_scope_governorate: null,
