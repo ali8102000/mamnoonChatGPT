@@ -30,7 +30,7 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
-    shouldPlaySound: Platform.OS === "android" ? true : isNotificationSoundEnabled(),
+    shouldPlaySound: isNotificationSoundEnabled(),
     shouldSetBadge: true,
   }),
 });
