@@ -57,12 +57,12 @@ export default function DiscoverCategoryScreen() {
     setLocation(currentLocation);
 
     if (vertical && !categoryKey) {
+      let businessQuery = (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]);
+      if (vertical !== "hotel") businessQuery = businessQuery.eq("business_vertical", vertical);
       const [categoryResult, businessResult] = await Promise.all([
         (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").eq("vertical", vertical).eq("is_active", true).order("sort_order"),
-        (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]).eq("business_vertical", vertical).order("business_name"),
+        businessQuery.order("business_name"),
       ]);
-      if (vertical !== "hotel") businessResult = await businessResult.eq("business_vertical", vertical);
-      businessResult = await businessResult.order("business_name");
       if (categoryResult.error || businessResult.error) setError("تعذر تحميل القسم حالياً.");
       setCategories((categoryResult.data ?? []) as Category[]);
       setItems(sortByNearest((businessResult.data ?? []) as Business[], currentLocation));
