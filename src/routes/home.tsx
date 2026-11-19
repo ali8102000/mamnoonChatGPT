@@ -252,6 +252,7 @@ function CustomerHome() {
           iconBoxSize={Math.max(Number(visuals.home_customer_large_vehicle?.width_px) || 48, 48)}
           sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
           gradient="from-orange-500 to-amber-600"
+          span={2}
           delay={0.15}
         />
         <div dir="rtl" className="col-span-2 min-w-0">

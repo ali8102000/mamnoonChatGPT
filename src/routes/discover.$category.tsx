@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, MapPin, RefreshCw, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +47,7 @@ function DiscoverCategoryPage() {
   const [location, setLocation] = useState<Coordinates | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const categoryStripRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -91,6 +92,17 @@ function DiscoverCategoryPage() {
   }, [raw, categoryKey, vertical, isGrocery]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (categories.length < 2) return;
+    const timer = window.setInterval(() => {
+      const node = categoryStripRef.current;
+      if (!node) return;
+      const max = node.scrollWidth - node.clientWidth;
+      if (max <= 0) return;
+      node.scrollTo({ left: node.scrollLeft >= max - 4 ? 0 : node.scrollLeft + 132, behavior: "smooth" });
+    }, 3200);
+    return () => window.clearInterval(timer);
+  }, [categories]);
   const distanceLabel = (lat: number | null, lng: number | null) => location && lat != null && lng != null ? `يبعد ${distanceKm(location, { latitude: lat, longitude: lng }).toFixed(1)} كم` : "";
 
   return <MobileShell><main dir="rtl" className="mx-auto min-h-[75vh] max-w-3xl space-y-5 px-4 pb-12 pt-6">
@@ -98,7 +110,7 @@ function DiscoverCategoryPage() {
     <section className="rounded-3xl bg-gradient-to-br from-primary to-primary-glow p-6 text-primary-foreground"><div className="flex items-center gap-3"><Store className="h-8 w-8" /><div><h1 className="text-2xl font-black">{title}</h1><p className="mt-1 text-sm opacity-90">{categoryKey ? "المنتجات المنشورة ضمن هذه الفئة" : "اختار القسم اللي تريده وتصفح الأقرب إلك"}</p></div></div><p className="mt-4 text-xs opacity-80">{categoryKey ? products.length : items.length} {categoryKey ? "منتج" : "منشأة"}</p></section>
     {!location && !loading && <p className="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">فعّل إذن الموقع حتى نرتّب النتائج حسب الأقرب إلك. ما تحتاج تحدد محافظتك.</p>}
     {loading ? <div className="rounded-2xl border p-8 text-center text-sm">جارٍ تحديد موقعك وتحميل الأقرب...</div> : error ? <div role="alert" className="rounded-2xl border border-destructive/30 p-5 text-sm text-destructive">{error}<button onClick={() => void load()} className="mr-3 inline-flex items-center gap-1 font-bold"><RefreshCw className="h-3.5 w-3.5" /> إعادة المحاولة</button></div> : <>
-      {categories.length > 0 && <section className="space-y-3"><h2 className="font-black">الأقسام</h2><div className="grid grid-cols-3 gap-3 sm:grid-cols-4">{categories.map(c => <Link key={c.category_key} to="/discover/$category" params={{ category: c.vertical + "-" + c.category_key }} className="flex flex-col items-center gap-2 rounded-2xl border bg-card p-2 text-center shadow-sm"><img src={c.image_url} alt="" loading="lazy" className="h-20 w-full rounded-xl object-cover" /><span className="text-xs font-black">{c.title}</span></Link>)}</div></section>}
+      {categories.length > 0 && <section className="space-y-2"><h2 className="font-black">الأقسام</h2><div ref={categoryStripRef} dir="rtl" className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{categories.map(c => <Link key={c.category_key} to="/discover/$category" params={{ category: c.vertical + "-" + c.category_key }} className="relative h-[68px] w-[132px] shrink-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm"><img src={c.image_url} alt={c.title} loading="lazy" className="h-full w-full object-cover" /><span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-2 py-1 text-right text-[11px] font-black text-white">{c.title}</span></Link>)}</div></section>}
       {categoryKey ? products.length === 0 ? <div className="rounded-2xl border border-dashed p-8 text-center"><h2 className="font-black">ماكو منتجات منشورة بهذه الفئة حالياً</h2></div> : <div className="grid gap-3 sm:grid-cols-2">{products.map(p => <Link key={p.id} to="/partner/$id" params={{ id: p.profile.id }} className="overflow-hidden rounded-2xl border bg-card">{p.image_urls?.[0] ? <img src={p.image_urls[0]} alt={p.name} loading="lazy" className="h-44 w-full object-cover" /> : <div className="h-24 bg-muted" />}<div className="space-y-2 p-4"><h2 className="font-black">{p.name}</h2>{p.description && <p className="line-clamp-2 text-xs text-muted-foreground">{p.description}</p>}<strong className="text-sm text-primary">{Number(p.price_amount).toLocaleString("ar-IQ")} {p.currency === "USD" ? "$" : "د.ع"}</strong><p className="text-[11px] text-muted-foreground">{p.profile.business_name} · {p.profile.city}</p></div></Link>)}</div> : items.length === 0 ? <div className="rounded-2xl border border-dashed p-8 text-center"><h2 className="font-black">ماكو منشآت منشورة حالياً</h2></div> : <div className="grid gap-3 sm:grid-cols-2">{items.map(item => <Link key={item.id} to="/partner/$id" params={{ id: item.id }} className="rounded-2xl border bg-card p-4"><div className="flex items-center justify-between gap-2"><span className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-black text-primary">{item.partner_type === "hotel" ? "فندق" : item.partner_type === "restaurant" ? "مطعم" : item.partner_type === "mall" ? "مول" : "متجر"}</span><h2 className="text-base font-black">{item.business_name}</h2></div><p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3.5 w-3.5" />{item.city} · {item.address}</p>{distanceLabel(item.promotion_latitude, item.promotion_longitude) && <p className="mt-1 text-xs font-bold text-primary">{distanceLabel(item.promotion_latitude, item.promotion_longitude)}</p>}{item.description && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}<p className="mt-3 text-xs font-black text-primary">عرض المحتويات ←</p></Link>)}</div>}
     </>}
   </main></MobileShell>;
