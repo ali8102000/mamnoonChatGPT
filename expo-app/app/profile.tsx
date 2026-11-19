@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
-type CustomerWallet = { balance: number; currency?: string };
+type AccountWallet = { balance_iqd: number; currency?: string };
 type DriverWallet = { balance: number; total_earned: number; total_commission: number };
 type WalletTransaction = { id: string; type: string; created_at: string; amount: number };
 type EarningsSummary = { last24h: number; week: number; month: number; year: number };
@@ -49,20 +49,20 @@ export default function ProfileScreen() {
   const { user, profile, roles, activeRole, signOut, refresh } = useAuth();
   const isProvider = activeRole !== "customer" && (roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver"));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [wallet, setWallet] = useState<CustomerWallet | null>(null);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [showWalletDetails, setShowWalletDetails] = useState(false);
+  const [accountWallet, setAccountWallet] = useState<AccountWallet | null>(null);
+  const [accountWalletTransactions, setAccountWalletTransactions] = useState<any[]>([]);
+  const [accountWalletOffline, setAccountWalletOffline] = useState(false);
+  const [walletTopupLoading, setWalletTopupLoading] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
-  const [walletOffline, setWalletOffline] = useState(false);
+  const [providerEarnings, setProviderEarnings] = useState<EarningsSummary>({ last24h: 0, week: 0, month: 0, year: 0 });
   const [providerWallet, setProviderWallet] = useState<DriverWallet | null>(null);
   const [providerTransactions, setProviderTransactions] = useState<WalletTransaction[]>([]);
-  const [providerEarnings, setProviderEarnings] = useState<EarningsSummary>({ last24h: 0, week: 0, month: 0, year: 0 });
-  const [showProviderEarningsDetails, setShowProviderEarningsDetails] = useState(false);
-  const [showProviderWalletDetails, setShowProviderWalletDetails] = useState(false);
-  const [showProviderRecentTransactions, setShowProviderRecentTransactions] = useState(false);
   const [providerWalletOffline, setProviderWalletOffline] = useState(false);
+  const [showProviderEarningsDetails, setShowProviderEarningsDetails] = useState(false);
   const [staffRank, setStaffRank] = useState<string | null>(null);
   const isGeneralManager = staffRank === "general_manager";
+  void providerWallet;
+  void providerTransactions;
   const hasStaffRank = ["general_manager", "department_manager", "supervisor"].includes(staffRank ?? "");
 
   useEffect(() => {
@@ -86,59 +86,68 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     let active = true;
-    async function load() {
-      if (!user?.id || activeRole !== "customer") {
-        setWallet(null);
-        setTransactions([]);
-        setWalletOffline(false);
+    const loadAccountWallet = async () => {
+      if (!user?.id) {
+        setAccountWallet(null);
+        setAccountWalletTransactions([]);
         return;
       }
-      const cacheKey = `mamnoon-customer-wallet-v2:${user.id}`;
       try {
-        const { data, error } = await (supabase as any).rpc("get_my_customer_wallet");
+        const { data, error } = await (supabase as any).rpc("get_my_account_wallet");
         if (error) throw error;
-        const nextWallet = (data?.wallet ?? null) as CustomerWallet | null;
-        const nextTransactions = (Array.isArray(data?.transactions) ? data.transactions : []) as WalletTransaction[];
         if (!active) return;
-        setWallet(nextWallet);
-        setTransactions(nextTransactions);
-        setWalletOffline(false);
-        try {
-          await SecureStore.setItemAsync(cacheKey, JSON.stringify({
-            wallet: nextWallet,
-            transactions: nextTransactions,
-            cachedAt: Date.now(),
-          }));
-        } catch (cacheError) {
-          console.warn("[offline] Could not save wallet snapshot:", cacheError);
-        }
+        setAccountWallet(data?.wallet ?? null);
+        setAccountWalletTransactions(Array.isArray(data?.transactions) ? data.transactions : []);
+        setAccountWalletOffline(false);
       } catch (error) {
-        console.warn("[offline] Wallet unavailable; restoring saved wallet snapshot.", error);
-        try {
-          const raw = await SecureStore.getItemAsync(cacheKey);
-          const saved = raw ? JSON.parse(raw) : null;
-          if (!active) return;
-          setWallet(saved?.wallet ?? null);
-          setTransactions(Array.isArray(saved?.transactions) ? saved.transactions : []);
-        } catch {
-          if (!active) return;
-          setWallet(null);
-          setTransactions([]);
-        }
-        if (active) setWalletOffline(true);
+        console.warn("[wallet] Universal account wallet unavailable:", error);
+        if (!active) return;
+        setAccountWallet(null);
+        setAccountWalletTransactions([]);
+        setAccountWalletOffline(true);
       }
+    };
+    void loadAccountWallet();
+    if (!user?.id) return () => { active = false; };
+    const channel = supabase.channel(`account-wallet-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "account_wallets", filter: `user_id=eq.${user.id}` }, () => { void loadAccountWallet(); })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "account_wallet_transactions", filter: `user_id=eq.${user.id}` }, () => { void loadAccountWallet(); })
+      .subscribe();
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, [user?.id]);
+
+  async function handleWalletTopup(amountIQD: number) {
+    if (walletTopupLoading) return;
+    setWalletTopupLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("zaincash-create-payment", {
+        body: { purpose: "wallet_topup", amountIQD },
+      });
+      if (error) throw error;
+      if (!data?.redirectUrl) throw new Error(data?.error || "تعذر إنشاء رابط الدفع");
+      await Linking.openURL(data.redirectUrl);
+    } catch (error: any) {
+      Alert.alert("تعذر بدء الشحن", error?.message || "تأكد من تفعيل بوابة زين كاش ثم حاول مرة ثانية.");
+    } finally {
+      setWalletTopupLoading(false);
     }
-    void load();
-    return () => { active = false; };
-  }, [user?.id, activeRole]);
+  }
+
+  function chooseWalletTopup() {
+    Alert.alert("شحن محفظة ممنون", "اختار مبلغ الشحن بالدينار العراقي", [
+      { text: "٥٬٠٠٠ د.ع", onPress: () => { void handleWalletTopup(5000); } },
+      { text: "١٠٬٠٠٠ د.ع", onPress: () => { void handleWalletTopup(10000); } },
+      { text: "٢٥٬٠٠٠ د.ع", onPress: () => { void handleWalletTopup(25000); } },
+    ]);
+  }
 
   useEffect(() => {
     let active = true;
-    async function loadProviderWallet() {
+    async function loadProviderEarnings() {
       if (!user?.id || !isProvider) {
+        setProviderEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
         setProviderWallet(null);
         setProviderTransactions([]);
-        setProviderEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
         setProviderWalletOffline(false);
         return;
       }
@@ -153,7 +162,6 @@ export default function ProfileScreen() {
         ]);
         if (walletResult.error) throw walletResult.error;
         if (recentResult.error) throw recentResult.error;
-
         const earningsRows: WalletTransaction[] = [];
         let offset = 0;
         while (true) {
@@ -200,7 +208,7 @@ export default function ProfileScreen() {
         if (active) setProviderWalletOffline(true);
       }
     }
-    void loadProviderWallet();
+    void loadProviderEarnings();
     return () => { active = false; };
   }, [user?.id, isProvider]);
 
@@ -291,40 +299,34 @@ export default function ProfileScreen() {
           </View>
         ))}
       </View>
-      {isProvider && (
+      {isProvider ? (
         <View style={styles.walletEarningsRow}>
           <View style={[styles.walletCard, styles.compactWalletCard]}>
-            {providerWalletOffline && <View style={styles.walletOfflineNotice}><Text style={styles.walletOfflineText}>بيانات محفوظة وقد لا تكون محدثة.</Text></View>}
+            {accountWalletOffline && <View style={styles.walletOfflineNotice}><Text style={styles.walletOfflineText}>تعذر تحديث الرصيد من الخادم حالياً.</Text></View>}
             <Text style={styles.walletTitle}>💳 محفظتي</Text>
-            <Text style={styles.compactWalletBalance}>{(providerWallet?.balance || 0).toLocaleString("en")} د.ع</Text>
-            <TouchableOpacity style={styles.compactDetailsButton} onPress={() => setShowProviderWalletDetails((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showProviderWalletDetails }}>
-              <Text style={styles.walletDetailsButtonText}>{showProviderWalletDetails ? "إخفاء" : "تفاصيل المحفظة"}</Text>
-              <Text style={styles.walletDetailsArrow}>{showProviderWalletDetails ? "⌄" : "←"}</Text>
+            <Text style={styles.compactWalletBalance}>{(accountWallet?.balance_iqd || 0).toLocaleString("en")} د.ع</Text>
+            <TouchableOpacity style={styles.compactDetailsButton} onPress={chooseWalletTopup} disabled={walletTopupLoading}>
+              <Text style={styles.walletDetailsButtonText}>{walletTopupLoading ? "جارٍ التجهيز..." : "شحن عبر زين كاش"}</Text>
             </TouchableOpacity>
-            {showProviderWalletDetails && (
+            <TouchableOpacity style={styles.compactDetailsButton} onPress={() => setShowRecentTransactions((v) => !v)}>
+              <Text style={styles.walletDetailsButtonText}>{showRecentTransactions ? "إخفاء الحركات" : "سجل الحركات"}</Text>
+            </TouchableOpacity>
+            {showRecentTransactions && (
               <View style={styles.walletDetails}>
-                <View style={styles.walletStats}>
-                  <View style={{ flex: 1 }}><Text style={styles.walletStatLabel}>إجمالي الأرباح</Text><Text style={styles.walletStatValue}>{(providerWallet?.total_earned || 0).toLocaleString("en")} د.ع</Text></View>
-                  <View style={{ flex: 1 }}><Text style={styles.walletStatLabel}>العمولة</Text><Text style={styles.walletStatValue}>{(providerWallet?.total_commission || 0).toLocaleString("en")} د.ع</Text></View>
-                </View>
-                <TouchableOpacity style={styles.recentTransactionsButton} onPress={() => setShowProviderRecentTransactions((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showProviderRecentTransactions }}>
-                  <Text style={styles.recentTransactionsText}>حركات آخر ٢٤ ساعة</Text>
-                  <Text style={styles.walletDetailsArrow}>{showProviderRecentTransactions ? "⌄" : "←"}</Text>
-                </TouchableOpacity>
-                {showProviderRecentTransactions && (
-                  <View style={styles.recentTransactionsList}>
-                    {providerTransactions.length === 0 ? <Text style={styles.emptyTransactions}>ماكو حركات مالية خلال آخر ٢٤ ساعة</Text> : providerTransactions.map((txn) => (
-                      <View key={txn.id} style={styles.txnCard}>
-                        <View style={{ flex: 1 }}><Text style={styles.txnType}>{txn.type === "earning" ? "أرباح" : txn.type === "commission" ? "عمولة" : txn.type === "withdrawal" ? "سحب" : txn.type === "refund" ? "استرجاع" : "تسوية"}</Text><Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text></View>
-                        <Text style={[styles.txnAmount, { color: txn.amount >= 0 ? "#16a34a" : "#dc2626" }]}>{txn.amount >= 0 ? "+" : "-"}{Math.abs(txn.amount || 0).toLocaleString("en")} د.ع</Text>
-                      </View>
-                    ))}
+                {accountWalletTransactions.length === 0 ? <Text style={styles.emptyTransactions}>لا توجد حركات مالية حالياً</Text> : accountWalletTransactions.map((txn) => (
+                  <View key={txn.id} style={styles.txnCard}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.txnType}>{txn.type === "zaincash_topup" || txn.type === "topup" ? "شحن رصيد" : txn.type === "payment" ? "دفع" : txn.type === "deduction" ? "استقطاع" : txn.type === "refund" ? "استرجاع" : txn.type}</Text>
+                      <Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text>
+                    </View>
+                    <Text style={[styles.txnAmount, { color: Number(txn.amount_iqd) >= 0 ? "#16a34a" : "#dc2626" }]}>{Number(txn.amount_iqd) >= 0 ? "+" : "-"}{Math.abs(Number(txn.amount_iqd) || 0).toLocaleString("en")} د.ع</Text>
                   </View>
-                )}
+                ))}
               </View>
             )}
           </View>
           <View style={[styles.walletCard, styles.compactEarningsCard]}>
+            {providerWalletOffline && <View style={styles.walletOfflineNotice}><Text style={styles.walletOfflineText}>بيانات الأرباح المحفوظة معروضة مؤقتاً وقد لا تكون محدثة.</Text></View>}
             <Text style={styles.walletTitle}>أرباحي · آخر ٢٤ ساعة</Text>
             <Text style={styles.compactWalletBalance}>{providerEarnings.last24h.toLocaleString("en")} د.ع</Text>
             <TouchableOpacity style={styles.compactDetailsButton} onPress={() => setShowProviderEarningsDetails((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showProviderEarningsDetails }}>
@@ -340,23 +342,26 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
-      )}
-      {activeRole === "customer" && (
+      ) : (
         <View style={[styles.walletCard, styles.customerWalletCard]}>
-          {walletOffline && <View style={styles.walletOfflineNotice}><Text style={styles.walletOfflineText}>بيانات محفوظة من آخر اتصال وقد لا تكون محدثة.</Text></View>}
+          {accountWalletOffline && <View style={styles.walletOfflineNotice}><Text style={styles.walletOfflineText}>تعذر تحديث الرصيد من الخادم حالياً.</Text></View>}
           <Text style={styles.walletTitle}>💳 محفظتي</Text>
-          <Text style={styles.compactWalletBalance}>{(wallet?.balance || 0).toLocaleString("en")} د.ع</Text>
-          <Text style={styles.walletPendingNotice}>شحن الرصيد والسحب عبر زين كاش يتفعّلان بعد ربط مفاتيح التاجر الرسمية.</Text>
-          <TouchableOpacity style={styles.compactDetailsButton} onPress={() => setShowWalletDetails((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showWalletDetails }}>
-            <Text style={styles.walletDetailsButtonText}>{showWalletDetails ? "إخفاء التفاصيل" : "سجل حركات المحفظة"}</Text>
-            <Text style={styles.walletDetailsArrow}>{showWalletDetails ? "⌄" : "←"}</Text>
+          <Text style={styles.compactWalletBalance}>{(accountWallet?.balance_iqd || 0).toLocaleString("en")} د.ع</Text>
+          <TouchableOpacity style={styles.compactDetailsButton} onPress={chooseWalletTopup} disabled={walletTopupLoading}>
+            <Text style={styles.walletDetailsButtonText}>{walletTopupLoading ? "جارٍ التجهيز..." : "شحن المحفظة عبر زين كاش"}</Text>
           </TouchableOpacity>
-          {showWalletDetails && (
+          <TouchableOpacity style={styles.compactDetailsButton} onPress={() => setShowRecentTransactions((v) => !v)}>
+            <Text style={styles.walletDetailsButtonText}>{showRecentTransactions ? "إخفاء سجل الحركات" : "سجل حركات المحفظة"}</Text>
+          </TouchableOpacity>
+          {showRecentTransactions && (
             <View style={styles.walletDetails}>
-              {transactions.length === 0 ? <Text style={styles.emptyTransactions}>لا توجد حركات مسجلة في المحفظة حالياً</Text> : transactions.map((txn) => (
+              {accountWalletTransactions.length === 0 ? <Text style={styles.emptyTransactions}>لا توجد حركات مالية حالياً</Text> : accountWalletTransactions.map((txn) => (
                 <View key={txn.id} style={styles.txnCard}>
-                  <View style={{ flex: 1 }}><Text style={styles.txnType}>{txn.type === "deposit" ? "إيداع رصيد" : txn.type === "withdrawal" ? "سحب" : txn.type === "payment" ? "دفع من المحفظة" : txn.type === "refund" ? "استرجاع مبلغ" : txn.type === "adjustment" ? "تسوية رصيد" : txn.type}</Text><Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text></View>
-                  <Text style={[styles.txnAmount, { color: txn.amount >= 0 ? "#16a34a" : "#dc2626" }]}>{txn.amount >= 0 ? "+" : "-"}{Math.abs(txn.amount || 0).toLocaleString("en")} د.ع</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.txnType}>{txn.type === "zaincash_topup" || txn.type === "topup" ? "شحن رصيد" : txn.type === "payment" ? "دفع من المحفظة" : txn.type === "deduction" ? "استقطاع" : txn.type === "refund" ? "استرجاع مبلغ" : txn.type}</Text>
+                    <Text style={styles.txnDate}>{new Date(txn.created_at).toLocaleString("ar-IQ")}</Text>
+                  </View>
+                  <Text style={[styles.txnAmount, { color: Number(txn.amount_iqd) >= 0 ? "#16a34a" : "#dc2626" }]}>{Number(txn.amount_iqd) >= 0 ? "+" : "-"}{Math.abs(Number(txn.amount_iqd) || 0).toLocaleString("en")} د.ع</Text>
                 </View>
               ))}
             </View>
