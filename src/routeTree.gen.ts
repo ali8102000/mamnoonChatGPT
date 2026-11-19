@@ -16,6 +16,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AccountSettingsRouteImport } from './routes/account-settings'
 import { Route as PartnerDashboardRouteImport } from './routes/partner.dashboard'
+import { Route as PublicPartnerRouteImport } from './routes/partner.$id'
+import { Route as DiscoverCategoryRouteImport } from './routes/discover.$category'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as HistoryRouteImport } from './routes/history'
@@ -70,6 +72,16 @@ const AccountSettingsRoute = AccountSettingsRouteImport.update({
 const PartnerDashboardRoute = PartnerDashboardRouteImport.update({
   id: '/partner/dashboard',
   path: '/partner/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicPartnerRoute = PublicPartnerRouteImport.update({
+  id: '/partner/$id',
+  path: '/partner/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscoverCategoryRoute = DiscoverCategoryRouteImport.update({
+  id: '/discover/$category',
+  path: '/discover/$category',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -211,6 +223,8 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
   '/partner/dashboard': typeof PartnerDashboardRoute
+  '/partner/$id': typeof PublicPartnerRoute
+  '/discover/$category': typeof DiscoverCategoryRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/friends': typeof FriendsRoute
   '/history': typeof HistoryRoute
@@ -241,6 +255,8 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
   '/partner/dashboard': typeof PartnerDashboardRoute
+  '/partner/$id': typeof PublicPartnerRoute
+  '/discover/$category': typeof DiscoverCategoryRoute
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/admin': typeof AdminRouteWithChildren
@@ -274,6 +290,8 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/account-settings': typeof AccountSettingsRoute
   '/partner/dashboard': typeof PartnerDashboardRoute
+  '/partner/$id': typeof PublicPartnerRoute
+  '/discover/$category': typeof DiscoverCategoryRoute
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
@@ -314,6 +332,8 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/account-settings'
     | '/partner/dashboard'
+    | '/partner/$id'
+    | '/discover/$category'
     | '/forgot-password'
     | '/friends'
     | '/history'
@@ -345,7 +365,1138 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/account-settings'
     | '/partner/dashboard'
+    | '/partner/$id'
+    | '/discover/$category'
+    | '/
+    | '/admin'
+    | '/auth'
+    | '/forgot-password'
+    | '/friends'
+    | '/history'
+    | '/home'
+    | '/coupons'
+    | '/messages'
+    | '/ask-mamnoon'
+    | '/support-chat'
+    | '/subscriptions'
+    | '/privacy'
+    | '/profile'
+    | '/reset-password'
+    | '/select-role'
+    | '/support'
+    | '/terms'
+    | '/welcome'
+    | '/admin/bootstrap'
+    | '/admin/monitoring'
+    | '/admin/subscriptions'
+    | '/admin/import'
+    | '/onboarding/driver'
+    | '/onboarding/worker'
+    | '/request/$id'
+    | '/request/new'
+    | '/api/mobile-maps'
+  id:
+    | '__root__'
+    | '/auth/callback'
+    | '/account-settings'
+    | '/partner/dashboard'
+    | '/partner/$id'
+    | '/discover/$category'
+    | '/'
+    | '/
+    | '/admin'
+    | '/auth'
+    | '/forgot-password'
+    | '/friends'
+    | '/history'
+    | '/home'
+    | '/coupons'
+    | '/messages'
+    | '/subscriptions'
+    | '/privacy'
+    | '/profile'
+    | '/reset-password'
+    | '/select-role'
+    | '/support'
+    | '/terms'
+    | '/welcome'
+    | '/admin/bootstrap'
+    | '/admin/monitoring'
+    | '/admin/subscriptions'
+    | '/admin_/import'
+    | '/onboarding/driver'
+    | '/onboarding/worker'
+    | '/request/$id'
+    | '/request/new'
+    | '/api/mobile-maps'
+  fileRoutesById: FileRoutesById
+}
+export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  AccountSettingsRoute: typeof AccountSettingsRoute
+  PartnerDashboardRoute: typeof PartnerDashboardRoute
+  PublicPartnerRoute: typeof PublicPartnerRoute
+  DiscoverCategoryRoute: typeof DiscoverCategoryRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  FriendsRoute: typeof FriendsRoute
+  HistoryRoute: typeof HistoryRoute
+  HomeRoute: typeof HomeRoute
+  CouponsRoute: typeof CouponsRoute
+  MessagesRoute: typeof MessagesRoute
+  AskMamnoonRoute: typeof AskMamnoonRoute
+  SupportChatRoute: typeof SupportChatRoute
+  SubscriptionsRoute: typeof SubscriptionsRoute
+  PrivacyRoute: typeof PrivacyRoute
+  ProfileRoute: typeof ProfileRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  SelectRoleRoute: typeof SelectRoleRoute
+  SupportRoute: typeof SupportRoute
+  TermsRoute: typeof TermsRoute
+  WelcomeRoute: typeof WelcomeRoute
+  AdminImportRoute: typeof AdminImportRoute
+  OnboardingDriverRoute: typeof OnboardingDriverRoute
+  OnboardingWorkerRoute: typeof OnboardingWorkerRoute
+  RequestIdRoute: typeof RequestIdRoute
+  RequestNewRoute: typeof RequestNewRoute
+  ApiMobileMapsRoute: typeof ApiMobileMapsRoute
+}
+
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-settings': {
+      id: '/account-settings'
+      path: '/account-settings'
+      fullPath: '/account-settings'
+      preLoaderRoute: typeof AccountSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner/dashboard': {
+      id: '/partner/dashboard'
+      path: '/partner/dashboard'
+      fullPath: '/partner/dashboard'
+      preLoaderRoute: typeof PartnerDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner/$id': {
+      id: '/partner/$id'
+      path: '/partner/$id'
+      fullPath: '/partner/$id'
+      preLoaderRoute: typeof PublicPartnerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discover/$category': {
+      id: '/discover/$category'
+      path: '/discover/$category'
+      fullPath: '/discover/$category'
+      preLoaderRoute: typeof DiscoverCategoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/friends': {
+      id: '/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof FriendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coupons': {
+      id: '/coupons'
+      path: '/coupons'
+      fullPath: '/coupons'
+      preLoaderRoute: typeof CouponsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ask-mamnoon': {
+      id: '/ask-mamnoon'
+      path: '/ask-mamnoon'
+      fullPath: '/ask-mamnoon'
+      preLoaderRoute: typeof AskMamnoonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support-chat': {
+      id: '/support-chat'
+      path: '/support-chat'
+      fullPath: '/support-chat'
+      preLoaderRoute: typeof SupportChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscriptions': {
+      id: '/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/subscriptions'
+      preLoaderRoute: typeof SubscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/select-role': {
+      id: '/select-role'
+      path: '/select-role'
+      fullPath: '/select-role'
+      preLoaderRoute: typeof SelectRoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/bootstrap': {
+      id: '/admin/bootstrap'
+      path: '/bootstrap'
+      fullPath: '/admin/bootstrap'
+      preLoaderRoute: typeof AdminBootstrapRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/monitoring': {
+      id: '/admin/monitoring'
+      path: '/monitoring'
+      fullPath: '/admin/monitoring'
+      preLoaderRoute: typeof AdminMonitoringRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin_/import': {
+      id: '/admin_/import'
+      path: '/admin/import'
+      fullPath: '/admin/import'
+      preLoaderRoute: typeof AdminImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/driver': {
+      id: '/onboarding/driver'
+      path: '/onboarding/driver'
+      fullPath: '/onboarding/driver'
+      preLoaderRoute: typeof OnboardingDriverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/worker': {
+      id: '/onboarding/worker'
+      path: '/onboarding/worker'
+      fullPath: '/onboarding/worker'
+      preLoaderRoute: typeof OnboardingWorkerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request/$id': {
+      id: '/request/$id'
+      path: '/request/$id'
+      fullPath: '/request/$id'
+      preLoaderRoute: typeof RequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request/new': {
+      id: '/request/new'
+      path: '/request/new'
+      fullPath: '/request/new'
+      preLoaderRoute: typeof RequestNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mobile-maps': {
+      id: '/api/mobile-maps'
+      path: '/api/mobile-maps'
+      fullPath: '/api/mobile-maps'
+      preLoaderRoute: typeof ApiMobileMapsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+  }
+}
+
+interface AdminRouteChildren {
+  AdminBootstrapRoute: typeof AdminBootstrapRoute
+  AdminMonitoringRoute: typeof AdminMonitoringRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminBootstrapRoute: AdminBootstrapRoute,
+  AdminMonitoringRoute: AdminMonitoringRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
+  AdminRoute: AdminRouteWithChildren,
+  AuthRoute: AuthRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  AccountSettingsRoute: AccountSettingsRoute,
+  PartnerDashboardRoute: PartnerDashboardRoute,
+  PublicPartnerRoute: PublicPartnerRoute,
+  DiscoverCategoryRoute: DiscoverCategoryRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  FriendsRoute: FriendsRoute,
+  HistoryRoute: HistoryRoute,
+  HomeRoute: HomeRoute,
+  CouponsRoute: CouponsRoute,
+  MessagesRoute: MessagesRoute,
+  AskMamnoonRoute: AskMamnoonRoute,
+  SupportChatRoute: SupportChatRoute,
+  SubscriptionsRoute: SubscriptionsRoute,
+  PrivacyRoute: PrivacyRoute,
+  ProfileRoute: ProfileRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  SelectRoleRoute: SelectRoleRoute,
+  SupportRoute: SupportRoute,
+  TermsRoute: TermsRoute,
+  WelcomeRoute: WelcomeRoute,
+  AdminImportRoute: AdminImportRoute,
+  OnboardingDriverRoute: OnboardingDriverRoute,
+  OnboardingWorkerRoute: OnboardingWorkerRoute,
+  RequestIdRoute: RequestIdRoute,
+  RequestNewRoute: RequestNewRoute,
+  ApiMobileMapsRoute: ApiMobileMapsRoute,
+}
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
+
+    | '/admin'
+    | '/auth'
+    | '/forgot-password'
+    | '/friends'
+    | '/history'
+    | '/home'
+    | '/coupons'
+    | '/messages'
+    | '/ask-mamnoon'
+    | '/support-chat'
+    | '/subscriptions'
+    | '/privacy'
+    | '/profile'
+    | '/reset-password'
+    | '/select-role'
+    | '/support'
+    | '/terms'
+    | '/welcome'
+    | '/admin/bootstrap'
+    | '/admin/monitoring'
+    | '/admin/subscriptions'
+    | '/admin/import'
+    | '/onboarding/driver'
+    | '/onboarding/worker'
+    | '/request/$id'
+    | '/request/new'
+    | '/api/mobile-maps'
+  id:
+    | '__root__'
+    | '/auth/callback'
+    | '/account-settings'
+    | '/partner/dashboard'
+    | '/'
     | '/$'
+    | '/admin'
+    | '/auth'
+    | '/forgot-password'
+    | '/friends'
+    | '/history'
+    | '/home'
+    | '/coupons'
+    | '/messages'
+    | '/subscriptions'
+    | '/privacy'
+    | '/profile'
+    | '/reset-password'
+    | '/select-role'
+    | '/support'
+    | '/terms'
+    | '/welcome'
+    | '/admin/bootstrap'
+    | '/admin/monitoring'
+    | '/admin/subscriptions'
+    | '/admin_/import'
+    | '/onboarding/driver'
+    | '/onboarding/worker'
+    | '/request/$id'
+    | '/request/new'
+    | '/api/mobile-maps'
+  fileRoutesById: FileRoutesById
+}
+export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  AccountSettingsRoute: typeof AccountSettingsRoute
+  PartnerDashboardRoute: typeof PartnerDashboardRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  FriendsRoute: typeof FriendsRoute
+  HistoryRoute: typeof HistoryRoute
+  HomeRoute: typeof HomeRoute
+  CouponsRoute: typeof CouponsRoute
+  MessagesRoute: typeof MessagesRoute
+  AskMamnoonRoute: typeof AskMamnoonRoute
+  SupportChatRoute: typeof SupportChatRoute
+  SubscriptionsRoute: typeof SubscriptionsRoute
+  PrivacyRoute: typeof PrivacyRoute
+  ProfileRoute: typeof ProfileRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  SelectRoleRoute: typeof SelectRoleRoute
+  SupportRoute: typeof SupportRoute
+  TermsRoute: typeof TermsRoute
+  WelcomeRoute: typeof WelcomeRoute
+  AdminImportRoute: typeof AdminImportRoute
+  OnboardingDriverRoute: typeof OnboardingDriverRoute
+  OnboardingWorkerRoute: typeof OnboardingWorkerRoute
+  RequestIdRoute: typeof RequestIdRoute
+  RequestNewRoute: typeof RequestNewRoute
+  ApiMobileMapsRoute: typeof ApiMobileMapsRoute
+}
+
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-settings': {
+      id: '/account-settings'
+      path: '/account-settings'
+      fullPath: '/account-settings'
+      preLoaderRoute: typeof AccountSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner/dashboard': {
+      id: '/partner/dashboard'
+      path: '/partner/dashboard'
+      fullPath: '/partner/dashboard'
+      preLoaderRoute: typeof PartnerDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/friends': {
+      id: '/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof FriendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coupons': {
+      id: '/coupons'
+      path: '/coupons'
+      fullPath: '/coupons'
+      preLoaderRoute: typeof CouponsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ask-mamnoon': {
+      id: '/ask-mamnoon'
+      path: '/ask-mamnoon'
+      fullPath: '/ask-mamnoon'
+      preLoaderRoute: typeof AskMamnoonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support-chat': {
+      id: '/support-chat'
+      path: '/support-chat'
+      fullPath: '/support-chat'
+      preLoaderRoute: typeof SupportChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscriptions': {
+      id: '/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/subscriptions'
+      preLoaderRoute: typeof SubscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/select-role': {
+      id: '/select-role'
+      path: '/select-role'
+      fullPath: '/select-role'
+      preLoaderRoute: typeof SelectRoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/bootstrap': {
+      id: '/admin/bootstrap'
+      path: '/bootstrap'
+      fullPath: '/admin/bootstrap'
+      preLoaderRoute: typeof AdminBootstrapRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/monitoring': {
+      id: '/admin/monitoring'
+      path: '/monitoring'
+      fullPath: '/admin/monitoring'
+      preLoaderRoute: typeof AdminMonitoringRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin_/import': {
+      id: '/admin_/import'
+      path: '/admin/import'
+      fullPath: '/admin/import'
+      preLoaderRoute: typeof AdminImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/driver': {
+      id: '/onboarding/driver'
+      path: '/onboarding/driver'
+      fullPath: '/onboarding/driver'
+      preLoaderRoute: typeof OnboardingDriverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/worker': {
+      id: '/onboarding/worker'
+      path: '/onboarding/worker'
+      fullPath: '/onboarding/worker'
+      preLoaderRoute: typeof OnboardingWorkerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request/$id': {
+      id: '/request/$id'
+      path: '/request/$id'
+      fullPath: '/request/$id'
+      preLoaderRoute: typeof RequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request/new': {
+      id: '/request/new'
+      path: '/request/new'
+      fullPath: '/request/new'
+      preLoaderRoute: typeof RequestNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mobile-maps': {
+      id: '/api/mobile-maps'
+      path: '/api/mobile-maps'
+      fullPath: '/api/mobile-maps'
+      preLoaderRoute: typeof ApiMobileMapsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+  }
+}
+
+interface AdminRouteChildren {
+  AdminBootstrapRoute: typeof AdminBootstrapRoute
+  AdminMonitoringRoute: typeof AdminMonitoringRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminBootstrapRoute: AdminBootstrapRoute,
+  AdminMonitoringRoute: AdminMonitoringRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
+  AdminRoute: AdminRouteWithChildren,
+  AuthRoute: AuthRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  AccountSettingsRoute: AccountSettingsRoute,
+  PartnerDashboardRoute: PartnerDashboardRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  FriendsRoute: FriendsRoute,
+  HistoryRoute: HistoryRoute,
+  HomeRoute: HomeRoute,
+  CouponsRoute: CouponsRoute,
+  MessagesRoute: MessagesRoute,
+  AskMamnoonRoute: AskMamnoonRoute,
+  SupportChatRoute: SupportChatRoute,
+  SubscriptionsRoute: SubscriptionsRoute,
+  PrivacyRoute: PrivacyRoute,
+  ProfileRoute: ProfileRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  SelectRoleRoute: SelectRoleRoute,
+  SupportRoute: SupportRoute,
+  TermsRoute: TermsRoute,
+  WelcomeRoute: WelcomeRoute,
+  AdminImportRoute: AdminImportRoute,
+  OnboardingDriverRoute: OnboardingDriverRoute,
+  OnboardingWorkerRoute: OnboardingWorkerRoute,
+  RequestIdRoute: RequestIdRoute,
+  RequestNewRoute: RequestNewRoute,
+  ApiMobileMapsRoute: ApiMobileMapsRoute,
+}
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
+
+    | '/admin'
+    | '/auth'
+    | '/forgot-password'
+    | '/friends'
+    | '/history'
+    | '/home'
+    | '/coupons'
+    | '/messages'
+    | '/subscriptions'
+    | '/privacy'
+    | '/profile'
+    | '/reset-password'
+    | '/select-role'
+    | '/support'
+    | '/terms'
+    | '/welcome'
+    | '/admin/bootstrap'
+    | '/admin/monitoring'
+    | '/admin/subscriptions'
+    | '/admin_/import'
+    | '/onboarding/driver'
+    | '/onboarding/worker'
+    | '/request/$id'
+    | '/request/new'
+    | '/api/mobile-maps'
+  fileRoutesById: FileRoutesById
+}
+export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  AccountSettingsRoute: typeof AccountSettingsRoute
+  PartnerDashboardRoute: typeof PartnerDashboardRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  FriendsRoute: typeof FriendsRoute
+  HistoryRoute: typeof HistoryRoute
+  HomeRoute: typeof HomeRoute
+  CouponsRoute: typeof CouponsRoute
+  MessagesRoute: typeof MessagesRoute
+  AskMamnoonRoute: typeof AskMamnoonRoute
+  SupportChatRoute: typeof SupportChatRoute
+  SubscriptionsRoute: typeof SubscriptionsRoute
+  PrivacyRoute: typeof PrivacyRoute
+  ProfileRoute: typeof ProfileRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  SelectRoleRoute: typeof SelectRoleRoute
+  SupportRoute: typeof SupportRoute
+  TermsRoute: typeof TermsRoute
+  WelcomeRoute: typeof WelcomeRoute
+  AdminImportRoute: typeof AdminImportRoute
+  OnboardingDriverRoute: typeof OnboardingDriverRoute
+  OnboardingWorkerRoute: typeof OnboardingWorkerRoute
+  RequestIdRoute: typeof RequestIdRoute
+  RequestNewRoute: typeof RequestNewRoute
+  ApiMobileMapsRoute: typeof ApiMobileMapsRoute
+}
+
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-settings': {
+      id: '/account-settings'
+      path: '/account-settings'
+      fullPath: '/account-settings'
+      preLoaderRoute: typeof AccountSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner/dashboard': {
+      id: '/partner/dashboard'
+      path: '/partner/dashboard'
+      fullPath: '/partner/dashboard'
+      preLoaderRoute: typeof PartnerDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/friends': {
+      id: '/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof FriendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coupons': {
+      id: '/coupons'
+      path: '/coupons'
+      fullPath: '/coupons'
+      preLoaderRoute: typeof CouponsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ask-mamnoon': {
+      id: '/ask-mamnoon'
+      path: '/ask-mamnoon'
+      fullPath: '/ask-mamnoon'
+      preLoaderRoute: typeof AskMamnoonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support-chat': {
+      id: '/support-chat'
+      path: '/support-chat'
+      fullPath: '/support-chat'
+      preLoaderRoute: typeof SupportChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscriptions': {
+      id: '/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/subscriptions'
+      preLoaderRoute: typeof SubscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/select-role': {
+      id: '/select-role'
+      path: '/select-role'
+      fullPath: '/select-role'
+      preLoaderRoute: typeof SelectRoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/bootstrap': {
+      id: '/admin/bootstrap'
+      path: '/bootstrap'
+      fullPath: '/admin/bootstrap'
+      preLoaderRoute: typeof AdminBootstrapRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/monitoring': {
+      id: '/admin/monitoring'
+      path: '/monitoring'
+      fullPath: '/admin/monitoring'
+      preLoaderRoute: typeof AdminMonitoringRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin_/import': {
+      id: '/admin_/import'
+      path: '/admin/import'
+      fullPath: '/admin/import'
+      preLoaderRoute: typeof AdminImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/driver': {
+      id: '/onboarding/driver'
+      path: '/onboarding/driver'
+      fullPath: '/onboarding/driver'
+      preLoaderRoute: typeof OnboardingDriverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/worker': {
+      id: '/onboarding/worker'
+      path: '/onboarding/worker'
+      fullPath: '/onboarding/worker'
+      preLoaderRoute: typeof OnboardingWorkerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request/$id': {
+      id: '/request/$id'
+      path: '/request/$id'
+      fullPath: '/request/$id'
+      preLoaderRoute: typeof RequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request/new': {
+      id: '/request/new'
+      path: '/request/new'
+      fullPath: '/request/new'
+      preLoaderRoute: typeof RequestNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mobile-maps': {
+      id: '/api/mobile-maps'
+      path: '/api/mobile-maps'
+      fullPath: '/api/mobile-maps'
+      preLoaderRoute: typeof ApiMobileMapsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+  }
+}
+
+interface AdminRouteChildren {
+  AdminBootstrapRoute: typeof AdminBootstrapRoute
+  AdminMonitoringRoute: typeof AdminMonitoringRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminBootstrapRoute: AdminBootstrapRoute,
+  AdminMonitoringRoute: AdminMonitoringRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
+  AdminRoute: AdminRouteWithChildren,
+  AuthRoute: AuthRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  AccountSettingsRoute: AccountSettingsRoute,
+  PartnerDashboardRoute: PartnerDashboardRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  FriendsRoute: FriendsRoute,
+  HistoryRoute: HistoryRoute,
+  HomeRoute: HomeRoute,
+  CouponsRoute: CouponsRoute,
+  MessagesRoute: MessagesRoute,
+  AskMamnoonRoute: AskMamnoonRoute,
+  SupportChatRoute: SupportChatRoute,
+  SubscriptionsRoute: SubscriptionsRoute,
+  PrivacyRoute: PrivacyRoute,
+  ProfileRoute: ProfileRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  SelectRoleRoute: SelectRoleRoute,
+  SupportRoute: SupportRoute,
+  TermsRoute: TermsRoute,
+  WelcomeRoute: WelcomeRoute,
+  AdminImportRoute: AdminImportRoute,
+  OnboardingDriverRoute: OnboardingDriverRoute,
+  OnboardingWorkerRoute: OnboardingWorkerRoute,
+  RequestIdRoute: RequestIdRoute,
+  RequestNewRoute: RequestNewRoute,
+  ApiMobileMapsRoute: ApiMobileMapsRoute,
+}
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
+
     | '/admin'
     | '/auth'
     | '/forgot-password'
