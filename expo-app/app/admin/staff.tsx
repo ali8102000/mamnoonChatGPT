@@ -13,20 +13,20 @@ const ITEMS = [
   { label: "المحفظة والكوبونات", route: "/admin/finance", roles: ["super_admin", "admin", "finance", "department_finance", "rank:general_manager", "finance_access"] },
   { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager", "reports_access"] },
   { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support", "department_operations", "department_monitoring", "rank:general_manager", "live_map_access"] },
-  { label: "إدارة الأصدقاء", route: "/admin/friends", roles: ["super_admin", "admin", "moderator", "department_monitoring", "rank:general_manager"] },
+  { label: "إدارة الأصدقاء", route: "/admin/friends", roles: ["super_admin", "admin", "moderator", "department_monitoring", "rank:general_manager", "friends_access"] },
   { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager", "notifications_access"] },
   { label: "الإدارة الهرمية والصلاحيات", route: "/admin/governance", roles: ["super_admin", "admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { label: "التحكم بالمحافظات", route: "/admin/regions", roles: ["super_admin"] },
   { label: "مساعد استيراد البيانات", route: "/admin/import", roles: ["super_admin", "admin"] },
   { label: "محادثات الدعم", route: "/support-chat", roles: ["super_admin", "admin", "support", "moderator", "customer_service", "rank:general_manager"] },
-  { label: "إدارة الدردشة الخاصة", route: "/admin/chats", roles: ["super_admin", "admin", "support", "moderator", "rank:general_manager"] },
+  { label: "إدارة الدردشة الخاصة", route: "/admin/chats", roles: ["super_admin", "admin", "support", "moderator", "rank:general_manager", "chats_access"] },
   { label: "موظفو القسم والترقيات", route: "/admin/staff-hierarchy", roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor"] },
 ] as const;
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "الرئيس المؤسس الأعلى", admin: "مدير", support: "الدعم",
   finance: "المالية", moderator: "مراقب", customer_service: "موظف خدمة العملاء", department_finance: "قسم المالية", department_operations: "قسم التشغيل", department_monitoring: "قسم المراقبة", department_executive: "الإدارة التنفيذية",
-  reports_access: "صلاحية البلاغات", live_map_access: "صلاحية الخريطة المباشرة",
+  reports_access: "صلاحية البلاغات", live_map_access: "صلاحية الخريطة المباشرة", friends_access: "صلاحية إدارة الأصدقاء", chats_access: "صلاحية إدارة الدردشة",
   "rank:owner": "الرئيس المؤسس الأعلى", "rank:general_manager": "مدير عام", "rank:department_manager": "مدير قسم", "rank:supervisor": "مشرف", "rank:employee": "موظف",
 };
 
@@ -65,7 +65,7 @@ export default function AdminStaffScreen() {
           "orders.read","orders.assign","orders.override","orders.cancel","orders.reopen",
           "pricing.taxi.edit","pricing.peak.edit","finance.read","finance.wallet.adjust",
           "promotions.read","promotions.manage","notifications.send",
-          "live_map.read","reports.read","reports.resolve",
+          "live_map.read","reports.read","reports.resolve","chats.moderate","friends.manage",
         ];
         const permissionChecks = await Promise.all(permissionKeys.map(async (permission_key) => {
           const { data } = await (supabase as any).rpc("admin_has_permission", {
@@ -84,6 +84,8 @@ export default function AdminStaffScreen() {
         if (hasPermission("notifications.send")) names.push("notifications_access");
         if (hasPermission("reports.read")) names.push("reports_access");
         if (hasPermission("live_map.read")) names.push("live_map_access");
+        if (scopeType === "global" && hasPermission("friends.manage")) names.push("friends_access");
+        if (scopeType === "global" && hasPermission("chats.moderate")) names.push("chats_access");
         const { data: canManageSubscriptions } = await (supabase as any).rpc("admin_has_permission", {
           p_permission_key: "subscriptions.manage", p_scope_type: "global", p_scope_governorate: null,
         });
