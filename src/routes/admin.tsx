@@ -126,7 +126,6 @@ type Section =
   | "audit"
   | "roles"
   | "staff"
-  | "company"
   | "driverTiers"
   | "dispatchZones"
   | "imageStudio";
