@@ -84,15 +84,12 @@ import {
   adminUpdateProviderName,
   adminUnblockUser,
 } from "@/lib/admin.functions";
-import AdminCompanySettings from "@/components/admin-company-settings";
 import RegionalControlsSection from "@/components/admin-regional-controls";
 import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
 import AdminDispatchZones from "@/components/admin-dispatch-zones";
-import AdminVisualBuilder from "@/components/admin-visual-builder";
-import AdminHomeBanners from "@/components/admin-home-banners";
-import AdminBusinessCategories from "@/components/admin-business-categories";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
+import AdminImageStudio from "@/components/admin-image-studio";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/admin")({
@@ -132,8 +129,7 @@ type Section =
   | "company"
   | "driverTiers"
   | "dispatchZones"
-  | "visualBuilder"
-  | "homeBanners";
+  | "imageStudio";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
   {
@@ -200,9 +196,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "dispatchZones", label: "نطاقات توزيع الطلبات", icon: MapPin, roles: ["super_admin", "admin"] },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
-  { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
-  { key: "visualBuilder", label: "محرر الأيقونات والواجهة", icon: Eye, roles: ["super_admin"] },
-  { key: "homeBanners", label: "بانرات الصفحة الرئيسية", icon: ImagePlus, roles: ["super_admin"] },
+  { key: "imageStudio", label: "مركز الصور والتصميم", icon: ImagePlus, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
 
@@ -212,7 +206,7 @@ const NAV_GROUPS: { title: string; keys: Section[] }[] = [
   { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"] },
   { title: "المالية والعروض", keys: ["subscriptions", "coupons", "wallet"] },
   { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones"] },
-  { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "company", "visualBuilder", "homeBanners"] },
+  { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "imageStudio"] },
   { title: "الموظفون والأمان", keys: ["roles", "staff", "audit"] },
 ];
 
@@ -305,20 +299,20 @@ function AdminPage() {
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.some((r) => staffRoles.includes(r)));
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div dir="rtl" className="min-h-screen flex bg-gradient-to-br from-sky-50 via-slate-50 to-indigo-100/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
       <aside
-        className={`fixed lg:sticky top-0 right-0 z-40 h-screen w-72 glass border-l border-border overflow-y-auto transition-transform ${
+        className={`fixed lg:sticky top-0 right-0 z-40 h-screen w-72 overflow-y-auto border-l border-white/10 bg-gradient-to-b from-slate-950 via-[#14263f] to-[#1d3150] text-white shadow-2xl transition-transform ${
           sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
         }`}
       >
         <div className="p-5">
           <div className="flex items-center gap-2 mb-6">
             {logoUrl ? <img src={logoUrl} alt={`شعار ${companyName}`} className="h-9 w-9 rounded-xl bg-white object-contain p-1" /> : <ShieldCheck className="h-6 w-6 text-primary" />}
-            <h1 className="text-lg font-black">{staffDisplayTitle ?? companyName ?? "لوحة الإدارة"}</h1>
+            <h1 className="text-lg font-black text-white">{staffDisplayTitle ?? companyName ?? "لوحة الإدارة"}</h1>
           </div>
           <Link
             to="/admin/import"
-            className="mb-3 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-muted-foreground hover:bg-surface-2"
+            className="mb-3 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/10"
           >
             <ScrollText className="h-4 w-4 shrink-0" />
             مساعد استيراد البيانات
@@ -329,13 +323,13 @@ function AdminPage() {
               if (!items.length) return null;
               return (
                 <section key={group.title} className="space-y-1">
-                  <h2 className="px-4 pb-1 text-[10px] font-black tracking-wide text-muted-foreground">{group.title}</h2>
+                  <h2 className="px-4 pb-1 text-[10px] font-black tracking-wide text-sky-200/70">{group.title}</h2>
                   {items.map((item) => (
                     <button
                       key={item.key}
                       onClick={() => { setSection(item.key); setSidebarOpen(false); }}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                        section === item.key ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-surface-2"
+                        section === item.key ? "bg-gradient-to-l from-cyan-500 to-blue-600 text-white shadow-lg shadow-blue-950/30" : "text-slate-200 hover:bg-white/10 hover:text-white"
                       }`}
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
@@ -348,7 +342,7 @@ function AdminPage() {
           </nav>
           <Link
             to="/"
-            className="mt-6 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground px-4"
+            className="mt-6 flex items-center gap-2 px-4 text-xs text-slate-300 hover:text-white"
           >
             <ChevronLeft className="h-4 w-4" /> العودة للتطبيق
           </Link>
@@ -368,7 +362,7 @@ function AdminPage() {
           <span className="font-black text-sm">{staffDisplayTitle ?? companyName ?? "لوحة الإدارة"}</span>
           <div className="w-9" />
         </div>
-        <div className="p-4 lg:p-8 max-w-5xl mx-auto">
+        <div className="mx-auto max-w-7xl p-4 lg:p-8">
           {section === "overview" && (
             <>
               <OverviewSection />
@@ -444,10 +438,7 @@ function AdminPage() {
           {section === "dispatchZones" && <AdminDispatchZones />}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
-          {section === "company" && <AdminCompanySettings />}
-          {section === "visualBuilder" && <AdminVisualBuilder />}
-          {section === "visualBuilder" && <AdminBusinessCategories />}
-          {section === "homeBanners" && <AdminHomeBanners />}
+          {section === "imageStudio" && <AdminImageStudio />}
           {section === "audit" && <AuditSection />}
         </div>
       </main>
@@ -464,25 +455,25 @@ function AdminArchitectureDiagram() {
     { title: "الموظفون", detail: "الرتب والصلاحيات", icon: ShieldCheck },
   ];
   return (
-    <section dir="rtl" className="glass rounded-2xl border border-border p-4 mb-6">
+    <section dir="rtl" className="relative mb-6 overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br from-[#0b1d35] via-[#163b62] to-[#256b83] p-5 text-white shadow-xl shadow-slate-900/10">
       <div className="mb-3">
-        <h3 className="font-black text-base">خريطة أقسام الشركة</h3>
-        <p className="mt-1 text-xs text-muted-foreground">توضيح بصري لكيفية ارتباط أقسام الإدارة بمركز التحكم الرئيسي.</p>
+        <h3 className="font-black text-base text-white">خريطة أقسام الشركة</h3>
+        <p className="mt-1 text-xs text-sky-100/80">مركز قيادة واحد يربط التشغيل والمالية والمحتوى والموظفين.</p>
       </div>
-      <div className="mx-auto w-full max-w-sm rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-center">
+      <div className="mx-auto w-full max-w-sm rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-center shadow-lg backdrop-blur">
         <ShieldCheck className="mx-auto mb-1 h-6 w-6 text-primary" />
-        <div className="text-sm font-black">الإدارة العليا</div>
-        <div className="text-[10px] text-muted-foreground">مركز التحكم والحوكمة</div>
+        <div className="text-sm font-black text-white">الإدارة العليا</div>
+        <div className="text-[10px] text-sky-100/80">مركز التحكم والحوكمة</div>
       </div>
       <svg viewBox="0 0 320 34" className="mx-auto block h-8 w-full max-w-sm" role="img" aria-label="مسارات ربط الإدارة العليا بالأقسام">
-        <path d="M160 0 V13 H32 V33 M160 13 H96 V33 M160 13 V33 M160 13 H224 V33 M160 13 H288 V33" fill="none" stroke="currentColor" strokeOpacity=".35" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M160 0 V13 H32 V33 M160 13 H96 V33 M160 13 V33 M160 13 H224 V33 M160 13 H288 V33" fill="none" stroke="#a5e8ff" strokeOpacity=".75" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {nodes.map(({title,detail,icon:Icon})=>(
-          <div key={title} className="rounded-xl border border-border bg-background/70 p-3 text-center">
+          <div key={title} className="rounded-2xl border border-white/15 bg-white/10 p-3 text-center shadow-lg backdrop-blur">
             <span className="mx-auto mb-2 grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="h-4 w-4"/></span>
-            <div className="text-xs font-black">{title}</div>
-            <div className="mt-1 text-[10px] leading-4 text-muted-foreground">{detail}</div>
+            <div className="text-xs font-black text-white">{title}</div>
+            <div className="mt-1 text-[10px] leading-4 text-sky-100/80">{detail}</div>
           </div>
         ))}
       </div>
