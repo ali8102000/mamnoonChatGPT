@@ -212,7 +212,7 @@ export function MapPicker({
       Math.abs(center.lat() - value.lat) < 0.00002 &&
       Math.abs(center.lng() - value.lng) < 0.00002) return;
     suppressIdleRef.current = true;
-    mapRef.current.panTo(value);
+    mapRef.current.setCenter?.(value) ?? mapRef.current.panTo(value);
   }, [value]);
 
   useEffect(() => {
@@ -302,7 +302,7 @@ export function MapPicker({
         setLocating(false);
         if (mapRef.current) {
           suppressIdleRef.current = true;
-          mapRef.current.panTo(c);
+          mapRef.current.setCenter?.(c) ?? mapRef.current.panTo(c);
           mapRef.current.setZoom(16);
         }
         report(c);
@@ -374,7 +374,7 @@ export function MapPicker({
           setGeoError(arabicWarning(e));
         }
       }
-    }, 250);
+    }, 100);
     return () => {
       stale = true;
       clearTimeout(timer);
@@ -412,7 +412,7 @@ export function MapPicker({
     setSearchQuery("");
     suppressIdleRef.current = true;
     if (mapRef.current) {
-      mapRef.current.panTo(place.coords);
+      mapRef.current.setCenter?.(place.coords) ?? mapRef.current.panTo(place.coords);
       mapRef.current.setZoom(16);
     }
     report(place.coords, addr);
