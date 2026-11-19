@@ -1277,9 +1277,11 @@ export default function RequestDetail() {
             <View style={styles.mapLiveDot} />
             <Text style={styles.mapLiveBadgeTitle}>التتبع المباشر</Text>
             <Text style={styles.mapLiveBadgeText}>
-              {request.provider_arrived_at
-                ? "وصل مقدم الخدمة إلى الموقع"
-                : driverEtaMinutes != null
+              {request.type === "taxi" && request.status === "in_progress"
+                ? "الرحلة مستمرة إلى وجهتك"
+                : request.provider_arrived_at
+                  ? "وصل مقدم الخدمة إلى الموقع"
+                  : driverEtaMinutes != null
                   ? `الوصول المتوقع خلال ${driverEtaMinutes} دقيقة`
                   : driverLocationFresh
                     ? "الموقع يتحدث مباشرة"
