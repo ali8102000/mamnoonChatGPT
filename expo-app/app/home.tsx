@@ -580,6 +580,14 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
       <HomeCustomContent userId={userId} placementKey="home.customer.content" />
 
+      <TouchableOpacity onPress={() => router.push("/ask-mamnoon")} activeOpacity={0.86} style={{ borderRadius: 18, borderWidth: 1, borderColor: palette.brand + "33", backgroundColor: palette.brand + "0D", padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>🤖 اسأل ممنون</Text>
+          <Text style={{ color: palette.muted, fontSize: 11, marginTop: 4, textAlign: "right" }}>مساعد ذكي يجاوبك عن خدمات التطبيق</Text>
+        </View>
+        <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>ابدأ المحادثة ←</Text>
+      </TouchableOpacity>
+
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ flex: 1, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
           <HomeGlyph name="clock" color={palette.brand} size={18} />
