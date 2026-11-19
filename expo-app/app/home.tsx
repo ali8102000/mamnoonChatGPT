@@ -22,6 +22,7 @@ import { useThemePreference } from "@/lib/theme-preference";
 import { getServiceImage } from "@/lib/service-visuals";
 import Svg, { Circle, Path } from "react-native-svg";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
+import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 
 type IncomingRequest = {
   id: string;
@@ -49,10 +50,12 @@ export default function HomeScreen() {
     : roles.includes("customer") ? "customer" : roles[0] || "customer";
   const { resolved: resolvedTheme, setMode } = useThemePreference();
   const [companyName, setCompanyName] = useState("شركة ممنون");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
 
   useEffect(() => {
-    (supabase as any).from("company_settings").select("company_name").eq("id", 1).maybeSingle()
-      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); });
+    (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); setCompanyLogoUrl(data?.company_logo_url ?? null); if (data?.welcome_message) setWelcomeMessage(data.welcome_message); });
   }, []);
 
   const [available, setAvailable] = useState(false);
@@ -319,7 +322,11 @@ export default function HomeScreen() {
               <Text style={styles.roleBadgeText}>{roleTitle}</Text>
             </View>
           </View>
-          <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            {companyLogoUrl ? <Image source={{ uri: companyLogoUrl }} style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: "#FFFFFF" }} resizeMode="contain" /> : null}
+            <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
+          </View>
+          <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>{welcomeMessage}</Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
@@ -354,7 +361,10 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {selectedRole === "customer" ? (
-          <CustomerHome userId={user?.id ?? null} />
+          <>
+            <HomeCampaignPopups userId={user?.id ?? null} />
+            <CustomerHome userId={user?.id ?? null} />
+          </>
         ) : (
           <ProviderHome
             available={available}
