@@ -9,7 +9,7 @@ type Draft={name:string;description:string;price_amount:string;currency:"IQD"|"U
 const emptyDraft:Draft={name:"",description:"",price_amount:"",currency:"IQD",quantity_available:""};
 export function PartnerCatalogManager({profileId,partnerType,businessVertical="store"}:{profileId:string;partnerType:PartnerType;businessVertical?:"store"|"grocery"|"restaurant"}) {
  const itemType=useMemo(()=>partnerType==="hotel"?"room":partnerType==="restaurant"?"menu_item":"product",[partnerType]);
- const vertical=partnerType==="restaurant"?"restaurant":partnerType==="hotel"?"":businessVertical;
+ const vertical=partnerType==="restaurant"?"restaurant":partnerType==="hotel"?"hotel":businessVertical;
  const grocery=vertical==="grocery";
  const [categories,setCategories]=useState<Category[]>([]);
  const [categoryKey,setCategoryKey]=useState("");
@@ -29,8 +29,8 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
  },[profileId,itemType,vertical]);
  useEffect(()=>{void load();},[load]);
  const add=async()=>{
-  const selectedCategory=grocery?"grocery":itemType==="room"?null:categoryKey;
-  if(draft.name.trim().length<2||draft.price_amount.trim()===""||!Number.isFinite(Number(draft.price_amount))||Number(draft.price_amount)<0||(!selectedCategory&&itemType!=="room")){setError("اكتب الاسم والسعر وحدد الفئة الصحيحة.");return;}
+  const selectedCategory=grocery?"grocery":categoryKey;
+  if(draft.name.trim().length<2||draft.price_amount.trim()===""||!Number.isFinite(Number(draft.price_amount))||Number(draft.price_amount)<0||!selectedCategory){setError("اكتب الاسم والسعر وحدد الفئة الصحيحة.");return;}
   setSaving(true);setError("");
   let imageUrls:string[]=[];
   if(imageFile){
@@ -47,7 +47,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
  const categoryName=(key:string|null)=>categories.find(c=>c.category_key===key)?.title??(key==="grocery"?"بقالة وخضروات":"بدون تصنيف");
  return <section className="rounded-2xl border border-border bg-card p-4 space-y-3">
   <div className="flex items-center justify-between gap-2"><h4 className="font-black flex items-center gap-2"><Package className="h-4 w-4"/> إدارة {itemType==="room"?"الغرف":itemType==="menu_item"?"قائمة الطعام":"المنتجات"}</h4><button type="button" onClick={()=>void load()} className="text-xs text-primary"><RefreshCw className="inline h-3.5 w-3.5 ml-1"/>تحديث</button></div>
-  {itemType!=="room"&&<div className="rounded-xl bg-primary/5 p-3"><p className="mb-2 text-xs font-black">{grocery?"قسم البقالة المستقل":"وين تحب نعرض ونروّج هذا المنتج؟"}</p>{grocery?<p className="text-xs text-muted-foreground">منتجاتك تظهر بقسم البقالة فقط، وما تدخل باقتراحات الملابس أو المطاعم.</p>:<select value={categoryKey} onChange={e=>setCategoryKey(e.target.value)} className="w-full rounded-xl border bg-background p-3 text-sm">{categories.map(c=><option key={c.category_key} value={c.category_key}>{c.title}</option>)}</select>}</div>}
+  {(itemType!=="room"||partnerType==="hotel")&&<div className="rounded-xl bg-primary/5 p-3"><p className="mb-2 text-xs font-black">{grocery?"قسم البقالة المستقل":itemType==="room"?"تصنيف الغرفة":"وين تحب نعرض ونروّج هذا المنتج؟"}</p>{grocery?<p className="text-xs text-muted-foreground">منتجاتك تظهر بقسم البقالة فقط، وما تدخل باقتراحات الملابس أو المطاعم.</p>:<select value={categoryKey} onChange={e=>setCategoryKey(e.target.value)} className="w-full rounded-xl border bg-background p-3 text-sm">{categories.map(c=><option key={c.category_key} value={c.category_key}>{c.title}</option>)}</select>}</div>}
   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
    <label className="text-xs font-bold">اسم {itemType==="menu_item"?"الوجبة":"المنتج"}<input value={draft.name} onChange={e=>setDraft(v=>({...v,name:e.target.value}))} maxLength={140} className="input-base mt-1 w-full rounded-xl"/></label>
    <label className="text-xs font-bold">السعر<input type="number" min="0" step="0.01" value={draft.price_amount} onChange={e=>setDraft(v=>({...v,price_amount:e.target.value}))} className="input-base mt-1 w-full rounded-xl"/></label>
