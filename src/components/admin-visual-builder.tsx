@@ -23,7 +23,7 @@ type Campaign = {
 const inputClass = "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary";
 const buttonClass = "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition disabled:opacity-50";
 const tabs = [
-  { id: "visual", label: "محرر الواجهة", icon: LayoutTemplate },
+  { id: "visual", label: "محرر الأيقونات والواجهة", icon: LayoutTemplate },
   { id: "sections", label: "الأقسام والجداول", icon: Table2 },
   { id: "campaigns", label: "الاستطلاعات والمسابقات", icon: Trophy },
 ] as const;
@@ -260,7 +260,7 @@ export default function AdminVisualBuilder() {
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <section className="rounded-2xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
-              <div><h3 className="font-black">معاينة شاشة الزبون</h3><p className="text-xs text-muted-foreground">اضغط مطولاً على أي عنصر لفتح خيارات التعديل.</p></div>
+              <div><h3 className="font-black">معاينة شاشة الزبون</h3><p className="text-xs text-muted-foreground">اختار أيقونة السيارة أو أي عنصر لتعديل صورته وحجمه ونشر التغيير.</p></div>
               <span className="flex items-center gap-1 text-xs text-muted-foreground"><Smartphone className="h-4 w-4" /> Android / Web</span>
             </div>
             <div className="mx-auto max-w-md rounded-[30px] border-[7px] border-slate-800 bg-background p-4 shadow-xl">
@@ -285,7 +285,7 @@ export default function AdminVisualBuilder() {
                 })}
               </div>
               <div className="mt-5">
-                <h4 className="mb-2 text-sm font-black">معاينة أنواع المركبات</h4>
+                <h4 className="mb-2 text-sm font-black">محرر أيقونات فئات السيارات</h4><p className="mb-2 text-[11px] text-muted-foreground">اختار الاقتصادي أو المتميز أو الفاخر لتغيير الصورة من جهازك أو عبر رابط، ثم احفظ وانشر. التغيير ينعكس على الويب والأندرويد.</p>
                 <div className="grid grid-cols-3 gap-2">
                   {elements.filter((item) => item.element_type === "vehicle").map((item) => {
                     const visual = item.element_key === selected?.element_key ? draft : item.published_config ?? {};
@@ -308,7 +308,7 @@ export default function AdminVisualBuilder() {
           <aside className="rounded-2xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between"><h3 className="font-black">خصائص العنصر</h3>
               {selected && <button onClick={() => setSelected(null)} aria-label="إغلاق"><X className="h-4 w-4" /></button>}</div>
-            {!selected ? <p className="text-sm text-muted-foreground">اختار عنصراً من المعاينة أو من القائمة حتى تعدّل صورته وحجمه.</p> : <>
+            {!selected ? <p className="text-sm text-muted-foreground">اختار أيقونة السيارة من المعاينة حتى تبدّلها بصورة واقعية من جهازك أو برابط، وتتحكم بحجمها واسمها ثم تنشرها.</p> : <>
               <div className="mb-3 rounded-xl bg-muted p-3"><b className="text-sm">{selected.label}</b><p className="mt-1 text-[11px] text-muted-foreground">المعرّف الوظيفي: {selected.action_key}</p></div>
               <label className="mb-1 block text-xs font-bold">النص الرئيسي</label><input className={inputClass + " mb-3"} value={draft.title ?? ""} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
               <label className="mb-1 block text-xs font-bold">النص الثانوي</label><input className={inputClass + " mb-3"} value={draft.subtitle ?? ""} onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })} />
