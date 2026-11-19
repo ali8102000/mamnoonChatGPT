@@ -55,7 +55,7 @@ export default function AdminStaffScreen() {
         if (assignment?.department === "finance") setDisplayTitle(assignment.display_title ?? "قسم المالية");
         if (assignment?.department === "operations") setDisplayTitle(assignment.display_title ?? "قسم التشغيل");
         if (assignment?.department === "monitoring") setDisplayTitle(assignment.display_title ?? "قسم المراقبة");
-        const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+        const scopeType = names.some((role: string) => ["super_admin", "admin"].includes(role)) ? "global" : assignment?.scope_type === "governorate" ? "governorate" : "global";
         setStaffScopeType(scopeType);
         const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate : null;
         const permissionKeys = [
