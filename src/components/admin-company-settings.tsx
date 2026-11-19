@@ -8,6 +8,7 @@ export default function AdminCompanySettings() {
   const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
   const [driverVideoMaxDurationSeconds, setDriverVideoMaxDurationSeconds] = useState(10);
   const [serviceIconDisplaySeconds, setServiceIconDisplaySeconds] = useState(2);
+  const [serviceIconImageSizePx, setServiceIconImageSizePx] = useState(40);
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
@@ -35,10 +36,10 @@ export default function AdminCompanySettings() {
         if (active) { setMessage("لا توجد صلاحية المدير الأعلى لهذا الحساب."); setLoading(false); }
         return;
       }
-      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,driver_video_max_duration_seconds,service_icon_display_seconds").eq("id", 1).maybeSingle();
+      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,driver_video_max_duration_seconds,service_icon_display_seconds,service_icon_image_size_px").eq("id", 1).maybeSingle();
       if (active) {
         if (error) setMessage("تعذر تحميل اسم الشركة: " + error.message);
-        else { setName(data?.company_name ?? "شركة ممنون"); setLogoUrl(data?.company_logo_url ?? ""); setWelcomeMessage(data?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد."); setDriverVideoMaxDurationSeconds(Number.isInteger(data?.driver_video_max_duration_seconds) ? data.driver_video_max_duration_seconds : 10); setServiceIconDisplaySeconds(Number.isInteger(data?.service_icon_display_seconds) ? data.service_icon_display_seconds : 2); }
+        else { setName(data?.company_name ?? "شركة ممنون"); setLogoUrl(data?.company_logo_url ?? ""); setWelcomeMessage(data?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد."); setDriverVideoMaxDurationSeconds(Number.isInteger(data?.driver_video_max_duration_seconds) ? data.driver_video_max_duration_seconds : 10); setServiceIconDisplaySeconds(Number.isInteger(data?.service_icon_display_seconds) ? data.service_icon_display_seconds : 2); setServiceIconImageSizePx(Number.isInteger(data?.service_icon_image_size_px) ? data.service_icon_image_size_px : 40); }
         setLoading(false);
       }
     })();
@@ -52,6 +53,7 @@ export default function AdminCompanySettings() {
     if (welcome.length < 2 || welcome.length > 180) { setMessage("رسالة الترحيب لازم تكون بين حرفين و180 حرفاً."); return; }
     if (!Number.isInteger(driverVideoMaxDurationSeconds) || driverVideoMaxDurationSeconds < 1 || driverVideoMaxDurationSeconds > 60) { setMessage("مدة فيديو السيارة لازم تكون بين 1 و60 ثانية."); return; }
     if (!Number.isInteger(serviceIconDisplaySeconds) || serviceIconDisplaySeconds < 1 || serviceIconDisplaySeconds > 10) { setMessage("مدة عرض أيقونات الفنيين لازم تكون بين 1 و10 ثوانٍ."); return; }
+    if (!Number.isInteger(serviceIconImageSizePx) || serviceIconImageSizePx < 24 || serviceIconImageSizePx > 64) { setMessage("حجم صورة أيقونة الفني لازم يكون بين 24 و64 بكسل."); return; }
     setSaving(true); setMessage("");
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { setMessage("سجّل الدخول أولاً."); setSaving(false); return; }
@@ -65,7 +67,7 @@ export default function AdminCompanySettings() {
       if (uploaded.error) { setMessage("تعذر رفع الشعار: " + uploaded.error.message); setSaving(false); return; }
       nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
     }
-    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, company_logo_url: nextLogoUrl || null, welcome_message: welcome, driver_video_max_duration_seconds: driverVideoMaxDurationSeconds, service_icon_display_seconds: serviceIconDisplaySeconds, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, company_logo_url: nextLogoUrl || null, welcome_message: welcome, driver_video_max_duration_seconds: driverVideoMaxDurationSeconds, service_icon_display_seconds: serviceIconDisplaySeconds, service_icon_image_size_px: serviceIconImageSizePx, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
     if (!error) { setLogoUrl(nextLogoUrl); setLogoFile(null); }
     setMessage(error ? "فشل الحفظ: " + error.message : "تم حفظ إعدادات هوية ممنون ورسالة الترحيب.");
     setSaving(false);
@@ -98,6 +100,11 @@ export default function AdminCompanySettings() {
       <div className="flex items-center gap-3">
         <input id="service-icon-display-seconds" type="number" min={1} max={10} step={1} value={serviceIconDisplaySeconds} onChange={(e) => setServiceIconDisplaySeconds(Number(e.target.value))} className="w-28 rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" />
         <span className="text-xs text-muted-foreground">تتحكم بسرعة انتقال الأيقونات في الشريط البانورامي للفنيين على الويب والأندرويد (1–10 ثوانٍ).</span>
+      </div>
+      <label className="block text-sm font-bold" htmlFor="service-icon-image-size">حجم صور أيقونات بانوراما الفنيين (بكسل)</label>
+      <div className="flex items-center gap-3">
+        <input id="service-icon-image-size" type="number" min={24} max={64} step={1} value={serviceIconImageSizePx} onChange={(e) => setServiceIconImageSizePx(Number(e.target.value))} className="w-28 rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" />
+        <span className="text-xs text-muted-foreground">من 24 إلى 64 بكسل. الافتراضي 40 بكسل، ويتحدث على الويب والأندرويد بعد الحفظ.</span>
       </div>
       <label className="block text-sm font-bold" htmlFor="company-welcome">رسالة الترحيب الظاهرة بالتطبيق</label>
       <textarea id="company-welcome" value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} maxLength={180} rows={3} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" placeholder="مشوارك وخدمات بيتك، بمكان واحد." />
