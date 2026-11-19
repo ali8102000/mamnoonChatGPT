@@ -222,6 +222,7 @@ export default function RequestDetail() {
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
   const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
   const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
+  const acceptedMapRef = useRef<MapView | null>(null);
   const roadRouteSequenceRef = useRef(0);
   const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
@@ -859,6 +860,47 @@ export default function RequestDetail() {
     otherLocation?.longitude,
     driverLocationFresh,
   ]);
+  useEffect(() => {
+    if (!acceptedMapMode || !request || !acceptedMapRef.current) return;
+    const target = request.type === "taxi" && request.status === "in_progress" &&
+      request.dest_lat != null && request.dest_lng != null
+      ? { latitude: Number(request.dest_lat), longitude: Number(request.dest_lng) }
+      : request.pickup_lat != null && request.pickup_lng != null
+        ? { latitude: Number(request.pickup_lat), longitude: Number(request.pickup_lng) }
+        : isCustomer ? myLocation : otherLocation;
+    const origin = isCustomer ? otherLocation : myLocation;
+    const coordinates = roadRoutePoints.length > 1
+      ? roadRoutePoints
+      : [origin, target].filter((point): point is Coordinates => point != null);
+    if (coordinates.length > 1) {
+      acceptedMapRef.current.fitToCoordinates(coordinates, {
+        edgePadding: { top: 90, right: 44, bottom: 360, left: 44 },
+        animated: true,
+      });
+    } else if (coordinates.length === 1) {
+      acceptedMapRef.current.animateToRegion({
+        ...coordinates[0],
+        latitudeDelta: 0.018,
+        longitudeDelta: 0.018,
+      }, 450);
+    }
+  }, [
+    acceptedMapMode,
+    request?.id,
+    request?.type,
+    request?.status,
+    request?.pickup_lat,
+    request?.pickup_lng,
+    request?.dest_lat,
+    request?.dest_lng,
+    isCustomer,
+    myLocation?.latitude,
+    myLocation?.longitude,
+    otherLocation?.latitude,
+    otherLocation?.longitude,
+    roadRoutePoints,
+  ]);
+
 
   useEffect(() => {
     if (!isCustomer || !request || request.status !== "accepted" ||
@@ -1198,6 +1240,7 @@ export default function RequestDetail() {
       <View style={[styles.container, acceptedMapMode && styles.containerMap]}>
         {acceptedMapMode && (
           <MapView
+            ref={acceptedMapRef}
             key={`${request.id}:${request.status}`}
             style={styles.fullScreenTrackingMap}
             initialRegion={{
