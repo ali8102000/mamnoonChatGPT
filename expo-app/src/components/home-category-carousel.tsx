@@ -11,7 +11,7 @@ function openBanner(item:Banner){
  if((item.banner_type==="poll"||item.banner_type==="contest")&&item.target_campaign_id){router.push({pathname:"/campaign/[id]",params:{id:item.target_campaign_id}});return;}
  if(item.banner_type==="category")router.push({pathname:"/discover/[category]",params:{category:item.target_category}});
 }
-export function HomeCategoryCarousel(){
+export function HomeCategoryCarousel({height=132}:{height?:number}){
  const [banners,setBanners]=useState<Banner[]>([]);
  const [index,setIndex]=useState(0);
  const [failedImages,setFailedImages]=useState<string[]>([]);
