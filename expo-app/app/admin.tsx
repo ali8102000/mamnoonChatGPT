@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { useCompanyBranding } from "@/lib/company-branding";
 import { palette, radius, space } from "@/styles/theme";
+import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Path, Circle, Rect } from "react-native-svg";
 
 type Stats = { users: number; requests: number; drivers: number; workers: number; active: number };
 type NavItem = { title: string; description: string; route: string; icon: string };
@@ -30,9 +32,7 @@ const GROUPS: NavGroup[] = [
     { title: "الإحصائيات", description: "تقارير المنصة ومؤشراتها", route: "/admin/analytics", icon: "📊" },
   ]},
   { title: "المحتوى وهوية الشركة", description: "الشعار والبانرات ومحتوى التطبيق", icon: "🎨", items: [
-    { title: "هوية الشركة والشعار", description: "اسم الشركة وشعار الترحيب", route: "/admin/company", icon: "🏢" },
-    { title: "بانرات الصفحة الرئيسية", description: "إعلانات واستطلاعات ومسابقات", route: "/admin/home-banners", icon: "🖼️" },
-    { title: "محرر فئات المتاجر والمطاعم", description: "تغيير صور الفئات وأحجامها وسرعة تحركها", route: "/admin/business-categories", icon: "🛍️" },
+    { title: "مركز الصور والتصميم", description: "كل صور التطبيق والبانرات والشعارات والفئات في مكان واحد", route: "/admin/image-studio", icon: "🎨" },
     { title: "الإشعارات", description: "إرسال تنبيهات للمستخدمين", route: "/admin/notifications", icon: "🔔" },
   ]},
   { title: "الموظفون والحوكمة", description: "التعيين والترقية والتنزيل والصلاحيات", icon: "🧑‍💼", items: [
@@ -103,21 +103,29 @@ export default function AdminScreen() {
   return <View style={s.page}>
     <Stack.Screen options={{ title: "مركز إدارة ممنون" }}/>
     <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
-      <View style={s.hero}>
+      <LinearGradient colors={["#071b34","#12466a","#087e8b"]} start={{x:0,y:0}} end={{x:1,y:1}} style={s.hero}>
         <View style={s.brandRow}>
           {logoUrl ? <Image source={{ uri: logoUrl }} style={s.logo} resizeMode="contain"/> : <View style={s.logoFallback}><Text style={s.logoLetter}>م</Text></View>}
           <View style={{flex:1}}><Text style={s.brandName}>{companyName}</Text><Text style={s.heroCaption}>مركز التحكم والإدارة العليا</Text></View>
         </View>
         <Text style={s.heroTitle}>كل أقسام الشركة بمكان واحد</Text>
         <Text style={s.heroText}>اختَر القسم حتى تفتح أدواته ومحتوياته وحدها، بدون تكدّس بقية الأقسام أسفل الصفحة.</Text>
-        <View style={s.flow}>
-          <View style={s.flowNode}><Text style={s.flowIcon}>🏢</Text><Text style={s.flowLabel}>الإدارة العليا</Text></View>
-          <Text style={s.flowArrow}>↓</Text>
+        <View style={s.artPanel}>
+          <Svg width="100%" height="112" viewBox="0 0 320 112">
+            <Circle cx="270" cy="25" r="30" fill="#7CE7E0" opacity=".18"/>
+            <Path d="M10 94H310" stroke="#A9EAF2" strokeWidth="1.5" opacity=".5"/>
+            <Rect x="24" y="48" width="58" height="46" rx="8" fill="#FFFFFF" opacity=".16"/>
+            <Rect x="96" y="28" width="70" height="66" rx="9" fill="#FFFFFF" opacity=".2"/>
+            <Rect x="180" y="42" width="54" height="52" rx="8" fill="#FFFFFF" opacity=".14"/>
+            <Rect x="250" y="56" width="44" height="38" rx="7" fill="#FFFFFF" opacity=".18"/>
+            <Path d="M36 63h34M36 74h34M109 44h44M109 56h44M109 68h44M193 57h28M193 68h28M260 69h24" stroke="#D9FBFF" strokeWidth="3" strokeLinecap="round" opacity=".9"/>
+            <Path d="M53 20l14 9-14 9M132 8l14 9-14 9M207 18l14 9-14 9" fill="none" stroke="#B5F7EE" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </Svg>
           <View style={s.flowBranches}>
             {["العمليات","المالية","المحتوى","الموظفون"].map((v,i)=><View key={v} style={s.flowBranch}><Text style={s.flowBranchIcon}>{["🚕","💰","🎨","🧑‍💼"][i]}</Text><Text style={s.flowBranchText}>{v}</Text></View>)}
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {statsError ? <View style={s.statsError}>
         <Text style={s.statsErrorText}>تعذر تحميل بعض الإحصائيات: {statsError}</Text>
@@ -128,15 +136,15 @@ export default function AdminScreen() {
         ].map(([label,value,icon])=><View key={String(label)} style={s.statCard}><Text style={s.statIcon}>{icon}</Text><Text style={s.statValue}>{Number(value).toLocaleString("ar-IQ")}</Text><Text style={s.statLabel}>{label}</Text></View>)}
       </View>}
 
-      {GROUPS.map(group=><View key={group.title} style={s.groupCard}>
+      {GROUPS.map((group,index)=><View key={group.title} style={s.groupCard}>
         <TouchableOpacity onPress={()=>setExpanded(current=>current===group.title?null:group.title)} style={s.groupHeader} accessibilityRole="button" accessibilityState={{expanded:expanded===group.title}}>
-          <View style={s.groupIcon}><Text style={{fontSize:23}}>{group.icon}</Text></View>
+          <LinearGradient colors={index%2===0?["#DDF7F4","#C7E9FF"]:["#FCE8D8","#F5D8E8"]} style={s.groupIcon}><Text style={{fontSize:23}}>{group.icon}</Text></LinearGradient>
           <View style={{flex:1}}><Text style={s.groupTitle}>{group.title}</Text><Text style={s.groupDescription}>{group.description}</Text></View>
           <Text style={s.expand}>{expanded===group.title?"−":"+"}</Text>
         </TouchableOpacity>
         {expanded===group.title&&<View style={s.items}>
           {group.items.map(item=><TouchableOpacity key={item.route} onPress={()=>item.route === "/admin/staff" ? router.push("/admin/staff") : router.push(item.route as any)} style={s.item}>
-            <Text style={s.itemIcon}>{item.icon}</Text>
+            <View style={s.itemIconWrap}><Text style={s.itemIcon}>{item.icon}</Text></View>
             <View style={{flex:1}}><Text style={s.itemTitle}>{item.title}</Text><Text style={s.itemDescription}>{item.description}</Text></View>
             <Text style={s.arrow}>←</Text>
           </TouchableOpacity>)}
@@ -149,25 +157,25 @@ export default function AdminScreen() {
 const s=StyleSheet.create({
   page:{flex:1,backgroundColor:palette.pageCanvas},content:{padding:space.lg,paddingBottom:50,gap:12},
   center:{flex:1,alignItems:"center",justifyContent:"center",gap:12,backgroundColor:palette.pageCanvas,padding:24},
-  hero:{backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:radius.xl,padding:16,gap:10},
+  hero:{borderRadius:radius.xl,padding:18,gap:10,overflow:"hidden",elevation:7,shadowColor:"#06213b",shadowOpacity:.22,shadowRadius:18,shadowOffset:{width:0,height:9}},
   brandRow:{flexDirection:"row",alignItems:"center",gap:12},
   logo:{width:58,height:58,borderRadius:18,backgroundColor:"#fff"},logoFallback:{width:58,height:58,borderRadius:18,backgroundColor:palette.brand,alignItems:"center",justifyContent:"center"},
-  logoLetter:{color:palette.white,fontSize:30,fontWeight:"900"},brandName:{color:palette.ink,fontSize:20,fontWeight:"900",textAlign:"right"},heroCaption:{color:palette.muted,fontSize:11,textAlign:"right",marginTop:3},
-  heroTitle:{color:palette.ink,fontSize:21,fontWeight:"900",textAlign:"right",marginTop:8},heroText:{color:palette.muted,fontSize:12,lineHeight:20,textAlign:"right"},
-  flow:{backgroundColor:palette.canvas,borderRadius:radius.lg,padding:10,alignItems:"center",gap:7,marginTop:4},
-  flowNode:{backgroundColor:palette.brandSoft,borderColor:palette.brand,borderWidth:1,borderRadius:14,paddingHorizontal:20,paddingVertical:8,alignItems:"center",minWidth:140},
-  flowIcon:{fontSize:20},flowLabel:{fontSize:11,fontWeight:"900",color:palette.ink},flowArrow:{fontSize:20,color:palette.brand,fontWeight:"900"},
+  logoLetter:{color:palette.white,fontSize:30,fontWeight:"900"},brandName:{color:"#FFFFFF",fontSize:20,fontWeight:"900",textAlign:"right"},heroCaption:{color:"#C7F5F4",fontSize:11,textAlign:"right",marginTop:3},
+  heroTitle:{color:"#FFFFFF",fontSize:23,fontWeight:"900",textAlign:"right",marginTop:8},heroText:{color:"#D9F5FA",fontSize:12,lineHeight:20,textAlign:"right"},
+  artPanel:{backgroundColor:"rgba(255,255,255,0.08)",borderColor:"rgba(255,255,255,0.16)",borderWidth:1,borderRadius:18,padding:8,marginTop:6},
+  
+  
   flowBranches:{width:"100%",flexDirection:"row",flexWrap:"wrap",justifyContent:"center",gap:7},
-  flowBranch:{minWidth:"22%",flexGrow:1,backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:12,padding:8,alignItems:"center",gap:4},
-  flowBranchIcon:{fontSize:17},flowBranchText:{fontSize:10,color:palette.ink,fontWeight:"800"},
+  flowBranch:{minWidth:"22%",flexGrow:1,backgroundColor:"rgba(255,255,255,0.12)",borderColor:"rgba(255,255,255,0.18)",borderWidth:1,borderRadius:12,padding:8,alignItems:"center",gap:4},
+  flowBranchIcon:{fontSize:17},flowBranchText:{fontSize:10,color:"#FFFFFF",fontWeight:"800"},
   statsGrid:{flexDirection:"row",flexWrap:"wrap",gap:8},statCard:{flexBasis:"30%",flexGrow:1,backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:radius.md,padding:11,alignItems:"center",gap:3},
   statIcon:{fontSize:19},statValue:{fontSize:21,color:palette.brand,fontWeight:"900"},statLabel:{fontSize:10,color:palette.muted,fontWeight:"800"},
-  groupCard:{backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:radius.lg,overflow:"hidden"},
-  groupHeader:{flexDirection:"row",alignItems:"center",gap:10,padding:13},groupIcon:{width:42,height:42,borderRadius:14,backgroundColor:palette.brandSoft,alignItems:"center",justifyContent:"center"},
+  groupCard:{backgroundColor:palette.surface,borderColor:"#D7E5EF",borderWidth:1,borderRadius:radius.lg,overflow:"hidden",elevation:2,shadowColor:"#183B55",shadowOpacity:.07,shadowRadius:8,shadowOffset:{width:0,height:3}},
+  groupHeader:{flexDirection:"row",alignItems:"center",gap:10,padding:13},groupIcon:{width:46,height:46,borderRadius:15,alignItems:"center",justifyContent:"center"},
   groupTitle:{color:palette.ink,fontSize:14,fontWeight:"900",textAlign:"right"},groupDescription:{color:palette.muted,fontSize:10,textAlign:"right",marginTop:3},expand:{fontSize:24,color:palette.brand,fontWeight:"900",paddingHorizontal:5},
-  items:{paddingHorizontal:10,paddingBottom:10,gap:7},item:{flexDirection:"row",alignItems:"center",gap:10,backgroundColor:palette.canvas,borderRadius:radius.md,padding:11,minHeight:62},
+  items:{paddingHorizontal:10,paddingBottom:10,gap:7},item:{flexDirection:"row",alignItems:"center",gap:10,backgroundColor:"#F3F8FC",borderWidth:1,borderColor:"#E2EDF4",borderRadius:radius.md,padding:11,minHeight:66},
   supportButton: { minHeight: 40 }, reportAction: { minHeight: 36 }, inboxOpen: { minHeight: 36 },
-  itemIcon:{fontSize:21,width:28,textAlign:"center"},itemTitle:{color:palette.ink,fontSize:12,fontWeight:"900",textAlign:"right"},itemDescription:{color:palette.muted,fontSize:10,textAlign:"right",marginTop:3},arrow:{color:palette.brand,fontSize:17,fontWeight:"900"},
+  itemIconWrap:{width:40,height:40,borderRadius:13,backgroundColor:"#DFF3F7",alignItems:"center",justifyContent:"center"},itemIcon:{fontSize:21,width:28,textAlign:"center"},itemTitle:{color:palette.ink,fontSize:12,fontWeight:"900",textAlign:"right"},itemDescription:{color:palette.muted,fontSize:10,textAlign:"right",marginTop:3},arrow:{color:palette.brand,fontSize:17,fontWeight:"900"},
   statsError:{backgroundColor:palette.surface,borderColor:palette.danger,borderWidth:1,borderRadius:radius.md,padding:12,gap:8},statsErrorText:{color:palette.danger,fontSize:12,textAlign:"right"},retryButton:{alignSelf:"flex-end",paddingHorizontal:14,paddingVertical:8,borderRadius:10,backgroundColor:palette.brand},retryText:{color:palette.white,fontSize:11,fontWeight:"900"},
   title:{color:palette.ink,fontSize:18,fontWeight:"900"},muted:{color:palette.muted,fontSize:12,textAlign:"center"},
 });
