@@ -66,7 +66,7 @@ export default function AdminStaffScreen() {
           });
           return data === true;
         }));
-        if (permissionChecks.some(Boolean)) names.push("governance_access");
+        if (permissionKeys.slice(0, 5).some((_, index) => permissionChecks[index])) names.push("governance_access");
         const hasPermission = (key: string) => permissionChecks[permissionKeys.indexOf(key)] === true;
         if (hasPermission("finance.read") && hasPermission("promotions.read")) names.push("finance_access");
         if (hasPermission("notifications.send")) names.push("notifications_access");
