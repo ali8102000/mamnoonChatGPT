@@ -69,7 +69,7 @@ create policy partner_catalog_owner_insert on public.partner_catalog_items
     exists (
       select 1 from public.partner_business_profiles p
       join public.partner_applications a on a.id = p.application_id
-      join public.partner_catalog_categories c on c.category_key = partner_catalog_items.category_key
+      left join public.partner_catalog_categories c on c.category_key = partner_catalog_items.category_key
       where p.id = business_profile_id
         and p.user_id = (select auth.uid())
         and a.status = 'approved'
