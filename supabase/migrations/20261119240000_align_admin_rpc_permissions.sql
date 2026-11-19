@@ -19,11 +19,11 @@ DECLARE
   v_governorate text;
   v_permission text;
 BEGIN
-  IF p_status NOT IN ('approved','suspended','rejected','pending') THEN
+  IF p_status IS NULL OR p_status NOT IN ('approved','suspended','rejected','pending') THEN
     RAISE EXCEPTION 'invalid_status';
   END IF;
 
-  IF p_type NOT IN ('driver','large_driver','worker') THEN
+  IF p_type IS NULL OR p_type NOT IN ('driver','large_driver','worker') THEN
     RAISE EXCEPTION 'invalid_type';
   END IF;
 
