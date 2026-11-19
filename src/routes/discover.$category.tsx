@@ -6,7 +6,7 @@ import { MobileShell } from "@/components/mobile-shell";
 
 type PartnerType = "hotel" | "restaurant" | "store" | "mall";
 type Coordinates = { latitude: number; longitude: number };
-type Category = { category_key: string; vertical: "store" | "restaurant"; title: string; image_url: string };
+type Category = { category_key: string; vertical: "store" | "restaurant" | "hotel"; title: string; image_url: string };
 type Business = { id: string; partner_type: PartnerType; business_name: string; city: string; address: string; description: string | null; phone: string; promotion_latitude: number | null; promotion_longitude: number | null };
 type Product = { id: string; name: string; description: string | null; price_amount: number; currency: string; image_urls: string[]; profile: { id: string; business_name: string; city: string; address: string; business_vertical: string; promotion_latitude: number | null; promotion_longitude: number | null } };
 
@@ -36,10 +36,10 @@ function sortByNearest<T extends { promotion_latitude: number | null; promotion_
 
 function DiscoverCategoryPage() {
   const { category: raw } = Route.useParams();
-  const isStore = raw.startsWith("store-"), isRestaurant = raw.startsWith("restaurant-"), isGrocery = raw === "grocery";
+  const isStore = raw.startsWith("store-"), isRestaurant = raw.startsWith("restaurant-"), isHotelCategory = raw.startsWith("hotel-"), isGrocery = raw === "grocery";
   const isStoreSection = raw === "store", isRestaurantSection = raw === "restaurant";
-  const categoryKey = isStore ? raw.slice(6) : isRestaurant ? raw.slice(11) : isGrocery ? "grocery" : null;
-  const vertical = isStore || isStoreSection ? "store" : isRestaurant || isRestaurantSection ? "restaurant" : null;
+  const categoryKey = isStore ? raw.slice(6) : isRestaurant ? raw.slice(11) : isHotelCategory ? raw.slice(6) : isGrocery ? "grocery" : null;
+  const vertical = isStore || isStoreSection ? "store" : isRestaurant || isRestaurantSection ? "restaurant" : isHotelCategory || raw === "hotel" ? "hotel" : null;
   const [title, setTitle] = useState(isGrocery ? "بقالة وخضروات" : vertical === "store" ? "المتاجر والمولات" : vertical === "restaurant" ? "المطاعم" : raw === "hotel" ? "الفنادق" : "اكتشاف");
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Business[]>([]);
@@ -57,7 +57,7 @@ function DiscoverCategoryPage() {
     if (vertical && !categoryKey) {
       const [categoryResult, businessResult] = await Promise.all([
         (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").eq("vertical", vertical).eq("is_active", true).order("sort_order"),
-        (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,phone,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : ["store", "mall"]).eq("business_vertical", vertical === "restaurant" ? "restaurant" : "store").order("business_name"),
+        (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,phone,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]).eq("business_vertical", vertical).order("business_name"),
       ]);
       if (categoryResult.error || businessResult.error) setError("تعذر تحميل القسم حالياً.");
       setCategories((categoryResult.data ?? []) as Category[]);
