@@ -372,7 +372,7 @@ Deno.serve(async (req: Request) => {
       const governorate = targetProfile.governorate_key ?? null;
       const staffScope = await getStaffScope();
       if (staffScope.scopeType === "governorate" && staffScope.scopeGovernorate !== governorate) throw new Error("permission_required:users.read");
-      await requireScopedReadPermission("users.read", "has_user_moderation_access", governorate ? "governorate" : "global", governorate);
+      await requireScopedReadPermission("users.read", "has_user_moderation_access", staffScope.scopeType, staffScope.scopeGovernorate);
       const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications] = await Promise.all([
         admin.from("profiles").select("*").eq("id", id).maybeSingle(),
         admin.from("user_roles").select("role,created_at").eq("user_id", id),
