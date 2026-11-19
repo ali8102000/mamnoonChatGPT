@@ -26,6 +26,8 @@ export default function AdminGovernanceScreen() {
   const [roles, setRoles] = useState<string[]>([]);
   const [logs, setLogs] = useState<AuditRow[]>([]);
   const [staffActivity, setStaffActivity] = useState<StaffActivityRow[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -56,10 +58,9 @@ export default function AdminGovernanceScreen() {
       if (staffRead.error || staffRead.data !== true) { setAllowed(false); return; }
       setAllowed(true);
       setSuperAdmin(root.data === true);
-      if (root.data === true) {
-        const activityResult = await invoke({ action: "staff_activity", limit: 100 });
-        setStaffActivity(activityResult.rows ?? []);
-      } else setStaffActivity([]);
+      // Staff activity is an optional audit view. Do not let its Edge Function
+      // failure block the employee hierarchy, rank changes, or permission panel.
+      if (root.data !== true) setStaffActivity([]);
       if (auditRead.data === true) {
         const r = await invoke({ action: "audit_logs", limit: 100 });
         setLogs(r.logs ?? []);
@@ -75,6 +76,20 @@ export default function AdminGovernanceScreen() {
       else void load();
     }
   }, [authLoading, user, load]);
+
+  useEffect(() => {
+    if (tab !== "activity" || !superAdmin) return;
+    let active = true;
+    setActivityLoading(true);
+    setActivityError("");
+    void invoke({ action: "staff_activity", limit: 100 })
+      .then((result) => { if (active) setStaffActivity(result.rows ?? []); })
+      .catch((e: any) => {
+        if (active) setActivityError(String(e?.message || "تعذر تحميل نشاط الموظفين"));
+      })
+      .finally(() => { if (active) setActivityLoading(false); });
+    return () => { active = false; };
+  }, [tab, superAdmin, invoke]);
 
   const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
   const search = async () => {
@@ -146,6 +161,8 @@ export default function AdminGovernanceScreen() {
       </>}
       {tab==="activity" && superAdmin && <>
         <Text style={s.title}>سجل نشاط الموظفين</Text>
+        {!!activityError && <View style={s.error}><Text style={s.errorText}>{activityError}</Text></View>}
+        {activityLoading && <ActivityIndicator color={palette.brand} />}
         <Text style={s.muted}>آخر {staffActivity.length.toLocaleString("ar-IQ")} نشاط مسجل لخدمة العملاء وتغييرات الرتب، للمدير الأعلى فقط.</Text>
         {staffActivity.map((entry) => <View key={entry.id} style={s.card}>
           <Text style={s.cardTitle}>{({ view_support_message: "شاهد رسالة دعم", reply_support_message: "رد على رسالة دعم", rank_changed: "تغيير رتبة", department_changed: "تغيير قسم", staff_activated: "تفعيل موظف", staff_deactivated: "إيقاف موظف" } as Record<string, string>)[entry.activity] ?? entry.activity}</Text>
