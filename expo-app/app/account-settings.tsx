@@ -153,7 +153,26 @@ export default function AccountSettingsScreen() {
         throw new Error("انتهت جلسة الدخول. سجّل الدخول من جديد قبل تبديل الدور.");
       }
 
-      await setActiveRole(role as (typeof roles)[number]);
+      const nextRole = role as (typeof roles)[number];
+      const providerTableForRole = (value: string | null) =>
+        value === "driver" || value === "large_driver"
+          ? "driver_profiles"
+          : value === "worker"
+            ? "worker_profiles"
+            : null;
+      const previousProviderTable = providerTableForRole(activeRole);
+      const nextProviderTable = providerTableForRole(nextRole);
+      if (previousProviderTable && previousProviderTable !== nextProviderTable) {
+        const { error: availabilityError } = await (supabase as any)
+          .from(previousProviderTable)
+          .update({ available: false })
+          .eq("user_id", user.id);
+        if (availabilityError) {
+          throw new Error("تعذر إيقاف استقبال الطلبات للدور السابق. لم نبدّل الدور حتى لا تبقى تستقبل طلبات وأنت بوضع الزبون.");
+        }
+      }
+
+      await setActiveRole(nextRole);
 
       // Role switching changes only the local role preference; it must never
       // sign out or replace the authenticated Supabase session.
