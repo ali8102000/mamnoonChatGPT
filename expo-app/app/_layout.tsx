@@ -72,12 +72,12 @@ function PushNotificationSetup() {
         const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!active) return;
         const localPreferences = await loadNotificationPreferences();
-        const { data: savedPreference, error: preferenceError } = await supabase.from("user_push_tokens").select("sound_enabled,vibration_enabled").eq("user_id", userId).limit(1).maybeSingle();
+        const { data: savedPreference, error: preferenceError } = await supabase.from("user_push_tokens").select("sound_enabled").eq("user_id", userId).limit(1).maybeSingle();
         if (preferenceError) console.warn("[notifications] Could not read sound preference:", preferenceError.message);
         const soundEnabled = typeof savedPreference?.sound_enabled === "boolean" ? savedPreference.sound_enabled : localPreferences.soundEnabled;
-        const vibrationEnabled = typeof savedPreference?.vibration_enabled === "boolean" ? savedPreference.vibration_enabled : localPreferences.vibrationEnabled;
+        const vibrationEnabled = localPreferences.vibrationEnabled;
         await setNotificationPreferences({ soundEnabled, vibrationEnabled });
-        const { error } = await supabase.from("user_push_tokens").upsert({ user_id: userId, expo_push_token: tokenResult.data, device_platform: Platform.OS, sound_enabled: soundEnabled, vibration_enabled: vibrationEnabled, updated_at: new Date().toISOString() }, { onConflict: "user_id,expo_push_token" });
+        const { error } = await supabase.from("user_push_tokens").upsert({ user_id: userId, expo_push_token: tokenResult.data, device_platform: Platform.OS, sound_enabled: soundEnabled, updated_at: new Date().toISOString() }, { onConflict: "user_id,expo_push_token" });
         if (error) console.warn("[notifications] Could not save push token:", error.message);
       } catch (error) { console.warn("[notifications] Push registration unavailable:", error); }
     }
