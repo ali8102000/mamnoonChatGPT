@@ -89,6 +89,15 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await caller.rpc(rpcName, { p_user_id: auth.user.id });
       if (error || data !== true) throw new Error("forbidden");
     };
+    const getStaffScope = async () => {
+      const { data: assignment, error } = await caller.from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+      if (error) throw new Error("staff_scope_unavailable");
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+      if (scopeType === "governorate" && !scopeGovernorate) throw new Error("staff_scope_unavailable");
+      return { scopeType, scopeGovernorate };
+    };
     const requireFullChatModeration = async () => {
       await requireScopedAccess("has_chat_moderation_access");
       const { data, error } = await caller.rpc("is_customer_service_staff", { p_user_id: auth.user.id });
@@ -306,7 +315,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "list" || body.action === "search") {
-      await requireScopedAccess("has_user_moderation_access");
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requirePermission("users.read", scopeType, scopeGovernorate);
       const isSearch = body.action === "search";
       if (isSearch && (typeof body.query !== "string" || body.query.trim().length < 1 || body.query.length > 100)) {
         return json({ error: "query_too_short" }, 400);
@@ -316,6 +326,7 @@ Deno.serve(async (req: Request) => {
       let query = admin.from("profiles")
         .select("id,phone,full_name,email,created_at,avatar_url", { count: "exact" })
         .order("created_at", { ascending: false });
+      if (scopeType === "governorate" && scopeGovernorate) query = query.eq("governorate_key", scopeGovernorate);
       if (isSearch) {
         const { term, digits, phones } = searchTerms(body.query);
         const filters = [
@@ -343,9 +354,13 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "detail") {
-      await requireScopedAccess("has_user_moderation_access");
       if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
       const id = body.user_id;
+      const { data: targetProfile, error: targetProfileError } = await admin.from("profiles")
+        .select("governorate_key").eq("id", id).maybeSingle();
+      if (targetProfileError || !targetProfile) return json({ error: "user_not_found" }, 404);
+      const governorate = targetProfile.governorate_key ?? null;
+      await requirePermission("users.read", governorate ? "governorate" : "global", governorate);
       const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications] = await Promise.all([
         admin.from("profiles").select("*").eq("id", id).maybeSingle(),
         admin.from("user_roles").select("role,created_at").eq("user_id", id),
@@ -393,13 +408,15 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "providers") {
-      await requireScopedAccess("has_provider_ops_access");
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requirePermission("providers.read", scopeType, scopeGovernorate);
       const type = ["driver", "large_driver", "worker"].includes(body.type) ? body.type : "driver";
       const status = ["all", "approved", "pending", "suspended", "rejected"].includes(body.status) ? body.status : "all";
       const category = typeof body.category === "string" ? body.category.slice(0, 80) : "all";
       const table = type === "worker" ? "worker_profiles" : "driver_profiles";
       let providerQuery = admin.from(table)
         .select("*, profiles!inner(full_name,phone,email,avatar_url)", { count: "exact" });
+      if (scopeType === "governorate" && scopeGovernorate) providerQuery = providerQuery.eq("profiles.governorate_key", scopeGovernorate);
       if (status !== "all") providerQuery = providerQuery.eq("status", status);
       if (category !== "all") providerQuery = providerQuery.eq(type === "worker" ? "level" : "vehicle_category", category);
       const { data: providers, count, error } = await providerQuery
@@ -434,12 +451,14 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "requests") {
-      await requireScopedAccess("has_provider_ops_access");
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requirePermission("orders.read", scopeType, scopeGovernorate);
       const status = typeof body.status === "string" ? body.status.slice(0, 40) : "all";
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let requestQuery = admin.from("service_requests")
         .select("id,type,status,price_estimate,created_at,pickup_text,dest_text,customer_id,provider_id")
         .order("created_at", { ascending: false }).limit(limit);
+      if (scopeType === "governorate" && scopeGovernorate) requestQuery = requestQuery.eq("governorate_key", scopeGovernorate);
       if (status !== "all") requestQuery = requestQuery.eq("status", status);
       const { data: requests, error } = await requestQuery;
       if (error) return json({ error: "requests_load_failed" }, 500);
