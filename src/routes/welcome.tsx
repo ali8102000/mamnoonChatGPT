@@ -1,11 +1,12 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Car, Check, Globe2, MapPin, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useWelcomePreferences } from "@/lib/welcome-preferences";
 import welcomeImage from "@/assets/welcome.jpg";
 import { serviceIcon } from "@/lib/service-visuals";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/welcome")({
   ssr: false,
@@ -98,6 +99,16 @@ function WelcomePage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  const [companyName, setCompanyName] = useState("ممنون");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (!active || !data) return; setCompanyName(data.company_name || "ممنون"); setCompanyLogoUrl(data.company_logo_url || ""); setWelcomeMessage(data.welcome_message || ""); });
+    return () => { active = false; };
+  }, []);
   const text = copy[language];
   const slide = text.slides[step];
   const Forward = language === "ar" ? ArrowLeft : ArrowRight;
@@ -118,8 +129,9 @@ function WelcomePage() {
       className="min-h-dvh bg-surface text-foreground flex flex-col"
     >
       <header className="mx-auto w-full max-w-3xl flex items-center justify-between px-6 pt-6 sm:pt-8">
-        <span className="text-2xl font-black text-primary">
-          {text.brand}
+        <span className="flex items-center gap-2 text-2xl font-black text-primary">
+          {companyLogoUrl && <img src={companyLogoUrl} alt="" className="h-9 w-9 rounded-lg bg-white object-contain p-1" />}
+          {companyName}
           <span className="text-accent">.</span>
         </span>
         <Button variant="ghost" onClick={() => finish()} className="text-muted-foreground">
@@ -158,7 +170,7 @@ function WelcomePage() {
         </div>
 
         <h1 className="mt-7 text-3xl sm:text-4xl leading-tight font-black">{text.greeting}</h1>
-        <p className="mt-3 text-sm sm:text-base text-muted-foreground">{text.tagline}</p>
+        <p className="mt-3 text-sm sm:text-base text-muted-foreground">{welcomeMessage || text.tagline}</p>
         <img
           src={welcomeImage}
           alt={
