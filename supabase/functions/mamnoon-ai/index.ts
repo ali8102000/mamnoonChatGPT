@@ -19,7 +19,7 @@ function normalizeQuery(value: string) {
   return value.trim().replace(/[,%()_*]/g, " ").replace(/\s+/g, " ").slice(0, 80);
 }
 
-async function findPublicCatalog(admin: ReturnType<typeof createClient>, query: string) {
+async function findPublicCatalog(admin: any, query: string) {
   const term = normalizeQuery(query);
   if (term.length < 2) return { businesses: [], products: [], menu: [], rooms: [] };
   const pattern = `%${term}%`;
@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
     if (message.length < 2 || message.length > 1200) return json({ error: "message_length_invalid" }, 400);
 
     const geminiKey = required("GEMINI_API_KEY");
-    const model = required("GEMINI_CHAT_MODEL");
+    const model = Deno.env.get("GEMINI_CHAT_MODEL")?.trim() || "gemini-2.5-flash-lite";
     const admin = createClient(url, secret, {
       global: { fetch: createSupabaseFetch(secret) },
       auth: { persistSession: false, autoRefreshToken: false },
