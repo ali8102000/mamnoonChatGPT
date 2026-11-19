@@ -14,7 +14,7 @@ const ITEMS = [
   { label: "المراقبة والبلاغات", route: "/admin/monitoring", roles: ["super_admin", "admin", "support", "moderator", "department_monitoring", "rank:general_manager"] },
   { label: "الخريطة المباشرة", route: "/admin/live-map", roles: ["super_admin", "admin", "support", "department_operations", "department_monitoring", "rank:general_manager"] },
   { label: "إدارة الأصدقاء", route: "/admin/friends", roles: ["super_admin", "admin", "moderator", "department_monitoring", "rank:general_manager"] },
-  { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager"] },
+  { label: "إرسال الإشعارات", route: "/admin/notifications", roles: ["super_admin", "admin", "support", "finance", "moderator", "rank:general_manager", "notifications_access"] },
   { label: "الإدارة الهرمية والصلاحيات", route: "/admin/governance", roles: ["super_admin", "admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { label: "التحكم بالمحافظات", route: "/admin/regions", roles: ["super_admin"] },
   { label: "مساعد استيراد البيانات", route: "/admin/import", roles: ["super_admin", "admin"] },
@@ -55,16 +55,18 @@ export default function AdminStaffScreen() {
         if (assignment?.department === "monitoring") setDisplayTitle(assignment.display_title ?? "قسم المراقبة");
         const scopeType = assignment?.scope_type ?? "global";
         const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate : null;
-        const permissionChecks = await Promise.all([
+        const permissionKeys = [
           "staff.read","staff.assign","staff.manage_created","staff.delegate","staff.approve",
-          "pricing.taxi.edit","pricing.peak.edit","finance.read","promotions.read",
-        ].map(async (permission_key) => {
+          "pricing.taxi.edit","pricing.peak.edit","finance.read","promotions.read","notifications.send",
+        ];
+        const permissionChecks = await Promise.all(permissionKeys.map(async (permission_key) => {
           const { data } = await (supabase as any).rpc("admin_has_permission", {
             p_permission_key: permission_key, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
           });
           return data === true;
         }));
         if (permissionChecks.some(Boolean)) names.push("governance_access");
+        if (permissionChecks[permissionKeys.indexOf("notifications.send")]) names.push("notifications_access");
         setRoles([...new Set(names)]);
 
       } catch {
