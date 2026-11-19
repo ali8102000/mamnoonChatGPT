@@ -13,7 +13,7 @@ create policy partner_catalog_owner_insert on public.partner_catalog_items
         and p.user_id = (select auth.uid())
         and a.status = 'approved'
         and (
-          (p.partner_type = 'hotel' and partner_catalog_items.item_type = 'room' and c.vertical = 'hotel' and c.is_active = true)
+          (p.partner_type = 'hotel' and partner_catalog_items.item_type = 'room' and (partner_catalog_items.category_key is null or (c.vertical = 'hotel' and c.is_active = true)))
           or (p.partner_type = 'restaurant' and partner_catalog_items.item_type = 'menu_item' and c.vertical = 'restaurant' and c.is_active = true)
           or (p.partner_type in ('store','mall') and partner_catalog_items.item_type = 'product'
               and ((p.business_vertical = 'grocery' and c.vertical = 'grocery' and c.is_active = true and partner_catalog_items.category_key = 'grocery')
