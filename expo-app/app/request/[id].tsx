@@ -226,6 +226,7 @@ export default function RequestDetail() {
   const acceptedMapRef = useRef<MapView | null>(null);
   const acceptedMapFitKeyRef = useRef<string | null>(null);
   const roadRouteSequenceRef = useRef(0);
+  const lastRoadRouteRequestRef = useRef<{ routeKey: string; latitude: number; longitude: number; requestedAt: number } | null>(null);
   const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
   const [freshnessClock, setFreshnessClock] = useState(Date.now());
@@ -835,8 +836,28 @@ export default function RequestDetail() {
       setRoadRoutePoints([]);
       return;
     }
+    // Live GPS arrives every few seconds. Reuse the current road line until
+    // the provider has moved meaningfully or the route has aged out.
+    const routeKey = [id, request?.type, request?.status,
+      destination.latitude.toFixed(5), destination.longitude.toFixed(5)].join(":");
+    const previousRouteRequest = lastRoadRouteRequestRef.current;
+    const movedMeters = previousRouteRequest
+      ? Math.hypot(
+          (origin.latitude - previousRouteRequest.latitude) * 111320,
+          (origin.longitude - previousRouteRequest.longitude) * 111320 * Math.cos(origin.latitude * Math.PI / 180),
+        )
+      : Number.POSITIVE_INFINITY;
+    if (previousRouteRequest && previousRouteRequest.routeKey === routeKey &&
+        movedMeters < 25 && Date.now() - previousRouteRequest.requestedAt < 12000) return;
+
     const sequence = ++roadRouteSequenceRef.current;
     const timeout = setTimeout(() => {
+      lastRoadRouteRequestRef.current = {
+        routeKey,
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+        requestedAt: Date.now(),
+      };
       void callMamnoonMapsApi<{ routePoints?: { lat: number; lng: number }[] }>({
         action: "route",
         from: { lat: origin.latitude, lng: origin.longitude },
