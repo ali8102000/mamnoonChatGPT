@@ -326,6 +326,7 @@ export function MapPicker({
   // Authenticated Supabase-backed search; province changes invalidate previous suggestions.
   const placeCacheRef = useRef<Map<string, { coords: Coords; address: string }>>(new Map());
   const nearbySelectionRef = useRef(0);
+  const placeSelectionRef = useRef(0);
   useEffect(() => {
     if (!searchOpen || searchQuery.trim().length < 2) {
       setSuggestions([]);
@@ -385,6 +386,7 @@ export function MapPicker({
   }, [searchQuery, searchOpen, governorateKey, value]);
 
   async function pickSuggestion(id: string, label: string) {
+    const selectionRequest = ++placeSelectionRef.current;
     let place = placeCacheRef.current.get(id);
     if (!place && id.startsWith("g:")) {
       try {
@@ -397,12 +399,13 @@ export function MapPicker({
         });
         place = { coords: res.coords, address: res.address || label };
       } catch {
-        setGeoError("تعذّر فتح هذا المكان، جرّب مكان ثاني");
+        if (selectionRequest === placeSelectionRef.current) setGeoError("تعذّر فتح هذا المكان، جرّب مكان ثاني");
         return;
       }
+      if (selectionRequest !== placeSelectionRef.current) return;
       sessionTokenRef.current = null;
     }
-    if (!place) return;
+    if (selectionRequest !== placeSelectionRef.current || !place) return;
     if (governorateKey && !isInGovernorate(place.coords, governorateKey)) {
       setGeoError("هذا المكان خارج المحافظة المختارة");
       return;
@@ -474,7 +477,10 @@ export function MapPicker({
                 autoFocus={Boolean(governorateKey)}
                 onFocus={() => setSearchOpen(true)}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  placeSelectionRef.current += 1;
+                  setSearchQuery(e.target.value);
+                }}
                 placeholder={placeholder}
                 className="flex-1 bg-transparent outline-none text-sm font-medium min-w-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400"
               />
@@ -482,6 +488,7 @@ export function MapPicker({
                 <button
                   type="button"
                   onClick={() => {
+                    placeSelectionRef.current += 1;
                     setSearchOpen(false);
                     setSuggestions([]);
                     setSearchQuery("");
