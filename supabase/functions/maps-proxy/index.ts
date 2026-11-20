@@ -415,7 +415,9 @@ Deno.serve(async (req:Request)=>{
     }
     if(action==="detectGovernorate") {
       if(!validPoint(body.center)) return json({error:"الإحداثيات غير صحيحة."},400);
-      const g=governorateOf(body.center);return json({key:g[0],name:g[1]});
+      const exact=governorates.find(g=>isInGovernorate(body.center,g[0]));
+      const g=exact??governorateOf(body.center);
+      return json({key:g[0],name:g[1],valid:Boolean(exact)});
     }
     if(action==="validateGovernorate") {
       if(!validPoint(body.center)||typeof body.governorateKey!=="string"||!names[body.governorateKey])
