@@ -93,6 +93,8 @@ jobs:
 
       - name: Install and launch APK on Android 15 emulator
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          ANDROID_I_WANT_MY_TCG: "yes"
         with:
           api-level: 35
           arch: x86_64
