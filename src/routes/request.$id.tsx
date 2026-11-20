@@ -602,7 +602,7 @@ function RequestDetail() {
           <div className="glass rounded-2xl p-3 space-y-2" dir="rtl">
             <div className="text-sm font-black">الصورة المرفقة بالطلب</div>
             <a href={attachmentUrl} target="_blank" rel="noreferrer" className="block">
-              <img src={attachmentUrl} alt="صورة توضيحية للطلب" className="w-full max-h-80 rounded-xl object-contain bg-background border border-border" loading="lazy" />
+              <img src={attachmentUrl} alt="صورة توضيحية للطلب" className="mx-auto h-[340px] max-h-[42vh] w-full rounded-xl object-contain bg-background border border-border" loading="lazy" />
             </a>
           </div>
         )}
