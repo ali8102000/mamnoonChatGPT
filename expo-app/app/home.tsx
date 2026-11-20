@@ -435,6 +435,9 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
 
 function CustomerHome({ userId }: { userId: string | null }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
+  const [topBanners, setTopBanners] = useState<any[]>([]);
+  const [topBannerIndex, setTopBannerIndex] = useState(0);
+  const topBanner = topBanners[topBannerIndex] ?? null;
   const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(188);
   useEffect(() => {
     let active = true;
@@ -448,6 +451,31 @@ function CustomerHome({ userId }: { userId: string | null }) {
       });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data, error } = await (supabase as any).from("home_carousel_banners")
+        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,is_active")
+        .eq("is_active", true).order("display_order").order("created_at");
+      if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
+    };
+    void load();
+    const channel = supabase.channel("home-top-banner-native")
+      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void load())
+      .subscribe();
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    if (topBanners.length < 2) return;
+    const seconds = Math.max(1, Math.min(60, Number(topBanner?.scroll_speed) || 5));
+    const timer = setInterval(() => {
+      const reverse = topBanner?.motion_direction === "right" || topBanner?.motion_direction === "down";
+      setTopBannerIndex((value) => (value + (reverse ? -1 : 1) + topBanners.length) % topBanners.length);
+    }, seconds * 1000);
+    return () => clearInterval(timer);
+  }, [topBanners, topBanner?.scroll_speed, topBanner?.motion_direction]);
 
   const tiles = [
     {
@@ -494,6 +522,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
           elevation: 5,
         }}
       >
+        {topBanner?.image_url ? <Image source={{ uri: topBanner.image_url }} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", opacity: 0.38 }} resizeMode="cover" /> : null}
         <LinearGradient
           pointerEvents="none"
           colors={["rgba(255,255,255,0.24)", "rgba(255,255,255,0.02)", "rgba(255,255,255,0.10)"]}
@@ -521,7 +550,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
           اطلب الآن، ادفع للمزوّد مباشرة
         </Text>
         <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 16, marginTop: 4, textAlign: "right" }}>
-          ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك
+          {topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
         </Text>
       </LinearGradient>
 
