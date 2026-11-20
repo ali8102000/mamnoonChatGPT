@@ -1,39 +1,48 @@
-import { useEffect, useRef, useState } from "react";
-import { ScrollView, View, Text, Image } from "react-native";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
+import { Image, View } from "react-native";
 import { getServiceImage } from "@/lib/service-visuals";
 
 const SERVICES = [
-  ["build","بناء"],["plaster","لبخ"],["carpentry_form","نجارة"],["flooring","أرضيات"],["chef","طباخ"],
-  ["plumbing","سباكة"],["electric_setup","كهرباء"],["electric_street","كهربائي"],["washer_repair","غسالات"],["stove_repair","طباخات"],
-  ["fridge_repair","ثلاجات"],["ac_repair","تبريد"],["cleaning","تنظيف"],["wood_carpentry","نجارة خشب"],["blacksmith","حداد"],
-  ["goods_transport","نقل بضائع"],["furniture_moving","نقل أثاث"],["cargo_handling","تحميل"],["gardener","حدائق"],["internet_install","إنترنت"],
-  ["phone_repair","موبايلات"],["electronics_repair","إلكترونيات"],["computer_repair","حاسبات"],["security_cameras","كاميرات"],["general","خدمات عامة"],
+  "build","plaster","carpentry_form","flooring","chef",
+  "plumbing","electric_setup","electric_street","washer_repair","stove_repair",
+  "fridge_repair","ac_repair","cleaning","wood_carpentry","blacksmith",
+  "goods_transport","furniture_moving","cargo_handling","gardener","internet_install",
+  "phone_repair","electronics_repair","computer_repair","security_cameras","general",
 ] as const;
 
-export function ServiceIconPanorama() {
-  const scroll = useRef<ScrollView>(null);
-  const offset = useRef(0);
-  const [seconds,setSeconds] = useState(2);
-  const [imageSize,setImageSize] = useState(56);
+type Props = {
+  imageUrl?: string | null;
+  imageScale?: number;
+};
+
+export function ServiceIconPanorama({ imageUrl, imageScale = 1 }: Props) {
+  const [index, setIndex] = useState(0);
+  const scale = Math.min(1.8, Math.max(0.65, Number(imageScale) || 1));
+
   useEffect(() => {
-    let active = true;
-    (supabase as any).from("company_settings").select("service_icon_display_seconds,service_icon_image_size_px").eq("id",1).maybeSingle()
-      .then(({data}: any) => { if(active && Number.isInteger(data?.service_icon_display_seconds)) setSeconds(Math.min(10,Math.max(1,data.service_icon_display_seconds))); if(active && Number.isInteger(data?.service_icon_image_size_px)) setImageSize(Math.min(64,Math.max(24,data.service_icon_image_size_px))); });
-    return () => { active = false; };
-  },[]);
-  useEffect(() => {
-    const timer = setInterval(() => {
-      offset.current += 58;
-      if(offset.current >= SERVICES.length * 58) offset.current = 0;
-      scroll.current?.scrollTo({x:offset.current,animated:true});
-    },seconds * 1000);
+    if (imageUrl) return;
+    const timer = setInterval(() => setIndex((value) => (value + 1) % SERVICES.length), 2400);
     return () => clearInterval(timer);
-  },[seconds]);
-  return <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} scrollEnabled={false} style={{width:68,height:68}} contentContainerStyle={{alignItems:"center",gap:5}}>
-    {SERVICES.map(([slug,label]) => <View key={slug} style={{width:53,alignItems:"center",justifyContent:"center",gap:2}}>
-      <Image source={getServiceImage(slug)} style={{width:imageSize,height:imageSize,borderRadius:imageSize / 2,overflow:"hidden"}} resizeMode="cover" />
-      <Text numberOfLines={1} style={{fontSize:8,fontWeight:"800",color:"#fff"}}>{label}</Text>
-    </View>)}
-  </ScrollView>;
+  }, [imageUrl]);
+
+  return (
+    <View
+      pointerEvents="none"
+      style={{ width: "100%", height: "100%", overflow: "hidden", borderRadius: 0, padding: 0, margin: 0 }}
+    >
+      <Image
+        source={imageUrl ? { uri: imageUrl } : getServiceImage(SERVICES[index])}
+        resizeMode="cover"
+        style={{
+          position: "absolute",
+          width: "100%",
+          height: "100%",
+          left: 0,
+          top: 0,
+          borderRadius: 0,
+          transform: [{ scale }],
+        }}
+      />
+    </View>
+  );
 }
