@@ -100,7 +100,7 @@ function SupportChatPage() {
       finally { if (active) setBooting(false); }
     })();
     return () => { active = false; };
-  }, [uid, loadConversations]);
+  }, [uid, isStaff, loadConversations]);
 
   useEffect(() => {
     if (!selected?.id) return;
@@ -122,8 +122,11 @@ function SupportChatPage() {
   useEffect(() => {
     if (!uid) return;
     const channel = supabase.channel("support-list-" + uid)
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_conversations" }, () => loadConversations().catch(() => {}))
-      .subscribe();
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_conversations" }, () => loadConversations().catch(() => {}));
+    if (isStaff) {
+      channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, () => loadConversations().catch(() => {}));
+    }
+    channel.subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [uid, loadConversations]);
 
