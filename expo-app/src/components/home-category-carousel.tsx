@@ -153,8 +153,7 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
   if (!banners.length) {
     return (
       <>
-        {categoryStrips}
-        <View style={{ width: "100%", height: bannerHeight, backgroundColor: "#173F35", borderRadius: 22, padding: 14, justifyContent: "center", alignItems: "center" }}>
+          <View style={{ width: "100%", height: bannerHeight, backgroundColor: "#173F35", borderRadius: 22, padding: 14, justifyContent: "center", alignItems: "center" }}>
           <Text style={{ color: "#FFFFFF", fontWeight: "900", fontSize: 16, textAlign: "center" }}>اكتشف شركاء ممنون</Text>
           <Text style={{ color: "#FFFFFF", opacity: 0.9, fontWeight: "700", fontSize: 11, textAlign: "center", marginTop: 6 }}>المطاعم والفنادق والمولات والمتاجر المنشورة هنا</Text>
         </View>
