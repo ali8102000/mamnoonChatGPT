@@ -276,8 +276,10 @@ export default function AdminVisualBuilder() {
                     onPointerDown={() => startHold(item)} onPointerUp={clearHold} onPointerLeave={clearHold}
                     onClick={() => openEditor(item)}
                     className={`relative min-h-32 rounded-2xl border-2 p-3 text-right transition ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
-                    <div className="mb-2 grid h-16 place-items-center overflow-hidden rounded-xl bg-muted">
-                      {image ? <img src={image} alt="" style={{ width, height, objectFit: "contain" }} /> : <ImagePlus className="h-8 w-8 text-muted-foreground" />}
+                    <div className={`mb-2 grid h-16 place-items-center overflow-hidden bg-muted ${item.element_key === "home_customer_service" ? "rounded-none p-0" : "rounded-xl"}`}>
+                      {image ? <img src={image} alt="" style={item.element_key === "home_customer_service"
+                        ? { width: "100%", height: "100%", objectFit: "cover", transform: `scale(${Number(visual.image_scale) || 1})` }
+                        : { width, height, objectFit: "contain" }} /> : <ImagePlus className="h-8 w-8 text-muted-foreground" />}
                     </div>
                     <b className="block text-sm">{visual.title ?? item.title ?? item.label}</b>
                     <span className="mt-1 block text-[11px] text-muted-foreground">{visual.subtitle ?? item.subtitle}</span>
