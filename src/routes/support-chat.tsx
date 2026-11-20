@@ -64,7 +64,7 @@ function SupportChatPage() {
       const { data: latestMessages } = conversationIds.length ? await (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at,is_ai").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : { data: [] };
       const latestByConversation = new Map<string, any>();
       for (const message of latestMessages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
-      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: byId.get(c.user_id), lastMessage, unanswered: !!lastMessage && lastMessage.sender_id === c.user_id && !lastMessage.is_ai }; }).sort((a: any, b: any) => new Date(b.lastMessage?.created_at ?? b.updated_at).getTime() - new Date(a.lastMessage?.created_at ?? a.updated_at).getTime());
+      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: byId.get(c.user_id), lastMessage, unanswered: c.ai_status === "waiting_human" || (!!lastMessage && lastMessage.sender_id === c.user_id && !lastMessage.is_ai) }; }).sort((a: any, b: any) => new Date(b.lastMessage?.created_at ?? b.updated_at).getTime() - new Date(a.lastMessage?.created_at ?? a.updated_at).getTime());
       setConversations(rows);
       if (selected) setSelected(rows.find((c: any) => c.id === selected.id) ?? null);
     } else {
@@ -100,7 +100,7 @@ function SupportChatPage() {
       finally { if (active) setBooting(false); }
     })();
     return () => { active = false; };
-  }, [uid, loadConversations]);
+  }, [uid, isStaff, loadConversations]);
 
   useEffect(() => {
     if (!selected?.id) return;
@@ -122,8 +122,11 @@ function SupportChatPage() {
   useEffect(() => {
     if (!uid) return;
     const channel = supabase.channel("support-list-" + uid)
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_conversations" }, () => loadConversations().catch(() => {}))
-      .subscribe();
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_conversations" }, () => loadConversations().catch(() => {}));
+    if (isStaff) {
+      channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, () => loadConversations().catch(() => {}));
+    }
+    channel.subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [uid, loadConversations]);
 
