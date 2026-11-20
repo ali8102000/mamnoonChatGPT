@@ -182,8 +182,8 @@ function ProfilePage() {
 
   async function shareReferralLink() {
     if (!referralSummary?.referral_code) return;
-    const link = `mamnoon://auth?ref=${referralSummary.referral_code}`;
-    const message = `انضم إلى ممنون باستخدام رمز الإحالة الخاص بي: ${referralSummary.referral_code}\n${link}`;
+    const link = `https://mamnoon-theta.vercel.app/invite?ref=${encodeURIComponent(referralSummary.referral_code)}`;
+    const message = `انضم إلى ممنون باستخدام رمز الإحالة الخاص بي: ${referralSummary.referral_code}\\n${link}`;
     if (navigator.share) await navigator.share({ title: "دعوة إلى ممنون", text: message, url: link });
     else { await navigator.clipboard.writeText(message); toast.success("تم نسخ رابط ورمز الإحالة"); }
   }
