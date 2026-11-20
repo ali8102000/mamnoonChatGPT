@@ -20,6 +20,7 @@ function AskMamnoonPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [supportHandoff, setSupportHandoff] = useState(false);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -27,6 +28,7 @@ function AskMamnoonPage() {
     if (!message || sending) return;
     setDraft("");
     setError("");
+    setSupportHandoff(false);
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: "user", text: message }]);
     setSending(true);
     const { data, error: invokeError } = await supabase.functions.invoke("mamnoon-ai", {
@@ -38,6 +40,7 @@ function AskMamnoonPage() {
       return;
     }
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", text: data.answer }]);
+    setSupportHandoff(data.handoff === true);
   }
 
   if (loading) return null;
@@ -53,6 +56,7 @@ function AskMamnoonPage() {
         {messages.map((message) => <div key={message.id} className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "mr-auto bg-primary text-primary-foreground" : "ml-auto border border-border bg-muted text-foreground"}`}>{message.text}</div>)}
         {sending && <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/> ممنون يفكر...</div>}
       </section>
+      {supportHandoff && <a href="/support-chat" className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-center text-sm font-black text-primary">متابعة الاستفسار مع فريق الدعم ←</a>}
       {error && <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-xs text-destructive">{error}</p>}
       <form onSubmit={send} className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2">
         <textarea value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={1200} rows={2} placeholder="اكتب سؤالك..." className="min-h-12 flex-1 resize-none bg-transparent p-2 text-sm outline-none" />
