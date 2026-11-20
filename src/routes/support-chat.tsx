@@ -28,6 +28,7 @@ function SupportChatPage() {
   const [unansweredOnly, setUnansweredOnly] = useState(false);
   const [muted, setMuted] = useState(() => typeof window !== "undefined" && window.localStorage.getItem("mamnoon-support-muted") === "1");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const notifiedHandoffsRef = useRef(new Set<string>());
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -35,10 +36,10 @@ function SupportChatPage() {
 
   const loadConversations = useCallback(async () => {
     if (!uid) return;
-    const { data: staff } = await (supabase as any).rpc("has_staff_role", { p_user_id: uid });
+    const { data: staff } = await (supabase as any).rpc("has_chat_moderation_access", { p_user_id: uid });
     const { data: staffRoles } = await (supabase as any).rpc("get_staff_roles", { p_user_id: uid });
     const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank").eq("user_id", uid).eq("active", true).maybeSingle();
-    const privilegedChatRoles = ["super_admin","admin","support","finance","moderator"];
+    const privilegedChatRoles = ["super_admin","admin","support","moderator"];
     const isGeneralManager = assignment?.rank === "general_manager";
     const privilegedChatAccess = isGeneralManager || (staffRoles ?? []).some((r: string) => privilegedChatRoles.includes(r));
     const restrictedSupport = (staffRoles ?? []).includes("customer_service") && !privilegedChatAccess;
@@ -122,13 +123,20 @@ function SupportChatPage() {
   useEffect(() => {
     if (!uid) return;
     const channel = supabase.channel("support-list-" + uid)
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_conversations" }, () => loadConversations().catch(() => {}));
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_conversations" }, (payload: any) => {
+        loadConversations().catch(() => {});
+        const conversationId = String(payload.new?.id ?? "");
+        if (isStaff && payload.new?.ai_status === "waiting_human" && conversationId && !notifiedHandoffsRef.current.has(conversationId)) {
+          notifiedHandoffsRef.current.add(conversationId);
+          notifyIncoming({ body: "محادثة جديدة تحتاج تدخل موظف الدعم" });
+        }
+      });
     if (isStaff) {
       channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, () => loadConversations().catch(() => {}));
     }
     channel.subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [uid, loadConversations]);
+  }, [uid, loadConversations, isStaff]);
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" />;
