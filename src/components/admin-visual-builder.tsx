@@ -89,6 +89,7 @@ export default function AdminVisualBuilder() {
       icon_name: element.config?.icon_name ?? element.icon_name ?? "",
       width_px: element.config?.width_px ?? element.width_px ?? 64,
       height_px: element.config?.height_px ?? element.height_px ?? 64,
+      image_scale: element.config?.image_scale ?? element.published_config?.image_scale ?? 1,
       sort_order: element.config?.sort_order ?? element.sort_order ?? 0,
     });
     setMessage("");
@@ -316,11 +317,14 @@ export default function AdminVisualBuilder() {
               <label className={buttonClass + " mb-3 w-full cursor-pointer border border-border"}><ImagePlus className="h-4 w-4" />{uploading ? "جاري رفع الصورة..." : "اختيار صورة من الجهاز"}<input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => void uploadImage(e.target.files?.[0])} /></label>
               <label className="mb-1 block text-xs font-bold">رمز تعبيري بديل (اختياري)</label><input className={inputClass + " mb-3"} value={draft.icon_name ?? ""} onChange={(e) => setDraft({ ...draft, icon_name: e.target.value, image_url: e.target.value ? "" : draft.image_url })} placeholder="🚗" />
               <div className="mb-3 grid grid-cols-2 gap-2">
-                <div><label className="mb-1 block text-xs font-bold">العرض px</label><input type="number" min="16" max="600" className={inputClass} value={draft.width_px ?? 64} onChange={(e) => setDraft({ ...draft, width_px: Number(e.target.value) })} /></div>
-                <div><label className="mb-1 block text-xs font-bold">الارتفاع px</label><input type="number" min="16" max="600" className={inputClass} value={draft.height_px ?? 64} onChange={(e) => setDraft({ ...draft, height_px: Number(e.target.value) })} /></div>
+                <div><label className="mb-1 block text-xs font-bold">عرض الحاوية px</label><input type="number" min="16" max="600" className={inputClass} value={draft.width_px ?? 64} onChange={(e) => setDraft({ ...draft, width_px: Number(e.target.value) })} /></div>
+                <div><label className="mb-1 block text-xs font-bold">ارتفاع الحاوية px</label><input type="number" min="16" max="600" className={inputClass} value={draft.height_px ?? 64} onChange={(e) => setDraft({ ...draft, height_px: Number(e.target.value) })} /></div>
               </div>
+              <label className="mb-1 block text-xs font-bold">تكبير / تصغير الصورة داخل الحاوية</label>
+              <input type="range" min="0.65" max="1.8" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.image_scale) || 1} onChange={(e) => setDraft({ ...draft, image_scale: Number(e.target.value) })} />
+              <div className="mb-3 flex justify-between text-[11px] text-muted-foreground"><span>تصغير</span><b>{Math.round((Number(draft.image_scale) || 1) * 100)}%</b><span>تكبير</span></div>
               <label className="mb-1 block text-xs font-bold">ترتيب الظهور</label><input type="number" className={inputClass + " mb-3"} value={draft.sort_order ?? 0} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })} />
-              <div className="mb-3 rounded-xl bg-muted p-3 text-xs"><b>المعاينة الفورية</b><div className="mt-2 flex items-center gap-3"><div className="grid h-20 w-20 place-items-center rounded-xl bg-background">{draft.image_url ? <img src={draft.image_url} alt="" style={{ width: Number(draft.width_px) || 64, height: Number(draft.height_px) || 64, objectFit: "contain" }} /> : <ImagePlus className="h-7 w-7" />}</div><div><b>{draft.title || selected.label}</b><p className="text-muted-foreground">{draft.subtitle}</p></div></div></div>
+              <div className="mb-3 rounded-xl bg-muted p-3 text-xs"><b>المعاينة الفورية</b><div className="mt-2 flex items-center gap-3"><div className="grid h-20 w-20 place-items-center overflow-hidden rounded-none bg-background">{draft.image_url ? <img src={draft.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${Number(draft.image_scale) || 1})` }} /> : <ImagePlus className="h-7 w-7" />}</div><div><b>{draft.title || selected.label}</b><p className="text-muted-foreground">{draft.subtitle}</p></div></div></div>
               <button disabled={saving} onClick={() => void saveDraft()} className={buttonClass + " mb-2 w-full border border-border"}><Save className="h-4 w-4" />حفظ كمسودة</button>
               <button disabled={saving} onClick={() => void publishElement()} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Check className="h-4 w-4" />{selectedPublished ? "نشر التعديلات" : "نشر العنصر"}</button>
             </>}
