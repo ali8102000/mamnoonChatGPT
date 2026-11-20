@@ -2,24 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
-type Vertical = "store" | "restaurant" | "grocery";
-type CategoryTile = { category_key: string; vertical: Vertical; title: string; image_url: string; tile_width_px: number; tile_height_px: number; auto_scroll_seconds: number };
 type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; banner_type: "category" | "poll" | "contest" | "ad"; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; badge_text: string | null; display_order: number; motion_axis: "horizontal" | "vertical"; motion_direction: "left" | "right" | "up" | "down"; motion_style: "slide" | "fade" | "drop" };
 const categoryCopy: Record<Banner["target_category"], { title: string }> = {
   restaurant: { title: "المطاعم" },
   hotel: { title: "الفنادق" },
   store: { title: "المولات والمحلات" },
 };
-const ribbons: { vertical: Vertical; title: string }[] = [
-  { vertical: "restaurant", title: "المطاعم حسب الفئة" },
-  { vertical: "store", title: "المحلات والمولات حسب الفئة" },
-];
 
 export function HomeCategoryCarousel() {
   const navigate = useNavigate();
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [categoryTiles, setCategoryTiles] = useState<CategoryTile[]>([]);
-  const scrollRefs = useRef<Partial<Record<Vertical, HTMLDivElement | null>>>({});
   const [index, setIndex] = useState(0);
   const resumeAt = useRef(0);
   const touchStartX = useRef<number | null>(null);
@@ -33,39 +25,6 @@ export function HomeCategoryCarousel() {
       .eq("is_active", true).order("display_order").order("created_at");
     if (!error) { setBanners(data ?? []); setIndex(0); resumeAt.current = 0; }
   }, []);
-
-  const loadCategories = useCallback(async () => {
-    const { data, error } = await (supabase as any)
-      .from("partner_catalog_categories")
-      .select("category_key,vertical,title,image_url,tile_width_px,tile_height_px,auto_scroll_seconds")
-      .eq("is_active", true).order("sort_order");
-    if (!error) setCategoryTiles((data ?? []) as CategoryTile[]);
-  }, []);
-
-  useEffect(() => {
-    void loadCategories();
-    const channel = supabase.channel("partner-category-ribbons-web")
-      .on("postgres_changes", { event: "*", schema: "public", table: "partner_catalog_categories" }, () => void loadCategories())
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [loadCategories]);
-
-  useEffect(() => {
-    const timers = ribbons.map(({ vertical }) => {
-      const tiles = categoryTiles.filter((tile) => tile.vertical === vertical);
-      if (tiles.length < 2) return null;
-      const seconds = Math.max(2, Math.min(30, Number(tiles[0].auto_scroll_seconds) || 5));
-      return window.setInterval(() => {
-        const node = scrollRefs.current[vertical];
-        if (!node || Date.now() < resumeAt.current) return;
-        const end = node.scrollWidth - node.clientWidth;
-        if (end <= 0) return;
-        if (node.scrollLeft >= end - 4) node.scrollTo({ left: 0, behavior: "smooth" });
-        else node.scrollBy({ left: 116, behavior: "smooth" });
-      }, seconds * 1000);
-    });
-    return () => timers.forEach((timer) => { if (timer !== null) window.clearInterval(timer); });
-  }, [categoryTiles]);
 
   useEffect(() => {
     void refresh();
@@ -84,50 +43,10 @@ export function HomeCategoryCarousel() {
     return () => window.clearInterval(timer);
   }, [banners, index]);
 
-  const categoryStrip = (vertical: Vertical, title: string) => {
-    const tiles = categoryTiles.filter((tile) => tile.vertical === vertical && !!tile.image_url);
-    if (!tiles.length) return null;
-    return (
-      <section key={vertical} dir="rtl" className="mb-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-black text-foreground">{title}</h3>
-          <span className="text-[10px] text-muted-foreground">اسحب للتصفح</span>
-        </div>
-        <div
-          ref={(node) => { scrollRefs.current[vertical] = node; }}
-          onTouchStart={pause}
-          onMouseDown={pause}
-          onWheel={pause}
-          className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {tiles.map((tile) => (
-            <button
-              key={tile.category_key}
-              type="button"
-              onClick={() => void navigate({ to: "/discover/$category", params: { category: vertical === "grocery" ? "grocery" : vertical + "-" + tile.category_key } })}
-              className="flex shrink-0 flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-1.5 shadow-sm"
-              style={{ width: Math.max(64, Math.min(110, tile.tile_width_px)), minHeight: Math.max(82, Math.min(140, tile.tile_height_px + 28)) }}
-            >
-              <img
-                src={tile.image_url}
-                alt={tile.title}
-                loading="lazy"
-                className="rounded-lg object-cover"
-                style={{ width: Math.max(44, Math.min(88, tile.tile_width_px - 12)), height: Math.max(44, Math.min(88, tile.tile_height_px - 12)) }}
-              />
-              <span className="max-w-full truncate text-[10px] font-black">{tile.title}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-    );
-  };
-
-  const categoryStrips = <>{ribbons.map((ribbon) => categoryStrip(ribbon.vertical, ribbon.title))}</>;
   if (!banners.length) {
     return (
       <>
-          <div className="flex h-[220px] w-full items-center justify-center rounded-[24px] bg-[#173F35] p-4 text-center text-white">
+          <div className="flex h-[188px] w-full items-center justify-center rounded-[24px] bg-[#173F35] p-4 text-center text-white">
           <div><div className="text-base font-black">اكتشف شركاء ممنون</div><p className="mt-2 text-xs font-bold opacity-90">المطاعم والفنادق والمولات والمتاجر المنشورة تظهر هنا</p></div>
         </div>
       </>
@@ -157,7 +76,6 @@ export function HomeCategoryCarousel() {
 
   return (
     <>
-      {categoryStrips}
       <div
         className="relative h-[188px] w-full overflow-hidden rounded-[20px] border border-border bg-[#173F35] shadow-sm"
         onPointerDown={(event) => { pause(); touchStartX.current = event.clientX; movedBySwipe.current = false; }}
