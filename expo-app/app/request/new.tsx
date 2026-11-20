@@ -638,7 +638,7 @@ export default function NewRequest() {
       return;
     }
     let active = true;
-    const cacheKey = activeGovernorateKey + "|" + query.normalize("NFKC").toLocaleLowerCase("ar").replace(/\\s+/g, " ");
+    const cacheKey = activeGovernorateKey + "|" + query.normalize("NFKC").toLocaleLowerCase("ar").replace(/\s+/g, " ");
     const cached = placeSearchCacheRef.current.get(cacheKey);
     if (cached) {
       setPlaceSuggestions(cached);
