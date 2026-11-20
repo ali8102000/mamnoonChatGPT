@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { ArrowLeft, Smartphone, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,18 +18,9 @@ export const Route = createFileRoute("/invite")({
 
 function InvitePage() {
   const { ref } = Route.useSearch();
-  const [appLaunchAttempted, setAppLaunchAttempted] = useState(false);
-
   const appUrl = `mamnoon://auth?ref=${encodeURIComponent(ref ?? "")}`;
 
-  useEffect(() => {
-    if (!ref || appLaunchAttempted) return;
-    // Attempt the installed app only after an explicit tap; browsers may block
-    // automatic custom-scheme launches and should keep the web fallback available.
-  }, [ref, appLaunchAttempted]);
-
   function openApp() {
-    setAppLaunchAttempted(true);
     window.location.href = appUrl;
   }
 
