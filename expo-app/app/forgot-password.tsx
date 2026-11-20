@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { router } from "expo-router";
-import * as Linking from "expo-linking";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { Button, RealInput } from "@/components/ui";
@@ -18,9 +17,9 @@ export default function ForgotPassword() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(value, { redirectTo: Linking.createURL("/auth/callback") });
+      const { error } = await supabase.auth.resetPasswordForEmail(value);
       if (error) throw error;
-      router.push("/reset-password");
+      router.push({ pathname: "/reset-password", params: { email: value } });
     } catch (error: unknown) {
       Alert.alert("تعذّر إرسال الرمز", error instanceof Error ? error.message : "حدث خطأ. حاول مرة أخرى.");
     } finally {
