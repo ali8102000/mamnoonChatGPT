@@ -79,7 +79,7 @@ export function HomeCategoryCarousel() {
     if (banners.length < 2) return;
     const delay = Math.max(1, Math.min(60, Number(banners[index]?.scroll_speed) || 5)) * 1000;
     const timer = window.setInterval(() => {
-      if (Date.now() >= resumeAt.current) setIndex((value) => (value + 1) % banners.length);
+      if (Date.now() >= resumeAt.current) { const step = banners[index]?.motion_direction === "right" || banners[index]?.motion_direction === "down" ? -1 : 1; setIndex((value) => (value + step + banners.length) % banners.length); }
     }, delay);
     return () => window.clearInterval(timer);
   }, [banners, index]);
@@ -127,8 +127,7 @@ export function HomeCategoryCarousel() {
   if (!banners.length) {
     return (
       <>
-        {categoryStrips}
-        <div className="flex h-[220px] w-full items-center justify-center rounded-[24px] bg-[#173F35] p-4 text-center text-white">
+          <div className="flex h-[220px] w-full items-center justify-center rounded-[24px] bg-[#173F35] p-4 text-center text-white">
           <div><div className="text-base font-black">اكتشف شركاء ممنون</div><p className="mt-2 text-xs font-bold opacity-90">المطاعم والفنادق والمولات والمتاجر المنشورة تظهر هنا</p></div>
         </div>
       </>
