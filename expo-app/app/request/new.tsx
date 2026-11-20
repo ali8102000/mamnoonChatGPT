@@ -628,6 +628,7 @@ export default function NewRequest() {
     };
   }, [pickupCoords, destinationCoords, pickupGovernorateKey, destinationGovernorateKey, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
+  const placeSearchCacheRef = useRef(new Map<string, Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }>>());
   useEffect(() => {
     const query = placeQuery.trim();
     if (query.length < 2 || !activeGovernorateKey) {
@@ -637,22 +638,37 @@ export default function NewRequest() {
       return;
     }
     let active = true;
-    // Never leave predictions from the previous query selectable while a new
-    // search is pending; this prevents tapping a stale destination.
-    setPlaceSuggestions([]);
-    const timer = setTimeout(async () => {
-      setSearchingPlaces(true);
+    const cacheKey = activeGovernorateKey + "|" + query.normalize("NFKC").toLocaleLowerCase("ar").replace(/\\s+/g, " ");
+    const cached = placeSearchCacheRef.current.get(cacheKey);
+    if (cached) {
+      setPlaceSuggestions(cached);
+      setSearchingPlaces(false);
       setPlaceSearchError(null);
+      return () => { active = false; };
+    }
+    // Keep old results non-selectable while the new query is loading.
+    setPlaceSuggestions([]);
+    setSearchingPlaces(true);
+    setPlaceSearchError(null);
+    const timer = setTimeout(async () => {
       const center = mapMode === "pickup" ? pickupCoords : destinationCoords;
       const fallback = activeGovernorate;
       try {
-        const result = await callMamnoonMapsApi<{ suggestions: Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number } }> }>({
+        const result = await callMamnoonMapsApi<{ suggestions: Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }> }>({
           action: "autocomplete",
           input: query,
           center: center ? { lat: center.latitude, lng: center.longitude } : { lat: fallback!.latitude, lng: fallback!.longitude },
           governorateKey: activeGovernorateKey,
         });
-        if (active) setPlaceSuggestions((result.suggestions ?? []).slice(0, 30));
+        if (active) {
+          const suggestions = (result.suggestions ?? []).slice(0, 30);
+          placeSearchCacheRef.current.set(cacheKey, suggestions);
+          if (placeSearchCacheRef.current.size > 100) {
+            const oldest = placeSearchCacheRef.current.keys().next().value;
+            if (oldest) placeSearchCacheRef.current.delete(oldest);
+          }
+          setPlaceSuggestions(suggestions);
+        }
       } catch (error) {
         if (active) {
           setPlaceSuggestions([]);
@@ -713,35 +729,11 @@ export default function NewRequest() {
     if (!details?.isGesture || !userPannedMapRef.current) return;
     userPannedMapRef.current = false;
     if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
-    regionChangeTimerRef.current = setTimeout(async () => {
+    regionChangeTimerRef.current = setTimeout(() => {
       const coords = { latitude: nextRegion.latitude, longitude: nextRegion.longitude };
-      if (activeGovernorateKey) {
-        try {
-          const validation = await callMamnoonMapsApi<{ valid: boolean }>({
-            action: "validateGovernorate",
-            center: { lat: coords.latitude, lng: coords.longitude },
-            governorateKey: activeGovernorateKey,
-          });
-          if (!validation.valid) {
-            if (mapMode === "destination" && !outsideGovernoratePromptShownRef.current) {
-              outsideGovernoratePromptShownRef.current = true;
-              Alert.alert(
-                "أنت خارج محافظتك",
-                "يرجى تحديد المحافظة المراد التوجه إليها حتى نعرض لك اقتراحاتها فقط.",
-                [
-                  { text: "تحديد المحافظة", onPress: () => setGovernoratePickerVisible(true) },
-                  { text: "إلغاء", style: "cancel" },
-                ],
-              );
-            }
-            return;
-          }
-        } catch {
-          return;
-        }
-      }
-      // Commit the selected coordinates first so the fare quote starts immediately.
-      // Address lookup is secondary and must never delay route calculation.
+      // Commit the pin immediately. The authoritative auto-taxi-pricing quote
+      // validates the exact Iraq governorate boundaries in parallel; a separate
+      // validation request here used to add a full network round-trip before pricing.
       setDestinationConfirmed(false);
       const geocodeRequest = ++reverseGeocodeRequestRef.current;
       if (mapMode === "pickup") {
@@ -751,6 +743,7 @@ export default function NewRequest() {
         setDestinationCoords(coords);
         setDestination("وجهة محددة على الخريطة");
       }
+      // Reverse geocoding is decorative metadata and must never block fare calculation.
       void Location.reverseGeocodeAsync(coords).then((parts) => {
         if (geocodeRequest !== reverseGeocodeRequestRef.current) return;
         const address = formatAddress(parts);
@@ -758,7 +751,7 @@ export default function NewRequest() {
         if (mapMode === "pickup") setPickup(address);
         else setDestination(address);
       }).catch(() => {});
-    }, 180);
+    }, 80);
   }
 
   function chooseGovernorate(key: string) {
@@ -1252,7 +1245,7 @@ export default function NewRequest() {
             <Text style={styles.taxiLocateFloatingText}>موقعي</Text>
           </TouchableOpacity>
         )}
-        <View pointerEvents="none" style={[styles.taxiCenterPin, { top: 92 + Math.max(0, window.height - 92 - taxiSheetHeight) / 2 - 36 }]}>
+        <View pointerEvents="none" style={[styles.taxiCenterPin, { top: 158 + Math.max(0, window.height - 158 - taxiSheetHeight) / 2 - 50 }]}>
           <MapCenterPin />
         </View>
 
