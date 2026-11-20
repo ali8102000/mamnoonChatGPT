@@ -55,7 +55,7 @@ export function HomeCategoryCarousel({ height: requestedHeight = 188 }: Props) {
   const cardHeight = (height - 7) / 2;
 
   return (
-    <View style={{ width: "100%", height, flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
+    <View style={{ width: "100%", height, flexDirection: "row-reverse", flexWrap: "wrap", gap: 7 }}>
       {cards.map((card) => {
         const match = card.key === "mall" ? storeBanners[0] : card.key === "shop" ? storeBanners[1] : banners.find((item) => item.target_category === card.category);
         const image = match?.image_url || card.fallback;
@@ -68,9 +68,9 @@ export function HomeCategoryCarousel({ height: requestedHeight = 188 }: Props) {
             accessibilityLabel={`فتح قسم ${card.title}`}
             style={{ width: cardWidth, height: cardHeight, borderRadius: 12, overflow: "hidden", backgroundColor: "#173F35" }}
           >
-            {!failedImages.includes(imageKey) && (
+            {(
               <Image
-                source={{ uri: image }}
+                source={{ uri: failedImages.includes(imageKey) ? card.fallback : image }}
                 onError={() => setFailedImages((current) => current.includes(imageKey) ? current : [...current, imageKey])}
                 resizeMode="cover"
                 style={{ position: "absolute", width: "100%", height: "100%" }}
