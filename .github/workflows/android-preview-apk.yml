@@ -83,11 +83,16 @@ jobs:
 
       - name: Install and launch APK on Android 15 emulator
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          # GitHub-hosted Linux runners may not expose KVM. The emulator
+          # otherwise exits immediately when acceleration is disabled.
+          ANDROID_I_WANT_MY_TCG: "yes"
         with:
           api-level: 35
           arch: x86_64
           profile: pixel_2
           disable-animations: true
+          emulator-boot-timeout: 900
           script: |
             adb install -r expo-app/android/app/build/outputs/apk/release/app-release.apk
             adb shell monkey -p com.mamnoon.app 1
