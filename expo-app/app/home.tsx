@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import {
   View,
   Text,
+  Dimensions,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -23,6 +24,11 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
+
+const HOME_GRID_GAP = 12;
+const HOME_GRID_CONTENT_WIDTH = Dimensions.get("window").width - 24;
+const HOME_GRID_WIDE_WIDTH = ((HOME_GRID_CONTENT_WIDTH - HOME_GRID_GAP) * 2) / 3;
+const HOME_GRID_NARROW_WIDTH = (HOME_GRID_CONTENT_WIDTH - HOME_GRID_GAP) / 3;
 
 type IncomingRequest = {
   id: string;
@@ -484,7 +490,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "خلال دقائق",
       emoji: "🚕",
       colors: ["#E9AB2B", "#F97316"] as const,
-      width: "64.2857%" as const,
+      width: HOME_GRID_WIDE_WIDTH,
       type: "taxi" as const,
     },
     {
@@ -493,7 +499,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "١٦ خدمة",
       emoji: "🛠️",
       colors: ["#10B981", "#14B8A6"] as const,
-      width: "32.1429%" as const,
+      width: HOME_GRID_NARROW_WIDTH,
       type: "service" as const,
     },
     {
@@ -502,7 +508,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "كيا حمل أو كيا ركاب أو باص",
       emoji: "🚚",
       colors: ["#F97316", "#D97706"] as const,
-      width: "32.1429%" as const,
+      width: HOME_GRID_NARROW_WIDTH,
       type: "taxi" as const,
       vehicle: "large" as const,
     },
@@ -622,7 +628,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
             </View>
           </TouchableOpacity>
         ))}
-        <View style={{ width: "64.2857%", height: 188, direction: "rtl" }}>
+        <View style={{ width: HOME_GRID_WIDE_WIDTH, height: 188, direction: "rtl" }}>
           <HomeCategoryCarousel height={188} />
         </View>
       </View>
