@@ -19,6 +19,9 @@ import { palette, radius, space } from "@/styles/theme";
 
 type BannerCategory = "restaurant" | "hotel" | "store";
 type BannerKind = "category" | "poll" | "contest" | "ad";
+type MotionAxis = "horizontal" | "vertical";
+type MotionDirection = "left" | "right" | "up" | "down";
+type MotionStyle = "slide" | "fade" | "drop";
 type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string };
 type Banner = {
   id: string;
@@ -31,6 +34,9 @@ type Banner = {
   scroll_speed: number;
   display_order: number;
   badge_text: string | null;
+  motion_axis: MotionAxis;
+  motion_direction: MotionDirection;
+  motion_style: MotionStyle;
 };
 
 const CATEGORY_LABELS: Record<BannerCategory, string> = {
@@ -50,6 +56,9 @@ export default function AdminHomeBannersScreen() {
   const [speed, setSpeed] = useState("5");
   const [order, setOrder] = useState("0");
   const [badge, setBadge] = useState("");
+  const [motionAxis, setMotionAxis] = useState<MotionAxis>("horizontal");
+  const [motionDirection, setMotionDirection] = useState<MotionDirection>("left");
+  const [motionStyle, setMotionStyle] = useState<MotionStyle>("slide");
   const [asset, setAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,7 +83,7 @@ export default function AdminHomeBannersScreen() {
     setAuthorized(true);
     const { data, error } = await (supabase as any)
       .from("home_carousel_banners")
-      .select("id,image_url,storage_path,target_category,banner_type,target_campaign_id,is_active,scroll_speed,display_order,badge_text")
+      .select("id,image_url,storage_path,target_category,banner_type,target_campaign_id,is_active,scroll_speed,display_order,badge_text,motion_axis,motion_direction,motion_style")
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) {
@@ -174,6 +183,9 @@ export default function AdminHomeBannersScreen() {
           scroll_speed: numericSpeed,
           display_order: numericOrder,
           badge_text: badge.trim() || null,
+          motion_axis: motionAxis,
+          motion_direction: motionDirection,
+          motion_style: motionStyle,
         });
       if (insertError) {
         await supabase.storage.from("app-visuals").remove([path]);
@@ -330,6 +342,17 @@ export default function AdminHomeBannersScreen() {
               />
             </View>
           </View>
+          <Text style={styles.label}>اتجاه حركة الصور</Text>
+          <View style={styles.categoryRow}>
+            {([{key:"horizontal",label:"أفقي"},{key:"vertical",label:"عمودي"}] as {key:MotionAxis;label:string}[]).map((item)=><TouchableOpacity key={item.key} onPress={()=>{setMotionAxis(item.key);setMotionDirection(item.key==="horizontal"?"left":"up");}} style={[styles.categoryButton,motionAxis===item.key&&styles.categorySelected]}><Text style={[styles.categoryText,motionAxis===item.key&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}
+          </View>
+          <View style={styles.categoryRow}>
+            {((motionAxis==="horizontal"?[{key:"left",label:"من اليمين لليسار"},{key:"right",label:"من اليسار لليمين"}]:[{key:"up",label:"من الأسفل للأعلى"},{key:"down",label:"من الأعلى للأسفل"}]) as {key:MotionDirection;label:string}[]).map((item)=><TouchableOpacity key={item.key} onPress={()=>setMotionDirection(item.key)} style={[styles.categoryButton,motionDirection===item.key&&styles.categorySelected]}><Text style={[styles.categoryText,motionDirection===item.key&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}
+          </View>
+          <Text style={styles.label}>أسلوب الانتقال</Text>
+          <View style={styles.categoryRow}>
+            {([{key:"slide",label:"انزلاق"},{key:"fade",label:"تلاشي"},{key:"drop",label:"إسقاط"}] as {key:MotionStyle;label:string}[]).map((item)=><TouchableOpacity key={item.key} onPress={()=>setMotionStyle(item.key)} style={[styles.categoryButton,motionStyle===item.key&&styles.categorySelected]}><Text style={[styles.categoryText,motionStyle===item.key&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}
+          </View>
           <Text style={styles.label}>شارة اختيارية</Text>
           <TextInput
             value={badge}
@@ -373,7 +396,7 @@ export default function AdminHomeBannersScreen() {
             <Image source={{ uri: banner.image_url }} style={styles.bannerImage} />
             <View style={styles.bannerDetails}>
               <Text style={styles.bannerTitle}>{banner.banner_type === "poll" ? "استطلاع رأي" : banner.banner_type === "contest" ? "مسابقة" : banner.banner_type === "ad" ? "إعلان صوري فقط" : CATEGORY_LABELS[banner.target_category]}</Text>
-              <Text style={styles.muted}>الترتيب {banner.display_order} · كل {banner.scroll_speed} ثوانٍ</Text>
+              <Text style={styles.muted}>الترتيب {banner.display_order} · كل {banner.scroll_speed} ثوانٍ · {banner.motion_direction} · {banner.motion_style}</Text>
               <Text style={[styles.status, banner.is_active ? styles.active : styles.inactive]}>
                 {banner.is_active ? "منشور" : "متوقف"}
               </Text>
