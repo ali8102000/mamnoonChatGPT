@@ -1857,7 +1857,7 @@ const styles = StyleSheet.create({
   infoType: { fontSize: 18, fontWeight: "900", color: palette.ink, marginBottom: 8 },
   taxiInfoType: { fontSize: 13, marginBottom: 3 },
   infoRow: { fontSize: 13, color: palette.muted, marginTop: 5 },
-  requestAttachmentImage: { width: "100%", height: 210, borderRadius: radius.md, backgroundColor: palette.surfaceSoft, borderWidth: 1, borderColor: palette.line },
+  requestAttachmentImage: { width: "100%", height: 240, alignSelf: "center", borderRadius: radius.md, backgroundColor: palette.surfaceSoft, borderWidth: 1, borderColor: palette.line },
   infoPrice: { fontSize: 18, fontWeight: "900", color: palette.brand, marginTop: 8 },
   actionsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   actionBtn: { flex: 1, minHeight: 40, backgroundColor: palette.brand, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
