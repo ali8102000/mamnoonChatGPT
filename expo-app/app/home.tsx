@@ -565,16 +565,19 @@ function CustomerHome({ userId }: { userId: string | null }) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: tile.key === "service" ? 68 : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 48, 48),
-                height: tile.key === "service" ? 68 : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 48, 48),
-                borderRadius: 18,
+                width: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.width_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 48, 48),
+                height: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.height_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 48, 48),
+                borderRadius: tile.key === "service" ? 0 : 18,
                 alignItems: "center",
                 justifyContent: "center",
                 overflow: "hidden",
               }}
             >
               {tile.key === "service" ? (
-                <ServiceIconPanorama />
+                <ServiceIconPanorama
+                  imageUrl={visuals.home_customer_service?.image_url || visuals.home_customer_service?.panorama_image_url || null}
+                  imageScale={Number(visuals.home_customer_service?.image_scale) || 1}
+                />
               ) : (
                 visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.icon_name ? <Text style={{ fontSize: 30 }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].icon_name}</Text> : <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 54, height: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 42 }} resizeMode="contain" />
               )}
