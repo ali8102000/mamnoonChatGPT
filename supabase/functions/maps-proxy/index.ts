@@ -224,10 +224,9 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
     ? requestedCenter : {lat:governorate[2],lng:governorate[3]};
 
   const LIMIT=50;
-  const [cached,initial]=await Promise.all([
-    admin.from("map_place_search_cache").select("expires_at").eq("governorate_key",key).eq("normalized_query",normalized(q)).maybeSingle(),
-    admin.rpc("search_map_place_suggestions",{p_governorate_key:key,p_query:normalized(q),p_limit:LIMIT}),
-  ]);
+  const initial=await admin.rpc("search_map_place_suggestions",{
+    p_governorate_key:key,p_query:normalized(q),p_limit:LIMIT
+  });
   if(initial.error) throw new Error("تعذّر تحميل اقتراحات الأماكن من قاعدة البيانات.");
 
   const mapRows=(rows:any[]) => (rows??[]).flatMap(row=>{
@@ -244,6 +243,12 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   if(initialSuggestions.length>0) {
     return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
   }
+
+  // Check the external-enrichment cache only after local search misses. This
+  // avoids an extra database round trip for the common, successful local path.
+  const {data:cached}=await admin.from("map_place_search_cache")
+    .select("expires_at").eq("governorate_key",key).eq("normalized_query",normalized(q)).maybeSingle();
+  const cacheFresh=!!cached?.expires_at&&new Date(cached.expires_at).getTime()>Date.now();
 
   // A fresh query cache is authoritative for this query. Return it immediately;
   // otherwise enrich partial local results from Photon instead of only searching
