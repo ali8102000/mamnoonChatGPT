@@ -130,7 +130,11 @@ export default function ProfileScreen() {
 
   async function shareReferralLink() {
     if (!referralSummary?.referral_code) return;
-    await Share.share({ message: `انضم إلى ممنون باستخدام رمز الإحالة الخاص بي: ${referralSummary.referral_code}\nرابط فتح التطبيق: mamnoon://auth?ref=${referralSummary.referral_code}` });
+    const link = `https://mamnoon-theta.vercel.app/invite?ref=${encodeURIComponent(referralSummary.referral_code)}`;
+    await Share.share({
+      message: `انضم إلى ممنون باستخدام رمز الإحالة الخاص بي: ${referralSummary.referral_code}\\nرابط الدعوة: ${link}\\nفتح التطبيق مباشرة: mamnoon://auth?ref=${encodeURIComponent(referralSummary.referral_code)}`,
+      url: link,
+    });
   }
 
   async function handleWalletTopup(amountIQD: number) {
