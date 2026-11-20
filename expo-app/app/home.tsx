@@ -565,9 +565,9 @@ function CustomerHome({ userId }: { userId: string | null }) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.width_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 48, 48),
-                height: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.height_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 48, 48),
-                borderRadius: tile.key === "service" ? 0 : 18,
+                width: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.width_px) || 68, Number(visuals.home_customer_service?.height_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 48, 48),
+                height: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.width_px) || 68, Number(visuals.home_customer_service?.height_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 48, 48),
+                borderRadius: tile.key === "service" ? 16 : 18,
                 alignItems: "center",
                 justifyContent: "center",
                 overflow: "hidden",
