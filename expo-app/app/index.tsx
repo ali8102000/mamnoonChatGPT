@@ -12,11 +12,9 @@ export default function Index() {
   const [splashFinished, setSplashFinished] = useState(false);
   const [nextRoute, setNextRoute] = useState<"/select-governorate" | "/auth" | "/home" | "/admin/bootstrap" | null>(null);
 
-  // Show a brief branded greeting, then open the signed-in account directly.
+  // Do not add an artificial splash delay; route as soon as auth is ready.
   useEffect(() => {
-    if (loading) return;
-    const timer = setTimeout(() => setSplashFinished(true), 1200);
-    return () => clearTimeout(timer);
+    if (!loading) setSplashFinished(true);
   }, [loading]);
 
   useEffect(() => {
