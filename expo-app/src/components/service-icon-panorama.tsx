@@ -32,7 +32,7 @@ export function ServiceIconPanorama() {
   },[seconds]);
   return <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} scrollEnabled={false} style={{width:68,height:68}} contentContainerStyle={{alignItems:"center",gap:5}}>
     {SERVICES.map(([slug,label]) => <View key={slug} style={{width:53,alignItems:"center",justifyContent:"center",gap:2}}>
-      <Image source={getServiceImage(slug)} style={{width:imageSize,height:imageSize,borderRadius:12,overflow:"hidden"}} resizeMode="cover" />
+      <Image source={getServiceImage(slug)} style={{width:imageSize,height:imageSize,borderRadius:imageSize / 2,overflow:"hidden"}} resizeMode="cover" />
       <Text numberOfLines={1} style={{fontSize:8,fontWeight:"800",color:"#fff"}}>{label}</Text>
     </View>)}
   </ScrollView>;
