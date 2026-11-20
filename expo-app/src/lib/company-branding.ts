@@ -17,6 +17,9 @@ export function useCompanyBranding() {
   const [branding, setBranding] = useState<CompanyBranding>(DEFAULT_BRANDING);
   useEffect(() => {
     let active = true;
+    const timeout = setTimeout(() => {
+      if (active) console.warn("[company-branding] Load timed out; keeping default branding.");
+    }, 6000);
     void (supabase as any)
       .from("company_settings")
       .select("company_name,company_logo_url,welcome_message")
@@ -30,8 +33,9 @@ export function useCompanyBranding() {
           welcomeMessage: data.welcome_message || DEFAULT_BRANDING.welcomeMessage,
         });
       })
-      .catch((error: unknown) => console.warn("[company-branding] load failed", error));
-    return () => { active = false; };
+      .catch((error: unknown) => console.warn("[company-branding] load failed; keeping defaults", error))
+      .finally(() => clearTimeout(timeout));
+    return () => { active = false; clearTimeout(timeout); };
   }, []);
   return branding;
 }
