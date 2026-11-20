@@ -435,7 +435,7 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
 
 function CustomerHome({ userId }: { userId: string | null }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
-  const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(132);
+  const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(188);
   useEffect(() => {
     let active = true;
     (supabase as any).from("app_ui_elements_public")
@@ -465,7 +465,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "١٦ خدمة",
       emoji: "🛠️",
       colors: ["#10B981", "#14B8A6"] as const,
-      width: "31.5%" as const,
+      width: "32%" as const,
       type: "service" as const,
     },
     {
@@ -481,14 +481,15 @@ function CustomerHome({ userId }: { userId: string | null }) {
   ];
 
   return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 16 }}>
+    <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: 12 }}>
       <LinearGradient
         colors={[palette.brand, palette.brandGlow, palette.gold]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          borderRadius: 24,
-          padding: 24,
+          borderRadius: 20,
+          height: 130,
+          padding: 16,
           overflow: "hidden",
           elevation: 5,
         }}
@@ -526,7 +527,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
-      <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
+      <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12 }}>
         {tiles.map((tile) => (
           <TouchableOpacity
             key={tile.key}
@@ -550,9 +551,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
             style={{
               direction: "rtl",
               width: tile.width,
-              minHeight: 132,
-              borderRadius: 24,
-              padding: 16,
+              height: tile.key === "large" ? 188 : 145,
+              minHeight: tile.key === "large" ? 188 : 145,
+              borderRadius: 20,
+              padding: 10,
               justifyContent: "space-between",
               backgroundColor: palette.surface,
               borderWidth: 1,
@@ -565,9 +567,9 @@ function CustomerHome({ userId }: { userId: string | null }) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.width_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 48, 48),
-                height: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.height_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 48, 48),
-                borderRadius: tile.key === "service" ? 0 : 18,
+                width: tile.key === "service" ? 64 : 56,
+                height: tile.key === "service" ? 64 : 56,
+                borderRadius: tile.key === "service" ? 12 : 14,
                 alignItems: "center",
                 justifyContent: "center",
                 overflow: "hidden",
@@ -591,8 +593,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
             </View>
           </TouchableOpacity>
         ))}
-        <View style={{ width: "65%", direction: "rtl" }}>
-          <HomeCategoryCarousel height={largeVehicleCardHeight} />
+        <View style={{ width: "65%", height: 188, direction: "rtl" }}>
+          <HomeCategoryCarousel height={188} />
         </View>
       </View>
 
