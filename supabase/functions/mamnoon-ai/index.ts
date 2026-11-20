@@ -61,6 +61,7 @@ Deno.serve(async (req: Request) => {
     });
     const { data: auth, error: authError } = await caller.auth.getUser(token);
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
+    const authenticatedUserId = authenticatedUserId;
 
     const body = await req.json().catch(() => null);
     // Older installed app builds sent { message } before the action field was added.
@@ -90,13 +91,13 @@ Deno.serve(async (req: Request) => {
 
     async function handoffToSupport(question: string, reason: string) {
       const { data: existing, error: lookupError } = await admin.from("support_conversations")
-        .select("id").eq("user_id", auth.user.id).eq("status", "open")
+        .select("id").eq("user_id", authenticatedUserId).eq("status", "open")
         .order("updated_at", { ascending: false }).limit(1).maybeSingle();
       if (lookupError) throw new Error("support_lookup_failed");
       let conversationId = existing?.id as string | undefined;
       if (!conversationId) {
         const { data: created, error: createError } = await admin.from("support_conversations")
-          .insert({ user_id: auth.user.id, created_by: auth.user.id, subject: "استفسار محوّل من مساعد ممنون" })
+          .insert({ user_id: authenticatedUserId, created_by: authenticatedUserId, subject: "استفسار محوّل من مساعد ممنون" })
           .select("id").single();
         if (createError || !created) throw new Error("support_conversation_create_failed");
         conversationId = created.id;
@@ -109,7 +110,7 @@ Deno.serve(async (req: Request) => {
       ].filter(Boolean).join("\n");
       const { error: messageError } = await admin.from("support_messages").insert({
         conversation_id: conversationId,
-        sender_id: auth.user.id,
+        sender_id: authenticatedUserId,
         body: supportBody,
         is_ai: false,
       });
@@ -161,7 +162,7 @@ Deno.serve(async (req: Request) => {
       ?.map((part: { text?: string }) => part.text ?? "").join("").trim() ?? "";
     let parsed: { answer?: string; handoff?: boolean; reason?: string };
     try { parsed = JSON.parse(raw); } catch { parsed = { handoff: true, reason: "تعذر التحقق من صيغة إجابة المساعد" }; }
-    const shouldHandoff = parsed.handoff === true || typeof parsed.answer !== "string" || !parsed.answer.trim();
+    const answerText = typeof parsed.answer === "string" ? parsed.answer.trim() : "";\n    const shouldHandoff = parsed.handoff === true || !answerText;
     if (shouldHandoff) {
       try {
         const supportConversationId = await handoffToSupport(message, parsed.reason || "المساعد لا يملك معلومة موثقة كافية");
@@ -178,7 +179,7 @@ Deno.serve(async (req: Request) => {
       }
     }
     return json({
-      answer: parsed.answer.trim().slice(0, 3000),
+      answer: answerText.slice(0, 3000),
       handoff: false,
       model,
       catalogMatches: Object.values(catalog).reduce((n, rows) => n + rows.length, 0),
