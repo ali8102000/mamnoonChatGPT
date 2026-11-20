@@ -15,7 +15,7 @@ export function ServiceIconPanorama() {
   const scroll = useRef<ScrollView>(null);
   const offset = useRef(0);
   const [seconds,setSeconds] = useState(2);
-  const [imageSize,setImageSize] = useState(40);
+  const [imageSize,setImageSize] = useState(56);
   useEffect(() => {
     let active = true;
     (supabase as any).from("company_settings").select("service_icon_display_seconds,service_icon_image_size_px").eq("id",1).maybeSingle()
