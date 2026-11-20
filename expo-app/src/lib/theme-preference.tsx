@@ -32,7 +32,11 @@ export function ThemePreferenceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    Appearance.setColorScheme(mode === "system" ? null : mode);
+    try {
+      Appearance.setColorScheme(mode === "system" ? null : mode);
+    } catch (error) {
+      console.warn("[theme] Could not apply saved appearance; using system default:", error);
+    }
   }, [mode]);
 
   const setMode = async (next: ThemeMode) => {
