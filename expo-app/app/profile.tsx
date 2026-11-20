@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from "react-native";
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking, Share } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
@@ -60,6 +60,7 @@ export default function ProfileScreen() {
   const [providerWalletOffline, setProviderWalletOffline] = useState(false);
   const [showProviderEarningsDetails, setShowProviderEarningsDetails] = useState(false);
   const [staffRank, setStaffRank] = useState<string | null>(null);
+  const [referralSummary, setReferralSummary] = useState<{referral_code:string;successful_signups:number}|null>(null);
   const isGeneralManager = staffRank === "general_manager";
   void providerWallet;
   void providerTransactions;
@@ -115,6 +116,22 @@ export default function ProfileScreen() {
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
   }, [user?.id]);
+
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) { setReferralSummary(null); return () => { active = false; }; }
+    (supabase as any).rpc("get_my_referral_summary").then(({ data, error }: any) => {
+      if (!active || error) return;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.referral_code) setReferralSummary({ referral_code: String(row.referral_code), successful_signups: Number(row.successful_signups) || 0 });
+    });
+    return () => { active = false; };
+  }, [user?.id]);
+
+  async function shareReferralLink() {
+    if (!referralSummary?.referral_code) return;
+    await Share.share({ message: `انضم إلى ممنون باستخدام رمز الإحالة الخاص بي: ${referralSummary.referral_code}\nرابط فتح التطبيق: mamnoon://auth?ref=${referralSummary.referral_code}` });
+  }
 
   async function handleWalletTopup(amountIQD: number) {
     if (walletTopupLoading) return;
@@ -290,6 +307,17 @@ export default function ProfileScreen() {
         </View>
         <Text style={styles.phone}>{profile?.phone}</Text>
       </View>
+      {referralSummary ? (
+        <View style={styles.walletCard}>
+          <Text style={styles.sectionTitle}>رابط الإحالة الخاص بك</Text>
+          <Text style={styles.phone} selectable>{referralSummary.referral_code}</Text>
+          <Text style={styles.muted}>التسجيلات الناجحة عن طريقك: {referralSummary.successful_signups}</Text>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => void shareReferralLink()}>
+            <Text style={styles.secondaryButtonText}>مشاركة رابط الدعوة</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <View style={styles.rolesRow}>
         {roles.filter((r) => ["customer", "driver", "large_driver", "worker"].includes(r)).map((r) => (
           <View key={r} style={styles.roleBadge}>
