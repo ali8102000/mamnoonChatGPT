@@ -10,7 +10,8 @@ type Banner = { id: string; image_url: string; target_category: "restaurant" | "
 const width = (Dimensions.get("window").width - 40) * 0.65;
 const ribbons: { vertical: Vertical; title: string }[] = [
   { vertical: "restaurant", title: "المطاعم حسب الفئة" },
-  { vertical: "store", title: "المحلات والمولات حسب الفئة" },
+  { vertical: "store", title: "المحلات والمتاجر حسب الفئة" },
+  { vertical: "grocery", title: "البقالة والمواد الغذائية" },
 ];
 
 function openBanner(item: Banner) {
@@ -25,7 +26,7 @@ function openBanner(item: Banner) {
 type Props = { height?: number };
 
 export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
-  const bannerHeight = Math.max(200, Math.min(260, Math.max(requestedHeight, Math.round(width * 0.88))));
+  const bannerHeight = Math.max(200, Math.min(360, Math.max(requestedHeight, Math.round(width * 0.88))));
   const [banners, setBanners] = useState<Banner[]>([]);
   const [categoryTiles, setCategoryTiles] = useState<CategoryTile[]>([]);
   const [index, setIndex] = useState(0);
