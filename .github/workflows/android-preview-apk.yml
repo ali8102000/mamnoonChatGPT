@@ -74,10 +74,12 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
           "$BUILD_TOOLS/zipalign" -c -v 4 "$APK"
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
-          printf '%s\\n' "$BADGING" | grep -F "package: name='com.mamnoon.app'"
-          printf '%s\\n' "$BADGING" | grep -F "sdkVersion:'24'"
-          printf '%s\\n' "$BADGING" | grep -F "targetSdkVersion:'35'"
-          printf '%s\\n' "$BADGING" | grep -F "application-label:'ممنون'"
+          printf '%s\n' "$BADGING"
+          grep -Eq "^package: name='com\\.mamnoon\\.app'([ ,]|$)" <<< "$BADGING"
+          grep -Fq "sdkVersion:'24'" <<< "$BADGING"
+          grep -Fq "targetSdkVersion:'35'" <<< "$BADGING"
+          grep -Eq "^application-label(:[a-z]{2,3})?:'.+'" <<< "$BADGING"
+          grep -Fq "ممنون" <<< "$BADGING"
 
       - name: Install and launch APK on Android 15 emulator
         uses: reactivecircus/android-emulator-runner@v2
