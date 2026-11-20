@@ -24,9 +24,13 @@ export default function Index() {
       try {
         const saved = Platform.OS === "web" && typeof localStorage !== "undefined"
           ? localStorage.getItem("mamnoon_governorate")
-          : await SecureStore.getItemAsync("mamnoon_governorate");
+          : await Promise.race([
+              SecureStore.getItemAsync("mamnoon_governorate"),
+              new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+            ]);
         if (active) setNextRoute(saved ? (session ? (roles.includes("super_admin") ? "/admin/bootstrap" : "/home") : "/auth") : "/select-governorate");
-      } catch {
+      } catch (error) {
+        console.warn("[startup] Saved governorate unavailable; opening safe selection:", error);
         if (active) setNextRoute("/select-governorate");
       }
     })();
