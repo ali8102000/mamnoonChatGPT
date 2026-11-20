@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Vertical = "store" | "restaurant" | "grocery";
 type CategoryTile = { category_key: string; vertical: Vertical; title: string; image_url: string; tile_width_px: number; tile_height_px: number; auto_scroll_seconds: number };
-type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; banner_type: "category" | "poll" | "contest" | "ad"; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; badge_text: string | null; display_order: number };
+type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; banner_type: "category" | "poll" | "contest" | "ad"; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; badge_text: string | null; display_order: number; motion_axis: "horizontal" | "vertical"; motion_direction: "left" | "right" | "up" | "down"; motion_style: "slide" | "fade" | "drop" };
 const categoryCopy: Record<Banner["target_category"], { title: string }> = {
   restaurant: { title: "المطاعم" },
   hotel: { title: "الفنادق" },
@@ -29,7 +29,7 @@ export function HomeCategoryCarousel() {
   const refresh = useCallback(async () => {
     const { data, error } = await (supabase as any)
       .from("home_carousel_banners")
-      .select("id,image_url,target_category,banner_type,target_campaign_id,is_active,scroll_speed,badge_text,display_order")
+      .select("id,image_url,target_category,banner_type,target_campaign_id,is_active,scroll_speed,badge_text,display_order,motion_axis,motion_direction,motion_style")
       .eq("is_active", true).order("display_order").order("created_at");
     if (!error) { setBanners(data ?? []); setIndex(0); resumeAt.current = 0; }
   }, []);
@@ -136,6 +136,9 @@ export function HomeCategoryCarousel() {
   }
 
   const current = banners[Math.min(index, banners.length - 1)];
+  const motionAxis = current.motion_axis || "horizontal";
+  const motionDirection = current.motion_direction || "left";
+  const motionStyle = current.motion_style || "slide";
   const openContent = () => {
     if (movedBySwipe.current || current.banner_type === "ad") { movedBySwipe.current = false; return; }
     if ((current.banner_type === "poll" || current.banner_type === "contest") && current.target_campaign_id) {
@@ -149,7 +152,7 @@ export function HomeCategoryCarousel() {
       src={current.image_url}
       alt={current.banner_type === "ad" ? "إعلان" : current.banner_type === "poll" ? "استطلاع رأي" : current.banner_type === "contest" ? "مسابقة" : categoryCopy[current.target_category].title}
       draggable={false}
-      className="h-full w-full object-cover"
+      className={`h-full w-full object-cover transition-all duration-500 ${motionStyle === "fade" ? "opacity-95" : motionStyle === "drop" ? "translate-y-0" : ""}`}
     />
   ) : null;
 
@@ -157,7 +160,7 @@ export function HomeCategoryCarousel() {
     <>
       {categoryStrips}
       <div
-        className="relative h-[220px] w-full overflow-hidden rounded-[24px] border border-border bg-[#173F35] shadow-sm"
+        className="relative h-[188px] w-full overflow-hidden rounded-[20px] border border-border bg-[#173F35] shadow-sm"
         onPointerDown={(event) => { pause(); touchStartX.current = event.clientX; movedBySwipe.current = false; }}
         onPointerUp={(event) => {
           if (touchStartX.current !== null) {
@@ -173,6 +176,9 @@ export function HomeCategoryCarousel() {
         onTouchStart={pause}
         onTouchEnd={pause}
         onMouseEnter={pause}
+        data-motion-axis={motionAxis}
+        data-motion-direction={motionDirection}
+        data-motion-style={motionStyle}
       >
         {current.banner_type === "ad" ? (
           <div role="img" aria-label="إعلان" className="absolute inset-0 h-full w-full">{image}</div>
