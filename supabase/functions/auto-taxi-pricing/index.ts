@@ -230,7 +230,10 @@ Deno.serve(async (req) => {
       (suppliedDestinationKey && suppliedDestinationKey !== toGovernorate)) {
     return json({ error: "المحافظة المحددة لا تطابق موقع الرحلة الفعلي. حدّد المحافظات من جديد." }, 400);
   }
-  if (isIntercity && !suppliedDestinationKey) {
+  // Quotes already derive the exact destination governorate from the
+  // submitted coordinates. Do not force an extra client lookup before showing
+  // the price; request creation still requires the returned exact key.
+  if (body.action !== "quote" && isIntercity && !suppliedDestinationKey) {
     return json({ error: "أنت خارج محافظتك، يرجى تحديد المحافظة المراد التوجه إليها." }, 400);
   }
   if (typeof body.isIntercity === "boolean" && body.isIntercity !== isIntercity) {
