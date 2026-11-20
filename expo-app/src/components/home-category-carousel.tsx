@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native";
+import { Animated, Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { palette } from "@/styles/theme";
@@ -25,6 +25,7 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
   const [failedImages, setFailedImages] = useState<string[]>([]);
   const list = useRef<FlatList<Banner>>(null);
   const resumeAt = useRef(0);
+  const transitionProgress = useRef(new Animated.Value(1)).current;
   const axis = banners[index]?.motion_axis ?? "horizontal";
   const direction = banners[index]?.motion_direction ?? "left";
   const vertical = axis === "vertical";
@@ -63,6 +64,22 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
     }, speed * 1000);
     return () => clearInterval(timer);
   }, [banners, index]);
+
+  useEffect(() => {
+    const style = banners[index]?.motion_style ?? "slide";
+    if (style === "slide") {
+      transitionProgress.setValue(1);
+      return;
+    }
+    transitionProgress.setValue(0);
+    const animation = Animated.timing(transitionProgress, {
+      toValue: 1,
+      duration: 450,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [banners, index, transitionProgress]);
 
   const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const next = Math.round((vertical ? event.nativeEvent.contentOffset.y : event.nativeEvent.contentOffset.x) / (vertical ? bannerHeight : width));
@@ -106,7 +123,7 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
               style={{ width, height: bannerHeight, position: "relative", backgroundColor: "#173F35", justifyContent: "center", alignItems: "center" }}
             >
               {!failedImages.includes(item.id) && !!item.image_url ? (
-                <Image source={{ uri: item.image_url }} onError={() => setFailedImages((value) => value.includes(item.id) ? value : [...value, item.id])} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                <Animated.Image source={{ uri: item.image_url }} onError={() => setFailedImages((value) => value.includes(item.id) ? value : [...value, item.id])} style={[{ width: "100%", height: "100%" }, { opacity: banners[index]?.motion_style === "fade" ? transitionProgress : 1, transform: banners[index]?.motion_style === "drop" ? [{ translateY: transitionProgress.interpolate({ inputRange: [0, 1], outputRange: [-18, 0] }) }] : undefined }]} resizeMode="cover" />
               ) : (
                 <View style={{ padding: 12, alignItems: "center" }}>
                   <Text style={{ color: "#fff", fontWeight: "900", fontSize: 15, textAlign: "center" }}>
