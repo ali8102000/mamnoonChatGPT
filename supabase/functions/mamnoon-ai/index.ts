@@ -61,7 +61,7 @@ Deno.serve(async (req: Request) => {
     });
     const { data: auth, error: authError } = await caller.auth.getUser(token);
     if (authError || !auth.user) return json({ error: "unauthorized" }, 401);
-    const authenticatedUserId = authenticatedUserId;
+    const authenticatedUserId = auth.user.id;
 
     const body = await req.json().catch(() => null);
     // Older installed app builds sent { message } before the action field was added.
