@@ -1641,9 +1641,9 @@ export default function NewRequest() {
         <View style={{ marginBottom: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
           <Text style={styles.label}>اختار نوع الكيا أولاً</Text>
           <View style={styles.catRow}>
-            {([{ key: "kia_cargo", label: "كيا حمل", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771867416862.09778.jpg" }, { key: "kia_passenger", label: "كيا ركاب", image: "https://cdn.iqcars.io/img/CarAttachmentsDetail/1771246088220.14922.jpg" }, { key: "bus", label: "باص" }] as const).map((item) => (
+            {([{ key: "kia_cargo", label: "كيا حمل" }, { key: "kia_passenger", label: "كيا ركاب" }, { key: "bus", label: "باص" }] as const).map((item) => (
               <TouchableOpacity key={item.key} style={[styles.catChip, { flexDirection: "column", paddingVertical: 8, minHeight: 112 }, vehicleType === item.key && styles.catChipActive]} onPress={() => setVehicleType(item.key)}>
-                { "image" in item ? <Image source={{ uri: item.image }} style={{ width: 118, height: 68 }} resizeMode="contain" /> : <Text style={{ fontSize: 42 }}>🚌</Text> }
+                <Text style={{ fontSize: 42 }}>{item.key === "kia_cargo" ? "🚚" : item.key === "kia_passenger" ? "🚐" : "🚌"}</Text>
                 <Text style={[styles.catLabel, vehicleType === item.key && styles.catLabelActive]}>{item.label}</Text>
               </TouchableOpacity>
             ))}
