@@ -699,7 +699,6 @@ export default function NewRequest() {
       setDestinationConfirmed(false);
       moveMap({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
       const geocodeRequest = ++reverseGeocodeRequestRef.current;
-      const fallbackGovernorate = nearestGovernorateKey(coords);
       // Commit the GPS point immediately so the fare quote can start without
       // waiting for reverse geocoding or a governorate lookup.
       if (mapMode === "destination") {
