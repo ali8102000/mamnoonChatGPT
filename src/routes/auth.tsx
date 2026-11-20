@@ -45,6 +45,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  useEffect(() => { const code = new URLSearchParams(window.location.search).get("ref"); if (code) setReferralCode(code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10)); }, []);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
