@@ -484,7 +484,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "خلال دقائق",
       emoji: "🚕",
       colors: ["#E9AB2B", "#F97316"] as const,
-      width: "65%" as const,
+      width: "64.2857%" as const,
       type: "taxi" as const,
     },
     {
@@ -493,7 +493,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "١٦ خدمة",
       emoji: "🛠️",
       colors: ["#10B981", "#14B8A6"] as const,
-      width: "32%" as const,
+      width: "32.1429%" as const,
       type: "service" as const,
     },
     {
@@ -622,7 +622,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
             </View>
           </TouchableOpacity>
         ))}
-        <View style={{ width: "65%", height: 188, direction: "rtl" }}>
+        <View style={{ width: "64.2857%", height: 188, direction: "rtl" }}>
           <HomeCategoryCarousel height={188} />
         </View>
       </View>
