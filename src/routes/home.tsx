@@ -253,7 +253,7 @@ function CustomerHome() {
           type="taxi"
           title={visuals.home_customer_taxi?.title && visuals.home_customer_taxi.title !== "طلب سيارة" ? visuals.home_customer_taxi.title : "طلب تكسي"}
           subtitle={visuals.home_customer_taxi?.subtitle || "خلال دقائق"}
-          icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: Number(visuals.home_customer_taxi?.width_px) || 44, height: Number(visuals.home_customer_taxi?.height_px) || 44, objectFit: "contain" }} />}
+          icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
           iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_taxi?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_taxi?.sort_order) || 10}
           gradient="from-amber-500 to-orange-500"
@@ -278,7 +278,7 @@ function CustomerHome() {
           vehicle="large"
           title={visuals.home_customer_large_vehicle?.title || "طلب سيارة كبيرة"}
           subtitle={visuals.home_customer_large_vehicle?.subtitle || "كيا حمل أو كيا ركاب أو باص"}
-          icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: Number(visuals.home_customer_large_vehicle?.width_px) || 44, height: Number(visuals.home_customer_large_vehicle?.height_px) || 44, objectFit: "contain" }} />}
+          icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
           iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_large_vehicle?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
           gradient="from-orange-500 to-amber-600"
