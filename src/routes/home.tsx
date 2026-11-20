@@ -184,6 +184,9 @@ function HomePage() {
 
 function CustomerHome() {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
+  const [topBanners, setTopBanners] = useState<any[]>([]);
+  const [topBannerIndex, setTopBannerIndex] = useState(0);
+  const topBanner = topBanners[topBannerIndex] ?? null;
 
   useEffect(() => {
     let active = true;
@@ -198,9 +201,35 @@ function CustomerHome() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data, error } = await (supabase as any).from("home_carousel_banners")
+        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,is_active")
+        .eq("is_active", true).order("display_order").order("created_at");
+      if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
+    };
+    void load();
+    const channel = supabase.channel("home-top-banner-web")
+      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void load())
+      .subscribe();
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    if (topBanners.length < 2) return;
+    const seconds = Math.max(1, Math.min(60, Number(topBanner?.scroll_speed) || 5));
+    const timer = window.setInterval(() => {
+      const reverse = topBanner?.motion_direction === "right" || topBanner?.motion_direction === "down";
+      setTopBannerIndex((value) => (value + (reverse ? -1 : 1) + topBanners.length) % topBanners.length);
+    }, seconds * 1000);
+    return () => window.clearInterval(timer);
+  }, [topBanners, topBanner?.scroll_speed, topBanner?.motion_direction]);
+
   return (
     <div className="space-y-3 px-3 pt-4">
       <div className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
+        {topBanner?.image_url && <img src={topBanner.image_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40" />}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative">
@@ -211,7 +240,7 @@ function CustomerHome() {
             اطلب الآن، ادفع للمزوّد مباشرة
           </div>
           <div className="text-xs opacity-90 mt-1">
-            ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك
+            {topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
           </div>
         </div>
       </div>
