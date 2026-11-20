@@ -160,13 +160,26 @@ Deno.serve(async (req: Request) => {
     const result = await upstream.json();
     const raw = result?.candidates?.[0]?.content?.parts
       ?.map((part: { text?: string }) => part.text ?? "").join("").trim() ?? "";
-    let parsed: { answer?: string; handoff?: boolean; reason?: string };
-    try { parsed = JSON.parse(raw); } catch { parsed = { handoff: true, reason: "تعذر التحقق من صيغة إجابة المساعد" }; }
+    let parsed: { answer?: string; handoff?: boolean; reason?: string } = {
+      handoff: true,
+      reason: "تعذر التحقق من صيغة إجابة المساعد",
+    };
+    try {
+      const candidate: unknown = JSON.parse(raw);
+      if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+        parsed = candidate as { answer?: string; handoff?: boolean; reason?: string };
+      }
+    } catch {
+      // Keep the conservative handoff default when the model returns invalid JSON.
+    }
     const answerText = typeof parsed.answer === "string" ? parsed.answer.trim() : "";
+    const handoffReason = typeof parsed.reason === "string" && parsed.reason.trim()
+      ? parsed.reason.trim().slice(0, 300)
+      : "المساعد لا يملك معلومة موثقة كافية";
     const shouldHandoff = parsed.handoff === true || !answerText;
     if (shouldHandoff) {
       try {
-        const supportConversationId = await handoffToSupport(message, parsed.reason || "المساعد لا يملك معلومة موثقة كافية");
+        const supportConversationId = await handoffToSupport(message, handoffReason);
         return json({
           answer: "هذا السؤال يحتاج متابعة من فريق ممنون حتى نعطيك جواباً دقيقاً. حولت استفسارك للدعم، وتكدر تتابع الرد من قسم الرسائل.",
           handoff: true,
