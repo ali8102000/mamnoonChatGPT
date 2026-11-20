@@ -46,7 +46,7 @@ export function HomeCategoryCarousel() {
   if (!banners.length) {
     return (
       <>
-          <div className="flex h-[188px] w-full items-center justify-center rounded-[24px] bg-[#173F35] p-4 text-center text-white">
+          <div className="flex h-[188px] w-full items-center justify-center rounded-[20px] bg-[#173F35] p-4 text-center text-white">
           <div><div className="text-base font-black">اكتشف شركاء ممنون</div><p className="mt-2 text-xs font-bold opacity-90">المطاعم والفنادق والمولات والمتاجر المنشورة تظهر هنا</p></div>
         </div>
       </>
