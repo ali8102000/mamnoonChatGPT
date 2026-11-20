@@ -1,4 +1,6 @@
 -- Per-user referral codes and attribution for successful account creation.
+create schema if not exists app_private;
+revoke all on schema app_private from public, anon, authenticated;
 create table if not exists public.user_referrals (
   user_id uuid primary key references auth.users(id) on delete cascade,
   referral_code text not null unique,
@@ -39,7 +41,7 @@ begin
   end if;
 
   loop
-    v_code := upper(substr(encode(gen_random_bytes(8), 'hex'), 1, 10));
+    v_code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10));
     exit when not exists (select 1 from public.user_referrals where referral_code = v_code);
   end loop;
 
