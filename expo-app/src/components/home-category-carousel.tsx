@@ -6,7 +6,7 @@ import { palette } from "@/styles/theme";
 
 type Vertical = "store" | "restaurant" | "grocery";
 type CategoryTile = { category_key: string; vertical: Vertical; title: string; image_url: string; tile_width_px: number; tile_height_px: number; auto_scroll_seconds: number };
-type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; banner_type: "category" | "poll" | "contest" | "ad"; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; badge_text: string | null; display_order: number };
+type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; banner_type: "category" | "poll" | "contest" | "ad"; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; badge_text: string | null; display_order: number; motion_axis: "horizontal" | "vertical"; motion_direction: "left" | "right" | "up" | "down"; motion_style: "slide" | "fade" | "drop" };
 const width = (Dimensions.get("window").width - 40) * 0.65;
 const ribbons: { vertical: Vertical; title: string }[] = [
   { vertical: "restaurant", title: "المطاعم حسب الفئة" },
@@ -25,7 +25,11 @@ function openBanner(item: Banner) {
 type Props = { height?: number };
 
 export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
-  const bannerHeight = Math.max(200, Math.min(260, Math.max(requestedHeight, Math.round(width * 0.88))));
+  const bannerHeight = Math.max(130, Math.min(188, requestedHeight));
+  const axis = banners[index]?.motion_axis ?? "horizontal";
+  const direction = banners[index]?.motion_direction ?? "left";
+  const vertical = axis === "vertical";
+  const reverse = direction === "right" || direction === "down";
   const [banners, setBanners] = useState<Banner[]>([]);
   const [categoryTiles, setCategoryTiles] = useState<CategoryTile[]>([]);
   const [index, setIndex] = useState(0);
@@ -39,7 +43,7 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
   const refresh = useCallback(async () => {
     const { data, error } = await (supabase as any)
       .from("home_carousel_banners")
-      .select("id,image_url,target_category,banner_type,target_campaign_id,is_active,scroll_speed,badge_text,display_order")
+      .select("id,image_url,target_category,banner_type,target_campaign_id,is_active,scroll_speed,badge_text,display_order,motion_axis,motion_direction,motion_style")
       .eq("is_active", true).order("display_order").order("created_at");
     if (error) { console.warn("[home-banners] load failed:", error.message); return; }
     setBanners(data ?? []);
@@ -96,7 +100,8 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
     const speed = Math.max(1, Math.min(60, Number(banners[index]?.scroll_speed) || 5));
     const timer = setInterval(() => {
       if (Date.now() < resumeAt.current) return;
-      const next = (index + 1) % banners.length;
+      const step = reverse ? -1 : 1;
+      const next = (index + step + banners.length) % banners.length;
       setIndex(next);
       list.current?.scrollToIndex({ index: next, animated: true });
     }, speed * 1000);
@@ -104,7 +109,7 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
   }, [banners, index]);
 
   const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const next = Math.round(event.nativeEvent.contentOffset.x / width);
+    const next = Math.round((vertical ? event.nativeEvent.contentOffset.y : event.nativeEvent.contentOffset.x) / (vertical ? bannerHeight : width));
     if (next >= 0 && next < banners.length) setIndex(next);
     resumeAt.current = Date.now() + 5000;
   };
@@ -164,8 +169,9 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
         <FlatList
           ref={list}
           data={banners}
-          horizontal
-          snapToInterval={width}
+          horizontal={!vertical}
+          inverted={reverse}
+          snapToInterval={vertical ? bannerHeight : width}
           snapToAlignment="start"
           decelerationRate="fast"
           showsHorizontalScrollIndicator={false}
@@ -173,7 +179,7 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
           onMomentumScrollEnd={onScrollEnd}
           onTouchStart={() => { resumeAt.current = Date.now() + 5000; }}
           onTouchEnd={() => { resumeAt.current = Date.now() + 5000; }}
-          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          getItemLayout={(_, i) => ({ length: vertical ? bannerHeight : width, offset: (vertical ? bannerHeight : width) * i, index: i })}
           renderItem={({ item }) => (
             <Pressable
               disabled={item.banner_type === "ad"}
