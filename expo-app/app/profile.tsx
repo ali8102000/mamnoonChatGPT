@@ -311,9 +311,9 @@ export default function ProfileScreen() {
         <View style={styles.walletCard}>
           <Text style={styles.sectionTitle}>رابط الإحالة الخاص بك</Text>
           <Text style={styles.phone} selectable>{referralSummary.referral_code}</Text>
-          <Text style={styles.muted}>التسجيلات الناجحة عن طريقك: {referralSummary.successful_signups}</Text>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => void shareReferralLink()}>
-            <Text style={styles.secondaryButtonText}>مشاركة رابط الدعوة</Text>
+          <Text style={styles.phone}>التسجيلات الناجحة عن طريقك: {referralSummary.successful_signups}</Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => void shareReferralLink()}>
+            <Text style={styles.menuItemText}>مشاركة رابط الدعوة</Text>
           </TouchableOpacity>
         </View>
       ) : null}
