@@ -14,12 +14,14 @@ export default function AskMamnoonScreen() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [supportHandoff, setSupportHandoff] = useState(false);
 
   async function send() {
     const message = draft.trim();
     if (!message || sending || !user?.id) return;
     setDraft("");
     setError("");
+    setSupportHandoff(false);
     setMessages((current) => [...current, { id: String(Date.now()), role: "user", text: message }]);
     setSending(true);
     const { data, error: invokeError } = await supabase.functions.invoke("mamnoon-ai", {
@@ -31,6 +33,7 @@ export default function AskMamnoonScreen() {
       return;
     }
     setMessages((current) => [...current, { id: String(Date.now()) + "-assistant", role: "assistant", text: data.answer }]);
+    setSupportHandoff(data.handoff === true);
   }
 
   return <SafeAreaView style={styles.safe}>
@@ -45,6 +48,7 @@ export default function AskMamnoonScreen() {
         {messages.map((item) => <View key={item.id} style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.aiBubble]}><Text style={[styles.messageText, item.role === "user" && styles.userText]}>{item.text}</Text></View>)}
         {sending && <View style={styles.loading}><ActivityIndicator color={palette.brand}/><Text style={styles.hint}>ممنون يفكر...</Text></View>}
       </ScrollView>
+      {supportHandoff && <TouchableOpacity onPress={() => router.push("/support-chat")} style={styles.supportHandoff}><Text style={styles.supportHandoffText}>متابعة الاستفسار مع فريق الدعم ←</Text></TouchableOpacity>}
       {!!error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.composer}>
         <TextInput value={draft} onChangeText={setDraft} placeholder="اكتب سؤالك..." maxLength={1200} multiline style={styles.input}/>
@@ -72,6 +76,8 @@ const styles = StyleSheet.create({
   userText: { color: "#fff" },
   loading: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start" },
   hint: { color: palette.muted, fontSize: 12 },
+  supportHandoff: { backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand, borderRadius: radius.md, padding: 12, alignItems: "center" },
+  supportHandoffText: { color: palette.brand, fontWeight: "900", fontSize: 13 },
   error: { color: palette.danger, backgroundColor: palette.dangerSoft, borderRadius: 10, padding: 10, textAlign: "right", fontSize: 12 },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, backgroundColor: palette.surface, padding: 8 },
   input: { flex: 1, minHeight: 44, maxHeight: 110, textAlign: "right", color: palette.ink, padding: 8 },
