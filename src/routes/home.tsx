@@ -247,7 +247,7 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.top" />
 
-      <div dir="ltr" className="grid gap-3" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gridTemplateRows: "145px 188px", gridAutoFlow: "row" }}>
+      <div dir="ltr" className="grid gap-3" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gridTemplateRows: "145px 188px", gridAutoFlow: "row" }}>
         <QuickTile
           to="/request/new"
           type="taxi"
@@ -271,6 +271,7 @@ function CustomerHome() {
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
+        <div className="col-span-2 flex min-w-0 gap-3" style={{ order: 30 }}>
         <QuickTile
           to="/request/new"
           type="taxi"
@@ -282,12 +283,14 @@ function CustomerHome() {
           sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
           gradient="from-orange-500 to-amber-600"
           span={1}
+          tileWidth="calc((100% - 12px) / 3)"
           delay={0.15}
         />
-        <div dir="rtl" className="min-w-0 h-[188px]" style={{ order: 40, gridColumn: "span 4" }}>
+<div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 12px) / 3)", flexShrink: 0 }}>
           <HomeCategoryCarousel />
         </div>
       </div>
+        </div>
 
       <HomeCustomContent placementKey="home.customer.content" />
 
@@ -468,6 +471,7 @@ function QuickTile({
   delay = 0,
   iconBoxSize,
   sortOrder = 0,
+  tileWidth,
 }: {
   to: string;
   type: "taxi" | "service";
@@ -480,6 +484,7 @@ function QuickTile({
   delay?: number;
   iconBoxSize?: number;
   sortOrder?: number;
+  tileWidth?: string;
 }) {
   return (
     <Link
@@ -490,7 +495,7 @@ function QuickTile({
       className={`glass rounded-[20px] p-2.5 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
         vehicle === "large" ? "min-h-[188px] h-[188px]" : "min-h-[145px] h-[145px]"
       }`}
-      style={{ animationDelay: `${delay}s`, order: sortOrder, gridColumn: vehicle === "large" ? "span 2" : span === 2 ? "span 4" : "span 2" }}
+      style={{ animationDelay: `${delay}s`, order: sortOrder, gridColumn: vehicle === "large" ? "1" : span === 2 ? "1" : "2", width: tileWidth, flexShrink: tileWidth ? 0 : undefined }}
     >
       <div
         className={`absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`}
