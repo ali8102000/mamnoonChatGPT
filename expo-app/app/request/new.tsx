@@ -573,7 +573,7 @@ export default function NewRequest() {
         // One authoritative quote call calculates route, governorates and all category prices.
         // Avoid four extra detect/validate network round-trips before pricing.
         const { data: route, error: quoteError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: "economy", tripType, extraMinutes, pickupGovernorateKey, destinationGovernorateKey, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: "economy", tripType, extraMinutes, urgencyEnabled },
         });
         if (quoteError) throw quoteError;
         if (!active) return;
@@ -622,7 +622,7 @@ export default function NewRequest() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, pickupGovernorateKey, destinationGovernorateKey, mapMode, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
+  }, [pickupCoords, destinationCoords, mapMode, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
   const placeSearchCacheRef = useRef(new Map<string, Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }>>());
   useEffect(() => {
@@ -1402,16 +1402,16 @@ export default function NewRequest() {
                 )}
                 <TouchableOpacity
                   testID={mapMode === "pickup" ? "mamnoon-confirm-pickup" : "mamnoon-calculate-fare"}
-                  style={[styles.taxiPrimaryButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPending) && styles.taxiButtonDisabled]}
+                  style={[styles.taxiPrimaryButton, mapMode === "destination" && styles.taxiDestinationButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPending) && styles.taxiButtonDisabled]}
                   disabled={mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPending}
                   onPress={mapMode === "pickup" ? confirmPickupStep : confirmDestinationStep}
                 >
                   <Text style={styles.taxiPrimaryButtonText}>
-                    {mapMode === "pickup" ? "تأكيد الانطلاق" : confirmDestinationPending ? "جارٍ حساب السعر..." : routeLoading ? "احسب السعر مباشرة" : "احسب السعر مباشرة"}
+                    {mapMode === "pickup" ? "تأكيد الانطلاق" : confirmDestinationPending || routeLoading ? "جارٍ تجهيز الوجهة..." : "تحديد الوجهة"}
                   </Text>
                   <View style={styles.taxiPrimaryArrow}>
                     <Svg width={18} height={18} viewBox="0 0 24 24">
-                      <Path d="M19 12H5m7-7-7 7 7 7" stroke={palette.white} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                      {mapMode === "destination" ? <><Path d="M12 22s8-4.5 8-12a8 8 0 1 0-16 0c0 7.5 8 12 8 12Z" stroke={palette.white} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" /><Circle cx={12} cy={10} r={2.7} stroke={palette.white} strokeWidth={2} fill="none" /></> : <Path d="M19 12H5m7-7-7 7 7 7" stroke={palette.white} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" fill="none" />}
                     </Svg>
                   </View>
                 </TouchableOpacity>
@@ -2147,6 +2147,7 @@ const styles = StyleSheet.create({
   taxiGovernorateChipTextActive: { color: palette.white },
   taxiFieldLabel: { color: palette.ink, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900", textAlign: "right", marginTop: 5 },
   taxiPrimaryButton: { minHeight: 54, borderRadius: radius.lg, backgroundColor: palette.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 16, marginTop: 5 },
+  taxiDestinationButton: { backgroundColor: "#14532D", borderColor: "#14532D" },
   taxiButtonDisabled: { opacity: 0.45 },
   taxiPrimaryButtonText: { color: palette.white, fontSize: 15, fontFamily: "Tajawal_900Black", fontWeight: "900" },
   taxiErrorText: { color: palette.danger, fontSize: 11, fontFamily: "Tajawal_800ExtraBold", fontWeight: "800", textAlign: "right" },
