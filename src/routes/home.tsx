@@ -286,7 +286,7 @@ function CustomerHome() {
           tileWidth="calc((100% - 12px) / 3)"
           delay={0.15}
         />
-<div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 12px) / 3)", flexShrink: 0 }}>
+<div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 24px) / 3)", flexShrink: 0 }}>
           <HomeCategoryCarousel />
         </div>
       </div>
