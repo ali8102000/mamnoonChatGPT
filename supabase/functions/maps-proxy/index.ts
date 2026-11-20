@@ -239,6 +239,12 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   const initialSuggestions=mapRows(initial.data);
   const cacheFresh=!!cached.data?.expires_at&&new Date(cached.data.expires_at).getTime()>Date.now();
 
+  // Local Iraq-wide catalog results are already available in Supabase; return them
+  // immediately instead of waiting for Photon/Google network enrichment.
+  if(initialSuggestions.length>0) {
+    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
+  }
+
   // A fresh query cache is authoritative for this query. Return it immediately;
   // otherwise enrich partial local results from Photon instead of only searching
   // externally when the local database is completely empty.
@@ -258,7 +264,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
     url.searchParams.set("zoom","16");
     try {
       const response=await fetch(url,{headers:{Accept:"application/geo+json","User-Agent":"Mamnoon/1.0"},
-        signal:AbortSignal.timeout(3500)});
+        signal:AbortSignal.timeout(1800)});
       if(response.ok) {
         const features=(await response.json() as any).features??[];
         fetchedRows=features.flatMap((feature:any)=>{
@@ -323,7 +329,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
             if(!place.id||!name||!validPoint(point)) return [];
             const category=String(place.primaryTypeDisplayName?.text??place.primaryType??"").trim();
             return [{id:String(place.id),text:name,
-              address:String(place.formattedAddress??name),coords:point,category,source:"google_places"}];
+              address:String(place.formattedAddress??name),coords:point,category,governorateKey:key,source:"google_places"}];
           });
         } else {
           console.warn("[maps-proxy] Google Places Text Search unavailable",response.status);
