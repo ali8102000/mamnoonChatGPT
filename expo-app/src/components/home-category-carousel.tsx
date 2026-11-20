@@ -11,7 +11,6 @@ const width = (Dimensions.get("window").width - 40) * 0.65;
 const ribbons: { vertical: Vertical; title: string }[] = [
   { vertical: "restaurant", title: "المطاعم حسب الفئة" },
   { vertical: "store", title: "المحلات والمولات حسب الفئة" },
-  { vertical: "grocery", title: "البقالة والخضروات" },
 ];
 
 function openBanner(item: Banner) {
