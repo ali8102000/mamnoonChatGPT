@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth, SUPER_ADMIN_EMAIL } from "@/lib/auth-context";
@@ -301,7 +301,7 @@ function AuthPage() {
                   className="input-base text-left"
                 />
               </Field>
-              <Field label={t("رمز الإحالة (اختياري)", "Referral code (optional)")}>
+              <Field label={t("رمز الإحالة (اختياري)", "Referral code (optional)")} icon={<User className="h-5 w-5" />}>
                 <input value={referralCode} onChange={(e) => setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10))} dir="ltr" maxLength={10} placeholder={t("رمز دعوة صديقك", "Friend's referral code")} className="input-base text-left" autoComplete="off" />
               </Field>
             </>
