@@ -236,8 +236,6 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
       text:String(row.name_ar),address:String(row.address||row.name_ar),coords:point,governorateKey:key}];
   });
   const initialSuggestions=mapRows(initial.data);
-  const cacheFresh=!!cached.data?.expires_at&&new Date(cached.data.expires_at).getTime()>Date.now();
-
   // Local Iraq-wide catalog results are already available in Supabase; return them
   // immediately instead of waiting for Photon/Google network enrichment.
   if(initialSuggestions.length>0) {
