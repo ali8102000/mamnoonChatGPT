@@ -226,7 +226,7 @@ export default function NewRequest() {
 
   function chooseFavoritePlace(place: FavoritePlace) {
     const coords = { latitude: Number(place.latitude), longitude: Number(place.longitude) };
-    setDestinationGovernorateKey(place.governorate_key ?? pickupGovernorateKey);
+    setDestinationGovernorateKey(place.governorate_key);
     setDestinationCoords(coords); setDestination(place.address || place.label);
     setMapMode("destination"); setDestinationConfirmed(false);
     setRouteKm(null); setRouteError(null); setShowFavoriteNameInput(false);
@@ -550,7 +550,7 @@ export default function NewRequest() {
   }, [pickupCoords?.latitude, pickupCoords?.longitude, isTaxi, isLargeVehicle, vehicleCat]);
 
   useEffect(() => {
-    if (!pickupCoords || !destinationCoords || !isTaxi || isLargeVehicle) {
+    if (!pickupCoords || !destinationCoords || mapMode !== "destination" || !isTaxi || isLargeVehicle) {
       setRouteKm(null);
       setRouteDurationMin(null);
       setRouteIsIntercity(false);
@@ -573,7 +573,7 @@ export default function NewRequest() {
         // One authoritative quote call calculates route, governorates and all category prices.
         // Avoid four extra detect/validate network round-trips before pricing.
         const { data: route, error: quoteError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: "economy", tripType, extraMinutes, pickupGovernorateKey, destinationGovernorateKey: destinationGovernorateKey ?? pickupGovernorateKey, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: "economy", tripType, extraMinutes, pickupGovernorateKey, destinationGovernorateKey, urgencyEnabled },
         });
         if (quoteError) throw quoteError;
         if (!active) return;
@@ -622,7 +622,7 @@ export default function NewRequest() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, pickupGovernorateKey, destinationGovernorateKey, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
+  }, [pickupCoords, destinationCoords, pickupGovernorateKey, destinationGovernorateKey, mapMode, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
   const placeSearchCacheRef = useRef(new Map<string, Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }>>());
   useEffect(() => {
@@ -704,11 +704,11 @@ export default function NewRequest() {
       // waiting for reverse geocoding or a governorate lookup.
       if (mapMode === "destination") {
         setDestinationCoords(coords);
-        setDestinationGovernorateKey(fallbackGovernorate);
+        setDestinationGovernorateKey(null);
         setDestination("موقع محدد على الخريطة");
       } else {
         setPickupCoords(coords);
-        setPickupGovernorateKey(fallbackGovernorate);
+        setPickupGovernorateKey(null);
         setPickup("موقع محدد على الخريطة");
       }
       void Location.reverseGeocodeAsync(coords).then((parts) => {
@@ -718,14 +718,8 @@ export default function NewRequest() {
         if (mapMode === "destination") setDestination(address);
         else setPickup(address);
       }).catch(() => {});
-      void callMamnoonMapsApi<{ key: string; valid: boolean }>({
-        action: "detectGovernorate",
-        center: { lat: coords.latitude, lng: coords.longitude },
-      }).then((result) => {
-        if (!result.valid) return;
-        if (mapMode === "destination") setDestinationGovernorateKey(result.key);
-        else setPickupGovernorateKey(result.key);
-      }).catch(() => {});
+      // The authoritative taxi quote returns both exact governorate keys.
+      // Avoid a separate detection request before calculating the fare.
       setPlaceQuery("");
       setPlaceSuggestions([]);
     } catch {
@@ -749,9 +743,11 @@ export default function NewRequest() {
       const geocodeRequest = ++reverseGeocodeRequestRef.current;
       if (mapMode === "pickup") {
         setPickupCoords(coords);
+        setPickupGovernorateKey(null);
         setPickup("موقع محدد على الخريطة");
       } else {
         setDestinationCoords(coords);
+        setDestinationGovernorateKey(null);
         setDestination("وجهة محددة على الخريطة");
       }
       // Reverse geocoding is decorative metadata and must never block fare calculation.
@@ -883,9 +879,11 @@ export default function NewRequest() {
       setDestinationConfirmed(false);
       if (mapMode === "pickup") {
         setPickupCoords(coords);
+        setPickupGovernorateKey(item.governorateKey ?? activeGovernorateKey ?? null);
         setPickup(label);
       } else {
         setDestinationCoords(coords);
+        setDestinationGovernorateKey(item.governorateKey ?? activeGovernorateKey ?? null);
         setDestination(label);
       }
       moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
