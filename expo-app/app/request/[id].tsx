@@ -1434,7 +1434,7 @@ export default function RequestDetail() {
           {request.work_description && <Text style={styles.infoRow}>تفاصيل العمل: {request.work_description}</Text>}
           {request.notes && (request.type !== "taxi" || request.vehicle_category === "large") && <Text style={styles.infoRow}>ملاحظات الطلب: {request.notes}</Text>}
           {attachmentUrl && (
-            <View style={{ marginTop: 12, gap: 8 }}>
+            <View style={{ marginTop: 12, gap: 8, alignItems: "center" }}>
               <Text style={styles.infoRow}>الصورة المرفقة بالطلب</Text>
               <Image source={{ uri: attachmentUrl }} style={styles.requestAttachmentImage} resizeMode="contain" />
             </View>
