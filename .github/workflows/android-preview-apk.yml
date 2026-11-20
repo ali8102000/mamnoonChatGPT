@@ -82,6 +82,14 @@ jobs:
           grep -Fq "ممنون" <<< "$BADGING"
 
 
+      - name: Upload standalone preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mamnoon-android-standalone-preview-apk
+          path: expo-app/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Install and launch APK on Android 15 emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -95,10 +103,3 @@ jobs:
             sleep 25
             adb shell pidof com.mamnoon.app || (adb logcat -d -t 500 && exit 1)
 
-      - name: Upload standalone preview APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: mamnoon-android-standalone-preview-apk
-          path: expo-app/android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          retention-days: 7
