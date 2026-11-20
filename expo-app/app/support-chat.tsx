@@ -23,6 +23,7 @@ export default function SupportChatScreen() {
   const [unansweredOnly, setUnansweredOnly] = useState(false);
   const [muted, setMuted] = useState(false);
   const messagesScrollRef = useRef<ScrollView>(null);
+  const notifiedHandoffsRef = useRef(new Set<string>());
 
   useEffect(() => {
     messagesScrollRef.current?.scrollToEnd({ animated: true });
@@ -39,10 +40,10 @@ export default function SupportChatScreen() {
 
   const loadConversations = useCallback(async () => {
     if (!user?.id) return;
-    const { data: staffCheck } = await (supabase as any).rpc("has_staff_role", { p_user_id: user.id });
+    const { data: staffCheck } = await (supabase as any).rpc("has_chat_moderation_access", { p_user_id: user.id });
     const { data: staffRoles } = await (supabase as any).rpc("get_staff_roles", { p_user_id: user.id });
     const { data: assignment } = await (supabase as any).from("staff_assignments").select("rank").eq("user_id", user.id).eq("active", true).maybeSingle();
-    const privilegedChatRoles = ["super_admin","admin","support","finance","moderator"];
+    const privilegedChatRoles = ["super_admin","admin","support","moderator"];
     const isGeneralManager = assignment?.rank === "general_manager";
     const privilegedChatAccess = isGeneralManager || (staffRoles ?? []).some((r: string) => privilegedChatRoles.includes(r));
     const restrictedSupport = (staffRoles ?? []).includes("customer_service") && !privilegedChatAccess;
@@ -68,7 +69,7 @@ export default function SupportChatScreen() {
       const { data: latestMessages } = conversationIds.length ? await (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,created_at,is_ai").in("conversation_id", conversationIds).order("created_at", { ascending: false }) : { data: [] };
       const latestByConversation = new Map<string, any>();
       for (const message of latestMessages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
-      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: map.get(c.user_id), lastMessage, unanswered: !!lastMessage && lastMessage.sender_id === c.user_id && !lastMessage.is_ai }; })
+      const rows = (data ?? []).map((c: any) => { const lastMessage = latestByConversation.get(c.id); return { ...c, profile: map.get(c.user_id), lastMessage, unanswered: !!lastMessage && lastMessage.sender_id === c.user_id && (!lastMessage.is_ai || c.ai_status === "waiting_human") }; })
         .sort((a: any, b: any) => new Date(b.lastMessage?.created_at ?? b.updated_at).getTime() - new Date(a.lastMessage?.created_at ?? a.updated_at).getTime());
       setConversations(rows);
       if (selected) setSelected(rows.find((c: any) => c.id === selected.id) ?? null);
@@ -132,7 +133,19 @@ export default function SupportChatScreen() {
         if (staff) void loadConversations().catch(() => {});
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const handoffChannel = supabase.channel("support-mobile-handoff-" + user.id)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_conversations" }, (payload: any) => {
+        const conversationId = String(payload.new?.id ?? "");
+        if (staff && payload.new?.ai_status === "waiting_human" && conversationId && !notifiedHandoffsRef.current.has(conversationId)) {
+          notifiedHandoffsRef.current.add(conversationId);
+          if (!muted) void Notifications.scheduleNotificationAsync({
+            content: { title: "ممنون — تحتاج متابعة", body: "وصلت محادثة جديدة تحتاج تدخل موظف الدعم", sound: isNotificationSoundEnabled() ? "default" : false, vibrate: isNotificationVibrationEnabled() ? [0, 250, 150, 250] : [] },
+            trigger: { channelId: getNotificationChannelId() },
+          }).catch(() => {});
+        }
+        if (staff) void loadConversations().catch(() => {});
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(handoffChannel); };
   }, [user?.id, selected?.id, staff, muted, loadConversations]);
 
   async function enableNotifications() {
