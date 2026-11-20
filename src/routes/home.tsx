@@ -284,7 +284,7 @@ function CustomerHome() {
           span={1}
           delay={0.15}
         />
-        <div dir="rtl" className="min-w-0 h-[188px]" style={{ order: 40 }}>
+        <div dir="rtl" className="min-w-0 h-[188px]" style={{ order: 40, gridColumn: "1" }}>
           <HomeCategoryCarousel />
         </div>
       </div>
@@ -490,7 +490,7 @@ function QuickTile({
       className={`glass rounded-[20px] p-2.5 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
         vehicle === "large" ? "min-h-[188px] h-[188px]" : "min-h-[145px] h-[145px]"
       }`}
-      style={{ animationDelay: `${delay}s`, order: sortOrder }}
+      style={{ animationDelay: `${delay}s`, order: sortOrder, gridColumn: vehicle === "large" ? "2" : span === 2 ? "1" : "2" }}
     >
       <div
         className={`absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`}
