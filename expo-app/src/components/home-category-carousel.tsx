@@ -26,10 +26,6 @@ type Props = { height?: number };
 
 export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
   const bannerHeight = Math.max(130, Math.min(188, requestedHeight));
-  const axis = banners[index]?.motion_axis ?? "horizontal";
-  const direction = banners[index]?.motion_direction ?? "left";
-  const vertical = axis === "vertical";
-  const reverse = direction === "right" || direction === "down";
   const [banners, setBanners] = useState<Banner[]>([]);
   const [categoryTiles, setCategoryTiles] = useState<CategoryTile[]>([]);
   const [index, setIndex] = useState(0);
@@ -39,6 +35,10 @@ export function HomeCategoryCarousel({ height: requestedHeight = 132 }: Props) {
   const scrollMax = useRef<Partial<Record<Vertical, number>>>({});
   const list = useRef<FlatList<Banner>>(null);
   const resumeAt = useRef(0);
+  const axis = banners[index]?.motion_axis ?? "horizontal";
+  const direction = banners[index]?.motion_direction ?? "left";
+  const vertical = axis === "vertical";
+  const reverse = direction === "right" || direction === "down";
 
   const refresh = useCallback(async () => {
     const { data, error } = await (supabase as any)
