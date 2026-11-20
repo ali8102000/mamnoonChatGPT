@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Smartphone, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ export const Route = createFileRoute("/invite")({
 
 function InvitePage() {
   const { ref } = Route.useSearch();
-  const navigate = useNavigate();
   const [appLaunchAttempted, setAppLaunchAttempted] = useState(false);
 
   const appUrl = `mamnoon://auth?ref=${encodeURIComponent(ref ?? "")}`;
@@ -36,7 +35,7 @@ function InvitePage() {
   }
 
   function continueOnWeb() {
-    void navigate({ to: "/auth", search: { ref } as never });
+    window.location.assign(`/auth${ref ? `?ref=${encodeURIComponent(ref)}` : ""}`);
   }
 
   return (
