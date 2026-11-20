@@ -199,8 +199,8 @@ function CustomerHome() {
   }, []);
 
   return (
-    <div className="space-y-4">
-      <div className="relative rounded-3xl p-6 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
+    <div className="space-y-3 px-3 pt-4">
+      <div className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative">
@@ -218,7 +218,7 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.top" />
 
-      <div dir="ltr" className="grid grid-cols-3 gap-3">
+      <div dir="ltr" className="grid grid-cols-3 gap-3 auto-rows-[145px]">
         <QuickTile
           to="/request/new"
           type="taxi"
@@ -255,7 +255,7 @@ function CustomerHome() {
           span={1}
           delay={0.15}
         />
-        <div dir="rtl" className="col-span-2 min-w-0 h-full" style={{ order: 40 }}>
+        <div dir="rtl" className="col-span-2 min-w-0 h-[188px]" style={{ order: 40 }}>
           <HomeCategoryCarousel />
         </div>
       </div>
@@ -458,8 +458,8 @@ function QuickTile({
       to={to as any}
       search={{ type, ...(vehicle ? { vehicle } : {}) } as any}
       onClick={() => playClick("pop")}
-      className={`glass rounded-3xl p-4 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
-        span === 2 ? "col-span-2 min-h-[132px]" : "min-h-[132px]"
+      className={`glass rounded-[20px] p-2.5 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
+        vehicle === "large" ? "min-h-[188px] h-[188px]" : span === 2 ? "col-span-2 min-h-[145px] h-[145px]" : "min-h-[145px] h-[145px]"
       }`}
       style={{ animationDelay: `${delay}s`, order: sortOrder }}
     >
@@ -468,7 +468,7 @@ function QuickTile({
       />
       <div className="relative flex flex-col h-full justify-between">
         <div
-          className={`${type === "service" ? "h-16 w-16" : "h-12 w-12"} rounded-2xl bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg overflow-hidden`}
+          className={`${type === "service" ? "h-16 w-16 rounded-xl" : "h-14 w-14 rounded-[14px]"} bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg overflow-hidden`}
           style={{ width: iconBoxSize, height: iconBoxSize }}
         >
           {icon}
