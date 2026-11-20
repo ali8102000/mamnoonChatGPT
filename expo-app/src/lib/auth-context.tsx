@@ -165,6 +165,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadProfile(uid: string) {
     const cached = await readCachedAuthProfile(uid);
+    // Restore the last known non-privileged session immediately while fresh
+    // profile/role data is fetched in parallel in the background.
+    if (cached && lastUserId.current === uid) {
+      setProfile(cached.profile);
+      setRoles(cached.roles);
+      await restoreActiveRole(uid, cached.roles);
+      const requiresFreshPrivilegeCheck = cached.roles.some((role) =>
+        role === "admin" || role === "super_admin" || role === "support" ||
+        role === "finance" || role === "moderator"
+      );
+      if (!requiresFreshPrivilegeCheck) setLoading(false);
+    }
     try {
       const [profileResult, rolesResult, driverResult, workerResult] = await Promise.all([
         supabase
