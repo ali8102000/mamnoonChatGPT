@@ -81,17 +81,13 @@ function formatAddress(parts: Location.LocationGeocodedAddress[] | null | undefi
 }
 
 async function resolveGovernorate(coords: Coordinates): Promise<string> {
-  const detected = await callMamnoonMapsApi<{ key: string }>({
+  // One exact polygon lookup replaces the former detect + validate round-trips.
+  const detected = await callMamnoonMapsApi<{ key: string; valid: boolean }>({
     action: "detectGovernorate",
     center: { lat: coords.latitude, lng: coords.longitude },
   });
   if (!detected.key) throw new Error("تعذّر تحديد المحافظة.");
-  const validation = await callMamnoonMapsApi<{ valid: boolean }>({
-    action: "validateGovernorate",
-    center: { lat: coords.latitude, lng: coords.longitude },
-    governorateKey: detected.key,
-  });
-  if (!validation.valid) throw new Error("الموقع المحدد خارج حدود المحافظات العراقية.");
+  if (!detected.valid) throw new Error("الموقع المحدد خارج حدود المحافظات العراقية.");
   return detected.key;
 }
 
@@ -693,7 +689,8 @@ export default function NewRequest() {
         return;
       }
       const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Highest,
+        mayShowUserSettingsDialog: true,
       });
       const coords = {
         latitude: position.coords.latitude,
@@ -701,20 +698,34 @@ export default function NewRequest() {
       };
       setDestinationConfirmed(false);
       moveMap({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
-      const address = formatAddress(await Location.reverseGeocodeAsync(coords));
+      const geocodeRequest = ++reverseGeocodeRequestRef.current;
+      const fallbackGovernorate = nearestGovernorateKey(coords);
+      // Commit the GPS point immediately so the fare quote can start without
+      // waiting for reverse geocoding or a governorate lookup.
       if (mapMode === "destination") {
-        const detectedGovernorate = await callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } });
         setDestinationCoords(coords);
-        setDestinationGovernorateKey(detectedGovernorate.key);
-        setDestination(address || "موقع محدد على الخريطة");
+        setDestinationGovernorateKey(fallbackGovernorate);
+        setDestination("موقع محدد على الخريطة");
       } else {
         setPickupCoords(coords);
-        setPickupGovernorateKey(nearestGovernorateKey(coords));
-        void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
-          .then((result) => setPickupGovernorateKey(result.key))
-          .catch(() => {});
-        setPickup(address || "موقع محدد على الخريطة");
+        setPickupGovernorateKey(fallbackGovernorate);
+        setPickup("موقع محدد على الخريطة");
       }
+      void Location.reverseGeocodeAsync(coords).then((parts) => {
+        if (geocodeRequest !== reverseGeocodeRequestRef.current) return;
+        const address = formatAddress(parts);
+        if (!address) return;
+        if (mapMode === "destination") setDestination(address);
+        else setPickup(address);
+      }).catch(() => {});
+      void callMamnoonMapsApi<{ key: string; valid: boolean }>({
+        action: "detectGovernorate",
+        center: { lat: coords.latitude, lng: coords.longitude },
+      }).then((result) => {
+        if (!result.valid) return;
+        if (mapMode === "destination") setDestinationGovernorateKey(result.key);
+        else setPickupGovernorateKey(result.key);
+      }).catch(() => {});
       setPlaceQuery("");
       setPlaceSuggestions([]);
     } catch {
