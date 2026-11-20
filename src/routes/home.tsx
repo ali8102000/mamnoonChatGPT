@@ -227,7 +227,7 @@ function CustomerHome() {
   }, [topBanners, topBanner?.scroll_speed, topBanner?.motion_direction]);
 
   return (
-    <div className="space-y-3 px-3 pt-4">
+    <div className="-mx-2 space-y-3 pt-4">
       <div className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
         {topBanner?.image_url && <img src={topBanner.image_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40" />}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
@@ -247,14 +247,14 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.top" />
 
-      <div dir="ltr" className="grid gap-3" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gridTemplateRows: "145px 188px" }}>
+      <div dir="ltr" className="grid gap-3" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gridTemplateRows: "145px 188px", gridAutoFlow: "row" }}>
         <QuickTile
           to="/request/new"
           type="taxi"
           title={visuals.home_customer_taxi?.title && visuals.home_customer_taxi.title !== "طلب سيارة" ? visuals.home_customer_taxi.title : "طلب تكسي"}
           subtitle={visuals.home_customer_taxi?.subtitle || "خلال دقائق"}
           icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: Number(visuals.home_customer_taxi?.width_px) || 44, height: Number(visuals.home_customer_taxi?.height_px) || 44, objectFit: "contain" }} />}
-          iconBoxSize={Math.max(Number(visuals.home_customer_taxi?.width_px) || 48, 48)}
+          iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_taxi?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_taxi?.sort_order) || 10}
           gradient="from-amber-500 to-orange-500"
           span={2}
@@ -266,7 +266,7 @@ function CustomerHome() {
           title={visuals.home_customer_service?.title || "طلب فني"}
           subtitle={visuals.home_customer_service?.subtitle || "١٦ خدمة"}
           icon={<ServiceIconPanorama />}
-          iconBoxSize={68}
+          iconBoxSize={64}
           sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
@@ -278,13 +278,13 @@ function CustomerHome() {
           title={visuals.home_customer_large_vehicle?.title || "طلب سيارة كبيرة"}
           subtitle={visuals.home_customer_large_vehicle?.subtitle || "كيا حمل أو كيا ركاب أو باص"}
           icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: Number(visuals.home_customer_large_vehicle?.width_px) || 44, height: Number(visuals.home_customer_large_vehicle?.height_px) || 44, objectFit: "contain" }} />}
-          iconBoxSize={Math.max(Number(visuals.home_customer_large_vehicle?.width_px) || 48, 48)}
+          iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_large_vehicle?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
           gradient="from-orange-500 to-amber-600"
           span={1}
           delay={0.15}
         />
-        <div dir="rtl" className="min-w-0 h-[188px]" style={{ order: 40, gridColumn: "1" }}>
+        <div dir="rtl" className="min-w-0 h-[188px]" style={{ order: 40, gridColumn: "span 4" }}>
           <HomeCategoryCarousel />
         </div>
       </div>
@@ -490,7 +490,7 @@ function QuickTile({
       className={`glass rounded-[20px] p-2.5 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
         vehicle === "large" ? "min-h-[188px] h-[188px]" : "min-h-[145px] h-[145px]"
       }`}
-      style={{ animationDelay: `${delay}s`, order: sortOrder, gridColumn: vehicle === "large" ? "2" : span === 2 ? "1" : "2" }}
+      style={{ animationDelay: `${delay}s`, order: sortOrder, gridColumn: vehicle === "large" ? "span 2" : span === 2 ? "span 4" : "span 2" }}
     >
       <div
         className={`absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`}
