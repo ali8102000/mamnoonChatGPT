@@ -913,7 +913,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
                   <img
                     src={popupAttachmentUrl}
                     alt="صورة مرفقة بطلب الزبون"
-                    className="w-full max-h-48 rounded-xl bg-background object-contain"
+                    className="mx-auto h-[224px] max-h-[32vh] w-full rounded-xl bg-background object-contain"
                   />
                 ) : (
                   <div className="py-4 text-center text-xs text-muted-foreground">
