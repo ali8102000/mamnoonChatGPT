@@ -68,7 +68,7 @@ export default function AdminHomeBanners() {
     setMessage(error ? "تعذر حذف البانر: " + error.message : "تم حذف البانر."); if (!error) await load();
   };
   return <div className="space-y-5" dir="rtl">
-    <header><h2 className="text-xl font-black">بانرات الصفحة الرئيسية</h2><p className="mt-1 text-sm text-muted-foreground">ارفع صور المطاعم والفنادق والمتاجر. لا توجد صور تجريبية؛ لا يظهر إلا ما تنشره الإدارة.</p></header>
+    <header><h2 className="text-xl font-black">بانرات الصفحة الرئيسية</h2><p className="mt-1 text-sm text-muted-foreground">صور مربعات المطاعم والفنادق والمولات والمحلات ثابتة ولا تتبدل تلقائياً. المطاعم تستخدم أول صورة مطاعم منشورة، والفنادق أول صورة فنادق، وأول صورة من قسم المتاجر للمولات وثاني صورة للمحلات. ارفع صورة جديدة ثم أوقف أو احذف القديمة لتغيير الصورة.</p></header>
     {message && <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm">{message}</div>}
     <section className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-2">
       <label className="text-sm font-bold">نوع البانر<select className={input+" mt-2"} value={bannerType} onChange={e=>{setBannerType(e.target.value as BannerKind);setCampaignId("");}}><option value="category">مطاعم / فنادق / متاجر</option><option value="poll">استطلاع رأي</option><option value="contest">مسابقة</option><option value="ad">إعلان صوري فقط</option></select></label>
@@ -85,7 +85,7 @@ export default function AdminHomeBanners() {
     </section>
     <section className="space-y-3">
       <div className="flex items-center justify-between"><h3 className="font-black">البانرات المضافة ({rows.length})</h3><button onClick={()=>void load()} className="rounded-lg border border-border p-2"><RefreshCw className="h-4 w-4"/></button></div>
-      {rows.length===0 && <p className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">ماكو صور مرفوعة حالياً. مكان البانر يبقى فارغاً للمستخدمين.</p>}
+      {rows.length===0 && <p className="rounded-xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">ماكو صور إدارية مرفوعة حالياً؛ تظهر صور افتراضية للفئات إلى أن ترفع صورك الخاصة.</p>}
       {rows.map(row=><article key={row.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
         <img src={row.image_url} alt="" className="h-20 w-20 rounded-xl object-cover"/>
         <div className="min-w-0 flex-1"><b className="text-sm">{kindLabels[row.banner_type] || labels[row.target_category]}{row.banner_type === "category" ? ` · ${labels[row.target_category]}` : ""}</b><p className="text-xs text-muted-foreground">الترتيب {row.display_order} · كل {row.scroll_speed} ثوانٍ</p><p className="text-xs text-muted-foreground">{row.motion_axis === "vertical" ? (row.motion_direction === "up" ? "من الأسفل للأعلى" : "من الأعلى للأسفل") : (row.motion_direction === "left" ? "من اليمين لليسار" : "من اليسار لليمين")} · {row.motion_style === "fade" ? "تلاشي" : row.motion_style === "drop" ? "هبوط" : "انزلاق"}</p><p className="text-xs">{row.is_active ? "منشور" : "متوقف"}</p></div>
