@@ -247,7 +247,7 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.top" />
 
-      <div dir="ltr" className="grid grid-cols-3 gap-3 auto-rows-[145px]">
+      <div dir="ltr" className="grid gap-3" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gridTemplateRows: "145px 188px" }}>
         <QuickTile
           to="/request/new"
           type="taxi"
@@ -284,7 +284,7 @@ function CustomerHome() {
           span={1}
           delay={0.15}
         />
-        <div dir="rtl" className="col-span-2 min-w-0 h-[188px]" style={{ order: 40 }}>
+        <div dir="rtl" className="min-w-0 h-[188px]" style={{ order: 40 }}>
           <HomeCategoryCarousel />
         </div>
       </div>
@@ -488,7 +488,7 @@ function QuickTile({
       search={{ type, ...(vehicle ? { vehicle } : {}) } as any}
       onClick={() => playClick("pop")}
       className={`glass rounded-[20px] p-2.5 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
-        vehicle === "large" ? "min-h-[188px] h-[188px]" : span === 2 ? "col-span-2 min-h-[145px] h-[145px]" : "min-h-[145px] h-[145px]"
+        vehicle === "large" ? "min-h-[188px] h-[188px]" : "min-h-[145px] h-[145px]"
       }`}
       style={{ animationDelay: `${delay}s`, order: sortOrder }}
     >
