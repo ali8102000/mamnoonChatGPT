@@ -102,7 +102,7 @@ Deno.serve(async (req: Request) => {
         if (createError || !created) throw new Error("support_conversation_create_failed");
         conversationId = created.id;
       }
-      const safeReason = reason.trim().slice(0, 300);
+      const safeReason = typeof reason === "string" ? reason.trim().slice(0, 300) : "";
       const supportBody = [
         "إحالة تلقائية من مساعد ممنون",
         "سؤال المستخدم: " + question.slice(0, 1200),
@@ -115,11 +115,12 @@ Deno.serve(async (req: Request) => {
         is_ai: false,
       });
       if (messageError) throw new Error("support_message_create_failed");
-      await admin.from("support_conversations").update({
+      const { error: updateError } = await admin.from("support_conversations").update({
         ai_status: "waiting_human",
         ticket_status: "new",
         updated_at: new Date().toISOString(),
       }).eq("id", conversationId);
+      if (updateError) throw new Error("support_conversation_update_failed");
       return conversationId;
     }
     const requestModel = async (modelName: string) => {
