@@ -37,15 +37,29 @@ function ForgotPasswordPage() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(value);
+      // Route recovery through auth-proxy so password-reset requests use
+      // the same server-side IP/identifier rate limits as other auth actions.
+      const { data, error } = await supabase.functions.invoke("auth-proxy/reset", {
+        body: { identifier: value },
+      });
       if (error) {
-        console.error("[forgot-password] Supabase recovery request failed:", error.message);
-        const message = error.message.toLowerCase().includes("email address not authorized")
-          ? "خدمة البريد الحالية تسمح بالإرسال فقط إلى عناوين فريق المشروع. يلزم إعداد SMTP مخصص في Supabase."
-          : error.message.toLowerCase().includes("rate limit")
-            ? "طلبت رمزاً عدة مرات. انتظر دقيقة ثم حاول مجدداً."
-            : `تعذّر إرسال الرمز: ${error.message}`;
-        throw new Error(message);
+        let serverMessage = "";
+        try {
+          const payload = await (error as any).context?.json?.();
+          if (typeof payload?.error === "string") serverMessage = payload.error;
+        } catch {
+          // Keep the generic recovery error if the response body is unavailable.
+        }
+        if (serverMessage === "too_many_attempts") {
+          throw new Error("طلبت رمزاً عدة مرات. انتظر قليلاً ثم حاول مجدداً.");
+        }
+        throw new Error("تعذّر إرسال رمز الاستعادة حالياً. تحقق من البريد وحاول لاحقاً.");
+      }
+      if (data?.error === "too_many_attempts") {
+        throw new Error("طلبت رمزاً عدة مرات. انتظر قليلاً ثم حاول مجدداً.");
+      }
+      if (data?.error || data?.ok !== true) {
+        throw new Error("تعذّر إرسال رمز الاستعادة حالياً. تحقق من البريد وحاول لاحقاً.");
       }
       setSent(true);
       toast.success("إذا كان البريد مرتبطاً بحساب، فسيصلك رمز التحقق. افحص الوارد والرسائل المهملة.");
