@@ -162,7 +162,8 @@ Deno.serve(async (req: Request) => {
       ?.map((part: { text?: string }) => part.text ?? "").join("").trim() ?? "";
     let parsed: { answer?: string; handoff?: boolean; reason?: string };
     try { parsed = JSON.parse(raw); } catch { parsed = { handoff: true, reason: "تعذر التحقق من صيغة إجابة المساعد" }; }
-    const answerText = typeof parsed.answer === "string" ? parsed.answer.trim() : "";\n    const shouldHandoff = parsed.handoff === true || !answerText;
+    const answerText = typeof parsed.answer === "string" ? parsed.answer.trim() : "";
+    const shouldHandoff = parsed.handoff === true || !answerText;
     if (shouldHandoff) {
       try {
         const supportConversationId = await handoffToSupport(message, parsed.reason || "المساعد لا يملك معلومة موثقة كافية");
