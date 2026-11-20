@@ -206,7 +206,7 @@ function CustomerHome() {
     const load = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
         .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,is_active")
-        .eq("is_active", true).order("display_order").order("created_at");
+        .eq("is_active", true).eq("banner_type", "ad").order("display_order").order("created_at");
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
     void load();
