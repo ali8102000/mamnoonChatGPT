@@ -13,7 +13,6 @@ const categoryCopy: Record<Banner["target_category"], { title: string }> = {
 const ribbons: { vertical: Vertical; title: string }[] = [
   { vertical: "restaurant", title: "المطاعم حسب الفئة" },
   { vertical: "store", title: "المحلات والمولات حسب الفئة" },
-  { vertical: "grocery", title: "البقالة والخضروات" },
 ];
 
 export function HomeCategoryCarousel() {
