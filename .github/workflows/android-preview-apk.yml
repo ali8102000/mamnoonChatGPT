@@ -81,6 +81,7 @@ jobs:
           grep -Eq "^application-label(:[a-z]{2,3})?:'.+'" <<< "$BADGING"
           grep -Fq "ممنون" <<< "$BADGING"
 
+
       - name: Install and launch APK on Android 15 emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
