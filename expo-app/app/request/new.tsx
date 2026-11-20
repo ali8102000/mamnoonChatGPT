@@ -248,6 +248,7 @@ export default function NewRequest() {
   const outsideGovernoratePromptShownRef = useRef(false);
   const nearbySelectionRef = useRef(0);
   const placeSelectionRef = useRef(0);
+  const reverseGeocodeRequestRef = useRef(0);
   const [confirmDestinationPending, setConfirmDestinationPending] = useState(false);
   const confirmDestinationPendingRef = useRef(false);
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
@@ -660,7 +661,7 @@ export default function NewRequest() {
       } finally {
         if (active) setSearchingPlaces(false);
       }
-    }, 100);
+    }, 70);
     return () => {
       active = false;
       clearTimeout(timer);
@@ -739,16 +740,25 @@ export default function NewRequest() {
           return;
         }
       }
-      const address = formatAddress(await Location.reverseGeocodeAsync(coords).catch(() => []));
+      // Commit the selected coordinates first so the fare quote starts immediately.
+      // Address lookup is secondary and must never delay route calculation.
       setDestinationConfirmed(false);
+      const geocodeRequest = ++reverseGeocodeRequestRef.current;
       if (mapMode === "pickup") {
         setPickupCoords(coords);
-        setPickup(address || "موقع محدد على الخريطة");
+        setPickup("موقع محدد على الخريطة");
       } else {
         setDestinationCoords(coords);
-        setDestination(address || "وجهة محددة على الخريطة");
+        setDestination("وجهة محددة على الخريطة");
       }
-    }, 450);
+      void Location.reverseGeocodeAsync(coords).then((parts) => {
+        if (geocodeRequest !== reverseGeocodeRequestRef.current) return;
+        const address = formatAddress(parts);
+        if (!address) return;
+        if (mapMode === "pickup") setPickup(address);
+        else setDestination(address);
+      }).catch(() => {});
+    }, 180);
   }
 
   function chooseGovernorate(key: string) {
@@ -1194,6 +1204,7 @@ export default function NewRequest() {
           style={StyleSheet.absoluteFillObject}
           provider={PROVIDER_GOOGLE}
           initialRegion={region}
+          testID="mamnoon-taxi-map"
           mapPadding={{ top: 158, right: 0, bottom: taxiSheetHeight, left: 0 }}
           onPanDrag={() => { userPannedMapRef.current = true; }}
           onRegionChangeComplete={handleRegionChangeComplete}
@@ -1294,7 +1305,7 @@ export default function NewRequest() {
           </View>
           </View>
           <View style={styles.taxiSearchRow}>
-            <TextInput style={styles.taxiSearchInput} value={placeQuery} onChangeText={(value) => { placeSelectionRef.current += 1; setPlaceQuery(value); }} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
+            <TextInput testID="mamnoon-place-search" style={styles.taxiSearchInput} value={placeQuery} onChangeText={(value) => { placeSelectionRef.current += 1; setPlaceQuery(value); }} placeholder={activeGovernorate ? "ابحث داخل " + activeGovernorate.name + "..." : "اختر المحافظة أولاً"} placeholderTextColor={palette.muted} editable={!!activeGovernorateKey} returnKeyType="search" />
           </View>
           {searchingPlaces && <ActivityIndicator style={{ marginTop: 6 }} color={palette.brand} />}
           {!!placeSearchError && <Text style={styles.taxiErrorText}>{placeSearchError}</Text>}
@@ -1389,12 +1400,13 @@ export default function NewRequest() {
                   </View>
                 )}
                 <TouchableOpacity
+                  testID={mapMode === "pickup" ? "mamnoon-confirm-pickup" : "mamnoon-calculate-fare"}
                   style={[styles.taxiPrimaryButton, (mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPending) && styles.taxiButtonDisabled]}
                   disabled={mapMode === "pickup" ? !pickupCoords : !destinationCoords || !!routeError || confirmDestinationPending}
                   onPress={mapMode === "pickup" ? confirmPickupStep : confirmDestinationStep}
                 >
                   <Text style={styles.taxiPrimaryButtonText}>
-                    {mapMode === "pickup" ? "تأكيد الانطلاق" : confirmDestinationPending ? "جارٍ تأكيد الوجهة..." : "تأكيد الوجهة"}
+                    {mapMode === "pickup" ? "تأكيد الانطلاق" : confirmDestinationPending ? "جارٍ حساب السعر..." : routeLoading ? "احسب السعر مباشرة" : "احسب السعر مباشرة"}
                   </Text>
                   <View style={styles.taxiPrimaryArrow}>
                     <Svg width={18} height={18} viewBox="0 0 24 24">
