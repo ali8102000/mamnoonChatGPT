@@ -26,7 +26,8 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
  },[profileId,itemType,vertical]);
  useEffect(()=>{void load();},[load]);
  const add=async()=>{
-  if(name.trim().length<2||price.trim()===""||!Number.isFinite(Number(price))||Number(price)<0||(!grocery&&!categoryKey)){Alert.alert("بيانات غير مكتملة","اكتب الاسم والسعر وحدد الفئة.");return;}
+  const selectedCategory=grocery?"grocery":itemType==="room"&&categories.length===0?null:categoryKey;
+  if(name.trim().length<2||price.trim()===""||!Number.isFinite(Number(price))||Number(price)<0||(!selectedCategory&&!(itemType==="room"&&categories.length===0))){Alert.alert("بيانات غير مكتملة","اكتب الاسم والسعر وحدد الفئة.");return;}
   setSaving(true);
   let imageUrls:string[]=[];
   if(imageUri){
@@ -38,7 +39,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
     imageUrls=[supabase.storage.from("partner-catalog").getPublicUrl(path).data.publicUrl];
    }catch(e){setSaving(false);Alert.alert("تعذر رفع الصورة",e instanceof Error?e.message:"حاول مرة ثانية");return;}
   }
-  const {error}=await (supabase as any).from("partner_catalog_items").insert({business_profile_id:profileId,item_type:itemType,category_key:grocery?"grocery":categoryKey,name:name.trim(),description:description.trim()||null,price_amount:Number(price),currency,quantity_available:quantity.trim()===""?null:Number(quantity),image_urls:imageUrls,is_active:true});
+  const {error}=await (supabase as any).from("partner_catalog_items").insert({business_profile_id:profileId,item_type:itemType,category_key:selectedCategory,name:name.trim(),description:description.trim()||null,price_amount:Number(price),currency,quantity_available:quantity.trim()===""?null:Number(quantity),image_urls:imageUrls,is_active:true});
   setSaving(false);if(error){Alert.alert("تعذر الإضافة",error.message);return;}
   setName("");setDescription("");setPrice("");setQuantity("");setImageUri(null);await load();
  };
@@ -47,7 +48,7 @@ export function PartnerCatalogManager({profileId,partnerType,businessVertical="s
  const categoryName=(key:string|null)=>categories.find(c=>c.category_key===key)?.title??(key==="grocery"?"بقالة وخضروات":"بدون تصنيف");
  return <View style={s.box}>
   <View style={s.head}><Text style={s.title}>إدارة {itemType==="room"?"الغرف":itemType==="menu_item"?"قائمة الطعام":"المنتجات"}</Text><TouchableOpacity onPress={()=>void load()}><Text style={s.refresh}>تحديث</Text></TouchableOpacity></View>
-  {(itemType!=="room"||partnerType==="hotel")?<View style={s.categoryBox}><Text style={s.label}>{grocery?"قسم البقالة المستقل":itemType==="room"?"تصنيف الغرفة":"وين تحب نعرض ونروّج هذا المنتج؟"}</Text>{grocery?<Text style={s.note}>منتجاتك تظهر بقسم البقالة فقط، وما تدخل باقتراحات المحلات أو المطاعم.</Text>:categories.map(c=><TouchableOpacity key={c.category_key} onPress={()=>setCategoryKey(c.category_key)} style={[s.category,categoryKey===c.category_key&&s.categorySelected]}><Text style={[s.categoryText,categoryKey===c.category_key&&{color:"#fff"}]}>{c.title}</Text></TouchableOpacity>)}</View>:null}
+  {(itemType!=="room"||partnerType==="hotel")?<View style={s.categoryBox}><Text style={s.label}>{grocery?"قسم البقالة المستقل":itemType==="room"?"تصنيف الغرفة":"وين تحب نعرض ونروّج هذا المنتج؟"}</Text>{grocery?<Text style={s.note}>منتجاتك تظهر بقسم البقالة فقط، وما تدخل باقتراحات المحلات أو المطاعم.</Text>:itemType==="room"&&categories.length===0?<Text style={s.note}>لا توجد فئات فندقية مفعلة حالياً؛ ستُضاف الغرفة بدون تصنيف مؤقتاً.</Text>:categories.map(c=><TouchableOpacity key={c.category_key} onPress={()=>setCategoryKey(c.category_key)} style={[s.category,categoryKey===c.category_key&&s.categorySelected]}><Text style={[s.categoryText,categoryKey===c.category_key&&{color:"#fff"}]}>{c.title}</Text></TouchableOpacity>)}</View>:null}
   <Text style={s.label}>اسم العنصر</Text><TextInput value={name} onChangeText={setName} maxLength={140} style={s.input}/>
   <Text style={s.label}>الوصف</Text><TextInput value={description} onChangeText={setDescription} multiline maxLength={1000} style={[s.input,s.multi]}/>
   <Text style={s.label}>السعر</Text><TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" style={s.input}/>
