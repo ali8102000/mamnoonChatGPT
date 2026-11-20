@@ -65,6 +65,7 @@ jobs:
           fi
 
       - name: Verify APK signature, manifest, and alignment
+        id: verify-apk
         shell: bash
         run: |
           set -euo pipefail
@@ -100,6 +101,7 @@ jobs:
             adb shell pidof com.mamnoon.app || (adb logcat -d -t 500 && exit 1)
 
       - name: Upload standalone preview APK
+        if: always() && steps.verify-apk.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: mamnoon-android-standalone-preview-apk
