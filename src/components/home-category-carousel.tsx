@@ -62,7 +62,7 @@ export function HomeCategoryCarousel() {
           >
             {!failedImages.includes(imageKey) && (
               <img
-                src={image}
+                src={failedImages.includes(imageKey) ? card.fallback : image}
                 alt=""
                 loading="lazy"
                 draggable={false}
