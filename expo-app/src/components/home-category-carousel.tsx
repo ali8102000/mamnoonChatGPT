@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native";
+import { Animated, Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { palette } from "@/styles/theme";
