@@ -236,9 +236,10 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
       text:String(row.name_ar),address:String(row.address||row.name_ar),coords:point,governorateKey:key}];
   });
   const initialSuggestions=mapRows(initial.data);
-  // Local Iraq-wide catalog results are already available in Supabase; return them
-  // immediately instead of waiting for Photon/Google network enrichment.
-  if(initialSuggestions.length>0) {
+  // If the local catalogue already has a rich result set, return it immediately.
+  // For sparse matches, continue to Photon so the user also discovers nearby
+  // Iraqi landmarks that have not yet been imported into Mamnoon's local index.
+  if(initialSuggestions.length>=25) {
     return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
   }
 
@@ -267,7 +268,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
     url.searchParams.set("zoom","16");
     try {
       const response=await fetch(url,{headers:{Accept:"application/geo+json","User-Agent":"Mamnoon/1.0"},
-        signal:AbortSignal.timeout(1800)});
+        signal:AbortSignal.timeout(1200)});
       if(response.ok) {
         const features=(await response.json() as any).features??[];
         fetchedRows=features.flatMap((feature:any)=>{
