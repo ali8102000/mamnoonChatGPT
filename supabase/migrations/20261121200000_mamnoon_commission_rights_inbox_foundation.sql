@@ -282,12 +282,13 @@ BEGIN
       FOR UPDATE
     LOOP
       EXIT WHEN v_remaining <= 0;
-      v_due := v_revenue.assessed_iqd - v_revenue.collected_iqd;
+      v_due := v_revenue.assessed_iqd - v_revenue.collected_iqd - v_revenue.waived_iqd;
       v_take := LEAST(v_remaining, v_due);
       UPDATE public.mamnoon_revenue_ledger
       SET collected_iqd = collected_iqd + v_take,
           status = CASE
             WHEN collected_iqd + v_take >= assessed_iqd THEN 'collected'
+            WHEN collected_iqd + waived_iqd + v_take >= assessed_iqd THEN 'waived'
             ELSE 'partially_collected'
           END,
           updated_at = now()
@@ -953,3 +954,243 @@ CREATE TRIGGER charge_commission_on_request_acceptance
 BEFORE UPDATE OF status ON public.service_requests
 FOR EACH ROW EXECUTE FUNCTION public.charge_commission_on_request_acceptance();
 REVOKE ALL ON FUNCTION public.charge_commission_on_request_acceptance() FROM PUBLIC, anon, authenticated;
+
+ALTER TABLE public.mamnoon_revenue_ledger
+  ADD COLUMN IF NOT EXISTS waived_iqd bigint NOT NULL DEFAULT 0 CHECK (waived_iqd >= 0),
+  ADD COLUMN IF NOT EXISTS waived_by uuid REFERENCES auth.users(id);
+ALTER TABLE public.mamnoon_revenue_ledger
+  DROP CONSTRAINT IF EXISTS mamnoon_revenue_ledger_collected_iqd_check,
+  DROP CONSTRAINT IF EXISTS mamnoon_revenue_ledger_status_check;
+ALTER TABLE public.mamnoon_revenue_ledger
+  ADD CONSTRAINT mamnoon_revenue_collected_waived_check
+    CHECK (collected_iqd + waived_iqd <= assessed_iqd),
+  ADD CONSTRAINT mamnoon_revenue_ledger_status_check
+    CHECK (status IN ('accrued','partially_collected','collected','void','partially_waived','waived'));
+
+CREATE OR REPLACE FUNCTION public.admin_adjust_account_wallet(
+  p_user_id uuid,
+  p_amount_iqd bigint,
+  p_type text,
+  p_note text,
+  p_idempotency_key text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_governorate text;
+  v_balance bigint;
+  v_next_balance bigint;
+  v_delta bigint;
+  v_collected bigint;
+  v_waived bigint;
+  v_tx_id uuid;
+  v_ledger public.mamnoon_revenue_ledger%ROWTYPE;
+  v_due bigint;
+  v_take bigint;
+  v_remaining bigint;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  IF p_user_id IS NULL OR p_amount_iqd IS NULL OR p_amount_iqd <= 0 OR p_amount_iqd > 100000000 THEN
+    RAISE EXCEPTION 'invalid_wallet_adjustment';
+  END IF;
+  IF p_type NOT IN ('credit','debit') THEN RAISE EXCEPTION 'invalid_adjustment_type'; END IF;
+  IF p_idempotency_key IS NULL OR length(btrim(p_idempotency_key)) NOT BETWEEN 8 AND 200 THEN
+    RAISE EXCEPTION 'valid_idempotency_key_required';
+  END IF;
+  IF p_note IS NULL OR length(btrim(p_note)) NOT BETWEEN 2 AND 500 THEN
+    RAISE EXCEPTION 'wallet_adjustment_reason_required';
+  END IF;
+
+  SELECT governorate_key INTO v_governorate FROM public.profiles WHERE id = p_user_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'wallet_user_not_found'; END IF;
+  IF NOT (
+    public.has_admin_access(auth.uid())
+    OR public.admin_has_permission(
+      'finance.wallet.adjust',
+      CASE WHEN v_governorate IS NULL THEN 'global' ELSE 'governorate' END,
+      v_governorate
+    )
+  ) THEN RAISE EXCEPTION 'missing_finance_wallet_permission'; END IF;
+
+  SELECT id INTO v_tx_id FROM public.account_wallet_transactions
+  WHERE idempotency_key = p_idempotency_key;
+  IF FOUND THEN
+    RETURN (SELECT jsonb_build_object('transaction_id',id,'balance_iqd',balance_after_iqd,'duplicate',true)
+            FROM public.account_wallet_transactions WHERE id = v_tx_id);
+  END IF;
+
+  INSERT INTO public.account_wallets(user_id) VALUES (p_user_id)
+  ON CONFLICT (user_id) DO NOTHING;
+  SELECT balance_iqd INTO v_balance FROM public.account_wallets WHERE user_id = p_user_id FOR UPDATE;
+
+  v_delta := CASE WHEN p_type = 'credit' THEN p_amount_iqd ELSE -p_amount_iqd END;
+  v_next_balance := v_balance + v_delta;
+  IF v_next_balance < -5000 THEN RAISE EXCEPTION 'wallet_debt_limit_exceeded'; END IF;
+
+  INSERT INTO public.account_wallet_transactions(
+    user_id,transaction_type,amount_iqd,balance_after_iqd,provider,idempotency_key,description,metadata
+  ) VALUES (
+    p_user_id,'adjustment',v_delta,v_next_balance,'mamnoon_admin',p_idempotency_key,
+    left(p_note,500),jsonb_build_object('actor_user_id',auth.uid(),'adjustment_type',p_type)
+  ) RETURNING id INTO v_tx_id;
+
+  UPDATE public.account_wallets SET balance_iqd = v_next_balance, updated_at = now()
+  WHERE user_id = p_user_id;
+
+  IF p_type = 'debit' THEN
+    v_collected := LEAST(p_amount_iqd, GREATEST(v_balance,0));
+    v_remaining := p_amount_iqd - v_collected;
+    INSERT INTO public.mamnoon_revenue_ledger(
+      user_id,revenue_type,assessed_iqd,collected_iqd,status,idempotency_key,metadata
+    ) VALUES (
+      p_user_id,'complaint_deduction',p_amount_iqd,v_collected,
+      CASE WHEN v_collected >= p_amount_iqd THEN 'collected'
+           WHEN v_collected > 0 THEN 'partially_collected' ELSE 'accrued' END,
+      'complaint:' || p_idempotency_key,
+      jsonb_build_object('note',p_note,'wallet_transaction_id',v_tx_id)
+    );
+  ELSE
+    -- An administrative credit that reduces an existing debt is a documented
+    -- company waiver, not cash revenue and not a ZainCash collection.
+    v_waived := LEAST(p_amount_iqd, GREATEST(0,-v_balance));
+    v_remaining := v_waived;
+    FOR v_ledger IN
+      SELECT * FROM public.mamnoon_revenue_ledger
+      WHERE user_id = p_user_id AND status IN ('accrued','partially_collected','partially_waived')
+        AND assessed_iqd > collected_iqd + waived_iqd
+      ORDER BY created_at ASC,id ASC FOR UPDATE
+    LOOP
+      EXIT WHEN v_remaining <= 0;
+      v_due := v_ledger.assessed_iqd - v_ledger.collected_iqd - v_ledger.waived_iqd;
+      v_take := LEAST(v_remaining,v_due);
+      UPDATE public.mamnoon_revenue_ledger
+      SET waived_iqd = waived_iqd + v_take,
+          waived_by = auth.uid(),
+          status = CASE
+            WHEN collected_iqd + waived_iqd + v_take >= assessed_iqd THEN 'waived'
+            ELSE 'partially_waived'
+          END,
+          updated_at = now()
+      WHERE id = v_ledger.id;
+      v_remaining := v_remaining - v_take;
+    END LOOP;
+  END IF;
+
+  PERFORM public.log_admin_action(
+    'adjust_account_wallet','user',p_user_id::text,
+    jsonb_build_object('amount_iqd',v_delta,'note',p_note,'balance_after_iqd',v_next_balance,'transaction_id',v_tx_id)
+  );
+
+  RETURN jsonb_build_object('transaction_id',v_tx_id,'balance_iqd',v_next_balance,'duplicate',false);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.admin_adjust_account_wallet(uuid,bigint,text,text,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_adjust_account_wallet(uuid,bigint,text,text,text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.admin_set_user_fee_override(
+  p_user_id uuid,
+  p_charge_percent numeric,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz,
+  p_reason text
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_id uuid;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_admin_access(auth.uid()) THEN RAISE EXCEPTION 'super_admin_required'; END IF;
+  IF p_user_id IS NULL OR p_charge_percent IS NULL OR p_charge_percent < 0 OR p_charge_percent > 100 THEN
+    RAISE EXCEPTION 'invalid_user_fee_override';
+  END IF;
+  IF p_reason IS NULL OR length(btrim(p_reason)) NOT BETWEEN 2 AND 500 THEN RAISE EXCEPTION 'override_reason_required'; END IF;
+  IF p_ends_at IS NOT NULL AND p_ends_at <= COALESCE(p_starts_at,now()) THEN RAISE EXCEPTION 'invalid_override_dates'; END IF;
+
+  INSERT INTO public.mamnoon_user_fee_overrides(
+    user_id,commission_charge_percent,starts_at,ends_at,reason,created_by
+  ) VALUES (
+    p_user_id,p_charge_percent,COALESCE(p_starts_at,now()),p_ends_at,left(p_reason,500),auth.uid()
+  ) RETURNING id INTO v_id;
+
+  PERFORM public.log_admin_action(
+    'set_user_fee_override','user',p_user_id::text,
+    jsonb_build_object('override_id',v_id,'commission_charge_percent',p_charge_percent,'starts_at',p_starts_at,'ends_at',p_ends_at,'reason',p_reason)
+  );
+  RETURN v_id;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.admin_set_user_fee_override(uuid,numeric,timestamptz,timestamptz,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_set_user_fee_override(uuid,numeric,timestamptz,timestamptz,text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.admin_save_commission_policy(
+  p_scope_type text,
+  p_scope_key text,
+  p_commission_rate_percent numeric,
+  p_commission_charge_percent numeric,
+  p_collection_event text,
+  p_free_trial_enabled boolean,
+  p_free_trial_days integer,
+  p_new_users_only boolean,
+  p_is_enabled boolean,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_id uuid;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_admin_access(auth.uid()) THEN RAISE EXCEPTION 'super_admin_required'; END IF;
+  IF p_scope_type NOT IN ('global','governorate','role','governorate_role') THEN RAISE EXCEPTION 'invalid_policy_scope'; END IF;
+  IF (p_scope_type = 'global' AND p_scope_key IS NOT NULL)
+     OR (p_scope_type <> 'global' AND (p_scope_key IS NULL OR length(btrim(p_scope_key))=0)) THEN
+    RAISE EXCEPTION 'invalid_policy_scope_key';
+  END IF;
+  IF p_commission_rate_percent IS NULL OR p_commission_rate_percent NOT BETWEEN 0 AND 100
+     OR p_commission_charge_percent IS NULL OR p_commission_charge_percent NOT BETWEEN 0 AND 100 THEN
+    RAISE EXCEPTION 'invalid_commission_percent';
+  END IF;
+  IF p_collection_event NOT IN ('taxi_acceptance','service_acceptance','order_acceptance') THEN RAISE EXCEPTION 'invalid_collection_event'; END IF;
+  IF p_free_trial_days IS NULL OR p_free_trial_days NOT BETWEEN 0 AND 365 THEN RAISE EXCEPTION 'invalid_trial_days'; END IF;
+  IF p_ends_at IS NOT NULL AND p_starts_at IS NOT NULL AND p_ends_at <= p_starts_at THEN RAISE EXCEPTION 'invalid_policy_dates'; END IF;
+
+  IF p_is_enabled THEN
+    UPDATE public.mamnoon_commission_policies
+    SET is_enabled=false, ends_at=COALESCE(ends_at,now()), updated_at=now(), updated_by=auth.uid()
+    WHERE scope_type=p_scope_type AND COALESCE(scope_key,'')=COALESCE(p_scope_key,'') AND is_enabled=true;
+  END IF;
+
+  INSERT INTO public.mamnoon_commission_policies(
+    scope_type,scope_key,commission_rate_percent,commission_charge_percent,collection_event,
+    free_trial_enabled,free_trial_days,new_users_only,is_enabled,starts_at,ends_at,created_by,updated_by
+  ) VALUES (
+    p_scope_type,p_scope_key,p_commission_rate_percent,p_commission_charge_percent,p_collection_event,
+    COALESCE(p_free_trial_enabled,false),p_free_trial_days,COALESCE(p_new_users_only,false),
+    COALESCE(p_is_enabled,false),COALESCE(p_starts_at,now()),p_ends_at,auth.uid(),auth.uid()
+  ) RETURNING id INTO v_id;
+
+  PERFORM public.log_admin_action(
+    'save_commission_policy','commission_policy',v_id::text,
+    jsonb_build_object('scope_type',p_scope_type,'scope_key',p_scope_key,'commission_rate_percent',p_commission_rate_percent,
+      'commission_charge_percent',p_commission_charge_percent,'collection_event',p_collection_event,
+      'free_trial_enabled',p_free_trial_enabled,'free_trial_days',p_free_trial_days,'new_users_only',p_new_users_only,'is_enabled',p_is_enabled)
+  );
+  RETURN v_id;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.admin_save_commission_policy(text,text,numeric,numeric,text,boolean,integer,boolean,boolean,timestamptz,timestamptz)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_save_commission_policy(text,text,numeric,numeric,text,boolean,integer,boolean,boolean,timestamptz,timestamptz)
+  TO authenticated;
