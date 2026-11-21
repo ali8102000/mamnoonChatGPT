@@ -794,6 +794,7 @@ function RequestDetail() {
                   </button>
                 )}
                 {["pending", "searching", "accepted"].includes(req.status as string) &&
+                  !(req.type === "taxi" && req.status === "accepted") &&
                   !req.provider_arrived_at && (
                   <button
                     onClick={() => setShowCancel(true)}
