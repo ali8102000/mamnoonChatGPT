@@ -446,6 +446,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
+  const [activeBannerCampaignId, setActiveBannerCampaignId] = useState<string | null>(null);
   const topBanner = topBanners[topBannerIndex] ?? null;
   const bannerMotion = useRef(new Animated.Value(0)).current;
   const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(188);
@@ -472,8 +473,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
     let active = true;
     const load = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
-        .eq("is_active", true).eq("banner_type", "ad").order("display_order").order("created_at");
+        .select("id,image_url,banner_type,target_campaign_id,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
+        .eq("is_active", true).in("banner_type", ["ad", "poll", "contest"]).order("display_order").order("created_at");
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
     void load();
@@ -526,6 +527,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
   return (
     <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: 12 }}>
+      <TouchableOpacity activeOpacity={0.94} onPress={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }}>
       <LinearGradient
         colors={[palette.brand, palette.brandGlow, palette.gold]}
         start={{ x: 0, y: 0 }}
@@ -576,6 +578,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
           {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
         </Text>
       </LinearGradient>
+      </TouchableOpacity>
+      {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
