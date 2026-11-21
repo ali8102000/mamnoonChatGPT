@@ -650,6 +650,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
                 overflow: "hidden",
               }}
             >
+              <View style={{ transform: [{ translateX: Math.max(-100, Math.min(100, Number(visual.content_position_x_px) || 0)) }, { translateY: Math.max(-100, Math.min(100, Number(visual.content_position_y_px) || 0)) }, { scale: Math.max(0.5, Math.min(2.5, Number(visual.content_scale) || 1)) }], alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
               {tile.key === "service" ? (
                 <ServiceIconPanorama
                   imageUrl={visual.image_url || visual.panorama_image_url || null}
@@ -658,6 +659,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
               ) : (
                 visual.icon_name ? <Text style={{ fontSize: 30 }}>{visual.icon_name}</Text> : <Image source={visual.image_url ? { uri: visual.image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 52, height: 52 }} resizeMode="contain" />
               )}
+              </View>
             </LinearGradient>
             <View style={{ alignItems: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end", flexDirection: visual.content_direction === "row" ? "row" : "column", justifyContent: "space-between", flex: visual.content_direction === "row" ? 1 : undefined }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5, justifyContent: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end" }}>
