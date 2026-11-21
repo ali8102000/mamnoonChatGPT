@@ -1026,7 +1026,7 @@ BEGIN
   SELECT governorate_key INTO v_governorate FROM public.profiles WHERE id = p_user_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'wallet_user_not_found'; END IF;
   IF NOT (
-    public.has_admin_access(auth.uid())
+    public.is_super_admin(auth.uid())
     OR public.admin_has_permission(
       'finance.wallet.adjust',
       CASE WHEN v_governorate IS NULL THEN 'global' ELSE 'governorate' END,
