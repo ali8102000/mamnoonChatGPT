@@ -22,7 +22,7 @@ type BannerKind = "category" | "poll" | "contest" | "ad" | "top_square";
 type MotionAxis = "horizontal" | "vertical";
 type MotionDirection = "left" | "right" | "up" | "down";
 type MotionStyle = "slide" | "fade" | "drop";
-type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string; starts_at: string | null; ends_at: string | null; result_visibility: string; app_campaign_options: { id: string; label: string; sort_order: number }[]; app_campaign_option_results: { option_id: string; vote_count: number }[] };
+type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string; starts_at: string | null; ends_at: string | null; result_visibility: string; participation_mode?: "options"|"text"|"image"|"both"; rules?: string|null; prize_description?: string|null; app_campaign_options: { id: string; label: string; sort_order: number }[]; app_campaign_option_results: { option_id: string; vote_count: number }[] };
 type Banner = {
   id: string;
   image_url: string;
@@ -41,7 +41,7 @@ type Banner = {
   motion_style: MotionStyle;
 };
 
-const CATEGORY_LABELS: Record<BannerCategory, string> = {
+type ContestEntry={id:string;campaign_id:string;user_id:string;text_content:string|null;storage_path:string|null;image_url:string|null;status:string;created_at:string};\n\nconst CATEGORY_LABELS: Record<BannerCategory, string> = {
   restaurant: "المطاعم",
   hotel: "الفنادق",
   store: "المتاجر",
@@ -53,7 +53,7 @@ export default function AdminHomeBannersScreen() {
   const [rows, setRows] = useState<Banner[]>([]);
   const [category, setCategory] = useState<BannerCategory>("restaurant");
   const [bannerType, setBannerType] = useState<BannerKind>("category");
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);\n  const [entries,setEntries]=useState<ContestEntry[]>([]);\n  const [editingRules,setEditingRules]=useState<Record<string,string>>({});\n  const [editingPrize,setEditingPrize]=useState<Record<string,string>>({});
   const [campaignId, setCampaignId] = useState("");
   const [speed, setSpeed] = useState("5");
   const [order, setOrder] = useState("0");
@@ -96,8 +96,8 @@ export default function AdminHomeBannersScreen() {
       setRows((data ?? []).filter((row: Banner) => row.banner_type !== "top_square") as Banner[]);
       setMessage("");
     }
-    const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
-    setCampaigns((campaignRows ?? []) as Campaign[]);
+    const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,participation_mode,rules,prize_description,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
+    setCampaigns((campaignRows ?? []) as Campaign[]);\n    const {data:entryRows,error:entryError}=await (supabase as any).from("app_campaign_entries").select("id,campaign_id,user_id,text_content,storage_path,status,created_at").order("created_at",{ascending:false});\n    if(!entryError){const withImages=await Promise.all((entryRows??[]).map(async(entry:any)=>{let image_url:string|null=null;if(entry.storage_path){const signed=await supabase.storage.from("campaign-entries").createSignedUrl(entry.storage_path,3600);image_url=signed.data?.signedUrl??null;}return {...entry,image_url};}));setEntries(withImages as ContestEntry[]);}
     setLoading(false);
     setRefreshing(false);
   }, [user?.id]);
@@ -219,7 +219,7 @@ export default function AdminHomeBannersScreen() {
     }
   };
 
-  const toggleCampaignStatus = async (campaign: Campaign) => {
+  const updateCampaign = async (campaign:Campaign,patch:Record<string,unknown>) => {\n    setBusy(true);const {error}=await (supabase as any).from("app_campaigns").update({...patch,updated_at:new Date().toISOString()}).eq("id",campaign.id);\n    if(error)Alert.alert("تعذر الحفظ","لم نتمكن من حفظ إعدادات المسابقة.");else{setMessage("تم حفظ إعدادات الحملة.");await load();}setBusy(false);\n  };\n  const reviewEntry = async(entry:ContestEntry,status:"approved"|"rejected")=>{\n    setBusy(true);const {error}=await (supabase as any).from("app_campaign_entries").update({status,reviewed_at:new Date().toISOString()}).eq("id",entry.id);\n    if(error)Alert.alert("تعذر تحديث المشاركة","تحقق من الصلاحيات والاتصال.");else{setMessage(status==="approved"?"تم قبول المشاركة.":"تم رفض المشاركة.");await load();}setBusy(false);\n  };\n\n  const toggleCampaignStatus = async (campaign: Campaign) => {
     setBusy(true);
     const nextStatus = campaign.status === "published" ? "draft" : "published";
     const { error } = await (supabase as any).from("app_campaigns").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", campaign.id);
@@ -447,6 +447,22 @@ export default function AdminHomeBannersScreen() {
                 const count = Number(results.find(item => item.option_id === option.id)?.vote_count || 0);
                 return <View key={option.id} style={{ flexDirection: "row", justifyContent: "space-between", padding: 9, borderRadius: 9, backgroundColor: palette.pageCanvas }}><Text style={styles.muted}>{option.label}</Text><Text style={{ color: palette.brand, fontWeight: "900" }}>{count}</Text></View>;
               })}
+              {campaign.campaign_type==="contest"?<View style={{gap:9,borderTopWidth:1,borderTopColor:palette.line,paddingTop:10}}>
+                <Text style={styles.label}>طريقة المشاركة بهذه المسابقة</Text>
+                <View style={styles.categoryRow}>{([{value:"text",label:"نص"},{value:"image",label:"صورة"},{value:"both",label:"الاثنين"},{value:"options",label:"اختيارات"}] as const).map(item=><TouchableOpacity key={item.value} onPress={()=>void updateCampaign(campaign,{participation_mode:item.value})} style={[styles.categoryButton,(campaign.participation_mode??"options")===item.value&&styles.categorySelected]}><Text style={[styles.categoryText,(campaign.participation_mode??"options")===item.value&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}</View>
+                <Text style={styles.label}>الشروط والتعليمات</Text><TextInput value={editingRules[campaign.id]??campaign.rules??""} onChangeText={v=>setEditingRules(old=>({...old,[campaign.id]:v}))} multiline textAlign="right" style={[styles.input,{minHeight:75,textAlignVertical:"top"}]} placeholder="شروط المشاركة..."/>
+                <TouchableOpacity style={styles.secondaryButton} onPress={()=>void updateCampaign(campaign,{rules:(editingRules[campaign.id]??campaign.rules??"").trim()||null})} disabled={busy}><Text style={styles.secondaryButtonText}>حفظ الشروط</Text></TouchableOpacity>
+                <Text style={styles.label}>الجائزة</Text><TextInput value={editingPrize[campaign.id]??campaign.prize_description??""} onChangeText={v=>setEditingPrize(old=>({...old,[campaign.id]:v}))} multiline textAlign="right" style={[styles.input,{minHeight:55,textAlignVertical:"top"}]} placeholder="وصف الجائزة..."/>
+                <TouchableOpacity style={styles.secondaryButton} onPress={()=>void updateCampaign(campaign,{prize_description:(editingPrize[campaign.id]??campaign.prize_description??"").trim()||null})} disabled={busy}><Text style={styles.secondaryButtonText}>حفظ الجائزة</Text></TouchableOpacity>
+                <Text style={styles.label}>مشاركات المتسابقين ({entries.filter(entry=>entry.campaign_id===campaign.id).length})</Text>
+                {entries.filter(entry=>entry.campaign_id===campaign.id).map(entry=><View key={entry.id} style={{gap:8,padding:10,borderWidth:1,borderColor:palette.line,borderRadius:radius.md}}>
+                  <Text style={styles.muted}>مستخدم {entry.user_id.slice(0,8)}… · {new Date(entry.created_at).toLocaleString("ar-IQ")}</Text>
+                  {entry.text_content?<Text style={{color:palette.ink,textAlign:"right"}}>{entry.text_content}</Text>:null}
+                  {entry.image_url?<Image source={{uri:entry.image_url}} resizeMode="contain" style={{width:"100%",height:210,borderRadius:radius.md}}/>:null}
+                  <Text style={styles.muted}>الحالة: {entry.status==="approved"?"مقبولة":entry.status==="rejected"?"مرفوضة":"قيد المراجعة"}</Text>
+                  {entry.status==="pending"?<View style={styles.categoryRow}><TouchableOpacity onPress={()=>void reviewEntry(entry,"approved")} disabled={busy} style={[styles.secondaryButton,{flex:1}]}><Text style={styles.secondaryButtonText}>قبول</Text></TouchableOpacity><TouchableOpacity onPress={()=>void reviewEntry(entry,"rejected")} disabled={busy} style={[styles.deleteButton,{flex:1}]}><Text style={styles.deleteButtonText}>رفض</Text></TouchableOpacity></View>:null}
+                </View>)}
+              </View>:null}
               <TouchableOpacity onPress={() => void toggleCampaignStatus(campaign)} disabled={busy} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>{campaign.status === "published" ? "إيقاف نشر الحملة" : "نشر الحملة"}</Text></TouchableOpacity>
             </View>;
           })}
