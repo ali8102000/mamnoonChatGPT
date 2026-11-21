@@ -51,7 +51,7 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
 
   useEffect(() => { void load(); }, [load]);
 
-  const pending = items.map((item, index) => ({ item, index })).find(({ item }) => !answered[item.id]);
+  const pending = campaignId ? (items.length ? { item: items[0], index: 0 } : undefined) : items.map((item, index) => ({ item, index })).find(({ item }) => !answered[item.id]);
   const current = pending?.item ?? null;
   useEffect(() => {
     setImageVisible(true);
@@ -95,11 +95,12 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
             <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right" }}>{current.title}</Text>
             {current.description ? <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 6, lineHeight: 20 }}>{current.description}</Text> : null}
             <View style={{ gap: 9, marginTop: 16 }}>
-              {options.map((option) => <Pressable key={option.id} disabled={saving} onPress={() => void vote(option.id)} style={{ borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, backgroundColor: palette.pageCanvas }}>
+              {options.map((option) => <Pressable key={option.id} disabled={saving || Boolean(answered[current.id])} onPress={() => void vote(option.id)} style={{ borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, backgroundColor: palette.pageCanvas }}>
                 <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "800", textAlign: "right" }}>{option.label}</Text>
               </Pressable>)}
             </View>
             {!userId ? <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 10 }}>سجّل الدخول حتى تشارك.</Text> : null}
+            {answered[current.id] ? <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "800", textAlign: "right", marginTop: 10 }}>سبق وسجلت مشاركتك بهذه الحملة.</Text> : null}
             {saving ? <ActivityIndicator color={palette.brand} style={{ marginTop: 12 }} /> : null}
             {error ? <Text style={{ color: palette.danger, fontSize: 12, textAlign: "right", marginTop: 10 }}>{error}</Text> : null}
           </ScrollView>
