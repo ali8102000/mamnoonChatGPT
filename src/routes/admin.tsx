@@ -224,6 +224,7 @@ function AdminPage() {
   const [staffDisplayTitle, setStaffDisplayTitle] = useState<string | null>(null);
   const [section, setSection] = useState<Section>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [navSearch, setNavSearch] = useState("");
 
   useEffect(() => {
     if (pathname === "/admin/bootstrap" || !session || loading) return;
@@ -302,6 +303,7 @@ function AdminPage() {
   if (pathname !== "/admin") return <Outlet />;
 
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.some((r) => staffRoles.includes(r)));
+  const filteredItems = visibleItems.filter((item) => item.label.includes(navSearch.trim()));
 
   return (
     <div dir="rtl" className="min-h-screen flex bg-gradient-to-br from-sky-50 via-slate-50 to-indigo-100/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
@@ -322,9 +324,13 @@ function AdminPage() {
             <ScrollText className="h-4 w-4 shrink-0" />
             مساعد استيراد البيانات
           </Link>
+          <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-2">
+            <label htmlFor="admin-nav-search" className="mb-1 block px-2 text-[10px] font-bold text-sky-100/70">بحث سريع في أقسام الإدارة</label>
+            <input id="admin-nav-search" value={navSearch} onChange={(event) => setNavSearch(event.target.value)} placeholder="اكتب اسم القسم..." className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2.5 text-right text-xs text-white outline-none placeholder:text-slate-400 focus:border-cyan-400" />
+          </div>
           <nav className="space-y-4">
             {NAV_GROUPS.map((group) => {
-              const items = group.keys.map((key) => visibleItems.find((item) => item.key === key)).filter(Boolean) as typeof visibleItems;
+              const items = group.keys.map((key) => filteredItems.find((item) => item.key === key)).filter(Boolean) as typeof filteredItems;
               if (!items.length) return null;
               return (
                 <section key={group.title} className="space-y-1">
@@ -367,6 +373,10 @@ function AdminPage() {
           <span className="font-black text-sm">{staffDisplayTitle ?? companyName ?? "لوحة الإدارة"}</span>
           <div className="w-9" />
         </div>
+        <header className="sticky top-0 z-20 hidden items-center justify-between border-b border-slate-200/70 bg-white/85 px-6 py-3 shadow-sm backdrop-blur-xl dark:border-slate-700/70 dark:bg-slate-950/85 lg:flex">
+          <div><div className="text-[10px] font-black tracking-widest text-cyan-700 dark:text-cyan-300">MAMNOON ADMINISTRATION</div><div className="mt-1 text-lg font-black text-slate-900 dark:text-white">{NAV_ITEMS.find((item) => item.key === section)?.label ?? "لوحة الإدارة"}</div></div>
+          <div className="flex items-center gap-3"><span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-900 dark:border-cyan-900 dark:bg-cyan-950 dark:text-cyan-100">{staffDisplayTitle ?? "حساب إداري"}</span><Link to="/" className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800">العودة للتطبيق</Link></div>
+        </header>
         <div className="mx-auto max-w-7xl p-4 lg:p-8">
           {section === "overview" && (
             <>
