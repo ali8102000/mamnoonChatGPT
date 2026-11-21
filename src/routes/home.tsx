@@ -304,6 +304,14 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.content" />
 
+      <section className="mt-5 space-y-3" dir="rtl">
+        <h3 className="text-sm font-black text-foreground">قسم المطاعم</h3>
+        <div className="h-44 w-full overflow-hidden rounded-[18px]">
+          <HomeCategoryCarousel placement="restaurant_section" />
+        </div>
+        <HomeCustomContent placementKey="home.restaurant.content" />
+      </section>
+
       <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 text-right">
         <a href="/ask-mamnoon" className="flex items-center justify-between px-1 py-1 transition hover:bg-primary/5">
           <span><span className="block text-sm font-black text-foreground">🤖 اسأل ممنون</span><span className="mt-1 block text-xs text-muted-foreground">مساعد ذكي يجاوبك عن خدمات التطبيق</span></span>

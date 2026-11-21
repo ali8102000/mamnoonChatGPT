@@ -9,6 +9,7 @@ type CategoryBanner = {
   id: string; image_url: string; target_category: Category; display_order: number; is_active: boolean;
   scroll_speed?: number | null; motion_direction?: "left" | "right" | "up" | "down" | null;
   motion_style?: "slide" | "fade" | "drop" | null; banner_title?: string | null; banner_description?: string | null;
+  banner_type?: "category" | "poll" | "contest" | "ad"; target_campaign_id?: string | null;
 };
 
 const fallbackSlides = [
@@ -18,7 +19,7 @@ const fallbackSlides = [
   { id: "shop", title: "المتاجر", subtitle: "محلات ومتاجر قريبة", category: "store" as const, image_url: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=85" },
 ];
 
-export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { height?: number; width?: number }) {
+export function HomeCategoryCarousel({ height = 360, width: requestedWidth, placement = "top_panorama" }: { height?: number; width?: number; placement?: "top_panorama" | "restaurant_section" }) {
   const width = requestedWidth ?? (Dimensions.get("window").width - 36) * (2 / 3);
   const [banners, setBanners] = useState<CategoryBanner[]>([]);
   const [index, setIndex] = useState(0);
@@ -38,9 +39,11 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { 
   useEffect(() => {
     let active = true;
     const refresh = async () => {
-      const { data, error } = await (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,target_category,display_order,is_active,scroll_speed,motion_direction,motion_style,banner_title,banner_description")
-        .eq("is_active", true).eq("banner_type", "category").order("display_order").order("created_at");
+      let query = (supabase as any).from("home_carousel_banners")
+        .select("id,image_url,target_category,banner_type,target_campaign_id,display_order,is_active,scroll_speed,motion_direction,motion_style,banner_title,banner_description")
+        .eq("is_active", true).eq("display_location", placement);
+      if (placement === "top_panorama") query = query.eq("banner_type", "category");
+      const { data, error } = await query.order("display_order").order("created_at");
       if (active && !error) { setBanners(data ?? []); setIndex(0); setImageFailed(false); }
     };
     void refresh();
@@ -48,14 +51,15 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { 
       .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh())
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
-  }, []);
+  }, [placement]);
 
   const slides = useMemo(() => banners.length ? banners.map((item) => ({
     id: item.id, image_url: item.image_url, category: item.target_category,
-    title: item.banner_title || (item.target_category === "restaurant" ? "المطاعم" : item.target_category === "hotel" ? "الفنادق" : "المتاجر"),
+    banner_type: item.banner_type || "category", target_campaign_id: item.target_campaign_id || null,
+    title: item.banner_title || (item.banner_type === "poll" ? "استطلاع رأي" : item.banner_type === "contest" ? "مسابقة" : item.banner_type === "ad" ? "إعلان" : item.target_category === "restaurant" ? "المطاعم" : item.target_category === "hotel" ? "الفنادق" : "المتاجر"),
     subtitle: item.banner_description || "اكتشف الأماكن والخدمات القريبة",
     scroll_speed: item.scroll_speed, motion_direction: item.motion_direction || "left", motion_style: item.motion_style || "slide",
-  })) : fallbackSlides.map((item) => ({ ...item, scroll_speed: 5, motion_direction: "left" as const, motion_style: "slide" as const })), [banners]);
+  })) : placement === "top_panorama" ? fallbackSlides.map((item) => ({ ...item, banner_type: "category" as const, target_campaign_id: null, scroll_speed: 5, motion_direction: "left" as const, motion_style: "slide" as const })) : [], [banners, placement]);
   slideCount.current = slides.length;
   const current = slides[index % Math.max(1, slides.length)];
 
@@ -78,7 +82,7 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { 
   if (!current) return null;
   return (
     <View {...swipeResponder.panHandlers} style={{ width, height, borderRadius: 18, overflow: "hidden", backgroundColor: "#173F35" }}>
-    <Pressable onPress={() => router.push({ pathname: "/discover/[category]", params: { category: current.category } })} accessibilityRole="button" accessibilityLabel={`فتح قسم ${current.title}`}
+    <Pressable onPress={() => { if (current.banner_type === "category") router.push({ pathname: "/discover/[category]", params: { category: current.category } }); else if ((current.banner_type === "poll" || current.banner_type === "contest") && current.target_campaign_id) router.push({ pathname: "/campaign/[id]", params: { id: current.target_campaign_id } }); }} accessibilityRole="button" accessibilityLabel={`فتح ${current.title}`}
       style={{ flex: 1 }}>
       {!imageFailed ? <Animated.Image source={{ uri: current.image_url }} onError={() => setImageFailed(true)} resizeMode="cover"
         style={{ position: "absolute", width: "100%", height: "100%", opacity, transform: [{ translateX: current.motion_direction === "left" || current.motion_direction === "right" ? translate : 0 }, { translateY: current.motion_direction === "up" || current.motion_direction === "down" || current.motion_style === "drop" ? translate : 0 }] }} /> : null}
