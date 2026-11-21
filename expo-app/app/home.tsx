@@ -581,7 +581,11 @@ function CustomerHome({ userId }: { userId: string | null }) {
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
       <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12 }}>
-        {tiles.map((tile) => {
+        {[...tiles].sort((a,b) => {
+          const keyA = a.key === "taxi" ? "home_customer_taxi" : a.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
+          const keyB = b.key === "taxi" ? "home_customer_taxi" : b.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
+          return (Number(visuals[keyA]?.sort_order) || 0) - (Number(visuals[keyB]?.sort_order) || 0);
+        }).map((tile) => {
           const visualKey = tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
           const visual = visuals[visualKey] || {};
           if (visual.is_hidden === true) return null;
