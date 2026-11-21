@@ -458,7 +458,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
     let active = true;
     const load = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,banner_type,target_campaign_id,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
+        .select("id,image_url,banner_type,target_campaign_id,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,display_config,is_active")
         .eq("is_active", true).in("banner_type", ["ad", "poll", "contest"]).order("display_order").order("created_at");
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
@@ -519,10 +519,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
         end={{ x: 1, y: 1 }}
         style={{
           borderRadius: 20,
-          height: 142,
-          paddingHorizontal: 14,
-          paddingTop: 11,
-          paddingBottom: 12,
+          height: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)),
+          borderRadius: Math.max(8,Math.min(40,Number(topBanner?.display_config?.border_radius_px)||20)),
+          padding: Math.max(8,Math.min(32,Number(topBanner?.display_config?.padding_px)||12)),
+          backgroundColor: topBanner?.display_config?.background_color || undefined,
           overflow: "hidden",
           elevation: 5,
         }}
@@ -542,7 +542,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
           const opacity = topBanner.motion_style === "fade"
             ? bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0.28, 0.4] })
             : 0.4;
-          return <Animated.Image source={{ uri: topBanner.image_url }} style={{ position: "absolute", top: "-10%", left: "-10%", width: "120%", height: "120%", opacity, transform: [{ translateX }, { translateY }, { scale }] }} resizeMode="cover" />;
+          return <Animated.Image source={{ uri: topBanner.image_url }} style={{ position: "absolute", top: "-10%", left: "-10%", width: "120%", height: "120%", opacity: Math.max(0.05,Math.min(1,Number(topBanner.display_config?.image_opacity)||0.4)), transform: [{ translateX }, { translateY }, { scale }] }} resizeMode="cover" />;
         })() : null}
         <LinearGradient
           pointerEvents="none"
@@ -565,15 +565,15 @@ function CustomerHome({ userId }: { userId: string | null }) {
             marginBottom: 4,
           }}
         >
-          <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
+          <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ {topBanner?.badge_text || "مجاناً بلا عمولة"}</Text>
         </View>
-        <Text style={{ color: "#FFFFFF", fontSize: 21, lineHeight: 25, fontWeight: "900", textAlign: "right" }}>
+        <Text style={{ color: "#FFFFFF", fontSize: Math.max(12,Math.min(30,Number(topBanner?.display_config?.title_size_px)||20)), lineHeight: 25, fontWeight: "900", textAlign: topBanner?.display_config?.text_alignment || "right", color: topBanner?.display_config?.title_color || "#FFFFFF" }}>
           {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
         </Text>
-        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 11, lineHeight: 14, marginTop: 2, textAlign: "right" }}>
+        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: Math.max(8,Math.min(20,Number(topBanner?.display_config?.subtitle_size_px)||11)), lineHeight: 14, marginTop: 2, textAlign: topBanner?.display_config?.text_alignment || "right", color: topBanner?.display_config?.description_color || "rgba(255,255,255,0.92)" }}>
           {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
         </Text>
-        <View pointerEvents="none" style={{ alignSelf: "flex-end", marginTop: 4, marginBottom: 2, borderRadius: 20, backgroundColor: "#FFFFFF", paddingHorizontal: 13, paddingVertical: 6 }}><Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>اطلب الآن ←</Text></View>
+        {topBanner?.display_config?.cta_visible !== false ? <View pointerEvents="none" style={{ alignSelf: "flex-end", marginTop: 4, marginBottom: 2, borderRadius: 20, backgroundColor: topBanner?.display_config?.cta_background_color || "#FFFFFF", paddingHorizontal: 13, paddingVertical: 6 }}><Text style={{ color: topBanner?.display_config?.cta_text_color || palette.brand, fontSize: 11, fontWeight: "900" }}>{topBanner?.display_config?.cta_text || "اطلب الآن"} ←</Text></View> : null}
       </LinearGradient>
       </TouchableOpacity>
       {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
