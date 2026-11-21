@@ -1910,3 +1910,33 @@ BEGIN
   EXECUTE v_def;
 END;
 $retire_gold_demand_gate$;
+
+
+-- High-demand notifications are a platform feature, not a paid subscription tier.
+DO $retire_demand_notification_tiers$
+DECLARE
+  v_def text;
+BEGIN
+  v_def := pg_get_functiondef('public.notify_taxi_driver_high_demand()'::regprocedure);
+  v_def := replace(v_def,
+    'SELECT sp.code INTO v_plan FROM public.user_subscriptions us JOIN public.subscription_plans sp ON sp.id=us.plan_id WHERE us.user_id=NEW.user_id AND us.status=''active'' AND (us.current_period_end IS NULL OR us.current_period_end>now()) ORDER BY sp.tier DESC LIMIT 1; IF COALESCE(v_plan,'''') NOT IN (''silver'',''gold'') THEN RETURN NEW; END IF;',
+    'v_plan := ''standard'';');
+  IF position('user_subscriptions' in v_def)>0 OR position('subscription_plans' in v_def)>0 THEN
+    RAISE EXCEPTION 'provider_demand_alert_subscription_retirement_failed';
+  END IF;
+  EXECUTE v_def;
+
+  v_def := pg_get_functiondef('public.notify_taxi_drivers_on_new_demand()'::regprocedure);
+  v_def := replace(v_def, 'select dp.user_id, sp.code as plan_code', 'select dp.user_id, ''standard''::text as plan_code');
+  v_def := replace(v_def, $old$
+    join public.user_subscriptions us on us.user_id = dp.user_id
+      and us.status = 'active'
+      and (us.current_period_end is null or us.current_period_end > now())
+    join public.subscription_plans sp on sp.id = us.plan_id and sp.code in ('silver','gold')
+$old$, '');
+  IF position('user_subscriptions' in v_def)>0 OR position('subscription_plans' in v_def)>0 THEN
+    RAISE EXCEPTION 'new_demand_alert_subscription_retirement_failed';
+  END IF;
+  EXECUTE v_def;
+END;
+$retire_demand_notification_tiers$;
