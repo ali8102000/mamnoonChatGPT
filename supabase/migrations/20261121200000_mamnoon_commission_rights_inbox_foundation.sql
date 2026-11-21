@@ -1197,7 +1197,7 @@ AS $function$
 DECLARE
   v_id uuid;
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.has_admin_access(auth.uid()) THEN RAISE EXCEPTION 'super_admin_required'; END IF;
+  IF auth.uid() IS NULL OR NOT public.is_super_admin(auth.uid()) THEN RAISE EXCEPTION 'super_admin_required'; END IF;
   IF p_scope_type NOT IN ('global','governorate','role','governorate_role') THEN RAISE EXCEPTION 'invalid_policy_scope'; END IF;
   IF (p_scope_type = 'global' AND p_scope_key IS NOT NULL)
      OR (p_scope_type <> 'global' AND (p_scope_key IS NULL OR length(btrim(p_scope_key))=0)) THEN
