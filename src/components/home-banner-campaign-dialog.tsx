@@ -44,7 +44,7 @@ export function HomeBannerCampaignDialog({ campaignId, onClose }: { campaignId: 
         if (!active) return;
         setSelected(own.data?.option_id ?? null);
         setCounts(Object.fromEntries((results.data ?? []).map((row: any) => [row.option_id, Number(row.vote_count ?? 0)])));
-        setEntry(ownEntry.data ?? null);
+        if (ownEntry.data?.storage_path) { const { data: signed } = await supabase.storage.from("campaign-entries").createSignedUrl(ownEntry.data.storage_path, 3600); setEntry({ ...ownEntry.data, image_url: signed?.signedUrl ?? null }); } else setEntry(ownEntry.data ?? null);
       }
       setLoading(false);
     };
@@ -84,7 +84,7 @@ export function HomeBannerCampaignDialog({ campaignId, onClose }: { campaignId: 
       }
       const { data, error } = await (supabase as any).from("app_campaign_entries").insert({
         campaign_id: campaign.id, user_id: session.user.id, text_content: needsText ? entryText.trim() : null,
-        image_url: imageUrl, storage_path: storagePath,
+        image_url: storagePath ? "private://" + storagePath : null, storage_path: storagePath,
       }).select("id,text_content,image_url,status").single();
       if (error) throw error;
       setEntry(data as Entry); setEntryText(""); setEntryFile(null); toast.success("تم استلام مشاركتك وإرسالها للمراجعة.");
