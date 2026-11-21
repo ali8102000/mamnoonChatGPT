@@ -28,7 +28,7 @@ export default function MessagesScreen() {
       setLoading(false);
       return;
     }
-    const cacheKey = `mamnoon-chats-v1:${user.id}`;
+    const cacheKey = `mamnoon-chats-v1_${user.id}`;
     try {
       const { data: activeRequests, error: activeError } = await supabase
         .from("service_requests")
