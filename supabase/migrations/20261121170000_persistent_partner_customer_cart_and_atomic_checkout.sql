@@ -137,6 +137,7 @@ declare
 begin
   if v_customer is null then raise exception 'unauthorized'; end if;
   if p_business_profile_id is null then raise exception 'business_required'; end if;
+  if nullif(trim(coalesce(p_delivery_address,'')), '') is null then raise exception 'delivery_address_required'; end if;
   if length(trim(coalesce(p_delivery_address,''))) > 500 then raise exception 'delivery_address_too_long'; end if;
   if length(trim(coalesce(p_customer_note,''))) > 1000 then raise exception 'customer_note_too_long'; end if;
 
