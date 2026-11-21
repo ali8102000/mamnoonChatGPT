@@ -330,7 +330,7 @@ export default function AdminHomeBannersScreen() {
           {(bannerType === "poll" || bannerType === "contest") ? <>
             <Text style={styles.label}>الحملة المرتبطة</Text>
             <View style={{gap:7}}>
-              {campaigns.filter((item)=>item.campaign_type===bannerType).map((item)=><TouchableOpacity key={item.id} onPress={()=>setCampaignId(item.id)} style={[styles.categoryButton,campaignId===item.id&&styles.categorySelected]}><Text style={[styles.categoryText,campaignId===item.id&&styles.categoryTextSelected]}>{item.title}</Text></TouchableOpacity>)}
+              {campaigns.filter((item)=>item.campaign_type===bannerType && item.status==="published").map((item)=><TouchableOpacity key={item.id} onPress={()=>setCampaignId(item.id)} style={[styles.categoryButton,campaignId===item.id&&styles.categorySelected]}><Text style={[styles.categoryText,campaignId===item.id&&styles.categoryTextSelected]}>{item.title}</Text></TouchableOpacity>)}
               {!campaigns.some((item)=>item.campaign_type===bannerType) ? <Text style={styles.muted}>ماكو {bannerType==="poll"?"استطلاع":"مسابقة"} منشورة حالياً. انشرها أولاً من إدارة الحملات.</Text> : null}
             </View>
           </> : null}
