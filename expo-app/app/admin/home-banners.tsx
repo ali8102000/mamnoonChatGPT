@@ -493,6 +493,7 @@ export default function AdminHomeBannersScreen() {
         {!rows.length ? (
           <Text style={styles.empty}>ماكو صور مرفوعة حالياً. مكان البانر يبقى فارغاً للمستخدمين.</Text>
         ) : rows.map((banner) => (
+          <View key={banner.id + "-container"} style={{ width: "100%" }}>
           <View key={banner.id} style={styles.bannerCard}>
             <Image source={{ uri: banner.image_url }} style={styles.bannerImage} />
             <View style={styles.bannerDetails}>
@@ -537,6 +538,7 @@ export default function AdminHomeBannersScreen() {
               <View style={styles.categoryRow}>{([{value:"slide",label:"انزلاق"},{value:"fade",label:"تلاشي"},{value:"drop",label:"هبوط"}] as const).map(item=><TouchableOpacity key={item.value} onPress={()=>void updateBannerSettings(banner,{motion_style:item.value})} style={[styles.categoryButton,banner.motion_style===item.value&&styles.categorySelected]}><Text style={[styles.categoryText,banner.motion_style===item.value&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}</View>
             </View>
           ) : null}
+          </View>
         ))}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>إنشاء استطلاع أو مسابقة جديدة</Text>
