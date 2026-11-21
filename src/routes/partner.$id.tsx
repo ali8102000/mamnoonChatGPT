@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, MapPin, Phone, RefreshCw, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/partner/$id")({ ssr: false, component: Pu
 
 function PublicPartnerDetailsPage() {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const { session } = useAuth();
   const [business, setBusiness] = useState<Business | null>(null);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -66,7 +67,7 @@ function PublicPartnerDetailsPage() {
   }, [cart, catalog]);
 
   async function addToCart(item: CatalogItem) {
-    if (!session?.user.id) { toast.error("سجّل الدخول حتى تضيف المنتجات إلى السلة."); return; }
+    if (!session?.user.id) { await navigate({ to: "/auth" }); return; }
     setCartBusy(true); setError("");
     const { error: addError } = await (supabase as any).rpc("add_partner_customer_cart_item", {
       p_business_profile_id: id, p_catalog_item_id: item.id, p_quantity: 1,
@@ -94,7 +95,7 @@ function PublicPartnerDetailsPage() {
   }
 
   async function submitOrder() {
-    if (!session?.user.id) { toast.error("سجّل الدخول أولاً."); return; }
+    if (!session?.user.id) { await navigate({ to: "/auth" }); return; }
     if (!cart.length) { toast.error("أضف المنتجات قبل تأكيد الطلب."); return; }
     if (!deliveryAddress.trim()) { toast.error("اكتب عنوان التوصيل بالتفصيل."); return; }
     setCheckoutBusy(true);
