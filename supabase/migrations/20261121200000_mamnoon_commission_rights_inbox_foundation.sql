@@ -110,3 +110,58 @@ COMMENT ON TABLE public.mamnoon_user_fee_overrides IS
   'Time-bounded per-user commission charge overrides. A 0 percent value means no commission is collected during the override.';
 COMMENT ON TABLE public.mamnoon_revenue_ledger IS
   'Append-oriented accounting ledger for assessed and collected Mamnoon revenue; gateway collection is only recorded after verified settlement.';
+
+CREATE OR REPLACE FUNCTION public.sync_support_inbox_metadata()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id uuid;
+  v_ai_status text;
+BEGIN
+  SELECT user_id, ai_status INTO v_user_id, v_ai_status
+  FROM public.support_conversations
+  WHERE id = NEW.conversation_id;
+
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  UPDATE public.support_conversations
+  SET last_message_at = NEW.created_at,
+      last_message_source = CASE
+        WHEN NEW.is_ai THEN 'bot'
+        WHEN NEW.sender_id = v_user_id THEN 'user'
+        ELSE 'admin'
+      END,
+      needs_admin_reply = CASE
+        WHEN NEW.is_ai THEN false
+        WHEN NEW.sender_id = v_user_id THEN (v_ai_status = 'waiting_human')
+        ELSE false
+      END,
+      handoff_status = CASE
+        WHEN NEW.is_ai THEN handoff_status
+        WHEN NEW.sender_id = v_user_id AND v_ai_status = 'waiting_human' THEN 'waiting_for_admin'
+        WHEN NEW.sender_id <> v_user_id THEN 'assigned'
+        ELSE handoff_status
+      END,
+      ticket_status = CASE
+        WHEN NEW.sender_id = v_user_id AND v_ai_status = 'waiting_human' THEN 'new'
+        WHEN NEW.sender_id <> v_user_id THEN 'in_progress'
+        ELSE ticket_status
+      END,
+      updated_at = NEW.created_at
+  WHERE id = NEW.conversation_id;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS sync_support_inbox_metadata ON public.support_messages;
+CREATE TRIGGER sync_support_inbox_metadata
+AFTER INSERT ON public.support_messages
+FOR EACH ROW EXECUTE FUNCTION public.sync_support_inbox_metadata();
+
+REVOKE ALL ON FUNCTION public.sync_support_inbox_metadata() FROM PUBLIC, anon, authenticated;
