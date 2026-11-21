@@ -164,7 +164,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   },
   {
     key: "chat",
-    label: "الدردشة ورسائل الدعم",
+    label: "المراسلات",
     icon: MessageSquare,
     roles: ["super_admin", "admin", "support", "moderator", "customer_service", "rank:general_manager"],
   },
