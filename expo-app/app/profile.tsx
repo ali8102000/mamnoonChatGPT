@@ -312,14 +312,9 @@ export default function ProfileScreen() {
         <Text style={styles.phone}>{profile?.phone}</Text>
       </View>
       {referralSummary ? (
-        <View style={styles.walletCard}>
-          <Text style={styles.sectionTitle}>رابط الإحالة الخاص بك</Text>
-          <Text style={styles.phone} selectable>{referralSummary.referral_code}</Text>
-          <Text style={styles.phone}>التسجيلات الناجحة عن طريقك: {referralSummary.successful_signups}</Text>
-          <TouchableOpacity style={styles.menuItem} onPress={() => void shareReferralLink()}>
-            <Text style={styles.menuItemText}>مشاركة رابط الدعوة</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => void shareReferralLink()} activeOpacity={0.75} style={{ alignSelf: "center", marginTop: 3, marginBottom: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface }}>
+          <Text style={{ color: palette.muted, fontSize: 9, fontWeight: "600" }}>رابط الدعوة · {referralSummary.referral_code} ↗</Text>
+        </TouchableOpacity>
       ) : null}
 
       <View style={styles.rolesRow}>
