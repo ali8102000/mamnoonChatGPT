@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Dimensions, Pressable, Text, View } from "react-native";
+import { Animated, Dimensions, PanResponder, Pressable, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -24,6 +24,11 @@ export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
   const [imageFailed, setImageFailed] = useState(false);
   const opacity = useRef(new Animated.Value(1)).current;
   const translate = useRef(new Animated.Value(0)).current;
+  const swipeResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
+    onPanResponderRelease: (_, gesture) => { if (slides.length < 2 || Math.abs(gesture.dx) < 38) return; setIndex((value) => (value + (gesture.dx < 0 ? 1 : -1) + slides.length) % slides.length); },
+  })).current;
 
   useEffect(() => {
     let active = true;
@@ -66,8 +71,9 @@ export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
 
   if (!current) return null;
   return (
+    <View {...swipeResponder.panHandlers} style={{ width, height, borderRadius: 18, overflow: "hidden", backgroundColor: "#173F35" }}>
     <Pressable onPress={() => router.push({ pathname: "/discover/[category]", params: { category: current.category } })} accessibilityRole="button" accessibilityLabel={`فتح قسم ${current.title}`}
-      style={{ width, height, borderRadius: 18, overflow: "hidden", backgroundColor: "#173F35" }}>
+      style={{ flex: 1 }}>
       {!imageFailed ? <Animated.Image source={{ uri: current.image_url }} onError={() => setImageFailed(true)} resizeMode="cover"
         style={{ position: "absolute", width: "100%", height: "100%", opacity, transform: [{ translateX: current.motion_direction === "left" || current.motion_direction === "right" ? translate : 0 }, { translateY: current.motion_direction === "up" || current.motion_direction === "down" || current.motion_style === "drop" ? translate : 0 }] }} /> : null}
       <LinearGradient pointerEvents="none" colors={["rgba(0,0,0,0.04)", "rgba(0,0,0,0.24)", "rgba(0,0,0,0.84)"]} locations={[0, 0.42, 1]} style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} />
@@ -79,5 +85,6 @@ export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
         <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>{index + 1} / {slides.length}</Text>
       </View>
     </Pressable>
+    </View>
   );
 }
