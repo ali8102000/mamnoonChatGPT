@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { palette, radius, space } from "@/styles/theme";
 
@@ -22,12 +22,13 @@ type Props = {
   emptyText?: string;
   quickReplies?: string[];
   showQuickReplies?: boolean;
+  footer?: ReactNode;
 };
 
 export default function MamnoonChatThread({
   messages, currentUserId, draft, onDraftChange, onSend, busy = false,
   placeholder = "اكتب رسالة...", emptyText = "ابدأ المحادثة 👋",
-  quickReplies = [], showQuickReplies = true,
+  quickReplies = [], showQuickReplies = true, footer,
 }: Props) {
   const scrollRef = useRef<ScrollView>(null);
   useEffect(() => {
@@ -75,6 +76,8 @@ export default function MamnoonChatThread({
           ))}
         </ScrollView>
       )}
+
+      {footer}
 
       <View style={styles.composer}>
         <TextInput
