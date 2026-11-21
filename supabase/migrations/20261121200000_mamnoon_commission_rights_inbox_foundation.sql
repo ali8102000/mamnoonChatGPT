@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.mamnoon_commission_policies (
   commission_charge_percent numeric(7,4) NOT NULL DEFAULT 100
     CHECK (commission_charge_percent >= 0 AND commission_charge_percent <= 100),
   collection_event text NOT NULL DEFAULT 'taxi_acceptance'
-    CHECK (collection_event IN ('taxi_acceptance','service_acceptance','order_acceptance')),
+    CHECK (collection_event IN ('taxi_acceptance','service_acceptance','order_acceptance','all_acceptance')),
   free_trial_enabled boolean NOT NULL DEFAULT false,
   free_trial_days integer NOT NULL DEFAULT 0 CHECK (free_trial_days BETWEEN 0 AND 365),
   new_users_only boolean NOT NULL DEFAULT false,
@@ -576,7 +576,7 @@ BEGIN
   SELECT * INTO v_policy
   FROM public.mamnoon_commission_policies p
   WHERE p.is_enabled = true
-    AND p.collection_event = v_event
+    AND p.collection_event IN (v_event,'all_acceptance')
     AND (p.starts_at IS NULL OR p.starts_at <= now())
     AND (p.ends_at IS NULL OR p.ends_at > now())
     AND (
@@ -890,7 +890,8 @@ BEGIN
     AND p.new_users_only = true
     AND p.free_trial_days > 0
     AND (
-      (p.collection_event='taxi_acceptance' AND p_role IN ('driver','large_driver'))
+      p.collection_event='all_acceptance'
+      OR (p.collection_event='taxi_acceptance' AND p_role IN ('driver','large_driver'))
       OR (p.collection_event='service_acceptance' AND p_role='worker')
       OR (p.collection_event='order_acceptance' AND p_role IN ('restaurant','hotel','store'))
     )
@@ -1292,7 +1293,8 @@ BEGIN
       OR (p.scope_type='role' AND p.scope_key=v_role)
       OR (p.scope_type='global' AND p.scope_key IS NULL)
     )
-  ORDER BY CASE p.scope_type WHEN 'governorate_role' THEN 1 WHEN 'governorate' THEN 2 WHEN 'role' THEN 3 ELSE 4 END
+  ORDER BY CASE p.scope_type WHEN 'governorate_role' THEN 1 WHEN 'governorate' THEN 2 WHEN 'role' THEN 3 ELSE 4 END,
+    CASE WHEN p.collection_event=v_event THEN 0 ELSE 1 END
   LIMIT 1;
   IF NOT FOUND THEN RETURN 0; END IF;
 
