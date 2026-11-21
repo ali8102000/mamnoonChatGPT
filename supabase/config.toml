@@ -34,9 +34,6 @@ verify_jwt = true
 [functions.admin-governance]
 verify_jwt = true
 
-[functions.admin-subscriptions]
-verify_jwt = true
-
 [functions.admin-users]
 verify_jwt = true
 
