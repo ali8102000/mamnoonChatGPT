@@ -224,21 +224,21 @@ function CustomerHome() {
         @keyframes mamnoonBannerDropIn { from { opacity: 0; transform: translateY(-18px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
         @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; transform: scale(1.2); } }
       `}</style>
-      <div role={topBanner?.target_campaign_id ? "button" : undefined} tabIndex={topBanner?.target_campaign_id ? 0 : undefined} aria-label={topBanner?.target_campaign_id ? "فتح الاستطلاع أو المسابقة" : "ممنون مجاناً بلا عمولة"} onClick={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }} onKeyDown={(event) => { if (topBanner?.target_campaign_id && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setActiveBannerCampaignId(topBanner.target_campaign_id); } }} className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
+      <div role={topBanner?.target_campaign_id ? "button" : undefined} tabIndex={topBanner?.target_campaign_id ? 0 : undefined} aria-label={topBanner?.target_campaign_id ? "فتح الاستطلاع أو المسابقة" : "ممنون مجاناً بلا عمولة"} onClick={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }} onKeyDown={(event) => { if (topBanner?.target_campaign_id && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setActiveBannerCampaignId(topBanner.target_campaign_id); } }} className="relative min-h-[142px] rounded-[20px] px-4 pt-3 pb-3 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
         {topBanner?.image_url && <div key={topBanner.id} className="absolute inset-0 overflow-hidden" style={{ animation: topBanner.motion_style === "fade" ? "mamnoonBannerFadeIn .55s ease-out both" : topBanner.motion_style === "drop" ? "mamnoonBannerDropIn .55s ease-out both" : undefined }}><img src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute -inset-[10%] h-[120%] w-[120%] object-cover" style={{ opacity: 0.4, animation: `mamnoonBannerPan${topBanner.motion_direction === "right" ? "Right" : topBanner.motion_direction === "up" ? "Up" : topBanner.motion_direction === "down" ? "Down" : "Left"} ${Math.max(2, Math.min(120, (Number(topBanner.scroll_speed) || 5) * 2))}s ease-in-out infinite alternate` }} /></div>}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur px-2.5 py-1 text-[10px] font-bold">
+          <div className="inline-flex items-center gap-1 rounded-full bg-white/15 backdrop-blur px-2 py-0.5 text-[9px] font-bold">
             <Sparkles className="h-3 w-3" /> مجاناً بلا عمولة
           </div>
-          <div className="text-2xl font-black mt-2 leading-tight">
+          <div className="text-xl font-black mt-1 leading-tight">
             {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
           </div>
-          <div className="text-xs opacity-90 mt-1">
+          <div className="text-[11px] leading-4 opacity-90 mt-0.5">
             {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
           </div>
-          <Link to="/request/new" onClick={(event) => event.stopPropagation()} className="mt-2 inline-flex rounded-full bg-white px-3 py-1.5 text-[11px] font-black text-primary shadow-sm">اطلب الآن</Link>
+          <Link to="/request/new" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex rounded-full bg-white px-3 py-1 text-[10px] font-black text-primary shadow-sm">اطلب الآن</Link>
         </div>
       </div>
       {activeBannerCampaignId && <HomeBannerCampaignDialog campaignId={activeBannerCampaignId} onClose={closeBannerCampaign} />}
