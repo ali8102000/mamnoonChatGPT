@@ -29,7 +29,7 @@ export default function AdminHomeBanners() {
   const load = useCallback(async () => {
     const { data, error } = await (supabase as any).from("home_carousel_banners").select("*").order("display_order").order("created_at");
     if (error) setMessage("تعذر تحميل البانرات: " + error.message);
-    else setRows(data ?? []);
+    else setRows((data ?? []).filter((row: Banner) => row.banner_type !== "top_square"));
     const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
     setCampaigns((campaignRows ?? []) as Campaign[]);
   }, []);
