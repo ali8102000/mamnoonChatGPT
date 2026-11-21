@@ -27,6 +27,7 @@ import { playClick } from "@/lib/click-sound";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 import { HomeTopSquareBanner } from "@/components/home-top-square-banner";
+import { HomeBannerCampaignDialog } from "@/components/home-banner-campaign-dialog";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 
 export const Route = createFileRoute("/home")({
@@ -187,6 +188,8 @@ function CustomerHome() {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
+  const [activeBannerCampaignId, setActiveBannerCampaignId] = useState<string | null>(null);
+  const closeBannerCampaign = useCallback(() => setActiveBannerCampaignId(null), []);
   const topBanner = topBanners[topBannerIndex] ?? null;
 
   useEffect(() => {
@@ -206,8 +209,8 @@ function CustomerHome() {
     let active = true;
     const load = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
-        .eq("is_active", true).eq("banner_type", "ad").order("display_order").order("created_at");
+        .select("id,image_url,banner_type,target_campaign_id,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
+        .eq("is_active", true).in("banner_type", ["ad", "poll", "contest"]).order("display_order").order("created_at");
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
     void load();
@@ -239,7 +242,7 @@ function CustomerHome() {
         @keyframes mamnoonBannerDropDown { from { opacity: 0; transform: translateY(22px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
         @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; } }
       `}</style>
-      <div className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
+      <div role={topBanner?.target_campaign_id ? "button" : undefined} tabIndex={topBanner?.target_campaign_id ? 0 : undefined} aria-label={topBanner?.target_campaign_id ? "فتح الاستطلاع أو المسابقة" : "ممنون مجاناً بلا عمولة"} onClick={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }} onKeyDown={(event) => { if (topBanner?.target_campaign_id && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setActiveBannerCampaignId(topBanner.target_campaign_id); } }} className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
         {topBanner?.image_url && <img key={topBanner.id} src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute inset-0 h-full w-full object-cover" style={{ animation: `${topBanner.motion_style === "fade" ? "mamnoonBannerFade" : topBanner.motion_style === "drop" ? (topBanner.motion_direction === "down" ? "mamnoonBannerDropDown" : "mamnoonBannerDrop") : topBanner.motion_direction === "right" ? "mamnoonBannerSlideRight" : topBanner.motion_direction === "up" ? "mamnoonBannerSlideUp" : topBanner.motion_direction === "down" ? "mamnoonBannerSlideDown" : "mamnoonBannerSlideLeft"} .55s ease-out both` }} />}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
@@ -255,6 +258,7 @@ function CustomerHome() {
           </div>
         </div>
       </div>
+      {activeBannerCampaignId && <HomeBannerCampaignDialog campaignId={activeBannerCampaignId} onClose={closeBannerCampaign} />}
 
       <HomeCustomContent placementKey="home.customer.top" />
 
