@@ -58,12 +58,12 @@ Deno.serve(async(req:Request)=>{
   }
   const requestedReturn=(payment.metadata as any)?.returnUrl;
   const safeReturn=new URL(fallback);
-  const candidate=requestedReturn ? new URL(requestedReturn) : new URL("/subscriptions",fallback);
+  const candidate=requestedReturn ? new URL(requestedReturn) : new URL("/home",fallback);
   if(candidate.origin!==safeReturn.origin) throw new Error("invalid_return_origin");
   const finalUrl=candidate; finalUrl.searchParams.set("payment",finalStatus); finalUrl.searchParams.set("ref",reference);
   return Response.redirect(finalUrl.toString(),303);
  }catch(_error){
-  const finalUrl=new URL("/subscriptions",fallback); finalUrl.searchParams.set("payment","pending");
+  const finalUrl=new URL("/home",fallback); finalUrl.searchParams.set("payment","pending");
   return Response.redirect(finalUrl.toString(),303);
  }
 });
