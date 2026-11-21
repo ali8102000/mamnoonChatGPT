@@ -116,7 +116,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "reply") {
-      if (!isUuid(body.conversation_id) || typeof body.message !== "string" || !body.message.trim() || body.message.length > 5000) {
+      if (!isUuid(body.conversation_id) || typeof body.message !== "string" || !body.message.trim() || body.message.length > 4000) {
         return json({ error: "invalid_reply" }, 400);
       }
       const { data: conversation, error: conversationError } = await admin.from("support_conversations")
@@ -135,17 +135,11 @@ Deno.serve(async (req: Request) => {
         last_message_source: "admin",
         last_message_at: inserted.created_at,
         ticket_status: "in_progress",
+        ai_status: "waiting_human",
+        assigned_staff_id: auth.user.id,
         updated_at: inserted.created_at,
       }).eq("id", body.conversation_id);
       if (updateError) return json({ error: "conversation_update_failed" }, 500);
-      await admin.from("staff_activity_log").insert({
-        staff_user_id: auth.user.id,
-        actor_user_id: auth.user.id,
-        activity: "reply_support_message",
-        conversation_id: body.conversation_id,
-        message_id: inserted.id,
-        details: { channel: "admin_inbox" },
-      });
       return json({ ok: true, message: inserted });
     }
 
@@ -154,6 +148,7 @@ Deno.serve(async (req: Request) => {
       const { error } = await admin.from("support_conversations").update({
         needs_admin_reply: true,
         handoff_status: "waiting_for_admin",
+        ai_status: "waiting_human",
         last_message_source: "bot",
         updated_at: new Date().toISOString(),
       }).eq("id", body.conversation_id);
@@ -167,6 +162,7 @@ Deno.serve(async (req: Request) => {
         needs_admin_reply: false,
         handoff_status: "resolved",
         ticket_status: "resolved",
+        ai_status: "active",
         updated_at: new Date().toISOString(),
       }).eq("id", body.conversation_id);
       if (error) return json({ error: "resolve_failed" }, 500);
