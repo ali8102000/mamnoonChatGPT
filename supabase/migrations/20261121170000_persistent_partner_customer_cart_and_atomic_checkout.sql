@@ -115,7 +115,9 @@ grant execute on function public.add_partner_customer_cart_item(uuid,uuid,intege
 create or replace function public.place_partner_customer_order(
   p_business_profile_id uuid,
   p_delivery_address text default null,
-  p_customer_note text default null
+  p_customer_note text default null,
+  p_expected_total numeric default null,
+  p_expected_currency text default null
 )
 returns uuid
 language plpgsql
@@ -190,6 +192,11 @@ begin
 
   if v_cart_count = 0 or jsonb_array_length(v_items) = 0 then raise exception 'السلة فارغة أو لم تعد تحتوي على منتجات متاحة'; end if;
   if v_valid_count <> v_cart_count then raise exception 'بعض منتجات السلة لم تعد متاحة. حدّث السلة قبل تأكيد الطلب'; end if;
+  if p_expected_total is null or p_expected_currency is null then raise exception 'expected_cart_total_required'; end if;
+  if abs(round(p_expected_total,2) - round(v_total,2)) > 0.01
+     or p_expected_currency is distinct from v_currency then
+    raise exception 'cart_price_changed_refresh_required';
+  end if;
 
   insert into public.partner_customer_orders(
     business_profile_id, customer_id, order_type, requested_items,
@@ -218,8 +225,8 @@ begin
   return v_order_id;
 end;
 $function$;
-revoke all on function public.place_partner_customer_order(uuid,text,text) from public, anon;
-grant execute on function public.place_partner_customer_order(uuid,text,text) to authenticated;
+revoke all on function public.place_partner_customer_order(uuid,text,text,numeric,text) from public, anon;
+grant execute on function public.place_partner_customer_order(uuid,text,text,numeric,text) to authenticated;
 
 create or replace function public.restore_partner_order_stock()
 returns trigger
