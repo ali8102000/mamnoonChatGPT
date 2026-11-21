@@ -75,7 +75,7 @@ export function HomeBannerCampaignDialog({ campaignId, onClose }: { campaignId: 
     try {
       if (needsImage && entryFile) {
         const ext = (entryFile.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
-        storagePath = `${campaign.id}/${session.user.id}/${Date.now()}-${crypto.randomUUID()}.\${ext}`.replace("\\.", ".");
+        storagePath = campaign.id + "/" + session.user.id + "/" + Date.now() + "-" + Math.random().toString(36).slice(2) + "." + ext;
         const { error: uploadError } = await supabase.storage.from("campaign-entries").upload(storagePath, entryFile, { upsert: false, contentType: entryFile.type });
         if (uploadError) throw uploadError;
         const { data: signed, error: signedError } = await supabase.storage.from("campaign-entries").createSignedUrl(storagePath, 60 * 60);
