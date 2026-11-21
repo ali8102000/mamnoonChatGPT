@@ -92,6 +92,8 @@ import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
 import AdminImageStudio from "@/components/admin-image-studio";
 import AdminControlCenter from "@/components/admin-control-center";
+import AdminInbox from "@/components/admin-inbox";
+import AdminRights from "@/components/admin-rights";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/admin")({
@@ -117,7 +119,7 @@ type Section =
   | "chat"
   | "friends"
   | "reports"
-  | "subscriptions"
+  | "rights"
   | "coupons"
   | "wallet"
   | "stats"
@@ -162,7 +164,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   },
   {
     key: "chat",
-    label: "الدردشة ورسائل الدعم",
+    label: "المراسلات",
     icon: MessageSquare,
     roles: ["super_admin", "admin", "support", "moderator", "customer_service", "rank:general_manager"],
   },
@@ -179,8 +181,8 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "moderator", "department_monitoring"],
   },
   {
-    key: "subscriptions",
-    label: "الاشتراكات",
+    key: "rights",
+    label: "حقوق ممنون",
     icon: Crown,
     roles: ["super_admin", "admin", "finance", "department_finance"],
   },
@@ -209,7 +211,7 @@ const NAV_GROUPS: { title: string; keys: Section[] }[] = [
   { title: "الرئيسية", keys: ["overview"] },
   { title: "الإحصائيات والمحافظات", keys: ["stats", "regions"] },
   { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"] },
-  { title: "المالية والعروض", keys: ["subscriptions", "coupons", "wallet"] },
+  { title: "المالية وحقوق ممنون", keys: ["rights", "coupons", "wallet"] },
   { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones"] },
   { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "controlCenter", "imageStudio"] },
   { title: "الموظفون والأمان", keys: ["roles", "staff", "audit"] },
@@ -264,7 +266,7 @@ function AdminPage() {
         const hasLegacyAdminRole = parsedRoles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
         if (assignment?.rank && ["general_manager","department_manager","supervisor"].includes(assignment.rank) && !hasLegacyAdminRole) setSection("staff");
         if (parsedRoles.includes("customer_service") && !hasLegacyAdminRole) setSection("chat");
-        else if (!hasLegacyAdminRole && assignment?.department === "finance") setSection("subscriptions");
+        else if (!hasLegacyAdminRole && assignment?.department === "finance") setSection("rights");
         else if (!hasLegacyAdminRole && assignment?.department === "operations") setSection("providers");
         else if (!hasLegacyAdminRole && assignment?.department === "monitoring") setSection("reports");
         setAuthorized(true);
@@ -442,7 +444,7 @@ function AdminPage() {
           {section === "chat" && <ChatSection />}
           {section === "friends" && <FriendsSection />}
           {section === "reports" && <ReportsSection />}
-          {section === "subscriptions" && <SubscriptionsSection />}
+          {section === "rights" && <AdminRights />}
           {section === "coupons" && <CouponsSection />}
           {section === "wallet" && <WalletSection />}
           {section === "map" && <MapSection />}
@@ -467,7 +469,7 @@ function AdminArchitectureDiagram() {
   const nodes = [
     { title: "العمليات", detail: "الرحلات والخدمات", icon: Car },
     { title: "العملاء والدعم", detail: "الحسابات والبلاغات", icon: Users },
-    { title: "المالية", detail: "المحافظ والاشتراكات", icon: Wallet },
+    { title: "المالية", detail: "المحافظ والعمولات", icon: Wallet },
     { title: "المحتوى", detail: "الشعار والبانرات", icon: ImagePlus },
     { title: "الموظفون", detail: "الرتب والصلاحيات", icon: ShieldCheck },
   ];
@@ -1777,143 +1779,7 @@ function RequestsSection() {
 }
 
 function ChatSection() {
-  const { session } = useAuth();
-  const [supportPreview, setSupportPreview] = useState<any[]>([]);
-  const [supportUnread, setSupportUnread] = useState(0);
-  const [tab, setTab] = useState("chats");
-  const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
-  const [chats, setChats] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const listChats = adminListChats;
-  const listMessages = adminListMessages;
-  const deleteMessage = adminDeleteMessage;
-  useEffect(() => {
-    if (!session?.user.id) return;
-    void (async () => {
-      const [{ data: roles }, { data: assignment }] = await Promise.all([
-        (supabase as any).rpc("get_staff_roles", { p_user_id: session.user.id }),
-        (supabase as any).from("staff_assignments").select("rank").eq("user_id", session.user.id).eq("active", true).maybeSingle(),
-      ]);
-      const privileged = assignment?.rank === "general_manager" || (roles ?? []).some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
-      setCustomerServiceOnly((roles ?? []).includes("customer_service") && !privileged);
-    })();
-  }, [session?.user.id]);
-  const load = useCallback(async () => {
-    if (customerServiceOnly) { setLoading(false); return; }
-    setLoading(true);
-    try {
-      if (tab === "chats") setChats(await listChats({ data: {} }));
-      else setMessages(await listMessages({ data: {} }));
-    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
-      setLoading(false);
-    }
-  }, [tab, listChats, listMessages, customerServiceOnly]);
-  useEffect(() => {
-    load();
-  }, [load]);
-  const loadSupportPreview = useCallback(async () => {
-    const { data: conversations } = await (supabase as any).from("support_conversations").select("id,user_id,status,updated_at").order("updated_at", { ascending: false }).limit(10);
-    const rows = conversations ?? [];
-    const ids = rows.map((row: any) => row.id);
-    const userIds: string[] = [...new Set<string>(rows.map((row: any) => String(row.user_id)))];
-    const [{ data: profiles }, { data: incoming }] = await Promise.all([
-      userIds.length ? supabase.from("profiles").select("id,full_name,phone").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
-      ids.length ? (supabase as any).from("support_messages").select("id,conversation_id,sender_id,body,read_at,created_at").in("conversation_id", ids).order("created_at", { ascending: false }) : Promise.resolve({ data: [] as any[] }),
-    ]);
-    const profileMap = new globalThis.Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
-    const latest = new globalThis.Map<string, any>();
-    let unread = 0;
-    for (const message of incoming ?? []) {
-      if (!latest.has(message.conversation_id)) latest.set(message.conversation_id, message);
-      if (message.sender_id !== session?.user.id && !message.read_at) unread += 1;
-    }
-    setSupportUnread(unread);
-    setSupportPreview(rows.map((row: any) => ({ ...row, profile: profileMap.get(row.user_id), latest: latest.get(row.id) })));
-  }, [session?.user.id]);
-  useEffect(() => { void loadSupportPreview(); }, [loadSupportPreview]);
-  async function handleDelete(id: string) {
-    try {
-      await deleteMessage({ data: { message_id: id } });
-      load();
-    } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
-  }
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3 mb-4"><h2 className="text-xl font-black">{customerServiceOnly ? "مركز خدمة العملاء" : "إدارة الدردشة"}</h2><a href="/support-chat" className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">{"فتح صندوق رسائل الدعم"} ({supportUnread} غير مقروءة)</a></div>
-      <div className="glass rounded-2xl p-3 mb-4">
-        <div className="font-black text-sm mb-2">آخر رسائل المستخدمين للإدارة</div>
-        {supportPreview.length === 0 ? <p className="text-xs text-muted-foreground">ماكو رسائل دعم واردة حالياً</p> : <div className="space-y-2">
-          {supportPreview.slice(0, 5).map((conversation) => <a key={conversation.id} href="/support-chat" className="flex items-center justify-between gap-3 rounded-xl bg-card border border-border p-3">
-            <div className="min-w-0"><div className="font-bold text-xs">{conversation.profile?.full_name || "مستخدم ممنون"}</div><div className="text-[11px] text-muted-foreground truncate mt-1">{conversation.latest?.body || "بدأ محادثة دعم جديدة"}</div></div>
-            {!conversation.latest?.read_at && conversation.latest?.sender_id !== session?.user.id ? <span className="text-[9px] font-black bg-primary text-primary-foreground rounded-full px-2 py-1">جديد</span> : null}
-          </a>)}
-        </div>}
-      </div>
-      {!customerServiceOnly && <div className="flex gap-1 mb-4 glass rounded-2xl p-1">
-        {["chats", "messages"].map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold ${tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-          >
-            {t === "chats" ? "المحادثات" : "الرسائل"}
-          </button>
-        ))}
-      </div>}
-      {customerServiceOnly ? (
-        <div className="glass rounded-2xl p-4 text-sm font-bold">صلاحيتك محصورة برسائل الدعم ومحادثات الزبائن. ما عندك وصول إلى المحادثات الخاصة أو حذف الرسائل.</div>
-      ) : loading ? (
-        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-      ) : tab === "chats" ? (
-        chats.length === 0 ? (
-          <EmptyState text="لا توجد محادثات" />
-        ) : (
-          <div className="space-y-2">
-            {chats.map((c) => (
-              <div key={c.id} className="glass rounded-2xl p-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold">{c.participant1?.full_name ?? "—"}</span>
-                  <ContactOptions phone={c.participant1?.phone} label="اتصال / واتساب" />
-                  <span className="text-muted-foreground">↔</span>
-                  <span className="font-bold">{c.participant2?.full_name ?? "—"}</span>
-                  <ContactOptions phone={c.participant2?.phone} label="اتصال / واتساب" />
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {new Date(c.updated_at ?? c.created_at).toLocaleString("ar-IQ")}
-                </div>
-              </div>
-            ))}
-          </div>
-        )
-      ) : messages.length === 0 ? (
-        <EmptyState text="لا توجد رسائل" />
-      ) : (
-        <div className="space-y-2">
-          {messages.map((m) => (
-            <div key={m.id} className="glass rounded-2xl p-3 text-sm">
-              <div className="flex justify-between items-start mb-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="font-bold text-xs">{m.sender?.full_name ?? "—"}</div>
-                  <ContactOptions phone={m.sender?.phone} label="اتصال / واتساب" />
-                </div>
-                <button
-                  onClick={() => handleDelete(m.id)}
-                  className="text-xs px-2 py-1 rounded-lg bg-red-100 text-red-700 font-bold"
-                >
-                  حذف
-                </button>
-              </div>
-              <div className="text-xs text-muted-foreground">{m.body ?? m.content ?? "—"}</div>
-              <div className="text-[10px] text-muted-foreground mt-1">
-                {new Date(m.created_at).toLocaleString("ar-IQ")}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  return <AdminInbox />;
 }
 
 function FriendsSection() {
@@ -2109,29 +1975,6 @@ function ReportsSection() {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function SubscriptionsSection() {
-  return (
-    <div>
-      <h2 className="text-xl font-black mb-4">إدارة الاشتراكات</h2>
-      <Link
-        to="/admin/subscriptions"
-        className="glass rounded-2xl p-5 flex items-center justify-between border-2 border-amber-500/20"
-      >
-        <div className="flex items-center gap-3">
-          <Crown className="h-6 w-6 text-amber-500" />
-          <div>
-            <div className="font-black text-sm">نظام الاشتراكات والباقات</div>
-            <div className="text-xs text-muted-foreground">
-              إدارة الباقات، المشتركين، والإعدادات
-            </div>
-          </div>
-        </div>
-        <ChevronLeft className="h-5 w-5 text-muted-foreground" />
-      </Link>
     </div>
   );
 }
@@ -3023,7 +2866,7 @@ function StaffHierarchySection() {
     ["pricing.peak.edit","الذروة والاستعجال"],["pricing.services.edit","تسعير الخدمات"],
     ["promotions.read","عرض الخصومات"],["promotions.manage","إدارة الخصومات"],
     ["finance.read","عرض المالية"],["finance.wallet.adjust","تسوية المحفظة"],["finance.refund","استرداد المدفوعات"],
-    ["subscriptions.manage","الاشتراكات"],["support.manage","الدعم"],["notifications.send","الإشعارات"],
+["support.manage","الدعم"],["notifications.send","الإشعارات"],
     ["regions.manage","المحافظات"],["staff.read","عرض الموظفين"],["staff.assign","إضافة موظفين"],
     ["staff.manage_created","إدارة الموظفين التابعين"],["staff.delegate","تفويض الصلاحيات"],
     ["staff.approve","مراجعة الموافقات"],["settings.manage","إعدادات المنصة"],["audit.read","سجل التدقيق"],

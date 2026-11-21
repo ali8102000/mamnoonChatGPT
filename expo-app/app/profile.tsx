@@ -407,10 +407,7 @@ export default function ProfileScreen() {
           )}
         </View>
       )}
-      {isProvider && <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/subscriptions" as any)}>
-        <Text style={styles.menuItemText}>اشتراكات ممنون وامتيازات الباقة</Text>
-        <Text style={styles.menuArrow}>←</Text>
-      </TouchableOpacity>}
+
       {activeRole === "customer" && <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/coupons")}><Text style={styles.menuItemText}>كوبوناتي والعروض</Text><Text style={styles.menuArrow}>←</Text></TouchableOpacity>}
       <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/support")}><Text style={styles.menuItemText}>الدعم الفني والتذاكر</Text><Text style={styles.menuArrow}>←</Text></TouchableOpacity>
       <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/privacy")}><Text style={styles.menuItemText}>سياسة الخصوصية</Text><Text style={styles.menuArrow}>←</Text></TouchableOpacity>

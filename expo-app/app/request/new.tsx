@@ -1597,11 +1597,18 @@ export default function NewRequest() {
                     borderRadius: Number(uiVisuals.request_primary_cta?.border_radius_px) || undefined,
                     padding: Number(uiVisuals.request_primary_cta?.card_padding_px) || undefined,
                     transform: [{ scale: Math.max(.6, Math.min(1.6, Number(uiVisuals.request_primary_cta?.element_scale) || 1)) }],
+                    borderWidth: 2,
+                    borderColor: "#F4C95D",
+                    shadowColor: "#9A6B13",
+                    shadowOpacity: 0.22,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 3 },
+                    elevation: 5,
                   }, (busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))) && styles.taxiButtonDisabled]}
                   disabled={busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))}
                   onPress={() => void submit()}
                 >
-                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: uiVisuals.request_primary_cta?.title_color || undefined }]}>{uiVisuals.request_primary_cta?.title || (isLargeVehicle ? "إرسال الطلب" : "اطلب الآن")}</Text>}
+                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: uiVisuals.request_primary_cta?.title_color || undefined }]}>{"اطلب الآن"}</Text>}
                 </TouchableOpacity>
               </>
             )}
@@ -1627,7 +1634,6 @@ export default function NewRequest() {
             <TouchableOpacity key={service.slug} style={styles.serviceTile} onPress={() => { setSelectedService(service.slug); if (!EXPERT_ONLY_SERVICE_SLUGS.has(service.slug)) setWorkerLevel("fani"); setServiceDetailsStep(true); }}>
               {hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="cover" />}
               <Text style={styles.serviceLabel}>{service.name_ar}</Text>
-              <View style={{ marginTop: 7, borderWidth: 1.5, borderColor: palette.brand, backgroundColor: palette.brandSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: palette.brand, fontSize: 10, fontWeight: "900" }}>اطلب الآن ←</Text></View>
             </TouchableOpacity>
           ))}
         </View>
@@ -2101,7 +2107,7 @@ export default function NewRequest() {
         </View>
       )}
       <View style={{ height: 24 }} />
-      <Button title="إرسال الطلب" onPress={() => void submit()} loading={busy} />
+      <View style={{ borderWidth: 2, borderColor: "#F4C95D", borderRadius: 18, padding: 3, backgroundColor: "#FFF9E9", elevation: 4 }}><Button title="إرسال الطلب" onPress={() => void submit()} loading={busy} /></View>
       <GovernoratePickerModal visible={governoratePickerVisible} selectedKey={activeGovernorateKey} onClose={() => setGovernoratePickerVisible(false)} onSelect={(key) => { chooseGovernorate(key); setGovernoratePickerVisible(false); }} />
     </ScrollView>
   );

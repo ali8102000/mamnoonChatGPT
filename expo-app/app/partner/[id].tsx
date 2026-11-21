@@ -172,7 +172,7 @@ export default function PartnerPublicDetailsScreen() {
               {!cartCurrency ? <Text style={{ color: palette.danger, fontSize: 11, textAlign: "right" }}>لا يمكن إتمام سلة تحتوي على عملات مختلفة. استخدم سلة واحدة بعملة موحدة.</Text> : null}
               <TextInput value={deliveryAddress} onChangeText={setDeliveryAddress} placeholder="عنوان التوصيل بالتفصيل" placeholderTextColor={palette.muted} style={{ borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 11, color: palette.ink, textAlign: "right" }} />
               <TextInput value={customerNote} onChangeText={setCustomerNote} placeholder="ملاحظات للمنشأة (اختياري)" placeholderTextColor={palette.muted} multiline style={{ borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 11, color: palette.ink, textAlign: "right", minHeight: 60 }} />
-              <Pressable disabled={checkoutBusy || !cartCurrency} onPress={() => void submitOrder()} style={{ backgroundColor: palette.brand, borderRadius: 12, padding: 14, alignItems: "center", opacity: checkoutBusy || !cartCurrency ? 0.5 : 1 }}><Text style={{ color: "#fff", fontWeight: "900" }}>{checkoutBusy ? "جارٍ تأكيد الطلب..." : "تأكيد الطلب وإرساله للمنشأة"}</Text></Pressable>
+              <Pressable disabled={checkoutBusy || !cartCurrency} onPress={() => void submitOrder()} style={{ backgroundColor: palette.brand, borderWidth: 2, borderColor: "#F4C95D", borderRadius: 14, padding: 14, alignItems: "center", opacity: checkoutBusy || !cartCurrency ? 0.5 : 1, elevation: 4 }}><Text style={{ color: "#fff", fontWeight: "900" }}>{checkoutBusy ? "جارٍ تأكيد الطلب..." : "تأكيد الطلب وإرساله للمنشأة"}</Text></Pressable>
             </> : null}
           </View> : null}
         </>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
@@ -6,10 +6,8 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -19,6 +17,7 @@ import { palette, radius } from "@/styles/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { loadNotificationSoundPreference, setNotificationSoundPreference } from "@/lib/notification-sound";
 import { showContactOptions } from "@/lib/contact-actions";
+import MamnoonChatThread from "../../../components/MamnoonChatThread";
 
 type ChatMessage = {
   id: string;
@@ -43,7 +42,6 @@ export default function RequestChatScreen() {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
   const isCustomer = request?.customer_id === user?.id;
   const quickReplies = isCustomer ? QUICK_REPLIES_CUSTOMER : QUICK_REPLIES_PROVIDER;
 
@@ -178,51 +176,20 @@ export default function RequestChatScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        style={styles.messages}
-        contentContainerStyle={styles.messagesContent}
-        keyboardShouldPersistTaps="handled"
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-      >
-        {messages.length === 0 ? (
-          <View style={styles.emptyMessages}><Text style={styles.emptyText}>ابدأ المحادثة 👋</Text></View>
-        ) : messages.map((message) => {
-          const mine = message.sender_id === user?.id;
-          return (
-            <View key={message.id} style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
-              <Text style={[styles.messageText, mine && styles.mineText]}>{message.content}</Text>
-              <Text style={[styles.time, mine && styles.mineTime]}>{new Date(message.created_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })}</Text>
-            </View>
-          );
-        })}
-      </ScrollView>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.quickReplies}>
-        {quickReplies.map((reply) => (
-          <TouchableOpacity key={reply} style={styles.quickReply} onPress={() => void sendMessage(reply)}>
-            <Text style={styles.quickReplyText}>{reply}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          style={styles.input}
-          placeholder="اكتب رسالة..."
-          placeholderTextColor={palette.muted}
-          textAlign="right"
-          multiline
-          maxLength={2000}
-          returnKeyType="send"
-          onSubmitEditing={() => void sendMessage()}
-        />
-        <TouchableOpacity disabled={!draft.trim() || sending} onPress={() => void sendMessage()} style={[styles.sendButton, (!draft.trim() || sending) && { opacity: 0.5 }]}>
-          <Text style={styles.sendText}>{sending ? "..." : "إرسال"}</Text>
-        </TouchableOpacity>
-      </View>
+      <MamnoonChatThread
+        messages={messages.map(message => ({
+          id: message.id,
+          senderId: message.sender_id,
+          body: message.content,
+          createdAt: message.created_at,
+        }))}
+        currentUserId={user?.id ?? ""}
+        draft={draft}
+        onDraftChange={setDraft}
+        onSend={sendMessage}
+        busy={sending}
+        quickReplies={quickReplies}
+      />
     </KeyboardAvoidingView>
   );
 }

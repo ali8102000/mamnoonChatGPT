@@ -814,7 +814,6 @@ function NewRequest() {
               className="min-h-44 rounded-2xl bg-card p-1 flex flex-col items-center justify-center gap-0 border border-border shadow-sm overflow-hidden">
               <img src={serviceIcon(s.slug)} alt="" className="mx-auto h-40 w-[92%] rounded-xl object-cover block" />
               <span className="px-2 py-2 text-sm font-black text-center">{s.name_ar}</span>
-              <span className="mb-2 inline-flex rounded-full border-2 border-primary/60 bg-primary/5 px-3 py-1 text-[10px] font-black text-primary">اطلب الآن ←</span>
             </button>
           ))}
         </div>
@@ -1254,7 +1253,7 @@ function NewRequest() {
               type="button"
               disabled={busy || !pickupCoords || (vehicle !== "large" && (!destCoords || routeKm === null || !!routeError))}
               onClick={() => void submit()}
-              className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-xl btn-press disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-2xl border-2 border-amber-300 ring-2 ring-amber-500/20 bg-primary text-primary-foreground font-black text-base shadow-xl btn-press disabled:opacity-50 flex items-center justify-center gap-2"
               style={{
                 backgroundColor: uiVisuals.request_primary_cta?.background_color || undefined,
                 color: uiVisuals.request_primary_cta?.title_color || undefined,
@@ -1263,7 +1262,7 @@ function NewRequest() {
                 transform: `scale(${Math.max(.6, Math.min(1.6, Number(uiVisuals.request_primary_cta?.element_scale) || 1))})`,
               }}
             >
-              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>{uiVisuals.request_primary_cta?.title || (vehicle === "large" ? "إرسال الطلب" : "اطلب الآن")}</span>}
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>{"اطلب الآن"}</span>}
             </button>
           </div>
         )}
@@ -1536,7 +1535,7 @@ function NewRequest() {
         <button
           disabled={busy}
           onClick={() => void submit()}
-          className="w-full max-w-md mx-auto py-4 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-bold btn-press glow-primary disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full max-w-md mx-auto py-4 rounded-2xl border-2 border-amber-300 ring-2 ring-amber-500/20 bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-bold btn-press glow-primary disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {busy && <Loader2 className="h-5 w-5 animate-spin" />}
           إرسال الطلب

@@ -10,9 +10,6 @@ content_path = "./supabase/templates/recovery.html"
 [functions.maps-proxy]
 verify_jwt = true
 
-[functions.increment-request-count]
-verify_jwt = true
-
 [functions.bootstrap-admin]
 verify_jwt = true
 
@@ -34,10 +31,13 @@ verify_jwt = true
 [functions.admin-governance]
 verify_jwt = true
 
-[functions.admin-subscriptions]
+[functions.admin-users]
 verify_jwt = true
 
-[functions.admin-users]
+[functions.admin-inbox]
+verify_jwt = true
+
+[functions.admin-rights]
 verify_jwt = true
 
 [functions.auto-taxi-pricing]

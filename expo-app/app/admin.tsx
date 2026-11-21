@@ -23,11 +23,11 @@ const GROUPS: NavGroup[] = [
   { title: "المستخدمون وخدمة العملاء", description: "الحسابات والتواصل والبلاغات", icon: "👥", items: [
     { title: "المستخدمون", description: "بحث وإدارة حسابات العملاء", route: "/admin/users", icon: "👤" },
     { title: "المراقبة والبلاغات", description: "مراجعة البلاغات ومتابعة الحالات", route: "/admin/monitoring", icon: "🛡️" },
-    { title: "محادثات الدعم", description: "متابعة محادثات الدعم", route: "/admin/chats", icon: "💬" },
+    { title: "المراسلات", description: "مركز محادثات الزبائن والفنيين والسائقين والشركاء والبوت والدعم المباشر", route: "/admin/chats", icon: "💬" },
     { title: "الأصدقاء", description: "إدارة طلبات وعلاقات الأصدقاء", route: "/admin/friends", icon: "🤝" },
   ]},
-  { title: "المالية والاشتراكات", description: "المحافظ والاشتراكات والتقارير", icon: "💰", items: [
-    { title: "الاشتراكات", description: "الباقات وطلبات الاشتراك", route: "/admin/subscriptions", icon: "👑" },
+  { title: "المالية وحقوق ممنون", description: "المحافظ والعمولات والإيرادات", icon: "💰", items: [
+    { title: "حقوق ممنون", description: "استقطاع الشكاوي وإضافة الرصيد والإعفاءات وسياسات العمولة", route: "/admin/rights", icon: "⚖️" },
     { title: "المالية والكوبونات", description: "المحفظة والحركات والعروض", route: "/admin/finance", icon: "💳" },
     { title: "الإحصائيات", description: "تقارير المنصة ومؤشراتها", route: "/admin/analytics", icon: "📊" },
   ]},

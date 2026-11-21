@@ -37,21 +37,12 @@ Deno.serve(async (req: Request) => {
     const {data:{user},error:userError}=await userClient.auth.getUser(bearer);
     if(userError || !user) return json({error:"unauthorized"},401);
     const admin=createClient(supabaseUrl,serviceKey,{global:{fetch:createSupabaseFetch(serviceKey)},auth:{persistSession:false,autoRefreshToken:false}});
-    const {data:gatewaySettings}=await admin.from("subscription_settings").select("payment_gateway_enabled,subscription_enabled").eq("id",1).maybeSingle();
-    if(!gatewaySettings?.payment_gateway_enabled) return json({error:"payments_temporarily_disabled"},503);
     const body=await req.json().catch(()=>null);
-    if(!body || !["subscription","service_request","wallet_topup"].includes(body.purpose)) return json({error:"invalid_request"},400);
+    if (body?.purpose === "subscription") return json({ error: "subscriptions_retired" }, 410);
+    if(!body || !["service_request","wallet_topup"].includes(body.purpose)) return json({error:"invalid_request"},400);
     if(body.purpose==="wallet_topup" && Deno.env.get("ZAINCASH_WALLET_TOPUP_ENABLED")!=="true") return json({error:"wallet_topups_not_enabled"},503);
-    let amount:number, planId:string|null=null, requestId:string|null=null;
-    if(body.purpose==="subscription") {
-      if(typeof body.planId!=="string") return json({error:"plan_required"},400);
-      if(!gatewaySettings.subscription_enabled) return json({error:"subscriptions_temporarily_disabled"},503);
-      const {data:plan,error}=await admin.from("subscription_plans").select("id,code,monthly_price,currency,is_active").eq("id",body.planId).maybeSingle();
-      if(error || !plan || !plan.is_active || plan.currency!=="IQD" || plan.monthly_price<=0 || ["free","trial"].includes(plan.code)) return json({error:"plan_not_payable"},400);
-      const {data:sub}=await admin.from("user_subscriptions").select("grant_type").eq("user_id",user.id).maybeSingle();
-      if(sub?.grant_type==="admin") return json({error:"company_granted_subscription_locked"},403);
-      amount=plan.monthly_price; planId=plan.id;
-    } else if(body.purpose==="wallet_topup") {
+    let amount:number, requestId:string|null=null;
+    if(body.purpose==="wallet_topup") {
       const requestedAmount=Number(body.amountIQD);
       if(!Number.isSafeInteger(requestedAmount) || requestedAmount<5000 || requestedAmount>5000000) {
         return json({error:"wallet_topup_amount_out_of_range",minimum:5000,maximum:5000000},400);
@@ -69,20 +60,20 @@ Deno.serve(async (req: Request) => {
       requestId=request.id;
     }
     const {data:payment,error:insertError}=await admin.from("payment_transactions").insert({
-      user_id:user.id,purpose:body.purpose,plan_id:planId,request_id:requestId,amount,currency:"IQD",provider:"zaincash",status:"pending"
+      user_id:user.id,purpose:body.purpose,request_id:requestId,amount,currency:"IQD",provider:"zaincash",status:"pending"
     }).select("id,external_reference_id").single();
     if(insertError || !payment) return json({error:"payment_record_failed"},500);
     try {
       const token=await getGatewayToken(baseUrl,clientId,clientSecret);
       const success=callbackBase+"?return=success";
       const failure=callbackBase+"?return=failure";
-      const returnPath=body.purpose==="subscription"?"/subscriptions":body.purpose==="wallet_topup"?"/":"/request/"+requestId;
+      const returnPath=body.purpose==="wallet_topup"?"/":"/request/"+requestId;
       const appReturnUrl=new URL(returnPath,publicUrl).toString();
       const initResponse=await fetch(baseUrl+"/api/v2/payment-gateway/transaction/init",{
         method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
         body:JSON.stringify({
           language:"Ar",externalReferenceId:payment.external_reference_id,orderId:payment.id,
-          serviceType:body.purpose==="subscription"?"MamnoonSubscription":body.purpose==="wallet_topup"?"MamnoonWalletTopup":"MamnoonService",
+          serviceType:body.purpose==="wallet_topup"?"MamnoonWalletTopup":"MamnoonService",
           amount:{value:String(amount),currency:"IQD"},
           redirectUrls:{successUrl:success,failureUrl:failure}
         })
