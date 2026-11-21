@@ -446,8 +446,8 @@ export default function RequestDetail() {
     } else {
       setShowRating(false);
     }
-    const {data:paymentSettings}=await supabase.from("subscription_settings").select("payment_gateway_enabled").eq("id",1).maybeSingle();
-    setPaymentGatewayEnabled(Boolean(paymentSettings?.payment_gateway_enabled));
+    const {data:gatewayStatus,error:gatewayStatusError}=await supabase.functions.invoke("zaincash-config-status",{body:{}});
+    setPaymentGatewayEnabled(!gatewayStatusError&&gatewayStatus?.ready===true);
     if (data?.vehicle_category === "large") {
       if (data.customer_id === user?.id && ["pending", "searching"].includes(data.status)) {
         const { data: bids } = await (supabase as any)
