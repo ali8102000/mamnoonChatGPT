@@ -28,9 +28,6 @@ import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 
 const HOME_GRID_GAP = 12;
-const HOME_GRID_CONTENT_WIDTH = Dimensions.get("window").width - 24;
-const HOME_GRID_WIDE_WIDTH = ((HOME_GRID_CONTENT_WIDTH - HOME_GRID_GAP) * 2) / 3;
-const HOME_GRID_NARROW_WIDTH = (HOME_GRID_CONTENT_WIDTH - HOME_GRID_GAP) / 3;
 
 type IncomingRequest = {
   id: string;
