@@ -18,7 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
 type BannerCategory = "restaurant" | "hotel" | "store";
-type BannerKind = "category" | "poll" | "contest" | "ad";
+type BannerKind = "category" | "poll" | "contest" | "ad" | "top_square";
 type MotionAxis = "horizontal" | "vertical";
 type MotionDirection = "left" | "right" | "up" | "down";
 type MotionStyle = "slide" | "fade" | "drop";
@@ -290,7 +290,7 @@ export default function AdminHomeBannersScreen() {
           <Text style={styles.sectionTitle}>إضافة بانر جديد</Text>
           <Text style={styles.label}>نوع البانر</Text>
           <View style={styles.categoryRow}>
-            {([{key:"category",label:"مطاعم وفنادق"},{key:"poll",label:"استطلاع"},{key:"contest",label:"مسابقة"},{key:"ad",label:"إعلان"}] as {key:BannerKind;label:string}[]).map((item) => (
+            {([{key:"category",label:"مطاعم وفنادق"},{key:"poll",label:"استطلاع"},{key:"contest",label:"مسابقة"},{key:"ad",label:"الإعلان العلوي"},{key:"top_square",label:"البانر المربع"}] as {key:BannerKind;label:string}[]).map((item) => (
               <TouchableOpacity key={item.key} onPress={() => {setBannerType(item.key);setCampaignId("");}} style={[styles.categoryButton,bannerType===item.key&&styles.categorySelected]}>
                 <Text style={[styles.categoryText,bannerType===item.key&&styles.categoryTextSelected]}>{item.label}</Text>
               </TouchableOpacity>
@@ -317,7 +317,7 @@ export default function AdminHomeBannersScreen() {
               {!campaigns.some((item)=>item.campaign_type===bannerType) ? <Text style={styles.muted}>ماكو {bannerType==="poll"?"استطلاع":"مسابقة"} منشورة حالياً. انشرها أولاً من إدارة الحملات.</Text> : null}
             </View>
           </> : null}
-          {bannerType === "ad" ? <Text style={styles.muted}>الإعلان يظهر كصورة فقط، والضغط عليه لا يفتح أي صفحة.</Text> : null}
+          {bannerType === "ad" ? <Text style={styles.muted}>الإعلان العلوي الرئيسي مستقل عن البانر المربع.</Text> : null}{bannerType === "top_square" ? <Text style={styles.muted}>يبقى مكانه فارغاً بلا صورة افتراضية عند عدم وجود صورة. الضغط عليه يعرض «سيتوفر قريباً» ونص الشركاء، ويتوقف السحب 5 ثوانٍ بعد اللمس.</Text> : null}
           <View style={styles.fieldsRow}>
             <View style={styles.field}>
               <Text style={styles.label}>مدة عرض الصورة (1–60 ثانية)</Text>
@@ -395,7 +395,7 @@ export default function AdminHomeBannersScreen() {
           <View key={banner.id} style={styles.bannerCard}>
             <Image source={{ uri: banner.image_url }} style={styles.bannerImage} />
             <View style={styles.bannerDetails}>
-              <Text style={styles.bannerTitle}>{banner.banner_type === "poll" ? "استطلاع رأي" : banner.banner_type === "contest" ? "مسابقة" : banner.banner_type === "ad" ? "إعلان صوري فقط" : CATEGORY_LABELS[banner.target_category]}</Text>
+              <Text style={styles.bannerTitle}>{banner.banner_type === "poll" ? "استطلاع رأي" : banner.banner_type === "contest" ? "مسابقة" : banner.banner_type === "ad" ? "الإعلان العلوي الرئيسي" : banner.banner_type === "top_square" ? "البانر المربع أعلى الصفحة" : CATEGORY_LABELS[banner.target_category]}</Text>
               <Text style={styles.muted}>الترتيب {banner.display_order} · كل {banner.scroll_speed} ثوانٍ · {banner.motion_direction} · {banner.motion_style}</Text>
               <Text style={[styles.status, banner.is_active ? styles.active : styles.inactive]}>
                 {banner.is_active ? "منشور" : "متوقف"}
