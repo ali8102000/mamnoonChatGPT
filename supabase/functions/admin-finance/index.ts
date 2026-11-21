@@ -39,18 +39,13 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(url, service, { global: { fetch: createSupabaseFetch(service) }, auth: { persistSession: false, autoRefreshToken: false } });
     const body = await req.json().catch(() => null);
     if (!body || typeof body.action !== "string") return json({ error: "invalid_request" }, 400);
-    const requirePermission = async (permissionKey: string, allowLegacyFinance = false, scopeType = "global", scopeGovernorate: string | null = null) => {
+    const requirePermission = async (permissionKey: string, scopeType = "global", scopeGovernorate: string | null = null) => {
       const { data: permission, error: permissionError } = await caller.rpc("admin_has_permission", {
         p_permission_key: permissionKey, p_scope_type: scopeType, p_scope_governorate: scopeGovernorate,
       });
       if (!permissionError && permission === true) return;
-      const [adminAccess, financeAccess] = await Promise.all([
-        caller.rpc("has_admin_access", { p_user_id: auth.user.id }),
-        allowLegacyFinance
-          ? caller.rpc("has_subscription_admin_access", { p_user_id: auth.user.id })
-          : Promise.resolve({ data: false, error: null }),
-      ]);
-      if (adminAccess.data !== true && financeAccess.data !== true) throw new Error("permission_required:" + permissionKey);
+      const { data: adminAccess } = await caller.rpc("has_admin_access", { p_user_id: auth.user.id });
+      if (adminAccess !== true) throw new Error("permission_required:" + permissionKey);
     };
     const requireStrictPermission = async (permissionKey: string) => {
       const { data, error } = await caller.rpc("admin_has_permission", {
@@ -71,7 +66,7 @@ Deno.serve(async (req: Request) => {
         .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
-      await requirePermission("finance.wallet.adjust", false, scopeType, scopeGovernorate);
+      await requirePermission("finance.wallet.adjust", scopeType, scopeGovernorate);
       const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
       if (query.length < 2) return json({ error: "query_too_short" }, 400);
       const safe = query.replace(/[,%()]/g, " ");
@@ -128,7 +123,7 @@ Deno.serve(async (req: Request) => {
       if (targetProfileError || !targetProfile) return json({ error: "user_not_found" }, 404);
       const governorate = targetProfile.governorate_key ?? null;
       await requirePermission(
-        "finance.wallet.adjust", false,
+        "finance.wallet.adjust",
         governorate ? "governorate" : "global", governorate,
       );
       return await rpc("admin_adjust_wallet", {
