@@ -30,8 +30,8 @@ export function ServiceIconPanorama() {
     }, seconds * 1000);
     return () => window.clearInterval(timer);
   }, [seconds]);
-  return <div dir="ltr" className="h-full w-full overflow-hidden flex items-center">
-    <div ref={track} className="flex h-full w-full items-center gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+  return <div dir="ltr" className="h-full w-full overflow-hidden flex items-center justify-center">
+    <div ref={track} className="flex h-full w-full items-center justify-center gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {SERVICES.map(([slug,label]) => <div key={slug} className="flex min-w-[54px] flex-col items-center justify-center gap-0.5">
         <img src={serviceIcon(slug)} alt="" style={{width:imageSize,height:imageSize}} className="rounded-full object-cover overflow-hidden shrink-0" />
         <span className="max-w-[54px] truncate text-[8px] font-bold text-white">{label}</span>
