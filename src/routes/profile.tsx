@@ -446,18 +446,23 @@ function ProfilePage() {
             <Settings className="h-5 w-5 text-primary" />
             <span className="flex-1 font-bold text-sm">الإعدادات وسجّل معنا</span>
           </Link>
+        </div>
+        <div className="mt-6 text-center text-[11px] text-muted-foreground">ممنون · v2.0</div>
+      <div className="fixed inset-x-0 bottom-[100px] z-30 px-5 pointer-events-none">
+        <div className="mx-auto max-w-md pointer-events-auto">
           <button
+            type="button"
             onClick={async () => {
               await signOut();
               navigate({ to: "/auth" });
             }}
-            className="w-full glass rounded-2xl p-4 flex items-center gap-3 btn-press text-right text-destructive"
+            className="w-full glass rounded-2xl border border-destructive/30 bg-background/95 p-4 flex items-center gap-3 btn-press text-right text-destructive shadow-xl backdrop-blur-md"
           >
             <LogOut className="h-5 w-5" />
             <span className="flex-1 font-bold text-sm">تسجيل الخروج</span>
           </button>
         </div>
-        <div className="mt-6 text-center text-[11px] text-muted-foreground">ممنون · v2.0</div>
+      </div>
     </MobileShell>
   );
 }
