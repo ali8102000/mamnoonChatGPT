@@ -1,4 +1,4 @@
-// Taxi pricing for Mamnoon: city rides use 400 IQD/km; inter-governorate rides use 187.5 IQD/km.
+// Taxi pricing for Mamnoon: city rides use 350 IQD/km; inter-governorate rides use 187.5 IQD/km.
 export type VehicleCategory = "economy" | "premium" | "luxury" | "large";
 export type WeatherCondition = "heat" | "rain" | "cold" | "mild";
 export type RoadCondition = "normal" | "congested";
@@ -30,7 +30,7 @@ export const FARE_TABLE: Record<
   VehicleCategory,
   { base: number; perKm: number; minimum: number; titleAr: string }
 > = {
-  economy: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون اقتصادي" },
+  economy: { base: 0, perKm: 350, minimum: 0, titleAr: "ممنون اقتصادي" },
   premium: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون المتميز" },
   luxury: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون فاخر" },
   large: { base: 0, perKm: 400, minimum: 0, titleAr: "سيارة كبيرة" },
