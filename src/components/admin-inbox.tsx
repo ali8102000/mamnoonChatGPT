@@ -119,7 +119,7 @@ export default function AdminInbox() {
             <div className="flex justify-between items-center gap-2"><span className="font-black text-xs truncate">{item.conversation_type === "service" ? `${item.profile?.full_name || "الزبون"} ↔ ${item.provider_profile?.full_name || "منفّذ الخدمة"}` : item.profile?.full_name || item.profile?.phone || "مستخدم ممنون"}</span><span className="text-[9px] text-muted-foreground">{item.last_message_at?new Date(item.last_message_at).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"}):""}</span></div>
             <div className="flex flex-wrap gap-1.5 mt-2 justify-start">
               <span className="rounded-md bg-muted px-2 py-1 text-[9px]">{item.conversation_type === "service" ? "محادثة طلب" : categories[item.account_category]||"مستخدم"}</span>
-              <span className="rounded-md bg-muted px-2 py-1 text-[9px]">{item.last_message_source==="bot"?"البوت":item.last_message_source==="admin"?"الإدارة":"المستخدم"}</span>
+              <span className="rounded-md bg-muted px-2 py-1 text-[9px]">{item.last_message_source==="bot"?"البوت":item.last_message_source==="admin"?"الإدارة":item.last_message_source==="provider"?"منفّذ الخدمة":item.last_message_source==="customer"?"الزبون":"المستخدم"}</span>
               {item.needs_admin_reply&&<span className="rounded-md bg-orange-100 text-orange-800 px-2 py-1 text-[9px] font-black">تحتاج رد</span>}
             </div>
             <p className="text-[10px] text-muted-foreground truncate mt-2">{item.latest_message?.body || item.subject}</p>
