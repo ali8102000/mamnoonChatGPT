@@ -244,3 +244,8 @@ drop trigger if exists trg_restore_partner_order_stock on public.partner_custome
 create trigger trg_restore_partner_order_stock
 after update of status on public.partner_customer_orders
 for each row execute function public.restore_partner_order_stock();
+
+-- Surface the grocery/supermarket category inside the unified stores-and-malls directory.
+update public.partner_catalog_categories
+set title = 'سوبر ماركت وبقالة', sort_order = 1, updated_at = now()
+where vertical = 'grocery' and category_key = 'grocery';
