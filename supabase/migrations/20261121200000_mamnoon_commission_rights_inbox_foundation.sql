@@ -71,8 +71,9 @@ CREATE TABLE IF NOT EXISTS public.mamnoon_revenue_ledger (
   revenue_type text NOT NULL CHECK (revenue_type IN ('taxi_commission','service_commission','order_commission','complaint_deduction','wallet_debt_collection','admin_credit_reversal')),
   assessed_iqd bigint NOT NULL CHECK (assessed_iqd >= 0),
   collected_iqd bigint NOT NULL DEFAULT 0 CHECK (collected_iqd >= 0 AND collected_iqd <= assessed_iqd),
+  waived_iqd bigint NOT NULL DEFAULT 0 CHECK (waived_iqd >= 0 AND collected_iqd + waived_iqd <= assessed_iqd),
   status text NOT NULL DEFAULT 'accrued'
-    CHECK (status IN ('accrued','partially_collected','collected','void')),
+    CHECK (status IN ('accrued','partially_collected','partially_waived','collected','waived','void')),
   idempotency_key text NOT NULL UNIQUE,
   provider_reference text,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata) = 'object'),
@@ -237,9 +238,7 @@ BEGIN
     RAISE EXCEPTION 'payment_amount_or_currency_mismatch';
   END IF;
 
-  IF v_payment.purpose = 'subscription' THEN
-    RAISE EXCEPTION 'subscriptions_disabled_use_commission_billing';
-  ELSIF v_payment.purpose = 'wallet_topup' THEN
+  IF v_payment.purpose = 'wallet_topup' THEN
     IF p_gateway_transaction_id IS NULL OR length(p_gateway_transaction_id) < 3 THEN
       RAISE EXCEPTION 'gateway_transaction_id_required';
     END IF;
@@ -1941,3 +1940,139 @@ $old$, '');
   EXECUTE v_def;
 END;
 $retire_demand_notification_tiers$;
+
+
+-- Full removal of the legacy subscription product. This is a pre-launch project:
+-- the four legacy subscription rows are test fixtures, and the related tables,
+-- RPCs, scheduled expiry job, and payment-plan linkage are no longer needed.
+DO $retire_subscription_cron$
+DECLARE v_job record;
+BEGIN
+  FOR v_job IN
+    SELECT jobid FROM cron.job
+    WHERE jobname = 'mamnoon-expire-subscriptions'
+       OR command ILIKE '%handle_expired_subscriptions%'
+  LOOP
+    PERFORM cron.unschedule(v_job.jobid);
+  END LOOP;
+END;
+$retire_subscription_cron$;
+
+-- Remove the subscription-only checks without changing provider eligibility,
+-- verification, approval, suspension, block, or active-request safeguards.
+DO $retire_subscription_gates$
+DECLARE v_def text;
+BEGIN
+  v_def := pg_get_functiondef('public.accept_service_request(uuid)'::regprocedure);
+  v_def := replace(v_def, $old$
+  IF NOT public.mamnoon_provider_subscription_active(auth.uid()) THEN
+    RAISE EXCEPTION 'subscription_required';
+  END IF;
+$old$, '');
+  IF position('mamnoon_provider_subscription_active' in v_def) > 0 THEN
+    RAISE EXCEPTION 'accept_service_request_subscription_gate_remains';
+  END IF;
+  EXECUTE v_def;
+
+  v_def := pg_get_functiondef('public.submit_large_vehicle_offer(uuid,integer,text)'::regprocedure);
+  v_def := replace(v_def, ' IF NOT public.mamnoon_provider_subscription_active(auth.uid()) THEN RAISE EXCEPTION ''subscription_required''; END IF;', '');
+  IF position('mamnoon_provider_subscription_active' in v_def) > 0 THEN
+    RAISE EXCEPTION 'large_vehicle_offer_subscription_gate_remains';
+  END IF;
+  EXECUTE v_def;
+
+  v_def := pg_get_functiondef('public.find_nearby_provider_pins(numeric,numeric,text,text,uuid,numeric,integer)'::regprocedure);
+  v_def := replace(v_def, '    and public.mamnoon_provider_subscription_active_internal(pp.user_id)\n', '');
+  IF position('mamnoon_provider_subscription_active_internal' in v_def) > 0 THEN
+    RAISE EXCEPTION 'provider_pins_subscription_gate_remains';
+  END IF;
+  EXECUTE v_def;
+END;
+$retire_subscription_gates$;
+
+-- This RPC keeps its established response shape for older clients, but no longer
+-- checks plans, subscription state, or monthly request quotas.
+CREATE OR REPLACE FUNCTION public.check_request_allowed(_user_id uuid)
+RETURNS TABLE(allowed boolean, reason text, plan_code text, requests_used integer, requests_limit integer)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  IF auth.uid() IS NOT NULL AND auth.uid() <> _user_id
+     AND NOT public.has_admin_access(auth.uid()) THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.user_blocks b
+    WHERE b.user_id = _user_id AND (b.expires_at IS NULL OR b.expires_at > now())
+  ) THEN
+    RETURN QUERY SELECT false, 'blocked'::text, 'commission'::text, 0, NULL::integer;
+    RETURN;
+  END IF;
+
+  RETURN QUERY SELECT true, 'ok'::text, 'commission'::text, 0, NULL::integer;
+END;
+$function$;
+
+-- Remove the obsolete assignment/offer trigger gates.
+DROP TRIGGER IF EXISTS mamnoon_require_subscription_for_offer ON public.request_offers;
+DROP TRIGGER IF EXISTS mamnoon_require_subscription_for_assignment ON public.service_requests;
+DROP TRIGGER IF EXISTS mamnoon_provider_trial_on_role_insert ON public.user_roles;
+
+-- The provider radius is a normal profile setting (1–55 km), not a paid tier.
+-- These replacements were created above and remain as the only implementations.
+-- The old support-priority subscription triggers are removed with their table.
+
+-- Remove all subscription-only RPCs and trigger functions after their callers
+-- have been converted. Explicit signatures avoid CASCADE surprises.
+DROP FUNCTION IF EXISTS public.admin_cancel_free_subscription(uuid);
+DROP FUNCTION IF EXISTS public.admin_extend_subscription(uuid,integer);
+DROP FUNCTION IF EXISTS public.admin_grant_subscription(uuid,text,text);
+DROP FUNCTION IF EXISTS public.admin_grant_subscriptions_bulk(uuid[],text,text);
+DROP FUNCTION IF EXISTS public.admin_pause_all_subscriptions();
+DROP FUNCTION IF EXISTS public.admin_set_subscription_status(uuid,text);
+DROP FUNCTION IF EXISTS public.cancel_own_subscription_at_period_end();
+DROP FUNCTION IF EXISTS public.finalize_qicard_subscription_payment(uuid,text,integer,text,text,jsonb);
+DROP FUNCTION IF EXISTS public.get_subscription_stats();
+DROP FUNCTION IF EXISTS public.get_subscription_stats_v2();
+DROP FUNCTION IF EXISTS public.get_user_subscription(uuid);
+DROP FUNCTION IF EXISTS public.handle_expired_subscriptions();
+DROP FUNCTION IF EXISTS public.has_subscription_admin_access(uuid);
+DROP FUNCTION IF EXISTS public.increment_request_count(uuid);
+DROP FUNCTION IF EXISTS public.mamnoon_guard_provider_assignment();
+DROP FUNCTION IF EXISTS public.mamnoon_guard_provider_offer();
+DROP FUNCTION IF EXISTS public.mamnoon_provider_subscription_active(uuid);
+DROP FUNCTION IF EXISTS public.mamnoon_provider_subscription_active_internal(uuid);
+DROP FUNCTION IF EXISTS public.mamnoon_start_provider_trial();
+DROP FUNCTION IF EXISTS public.pause_own_subscription();
+DROP FUNCTION IF EXISTS public.refresh_support_conversation_priority(uuid);
+DROP FUNCTION IF EXISTS public.restore_own_subscription_continuation();
+DROP FUNCTION IF EXISTS public.resume_own_subscription();
+DROP FUNCTION IF EXISTS public.guard_trial_subscription_upgrade();
+DROP FUNCTION IF EXISTS public.sync_support_priority_after_subscription_change();
+
+-- Subscription payments are not a payment purpose in Mamnoon anymore.
+DELETE FROM public.payment_transactions WHERE purpose = 'subscription';
+ALTER TABLE public.payment_transactions
+  DROP CONSTRAINT IF EXISTS payment_transactions_purpose_ref_check,
+  DROP CONSTRAINT IF EXISTS payment_transactions_purpose_check,
+  DROP CONSTRAINT IF EXISTS payment_transactions_plan_id_fkey;
+ALTER TABLE public.payment_transactions
+  DROP COLUMN IF EXISTS plan_id;
+ALTER TABLE public.payment_transactions
+  ADD CONSTRAINT payment_transactions_purpose_check
+    CHECK (purpose IN ('service_request','wallet_topup')),
+  ADD CONSTRAINT payment_transactions_purpose_ref_check
+    CHECK (
+      (purpose = 'service_request' AND request_id IS NOT NULL)
+      OR (purpose = 'wallet_topup' AND request_id IS NULL)
+    );
+
+-- Remove subscription schemas and the old plan settings completely.
+DROP TABLE IF EXISTS public.subscription_payments CASCADE;
+DROP TABLE IF EXISTS public.user_subscriptions CASCADE;
+DROP TABLE IF EXISTS public.subscription_settings CASCADE;
+DROP TABLE IF EXISTS public.subscription_plans CASCADE;
