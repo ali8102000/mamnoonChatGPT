@@ -30,6 +30,7 @@ export default function AdminInbox() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [remoteSearch, setRemoteSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -43,9 +44,9 @@ export default function AdminInbox() {
   }, []);
 
   const load = useCallback(async () => {
-    const result = await invoke({ action: "list", filter, limit: 100 });
+    const result = await invoke({ action: "list", filter, limit: 100, search: remoteSearch });
     setItems(result.conversations ?? []);
-  }, [filter, invoke]);
+  }, [filter, invoke, remoteSearch]);
 
   const loadMessages = useCallback(async (id: string) => {
     const result = await invoke({ action: "messages", conversation_id: id });
@@ -111,7 +112,7 @@ export default function AdminInbox() {
     </div>
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.5fr)] gap-3 min-h-[620px]">
       <aside className="glass rounded-2xl p-3 flex flex-col min-h-[480px]">
-        <div className="relative mb-3"><Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ابحث بالاسم أو الهاتف..." className="w-full rounded-xl border border-border bg-background py-2.5 pr-9 pl-3 text-xs outline-none"/></div>
+        <div className="flex gap-2 mb-3"><div className="relative flex-1"><Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground"/><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")setRemoteSearch(search.trim());}} placeholder="ابحث بالاسم أو الهاتف..." className="w-full rounded-xl border border-border bg-background py-2.5 pr-9 pl-3 text-xs outline-none"/></div><button onClick={()=>setRemoteSearch(search.trim())} className="rounded-xl bg-primary px-3 text-xs font-bold text-primary-foreground">بحث</button></div>
         <div className="flex flex-wrap gap-1.5 mb-3">{filters.map(f=><button key={f.key} onClick={()=>setFilter(f.key)} className={`rounded-full px-3 py-1.5 text-[10px] font-bold ${filter===f.key?"bg-primary text-primary-foreground":"bg-muted text-muted-foreground"}`}>{f.label}</button>)}</div>
         <div className="space-y-2 overflow-y-auto flex-1">
           {loading ? <p className="text-center text-xs text-muted-foreground p-6">جارٍ تحميل المحادثات...</p> : filtered.length===0 ? <p className="text-center text-xs text-muted-foreground p-6">ماكو محادثات بهذا التصنيف</p> : filtered.map(item=><button key={item.id} onClick={()=>setSelectedId(item.id)} className={`w-full rounded-xl border p-3 text-right transition ${selectedId===item.id?"border-primary bg-primary/5":"border-border bg-card hover:bg-muted/40"}`}>
