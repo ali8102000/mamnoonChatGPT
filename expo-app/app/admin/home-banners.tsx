@@ -290,7 +290,7 @@ export default function AdminHomeBannersScreen() {
       >
         <Text style={styles.title}>بانرات المطاعم والفنادق والمتاجر</Text>
         <Text style={styles.muted}>
-          الإعلان العلوي يدعم الإعلانات والاستطلاعات والمسابقات. تحكم باتجاه تمرير الصورة داخل البانر (يمين/يسار/أعلى/أسفل) وسرعتها ونمط الانتقال، وتنعكس التغييرات على الويب والأندرويد.
+          بانور واحد كبير للفنادق والمطاعم والمتاجر يعرض الصور بالتتابع. تحكم بمدة كل صورة واتجاه الحركة ونمط الانتقال. والمستطيل العلوي «مجاناً بلا عمولة» مخصص للإعلانات والاستطلاعات والمسابقات؛ التغييرات تتزامن بين الويب والأندرويد.
         </Text>
         {message ? <Text style={styles.message}>{message}</Text> : null}
 
@@ -325,7 +325,7 @@ export default function AdminHomeBannersScreen() {
               {!campaigns.some((item)=>item.campaign_type===bannerType) ? <Text style={styles.muted}>ماكو {bannerType==="poll"?"استطلاع":"مسابقة"} منشورة حالياً. انشرها أولاً من إدارة الحملات.</Text> : null}
             </View>
           </> : null}
-          {bannerType === "ad" ? <><Text style={styles.muted}>الإعلان العلوي الرئيسي مستقل عن البانر المربع.</Text><Text style={styles.label}>عنوان الإعلان</Text><TextInput value={bannerTitle} onChangeText={setBannerTitle} style={styles.input} textAlign="right" placeholder="عنوان البانر الرئيسي" maxLength={100}/><Text style={styles.label}>وصف الإعلان</Text><TextInput value={bannerDescription} onChangeText={setBannerDescription} style={styles.input} textAlign="right" placeholder="تفاصيل مختصرة تظهر أسفل العنوان" maxLength={240}/></> : null}{bannerType === "top_square" ? <Text style={styles.muted}>يبقى مكانه فارغاً بلا صورة افتراضية عند عدم وجود صورة. الضغط عليه يعرض «سيتوفر قريباً» ونص الشركاء، ويتوقف السحب 5 ثوانٍ بعد اللمس.</Text> : null}
+          {bannerType === "ad" ? <><Text style={styles.muted}>هذا هو المستطيل العلوي الرئيسي «مجاناً بلا عمولة».</Text><Text style={styles.label}>عنوان الإعلان</Text><TextInput value={bannerTitle} onChangeText={setBannerTitle} style={styles.input} textAlign="right" placeholder="عنوان البانر الرئيسي" maxLength={100}/><Text style={styles.label}>وصف الإعلان</Text><TextInput value={bannerDescription} onChangeText={setBannerDescription} style={styles.input} textAlign="right" placeholder="تفاصيل مختصرة تظهر أسفل العنوان" maxLength={240}/></> : null}
           <View style={styles.fieldsRow}>
             <View style={styles.field}>
               <Text style={styles.label}>مدة عرض الصورة (1–60 ثانية)</Text>
