@@ -51,7 +51,7 @@ export default function AdminInbox() {
   const loadMessages = useCallback(async (id: string) => {
     const result = await invoke({ action: "messages", conversation_id: id, conversation_type: selected?.conversation_type ?? "support" });
     setMessages(result.messages ?? []);
-  }, [invoke]);
+  }, [invoke, selected?.conversation_type]);
 
   useEffect(() => {
     let active = true;
