@@ -1763,3 +1763,150 @@ CREATE TRIGGER reject_retired_subscription_payment
 BEFORE INSERT ON public.payment_transactions
 FOR EACH ROW EXECUTE FUNCTION public.reject_retired_subscription_payment();
 REVOKE ALL ON FUNCTION public.reject_retired_subscription_payment() FROM PUBLIC,anon,authenticated;
+
+
+-- Final retirement sweep: remove residual subscription-only gates and ranking.
+-- Existing subscription rows are retained as inert historical records.
+DROP TRIGGER IF EXISTS mamnoon_provider_trial_on_role_insert ON public.user_roles;
+
+CREATE OR REPLACE FUNCTION public.refresh_support_conversation_priority(p_user_id uuid)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  UPDATE public.support_conversations
+  SET priority_tier = 0
+  WHERE user_id = p_user_id AND status = 'open';
+$function$;
+
+CREATE OR REPLACE FUNCTION public.set_new_support_conversation_priority()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  NEW.priority_tier := 0;
+  RETURN NEW;
+END;
+$function$;
+
+-- Provider radius is now a normal provider setting, not a paid subscription perk.
+CREATE OR REPLACE FUNCTION public.set_provider_service_radius(p_radius_km integer)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_changed integer := 0;
+  v_rows integer := 0;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  IF p_radius_km IS NULL OR p_radius_km < 1 OR p_radius_km > 55 THEN
+    RAISE EXCEPTION 'invalid_radius';
+  END IF;
+  IF public.has_role(v_uid,'worker') THEN
+    UPDATE public.worker_profiles
+    SET service_radius_km=p_radius_km,updated_at=now()
+    WHERE user_id=v_uid;
+    GET DIAGNOSTICS v_rows=ROW_COUNT;
+    v_changed:=v_changed+v_rows;
+  END IF;
+  IF public.has_role(v_uid,'large_driver') THEN
+    UPDATE public.driver_profiles
+    SET service_radius_km=p_radius_km,updated_at=now()
+    WHERE user_id=v_uid;
+    GET DIAGNOSTICS v_rows=ROW_COUNT;
+    v_changed:=v_changed+v_rows;
+  END IF;
+  IF v_changed=0 THEN RAISE EXCEPTION 'provider_profile_not_found'; END IF;
+  RETURN p_radius_km;
+END;
+$function$;
+
+-- The old monthly subscription request counter has no role in commission billing.
+CREATE OR REPLACE FUNCTION public.increment_request_count(_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  RETURN;
+END;
+$function$;
+
+-- Remove subscription-plan ranking and tier-based radius limits from dispatch.
+DO $retire_dispatch_subscription_tiers$
+DECLARE
+  v_def text;
+BEGIN
+  v_def := pg_get_functiondef('public.find_nearby_drivers(numeric,numeric,text,numeric,integer)'::regprocedure);
+  v_def := replace(v_def, 'coalesce(sp.priority_weight, 0) as subscription_priority', '0::integer as subscription_priority');
+  v_def := replace(v_def, $old$
+    left join public.user_subscriptions us on us.user_id = dp.user_id
+      and us.status = 'active'
+      and (us.current_period_end is null or us.current_period_end > now())
+    left join public.subscription_plans sp on sp.id = us.plan_id
+$old$, '');
+  v_def := replace(v_def, $old$
+          case coalesce(sp2.code, 'bronze')
+            when 'gold' then 55 when 'silver' then 40 else 25
+          end)
+        from public.driver_profiles dp
+        left join public.user_subscriptions us2 on us2.user_id = dp.user_id
+          and us2.status = 'active'
+          and (us2.current_period_end is null or us2.current_period_end > now())
+        left join public.subscription_plans sp2 on sp2.id = us2.plan_id
+$old$, $new$
+          55)
+        from public.driver_profiles dp
+$old$);
+  IF position('user_subscriptions' in v_def)>0 OR position('subscription_plans' in v_def)>0 THEN
+    RAISE EXCEPTION 'find_nearby_drivers_subscription_retirement_patch_failed';
+  END IF;
+  EXECUTE v_def;
+
+  v_def := pg_get_functiondef('public.advance_service_dispatch(uuid)'::regprocedure);
+  v_def := replace(v_def, $old$
+      COALESCE(sp.priority_weight, 0) AS subscription_priority,
+      LEAST(COALESCE(wp.service_radius_km, 25),
+        CASE COALESCE(sp.code, 'bronze')
+          WHEN 'gold' THEN 55 WHEN 'silver' THEN 40 ELSE 25
+        END
+      ) AS effective_radius_km
+$old$, $new$
+      0::integer AS subscription_priority,
+      LEAST(COALESCE(wp.service_radius_km, 25), 55) AS effective_radius_km
+$new$);
+  v_def := replace(v_def, $old$
+    LEFT JOIN public.user_subscriptions us
+      ON us.user_id = wp.user_id AND us.status = 'active'
+      AND (us.current_period_end IS NULL OR us.current_period_end > now())
+    LEFT JOIN public.subscription_plans sp ON sp.id = us.plan_id
+$old$, '');
+  IF position('user_subscriptions' in v_def)>0 OR position('subscription_plans' in v_def)>0 THEN
+    RAISE EXCEPTION 'advance_service_dispatch_subscription_retirement_patch_failed';
+  END IF;
+  EXECUTE v_def;
+END;
+$retire_dispatch_subscription_tiers$;
+
+-- Demand-zone insights are available to every approved taxi driver, not only Gold.
+DO $retire_gold_demand_gate$
+DECLARE
+  v_def text;
+BEGIN
+  v_def := pg_get_functiondef('public.get_taxi_high_demand_areas(text)'::regprocedure);
+  v_def := replace(v_def,
+    'IF NOT EXISTS(SELECT 1 FROM public.user_subscriptions us JOIN public.subscription_plans sp ON sp.id=us.plan_id WHERE us.user_id=v_uid AND us.status=''active'' AND (us.current_period_end IS NULL OR us.current_period_end>now()) AND sp.code = ''gold'') THEN RAISE EXCEPTION ''gold_required''; END IF;',
+    '');
+  IF position('gold_required' in v_def)>0 THEN
+    RAISE EXCEPTION 'high_demand_subscription_gate_retirement_failed';
+  END IF;
+  EXECUTE v_def;
+END;
+$retire_gold_demand_gate$;
