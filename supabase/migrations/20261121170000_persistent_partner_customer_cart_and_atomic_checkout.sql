@@ -222,7 +222,7 @@ declare
   v_line jsonb;
 begin
   if new.status in ('rejected','cancelled')
-     and old.status not in ('rejected','cancelled') then
+     and old.status in ('pending','accepted','preparing','ready') then
     for v_line in select value from jsonb_array_elements(new.requested_items)
     loop
       if coalesce(v_line->>'item_id','') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -244,6 +244,34 @@ drop trigger if exists trg_restore_partner_order_stock on public.partner_custome
 create trigger trg_restore_partner_order_stock
 after update of status on public.partner_customer_orders
 for each row execute function public.restore_partner_order_stock();
+
+
+-- Enforce a one-way order lifecycle so terminal orders cannot be reopened or stock restored twice.
+create or replace function public.guard_partner_order_status_transition()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+begin
+  if new.status = old.status then return new; end if;
+
+  if (old.status = 'pending' and new.status in ('accepted','rejected','cancelled'))
+     or (old.status = 'accepted' and new.status in ('preparing','cancelled'))
+     or (old.status = 'preparing' and new.status in ('ready','cancelled'))
+     or (old.status = 'ready' and new.status in ('out_for_delivery','cancelled'))
+     or (old.status = 'out_for_delivery' and new.status = 'completed') then
+    return new;
+  end if;
+
+  raise exception 'invalid_partner_order_status_transition';
+end;
+$function$;
+revoke all on function public.guard_partner_order_status_transition() from public, anon, authenticated;
+drop trigger if exists trg_guard_partner_order_status_transition on public.partner_customer_orders;
+create trigger trg_guard_partner_order_status_transition
+before update of status on public.partner_customer_orders
+for each row execute function public.guard_partner_order_status_transition();
 
 -- Surface the grocery/supermarket category inside the unified stores-and-malls directory.
 update public.partner_catalog_categories
