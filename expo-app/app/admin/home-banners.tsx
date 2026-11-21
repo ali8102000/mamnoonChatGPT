@@ -284,6 +284,35 @@ export default function AdminHomeBannersScreen() {
     setBusy(false);
   };
 
+  const replaceBannerImage = async (banner: Banner) => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.9 });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    if (!asset.mimeType?.startsWith("image/") || (asset.fileSize ?? 0) > 8 * 1024 * 1024) {
+      Alert.alert("صورة غير مناسبة", "اختار صورة أقل من 8 ميغابايت."); return;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch(asset.uri);
+      const bytes = await response.arrayBuffer();
+      const extension = (asset.fileName?.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "");
+      const path = `home-banners/${banner.target_category}/${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabase.storage.from("app-visuals").upload(path, bytes, { upsert: false, contentType: asset.mimeType });
+      if (uploadError) throw uploadError;
+      const url = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
+      const { error } = await (supabase as any).from("home_carousel_banners").update({ image_url: url, storage_path: path, updated_at: new Date().toISOString() }).eq("id", banner.id);
+      if (error) {
+        await supabase.storage.from("app-visuals").remove([path]);
+        throw error;
+      }
+      if (banner.storage_path) await supabase.storage.from("app-visuals").remove([banner.storage_path]);
+      await load();
+      setMessage("تم تبديل صورة البانر.");
+    } catch (error) {
+      Alert.alert("تعذر تبديل الصورة", error instanceof Error ? error.message : "حاول مرة ثانية.");
+    } finally { setBusy(false); }
+  };
+
   const updateBannerSettings = async (banner: Banner, patch: Record<string, unknown>) => {
     setBusy(true);
     const { error } = await (supabase as any).from("home_carousel_banners")
@@ -477,6 +506,9 @@ export default function AdminHomeBannersScreen() {
             <View style={styles.actions}>
               <TouchableOpacity style={styles.secondaryButton} onPress={() => setEditingBannerId(editingBannerId === banner.id ? null : banner.id)} disabled={busy}>
                 <Text style={styles.secondaryButtonText}>{editingBannerId === banner.id ? "إغلاق" : "تعديل"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => void replaceBannerImage(banner)} disabled={busy}>
+                <Text style={styles.secondaryButtonText}>تبديل الصورة</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryButton} onPress={() => void toggleBanner(banner)} disabled={busy}>
                 <Text style={styles.secondaryButtonText}>{banner.is_active ? "إيقاف" : "تفعيل"}</Text>
