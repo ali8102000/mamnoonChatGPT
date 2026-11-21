@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
+import MamnoonChatThread from "../../components/MamnoonChatThread";
 
 type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
 type Conversation = {
@@ -206,28 +207,30 @@ export default function AdminChatsScreen() {
           </View>
           {selected?.needs_admin_reply && <View style={s.alert}><Text style={s.alertText}>هذه المحادثة تحتاج رد من الإدارة</Text></View>}
           {!!error && <Text style={s.error}>{error}</Text>}
-          <ScrollView style={s.messageList} contentContainerStyle={s.messageContent}>
-            {messages.map(message => {
-              const mine = message.sender_id === user?.id && !message.is_ai;
-              return (
-                <View key={message.id} style={[s.bubble, mine ? s.mine : message.is_ai ? s.bot : s.theirs]}>
-                  <Text style={s.bubbleSource}>{message.is_ai ? "مساعد ممنون · بوت" : mine ? "الإدارة" : "المستخدم"}</Text>
-                  <Text style={s.bubbleText}>{message.body}</Text>
-                  <Text style={s.bubbleTime}>{new Date(message.created_at).toLocaleString("ar-IQ")}</Text>
-                </View>
-              );
-            })}
-          </ScrollView>
-          <View style={s.actions}>
-            <TouchableOpacity disabled={busy} onPress={() => changeStatus("handoff")} style={s.secondaryAction}><Text style={s.secondaryText}>تحويل للدعم</Text></TouchableOpacity>
-            <TouchableOpacity disabled={busy} onPress={() => changeStatus("resolve")} style={s.secondaryAction}><Text style={s.secondaryText}>إنهاء</Text></TouchableOpacity>
-          </View>
-          <View style={s.composer}>
-            <TextInput value={draft} onChangeText={setDraft} placeholder="اكتب رد الإدارة..." placeholderTextColor={palette.muted} multiline style={s.input}/>
-            <TouchableOpacity disabled={busy || !draft.trim()} onPress={() => void sendReply()} style={[s.send, (busy || !draft.trim()) && s.sendDisabled]}>
-              <Text style={s.sendText}>{busy ? "..." : "إرسال"}</Text>
-            </TouchableOpacity>
-          </View>
+          <MamnoonChatThread
+            messages={messages.map(message => ({
+              id: message.id,
+              senderId: message.sender_id,
+              body: message.body,
+              createdAt: message.created_at,
+              isBot: message.is_ai,
+              senderLabel: message.is_ai ? "مساعد ممنون" : message.sender_id === user?.id ? "الإدارة" : "المستخدم",
+            }))}
+            currentUserId={user?.id ?? ""}
+            draft={draft}
+            onDraftChange={setDraft}
+            onSend={() => void sendReply()}
+            busy={busy}
+            placeholder="اكتب رد الإدارة..."
+            emptyText="لا توجد رسائل في هذه المحادثة بعد"
+            showQuickReplies={false}
+            footer={
+              <View style={s.actions}>
+                <TouchableOpacity disabled={busy} onPress={() => changeStatus("handoff")} style={s.secondaryAction}><Text style={s.secondaryText}>تحويل للدعم</Text></TouchableOpacity>
+                <TouchableOpacity disabled={busy} onPress={() => changeStatus("resolve")} style={s.secondaryAction}><Text style={s.secondaryText}>إنهاء</Text></TouchableOpacity>
+              </View>
+            }
+          />
         </KeyboardAvoidingView>
       )}
     </View>
