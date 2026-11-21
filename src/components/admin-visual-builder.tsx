@@ -360,7 +360,7 @@ export default function AdminVisualBuilder() {
                     <div className={`mb-2 grid h-16 place-items-center overflow-hidden bg-muted ${item.element_key === "home_customer_service" ? "rounded-none p-0" : "rounded-xl"}`}>
                       {image ? <img src={image} alt="" style={item.element_key === "home_customer_service"
                         ? { width: "100%", height: "100%", objectFit: "cover", transform: `translate(${Number(visual.content_position_x_px) || 0}px, ${Number(visual.content_position_y_px) || 0}px) scale(${(Number(visual.image_scale) || 1) * (Number(visual.content_scale) || 1)})` }
-                        : { width, height, objectFit: "contain", transform: `translate(${Number(visual.content_position_x_px) || 0}px, ${Number(visual.content_position_y_px) || 0}px) scale(${Number(visual.content_scale) || 1})` }} /> : <ImagePlus className="h-8 w-8 text-muted-foreground" />}
+                        : { width, height, objectFit: "contain", transform: `translate(${Number(visual.content_position_x_px) || 0}px, ${Number(visual.content_position_y_px) || 0}px) scale(${Number(visual.content_scale) || 1})` }} /> : <span style={{ transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})`, fontSize: 30 }}>{visual.icon_name || <ImagePlus className="h-8 w-8 text-muted-foreground" />}</span>}
                     </div>
                     <b className="block text-sm">{visual.title ?? item.title ?? item.label}</b>
                     <span className="mt-1 block text-[11px] text-muted-foreground">{visual.subtitle ?? item.subtitle}</span>
@@ -378,7 +378,7 @@ export default function AdminVisualBuilder() {
                       onClick={() => openEditor(item)}
                       className={`rounded-xl border-2 p-2 text-center ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border"}`}>
                       <div className="grid h-14 place-items-center rounded-lg bg-muted">
-                        {visual.image_url ? <img src={visual.image_url} alt="" style={{ width: Number(visual.width_px) || 52, height: Number(visual.height_px) || 52, objectFit: "contain" }} /> : <span className="text-2xl">{visual.icon_name || "🚘"}</span>}
+                        {visual.image_url ? <img src={visual.image_url} alt="" style={{ width: Number(visual.width_px) || 52, height: Number(visual.height_px) || 52, objectFit: "contain", transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})` }} /> : <span className="text-2xl">{visual.icon_name || "🚘"}</span>}
                       </div>
                       <span className="mt-1 block text-[10px] font-bold">{visual.title || item.title || item.label}</span>
                     </button>;
