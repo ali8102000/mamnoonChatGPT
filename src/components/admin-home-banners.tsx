@@ -16,6 +16,13 @@ export default function AdminHomeBanners() {
   const [bannerType, setBannerType] = useState<BannerKind>("category");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [entries, setEntries] = useState<ContestEntry[]>([]);
+  const [newCampaignType,setNewCampaignType]=useState<"poll"|"contest">("contest");
+  const [newCampaignTitle,setNewCampaignTitle]=useState("");
+  const [newCampaignDescription,setNewCampaignDescription]=useState("");
+  const [newCampaignMode,setNewCampaignMode]=useState<"options"|"text"|"image"|"both">("both");
+  const [newCampaignOptions,setNewCampaignOptions]=useState("");
+  const [newCampaignRules,setNewCampaignRules]=useState("");
+  const [newCampaignPrize,setNewCampaignPrize]=useState("");
   const [campaignId, setCampaignId] = useState("");
   const [speed, setSpeed] = useState(5);
   const [motionAxis, setMotionAxis] = useState<"horizontal" | "vertical">("horizontal");
@@ -76,6 +83,22 @@ export default function AdminHomeBanners() {
     const { error } = await (supabase as any).from("home_carousel_banners").update({ is_active: !row.is_active, updated_at: new Date().toISOString() }).eq("id", row.id);
     setMessage(error ? "تعذر تغيير الحالة: " + error.message : "تم تحديث حالة البانر."); if (!error) await load();
   };
+  const createCampaign = async () => {
+    const title = newCampaignTitle.trim();
+    const options = newCampaignOptions.split(String.fromCharCode(10)).map(value=>value.trim()).filter(Boolean);
+    const mode = newCampaignType === "poll" ? "options" : newCampaignMode;
+    if (!title) { setMessage("اكتب عنوان الحملة أولاً."); return; }
+    if (mode === "options" && options.length < 2) { setMessage("أضف خيارين على الأقل للاستطلاع أو التصويت."); return; }
+    setBusy(true); setMessage("");
+    const { data, error } = await (supabase as any).from("app_campaigns").insert({campaign_type:newCampaignType,title,description:newCampaignDescription.trim()||null,status:"draft",participation_mode:mode,rules:newCampaignRules.trim()||null,prize_description:newCampaignType==="contest"?(newCampaignPrize.trim()||null):null}).select("id").single();
+    if (error || !data) { setMessage("تعذر إنشاء الحملة: "+(error?.message??"خطأ غير معروف")); setBusy(false); return; }
+    if (options.length && mode === "options") {
+      const { error: optionsError } = await (supabase as any).from("app_campaign_options").insert(options.map((label,index)=>({campaign_id:data.id,label,sort_order:index})));
+      if (optionsError) { await (supabase as any).from("app_campaigns").delete().eq("id",data.id); setMessage("تعذر حفظ خيارات الحملة: "+optionsError.message); setBusy(false); return; }
+    }
+    setNewCampaignTitle("");setNewCampaignDescription("");setNewCampaignOptions("");setNewCampaignRules("");setNewCampaignPrize("");
+    setMessage("تم إنشاء الحملة كمسودة. راجعها ثم اضغط نشر.");await load();setBusy(false);
+  };
   const updateCampaign = async (campaign: Campaign, patch: Record<string, unknown>) => {
     const { error } = await (supabase as any).from("app_campaigns").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", campaign.id);
     setMessage(error ? "تعذر حفظ إعدادات المسابقة: " + error.message : "تم حفظ إعدادات الحملة."); if (!error) await load();
@@ -125,6 +148,18 @@ export default function AdminHomeBanners() {
         <button title="تفعيل أو إيقاف" onClick={()=>void toggle(row)} className="rounded-lg border border-border p-2"><Power className="h-4 w-4"/></button>
         <button title="حذف" onClick={()=>void remove(row)} className="rounded-lg border border-border p-2 text-destructive"><Trash2 className="h-4 w-4"/></button>
       </article>)}
+    </section>
+    <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
+      <h3 className="font-black">إنشاء استطلاع أو مسابقة جديدة</h3>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="text-sm font-bold">نوع الحملة<select className={input} value={newCampaignType} onChange={e=>setNewCampaignType(e.target.value as "poll"|"contest")}><option value="contest">مسابقة</option><option value="poll">استطلاع رأي</option></select></label>
+        {newCampaignType==="contest"&&<label className="text-sm font-bold">طريقة المشاركة<select className={input} value={newCampaignMode} onChange={e=>setNewCampaignMode(e.target.value as typeof newCampaignMode)}><option value="text">نص فقط</option><option value="image">صورة فقط</option><option value="both">نص وصورة معاً</option><option value="options">اختيارات وتصويت</option></select></label>}
+        <label className="text-sm font-bold md:col-span-2">عنوان الحملة<input className={input} value={newCampaignTitle} onChange={e=>setNewCampaignTitle(e.target.value)} placeholder="عنوان المسابقة أو الاستطلاع"/></label>
+        <label className="text-sm font-bold md:col-span-2">الوصف<textarea className={input} rows={2} value={newCampaignDescription} onChange={e=>setNewCampaignDescription(e.target.value)}/></label>
+        {(newCampaignType==="poll"||newCampaignMode==="options")&&<label className="text-sm font-bold md:col-span-2">الخيارات (كل خيار بسطر مستقل)<textarea className={input} rows={3} value={newCampaignOptions} onChange={e=>setNewCampaignOptions(e.target.value)} placeholder="الخيار الأول ثم الخيار الثاني بسطر جديد"/></label>}
+        {newCampaignType==="contest"&&<><label className="text-sm font-bold md:col-span-2">الشروط والتعليمات<textarea className={input} rows={3} value={newCampaignRules} onChange={e=>setNewCampaignRules(e.target.value)}/></label><label className="text-sm font-bold md:col-span-2">الجائزة<textarea className={input} rows={2} value={newCampaignPrize} onChange={e=>setNewCampaignPrize(e.target.value)}/></label></>}
+        <button disabled={busy} onClick={()=>void createCampaign()} className="md:col-span-2 rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground disabled:opacity-50">{busy?"جارٍ إنشاء الحملة...":"إنشاء كمسودة"}</button>
+      </div>
     </section>
     <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-2"><h3 className="font-black">إدارة الاستطلاعات والمسابقات والنتائج ({campaigns.length})</h3><button onClick={()=>void load()} className="rounded-lg border border-border px-3 py-2 text-xs font-bold">تحديث النتائج</button></div>
