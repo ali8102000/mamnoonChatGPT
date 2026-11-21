@@ -642,3 +642,180 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.charge_mamnoon_commission_on_accept(uuid,uuid,bigint)
   FROM PUBLIC, anon, authenticated;
+
+-- The provider acceptance RPC charges the configured platform commission atomically
+-- before it assigns the provider. Any failure rolls back both charge and acceptance.
+CREATE OR REPLACE FUNCTION public.accept_service_request(_request_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  r public.service_requests%ROWTYPE;
+  v_customer uuid;
+  v_updated integer;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  IF NOT (public.has_role(auth.uid(), 'driver') OR public.has_role(auth.uid(), 'worker')) THEN
+    RAISE EXCEPTION 'provider_role_required';
+  END IF;
+  IF NOT public.mamnoon_provider_subscription_active(auth.uid()) THEN
+    RAISE EXCEPTION 'provider_unavailable';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.user_blocks b WHERE b.user_id = auth.uid()
+    AND (b.expires_at IS NULL OR b.expires_at > now())) THEN
+    RAISE EXCEPTION 'user_blocked';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.driver_profiles dp WHERE dp.user_id = auth.uid()
+    AND dp.suspended_until IS NOT NULL AND dp.suspended_until > now())
+    OR EXISTS (SELECT 1 FROM public.worker_profiles wp WHERE wp.user_id = auth.uid()
+    AND wp.suspended_until IS NOT NULL AND wp.suspended_until > now()) THEN
+    RAISE EXCEPTION 'provider_temporarily_suspended';
+  END IF;
+
+  SELECT * INTO r FROM public.service_requests WHERE id = _request_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_unavailable'; END IF;
+
+  PERFORM 1 FROM public.request_offers o
+  WHERE o.request_id = _request_id AND o.provider_id = auth.uid()
+    AND o.status = 'pending' AND o.expires_at > now()
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_offer_expired'; END IF;
+
+  PERFORM pg_advisory_xact_lock(91840060);
+  IF EXISTS (SELECT 1 FROM public.service_requests active
+    WHERE active.provider_id = auth.uid() AND active.status IN ('accepted', 'in_progress')) THEN
+    RAISE EXCEPTION 'لديك طلب نشط بالفعل';
+  END IF;
+
+  PERFORM public.charge_mamnoon_commission_on_accept(auth.uid(), _request_id, NULL);
+
+  PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
+  UPDATE public.service_requests sr
+  SET provider_id = auth.uid(), status = 'accepted', accepted_at = now()
+  WHERE sr.id = _request_id
+    AND sr.status IN ('pending', 'searching')
+    AND sr.provider_id IS NULL
+    AND (
+      (r.type = 'taxi' AND r.vehicle_category::text IS DISTINCT FROM 'large'
+        AND public.has_role(auth.uid(), 'driver')
+        AND EXISTS (SELECT 1 FROM public.driver_profiles dp
+          WHERE dp.user_id = auth.uid() AND dp.vehicle_category = r.vehicle_category
+            AND dp.vehicle_category::text IN ('economy', 'premium', 'luxury')
+            AND dp.status = 'approved' AND dp.available = true
+            AND (dp.suspended_until IS NULL OR dp.suspended_until <= now())))
+      OR
+      (r.type = 'service' AND public.has_role(auth.uid(), 'worker')
+        AND r.service_id IS NOT NULL
+        AND EXISTS (SELECT 1 FROM public.worker_profiles wp
+          WHERE wp.user_id = auth.uid() AND wp.status = 'approved' AND wp.available = true
+            AND (wp.suspended_until IS NULL OR wp.suspended_until <= now())
+            AND (r.level_required IS NULL OR wp.level = r.level_required))
+        AND EXISTS (SELECT 1 FROM public.worker_services ws
+          WHERE ws.worker_id = auth.uid() AND ws.service_id = r.service_id))
+    )
+  RETURNING sr.customer_id INTO v_customer;
+  PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
+
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+  IF v_updated = 0 THEN RAISE EXCEPTION 'request_unavailable_or_specialty_mismatch'; END IF;
+
+  INSERT INTO public.chats(request_id, customer_id, provider_id)
+  VALUES (_request_id, v_customer, auth.uid())
+  ON CONFLICT (request_id)
+  DO UPDATE SET provider_id = EXCLUDED.provider_id, updated_at = now();
+
+  UPDATE public.request_offers
+  SET status = CASE WHEN provider_id = auth.uid() THEN 'accepted' ELSE 'cancelled' END,
+      responded_at = now()
+  WHERE request_id = _request_id AND status = 'pending';
+
+  INSERT INTO public.notifications(user_id, type, title, body, link, data)
+  VALUES (v_customer, 'request_accepted', 'تم قبول طلبك',
+    'مقدّم الخدمة قبل طلبك ويمكنك متابعة التفاصيل الآن.',
+    '/request/' || _request_id,
+    jsonb_build_object('request_id', _request_id, 'provider_id', auth.uid()));
+  RETURN true;
+END;
+$function$;
+
+-- No user-side cancellation after a taxi has been accepted. Admins retain the
+-- existing audited exception path; no commission refund is created.
+CREATE OR REPLACE FUNCTION public.guard_no_cancel_after_taxi_acceptance()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  IF OLD.type::text = 'taxi'
+     AND OLD.status::text IN ('accepted','in_progress')
+     AND NEW.status::text = 'cancelled'
+     AND auth.uid() IS NOT NULL
+     AND NOT public.has_admin_access(auth.uid()) THEN
+    RAISE EXCEPTION 'taxi_cancellation_disabled_after_acceptance';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS guard_no_cancel_after_taxi_acceptance ON public.service_requests;
+CREATE TRIGGER guard_no_cancel_after_taxi_acceptance
+BEFORE UPDATE OF status ON public.service_requests
+FOR EACH ROW EXECUTE FUNCTION public.guard_no_cancel_after_taxi_acceptance();
+REVOKE ALL ON FUNCTION public.guard_no_cancel_after_taxi_acceptance() FROM PUBLIC, anon, authenticated;
+
+-- Expire only unaccepted requests. Accepted trips are never touched by this job.
+CREATE OR REPLACE FUNCTION public.expire_unaccepted_mamnoon_requests()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_count integer;
+BEGIN
+  UPDATE public.service_requests
+  SET status = 'cancelled',
+      cancellation_reason = 'انتهت مهلة قبول الطلب بعد 6 ساعات',
+      updated_at = now()
+  WHERE status::text IN ('pending','searching')
+    AND provider_id IS NULL
+    AND created_at <= now() - interval '6 hours';
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+
+  UPDATE public.request_offers
+  SET status = 'cancelled', responded_at = now()
+  WHERE status = 'pending'
+    AND request_id IN (
+      SELECT id FROM public.service_requests
+      WHERE status::text = 'cancelled'
+        AND cancellation_reason = 'انتهت مهلة قبول الطلب بعد 6 ساعات'
+        AND updated_at >= now() - interval '10 minutes'
+    );
+
+  DELETE FROM public.service_dispatch_queue
+  WHERE request_id IN (
+    SELECT id FROM public.service_requests
+    WHERE status::text = 'cancelled'
+      AND cancellation_reason = 'انتهت مهلة قبول الطلب بعد 6 ساعات'
+      AND updated_at >= now() - interval '10 minutes'
+  );
+  RETURN v_count;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.expire_unaccepted_mamnoon_requests() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.expire_unaccepted_mamnoon_requests() TO service_role;
+
+DO $schedule$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule(
+      'mamnoon-expire-unaccepted-requests',
+      '*/10 * * * *',
+      'select public.expire_unaccepted_mamnoon_requests();'
+    );
+  END IF;
+END;
+$schedule$;
