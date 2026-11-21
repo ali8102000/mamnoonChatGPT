@@ -535,6 +535,7 @@ DECLARE
   v_override numeric(7,4);
   v_override_found boolean := false;
   v_commission bigint := 0;
+  v_collected bigint := 0;
   v_balance bigint := 0;
   v_next_balance bigint := 0;
   v_policy public.mamnoon_commission_policies%ROWTYPE;
@@ -626,6 +627,7 @@ BEGIN
   SELECT balance_iqd INTO v_balance
   FROM public.account_wallets WHERE user_id = p_user_id FOR UPDATE;
 
+  v_collected := LEAST(v_commission, GREATEST(v_balance,0));
   v_next_balance := v_balance - v_commission;
   IF v_next_balance < -5000 THEN RAISE EXCEPTION 'wallet_debt_limit_exceeded'; END IF;
 
@@ -645,7 +647,8 @@ BEGIN
   INSERT INTO public.mamnoon_revenue_ledger(
     user_id, request_id, revenue_type, assessed_iqd, collected_iqd, status, idempotency_key, metadata
   ) VALUES (
-    p_user_id, p_request_id, v_revenue_type, v_commission, 0, 'accrued', v_key,
+    p_user_id, p_request_id, v_revenue_type, v_commission, v_collected,
+    CASE WHEN v_collected >= v_commission THEN 'collected' WHEN v_collected > 0 THEN 'partially_collected' ELSE 'accrued' END, v_key,
     jsonb_build_object('base_amount_iqd',v_base,'commission_rate_percent',v_rate,'commission_charge_percent',v_charge_percent,'wallet_balance_after_iqd',v_next_balance)
   )
   ON CONFLICT (idempotency_key) DO NOTHING;
@@ -1236,6 +1239,7 @@ DECLARE
   v_override_found boolean := false;
   v_policy public.mamnoon_commission_policies%ROWTYPE;
   v_commission bigint := 0;
+  v_collected bigint := 0;
   v_balance bigint := 0;
   v_next_balance bigint := 0;
   v_key text;
@@ -1296,6 +1300,7 @@ BEGIN
 
   INSERT INTO public.account_wallets(user_id) VALUES(v_partner.user_id) ON CONFLICT(user_id) DO NOTHING;
   SELECT balance_iqd INTO v_balance FROM public.account_wallets WHERE user_id=v_partner.user_id FOR UPDATE;
+  v_collected := LEAST(v_commission,GREATEST(v_balance,0));
   v_next_balance := v_balance-v_commission;
   IF v_next_balance < -5000 THEN RAISE EXCEPTION 'wallet_debt_limit_exceeded'; END IF;
 
@@ -1310,7 +1315,8 @@ BEGIN
   INSERT INTO public.mamnoon_revenue_ledger(
     user_id,revenue_type,assessed_iqd,collected_iqd,status,idempotency_key,metadata
   ) VALUES(
-    v_partner.user_id,'order_commission',v_commission,0,'accrued',v_key,
+    v_partner.user_id,'order_commission',v_commission,v_collected,
+    CASE WHEN v_collected>=v_commission THEN 'collected' WHEN v_collected>0 THEN 'partially_collected' ELSE 'accrued' END,v_key,
     jsonb_build_object('order_id',p_order_id,'base_amount_iqd',v_order.partner_total,'commission_rate_percent',v_rate,'commission_charge_percent',v_charge_percent)
   ) ON CONFLICT(idempotency_key) DO NOTHING;
   RETURN v_commission;
