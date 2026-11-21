@@ -18,7 +18,7 @@ const fallbackSlides = [
   { id: "shop", title: "المتاجر", subtitle: "محلات ومتاجر قريبة", category: "store" as const, image_url: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=85" },
 ];
 
-export function HomeCategoryCarousel({ height = 188 }: { height?: number }) {
+export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
   const [banners, setBanners] = useState<CategoryBanner[]>([]);
   const [index, setIndex] = useState(0);
   const [imageFailed, setImageFailed] = useState(false);
