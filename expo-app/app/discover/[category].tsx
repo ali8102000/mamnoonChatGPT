@@ -7,7 +7,7 @@ import * as Location from "expo-location";
 
 type PartnerType = "hotel" | "restaurant" | "store" | "mall";
 type Coordinates = { latitude: number; longitude: number };
-type Category = { category_key: string; vertical: "store" | "restaurant" | "hotel"; title: string; image_url: string };
+type Category = { category_key: string; vertical: "store" | "restaurant" | "hotel" | "grocery"; title: string; image_url: string };
 type Business = { id: string; partner_type: PartnerType; business_name: string; city: string; address: string; description: string | null; promotion_latitude: number | null; promotion_longitude: number | null };
 type Product = { id: string; name: string; description: string | null; price_amount: number; currency: string; image_urls: string[]; profile: { id: string; business_name: string; city: string; address: string; business_vertical: string; partner_type: PartnerType; promotion_latitude: number | null; promotion_longitude: number | null } };
 function distanceKm(a: Coordinates, b: Coordinates) {
@@ -36,10 +36,10 @@ function sortByNearest<T extends { promotion_latitude: number | null; promotion_
 export default function DiscoverCategoryScreen() {
   const { category: rawParam } = useLocalSearchParams<{ category: string }>();
   const raw = String(rawParam ?? "");
-  const isStore = raw.startsWith("store-"), isRestaurant = raw.startsWith("restaurant-"), isHotelCategory = raw.startsWith("hotel-"), isGrocery = raw === "grocery";
+  const isStore = raw.startsWith("store-"), isRestaurant = raw.startsWith("restaurant-"), isHotelCategory = raw.startsWith("hotel-"), isGrocery = raw === "grocery" || raw.startsWith("grocery-");
   const isStoreSection = raw === "store", isRestaurantSection = raw === "restaurant";
-  const categoryKey = isStore ? raw.slice(6) : isRestaurant ? raw.slice(11) : isHotelCategory ? raw.slice(6) : isGrocery ? "grocery" : null;
-  const vertical = isStore || isStoreSection ? "store" : isRestaurant || isRestaurantSection ? "restaurant" : isHotelCategory || raw === "hotel" ? "hotel" : null;
+  const categoryKey = isStore ? raw.slice(6) : isRestaurant ? raw.slice(11) : isHotelCategory ? raw.slice(6) : isGrocery ? (raw === "grocery" ? "grocery" : raw.slice(8)) : null;
+  const vertical = isStore || isStoreSection ? "store" : isRestaurant || isRestaurantSection ? "restaurant" : isGrocery ? "grocery" : isHotelCategory || raw === "hotel" ? "hotel" : null;
   const [title, setTitle] = useState(isGrocery ? "بقالة وخضروات" : vertical === "store" ? "المتاجر والمولات" : vertical === "restaurant" ? "المطاعم" : raw === "hotel" ? "الفنادق" : "اكتشاف");
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Business[]>([]);
@@ -60,7 +60,7 @@ export default function DiscoverCategoryScreen() {
       let businessQuery = (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]);
       if (vertical !== "hotel") businessQuery = businessQuery.eq("business_vertical", vertical);
       const [categoryResult, businessResult] = await Promise.all([
-        (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").eq("vertical", vertical).eq("is_active", true).order("sort_order"),
+        (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").in("vertical", vertical === "store" ? ["store", "grocery"] : [vertical]).eq("is_active", true).order("sort_order"),
         businessQuery.order("business_name"),
       ]);
       if (categoryResult.error || businessResult.error) setError("تعذر تحميل القسم حالياً.");
@@ -73,7 +73,7 @@ export default function DiscoverCategoryScreen() {
       const [cat, rows, categoryList] = await Promise.all([
         (supabase as any).from("partner_catalog_categories").select("title").eq("category_key", categoryKey).maybeSingle(),
         (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,partner_type,promotion_latitude,promotion_longitude)").eq("category_key", categoryKey).eq("is_active", true).eq("profile.is_published", true).order("created_at", { ascending: false }),
-        vertical === "store" || vertical === "restaurant"
+        vertical === "store" || vertical === "restaurant" || vertical === "grocery"
           ? (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").eq("vertical", vertical).eq("is_active", true).order("sort_order")
           : Promise.resolve({ data: [], error: null }),
       ]);
