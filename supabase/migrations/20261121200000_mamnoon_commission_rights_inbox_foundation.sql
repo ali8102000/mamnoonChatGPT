@@ -1414,3 +1414,30 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.admin_revoke_user_fee_override(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_revoke_user_fee_override(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.sync_support_handoff_status()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  UPDATE public.support_conversations
+  SET needs_admin_reply = (NEW.ai_status = 'waiting_human' AND NEW.ticket_status <> 'resolved'),
+      handoff_status = CASE
+        WHEN NEW.ai_status = 'waiting_human' THEN 'waiting_for_admin'
+        WHEN NEW.ticket_status = 'resolved' THEN 'resolved'
+        ELSE 'bot'
+      END
+  WHERE id = NEW.id;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS sync_support_handoff_status ON public.support_conversations;
+CREATE TRIGGER sync_support_handoff_status
+AFTER UPDATE OF ai_status, ticket_status ON public.support_conversations
+FOR EACH ROW
+WHEN (OLD.ai_status IS DISTINCT FROM NEW.ai_status OR OLD.ticket_status IS DISTINCT FROM NEW.ticket_status)
+EXECUTE FUNCTION public.sync_support_handoff_status();
+REVOKE ALL ON FUNCTION public.sync_support_handoff_status() FROM PUBLIC, anon, authenticated;
