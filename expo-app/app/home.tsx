@@ -512,7 +512,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
   return (
     <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: 12 }}>
-      <TouchableOpacity activeOpacity={0.94} onPress={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }}>
+      <TouchableOpacity activeOpacity={0.94} onPress={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }}>
       <LinearGradient
         colors={[palette.brand, palette.brandGlow, palette.gold]}
         start={{ x: 0, y: 0 }}
@@ -571,6 +571,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
         <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 16, marginTop: 4, textAlign: "right" }}>
           {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
         </Text>
+        <View pointerEvents="none" style={{ alignSelf: "flex-end", marginTop: 8, borderRadius: 20, backgroundColor: "#FFFFFF", paddingHorizontal: 14, paddingVertical: 7 }}><Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>اطلب الآن ←</Text></View>
       </LinearGradient>
       </TouchableOpacity>
       {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
