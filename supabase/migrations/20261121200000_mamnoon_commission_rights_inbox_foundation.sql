@@ -2060,6 +2060,11 @@ DROP FUNCTION IF EXISTS public.resume_own_subscription();
 DROP FUNCTION IF EXISTS public.guard_trial_subscription_upgrade();
 DROP FUNCTION IF EXISTS public.sync_support_priority_after_subscription_change();
 
+-- Remove the obsolete staff permission and every grant/delegation tied to it.
+DELETE FROM public.admin_staff_permission_grants WHERE permission_key = 'subscriptions.manage';
+DELETE FROM public.admin_staff_delegations WHERE permission_key = 'subscriptions.manage';
+DELETE FROM public.admin_permission_catalog WHERE permission_key = 'subscriptions.manage';
+
 -- Subscription payments are not a payment purpose in Mamnoon anymore.
 DELETE FROM public.payment_transactions WHERE purpose = 'subscription';
 ALTER TABLE public.payment_transactions
