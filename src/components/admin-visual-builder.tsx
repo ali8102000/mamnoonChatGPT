@@ -341,13 +341,23 @@ export default function AdminVisualBuilder() {
                 </div>
               </div>
               <div className="mt-4 rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">المعاينة توضح الشكل فقط؛ وظيفة الزر الأصلية تبقى مرتبطة بهويته الثابتة.</div>
+              <div className="mt-4 space-y-2">
+                <h3 className="font-black text-sm">باقي عناصر التطبيق المسجلة</h3>
+                <p className="text-[11px] text-muted-foreground">تگدر تختار أيقونات وأنواع السيارات من هنا وتعدّل صورتها واسمها وحجمها وترتيبها.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {elements.filter((item) => item.placement_key !== "home.customer.actions").map((item) => <button key={item.element_key} type="button" onClick={() => openEditor(item)} className={buttonClass + " justify-between border border-border bg-background text-right"}>
+                    <span className="min-w-0"><b className="block text-xs">{item.label}</b><span className="block text-[10px] text-muted-foreground">{item.screen_key} · {item.element_key}</span></span>
+                    <span className="text-primary">تعديل ←</span>
+                  </button>)}
+                </div>
+              </div>
             </div>
           </section>
 
           <aside className="rounded-2xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between"><h3 className="font-black">خصائص العنصر</h3>
               {selected && <button onClick={() => setSelected(null)} aria-label="إغلاق"><X className="h-4 w-4" /></button>}</div>
-            {!selected ? <p className="text-sm text-muted-foreground">اختار أيقونة السيارة من المعاينة حتى تبدّلها بصورة واقعية من جهازك أو برابط، وتتحكم بحجمها واسمها ثم تنشرها.</p> : <>
+            {!selected ? <p className="text-sm text-muted-foreground">اختار أي عنصر من المعاينة أو قائمة العناصر حتى تبدّل صورته واسمه وحجمه وإعداداته ثم تنشرها.</p> : <>
               <div className="mb-3 rounded-xl bg-muted p-3"><b className="text-sm">{selected.label}</b><p className="mt-1 text-[11px] text-muted-foreground">المعرّف الوظيفي: {selected.action_key}</p></div>
               <label className="mb-1 block text-xs font-bold">النص الرئيسي</label><input className={inputClass + " mb-3"} value={draft.title ?? ""} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
               <label className="mb-1 block text-xs font-bold">النص الثانوي</label><input className={inputClass + " mb-3"} value={draft.subtitle ?? ""} onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })} />
