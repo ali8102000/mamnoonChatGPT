@@ -22,7 +22,7 @@ type BannerKind = "category" | "poll" | "contest" | "ad" | "top_square";
 type MotionAxis = "horizontal" | "vertical";
 type MotionDirection = "left" | "right" | "up" | "down";
 type MotionStyle = "slide" | "fade" | "drop";
-type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string };
+type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string; starts_at: string | null; ends_at: string | null; result_visibility: string; app_campaign_options: { id: string; label: string; sort_order: number }[]; app_campaign_option_results: { option_id: string; vote_count: number }[] };
 type Banner = {
   id: string;
   image_url: string;
@@ -96,7 +96,7 @@ export default function AdminHomeBannersScreen() {
       setRows((data ?? []) as Banner[]);
       setMessage("");
     }
-    const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status").eq("status","published").order("sort_order").order("created_at",{ascending:false});
+    const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
     setCampaigns((campaignRows ?? []) as Campaign[]);
     setLoading(false);
     setRefreshing(false);
@@ -212,6 +212,15 @@ export default function AdminHomeBannersScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const toggleCampaignStatus = async (campaign: Campaign) => {
+    setBusy(true);
+    const nextStatus = campaign.status === "published" ? "draft" : "published";
+    const { error } = await (supabase as any).from("app_campaigns").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", campaign.id);
+    if (error) Alert.alert("تعذر تحديث الحملة", "تحقق من الصلاحيات والاتصال ثم حاول مرة ثانية.");
+    else { setMessage(nextStatus === "published" ? "تم نشر الحملة." : "تم إيقاف نشر الحملة."); await load(); }
+    setBusy(false);
   };
 
   const toggleBanner = async (banner: Banner) => {
@@ -420,6 +429,23 @@ export default function AdminHomeBannersScreen() {
             </View>
           </View>
         ))}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>إدارة الاستطلاعات والمسابقات والنتائج ({campaigns.length})</Text>
+          <TouchableOpacity onPress={() => void refresh()} disabled={refreshing || busy} style={{ alignSelf: "flex-start" }}><Text style={styles.link}>تحديث النتائج</Text></TouchableOpacity>
+          {!campaigns.length ? <Text style={styles.empty}>ماكو حملات مسجلة حالياً.</Text> : campaigns.map((campaign) => {
+            const results = campaign.app_campaign_option_results || [];
+            const total = results.reduce((sum, item) => sum + Number(item.vote_count || 0), 0);
+            return <View key={campaign.id} style={{ borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 12, gap: 8 }}>
+              <Text style={styles.sectionTitle}>{campaign.campaign_type === "poll" ? "استطلاع رأي" : "مسابقة"} · {campaign.title}</Text>
+              <Text style={styles.muted}>المشاركات المسجلة: {total} · الحالة: {campaign.status === "published" ? "منشورة" : campaign.status}</Text>
+              {[...(campaign.app_campaign_options || [])].sort((a,b)=>a.sort_order-b.sort_order).map(option => {
+                const count = Number(results.find(item => item.option_id === option.id)?.vote_count || 0);
+                return <View key={option.id} style={{ flexDirection: "row", justifyContent: "space-between", padding: 9, borderRadius: 9, backgroundColor: palette.pageCanvas }}><Text style={styles.muted}>{option.label}</Text><Text style={{ color: palette.brand, fontWeight: "900" }}>{count}</Text></View>;
+              })}
+              <TouchableOpacity onPress={() => void toggleCampaignStatus(campaign)} disabled={busy} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>{campaign.status === "published" ? "إيقاف نشر الحملة" : "نشر الحملة"}</Text></TouchableOpacity>
+            </View>;
+          })}
+        </View>
       </ScrollView>
     </View>
   );
