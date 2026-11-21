@@ -228,8 +228,17 @@ function CustomerHome() {
 
   return (
     <div className="-mx-2 space-y-3 pt-4">
+      <style>{`
+        @keyframes mamnoonBannerFade { from { opacity: 0; } to { opacity: .4; } }
+        @keyframes mamnoonBannerSlideLeft { from { opacity: 0; transform: translateX(28px); } to { opacity: .4; transform: translateX(0); } }
+        @keyframes mamnoonBannerSlideRight { from { opacity: 0; transform: translateX(-28px); } to { opacity: .4; transform: translateX(0); } }
+        @keyframes mamnoonBannerSlideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: .4; transform: translateY(0); } }
+        @keyframes mamnoonBannerSlideDown { from { opacity: 0; transform: translateY(-24px); } to { opacity: .4; transform: translateY(0); } }
+        @keyframes mamnoonBannerDrop { from { opacity: 0; transform: translateY(-22px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
+        @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; } }
+      `}</style>
       <div className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
-        {topBanner?.image_url && <img src={topBanner.image_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40" />}
+        {topBanner?.image_url && <img key={topBanner.id} src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute inset-0 h-full w-full object-cover" style={{ animation: `${topBanner.motion_style === "fade" ? "mamnoonBannerFade" : topBanner.motion_style === "drop" ? "mamnoonBannerDrop" : topBanner.motion_direction === "right" ? "mamnoonBannerSlideRight" : topBanner.motion_direction === "up" ? "mamnoonBannerSlideUp" : topBanner.motion_direction === "down" ? "mamnoonBannerSlideDown" : "mamnoonBannerSlideLeft"} .55s ease-out both` }} />
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative">
