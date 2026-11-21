@@ -8,10 +8,10 @@ import MamnoonChatThread from "../../components/MamnoonChatThread";
 
 type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
 type Conversation = {
-  id: string; user_id: string; subject: string; status: string; created_at: string; updated_at: string;
+  id: string; user_id: string; subject: string; status: string; created_at: string; updated_at: string; conversation_type?: "support" | "service"; request_id?: string; request_type?: string; request_status?: string;
   priority_tier: number; ai_status: string; ticket_status: string; needs_admin_reply: boolean;
   handoff_status: string; assigned_staff_id: string | null; last_message_source: string; last_message_at: string | null;
-  profile: { id: string; full_name: string | null; phone: string | null; email: string | null; governorate_key: string | null } | null;
+  profile: { id: string; full_name: string | null; phone: string | null; email: string | null; governorate_key: string | null } | null;\n  provider_profile?: { id: string; full_name: string | null; phone: string | null } | null;
   roles: string[]; account_category: string; latest_message: Message | null;
 };
 type Message = {
@@ -31,7 +31,7 @@ const categoryLabel: Record<string, string> = {
   customer: "زبون", technician: "فني", driver: "صاحب تكسي",
   restaurant: "مطعم", hotel: "فندق", store: "متجر",
 };
-const sourceLabel = (source: string) => source === "bot" ? "البوت" : source === "admin" ? "الإدارة" : "المستخدم";
+const sourceLabel = (source: string) => source === "bot" ? "البوت" : source === "admin" ? "الإدارة" : source === "provider" ? "منفّذ الخدمة" : source === "customer" ? "الزبون" : "المستخدم";
 
 export default function AdminChatsScreen() {
   const { user, loading: authLoading } = useAuth();
@@ -61,7 +61,7 @@ export default function AdminChatsScreen() {
   }, [filter, invoke, remoteSearch]);
 
   const loadMessages = useCallback(async (id: string) => {
-    const result = await invoke({ action: "messages", conversation_id: id });
+    const result = await invoke({ action: "messages", conversation_id: id, conversation_type: selected?.conversation_type ?? "support" });
     setMessages(result.messages ?? []);
   }, [invoke]);
 
@@ -122,7 +122,7 @@ export default function AdminChatsScreen() {
     if (!selectedId || !draft.trim() || busy) return;
     setBusy(true); setError("");
     try {
-      await invoke({ action: "reply", conversation_id: selectedId, message: draft.trim() });
+      await invoke({ action: "reply", conversation_id: selectedId, conversation_type: selected?.conversation_type ?? "support", message: draft.trim() });
       setDraft("");
       await Promise.all([loadMessages(selectedId), loadInbox()]);
     } catch (e: any) { setError(String(e?.message || "تعذر إرسال الرد")); }
@@ -145,7 +145,7 @@ export default function AdminChatsScreen() {
   };
 
   const renderConversation = ({ item }: { item: Conversation }) => {
-    const name = item.profile?.full_name || item.profile?.phone || "مستخدم ممنون";
+    const name = item.conversation_type === "service" ? `${item.profile?.full_name || "الزبون"} ↔ ${item.provider_profile?.full_name || "منفّذ الخدمة"}` : item.profile?.full_name || item.profile?.phone || "مستخدم ممنون";
     return (
       <TouchableOpacity onPress={() => setSelectedId(item.id)} style={[s.conversation, selectedId === item.id && s.conversationSelected]}>
         <View style={s.conversationTop}>
@@ -153,7 +153,7 @@ export default function AdminChatsScreen() {
           <Text style={s.time}>{new Date(item.last_message_at || item.updated_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })}</Text>
         </View>
         <View style={s.badges}>
-          <Text style={s.category}>{categoryLabel[item.account_category] || "مستخدم"}</Text>
+          <Text style={s.category}>{item.conversation_type === "service" ? "محادثة طلب" : categoryLabel[item.account_category] || "مستخدم"}</Text>
           <Text style={s.source}>{sourceLabel(item.last_message_source)}</Text>
           {item.needs_admin_reply && <Text style={s.replyBadge}>تحتاج رد</Text>}
           {item.handoff_status === "resolved" && <Text style={s.resolvedBadge}>محلولة</Text>}
@@ -201,8 +201,8 @@ export default function AdminChatsScreen() {
           <View style={s.detailHeader}>
             <TouchableOpacity onPress={() => { setSelectedId(null); setMessages([]); setError(""); }} style={s.back}><Text style={s.backText}>رجوع</Text></TouchableOpacity>
             <View style={s.detailIdentity}>
-              <Text style={s.person}>{selected?.profile?.full_name || selected?.profile?.phone || "مستخدم ممنون"}</Text>
-              <Text style={s.muted}>{categoryLabel[selected?.account_category || ""] || "مستخدم"} · {sourceLabel(selected?.last_message_source || "user")}</Text>
+              <Text style={s.person}>{selected?.conversation_type === "service" ? `${selected?.profile?.full_name || "الزبون"} ↔ ${selected?.provider_profile?.full_name || "منفّذ الخدمة"}` : selected?.profile?.full_name || selected?.profile?.phone || "مستخدم ممنون"}</Text>
+              <Text style={s.muted}>{selected?.conversation_type === "service" ? "محادثة طلب خدمة" : categoryLabel[selected?.account_category || ""] || "مستخدم"} · {sourceLabel(selected?.last_message_source || "user")}</Text>
             </View>
           </View>
           {selected?.needs_admin_reply && <View style={s.alert}><Text style={s.alertText}>هذه المحادثة تحتاج رد من الإدارة</Text></View>}
