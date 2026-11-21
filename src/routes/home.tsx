@@ -26,7 +26,6 @@ import { useTheme } from "@/lib/use-theme";
 import { playClick } from "@/lib/click-sound";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
-import { HomeTopSquareBanner } from "@/components/home-top-square-banner";
 import { HomeBannerCampaignDialog } from "@/components/home-banner-campaign-dialog";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 
@@ -159,22 +158,6 @@ function HomePage() {
           </div>
         </div>
 
-        {activeRole === "customer" && (
-          <Link
-            to="/coupons"
-            className="mb-4 glass rounded-2xl p-3 flex items-center justify-between border border-amber-500/20"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🎁</span>
-              <div>
-                <div className="font-black text-sm">كوبوناتي والقسائم</div>
-                <div className="text-xs text-muted-foreground">العروض والخصومات المرسلة إلى حسابك</div>
-              </div>
-            </div>
-            <span className="text-primary font-bold text-sm">عرض الكل ←</span>
-          </Link>
-        )}
-
 
         {(activeRole === "driver" || activeRole === "large_driver") && <ProviderHome type="taxi" largeDriverMode={activeRole === "large_driver"} />}
         {activeRole === "worker" && <ProviderHome type="service" />}
@@ -300,10 +283,7 @@ function CustomerHome() {
           tileWidth="calc((100% - 12px) / 3)"
           delay={0.15}
         />
-<div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((100% - 12px) / 3)", flexShrink: 0, order: 1 }}>
-          <HomeTopSquareBanner />
-        </div>
-        <div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 24px) / 3)", flexShrink: 0, order: 1 }}>
+        <div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 12px) / 3)", flexShrink: 0, order: 1 }}>
           <HomeCategoryCarousel />
         </div>
       </div>
@@ -311,10 +291,15 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.content" />
 
-      <a href="/ask-mamnoon" className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-right transition hover:bg-primary/10">
-        <span><span className="block text-sm font-black text-foreground">🤖 اسأل ممنون</span><span className="mt-1 block text-xs text-muted-foreground">مساعد ذكي يجاوبك عن خدمات التطبيق</span></span>
-        <span className="text-xs font-black text-primary">ابدأ المحادثة ←</span>
-      </a>
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 text-right">
+        <a href="/ask-mamnoon" className="flex items-center justify-between px-1 py-1 transition hover:bg-primary/5">
+          <span><span className="block text-sm font-black text-foreground">🤖 اسأل ممنون</span><span className="mt-1 block text-xs text-muted-foreground">مساعد ذكي يجاوبك عن خدمات التطبيق</span></span>
+          <span className="text-xs font-black text-primary">ابدأ المحادثة ←</span>
+        </a>
+        <Link to="/coupons" className="mt-2 flex items-center justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+          <span className="text-sm font-black text-foreground">🎁 القسائم والكوبونات</span><span className="text-xs font-bold text-primary">عرض قسائمي ←</span>
+        </Link>
+      </div>
 
       <div className="grid grid-cols-2 gap-2.5 animate-pop-in" style={{ animationDelay: "0.15s" }}>
         <MiniStat icon={<Clock className="h-4 w-4" />} label="أقل من" value="٣ د" />
