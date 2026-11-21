@@ -90,7 +90,7 @@ export function HomeCategoryCarousel() {
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[18px] bg-[#173F35]" dir="rtl" style={{ touchAction: "pan-y" }}
-      onPointerDown={(event) => { touchStart.current = { x: event.clientX, y: event.clientY }; }}
+      onPointerDown={(event) => { touchStart.current = { x: event.clientX, y: event.clientY }; try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer capture may be unavailable in embedded browsers */ } }}
       onPointerUp={(event) => { const start = touchStart.current; touchStart.current = null; if (!start || slides.length < 2) return; const dx = event.clientX - start.x; const dy = event.clientY - start.y; if (Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 1.2) { suppressClick.current = true; setIndex((value) => (value + (dx < 0 ? 1 : -1) + slides.length) % slides.length); window.setTimeout(() => { suppressClick.current = false; }, 350); } }}
       onPointerCancel={() => { touchStart.current = null; }}>
       <style>{`
