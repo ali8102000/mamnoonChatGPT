@@ -12,6 +12,14 @@ const govs=["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk",
 const revenueLabel:Record<string,string>={taxi_commission:"عمولة التكسي",service_commission:"عمولة الفني",order_commission:"عمولة طلب شريك",complaint_deduction:"استقطاع شكوى",wallet_debt_collection:"تحصيل دين المحفظة",admin_credit_reversal:"تسوية إدارية"};
 const scopeLabel:Record<string,string>={global:"كل العراق",governorate:"محافظة",role:"فئة",governorate_role:"فئة داخل محافظة"};
 const eventLabel:Record<string,string>={taxi_acceptance:"قبول رحلة تكسي",service_acceptance:"قبول طلب فني",order_acceptance:"قبول طلب شريك"};
+const formatScopeKey=(p:any)=>{
+ if(p.scope_type==="global")return "كل العراق";
+ const roles:Record<string,string>={driver:"أصحاب التكسي",large_driver:"التكسي الكبير",worker:"الفنيون",restaurant:"المطاعم",hotel:"الفنادق",store:"المتاجر"};
+ if(p.scope_type==="governorate")return govLabel[p.scope_key||""]||p.scope_key||"";
+ if(p.scope_type==="role")return roles[p.scope_key||""]||p.scope_key||"";
+ const [gov,role]=String(p.scope_key||"").split(":");
+ return (govLabel[gov]||gov)+" · "+(roles[role]||role);
+};
 const categoryLabel=(u:UserRow)=>{
  const value=String(u.partner?.partner_type||u.partner?.business_vertical||"").toLowerCase();
  if(value.includes("restaurant")||value.includes("food"))return "مطعم";
