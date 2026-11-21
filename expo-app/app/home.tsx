@@ -452,10 +452,14 @@ function CustomerHome({ userId }: { userId: string | null }) {
   const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(188);
   useEffect(() => {
     bannerMotion.setValue(0);
-    const animation = Animated.timing(bannerMotion, { toValue: 1, duration: 550, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    const seconds = Math.max(1, Math.min(60, Number(topBanner?.scroll_speed) || 5));
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(bannerMotion, { toValue: 1, duration: seconds * 1000, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(bannerMotion, { toValue: 0, duration: seconds * 1000, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+    ]));
     animation.start();
     return () => animation.stop();
-  }, [bannerMotion, topBanner?.id, topBanner?.motion_style, topBanner?.motion_direction]);
+  }, [bannerMotion, topBanner?.id, topBanner?.scroll_speed, topBanner?.motion_style, topBanner?.motion_direction]);
   useEffect(() => {
     let active = true;
     (supabase as any).from("app_ui_elements_public")
@@ -541,12 +545,21 @@ function CustomerHome({ userId }: { userId: string | null }) {
         }}
       >
         {topBanner?.image_url ? (() => {
-          const style = topBanner.motion_style || "slide";
           const direction = topBanner.motion_direction || "left";
-          const distance = style === "drop" ? (direction === "down" ? -22 : 22) : direction === "right" ? -26 : direction === "up" ? 22 : direction === "down" ? -22 : 26;
-          const translateX = style === "fade" || style === "drop" || direction === "up" || direction === "down" ? 0 : bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [distance, 0] });
-          const translateY = style === "fade" || (style !== "drop" && (direction === "left" || direction === "right")) ? 0 : bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [direction === "up" ? -Math.abs(distance) : distance, 0] });
-          return <Animated.Image source={{ uri: topBanner.image_url }} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", opacity: bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 0.38] }), transform: [{ translateX }, { translateY }, ...(style === "drop" ? [{ scale: bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) }] : [])] }} resizeMode="cover" />;
+          const distance = 18;
+          const translateX = direction === "left" || direction === "right"
+            ? bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0, direction === "left" ? -distance : distance] })
+            : 0;
+          const translateY = direction === "up" || direction === "down"
+            ? bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0, direction === "up" ? -distance : distance] })
+            : 0;
+          const scale = topBanner.motion_style === "drop"
+            ? bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [1.18, 1.24] })
+            : 1.22;
+          const opacity = topBanner.motion_style === "fade"
+            ? bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0.28, 0.4] })
+            : 0.4;
+          return <Animated.Image source={{ uri: topBanner.image_url }} style={{ position: "absolute", top: "-10%", left: "-10%", width: "120%", height: "120%", opacity, transform: [{ translateX }, { translateY }, { scale }] }} resizeMode="cover" />;
         })() : null}
         <LinearGradient
           pointerEvents="none"
