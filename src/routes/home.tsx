@@ -26,7 +26,7 @@ import { useTheme } from "@/lib/use-theme";
 import { playClick } from "@/lib/click-sound";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
-import { HomeTopSquareBanner } from "@/components/home-top-square-banner";
+import { HomeBannerCampaignDialog } from "@/components/home-banner-campaign-dialog";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 
 export const Route = createFileRoute("/home")({
@@ -158,22 +158,6 @@ function HomePage() {
           </div>
         </div>
 
-        {activeRole === "customer" && (
-          <Link
-            to="/coupons"
-            className="mb-4 glass rounded-2xl p-3 flex items-center justify-between border border-amber-500/20"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🎁</span>
-              <div>
-                <div className="font-black text-sm">كوبوناتي والقسائم</div>
-                <div className="text-xs text-muted-foreground">العروض والخصومات المرسلة إلى حسابك</div>
-              </div>
-            </div>
-            <span className="text-primary font-bold text-sm">عرض الكل ←</span>
-          </Link>
-        )}
-
 
         {(activeRole === "driver" || activeRole === "large_driver") && <ProviderHome type="taxi" largeDriverMode={activeRole === "large_driver"} />}
         {activeRole === "worker" && <ProviderHome type="service" />}
@@ -187,6 +171,8 @@ function CustomerHome() {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
+  const [activeBannerCampaignId, setActiveBannerCampaignId] = useState<string | null>(null);
+  const closeBannerCampaign = useCallback(() => setActiveBannerCampaignId(null), []);
   const topBanner = topBanners[topBannerIndex] ?? null;
 
   useEffect(() => {
@@ -206,8 +192,8 @@ function CustomerHome() {
     let active = true;
     const load = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
-        .eq("is_active", true).eq("banner_type", "ad").order("display_order").order("created_at");
+        .select("id,image_url,banner_type,target_campaign_id,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,display_config,is_active")
+        .eq("is_active", true).in("banner_type", ["ad", "poll", "contest"]).order("display_order").order("created_at");
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
     void load();
@@ -230,31 +216,32 @@ function CustomerHome() {
   return (
     <div className="-mx-2 space-y-3 pt-4">
       <style>{`
-        @keyframes mamnoonBannerFade { from { opacity: 0; } to { opacity: .4; } }
-        @keyframes mamnoonBannerSlideLeft { from { opacity: 0; transform: translateX(28px); } to { opacity: .4; transform: translateX(0); } }
-        @keyframes mamnoonBannerSlideRight { from { opacity: 0; transform: translateX(-28px); } to { opacity: .4; transform: translateX(0); } }
-        @keyframes mamnoonBannerSlideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: .4; transform: translateY(0); } }
-        @keyframes mamnoonBannerSlideDown { from { opacity: 0; transform: translateY(-24px); } to { opacity: .4; transform: translateY(0); } }
-        @keyframes mamnoonBannerDrop { from { opacity: 0; transform: translateY(-22px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
-        @keyframes mamnoonBannerDropDown { from { opacity: 0; transform: translateY(22px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
-        @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; } }
+        @keyframes mamnoonBannerPanLeft { from { transform: translate3d(0,0,0) scale(1.2); } to { transform: translate3d(-9%,0,0) scale(1.2); } }
+        @keyframes mamnoonBannerPanRight { from { transform: translate3d(0,0,0) scale(1.2); } to { transform: translate3d(9%,0,0) scale(1.2); } }
+        @keyframes mamnoonBannerPanUp { from { transform: translate3d(0,0,0) scale(1.2); } to { transform: translate3d(0,-9%,0) scale(1.2); } }
+        @keyframes mamnoonBannerPanDown { from { transform: translate3d(0,0,0) scale(1.2); } to { transform: translate3d(0,9%,0) scale(1.2); } }
+        @keyframes mamnoonBannerFadeIn { from { opacity: 0; } to { opacity: .4; } }
+        @keyframes mamnoonBannerDropIn { from { opacity: 0; transform: translateY(-18px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
+        @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; transform: scale(1.2); } }
       `}</style>
-      <div className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
-        {topBanner?.image_url && <img key={topBanner.id} src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute inset-0 h-full w-full object-cover" style={{ animation: `${topBanner.motion_style === "fade" ? "mamnoonBannerFade" : topBanner.motion_style === "drop" ? (topBanner.motion_direction === "down" ? "mamnoonBannerDropDown" : "mamnoonBannerDrop") : topBanner.motion_direction === "right" ? "mamnoonBannerSlideRight" : topBanner.motion_direction === "up" ? "mamnoonBannerSlideUp" : topBanner.motion_direction === "down" ? "mamnoonBannerSlideDown" : "mamnoonBannerSlideLeft"} .55s ease-out both` }} />}
+      <div role={topBanner?.target_campaign_id ? "button" : undefined} tabIndex={topBanner?.target_campaign_id ? 0 : undefined} aria-label={topBanner?.target_campaign_id ? "فتح الاستطلاع أو المسابقة" : "ممنون مجاناً بلا عمولة"} onClick={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }} onKeyDown={(event) => { if (topBanner?.target_campaign_id && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setActiveBannerCampaignId(topBanner.target_campaign_id); } }} className="relative min-h-[142px] rounded-[20px] px-4 pt-3 pb-3 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground" style={{ minHeight: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)), height: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)), borderRadius: Math.max(8,Math.min(40,Number(topBanner?.display_config?.border_radius_px)||20)), padding: Math.max(8,Math.min(32,Number(topBanner?.display_config?.padding_px)||12)), background: topBanner?.display_config?.background_color || undefined }}>
+        {topBanner?.image_url && <div key={topBanner.id} className="absolute inset-0 overflow-hidden" style={{ animation: topBanner.motion_style === "fade" ? "mamnoonBannerFadeIn .55s ease-out both" : topBanner.motion_style === "drop" ? "mamnoonBannerDropIn .55s ease-out both" : undefined }}><img src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute -inset-[10%] h-[120%] w-[120%] object-cover" style={{ opacity: Math.max(0.05,Math.min(1,Number(topBanner.display_config?.image_opacity)||0.4)), animation: `mamnoonBannerPan${topBanner.motion_direction === "right" ? "Right" : topBanner.motion_direction === "up" ? "Up" : topBanner.motion_direction === "down" ? "Down" : "Left"} ${Math.max(2, Math.min(120, (Number(topBanner.scroll_speed) || 5) * 2))}s ease-in-out infinite alternate` }} /></div>}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur px-2.5 py-1 text-[10px] font-bold">
-            <Sparkles className="h-3 w-3" /> مجاناً بلا عمولة
+          <div className="inline-flex items-center gap-1 rounded-full bg-white/15 backdrop-blur px-2 py-0.5 text-[9px] font-bold">
+            <Sparkles className="h-3 w-3" /> {topBanner?.badge_text || "مجاناً بلا عمولة"}
           </div>
-          <div className="text-2xl font-black mt-2 leading-tight">
+          <div className="font-black mt-1 leading-tight" style={{fontSize:Math.max(12,Math.min(30,Number(topBanner?.display_config?.title_size_px)||20)),color:topBanner?.display_config?.title_color||undefined,textAlign:topBanner?.display_config?.text_alignment||"right"}}>
             {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
           </div>
-          <div className="text-xs opacity-90 mt-1">
+          <div className="text-[11px] leading-4 opacity-90 mt-0.5" style={{fontSize:Math.max(8,Math.min(20,Number(topBanner?.display_config?.subtitle_size_px)||11)),color:topBanner?.display_config?.description_color||undefined,textAlign:topBanner?.display_config?.text_alignment||"right"}}>
             {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
           </div>
+          {topBanner?.display_config?.cta_visible !== false && <Link to="/request/new" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex rounded-full bg-white px-3 py-1 text-[10px] font-black text-primary shadow-sm" style={{backgroundColor:topBanner?.display_config?.cta_background_color||undefined,color:topBanner?.display_config?.cta_text_color||undefined}}>{topBanner?.display_config?.cta_text || "اطلب الآن"}</Link>}
         </div>
       </div>
+      {activeBannerCampaignId && <HomeBannerCampaignDialog campaignId={activeBannerCampaignId} onClose={closeBannerCampaign} />}
 
       <HomeCustomContent placementKey="home.customer.top" />
 
@@ -267,6 +254,7 @@ function CustomerHome() {
           icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
           iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_taxi?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_taxi?.sort_order) || 10}
+          styleConfig={visuals.home_customer_taxi || {}}
           gradient="from-amber-500 to-orange-500"
           span={2}
           delay={0.05}
@@ -279,6 +267,7 @@ function CustomerHome() {
           icon={<ServiceIconPanorama />}
           iconBoxSize={64}
           sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
+          styleConfig={visuals.home_customer_service || {}}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
@@ -292,14 +281,12 @@ function CustomerHome() {
           icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
           iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_large_vehicle?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
+          styleConfig={visuals.home_customer_large_vehicle || {}}
           gradient="from-orange-500 to-amber-600"
           span={1}
           tileWidth="calc((100% - 12px) / 3)"
           delay={0.15}
         />
-<div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((100% - 12px) / 3)", flexShrink: 0, order: 1 }}>
-          <HomeTopSquareBanner />
-        </div>
         <div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 24px) / 3)", flexShrink: 0, order: 1 }}>
           <HomeCategoryCarousel />
         </div>
@@ -308,10 +295,15 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.content" />
 
-      <a href="/ask-mamnoon" className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-right transition hover:bg-primary/10">
-        <span><span className="block text-sm font-black text-foreground">🤖 اسأل ممنون</span><span className="mt-1 block text-xs text-muted-foreground">مساعد ذكي يجاوبك عن خدمات التطبيق</span></span>
-        <span className="text-xs font-black text-primary">ابدأ المحادثة ←</span>
-      </a>
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 text-right">
+        <a href="/ask-mamnoon" className="flex items-center justify-between px-1 py-1 transition hover:bg-primary/5">
+          <span><span className="block text-sm font-black text-foreground">🤖 اسأل ممنون</span><span className="mt-1 block text-xs text-muted-foreground">مساعد ذكي يجاوبك عن خدمات التطبيق</span></span>
+          <span className="text-xs font-black text-primary">ابدأ المحادثة ←</span>
+        </a>
+        <Link to="/coupons" className="mt-2 flex items-center justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+          <span className="text-sm font-black text-foreground">🎁 القسائم والكوبونات</span><span className="text-xs font-bold text-primary">عرض قسائمي ←</span>
+        </Link>
+      </div>
 
       <div className="grid grid-cols-2 gap-2.5 animate-pop-in" style={{ animationDelay: "0.15s" }}>
         <MiniStat icon={<Clock className="h-4 w-4" />} label="أقل من" value="٣ د" />
@@ -486,6 +478,7 @@ function QuickTile({
   iconBoxSize,
   sortOrder = 0,
   tileWidth,
+  styleConfig = {},
 }: {
   to: string;
   type: "taxi" | "service";
@@ -499,36 +492,45 @@ function QuickTile({
   iconBoxSize?: number;
   sortOrder?: number;
   tileWidth?: string;
+  styleConfig?: Record<string, any>;
 }) {
+  if (styleConfig.is_hidden === true) return null;
+  const cardHeight = Math.max(96, Math.min(360, Number(styleConfig.card_height_px) || (vehicle === "large" ? 188 : 145)));
+  const cardPadding = Math.max(4, Math.min(32, Number(styleConfig.card_padding_px) || 10));
+  const radius = Math.max(8, Math.min(40, Number(styleConfig.border_radius_px) || 20));
+  const alignment = ["left", "center", "right"].includes(styleConfig.content_alignment) ? styleConfig.content_alignment : "right";
+  const titleSize = Math.max(10, Math.min(28, Number(styleConfig.title_size_px) || 16));
+  const subtitleSize = Math.max(8, Math.min(20, Number(styleConfig.subtitle_size_px) || 11));
+  const iconScale = Math.max(0.5, Math.min(2, Number(styleConfig.icon_scale) || 1));
+  const iconWidth = Math.max(24, Math.min(180, Number(styleConfig.width_px) || iconBoxSize || 56));
+  const iconHeight = Math.max(24, Math.min(180, Number(styleConfig.height_px) || iconBoxSize || 56));
   return (
     <Link
       dir="rtl"
       to={to as any}
       search={{ type, ...(vehicle ? { vehicle } : {}) } as any}
       onClick={() => playClick("pop")}
-      className={`glass rounded-[20px] p-2.5 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
-        vehicle === "large" ? "min-h-[188px] h-[188px]" : "min-h-[145px] h-[145px]"
-      }`}
-      style={{ animationDelay: `${delay}s`, order: vehicle === "large" ? 0 : sortOrder, gridColumn: vehicle === "large" ? "1" : span === 2 ? "1" : "2", width: tileWidth, flexShrink: tileWidth ? 0 : undefined }}
+      className="glass btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group"
+      style={{ animationDelay: `${delay}s`, order: vehicle === "large" ? 0 : sortOrder, gridColumn: vehicle === "large" ? "1" : span === 2 ? "1" : "2", width: tileWidth, flexShrink: tileWidth ? 0 : undefined, height: cardHeight, minHeight: cardHeight, borderRadius: radius, padding: cardPadding, backgroundColor: styleConfig.background_color || undefined }}
     >
       <div
         className={`absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`}
       />
-      <div className="relative flex flex-col h-full justify-between">
+      <div className="relative flex h-full justify-between" style={{ flexDirection: styleConfig.content_direction === "row" ? "row" : "column", alignItems: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end" }}>
         <div
-          className={`${type === "service" ? "h-16 w-16 rounded-xl" : "h-14 w-14 rounded-[14px]"} bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg overflow-hidden`}
-          style={{ width: iconBoxSize, height: iconBoxSize }}
+          className={`grid place-items-center text-white shadow-lg overflow-hidden ${type === "service" ? "rounded-xl" : "rounded-[14px]"} bg-gradient-to-br ${gradient}`}
+          style={{ width: iconWidth, height: iconHeight, transform: `scale(${iconScale})` }}
         >
           {icon}
         </div>
-        <div>
-          <div className="flex items-center gap-1">
-            <div className="font-black text-base text-foreground group-hover:text-primary transition-colors">
+        <div style={{ width: styleConfig.content_direction === "row" ? "auto" : "100%", textAlign: alignment }}>
+          <div className="flex items-center gap-1" style={{ justifyContent: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end" }}>
+            <div className="font-black group-hover:text-primary transition-colors" style={{ fontSize: titleSize, color: styleConfig.title_color || undefined }}>
               {title}
             </div>
             <ArrowUpLeft className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>
+          <div className="mt-0.5" style={{ fontSize: subtitleSize, color: styleConfig.subtitle_color || undefined }}>{subtitle}</div>
         </div>
       </div>
     </Link>

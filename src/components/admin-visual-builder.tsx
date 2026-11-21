@@ -26,6 +26,7 @@ const tabs = [
   { id: "visual", label: "محرر الأيقونات والواجهة", icon: LayoutTemplate },
   { id: "sections", label: "الأقسام والجداول", icon: Table2 },
   { id: "campaigns", label: "الاستطلاعات والمسابقات", icon: Trophy },
+  { id: "legal", label: "الخصوصية والشروط", icon: Check },
 ] as const;
 
 export default function AdminVisualBuilder() {
@@ -33,6 +34,8 @@ export default function AdminVisualBuilder() {
   const [elements, setElements] = useState<UiElement[]>([]);
   const [sections, setSections] = useState<ContentSection[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [legalPages, setLegalPages] = useState<any[]>([]);
+  const [legalDrafts, setLegalDrafts] = useState<Record<string, { title: string; body: string; is_published: boolean }>>({});
   const [selected, setSelected] = useState<UiElement | null>(null);
   const [draft, setDraft] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -60,19 +63,40 @@ export default function AdminVisualBuilder() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [ui, content, campaign] = await Promise.all([
+    const [ui, content, campaign, legal] = await Promise.all([
       (supabase as any).from("app_ui_elements").select("*").order("sort_order"),
       (supabase as any).from("app_content_sections").select("*").order("sort_order"),
       (supabase as any).from("app_campaigns").select("*, app_campaign_options(id,label,sort_order)").order("sort_order").order("created_at", { ascending: false }),
+      (supabase as any).from("app_legal_pages").select("slug,title,body,is_published").order("slug"),
     ]);
     if (ui.error) setMessage("تعذر تحميل عناصر الواجهة: " + ui.error.message);
     else setElements((ui.data ?? []) as UiElement[]);
     if (!content.error) setSections((content.data ?? []) as ContentSection[]);
     if (!campaign.error) setCampaigns((campaign.data ?? []) as Campaign[]);
+    if (!legal.error) {
+      const pages = legal.data ?? [];
+      setLegalPages(pages);
+      setLegalDrafts(Object.fromEntries(pages.map((page: any) => [page.slug, { title: page.title, body: page.body ?? "", is_published: Boolean(page.is_published) }])));
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const saveLegalPage = async (slug: "privacy" | "terms") => {
+    const draft = legalDrafts[slug];
+    if (!draft?.title.trim() || !draft.body.trim()) {
+      setMessage("اكتب عنوان ومحتوى الصفحة قبل الحفظ."); return;
+    }
+    setSaving(true);
+    const { error } = await (supabase as any).from("app_legal_pages").upsert({
+      slug, title: draft.title.trim(), body: draft.body.trim(),
+      is_published: draft.is_published, updated_at: new Date().toISOString(),
+    }, { onConflict: "slug" });
+    setMessage(error ? "تعذر حفظ الصفحة القانونية: " + error.message : "تم حفظ الصفحة القانونية ونشر إعدادها.");
+    if (!error) await load();
+    setSaving(false);
+  };
 
   const startHold = (element: UiElement) => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
@@ -90,6 +114,18 @@ export default function AdminVisualBuilder() {
       width_px: element.config?.width_px ?? element.width_px ?? 64,
       height_px: element.config?.height_px ?? element.height_px ?? 64,
       image_scale: element.config?.image_scale ?? element.published_config?.image_scale ?? 1,
+      card_height_px: element.config?.card_height_px ?? element.published_config?.card_height_px ?? 145,
+      card_padding_px: element.config?.card_padding_px ?? element.published_config?.card_padding_px ?? 10,
+      border_radius_px: element.config?.border_radius_px ?? element.published_config?.border_radius_px ?? 20,
+      title_size_px: element.config?.title_size_px ?? element.published_config?.title_size_px ?? 16,
+      subtitle_size_px: element.config?.subtitle_size_px ?? element.published_config?.subtitle_size_px ?? 11,
+      title_color: element.config?.title_color ?? element.published_config?.title_color ?? "",
+      subtitle_color: element.config?.subtitle_color ?? element.published_config?.subtitle_color ?? "",
+      background_color: element.config?.background_color ?? element.published_config?.background_color ?? "",
+      content_alignment: element.config?.content_alignment ?? element.published_config?.content_alignment ?? "right",
+      content_direction: element.config?.content_direction ?? element.published_config?.content_direction ?? "column",
+      icon_scale: element.config?.icon_scale ?? element.published_config?.icon_scale ?? 1,
+      is_hidden: element.config?.is_hidden ?? element.published_config?.is_hidden ?? false,
       sort_order: element.config?.sort_order ?? element.sort_order ?? 0,
     });
     setMessage("");
@@ -248,7 +284,7 @@ export default function AdminVisualBuilder() {
         <button className={buttonClass + " border border-border"} onClick={() => void load()}><Eye className="h-4 w-4" /> تحديث</button>
       </header>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {tabs.map((item) => <button key={item.id} onClick={() => setTab(item.id)}
           className={buttonClass + (tab === item.id ? " bg-primary text-primary-foreground" : " border border-border bg-card")}>
           <item.icon className="h-4 w-4" />{item.label}
@@ -305,13 +341,23 @@ export default function AdminVisualBuilder() {
                 </div>
               </div>
               <div className="mt-4 rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">المعاينة توضح الشكل فقط؛ وظيفة الزر الأصلية تبقى مرتبطة بهويته الثابتة.</div>
+              <div className="mt-4 space-y-2">
+                <h3 className="font-black text-sm">باقي عناصر التطبيق المسجلة</h3>
+                <p className="text-[11px] text-muted-foreground">تگدر تختار أيقونات وأنواع السيارات من هنا وتعدّل صورتها واسمها وحجمها وترتيبها.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {elements.filter((item) => item.placement_key !== "home.customer.actions").map((item) => <button key={item.element_key} type="button" onClick={() => openEditor(item)} className={buttonClass + " justify-between border border-border bg-background text-right"}>
+                    <span className="min-w-0"><b className="block text-xs">{item.label}</b><span className="block text-[10px] text-muted-foreground">{item.screen_key} · {item.element_key}</span></span>
+                    <span className="text-primary">تعديل ←</span>
+                  </button>)}
+                </div>
+              </div>
             </div>
           </section>
 
           <aside className="rounded-2xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between"><h3 className="font-black">خصائص العنصر</h3>
               {selected && <button onClick={() => setSelected(null)} aria-label="إغلاق"><X className="h-4 w-4" /></button>}</div>
-            {!selected ? <p className="text-sm text-muted-foreground">اختار أيقونة السيارة من المعاينة حتى تبدّلها بصورة واقعية من جهازك أو برابط، وتتحكم بحجمها واسمها ثم تنشرها.</p> : <>
+            {!selected ? <p className="text-sm text-muted-foreground">اختار أي عنصر من المعاينة أو قائمة العناصر حتى تبدّل صورته واسمه وحجمه وإعداداته ثم تنشرها.</p> : <>
               <div className="mb-3 rounded-xl bg-muted p-3"><b className="text-sm">{selected.label}</b><p className="mt-1 text-[11px] text-muted-foreground">المعرّف الوظيفي: {selected.action_key}</p></div>
               <label className="mb-1 block text-xs font-bold">النص الرئيسي</label><input className={inputClass + " mb-3"} value={draft.title ?? ""} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
               <label className="mb-1 block text-xs font-bold">النص الثانوي</label><input className={inputClass + " mb-3"} value={draft.subtitle ?? ""} onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })} />
@@ -326,6 +372,24 @@ export default function AdminVisualBuilder() {
               <input type="range" min="0.65" max="1.8" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.image_scale) || 1} onChange={(e) => setDraft({ ...draft, image_scale: Number(e.target.value) })} />
               <div className="mb-3 flex justify-between text-[11px] text-muted-foreground"><span>تصغير</span><b>{Math.round((Number(draft.image_scale) || 1) * 100)}%</b><span>تكبير</span></div>
               <label className="mb-1 block text-xs font-bold">ترتيب الظهور</label><input type="number" className={inputClass + " mb-3"} value={draft.sort_order ?? 0} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })} />
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold">ارتفاع البطاقة px<input type="number" min="96" max="360" className={inputClass+" mt-1"} value={draft.card_height_px ?? 145} onChange={e=>setDraft({...draft,card_height_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">حشوة البطاقة px<input type="number" min="4" max="32" className={inputClass+" mt-1"} value={draft.card_padding_px ?? 10} onChange={e=>setDraft({...draft,card_padding_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">استدارة الزوايا px<input type="number" min="8" max="40" className={inputClass+" mt-1"} value={draft.border_radius_px ?? 20} onChange={e=>setDraft({...draft,border_radius_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">حجم عنوان الزر px<input type="number" min="10" max="28" className={inputClass+" mt-1"} value={draft.title_size_px ?? 16} onChange={e=>setDraft({...draft,title_size_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">حجم الوصف px<input type="number" min="8" max="20" className={inputClass+" mt-1"} value={draft.subtitle_size_px ?? 11} onChange={e=>setDraft({...draft,subtitle_size_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">تكبير الأيقونة<input type="number" min="0.5" max="2" step="0.05" className={inputClass+" mt-1"} value={draft.icon_scale ?? 1} onChange={e=>setDraft({...draft,icon_scale:Number(e.target.value)})}/></label>
+              </div>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold">لون العنوان<input type="text" dir="ltr" placeholder="#222222" className={inputClass+" mt-1"} value={draft.title_color ?? ""} onChange={e=>setDraft({...draft,title_color:e.target.value})}/></label>
+                <label className="text-xs font-bold">لون الوصف<input type="text" dir="ltr" placeholder="#777777" className={inputClass+" mt-1"} value={draft.subtitle_color ?? ""} onChange={e=>setDraft({...draft,subtitle_color:e.target.value})}/></label>
+                <label className="text-xs font-bold col-span-2">لون خلفية البطاقة<input type="text" dir="ltr" placeholder="اتركه فارغاً للخلفية الافتراضية" className={inputClass+" mt-1"} value={draft.background_color ?? ""} onChange={e=>setDraft({...draft,background_color:e.target.value})}/></label>
+              </div>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold">محاذاة المحتوى<select className={inputClass+" mt-1"} value={draft.content_alignment ?? "right"} onChange={e=>setDraft({...draft,content_alignment:e.target.value})}><option value="right">يمين</option><option value="center">وسط</option><option value="left">يسار</option></select></label>
+                <label className="text-xs font-bold">اتجاه ترتيب العناصر<select className={inputClass+" mt-1"} value={draft.content_direction ?? "column"} onChange={e=>setDraft({...draft,content_direction:e.target.value})}><option value="column">عمودي</option><option value="row">أفقي</option></select></label>
+              </div>
+              <label className="mb-3 flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={Boolean(draft.is_hidden)} onChange={e=>setDraft({...draft,is_hidden:e.target.checked})}/> إخفاء هذا العنصر من واجهة المستخدم</label>
               <div className="mb-3 rounded-xl bg-muted p-3 text-xs"><b>المعاينة الفورية</b><div className="mt-2 flex items-center gap-3"><div className="grid h-20 w-20 place-items-center overflow-hidden rounded-none bg-background">{draft.image_url ? <img src={draft.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${Number(draft.image_scale) || 1})` }} /> : <ImagePlus className="h-7 w-7" />}</div><div><b>{draft.title || selected.label}</b><p className="text-muted-foreground">{draft.subtitle}</p></div></div></div>
               <button disabled={saving} onClick={() => void saveDraft()} className={buttonClass + " mb-2 w-full border border-border"}><Save className="h-4 w-4" />حفظ كمسودة</button>
               <button disabled={saving} onClick={() => void publishElement()} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Check className="h-4 w-4" />{selectedPublished ? "نشر التعديلات" : "نشر العنصر"}</button>
@@ -358,6 +422,24 @@ export default function AdminVisualBuilder() {
                 {!section.is_published && <button className={buttonClass + " bg-primary text-primary-foreground"} onClick={() => void publishSection(section)}>نشر</button>}</div>
             </div>)}
           </section>
+        </div>
+      )}
+
+      {tab === "legal" && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {(["privacy", "terms"] as const).map((slug) => {
+            const draft = legalDrafts[slug] ?? { title: slug === "privacy" ? "سياسة الخصوصية" : "الشروط والأحكام", body: "", is_published: true };
+            return <section key={slug} className="space-y-3 rounded-2xl border border-border bg-card p-4">
+              <h3 className="font-black">{slug === "privacy" ? "سياسة الخصوصية" : "الشروط والأحكام"}</h3>
+              <label className="block text-xs font-bold">عنوان الصفحة</label>
+              <input className={inputClass} value={draft.title} onChange={(e) => setLegalDrafts((old) => ({ ...old, [slug]: { ...draft, title: e.target.value } }))} />
+              <label className="block text-xs font-bold">نص الصفحة (اكتب فقراتك، وافصل بينها بسطر فارغ)</label>
+              <textarea className={inputClass + " min-h-72"} value={draft.body} onChange={(e) => setLegalDrafts((old) => ({ ...old, [slug]: { ...draft, body: e.target.value } }))} placeholder="اكتب سياسة الخصوصية أو الشروط والأحكام هنا..." />
+              <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={draft.is_published} onChange={(e) => setLegalDrafts((old) => ({ ...old, [slug]: { ...draft, is_published: e.target.checked } }))} /> الصفحة منشورة ومتاحة للمستخدمين</label>
+              <button disabled={saving} onClick={() => void saveLegalPage(slug)} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Save className="h-4 w-4" />حفظ ونشر الصفحة</button>
+              <p className="text-[11px] leading-5 text-muted-foreground">التغييرات تظهر على الويب والأندرويد بعد تفعيل تحديث قاعدة البيانات والبناء الجديد. يُفضّل مراجعة النص قانونياً قبل نشره.</p>
+            </section>;
+          })}
         </div>
       )}
 

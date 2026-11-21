@@ -24,7 +24,6 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import { useThemePreference } from "@/lib/theme-preference";
 import Svg, { Circle, Path } from "react-native-svg";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
-import { HomeTopSquareBanner } from "@/components/home-top-square-banner";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 
@@ -344,24 +343,6 @@ export default function HomeScreen() {
           <NotificationsBell />
         </View>
       </View>
-      {selectedRole === "customer" && (
-        <TouchableOpacity
-          onPress={() => router.push("/coupons")}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="كوبوناتي والقسائم"
-          style={{ marginHorizontal: 18, marginBottom: 12, borderRadius: 17, padding: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold + "55" }}
-        >
-          <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900" }}>عرض الكل ←</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <View>
-              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>كوبوناتي والقسائم</Text>
-              <Text style={{ color: palette.muted, fontSize: 10, marginTop: 2, textAlign: "right" }}>العروض والخصومات المرسلة إلى حسابك</Text>
-            </View>
-            <Text style={{ fontSize: 23 }}>🎁</Text>
-          </View>
-        </TouchableOpacity>
-      )}
 
       <ActiveCustomerRequestBanner />
       <ScrollView
@@ -446,15 +427,20 @@ function CustomerHome({ userId }: { userId: string | null }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
+  const [activeBannerCampaignId, setActiveBannerCampaignId] = useState<string | null>(null);
   const topBanner = topBanners[topBannerIndex] ?? null;
   const bannerMotion = useRef(new Animated.Value(0)).current;
   const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(188);
   useEffect(() => {
     bannerMotion.setValue(0);
-    const animation = Animated.timing(bannerMotion, { toValue: 1, duration: 550, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    const seconds = Math.max(1, Math.min(60, Number(topBanner?.scroll_speed) || 5));
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(bannerMotion, { toValue: 1, duration: seconds * 1000, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(bannerMotion, { toValue: 0, duration: seconds * 1000, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+    ]));
     animation.start();
     return () => animation.stop();
-  }, [bannerMotion, topBanner?.id, topBanner?.motion_style, topBanner?.motion_direction]);
+  }, [bannerMotion, topBanner?.id, topBanner?.scroll_speed, topBanner?.motion_style, topBanner?.motion_direction]);
   useEffect(() => {
     let active = true;
     (supabase as any).from("app_ui_elements_public")
@@ -472,8 +458,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
     let active = true;
     const load = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
-        .eq("is_active", true).eq("banner_type", "ad").order("display_order").order("created_at");
+        .select("id,image_url,banner_type,target_campaign_id,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,display_config,is_active")
+        .eq("is_active", true).in("banner_type", ["ad", "poll", "contest"]).order("display_order").order("created_at");
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
     void load();
@@ -526,25 +512,36 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
   return (
     <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: 12 }}>
+      <TouchableOpacity activeOpacity={0.94} onPress={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }}>
       <LinearGradient
-        colors={[palette.brand, palette.brandGlow, palette.gold]}
+        colors={topBanner?.display_config?.background_color ? [topBanner.display_config.background_color, topBanner.display_config.background_color] : [palette.brand, palette.brandGlow, palette.gold]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          borderRadius: 20,
-          height: 130,
-          padding: 16,
+          height: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)),
+          borderRadius: Math.max(8,Math.min(40,Number(topBanner?.display_config?.border_radius_px)||20)),
+          padding: Math.max(8,Math.min(32,Number(topBanner?.display_config?.padding_px)||12)),
+          backgroundColor: topBanner?.display_config?.background_color || undefined,
           overflow: "hidden",
           elevation: 5,
         }}
       >
         {topBanner?.image_url ? (() => {
-          const style = topBanner.motion_style || "slide";
           const direction = topBanner.motion_direction || "left";
-          const distance = style === "drop" ? (direction === "down" ? -22 : 22) : direction === "right" ? -26 : direction === "up" ? 22 : direction === "down" ? -22 : 26;
-          const translateX = style === "fade" || style === "drop" || direction === "up" || direction === "down" ? 0 : bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [distance, 0] });
-          const translateY = style === "fade" || (style !== "drop" && (direction === "left" || direction === "right")) ? 0 : bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [direction === "up" ? -Math.abs(distance) : distance, 0] });
-          return <Animated.Image source={{ uri: topBanner.image_url }} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", opacity: bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 0.38] }), transform: [{ translateX }, { translateY }, ...(style === "drop" ? [{ scale: bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) }] : [])] }} resizeMode="cover" />;
+          const distance = 18;
+          const translateX = direction === "left" || direction === "right"
+            ? bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0, direction === "left" ? -distance : distance] })
+            : 0;
+          const translateY = direction === "up" || direction === "down"
+            ? bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0, direction === "up" ? -distance : distance] })
+            : 0;
+          const scale = topBanner.motion_style === "drop"
+            ? bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [1.18, 1.24] })
+            : 1.22;
+          const opacity = topBanner.motion_style === "fade"
+            ? bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0.28, 0.4] })
+            : 0.4;
+          return <Animated.Image source={{ uri: topBanner.image_url }} style={{ position: "absolute", top: "-10%", left: "-10%", width: "120%", height: "120%", opacity: Math.max(0.05,Math.min(1,Number(topBanner.display_config?.image_opacity)||0.4)), transform: [{ translateX }, { translateY }, { scale }] }} resizeMode="cover" />;
         })() : null}
         <LinearGradient
           pointerEvents="none"
@@ -561,26 +558,46 @@ function CustomerHome({ userId }: { userId: string | null }) {
           style={{
             alignSelf: "flex-start",
             borderRadius: 999,
-            paddingHorizontal: 10,
-            paddingVertical: 4,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
             backgroundColor: "rgba(255,255,255,0.20)",
-            marginBottom: 8,
+            marginBottom: 4,
           }}
         >
-          <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
+          <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ {topBanner?.badge_text || "مجاناً بلا عمولة"}</Text>
         </View>
-        <Text style={{ color: "#FFFFFF", fontSize: 24, lineHeight: 29, fontWeight: "900", textAlign: "right" }}>
+        <Text style={{ fontSize: Math.max(12,Math.min(30,Number(topBanner?.display_config?.title_size_px)||20)), lineHeight: 25, fontWeight: "900", textAlign: topBanner?.display_config?.text_alignment || "right", color: topBanner?.display_config?.title_color || "#FFFFFF" }}>
           {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
         </Text>
-        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 16, marginTop: 4, textAlign: "right" }}>
+        <Text style={{ fontSize: Math.max(8,Math.min(20,Number(topBanner?.display_config?.subtitle_size_px)||11)), lineHeight: 14, marginTop: 2, textAlign: topBanner?.display_config?.text_alignment || "right", color: topBanner?.display_config?.description_color || "rgba(255,255,255,0.92)" }}>
           {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
         </Text>
+        {topBanner?.display_config?.cta_visible !== false ? <View pointerEvents="none" style={{ alignSelf: "flex-end", marginTop: 4, marginBottom: 2, borderRadius: 20, backgroundColor: topBanner?.display_config?.cta_background_color || "#FFFFFF", paddingHorizontal: 13, paddingVertical: 6 }}><Text style={{ color: topBanner?.display_config?.cta_text_color || palette.brand, fontSize: 11, fontWeight: "900" }}>{topBanner?.display_config?.cta_text || "اطلب الآن"} ←</Text></View> : null}
       </LinearGradient>
+      </TouchableOpacity>
+      {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
       <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12 }}>
-        {tiles.map((tile) => (
+        {[...tiles].sort((a,b) => {
+          const keyA = a.key === "taxi" ? "home_customer_taxi" : a.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
+          const keyB = b.key === "taxi" ? "home_customer_taxi" : b.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
+          return (Number(visuals[keyA]?.sort_order) || 0) - (Number(visuals[keyB]?.sort_order) || 0);
+        }).map((tile) => {
+          const visualKey = tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
+          const visual = visuals[visualKey] || {};
+          if (visual.is_hidden === true) return null;
+          const tileHeight = Math.max(96, Math.min(360, Number(visual.card_height_px) || (tile.key === "large" ? 188 : 145)));
+          const tilePadding = Math.max(4, Math.min(32, Number(visual.card_padding_px) || 10));
+          const tileRadius = Math.max(8, Math.min(40, Number(visual.border_radius_px) || 20));
+          const iconWidth = Math.max(24, Math.min(180, Number(visual.width_px) || (tile.key === "service" ? 64 : 56)));
+          const iconHeight = Math.max(24, Math.min(180, Number(visual.height_px) || (tile.key === "service" ? 64 : 56)));
+          const iconScale = Math.max(0.5, Math.min(2, Number(visual.icon_scale) || 1));
+          const titleSize = Math.max(10, Math.min(28, Number(visual.title_size_px) || 16));
+          const subtitleSize = Math.max(8, Math.min(20, Number(visual.subtitle_size_px) || 11));
+          const alignment = visual.content_alignment || "right";
+          return (
           <TouchableOpacity
             key={tile.key}
             accessibilityRole="button"
@@ -603,12 +620,12 @@ function CustomerHome({ userId }: { userId: string | null }) {
             style={{
               direction: "rtl",
               width: tile.width,
-              height: tile.key === "large" ? 188 : 145,
-              minHeight: tile.key === "large" ? 188 : 145,
-              borderRadius: 20,
-              padding: 10,
+              height: tileHeight,
+              minHeight: tileHeight,
+              borderRadius: tileRadius,
+              padding: tilePadding,
               justifyContent: "space-between",
-              backgroundColor: palette.surface,
+              backgroundColor: visual.background_color || palette.surface,
               borderWidth: 1,
               borderColor: palette.line,
               elevation: 2,
@@ -619,8 +636,9 @@ function CustomerHome({ userId }: { userId: string | null }) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: tile.key === "service" ? 64 : 56,
-                height: tile.key === "service" ? 64 : 56,
+                width: iconWidth,
+                height: iconHeight,
+                transform: [{ scale: iconScale }],
                 borderRadius: tile.key === "service" ? 12 : 14,
                 alignItems: "center",
                 justifyContent: "center",
@@ -629,23 +647,23 @@ function CustomerHome({ userId }: { userId: string | null }) {
             >
               {tile.key === "service" ? (
                 <ServiceIconPanorama
-                  imageUrl={visuals.home_customer_service?.image_url || visuals.home_customer_service?.panorama_image_url || null}
-                  imageScale={Number(visuals.home_customer_service?.image_scale) || 1}
+                  imageUrl={visual.image_url || visual.panorama_image_url || null}
+                  imageScale={Number(visual.image_scale) || 1}
                 />
               ) : (
-                visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.icon_name ? <Text style={{ fontSize: 30 }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].icon_name}</Text> : <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 52, height: 52 }} resizeMode="contain" />
+                visual.icon_name ? <Text style={{ fontSize: 30 }}>{visual.icon_name}</Text> : <Image source={visual.image_url ? { uri: visual.image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 52, height: 52 }} resizeMode="contain" />
               )}
             </LinearGradient>
-            <View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>{(tile.key === "taxi" && visuals.home_customer_taxi?.title === "طلب سيارة") ? "طلب تكسي" : (visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.title || tile.title)}</Text>
+            <View style={{ alignItems: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end", flexDirection: visual.content_direction === "row" ? "row" : "column", justifyContent: "space-between", flex: visual.content_direction === "row" ? 1 : undefined }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, justifyContent: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end" }}>
+                <Text style={{ color: visual.title_color || palette.ink, fontSize: titleSize, fontWeight: "900", textAlign: alignment }}>{(tile.key === "taxi" && visual.title === "طلب سيارة") ? "طلب تكسي" : (visual.title || tile.title)}</Text>
                 <HomeGlyph name="arrow" color={palette.muted} size={14} />
               </View>
-              <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", marginTop: 3, textAlign: "right" }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.subtitle || tile.subtitle}</Text>
+              <Text style={{ color: visual.subtitle_color || palette.muted, fontSize: subtitleSize, fontWeight: "700", marginTop: 3, textAlign: alignment }}>{visual.subtitle || tile.subtitle}</Text>
             </View>
           </TouchableOpacity>
-        ))}
-        <HomeTopSquareBanner width={HOME_GRID_NARROW_WIDTH} height={188} />
+          );
+        })}
         <View style={{ width: HOME_GRID_WIDE_WIDTH, height: 188, direction: "rtl" }}>
           <HomeCategoryCarousel height={188} />
         </View>
@@ -653,13 +671,15 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
       <HomeCustomContent userId={userId} placementKey="home.customer.content" />
 
-      <TouchableOpacity onPress={() => router.push("/ask-mamnoon")} activeOpacity={0.86} style={{ borderRadius: 18, borderWidth: 1, borderColor: palette.brand + "33", backgroundColor: palette.brand + "0D", padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>🤖 اسأل ممنون</Text>
-          <Text style={{ color: palette.muted, fontSize: 11, marginTop: 4, textAlign: "right" }}>مساعد ذكي يجاوبك عن خدمات التطبيق</Text>
-        </View>
-        <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>ابدأ المحادثة ←</Text>
-      </TouchableOpacity>
+      <View style={{ borderRadius: 18, borderWidth: 1, borderColor: palette.brand + "33", backgroundColor: palette.brand + "0D", padding: 12 }}>
+        <TouchableOpacity onPress={() => router.push("/ask-mamnoon")} activeOpacity={0.86} style={{ padding: 3, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1 }}><Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>🤖 اسأل ممنون</Text><Text style={{ color: palette.muted, fontSize: 11, marginTop: 4, textAlign: "right" }}>مساعد ذكي يجاوبك عن خدمات التطبيق</Text></View>
+          <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>ابدأ المحادثة ←</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/coupons")} activeOpacity={0.86} style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>عرض قسائمي ←</Text><Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>🎁 القسائم والكوبونات</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ flex: 1, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
