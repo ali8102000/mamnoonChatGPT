@@ -298,7 +298,7 @@ export default function AdminHomeBannersScreen() {
           <Text style={styles.sectionTitle}>إضافة بانر جديد</Text>
           <Text style={styles.label}>نوع البانر</Text>
           <View style={styles.categoryRow}>
-            {([{key:"category",label:"مطاعم وفنادق"},{key:"poll",label:"استطلاع"},{key:"contest",label:"مسابقة"},{key:"ad",label:"الإعلان العلوي"},{key:"top_square",label:"البانر المربع"}] as {key:BannerKind;label:string}[]).map((item) => (
+            {([{key:"category",label:"مطاعم وفنادق"},{key:"poll",label:"استطلاع"},{key:"contest",label:"مسابقة"},{key:"ad",label:"الإعلان العلوي"},] as {key:BannerKind;label:string}[]).map((item) => (
               <TouchableOpacity key={item.key} onPress={() => {setBannerType(item.key);setCampaignId("");}} style={[styles.categoryButton,bannerType===item.key&&styles.categorySelected]}>
                 <Text style={[styles.categoryText,bannerType===item.key&&styles.categoryTextSelected]}>{item.label}</Text>
               </TouchableOpacity>
