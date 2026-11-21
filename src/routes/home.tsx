@@ -521,7 +521,7 @@ function QuickTile({
           className={`grid place-items-center text-white shadow-lg overflow-hidden ${type === "service" ? "rounded-xl" : "rounded-[14px]"} bg-gradient-to-br ${gradient}`}
           style={{ width: iconWidth, height: iconHeight, transform: `scale(${iconScale})` }}
         >
-          {icon}
+          <div style={{ transform: `translate(${Math.max(-100, Math.min(100, Number(styleConfig.content_position_x_px) || 0))}px, ${Math.max(-100, Math.min(100, Number(styleConfig.content_position_y_px) || 0))}px) scale(${Math.max(0.5, Math.min(2.5, Number(styleConfig.content_scale) || 1))})`, display: "grid", placeItems: "center", width: "100%", height: "100%" }}>{icon}</div>
         </div>
         <div style={{ width: styleConfig.content_direction === "row" ? "auto" : "100%", textAlign: alignment }}>
           <div className="flex items-center gap-1" style={{ justifyContent: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end" }}>
