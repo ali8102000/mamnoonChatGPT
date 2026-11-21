@@ -60,6 +60,8 @@ export default function AdminVisualBuilder() {
   const [campaignPopupSeconds, setCampaignPopupSeconds] = useState(5);
   const [resultRows, setResultRows] = useState<Record<string, any[]>>({});
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragState = useRef<{ key: string; pointerX: number; pointerY: number; originX: number; originY: number; moved: boolean } | null>(null);
+  const suppressPreviewClick = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,6 +108,38 @@ export default function AdminVisualBuilder() {
     if (holdTimer.current) clearTimeout(holdTimer.current);
     holdTimer.current = null;
   };
+  const beginPreviewDrag = (event: React.PointerEvent<HTMLButtonElement>, element: UiElement) => {
+    openEditor(element);
+    const config = element.published_config ?? {};
+    dragState.current = {
+      key: element.element_key,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      originX: Number(config.position_x_px) || 0,
+      originY: Number(config.position_y_px) || 0,
+      moved: false,
+    };
+    suppressPreviewClick.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const movePreviewDrag = (event: React.PointerEvent<HTMLButtonElement>, element: UiElement) => {
+    const drag = dragState.current;
+    if (!drag || drag.key !== element.element_key) return;
+    const dx = event.clientX - drag.pointerX;
+    const dy = event.clientY - drag.pointerY;
+    if (Math.abs(dx) + Math.abs(dy) > 2) drag.moved = true;
+    if (!drag.moved) return;
+    setDraft((current) => ({
+      ...current,
+      position_x_px: Math.round(Math.max(-140, Math.min(140, drag.originX + dx))),
+      position_y_px: Math.round(Math.max(-180, Math.min(180, drag.originY + dy))),
+    }));
+  };
+  const endPreviewDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (dragState.current?.moved) suppressPreviewClick.current = true;
+    dragState.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
   const openEditor = (element: UiElement) => {
     setSelected(element);
     setDraft({ ...(element.config ?? {}), title: element.config?.title ?? element.title ?? "", subtitle: element.config?.subtitle ?? element.subtitle ?? "",
@@ -127,6 +161,8 @@ export default function AdminVisualBuilder() {
       icon_scale: element.config?.icon_scale ?? element.published_config?.icon_scale ?? 1,
       is_hidden: element.config?.is_hidden ?? element.published_config?.is_hidden ?? false,
       sort_order: element.config?.sort_order ?? element.sort_order ?? 0,
+      position_x_px: element.config?.position_x_px ?? element.published_config?.position_x_px ?? 0,
+      position_y_px: element.config?.position_y_px ?? element.published_config?.position_y_px ?? 0,
     });
     setMessage("");
   };
@@ -302,6 +338,7 @@ export default function AdminVisualBuilder() {
             </div>
             <div className="mx-auto max-w-md rounded-[30px] border-[7px] border-slate-800 bg-background p-4 shadow-xl">
               <div className="mb-4 rounded-2xl bg-primary/10 p-4 text-center"><b>ممنون</b><p className="mt-1 text-xs text-muted-foreground">اطلب الآن، ادفع للمزوّد مباشرة</p></div>
+              <p className="mb-2 text-[11px] text-muted-foreground">اسحب البطاقة داخل المعاينة لتغيير مكانها، أو اضبط الإزاحة بالأرقام. المعاينة تتحدث فورياً قبل الحفظ والنشر.</p>
               <div className="grid grid-cols-2 gap-3">
                 {elements.filter((item) => item.placement_key === "home.customer.actions").map((item) => {
                   const visual = item.element_key === selected?.element_key ? draft : item.published_config ?? {};
@@ -309,8 +346,12 @@ export default function AdminVisualBuilder() {
                   const width = Number(visual.width_px ?? item.width_px ?? 48);
                   const height = Number(visual.height_px ?? item.height_px ?? 48);
                   return <button key={item.element_key} onContextMenu={(event) => { event.preventDefault(); openEditor(item); }}
-                    onPointerDown={() => startHold(item)} onPointerUp={clearHold} onPointerLeave={clearHold}
-                    onClick={() => openEditor(item)}
+                    onPointerDown={(event) => { clearHold(); beginPreviewDrag(event, item); }}
+                    onPointerMove={(event) => movePreviewDrag(event, item)}
+                    onPointerUp={endPreviewDrag}
+                    onPointerCancel={endPreviewDrag}
+                    onClick={() => { if (suppressPreviewClick.current) { suppressPreviewClick.current = false; return; } openEditor(item); }}
+                    style={{ touchAction: "none", cursor: "grab", translate: `${Number(visual.position_x_px) || 0}px ${Number(visual.position_y_px) || 0}px` }}
                     className={`relative min-h-32 rounded-2xl border-2 p-3 text-right transition ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
                     <div className={`mb-2 grid h-16 place-items-center overflow-hidden bg-muted ${item.element_key === "home_customer_service" ? "rounded-none p-0" : "rounded-xl"}`}>
                       {image ? <img src={image} alt="" style={item.element_key === "home_customer_service"
@@ -371,6 +412,10 @@ export default function AdminVisualBuilder() {
               <label className="mb-1 block text-xs font-bold">تكبير / تصغير الصورة داخل الحاوية</label>
               <input type="range" min="0.65" max="1.8" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.image_scale) || 1} onChange={(e) => setDraft({ ...draft, image_scale: Number(e.target.value) })} />
               <div className="mb-3 flex justify-between text-[11px] text-muted-foreground"><span>تصغير</span><b>{Math.round((Number(draft.image_scale) || 1) * 100)}%</b><span>تكبير</span></div>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold">إزاحة المكان أفقياً px<input type="number" min="-140" max="140" className={inputClass + " mt-1"} value={draft.position_x_px ?? 0} onChange={(e) => setDraft({ ...draft, position_x_px: Math.max(-140, Math.min(140, Number(e.target.value) || 0)) })} /></label>
+                <label className="text-xs font-bold">إزاحة المكان عمودياً px<input type="number" min="-180" max="180" className={inputClass + " mt-1"} value={draft.position_y_px ?? 0} onChange={(e) => setDraft({ ...draft, position_y_px: Math.max(-180, Math.min(180, Number(e.target.value) || 0)) })} /></label>
+              </div>
               <label className="mb-1 block text-xs font-bold">ترتيب الظهور</label><input type="number" className={inputClass + " mb-3"} value={draft.sort_order ?? 0} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })} />
               <div className="mb-3 grid grid-cols-2 gap-2">
                 <label className="text-xs font-bold">ارتفاع البطاقة px<input type="number" min="96" max="360" className={inputClass+" mt-1"} value={draft.card_height_px ?? 145} onChange={e=>setDraft({...draft,card_height_px:Number(e.target.value)})}/></label>
