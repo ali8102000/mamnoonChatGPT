@@ -1262,7 +1262,7 @@ function NewRequest() {
                 transform: `scale(${Math.max(.6, Math.min(1.6, Number(uiVisuals.request_primary_cta?.element_scale) || 1))})`,
               }}
             >
-              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>{uiVisuals.request_primary_cta?.title || "اطلب الآن"}</span>}
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>{"اطلب الآن"}</span>}
             </button>
           </div>
         )}
