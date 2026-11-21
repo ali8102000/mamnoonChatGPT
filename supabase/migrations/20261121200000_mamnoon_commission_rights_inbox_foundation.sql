@@ -1382,3 +1382,28 @@ SET last_message_at = lm.created_at,
     END
 FROM latest_messages lm
 WHERE lm.conversation_id = c.id;
+
+CREATE OR REPLACE FUNCTION public.admin_revoke_user_fee_override(p_override_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_user_id uuid;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_super_admin(auth.uid()) THEN RAISE EXCEPTION 'super_admin_required'; END IF;
+  UPDATE public.mamnoon_user_fee_overrides
+  SET revoked_at=now(), revoked_by=auth.uid()
+  WHERE id=p_override_id AND revoked_at IS NULL
+  RETURNING user_id INTO v_user_id;
+  IF NOT FOUND THEN RETURN false; END IF;
+  PERFORM public.log_admin_action(
+    'revoke_user_fee_override','user',v_user_id::text,
+    jsonb_build_object('override_id',p_override_id)
+  );
+  RETURN true;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.admin_revoke_user_fee_override(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_revoke_user_fee_override(uuid) TO authenticated;
