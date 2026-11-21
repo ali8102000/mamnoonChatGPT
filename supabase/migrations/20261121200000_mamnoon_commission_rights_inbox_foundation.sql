@@ -1106,7 +1106,7 @@ AS $function$
 DECLARE
   v_id uuid;
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.has_admin_access(auth.uid()) THEN RAISE EXCEPTION 'super_admin_required'; END IF;
+  IF auth.uid() IS NULL OR NOT public.is_super_admin(auth.uid()) THEN RAISE EXCEPTION 'super_admin_required'; END IF;
   IF p_user_id IS NULL OR p_charge_percent IS NULL OR p_charge_percent < 0 OR p_charge_percent > 100 THEN
     RAISE EXCEPTION 'invalid_user_fee_override';
   END IF;
@@ -1167,7 +1167,7 @@ BEGIN
 
   IF p_is_enabled THEN
     UPDATE public.mamnoon_commission_policies
-    SET is_enabled=false, ends_at=COALESCE(ends_at,now()), updated_at=now(), updated_by=auth.uid()
+    SET is_enabled=false, ends_at=now(), updated_at=now(), updated_by=auth.uid()
     WHERE scope_type=p_scope_type AND COALESCE(scope_key,'')=COALESCE(p_scope_key,'') AND is_enabled=true;
   END IF;
 
