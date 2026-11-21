@@ -24,7 +24,6 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import { useThemePreference } from "@/lib/theme-preference";
 import Svg, { Circle, Path } from "react-native-svg";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
-import { HomeTopSquareBanner } from "@/components/home-top-square-banner";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 
@@ -344,24 +343,6 @@ export default function HomeScreen() {
           <NotificationsBell />
         </View>
       </View>
-      {selectedRole === "customer" && (
-        <TouchableOpacity
-          onPress={() => router.push("/coupons")}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="كوبوناتي والقسائم"
-          style={{ marginHorizontal: 18, marginBottom: 12, borderRadius: 17, padding: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold + "55" }}
-        >
-          <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900" }}>عرض الكل ←</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <View>
-              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>كوبوناتي والقسائم</Text>
-              <Text style={{ color: palette.muted, fontSize: 10, marginTop: 2, textAlign: "right" }}>العروض والخصومات المرسلة إلى حسابك</Text>
-            </View>
-            <Text style={{ fontSize: 23 }}>🎁</Text>
-          </View>
-        </TouchableOpacity>
-      )}
 
       <ActiveCustomerRequestBanner />
       <ScrollView
@@ -662,7 +643,6 @@ function CustomerHome({ userId }: { userId: string | null }) {
             </View>
           </TouchableOpacity>
         ))}
-        <HomeTopSquareBanner width={HOME_GRID_NARROW_WIDTH} height={188} />
         <View style={{ width: HOME_GRID_WIDE_WIDTH, height: 188, direction: "rtl" }}>
           <HomeCategoryCarousel height={188} />
         </View>
@@ -670,13 +650,15 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
       <HomeCustomContent userId={userId} placementKey="home.customer.content" />
 
-      <TouchableOpacity onPress={() => router.push("/ask-mamnoon")} activeOpacity={0.86} style={{ borderRadius: 18, borderWidth: 1, borderColor: palette.brand + "33", backgroundColor: palette.brand + "0D", padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>🤖 اسأل ممنون</Text>
-          <Text style={{ color: palette.muted, fontSize: 11, marginTop: 4, textAlign: "right" }}>مساعد ذكي يجاوبك عن خدمات التطبيق</Text>
-        </View>
-        <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>ابدأ المحادثة ←</Text>
-      </TouchableOpacity>
+      <View style={{ borderRadius: 18, borderWidth: 1, borderColor: palette.brand + "33", backgroundColor: palette.brand + "0D", padding: 12 }}>
+        <TouchableOpacity onPress={() => router.push("/ask-mamnoon")} activeOpacity={0.86} style={{ padding: 3, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1 }}><Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>🤖 اسأل ممنون</Text><Text style={{ color: palette.muted, fontSize: 11, marginTop: 4, textAlign: "right" }}>مساعد ذكي يجاوبك عن خدمات التطبيق</Text></View>
+          <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>ابدأ المحادثة ←</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/coupons")} activeOpacity={0.86} style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>عرض قسائمي ←</Text><Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" }}>🎁 القسائم والكوبونات</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ flex: 1, borderRadius: 16, padding: 12, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, justifyContent: "center", alignItems: "center" }}>
