@@ -2060,6 +2060,40 @@ DROP FUNCTION IF EXISTS public.resume_own_subscription();
 DROP FUNCTION IF EXISTS public.guard_trial_subscription_upgrade();
 DROP FUNCTION IF EXISTS public.sync_support_priority_after_subscription_change();
 
+-- Announcement broadcasting no longer relies on the retired subscription permission.
+CREATE OR REPLACE FUNCTION public.admin_broadcast_announcement(p_target text, p_title text, p_body text)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE v_count integer;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_admin_access(auth.uid()) THEN
+    RAISE EXCEPTION 'permission_required:admin_access';
+  END IF;
+
+  IF p_target IS NULL OR p_target NOT IN ('all','worker','large_driver','driver') THEN
+    RAISE EXCEPTION 'invalid_announcement_target';
+  END IF;
+  IF length(trim(coalesce(p_title,'')))<2 OR length(trim(coalesce(p_title,'')))>100
+     OR length(trim(coalesce(p_body,'')))<2 OR length(trim(coalesce(p_body,'')))>1500 THEN
+    RAISE EXCEPTION 'invalid_announcement_content';
+  END IF;
+
+  INSERT INTO public.notifications(user_id,type,title,body,link,data)
+  SELECT p.id,'company_announcement',trim(p_title),trim(p_body),'/profile',
+    jsonb_build_object('target',p_target,'expires_at',now()+interval '24 hours',
+      'official',true,'sent_by',auth.uid())
+  FROM public.profiles p
+  WHERE p_target='all' OR EXISTS(
+    SELECT 1 FROM public.user_roles r WHERE r.user_id=p.id AND r.role::text=p_target
+  );
+  GET DIAGNOSTICS v_count=ROW_COUNT;
+  RETURN v_count;
+END;
+$function$;
+
 -- Remove the obsolete staff permission and every grant/delegation tied to it.
 DELETE FROM public.admin_staff_permission_grants WHERE permission_key = 'subscriptions.manage';
 DELETE FROM public.admin_staff_delegations WHERE permission_key = 'subscriptions.manage';
@@ -2103,6 +2137,7 @@ BEGIN
       OR pg_get_functiondef(p.oid) ILIKE '%subscription_plans%'
       OR pg_get_functiondef(p.oid) ILIKE '%subscription_settings%'
       OR pg_get_functiondef(p.oid) ILIKE '%subscription_payments%'
+      OR pg_get_functiondef(p.oid) ILIKE '%subscriptions.manage%'
     )
   LIMIT 1;
 
