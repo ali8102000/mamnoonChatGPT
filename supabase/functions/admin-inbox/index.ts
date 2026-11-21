@@ -58,9 +58,6 @@ Deno.serve(async (req: Request) => {
         .order("updated_at", { ascending: false })
         .limit(limit);
       if (filter === "needs_reply") query = query.eq("needs_admin_reply", true);
-      if (filter === "unread") query = query.eq("ticket_status", "new");
-      if (filter === "bot") query = query.eq("handoff_status", "bot");
-      if (filter === "human") query = query.in("handoff_status", ["waiting_for_admin", "assigned"]);
       if (filter === "resolved") query = query.eq("handoff_status", "resolved");
       const { data: conversations, error } = await query;
       if (error) return json({ error: "inbox_load_failed" }, 500);
@@ -100,11 +97,23 @@ Deno.serve(async (req: Request) => {
         latest_message: latestByConversation.get(c.id) ?? null,
       }));
       const categoryFilters = ["customer", "technician", "driver", "restaurant", "hotel", "store"];
-      return json({
-        conversations: categoryFilters.includes(filter)
-          ? mappedConversations.filter((c: any) => c.account_category === filter)
-          : mappedConversations,
-      });
+      let filteredConversations = mappedConversations;
+      if (categoryFilters.includes(filter)) {
+        filteredConversations = filteredConversations.filter((c: any) => c.account_category === filter);
+      } else if (filter === "unread") {
+        filteredConversations = filteredConversations.filter((c: any) =>
+          c.latest_message && !c.latest_message.read_at && c.latest_message.sender_id === c.user_id
+        );
+      } else if (filter === "bot") {
+        filteredConversations = filteredConversations.filter((c: any) =>
+          c.last_message_source === "bot" || c.latest_message?.is_ai === true
+        );
+      } else if (filter === "human") {
+        filteredConversations = filteredConversations.filter((c: any) =>
+          ["waiting_for_admin","assigned"].includes(c.handoff_status) || c.last_message_source === "admin"
+        );
+      }
+      return json({ conversations: filteredConversations });
     }
 
     if (body.action === "messages") {
