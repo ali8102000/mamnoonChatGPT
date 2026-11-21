@@ -1840,7 +1840,8 @@ DECLARE
   v_def text;
 BEGIN
   v_def := pg_get_functiondef('public.find_nearby_drivers(numeric,numeric,text,numeric,integer)'::regprocedure);
-  v_def := replace(v_def, 'coalesce(sp.priority_weight, 0) as subscription_priority', '0::integer as subscription_priority');
+  v_def := replace(v_def, 'coalesce(sp.priority_weight, 0) as subscription_priority', '0::integer as provider_priority');
+  v_def := replace(v_def, 'order by x.subscription_priority desc', 'order by x.provider_priority desc');
   v_def := replace(v_def, $old$
     left join public.user_subscriptions us on us.user_id = dp.user_id
       and us.status = 'active'
@@ -1874,7 +1875,7 @@ $old$);
         END
       ) AS effective_radius_km
 $old$, $new$
-      0::integer AS subscription_priority,
+      0::integer AS provider_priority,
       LEAST(COALESCE(wp.service_radius_km, 25), 55) AS effective_radius_km
 $new$);
   v_def := replace(v_def, $old$
@@ -1883,6 +1884,7 @@ $new$);
       AND (us.current_period_end IS NULL OR us.current_period_end > now())
     LEFT JOIN public.subscription_plans sp ON sp.id = us.plan_id
 $old$, '');
+  v_def := replace(v_def, 'order by c.subscription_priority desc', 'order by c.provider_priority desc');
   IF position('user_subscriptions' in v_def)>0 OR position('subscription_plans' in v_def)>0 THEN
     RAISE EXCEPTION 'advance_service_dispatch_subscription_retirement_patch_failed';
   END IF;
