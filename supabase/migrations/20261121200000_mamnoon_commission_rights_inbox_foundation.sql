@@ -16,7 +16,7 @@ ALTER TABLE public.account_wallet_transactions
 
 CREATE TABLE IF NOT EXISTS public.mamnoon_commission_policies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  scope_type text NOT NULL CHECK (scope_type IN ('global','governorate','role')),
+  scope_type text NOT NULL CHECK (scope_type IN ('global','governorate','role','governorate_role')),
   scope_key text,
   commission_rate_percent numeric(7,4) NOT NULL DEFAULT 0
     CHECK (commission_rate_percent >= 0 AND commission_rate_percent <= 100),
@@ -465,3 +465,180 @@ REVOKE ALL ON FUNCTION public.apply_account_wallet_transaction(uuid,text,bigint,
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.apply_account_wallet_transaction(uuid,text,bigint,text,text,text,text,jsonb)
   TO service_role;
+
+CREATE TABLE IF NOT EXISTS public.mamnoon_user_trial_entitlements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  account_role text NOT NULL,
+  policy_id uuid REFERENCES public.mamnoon_commission_policies(id) ON DELETE SET NULL,
+  starts_at timestamptz NOT NULL,
+  ends_at timestamptz NOT NULL,
+  granted_at timestamptz NOT NULL DEFAULT now(),
+  source text NOT NULL DEFAULT 'signup' CHECK (source IN ('signup','admin')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT mamnoon_user_trial_role_unique UNIQUE (user_id, account_role),
+  CONSTRAINT mamnoon_user_trial_dates_check CHECK (ends_at > starts_at)
+);
+CREATE INDEX IF NOT EXISTS mamnoon_user_trial_active_idx
+  ON public.mamnoon_user_trial_entitlements(user_id, account_role, ends_at);
+ALTER TABLE public.mamnoon_user_trial_entitlements ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.mamnoon_user_trial_entitlements FROM anon, authenticated;
+
+-- Paid subscriptions are no longer a product entitlement. Keep legacy subscription
+-- records intact, but do not let their settings block provider activity.
+CREATE OR REPLACE FUNCTION public.mamnoon_provider_subscription_active(p_user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  IF p_user_id IS NULL THEN RETURN false; END IF;
+  IF auth.uid() IS NOT NULL
+     AND auth.uid() IS DISTINCT FROM p_user_id
+     AND NOT public.has_admin_access(auth.uid()) THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+  RETURN true;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.mamnoon_provider_subscription_active(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.mamnoon_provider_subscription_active(uuid) TO authenticated, service_role;
+
+-- Called only inside the trusted request-acceptance transaction. The user's
+-- fee override is evaluated before governorate/category/global policies.
+CREATE OR REPLACE FUNCTION public.charge_mamnoon_commission_on_accept(
+  p_user_id uuid,
+  p_request_id uuid,
+  p_base_amount_iqd bigint DEFAULT NULL
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_request public.service_requests%ROWTYPE;
+  v_role text;
+  v_governorate text;
+  v_event text;
+  v_revenue_type text;
+  v_base bigint;
+  v_rate numeric(7,4) := 0;
+  v_charge_percent numeric(7,4) := 100;
+  v_override numeric(7,4);
+  v_commission bigint := 0;
+  v_balance bigint := 0;
+  v_next_balance bigint := 0;
+  v_policy public.mamnoon_commission_policies%ROWTYPE;
+  v_existing public.account_wallet_transactions%ROWTYPE;
+  v_key text;
+BEGIN
+  IF p_user_id IS NULL OR p_request_id IS NULL THEN RAISE EXCEPTION 'invalid_commission_target'; END IF;
+  SELECT * INTO v_request FROM public.service_requests WHERE id = p_request_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_unavailable'; END IF;
+  IF v_request.provider_id IS NOT NULL AND v_request.provider_id <> p_user_id THEN
+    RAISE EXCEPTION 'commission_provider_mismatch';
+  END IF;
+
+  SELECT role::text INTO v_role
+  FROM public.user_roles
+  WHERE user_id = p_user_id AND role::text IN ('driver','large_driver','worker')
+  ORDER BY CASE role::text WHEN 'driver' THEN 1 WHEN 'large_driver' THEN 2 ELSE 3 END
+  LIMIT 1;
+  IF v_role IS NULL THEN RAISE EXCEPTION 'commission_provider_role_required'; END IF;
+
+  SELECT governorate_key INTO v_governorate FROM public.profiles WHERE id = p_user_id;
+  v_event := CASE WHEN v_request.type::text = 'taxi' THEN 'taxi_acceptance' ELSE 'service_acceptance' END;
+  v_revenue_type := CASE WHEN v_request.type::text = 'taxi' THEN 'taxi_commission' ELSE 'service_commission' END;
+  v_base := COALESCE(p_base_amount_iqd, v_request.customer_payable::bigint,
+                     v_request.customer_price::bigint, v_request.price_estimate::bigint, 0);
+  IF v_base <= 0 THEN RETURN 0; END IF;
+
+  SELECT * INTO v_policy
+  FROM public.mamnoon_commission_policies p
+  WHERE p.is_enabled = true
+    AND p.collection_event = v_event
+    AND (p.starts_at IS NULL OR p.starts_at <= now())
+    AND (p.ends_at IS NULL OR p.ends_at > now())
+    AND (
+      (p.scope_type = 'governorate_role' AND p.scope_key = COALESCE(v_governorate,'') || ':' || v_role)
+      OR (p.scope_type = 'governorate' AND p.scope_key = v_governorate)
+      OR (p.scope_type = 'role' AND p.scope_key = v_role)
+      OR (p.scope_type = 'global' AND p.scope_key IS NULL)
+    )
+  ORDER BY CASE p.scope_type
+    WHEN 'governorate_role' THEN 1
+    WHEN 'governorate' THEN 2
+    WHEN 'role' THEN 3
+    ELSE 4
+  END
+  LIMIT 1;
+
+  IF NOT FOUND THEN RETURN 0; END IF;
+  v_rate := v_policy.commission_rate_percent;
+  v_charge_percent := v_policy.commission_charge_percent;
+
+  SELECT commission_charge_percent INTO v_override
+  FROM public.mamnoon_user_fee_overrides
+  WHERE user_id = p_user_id
+    AND revoked_at IS NULL
+    AND starts_at <= now()
+    AND (ends_at IS NULL OR ends_at > now())
+  ORDER BY starts_at DESC, created_at DESC
+  LIMIT 1;
+  IF FOUND THEN v_charge_percent := v_override; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.mamnoon_user_trial_entitlements t
+    WHERE t.user_id = p_user_id AND t.account_role = v_role
+      AND t.starts_at <= now() AND t.ends_at > now()
+  ) THEN
+    v_charge_percent := 0;
+  END IF;
+
+  v_commission := round(v_base::numeric * v_rate / 100 * v_charge_percent / 100)::bigint;
+  IF v_commission <= 0 THEN RETURN 0; END IF;
+
+  v_key := 'mamnoon-commission:' || p_request_id::text || ':' || p_user_id::text;
+  SELECT * INTO v_existing FROM public.account_wallet_transactions
+  WHERE idempotency_key = v_key;
+  IF FOUND THEN RETURN abs(v_existing.amount_iqd); END IF;
+
+  INSERT INTO public.account_wallets(user_id) VALUES (p_user_id)
+  ON CONFLICT (user_id) DO NOTHING;
+  SELECT balance_iqd INTO v_balance
+  FROM public.account_wallets WHERE user_id = p_user_id FOR UPDATE;
+
+  v_next_balance := v_balance - v_commission;
+  IF v_next_balance < -5000 THEN RAISE EXCEPTION 'wallet_debt_limit_exceeded'; END IF;
+
+  INSERT INTO public.account_wallet_transactions(
+    user_id, transaction_type, amount_iqd, balance_after_iqd,
+    provider, provider_reference, idempotency_key, description, metadata
+  ) VALUES (
+    p_user_id, 'deduction', -v_commission, v_next_balance,
+    'mamnoon', p_request_id::text, v_key,
+    'عمولة ممنون عند قبول الطلب',
+    jsonb_build_object('request_id',p_request_id,'collection_event',v_event,'commission_rate_percent',v_rate,'commission_charge_percent',v_charge_percent)
+  );
+
+  UPDATE public.account_wallets SET balance_iqd = v_next_balance, updated_at = now()
+  WHERE user_id = p_user_id;
+
+  INSERT INTO public.mamnoon_revenue_ledger(
+    user_id, request_id, revenue_type, assessed_iqd, collected_iqd, status, idempotency_key, metadata
+  ) VALUES (
+    p_user_id, p_request_id, v_revenue_type, v_commission, 0, 'accrued', v_key,
+    jsonb_build_object('base_amount_iqd',v_base,'commission_rate_percent',v_rate,'commission_charge_percent',v_charge_percent,'wallet_balance_after_iqd',v_next_balance)
+  )
+  ON CONFLICT (idempotency_key) DO NOTHING;
+
+  RETURN v_commission;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.charge_mamnoon_commission_on_accept(uuid,uuid,bigint)
+  FROM PUBLIC, anon, authenticated;
