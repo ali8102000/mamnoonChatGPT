@@ -5,6 +5,7 @@ import { palette, radius, space } from "@/styles/theme";
 
 type Campaign = {
   id: string;
+  campaign_type: "poll" | "contest";
   title: string;
   description: string | null;
   image_url: string | null;
@@ -14,7 +15,7 @@ type Campaign = {
   app_campaign_options: { id: string; label: string; sort_order: number }[];
 };
 
-export function HomeCampaignPopups({ userId, placementKey = "home.customer.content" }: { userId: string | null; placementKey?: string }) {
+export function HomeCampaignPopups({ userId, placementKey = "home.customer.content", campaignId, onClose }: { userId: string | null; placementKey?: string; campaignId?: string | null; onClose?: () => void }) {
   const [items, setItems] = useState<Campaign[]>([]);
   const [answered, setAnswered] = useState<Record<string, string>>({});
   const [activeIndex, setActiveIndex] = useState(0);
@@ -26,9 +27,9 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
   const load = useCallback(async () => {
     const { data, error: queryError } = await (supabase as any)
       .from("app_campaigns")
-      .select("id,title,description,image_url,popup_display_seconds,starts_at,ends_at,app_campaign_options(id,label,sort_order)")
+      .select("id,campaign_type,title,description,image_url,popup_display_seconds,starts_at,ends_at,app_campaign_options(id,label,sort_order)")
       .eq("status", "published")
-      .eq("placement_key", placementKey)
+      .eq(campaignId ? "id" : "placement_key", campaignId || placementKey)
       .order("sort_order")
       .order("created_at", { ascending: false });
     if (queryError) { setError(queryError.message); setLoading(false); return; }
@@ -46,7 +47,7 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
       setAnswered(ownMap);
     }
     setLoading(false);
-  }, [placementKey, userId]);
+  }, [placementKey, userId, campaignId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -61,8 +62,8 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
   }, [current?.id, current?.image_url, current?.popup_display_seconds]);
 
   const close = () => {
-    if (!current) return;
-    setAnswered((old) => ({ ...old, [current.id]: "dismissed" }));
+    if (current) setAnswered((old) => ({ ...old, [current.id]: "dismissed" }));
+    onClose?.();
   };
 
   const vote = async (optionId: string) => {
@@ -76,6 +77,7 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
       else setError("تعذر تسجيل إجابتك. حاول مرة ثانية.");
     } else setAnswered((old) => ({ ...old, [current.id]: optionId }));
     setSaving(false);
+    if (!voteError) onClose?.();
   };
 
   if (loading || !current) return null;
@@ -86,7 +88,7 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
         <View style={{ backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.lg, maxHeight: "88%" }}>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <Text style={{ color: palette.brand, fontWeight: "900", fontSize: 12 }}>استبيان ممنون</Text>
+              <Text style={{ color: palette.brand, fontWeight: "900", fontSize: 12 }}>{current.campaign_type === "contest" ? "مسابقة ممنون" : "استطلاع ممنون"}</Text>
               <Pressable onPress={close} accessibilityRole="button"><Text style={{ color: palette.muted, fontWeight: "900", padding: 8 }}>إغلاق ✕</Text></Pressable>
             </View>
             {current.image_url && imageVisible ? <Image source={{ uri: current.image_url }} resizeMode="contain" style={{ width: "100%", height: 190, borderRadius: radius.md, marginBottom: 14, backgroundColor: palette.pageCanvas }} /> : null}
@@ -97,6 +99,7 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
                 <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "800", textAlign: "right" }}>{option.label}</Text>
               </Pressable>)}
             </View>
+            {!userId ? <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 10 }}>سجّل الدخول حتى تشارك.</Text> : null}
             {saving ? <ActivityIndicator color={palette.brand} style={{ marginTop: 12 }} /> : null}
             {error ? <Text style={{ color: palette.danger, fontSize: 12, textAlign: "right", marginTop: 10 }}>{error}</Text> : null}
           </ScrollView>
