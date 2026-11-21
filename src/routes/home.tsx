@@ -192,7 +192,7 @@ function CustomerHome() {
     let active = true;
     const load = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,banner_type,target_campaign_id,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
+        .select("id,image_url,banner_type,target_campaign_id,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,display_config,is_active")
         .eq("is_active", true).in("banner_type", ["ad", "poll", "contest"]).order("display_order").order("created_at");
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
@@ -224,21 +224,21 @@ function CustomerHome() {
         @keyframes mamnoonBannerDropIn { from { opacity: 0; transform: translateY(-18px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
         @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; transform: scale(1.2); } }
       `}</style>
-      <div role={topBanner?.target_campaign_id ? "button" : undefined} tabIndex={topBanner?.target_campaign_id ? 0 : undefined} aria-label={topBanner?.target_campaign_id ? "فتح الاستطلاع أو المسابقة" : "ممنون مجاناً بلا عمولة"} onClick={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }} onKeyDown={(event) => { if (topBanner?.target_campaign_id && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setActiveBannerCampaignId(topBanner.target_campaign_id); } }} className="relative min-h-[142px] rounded-[20px] px-4 pt-3 pb-3 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
-        {topBanner?.image_url && <div key={topBanner.id} className="absolute inset-0 overflow-hidden" style={{ animation: topBanner.motion_style === "fade" ? "mamnoonBannerFadeIn .55s ease-out both" : topBanner.motion_style === "drop" ? "mamnoonBannerDropIn .55s ease-out both" : undefined }}><img src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute -inset-[10%] h-[120%] w-[120%] object-cover" style={{ opacity: 0.4, animation: `mamnoonBannerPan${topBanner.motion_direction === "right" ? "Right" : topBanner.motion_direction === "up" ? "Up" : topBanner.motion_direction === "down" ? "Down" : "Left"} ${Math.max(2, Math.min(120, (Number(topBanner.scroll_speed) || 5) * 2))}s ease-in-out infinite alternate` }} /></div>}
+      <div role={topBanner?.target_campaign_id ? "button" : undefined} tabIndex={topBanner?.target_campaign_id ? 0 : undefined} aria-label={topBanner?.target_campaign_id ? "فتح الاستطلاع أو المسابقة" : "ممنون مجاناً بلا عمولة"} onClick={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }} onKeyDown={(event) => { if (topBanner?.target_campaign_id && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setActiveBannerCampaignId(topBanner.target_campaign_id); } }} className="relative min-h-[142px] rounded-[20px] px-4 pt-3 pb-3 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground" style={{ minHeight: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)), height: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)), borderRadius: Math.max(8,Math.min(40,Number(topBanner?.display_config?.border_radius_px)||20)), padding: Math.max(8,Math.min(32,Number(topBanner?.display_config?.padding_px)||12)), background: topBanner?.display_config?.background_color || undefined }}>
+        {topBanner?.image_url && <div key={topBanner.id} className="absolute inset-0 overflow-hidden" style={{ animation: topBanner.motion_style === "fade" ? "mamnoonBannerFadeIn .55s ease-out both" : topBanner.motion_style === "drop" ? "mamnoonBannerDropIn .55s ease-out both" : undefined }}><img src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute -inset-[10%] h-[120%] w-[120%] object-cover" style={{ opacity: Math.max(0.05,Math.min(1,Number(topBanner.display_config?.image_opacity)||0.4)), animation: `mamnoonBannerPan${topBanner.motion_direction === "right" ? "Right" : topBanner.motion_direction === "up" ? "Up" : topBanner.motion_direction === "down" ? "Down" : "Left"} ${Math.max(2, Math.min(120, (Number(topBanner.scroll_speed) || 5) * 2))}s ease-in-out infinite alternate` }} /></div>}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative">
           <div className="inline-flex items-center gap-1 rounded-full bg-white/15 backdrop-blur px-2 py-0.5 text-[9px] font-bold">
-            <Sparkles className="h-3 w-3" /> مجاناً بلا عمولة
+            <Sparkles className="h-3 w-3" /> {topBanner?.badge_text || "مجاناً بلا عمولة"}
           </div>
-          <div className="text-xl font-black mt-1 leading-tight">
+          <div className="font-black mt-1 leading-tight" style={{fontSize:Math.max(12,Math.min(30,Number(topBanner?.display_config?.title_size_px)||20)),color:topBanner?.display_config?.title_color||undefined,textAlign:topBanner?.display_config?.text_alignment||"right"}}>
             {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
           </div>
-          <div className="text-[11px] leading-4 opacity-90 mt-0.5">
+          <div className="text-[11px] leading-4 opacity-90 mt-0.5" style={{fontSize:Math.max(8,Math.min(20,Number(topBanner?.display_config?.subtitle_size_px)||11)),color:topBanner?.display_config?.description_color||undefined,textAlign:topBanner?.display_config?.text_alignment||"right"}}>
             {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
           </div>
-          <Link to="/request/new" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex rounded-full bg-white px-3 py-1 text-[10px] font-black text-primary shadow-sm">اطلب الآن</Link>
+          {topBanner?.display_config?.cta_visible !== false && <Link to="/request/new" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex rounded-full bg-white px-3 py-1 text-[10px] font-black text-primary shadow-sm" style={{backgroundColor:topBanner?.display_config?.cta_background_color||undefined,color:topBanner?.display_config?.cta_text_color||undefined}}>{topBanner?.display_config?.cta_text || "اطلب الآن"}</Link>}
         </div>
       </div>
       {activeBannerCampaignId && <HomeBannerCampaignDialog campaignId={activeBannerCampaignId} onClose={closeBannerCampaign} />}
