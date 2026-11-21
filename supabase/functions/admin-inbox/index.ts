@@ -57,6 +57,18 @@ Deno.serve(async (req: Request) => {
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
         .limit(limit);
+      const searchTerm = typeof body.search === "string" ? body.search.trim().slice(0, 100) : "";
+      if (searchTerm.length >= 2) {
+        const safeSearch = searchTerm.replace(/[,%()]/g, " ");
+        const { data: matches, error: searchError } = await admin.from("profiles")
+          .select("id")
+          .or(`full_name.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`)
+          .limit(200);
+        if (searchError) return json({ error: "inbox_search_failed" }, 500);
+        const matchedIds = (matches ?? []).map((p: any) => p.id);
+        if (!matchedIds.length) return json({ conversations: [] });
+        query = query.in("user_id", matchedIds);
+      }
       if (filter === "needs_reply") query = query.eq("needs_admin_reply", true);
       if (filter === "resolved") query = query.eq("handoff_status", "resolved");
       const { data: conversations, error } = await query;
