@@ -24,7 +24,7 @@ type PickedImage = { uri: string; mimeType?: string | null; fileName?: string | 
 type PhotoKind = "face" | "id-front" | "id-back";
 
 export default function WorkerOnboarding() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, setActiveRole } = useAuth();
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [services, setServices] = useState<WorkerService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
