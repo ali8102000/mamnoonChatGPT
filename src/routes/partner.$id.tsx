@@ -100,6 +100,7 @@ function PublicPartnerDetailsPage() {
     setCheckoutBusy(true);
     const { data: orderId, error: orderError } = await (supabase as any).rpc("place_partner_customer_order", {
       p_business_profile_id: id, p_delivery_address: deliveryAddress.trim(), p_customer_note: customerNote.trim() || null,
+      p_expected_total: Number(cartSubtotal.toFixed(2)), p_expected_currency: cartCurrency,
     });
     setCheckoutBusy(false);
     if (orderError || !orderId) { toast.error(orderError?.message || "تعذر إتمام الطلب. تحقق من توفر المنتجات."); await load(); return; }
