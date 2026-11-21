@@ -28,8 +28,11 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { 
   const slideCount = useRef(1);
   const swipeResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
-    onPanResponderRelease: (_, gesture) => { if (slideCount.current < 2 || Math.abs(gesture.dx) < 38) return; setIndex((value) => (value + (gesture.dx < 0 ? 1 : -1) + slideCount.current) % slideCount.current); },
+    onStartShouldSetPanResponderCapture: () => false,
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 18 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
+    onMoveShouldSetPanResponderCapture: (_, gesture) => Math.abs(gesture.dx) > 18 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderRelease: (_, gesture) => { if (slideCount.current < 2 || Math.abs(gesture.dx) < 30) return; setIndex((value) => (value + (gesture.dx < 0 ? 1 : -1) + slideCount.current) % slideCount.current); },
   })).current;
 
   useEffect(() => {
