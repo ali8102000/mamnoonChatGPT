@@ -796,13 +796,22 @@ AS $function$
 DECLARE
   v_count integer;
 BEGIN
-  UPDATE public.service_requests
-  SET status = 'cancelled',
-      cancellation_reason = 'انتهت مهلة قبول الطلب بعد 6 ساعات',
-      updated_at = now()
-  WHERE status::text IN ('pending','searching')
-    AND provider_id IS NULL
-    AND created_at <= now() - interval '6 hours';
+  WITH expired_requests AS (
+    UPDATE public.service_requests
+    SET status = 'cancelled',
+        cancellation_reason = 'انتهت مهلة قبول الطلب بعد 6 ساعات',
+        updated_at = now()
+    WHERE status::text IN ('pending','searching')
+      AND provider_id IS NULL
+      AND created_at <= now() - interval '6 hours'
+    RETURNING id, customer_id
+  )
+  INSERT INTO public.notifications(user_id,type,title,body,link,data)
+  SELECT customer_id,'request_expired','تم إلغاء طلبك تلقائياً',
+    'انتهت مهلة انتظار قبول الطلب بعد ست ساعات.',
+    '/request/' || id,
+    jsonb_build_object('request_id',id,'reason','six_hour_expiry')
+  FROM expired_requests;
   GET DIAGNOSTICS v_count = ROW_COUNT;
 
   UPDATE public.request_offers
