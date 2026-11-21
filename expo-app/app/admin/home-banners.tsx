@@ -59,6 +59,13 @@ export default function AdminHomeBannersScreen() {
   const [entries,setEntries]=useState<ContestEntry[]>([]);
   const [editingRules,setEditingRules]=useState<Record<string,string>>({});
   const [editingPrize,setEditingPrize]=useState<Record<string,string>>({});
+  const [newCampaignType,setNewCampaignType]=useState<"poll"|"contest">("contest");
+  const [newCampaignTitle,setNewCampaignTitle]=useState("");
+  const [newCampaignDescription,setNewCampaignDescription]=useState("");
+  const [newCampaignMode,setNewCampaignMode]=useState<"options"|"text"|"image"|"both">("both");
+  const [newCampaignOptions,setNewCampaignOptions]=useState("");
+  const [newCampaignRules,setNewCampaignRules]=useState("");
+  const [newCampaignPrize,setNewCampaignPrize]=useState("");
   const [campaignId, setCampaignId] = useState("");
   const [speed, setSpeed] = useState("5");
   const [order, setOrder] = useState("0");
@@ -224,6 +231,23 @@ export default function AdminHomeBannersScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const createCampaign = async () => {
+    const title=newCampaignTitle.trim();
+    const options=newCampaignOptions.split(String.fromCharCode(10)).map(value=>value.trim()).filter(Boolean);
+    const mode=newCampaignType==="poll"?"options":newCampaignMode;
+    if(!title){Alert.alert("العنوان مطلوب","اكتب عنوان الحملة أولاً.");return;}
+    if(mode==="options"&&options.length<2){Alert.alert("الخيارات مطلوبة","أضف خيارين على الأقل.");return;}
+    setBusy(true);
+    const {data,error}=await (supabase as any).from("app_campaigns").insert({campaign_type:newCampaignType,title,description:newCampaignDescription.trim()||null,status:"draft",participation_mode:mode,rules:newCampaignRules.trim()||null,prize_description:newCampaignType==="contest"?(newCampaignPrize.trim()||null):null,created_by:user?.id??null}).select("id").single();
+    if(error||!data){Alert.alert("تعذر الإنشاء",error?.message??"حاول مرة ثانية.");setBusy(false);return;}
+    if(options.length&&mode==="options"){
+      const {error:optionsError}=await (supabase as any).from("app_campaign_options").insert(options.map((label,index)=>({campaign_id:data.id,label,sort_order:index})));
+      if(optionsError){await (supabase as any).from("app_campaigns").delete().eq("id",data.id);Alert.alert("تعذر حفظ الخيارات",optionsError.message);setBusy(false);return;}
+    }
+    setNewCampaignTitle("");setNewCampaignDescription("");setNewCampaignOptions("");setNewCampaignRules("");setNewCampaignPrize("");
+    await load();setMessage("تم إنشاء الحملة كمسودة. راجعها ثم انشرها.");setBusy(false);
   };
 
   const updateCampaign = async (campaign:Campaign,patch:Record<string,unknown>) => {
@@ -450,6 +474,23 @@ export default function AdminHomeBannersScreen() {
             </View>
           </View>
         ))}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>إنشاء استطلاع أو مسابقة جديدة</Text>
+          <Text style={styles.label}>نوع الحملة</Text>
+          <View style={styles.categoryRow}>{([{value:"contest",label:"مسابقة"},{value:"poll",label:"استطلاع"}] as const).map(item=><TouchableOpacity key={item.value} onPress={()=>setNewCampaignType(item.value)} style={[styles.categoryButton,newCampaignType===item.value&&styles.categorySelected]}><Text style={[styles.categoryText,newCampaignType===item.value&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}</View>
+          {newCampaignType==="contest"?<>
+            <Text style={styles.label}>طريقة المشاركة</Text>
+            <View style={styles.categoryRow}>{([{value:"text",label:"نص"},{value:"image",label:"صورة"},{value:"both",label:"الاثنين"},{value:"options",label:"اختيارات"}] as const).map(item=><TouchableOpacity key={item.value} onPress={()=>setNewCampaignMode(item.value)} style={[styles.categoryButton,newCampaignMode===item.value&&styles.categorySelected]}><Text style={[styles.categoryText,newCampaignMode===item.value&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}</View>
+          </>:null}
+          <Text style={styles.label}>عنوان الحملة</Text><TextInput value={newCampaignTitle} onChangeText={setNewCampaignTitle} textAlign="right" style={styles.input} placeholder="عنوان المسابقة أو الاستطلاع"/>
+          <Text style={styles.label}>الوصف</Text><TextInput value={newCampaignDescription} onChangeText={setNewCampaignDescription} multiline textAlign="right" style={[styles.input,{minHeight:65,textAlignVertical:"top"}]}/>
+          {(newCampaignType==="poll"||newCampaignMode==="options")?<><Text style={styles.label}>الخيارات (كل خيار بسطر مستقل)</Text><TextInput value={newCampaignOptions} onChangeText={setNewCampaignOptions} multiline textAlign="right" style={[styles.input,{minHeight:80,textAlignVertical:"top"}]} placeholder="الخيار الأول والخيار الثاني كل واحد بسطر"/></>:null}
+          {newCampaignType==="contest"?<>
+            <Text style={styles.label}>الشروط والتعليمات</Text><TextInput value={newCampaignRules} onChangeText={setNewCampaignRules} multiline textAlign="right" style={[styles.input,{minHeight:70,textAlignVertical:"top"}]}/>
+            <Text style={styles.label}>الجائزة</Text><TextInput value={newCampaignPrize} onChangeText={setNewCampaignPrize} multiline textAlign="right" style={[styles.input,{minHeight:55,textAlignVertical:"top"}]}/>
+          </>:null}
+          <TouchableOpacity style={styles.primaryButton} onPress={()=>void createCampaign()} disabled={busy}><Text style={styles.primaryButtonText}>{busy?"جارٍ الإنشاء...":"إنشاء كمسودة"}</Text></TouchableOpacity>
+        </View>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>إدارة الاستطلاعات والمسابقات والنتائج ({campaigns.length})</Text>
           <TouchableOpacity onPress={() => void refresh()} disabled={refreshing || busy} style={{ alignSelf: "flex-start" }}><Text style={styles.link}>تحديث النتائج</Text></TouchableOpacity>
