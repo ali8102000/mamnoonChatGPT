@@ -40,6 +40,12 @@ verify_jwt = true
 [functions.admin-users]
 verify_jwt = true
 
+[functions.admin-inbox]
+verify_jwt = true
+
+[functions.admin-rights]
+verify_jwt = true
+
 [functions.auto-taxi-pricing]
 verify_jwt = true
 
