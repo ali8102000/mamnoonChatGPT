@@ -189,9 +189,9 @@ export default function AdminHomeBannersScreen() {
           badge_text: badge.trim() || null,
           banner_title: bannerTitle.trim() || null,
           banner_description: bannerDescription.trim() || null,
-          motion_axis: motionAxis,
-          motion_direction: motionDirection,
-          motion_style: motionStyle,
+          motion_axis: bannerType === "top_square" ? "horizontal" : motionAxis,
+          motion_direction: bannerType === "top_square" ? "left" : motionDirection,
+          motion_style: bannerType === "top_square" ? "slide" : motionStyle,
         });
       if (insertError) {
         await supabase.storage.from("app-visuals").remove([path]);
