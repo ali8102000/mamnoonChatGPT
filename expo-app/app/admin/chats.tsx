@@ -71,8 +71,11 @@ export default function AdminChatsScreen() {
     if (!user?.id) { setAllowed(false); setLoading(false); return; }
     void (async () => {
       try {
-        const { data, error: accessError } = await supabase.rpc("has_chat_moderation_access", { p_user_id: user.id });
-        setAllowed(!accessError && data === true);
+        const [{ data: moderation, error: accessError }, { data: superAdmin }] = await Promise.all([
+          supabase.rpc("has_chat_moderation_access", { p_user_id: user.id }),
+          supabase.rpc("is_super_admin", { p_user_id: user.id }),
+        ]);
+        setAllowed(superAdmin === true || (!accessError && moderation === true));
       } catch {
         setAllowed(false);
       }
