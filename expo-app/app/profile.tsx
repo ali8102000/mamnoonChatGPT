@@ -430,6 +430,7 @@ export default function ProfileScreen() {
           <Text style={styles.menuArrow}>←</Text>
         </TouchableOpacity>
       )}
+      <MyPartnerOrders customerId={user?.id ?? null} />
     </ScrollView>
     {showLogout ? <View pointerEvents="box-none" style={styles.logoutFooter}>
       <TouchableOpacity
