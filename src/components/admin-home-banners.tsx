@@ -6,14 +6,16 @@ type BannerKind = "category" | "poll" | "contest" | "ad" | "top_square"; // top_
 type Category = "restaurant" | "hotel" | "store";
 type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string; starts_at: string | null; ends_at: string | null; result_visibility: string; participation_mode?: "options"|"text"|"image"|"both"; rules?: string|null; prize_description?: string|null; app_campaign_options: { id: string; label: string; sort_order: number }[]; app_campaign_option_results: { option_id: string; vote_count: number }[] };
 type Banner = { id: string; image_url: string; storage_path: string | null; target_category: Category; banner_type: BannerKind; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; display_order: number; badge_text: string | null; banner_title?: string | null; banner_description?: string | null; motion_axis: "horizontal" | "vertical"; motion_direction: "left" | "right" | "up" | "down"; motion_style: "slide" | "fade" | "drop" };
-type ContestEntry = { id:string; campaign_id:string; user_id:string; text_content:string|null; storage_path:string|null; image_url:string|null; status:string; created_at:string };\nconst labels = { restaurant: "المطاعم", hotel: "الفنادق", store: "المتاجر" } as const;
+type ContestEntry = { id:string; campaign_id:string; user_id:string; text_content:string|null; storage_path:string|null; image_url:string|null; status:string; created_at:string };
+const labels = { restaurant: "المطاعم", hotel: "الفنادق", store: "المتاجر" } as const;
 const kindLabels: Record<BannerKind,string> = { category: "مطاعم / فنادق / متاجر", poll: "استطلاع رأي", contest: "مسابقة", ad: "الإعلان العلوي الرئيسي", top_square: "البانر المربع أعلى الصفحة" };
 const input = "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm";
 export default function AdminHomeBanners() {
   const [rows, setRows] = useState<Banner[]>([]);
   const [category, setCategory] = useState<Category>("restaurant");
   const [bannerType, setBannerType] = useState<BannerKind>("category");
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);\n  const [entries, setEntries] = useState<ContestEntry[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [entries, setEntries] = useState<ContestEntry[]>([]);
   const [campaignId, setCampaignId] = useState("");
   const [speed, setSpeed] = useState(5);
   const [motionAxis, setMotionAxis] = useState<"horizontal" | "vertical">("horizontal");
@@ -30,8 +32,10 @@ export default function AdminHomeBanners() {
     const { data, error } = await (supabase as any).from("home_carousel_banners").select("*").order("display_order").order("created_at");
     if (error) setMessage("تعذر تحميل البانرات: " + error.message);
     else setRows((data ?? []).filter((row: Banner) => row.banner_type !== "top_square"));
-    const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
-    setCampaigns((campaignRows ?? []) as Campaign[]);\n    const { data: entryRows, error: entryError } = await (supabase as any).from("app_campaign_entries").select("id,campaign_id,user_id,text_content,storage_path,status,created_at").order("created_at",{ascending:false});\n    if (!entryError) { const withImages = await Promise.all((entryRows ?? []).map(async (entry: any) => { let image_url: string|null = null; if (entry.storage_path) { const signed = await supabase.storage.from("campaign-entries").createSignedUrl(entry.storage_path,3600); image_url = signed.data?.signedUrl ?? null; } return { ...entry, image_url }; })); setEntries(withImages as ContestEntry[]); }
+    const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,participation_mode,rules,prize_description,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
+    setCampaigns((campaignRows ?? []) as Campaign[]);
+    const { data: entryRows, error: entryError } = await (supabase as any).from("app_campaign_entries").select("id,campaign_id,user_id,text_content,storage_path,status,created_at").order("created_at",{ascending:false});
+    if (!entryError) { const withImages = await Promise.all((entryRows ?? []).map(async (entry: any) => { let image_url: string|null = null; if (entry.storage_path) { const signed = await supabase.storage.from("campaign-entries").createSignedUrl(entry.storage_path,3600); image_url = signed.data?.signedUrl ?? null; } return { ...entry, image_url }; })); setEntries(withImages as ContestEntry[]); }
   }, []);
   useEffect(() => {
     void load();
@@ -72,7 +76,15 @@ export default function AdminHomeBanners() {
     const { error } = await (supabase as any).from("home_carousel_banners").update({ is_active: !row.is_active, updated_at: new Date().toISOString() }).eq("id", row.id);
     setMessage(error ? "تعذر تغيير الحالة: " + error.message : "تم تحديث حالة البانر."); if (!error) await load();
   };
-  const updateCampaign = async (campaign: Campaign, patch: Record<string, unknown>) => {\n    const { error } = await (supabase as any).from("app_campaigns").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", campaign.id);\n    setMessage(error ? "تعذر حفظ إعدادات المسابقة: " + error.message : "تم حفظ إعدادات الحملة."); if (!error) await load();\n  };\n  const reviewEntry = async (entry: ContestEntry, status: "approved"|"rejected") => {\n    const { error } = await (supabase as any).from("app_campaign_entries").update({ status, reviewed_at: new Date().toISOString() }).eq("id", entry.id);\n    setMessage(error ? "تعذر تحديث المشاركة: " + error.message : status === "approved" ? "تم قبول المشاركة." : "تم رفض المشاركة."); if (!error) await load();\n  };\n  const toggleCampaignStatus = async (campaign: Campaign) => {
+  const updateCampaign = async (campaign: Campaign, patch: Record<string, unknown>) => {
+    const { error } = await (supabase as any).from("app_campaigns").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", campaign.id);
+    setMessage(error ? "تعذر حفظ إعدادات المسابقة: " + error.message : "تم حفظ إعدادات الحملة."); if (!error) await load();
+  };
+  const reviewEntry = async (entry: ContestEntry, status: "approved"|"rejected") => {
+    const { error } = await (supabase as any).from("app_campaign_entries").update({ status, reviewed_at: new Date().toISOString() }).eq("id", entry.id);
+    setMessage(error ? "تعذر تحديث المشاركة: " + error.message : status === "approved" ? "تم قبول المشاركة." : "تم رفض المشاركة."); if (!error) await load();
+  };
+  const toggleCampaignStatus = async (campaign: Campaign) => {
     const nextStatus = campaign.status === "published" ? "draft" : "published";
     const { error } = await (supabase as any).from("app_campaigns").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", campaign.id);
     setMessage(error ? "تعذر تحديث حالة الحملة: " + error.message : nextStatus === "published" ? "تم نشر الحملة." : "تم إيقاف نشر الحملة.");
