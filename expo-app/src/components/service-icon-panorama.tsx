@@ -28,7 +28,7 @@ export function ServiceIconPanorama({ imageUrl, imageScale = 1 }: Props) {
   return (
     <View
       pointerEvents="none"
-      style={{ width: "100%", height: "100%", overflow: "hidden", borderRadius: 0, padding: 0, margin: 0, alignItems: "center", justifyContent: "center" }}
+      style={{ width: "100%", height: "100%", overflow: "hidden", borderRadius: 18, padding: 0, margin: 0, alignItems: "center", justifyContent: "center" }}
     >
       <Image
         source={imageUrl ? { uri: imageUrl } : getServiceImage(SERVICES[index])}
@@ -36,7 +36,7 @@ export function ServiceIconPanorama({ imageUrl, imageScale = 1 }: Props) {
         style={{
           width: "100%",
           height: "100%",
-          borderRadius: 0,
+          borderRadius: 18,
           transform: [{ scale }],
         }}
       />
