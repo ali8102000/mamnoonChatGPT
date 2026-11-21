@@ -94,6 +94,13 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, override_id: data });
     }
 
+    if (body.action === "revoke_override") {
+      if (isSuperAdmin !== true || !uuid(body.override_id)) return json({ error: "super_admin_required_or_invalid_id" }, 403);
+      const { data, error } = await caller.rpc("admin_revoke_user_fee_override", { p_override_id: body.override_id });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: data === true });
+    }
+
     if (body.action === "list") {
       if (isSuperAdmin !== true) return json({ error: "super_admin_required" }, 403);
       const [policies, overrides, revenue] = await Promise.all([
