@@ -18,7 +18,7 @@ const fallbackSlides = [
   { id: "shop", title: "المتاجر", subtitle: "محلات ومتاجر قريبة", category: "store" as const, image_url: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=85" },
 ];
 
-export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { height?: number; width?: number }) {
+export function HomeCategoryCarousel({ height = 360, width: requestedWidth, placement = "top_panorama" }: { height?: number; width?: number; placement?: "top_panorama" | "restaurant_section" }) {
   const width = requestedWidth ?? (Dimensions.get("window").width - 36) * (2 / 3);
   const [banners, setBanners] = useState<CategoryBanner[]>([]);
   const [index, setIndex] = useState(0);
@@ -40,7 +40,7 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { 
     const refresh = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
         .select("id,image_url,target_category,display_order,is_active,scroll_speed,motion_direction,motion_style,banner_title,banner_description")
-        .eq("is_active", true).eq("banner_type", "category").order("display_order").order("created_at");
+        .eq("is_active", true).eq("banner_type", "category").eq("display_location", placement).order("display_order").order("created_at");
       if (active && !error) { setBanners(data ?? []); setIndex(0); setImageFailed(false); }
     };
     void refresh();
@@ -48,7 +48,7 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { 
       .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh())
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
-  }, []);
+  }, [placement]);
 
   const slides = useMemo(() => banners.length ? banners.map((item) => ({
     id: item.id, image_url: item.image_url, category: item.target_category,
