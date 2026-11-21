@@ -33,16 +33,19 @@ export function HomeTopSquareBanner() {
 
   useEffect(() => {
     if (banners.length < 2) return;
-    const seconds = Math.max(1, Math.min(60, Number(current?.scroll_speed) || 5));
+    const delay = Math.max(1, Math.min(60, Number(current?.scroll_speed) || 5)) * 1000;
+    let nextAdvanceAt = Date.now() + delay;
     const timer = window.setInterval(() => {
-      if (Date.now() < pauseUntil.current) return;
+      if (Date.now() < pauseUntil.current || Date.now() < nextAdvanceAt) return;
       setIndex((value) => (value + 1) % banners.length);
-    }, seconds * 1000);
+      nextAdvanceAt = Date.now() + delay;
+    }, 150);
     return () => window.clearInterval(timer);
   }, [banners, current?.scroll_speed]);
 
   const onTouchStart = (event: React.TouchEvent<HTMLButtonElement>) => {
     touchStartX.current = event.touches[0]?.clientX ?? null;
+    pauseUntil.current = Number.MAX_SAFE_INTEGER;
     suppressPress.current = false;
   };
   const onTouchEnd = (event: React.TouchEvent<HTMLButtonElement>) => {
