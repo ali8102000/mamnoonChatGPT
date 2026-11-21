@@ -94,6 +94,15 @@ create policy "Users upload own contest entry images"
     bucket_id = 'campaign-entries'
     and (storage.foldername(name))[1] is not null
     and (storage.foldername(name))[2] = (select auth.uid())::text
+    and exists (
+      select 1 from public.app_campaigns campaign
+      where campaign.id::text = (storage.foldername(name))[1]
+        and campaign.campaign_type = 'contest'
+        and campaign.status = 'published'
+        and campaign.participation_mode in ('image','both')
+        and (campaign.starts_at is null or campaign.starts_at <= now())
+        and (campaign.ends_at is null or campaign.ends_at > now())
+    )
   );
 
 drop policy if exists "Users read own contest entry images and admins read all" on storage.objects;
