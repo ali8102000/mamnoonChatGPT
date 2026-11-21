@@ -93,6 +93,7 @@ import { ContactOptions } from "@/components/contact-options";
 import AdminImageStudio from "@/components/admin-image-studio";
 import AdminControlCenter from "@/components/admin-control-center";
 import AdminInbox from "@/components/admin-inbox";
+import AdminRights from "@/components/admin-rights";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/admin")({
@@ -180,8 +181,8 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     roles: ["super_admin", "admin", "support", "moderator", "department_monitoring"],
   },
   {
-    key: "subscriptions",
-    label: "الاشتراكات",
+    key: "rights",
+    label: "حقوق ممنون",
     icon: Crown,
     roles: ["super_admin", "admin", "finance", "department_finance"],
   },
@@ -265,7 +266,7 @@ function AdminPage() {
         const hasLegacyAdminRole = parsedRoles.some((r: string) => ["super_admin","admin","support","finance","moderator"].includes(r));
         if (assignment?.rank && ["general_manager","department_manager","supervisor"].includes(assignment.rank) && !hasLegacyAdminRole) setSection("staff");
         if (parsedRoles.includes("customer_service") && !hasLegacyAdminRole) setSection("chat");
-        else if (!hasLegacyAdminRole && assignment?.department === "finance") setSection("subscriptions");
+        else if (!hasLegacyAdminRole && assignment?.department === "finance") setSection("rights");
         else if (!hasLegacyAdminRole && assignment?.department === "operations") setSection("providers");
         else if (!hasLegacyAdminRole && assignment?.department === "monitoring") setSection("reports");
         setAuthorized(true);
@@ -443,7 +444,7 @@ function AdminPage() {
           {section === "chat" && <ChatSection />}
           {section === "friends" && <FriendsSection />}
           {section === "reports" && <ReportsSection />}
-          {section === "subscriptions" && <SubscriptionsSection />}
+          {section === "rights" && <AdminRights />}
           {section === "coupons" && <CouponsSection />}
           {section === "wallet" && <WalletSection />}
           {section === "map" && <MapSection />}
@@ -468,7 +469,7 @@ function AdminArchitectureDiagram() {
   const nodes = [
     { title: "العمليات", detail: "الرحلات والخدمات", icon: Car },
     { title: "العملاء والدعم", detail: "الحسابات والبلاغات", icon: Users },
-    { title: "المالية", detail: "المحافظ والاشتراكات", icon: Wallet },
+    { title: "المالية", detail: "المحافظ والعمولات", icon: Wallet },
     { title: "المحتوى", detail: "الشعار والبانرات", icon: ImagePlus },
     { title: "الموظفون", detail: "الرتب والصلاحيات", icon: ShieldCheck },
   ];
