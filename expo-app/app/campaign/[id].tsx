@@ -57,7 +57,10 @@ export default function CampaignDetailsScreen(){
         storagePath=campaign.id+"/"+user.id+"/"+Date.now()+"-"+Math.random().toString(36).slice(2)+"."+ext;
         const response=await fetch(asset.uri);if(!response.ok)throw new Error("image_read_failed");
         const bytes=await response.arrayBuffer();
-        const uploaded=await supabase.storage.from("campaign-entries").upload(storagePath,bytes,{upsert:false,contentType:asset.mimeType||"image/jpeg"});
+        if(bytes.byteLength>8*1024*1024)throw new Error("image_too_large");
+        const contentType=asset.mimeType||(ext==="png"?"image/png":ext==="webp"?"image/webp":"image/jpeg");
+        if(!["image/jpeg","image/png","image/webp"].includes(contentType))throw new Error("unsupported_image_type");
+        const uploaded=await supabase.storage.from("campaign-entries").upload(storagePath,bytes,{upsert:false,contentType});
         if(uploaded.error)throw uploaded.error;
       }
       const {data, error:saveError}=await (supabase as any).from("app_campaign_entries").insert({campaign_id:campaign.id,user_id:user.id,text_content:needsText?entryText.trim():null,image_url:storagePath?"private://"+storagePath:null,storage_path:storagePath}).select("id,text_content,storage_path,status").single();
