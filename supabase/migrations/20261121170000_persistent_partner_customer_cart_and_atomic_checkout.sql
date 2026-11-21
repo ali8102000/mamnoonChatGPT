@@ -95,14 +95,14 @@ begin
     raise exception 'quantity_unavailable';
   end if;
 
-  insert into public.partner_customer_cart_items(customer_id,business_profile_id,catalog_item_id,quantity,updated_at)
+  insert into public.partner_customer_cart_items as existing_cart(customer_id,business_profile_id,catalog_item_id,quantity,updated_at)
   values(v_customer,p_business_profile_id,p_catalog_item_id,p_quantity,now())
   on conflict(customer_id,catalog_item_id) do update
-    set quantity = public.partner_customer_cart_items.quantity + excluded.quantity,
+    set quantity = existing_cart.quantity + excluded.quantity,
         updated_at = now()
-    where public.partner_customer_cart_items.business_profile_id = excluded.business_profile_id
+    where existing_cart.business_profile_id = excluded.business_profile_id
       and (v_item.quantity_available is null
-        or public.partner_customer_cart_items.quantity + excluded.quantity <= v_item.quantity_available)
+        or existing_cart.quantity + excluded.quantity <= v_item.quantity_available)
   returning quantity into v_quantity;
 
   if v_quantity is null then raise exception 'quantity_unavailable_or_cart_conflict'; end if;
