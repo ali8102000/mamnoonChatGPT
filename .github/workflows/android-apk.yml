@@ -137,7 +137,7 @@ jobs:
           heap-size: 512
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             test -s expo-app/release-artifacts/mamnoon-test.apk
             adb install -r expo-app/release-artifacts/mamnoon-test.apk
             adb logcat -c
