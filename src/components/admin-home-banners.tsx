@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ImagePlus, RefreshCw, Trash2, Upload, Power } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -33,6 +33,7 @@ export default function AdminHomeBanners() {
   const [bannerTitle, setBannerTitle] = useState("");
   const [bannerDescription, setBannerDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const load = useCallback(async () => {
@@ -75,7 +76,7 @@ export default function AdminHomeBanners() {
         campaignImageWarning = Boolean(campaignImageError);
       }
       setMessage(campaignImageWarning ? "تم نشر البانر، لكن تعذر تحديث صورة الحملة نفسها." : "تم رفع ونشر البانر وصورة الحملة، وسيظهر بالويب والأندرويد.");
-      setFile(null); setBadge(""); setBannerTitle(""); setBannerDescription(""); await load();
+      setFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; setBadge(""); setBannerTitle(""); setBannerDescription(""); await load();
     }
     setBusy(false);
   };
@@ -161,12 +162,15 @@ export default function AdminHomeBanners() {
       <label className="text-sm font-bold">اتجاه الحركة<select className={input+" mt-2"} value={motionDirection} onChange={e=>{const value=e.target.value as typeof motionDirection;setMotionDirection(value);setMotionAxis(value==="up"||value==="down"?"vertical":"horizontal");}}><option value="left">من اليمين لليسار</option><option value="right">من اليسار لليمين</option><option value="up">من الأسفل للأعلى</option><option value="down">من الأعلى للأسفل</option></select></label>
       <label className="text-sm font-bold">نمط الانتقال<select className={input+" mt-2"} value={motionStyle} onChange={e=>setMotionStyle(e.target.value as typeof motionStyle)}><option value="slide">انزلاق</option><option value="fade">تلاشي</option><option value="drop">هبوط</option></select></label>
       <label className="text-sm font-bold">ترتيب العرض<input className={input+" mt-2"} type="number" value={order} onChange={e=>setOrder(Number(e.target.value)||0)}/></label>
-      {bannerType === "ad" && <>
-        <label className="text-sm font-bold">عنوان البانر<input className={input+" mt-2"} value={bannerTitle} onChange={e=>setBannerTitle(e.target.value)} placeholder="مثلاً: مشوارك صار أسهل"/></label>
-        <label className="text-sm font-bold">تفاصيل البانر<input className={input+" mt-2"} value={bannerDescription} onChange={e=>setBannerDescription(e.target.value)} placeholder="اكتب وصفاً قصيراً للإعلان"/></label>
-      </>}
+      <label className="text-sm font-bold">النص الظاهر على الصورة<input className={input+" mt-2"} value={bannerTitle} onChange={e=>setBannerTitle(e.target.value)} placeholder="مثلاً: قريباً"/></label>
+      <label className="text-sm font-bold">وصف إضافي اختياري<input className={input+" mt-2"} value={bannerDescription} onChange={e=>setBannerDescription(e.target.value)} placeholder="اكتب وصفاً قصيراً يظهر تحت العنوان"/></label>
       <label className="text-sm font-bold">شارة قصيرة اختيارية<input className={input+" mt-2"} value={badge} onChange={e=>setBadge(e.target.value)} placeholder="مثلاً: عرض خاص"/></label>
-      <label className="md:col-span-2 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border p-4"><ImagePlus className="h-6 w-6"/><span className="text-sm">{file?.name || "اختيار صورة البانر (حتى 8 ميغابايت)"}</span><input type="file" accept="image/*" className="hidden" onChange={e=>setFile(e.target.files?.[0] ?? null)}/></label>
+      <div className="md:col-span-2 space-y-2 rounded-xl border border-dashed border-border p-4">
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={e=>setFile(e.target.files?.[0] ?? null)}/>
+        <button type="button" disabled={busy} onClick={()=>fileInputRef.current?.click()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-3 text-sm font-bold disabled:opacity-50"><ImagePlus className="h-5 w-5"/>{file ? "تغيير الصورة المختارة" : "اضغط هنا لاختيار صورة من جهازك"}</button>
+        <p className="text-xs text-muted-foreground">{file ? file.name+" · "+(file.size/1024/1024).toFixed(2)+" MB" : "JPG أو PNG أو WEBP أو GIF · حتى 8 ميغابايت"}</p>
+        {file && <img src={URL.createObjectURL(file)} alt="معاينة صورة البانر" className="max-h-44 w-full rounded-xl object-contain bg-muted/30"/>}
+      </div>
       <button disabled={busy || !file} onClick={()=>void upload()} className="md:col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-bold text-primary-foreground disabled:opacity-50"><Upload className="h-4 w-4"/>{busy ? "جارٍ الرفع..." : "رفع ونشر البانر"}</button>
     </section>
     <section className="space-y-3">
@@ -178,8 +182,8 @@ export default function AdminHomeBanners() {
         <details className="min-w-0 basis-full rounded-xl border border-border p-3">
           <summary className="cursor-pointer text-xs font-black text-primary">تعديل البانر المنشور بالكامل</summary>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <label className="text-xs font-bold">العنوان<input className={input+" mt-1"} defaultValue={row.banner_title ?? ""} onBlur={e=>{if(e.target.value!==(row.banner_title??""))void updateBanner(row,{banner_title:e.target.value.trim()||null});}} /></label>
-            <label className="text-xs font-bold">الوصف<input className={input+" mt-1"} defaultValue={row.banner_description ?? ""} onBlur={e=>{if(e.target.value!==(row.banner_description??""))void updateBanner(row,{banner_description:e.target.value.trim()||null});}} /></label>
+            <label className="text-xs font-bold">النص الظاهر على الصورة<input className={input+" mt-1"} defaultValue={row.banner_title ?? ""} placeholder="مثلاً: قريباً" onBlur={e=>{if(e.target.value!==(row.banner_title??""))void updateBanner(row,{banner_title:e.target.value.trim()||null});}} /></label>
+            <label className="text-xs font-bold">وصف إضافي<input className={input+" mt-1"} defaultValue={row.banner_description ?? ""} placeholder="وصف قصير تحت العنوان" onBlur={e=>{if(e.target.value!==(row.banner_description??""))void updateBanner(row,{banner_description:e.target.value.trim()||null});}} /></label>
             <label className="text-xs font-bold">شارة قصيرة<input className={input+" mt-1"} defaultValue={row.badge_text ?? ""} onBlur={e=>{if(e.target.value!==(row.badge_text??""))void updateBanner(row,{badge_text:e.target.value.trim()||null});}} /></label>
             <label className="text-xs font-bold">مدة عرض الصورة (1–60 ثانية)<input type="number" min="1" max="60" className={input+" mt-1"} defaultValue={row.scroll_speed} onBlur={e=>void updateBanner(row,{scroll_speed:Math.max(1,Math.min(60,Number(e.target.value)||5))})} /></label>
             <label className="text-xs font-bold">ترتيب العرض<input type="number" className={input+" mt-1"} defaultValue={row.display_order} onBlur={e=>void updateBanner(row,{display_order:Number(e.target.value)||0})} /></label>
