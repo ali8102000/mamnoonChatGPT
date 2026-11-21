@@ -9,6 +9,14 @@ type UserRow={id:string;full_name:string|null;phone:string|null;email:string|nul
 type Tab="wallet"|"special"|"policies"|"revenue";
 const durations=[{value:"1",label:"يوم"},{value:"7",label:"أسبوع"},{value:"30",label:"شهر"},{value:"90",label:"٣ أشهر"},{value:"180",label:"٦ أشهر"},{value:"365",label:"سنة"},{value:"permanent",label:"دائم"}];
 const govs=["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
+const categoryLabel=(u:UserRow)=>{
+ const value=String(u.partner?.partner_type||u.partner?.business_vertical||"").toLowerCase();
+ if(value.includes("restaurant")||value.includes("food"))return "مطعم";
+ if(value.includes("hotel")||value.includes("hospitality"))return "فندق";
+ if(value.includes("store")||value.includes("shop")||value.includes("grocery"))return "متجر";
+ const labels:Record<string,string>={driver:"صاحب تكسي",large_driver:"تكسي كبير",worker:"فني",customer:"زبون",restaurant:"مطعم",hotel:"فندق",store:"متجر"};
+ return (u.roles??[]).map(r=>labels[r]||r).join("، ")||"مستخدم";
+};
 const govLabel:Record<string,string>={baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
 
 export default function AdminRightsScreen(){
@@ -40,7 +48,7 @@ export default function AdminRightsScreen(){
   {!!error&&<Text style={s.error}>{error}</Text>}
   <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={()=>void load()}/>}>
    {(tab==="wallet"||tab==="special")&&<View style={s.card}><Text style={s.cardTitle}>البحث عن مستخدم</Text><View style={s.row}><TextInput value={query} onChangeText={setQuery} placeholder="الاسم أو رقم الهاتف" placeholderTextColor={palette.muted} style={[s.input,{flex:1}]}/><TouchableOpacity onPress={()=>void searchUsers()} style={s.primary}><Text style={s.primaryText}>بحث</Text></TouchableOpacity></View>
-    {users.map(u=><TouchableOpacity key={u.id} onPress={()=>setSelected(u)} style={[s.userCard,selected?.id===u.id&&s.selected]}><Text style={s.cardTitle}>{u.full_name||"مستخدم ممنون"}</Text><Text style={s.muted}>{u.phone||u.email} · {u.roles?.join("، ")}</Text><Text style={s.muted}>الرصيد {Number(u.balance_iqd).toLocaleString("ar-IQ")} د.ع · {govLabel[u.governorate_key||""]||u.governorate_key||"بلا محافظة"}</Text></TouchableOpacity>)}
+    {users.map(u=><TouchableOpacity key={u.id} onPress={()=>setSelected(u)} style={[s.userCard,selected?.id===u.id&&s.selected]}><Text style={s.cardTitle}>{u.full_name||"مستخدم ممنون"}</Text><Text style={s.muted}>{u.phone||u.email} · {categoryLabel(u)}</Text><Text style={s.muted}>الرصيد {Number(u.balance_iqd).toLocaleString("ar-IQ")} د.ع · {govLabel[u.governorate_key||""]||u.governorate_key||"بلا محافظة"}</Text></TouchableOpacity>)}
     {selected&&<View style={s.panel}><Text style={s.cardTitle}>{selected.full_name||selected.phone}</Text>
      {tab==="wallet"?<>
       <View style={s.row}><TouchableOpacity onPress={()=>setKind("debit")} style={[s.choice,kind==="debit"&&s.active]}><Text style={[s.tabText,kind==="debit"&&s.activeText]}>استقطاع شكوى</Text></TouchableOpacity><TouchableOpacity onPress={()=>setKind("credit")} style={[s.choice,kind==="credit"&&s.active]}><Text style={[s.tabText,kind==="credit"&&s.activeText]}>إضافة رصيد</Text></TouchableOpacity></View>
