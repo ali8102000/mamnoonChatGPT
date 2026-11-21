@@ -1190,7 +1190,9 @@ BEGIN
   ) VALUES (
     p_scope_type,p_scope_key,p_commission_rate_percent,p_commission_charge_percent,p_collection_event,
     COALESCE(p_free_trial_enabled,false),p_free_trial_days,COALESCE(p_new_users_only,false),
-    COALESCE(p_is_enabled,false),COALESCE(p_starts_at,now()),p_ends_at,auth.uid(),auth.uid()
+    COALESCE(p_is_enabled,false),COALESCE(p_starts_at,now()),
+    CASE WHEN p_is_enabled THEN p_ends_at ELSE COALESCE(p_ends_at,now()) END,
+    auth.uid(),auth.uid()
   ) RETURNING id INTO v_id;
 
   PERFORM public.log_admin_action(
