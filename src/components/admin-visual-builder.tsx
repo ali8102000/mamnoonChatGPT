@@ -148,6 +148,7 @@ export default function AdminVisualBuilder() {
       width_px: element.config?.width_px ?? element.width_px ?? 64,
       height_px: element.config?.height_px ?? element.height_px ?? 64,
       image_scale: element.config?.image_scale ?? element.published_config?.image_scale ?? 1,
+      element_scale: element.config?.element_scale ?? element.published_config?.element_scale ?? 1,
       card_height_px: element.config?.card_height_px ?? element.published_config?.card_height_px ?? 145,
       card_padding_px: element.config?.card_padding_px ?? element.published_config?.card_padding_px ?? 10,
       border_radius_px: element.config?.border_radius_px ?? element.published_config?.border_radius_px ?? 20,
@@ -351,7 +352,7 @@ export default function AdminVisualBuilder() {
                     onPointerUp={endPreviewDrag}
                     onPointerCancel={endPreviewDrag}
                     onClick={() => { if (suppressPreviewClick.current) { suppressPreviewClick.current = false; return; } openEditor(item); }}
-                    style={{ touchAction: "none", cursor: "grab", translate: `${Number(visual.position_x_px) || 0}px ${Number(visual.position_y_px) || 0}px` }}
+                    style={{ touchAction: "none", cursor: "grab", translate: `${Number(visual.position_x_px) || 0}px ${Number(visual.position_y_px) || 0}px`, transform: `scale(${Math.max(0.6, Math.min(1.6, Number(visual.element_scale) || 1))})` }}
                     className={`relative min-h-32 rounded-2xl border-2 p-3 text-right transition ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
                     <div className={`mb-2 grid h-16 place-items-center overflow-hidden bg-muted ${item.element_key === "home_customer_service" ? "rounded-none p-0" : "rounded-xl"}`}>
                       {image ? <img src={image} alt="" style={item.element_key === "home_customer_service"
@@ -412,6 +413,9 @@ export default function AdminVisualBuilder() {
               <label className="mb-1 block text-xs font-bold">تكبير / تصغير الصورة داخل الحاوية</label>
               <input type="range" min="0.65" max="1.8" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.image_scale) || 1} onChange={(e) => setDraft({ ...draft, image_scale: Number(e.target.value) })} />
               <div className="mb-3 flex justify-between text-[11px] text-muted-foreground"><span>تصغير</span><b>{Math.round((Number(draft.image_scale) || 1) * 100)}%</b><span>تكبير</span></div>
+              <label className="mb-1 block text-xs font-bold">تكبير / تصغير العنصر بالكامل</label>
+              <input type="range" min="0.6" max="1.6" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.element_scale) || 1} onChange={(e) => setDraft({ ...draft, element_scale: Number(e.target.value) })} />
+              <div className="mb-3 flex justify-between text-[11px] text-muted-foreground"><span>60%</span><b>{Math.round((Number(draft.element_scale) || 1) * 100)}%</b><span>160%</span></div>
               <div className="mb-3 grid grid-cols-2 gap-2">
                 <label className="text-xs font-bold">إزاحة المكان أفقياً px<input type="number" min="-140" max="140" className={inputClass + " mt-1"} value={draft.position_x_px ?? 0} onChange={(e) => setDraft({ ...draft, position_x_px: Math.max(-140, Math.min(140, Number(e.target.value) || 0)) })} /></label>
                 <label className="text-xs font-bold">إزاحة المكان عمودياً px<input type="number" min="-180" max="180" className={inputClass + " mt-1"} value={draft.position_y_px ?? 0} onChange={(e) => setDraft({ ...draft, position_y_px: Math.max(-180, Math.min(180, Number(e.target.value) || 0)) })} /></label>
