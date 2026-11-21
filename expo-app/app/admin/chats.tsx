@@ -6,12 +6,12 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 import MamnoonChatThread from "../../components/MamnoonChatThread";
 
-type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
+type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "complaints" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
 type Conversation = {
   id: string; user_id: string; subject: string; status: string; created_at: string; updated_at: string; conversation_type?: "support" | "service"; request_id?: string; request_type?: string; request_status?: string;
   priority_tier: number; ai_status: string; ticket_status: string; needs_admin_reply: boolean;
   handoff_status: string; assigned_staff_id: string | null; last_message_source: string; last_message_at: string | null;
-  profile: { id: string; full_name: string | null; phone: string | null; email: string | null; governorate_key: string | null } | null;\n  provider_profile?: { id: string; full_name: string | null; phone: string | null } | null;
+  profile: { id: string; full_name: string | null; phone: string | null; email: string | null; governorate_key: string | null } | null;\n  provider_profile?: { id: string; full_name: string | null; phone: string | null } | null;\n  complaints?: { id: string; reason: string; details: string | null; status: string; created_at: string }[];
   roles: string[]; account_category: string; latest_message: Message | null;
 };
 type Message = {
@@ -23,7 +23,7 @@ type Message = {
 const filters: { key: Filter; label: string }[] = [
   { key: "all", label: "الكل" }, { key: "needs_reply", label: "تحتاج رد" },
   { key: "unread", label: "جديدة" }, { key: "bot", label: "البوت" },
-  { key: "human", label: "الدعم المباشر" }, { key: "resolved", label: "محلولة" }, { key: "customer", label: "الزبائن" },
+  { key: "human", label: "الدعم المباشر" }, { key: "resolved", label: "محلولة" }, { key: "complaints", label: "الشكاوى" }, { key: "customer", label: "الزبائن" },
   { key: "technician", label: "الفنيون" }, { key: "driver", label: "التكسي" },
   { key: "restaurant", label: "المطاعم" }, { key: "hotel", label: "الفنادق" }, { key: "store", label: "المتاجر" },
 ];
@@ -157,7 +157,7 @@ export default function AdminChatsScreen() {
           <Text style={s.category}>{item.conversation_type === "service" ? "محادثة طلب" : categoryLabel[item.account_category] || "مستخدم"}</Text>
           <Text style={s.source}>{sourceLabel(item.last_message_source)}</Text>
           {item.needs_admin_reply && <Text style={s.replyBadge}>تحتاج رد</Text>}
-          {item.handoff_status === "resolved" && <Text style={s.resolvedBadge}>محلولة</Text>}
+          {item.handoff_status === "resolved" && <Text style={s.resolvedBadge}>محلولة</Text>}\n          {!!item.complaints?.length && <Text style={s.replyBadge}>شكوى · {item.complaints.length}</Text>}
         </View>
         <Text style={s.preview} numberOfLines={2}>{item.latest_message?.body || item.subject || "لا توجد رسائل بعد"}</Text>
       </TouchableOpacity>
@@ -206,7 +206,7 @@ export default function AdminChatsScreen() {
               <Text style={s.muted}>{selected?.conversation_type === "service" ? "محادثة طلب خدمة" : categoryLabel[selected?.account_category || ""] || "مستخدم"} · {sourceLabel(selected?.last_message_source || "user")}</Text>
             </View>
           </View>
-          {selected?.needs_admin_reply && <View style={s.alert}><Text style={s.alertText}>هذه المحادثة تحتاج رد من الإدارة</Text></View>}
+          {selected?.needs_admin_reply && <View style={s.alert}><Text style={s.alertText}>هذه المحادثة تحتاج رد من الإدارة</Text></View>}\n          {!!selected?.complaints?.length && <View style={s.alert}><Text style={s.alertText}>شكوى مرتبطة بالطلب: {selected.complaints[0].reason}{selected.complaints.length > 1 ? ` · وشكاوى أخرى ${selected.complaints.length - 1}` : ""}</Text></View>}
           {!!error && <Text style={s.error}>{error}</Text>}
           <MamnoonChatThread
             messages={messages.map(message => ({
