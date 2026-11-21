@@ -630,9 +630,9 @@ function CustomerHome({ userId }: { userId: string | null }) {
               borderColor: palette.line,
               elevation: 2,
               transform: [
+                { scale: Math.max(0.6, Math.min(1.6, Number(visual.element_scale) || 1)) },
                 { translateX: Math.max(-140, Math.min(140, Number(visual.position_x_px) || 0)) },
                 { translateY: Math.max(-180, Math.min(180, Number(visual.position_y_px) || 0)) },
-                { scale: Math.max(0.6, Math.min(1.6, Number(visual.element_scale) || 1)) },
               ],
             }}
           >
