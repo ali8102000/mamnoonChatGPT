@@ -76,7 +76,7 @@ export default function StaffHierarchyScreen() {
       { text: "تراجع", style: "cancel" },
       { text: "إزالة", style: "destructive", onPress: async () => {
         setBusy(userId);
-        const { error } = await (supabase as any).rpc("staff_deactivate", { p_target_user: userId });
+        const { error } = await (supabase as any).rpc("admin_deactivate_staff", { p_target_user: userId, p_reason: "إزالة الموظف من شاشة إدارة الموظفين في تطبيق ممنون" });
         setBusy(null);
         if (error) Alert.alert("تعذرت الإزالة", error.message);
         else await load();
