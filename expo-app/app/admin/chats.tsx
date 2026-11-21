@@ -11,7 +11,9 @@ type Conversation = {
   id: string; user_id: string; subject: string; status: string; created_at: string; updated_at: string; conversation_type?: "support" | "service"; request_id?: string; request_type?: string; request_status?: string;
   priority_tier: number; ai_status: string; ticket_status: string; needs_admin_reply: boolean;
   handoff_status: string; assigned_staff_id: string | null; last_message_source: string; last_message_at: string | null;
-  profile: { id: string; full_name: string | null; phone: string | null; email: string | null; governorate_key: string | null } | null;\n  provider_profile?: { id: string; full_name: string | null; phone: string | null } | null;\n  complaints?: { id: string; reason: string; details: string | null; status: string; created_at: string }[];
+  profile: { id: string; full_name: string | null; phone: string | null; email: string | null; governorate_key: string | null } | null;
+  provider_profile?: { id: string; full_name: string | null; phone: string | null } | null;
+  complaints?: { id: string; reason: string; details: string | null; status: string; created_at: string }[];
   roles: string[]; account_category: string; latest_message: Message | null;
 };
 type Message = {
