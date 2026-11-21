@@ -802,6 +802,7 @@ BEGIN
         cancellation_reason = 'انتهت مهلة قبول الطلب بعد 6 ساعات',
         updated_at = now()
     WHERE status::text IN ('pending','searching')
+      AND type::text = 'taxi'
       AND provider_id IS NULL
       AND created_at <= now() - interval '6 hours'
     RETURNING id, customer_id
@@ -820,6 +821,7 @@ BEGIN
     AND request_id IN (
       SELECT id FROM public.service_requests
       WHERE status::text = 'cancelled'
+        AND type::text = 'taxi'
         AND cancellation_reason = 'انتهت مهلة قبول الطلب بعد 6 ساعات'
         AND updated_at >= now() - interval '10 minutes'
     );
@@ -828,6 +830,7 @@ BEGIN
   WHERE request_id IN (
     SELECT id FROM public.service_requests
     WHERE status::text = 'cancelled'
+      AND type::text = 'taxi'
       AND cancellation_reason = 'انتهت مهلة قبول الطلب بعد 6 ساعات'
       AND updated_at >= now() - interval '10 minutes'
   );
