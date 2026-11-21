@@ -692,6 +692,9 @@ function CustomerHome({ userId }: { userId: string | null }) {
                 <HomeGlyph name="arrow" color={palette.muted} size={14} />
               </View>
               <Text style={{ color: visual.subtitle_color || palette.muted, fontSize: subtitleSize, fontWeight: "700", marginTop: 3, textAlign: alignment }}>{visual.subtitle || tile.subtitle}</Text>
+              <View style={{ alignSelf: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end", marginTop: 8, borderWidth: 1.5, borderColor: palette.brand, borderRadius: 999, backgroundColor: palette.brandSoft, paddingHorizontal: 12, paddingVertical: 5 }}>
+                <Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>اطلب الآن ←</Text>
+              </View>
             </View>
           </TouchableOpacity>
           );
