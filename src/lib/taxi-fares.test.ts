@@ -29,9 +29,9 @@ describe("Mamnoon city taxi pricing", () => {
   });
 
   it("ignores geographic demand multipliers so nearby pin movement cannot multiply fares", () => {
-    expect(taxiFare("economy", 10, { demandMultiplier: 1.5 })).toBe(4000);
-    expect(taxiFare("economy", 10, { demandMultiplier: 0.8 })).toBe(4000);
-    expect(taxiFare("economy", 10.01, { demandMultiplier: 1.5 })).toBe(4000);
+    expect(taxiFare("economy", 10, { demandMultiplier: 1.5 })).toBe(3500);
+    expect(taxiFare("economy", 10, { demandMultiplier: 0.8 })).toBe(3500);
+    expect(taxiFare("economy", 10.01, { demandMultiplier: 1.5 })).toBe(3500);
   });
 
   it("uses the current tier percentages for inter-governorate rides", () => {
