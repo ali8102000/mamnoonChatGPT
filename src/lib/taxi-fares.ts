@@ -31,9 +31,9 @@ export const FARE_TABLE: Record<
   { base: number; perKm: number; minimum: number; titleAr: string }
 > = {
   economy: { base: 0, perKm: 350, minimum: 0, titleAr: "ممنون اقتصادي" },
-  premium: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون المتميز" },
-  luxury: { base: 0, perKm: 400, minimum: 0, titleAr: "ممنون فاخر" },
-  large: { base: 0, perKm: 400, minimum: 0, titleAr: "سيارة كبيرة" },
+  premium: { base: 0, perKm: 350, minimum: 0, titleAr: "ممنون المتميز" },
+  luxury: { base: 0, perKm: 350, minimum: 0, titleAr: "ممنون فاخر" },
+  large: { base: 0, perKm: 350, minimum: 0, titleAr: "سيارة كبيرة" },
 };
 
 export const WEATHER_RATES: Record<
