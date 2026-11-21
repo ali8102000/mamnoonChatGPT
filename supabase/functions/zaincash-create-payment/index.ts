@@ -40,7 +40,8 @@ Deno.serve(async (req: Request) => {
     const {data:gatewaySettings}=await admin.from("subscription_settings").select("payment_gateway_enabled,subscription_enabled").eq("id",1).maybeSingle();
     if(!gatewaySettings?.payment_gateway_enabled) return json({error:"payments_temporarily_disabled"},503);
     const body=await req.json().catch(()=>null);
-    if(!body || !["subscription","service_request","wallet_topup"].includes(body.purpose)) return json({error:"invalid_request"},400);
+    if (body?.purpose === "subscription") return json({ error: "subscriptions_disabled_use_commission_billing" }, 410);
+    if(!body || !["service_request","wallet_topup"].includes(body.purpose)) return json({error:"invalid_request"},400);
     if(body.purpose==="wallet_topup" && Deno.env.get("ZAINCASH_WALLET_TOPUP_ENABLED")!=="true") return json({error:"wallet_topups_not_enabled"},503);
     let amount:number, planId:string|null=null, requestId:string|null=null;
     if(body.purpose==="subscription") {
