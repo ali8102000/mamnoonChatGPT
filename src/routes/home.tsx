@@ -238,6 +238,7 @@ function CustomerHome() {
           <div className="text-xs opacity-90 mt-1">
             {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
           </div>
+          <Link to="/request/new" onClick={(event) => event.stopPropagation()} className="mt-2 inline-flex rounded-full bg-white px-3 py-1.5 text-[11px] font-black text-primary shadow-sm">اطلب الآن</Link>
         </div>
       </div>
       {activeBannerCampaignId && <HomeBannerCampaignDialog campaignId={activeBannerCampaignId} onClose={closeBannerCampaign} />}
@@ -283,7 +284,7 @@ function CustomerHome() {
           tileWidth="calc((100% - 12px) / 3)"
           delay={0.15}
         />
-        <div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 12px) / 3)", flexShrink: 0, order: 1 }}>
+        <div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 24px) / 3)", flexShrink: 0, order: 1 }}>
           <HomeCategoryCarousel />
         </div>
       </div>
