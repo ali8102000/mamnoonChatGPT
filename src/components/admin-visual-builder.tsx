@@ -433,7 +433,7 @@ export default function AdminVisualBuilder() {
               </div>
               <div className="mb-3 grid grid-cols-2 gap-2">
                 <label className="text-xs font-bold">شكل الصورة
-                  <select className={inputClass + " mt-1"} value={draft.image_shape ?? "square"} onChange={(e) => setDraft({ ...draft, image_shape: e.target.value })}>
+                  <select className={inputClass + " mt-1"} value={draft.image_shape ?? "square"} onChange={(e) => { const shape = e.target.value; const imageWidth = Number(draft.width_px) || 64; setDraft({ ...draft, image_shape: shape, height_px: shape === "landscape" ? Math.round(imageWidth * 3 / 4) : shape === "portrait" ? Math.round(imageWidth * 4 / 3) : imageWidth }); }}>
                     <option value="square">مربع 1:1</option><option value="landscape">مستطيل أفقي 4:3</option><option value="portrait">مستطيل عمودي 3:4</option>
                   </select>
                 </label>
