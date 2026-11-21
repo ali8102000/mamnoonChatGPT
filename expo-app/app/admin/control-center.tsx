@@ -45,13 +45,13 @@ export default function AdminControlCenterScreen(){
   <View style={s.preview}>
    <Text style={s.sectionTitle}>معاينة شبكة الرئيسية</Text>
    <View style={[s.previewBanner,{height:config.top_banner_height_px,borderRadius:config.card_radius_px}]}><Text style={s.previewText}>اطلب الآن</Text></View>
-   <View style={{flexDirection:"row",gap:config.grid_gap_px}}>
+   <View style={{flexDirection:"row",direction:"ltr",gap:config.grid_gap_px}}>
     <View style={{flex:config.wide_column_ratio,height:config.first_row_height_px,borderRadius:config.card_radius_px,backgroundColor:"#E9AB2B",justifyContent:"center",alignItems:"center"}}><Text style={s.previewText}>طلب تكسي</Text></View>
     <View style={{flex:1,height:config.first_row_height_px,borderRadius:config.card_radius_px,backgroundColor:"#10B981",justifyContent:"center",alignItems:"center"}}><Text style={s.previewText}>طلب فني</Text></View>
    </View>
-   <View style={{flexDirection:"row",gap:config.grid_gap_px}}>
-    <View style={{flex:1,height:config.second_row_height_px,borderRadius:config.card_radius_px,backgroundColor:"#C56A16",justifyContent:"center",alignItems:"center"}}><Text style={s.previewText}>سيارة كبيرة</Text></View>
+   <View style={{flexDirection:"row-reverse",direction:"ltr",gap:config.grid_gap_px}}>
     <View style={{flex:config.wide_column_ratio,height:config.second_row_height_px,borderRadius:config.card_radius_px,backgroundColor:"#173F35",justifyContent:"center",alignItems:"center"}}><Text style={s.previewText}>البانر التالي</Text></View>
+    <View style={{flex:1,height:config.second_row_height_px,borderRadius:config.card_radius_px,backgroundColor:"#C56A16",justifyContent:"center",alignItems:"center"}}><Text style={s.previewText}>سيارة كبيرة</Text></View>
    </View>
   </View>
   <View style={s.panel}><Text style={s.sectionTitle}>تعديل المقاسات</Text>{fields.map(field=><View key={field.key} style={s.field}><Text style={s.fieldLabel}>{field.label}</Text><TextInput keyboardType="decimal-pad" value={String(config[field.key])} onChangeText={v=>setConfig(old=>({...old,[field.key]:Number(v)||0}))} style={s.input}/></View>)}
