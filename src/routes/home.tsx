@@ -280,7 +280,7 @@ function CustomerHome() {
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
-        <div className="col-span-2 flex min-w-0 flex-wrap gap-3" style={{ order: 30 }}>
+        <div className="col-span-2 flex min-w-0 flex-wrap" style={{ gap: gridGap, order: 30 }}>
         <QuickTile
           to="/request/new"
           type="taxi"
@@ -293,7 +293,7 @@ function CustomerHome() {
           styleConfig={{ ...(visuals.home_customer_large_vehicle || {}), card_height_px: Number(visuals.home_customer_large_vehicle?.card_height_px) || secondRowHeight, border_radius_px: Number(visuals.home_customer_large_vehicle?.border_radius_px) || gridRadius }}
           gradient="from-orange-500 to-amber-600"
           span={1}
-          tileWidth="calc((100% - 12px) / 3)"
+          tileWidth={`${narrowCardWidth}px`}
           delay={0.15}
         />
         <div dir="rtl" className="min-w-0" style={{ width: `calc(${(wideRatio / (wideRatio + 1)) * 100}% - ${(gridGap * wideRatio) / (wideRatio + 1)}px)`, height: carouselHeight, flexShrink: 0, order: 1, borderRadius: gridRadius, overflow: "hidden" }}>
