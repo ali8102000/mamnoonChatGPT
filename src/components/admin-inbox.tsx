@@ -4,11 +4,11 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast";
 import { MessageSquare, Search, Send, RefreshCw, Bot, UserRound, Headset, CheckCircle2, AlertCircle } from "lucide-react";
 
-type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
+type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "complaints" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
 type Conversation = {
   id: string; user_id: string; subject: string; updated_at: string; last_message_at: string | null; conversation_type?: "support" | "service"; request_id?: string; request_type?: string;
   needs_admin_reply: boolean; handoff_status: string; last_message_source: string; ticket_status: string;
-  account_category: string; profile: { id?: string; full_name: string | null; phone: string | null; email: string | null } | null; provider_profile?: { id: string; full_name: string | null; phone: string | null } | null;
+  account_category: string; profile: { id?: string; full_name: string | null; phone: string | null; email: string | null } | null; provider_profile?: { id: string; full_name: string | null; phone: string | null } | null; complaints?: { id: string; reason: string; details: string | null; status: string; created_at: string }[];
   latest_message: Message | null;
 };
 type Message = { id: string; conversation_id: string; sender_id: string; body: string; created_at: string; is_ai: boolean; read_at?: string | null; sender?: { full_name?: string | null } | null };
@@ -16,7 +16,7 @@ type Message = { id: string; conversation_id: string; sender_id: string; body: s
 const filters: { key: Filter; label: string }[] = [
   { key: "all", label: "الكل" }, { key: "needs_reply", label: "تحتاج رد" },
   { key: "unread", label: "جديدة" }, { key: "bot", label: "البوت" },
-  { key: "human", label: "الدعم المباشر" }, { key: "resolved", label: "محلولة" }, { key: "customer", label: "الزبائن" },
+  { key: "human", label: "الدعم المباشر" }, { key: "resolved", label: "محلولة" }, { key: "complaints", label: "الشكاوى" }, { key: "customer", label: "الزبائن" },
   { key: "technician", label: "الفنيون" }, { key: "driver", label: "التكسي" },
   { key: "restaurant", label: "المطاعم" }, { key: "hotel", label: "الفنادق" }, { key: "store", label: "المتاجر" },
 ];
@@ -120,7 +120,7 @@ export default function AdminInbox() {
             <div className="flex flex-wrap gap-1.5 mt-2 justify-start">
               <span className="rounded-md bg-muted px-2 py-1 text-[9px]">{item.conversation_type === "service" ? "محادثة طلب" : categories[item.account_category]||"مستخدم"}</span>
               <span className="rounded-md bg-muted px-2 py-1 text-[9px]">{item.last_message_source==="bot"?"البوت":item.last_message_source==="admin"?"الإدارة":item.last_message_source==="provider"?"منفّذ الخدمة":item.last_message_source==="customer"?"الزبون":"المستخدم"}</span>
-              {item.needs_admin_reply&&<span className="rounded-md bg-orange-100 text-orange-800 px-2 py-1 text-[9px] font-black">تحتاج رد</span>}
+              {item.needs_admin_reply&&<span className="rounded-md bg-orange-100 text-orange-800 px-2 py-1 text-[9px] font-black">تحتاج رد</span>}{!!item.complaints?.length&&<span className="rounded-md bg-red-100 text-red-800 px-2 py-1 text-[9px] font-black">شكوى · {item.complaints.length}</span>}
             </div>
             <p className="text-[10px] text-muted-foreground truncate mt-2">{item.latest_message?.body || item.subject}</p>
           </button>)}
@@ -132,7 +132,7 @@ export default function AdminInbox() {
             <div><h3 className="font-black text-sm">{selected.conversation_type === "service" ? `${selected.profile?.full_name || "الزبون"} ↔ ${selected.provider_profile?.full_name || "منفّذ الخدمة"}` : selected.profile?.full_name || selected.profile?.phone || "مستخدم ممنون"}</h3><p className="text-[10px] text-muted-foreground">{selected.conversation_type === "service" ? "محادثة طلب خدمة" : categories[selected.account_category]||"مستخدم"} · {selected.profile?.phone || selected.profile?.email || ""}</p></div>
             {selected.conversation_type !== "service" && <div className="flex gap-1.5"><button disabled={busy} onClick={()=>void runAction("handoff")} className="rounded-lg border border-border px-3 py-2 text-[10px] font-bold"><Headset className="inline h-3.5 w-3.5 ml-1"/> تحويل للدعم</button><button disabled={busy} onClick={()=>void runAction("resolve")} className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-[10px] font-bold"><CheckCircle2 className="inline h-3.5 w-3.5 ml-1"/> إنهاء</button></div>
           </header>
-          {selected.conversation_type !== "service" && selected.needs_admin_reply&&<div className="mt-3 rounded-lg bg-orange-100 text-orange-900 px-3 py-2 text-xs font-black"><AlertCircle className="inline h-4 w-4 ml-1"/> هذه المحادثة تحتاج رد الإدارة</div>}
+          {!!selected.complaints?.length&&<div className="mt-3 rounded-lg bg-red-100 text-red-900 px-3 py-2 text-xs font-black">شكوى مرتبطة بالطلب: {selected.complaints[0].reason}{selected.complaints.length > 1 ? ` · وشكاوى أخرى ${selected.complaints.length - 1}` : ""}</div>}{selected.conversation_type !== "service" && selected.needs_admin_reply&&<div className="mt-3 rounded-lg bg-orange-100 text-orange-900 px-3 py-2 text-xs font-black"><AlertCircle className="inline h-4 w-4 ml-1"/> هذه المحادثة تحتاج رد الإدارة</div>}
           <div className="flex-1 overflow-y-auto py-3 space-y-2 min-h-[300px]">
             {messages.map(m=><div key={m.id} className={`max-w-[85%] rounded-2xl p-3 ${m.is_ai?"ml-auto bg-violet-100 text-violet-950":m.sender_id===session?.user.id?"mr-auto bg-primary/10":"ml-auto bg-muted"}`}>
               <div className="text-[9px] font-black mb-1 flex items-center gap-1">{m.is_ai?<><Bot className="h-3 w-3"/> مساعد ممنون</>:m.sender_id===session?.user.id?<><Headset className="h-3 w-3"/> الإدارة</>:selected.conversation_type === "service" && m.sender_id === selected.provider_profile?.id?<><UserRound className="h-3 w-3"/> منفّذ الخدمة</>:selected.conversation_type === "service"?<><UserRound className="h-3 w-3"/> الزبون</>:<><UserRound className="h-3 w-3"/> المستخدم</>}</div>
