@@ -519,8 +519,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
         end={{ x: 1, y: 1 }}
         style={{
           borderRadius: 20,
-          height: 130,
-          padding: 16,
+          height: 142,
+          paddingHorizontal: 14,
+          paddingTop: 11,
+          paddingBottom: 12,
           overflow: "hidden",
           elevation: 5,
         }}
@@ -557,21 +559,21 @@ function CustomerHome({ userId }: { userId: string | null }) {
           style={{
             alignSelf: "flex-start",
             borderRadius: 999,
-            paddingHorizontal: 10,
-            paddingVertical: 4,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
             backgroundColor: "rgba(255,255,255,0.20)",
-            marginBottom: 8,
+            marginBottom: 4,
           }}
         >
           <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
         </View>
-        <Text style={{ color: "#FFFFFF", fontSize: 24, lineHeight: 29, fontWeight: "900", textAlign: "right" }}>
+        <Text style={{ color: "#FFFFFF", fontSize: 21, lineHeight: 25, fontWeight: "900", textAlign: "right" }}>
           {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
         </Text>
-        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 16, marginTop: 4, textAlign: "right" }}>
+        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 11, lineHeight: 14, marginTop: 2, textAlign: "right" }}>
           {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
         </Text>
-        <View pointerEvents="none" style={{ alignSelf: "flex-end", marginTop: 8, borderRadius: 20, backgroundColor: "#FFFFFF", paddingHorizontal: 14, paddingVertical: 7 }}><Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>اطلب الآن ←</Text></View>
+        <View pointerEvents="none" style={{ alignSelf: "flex-end", marginTop: 4, marginBottom: 2, borderRadius: 20, backgroundColor: "#FFFFFF", paddingHorizontal: 13, paddingVertical: 6 }}><Text style={{ color: palette.brand, fontSize: 11, fontWeight: "900" }}>اطلب الآن ←</Text></View>
       </LinearGradient>
       </TouchableOpacity>
       {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
