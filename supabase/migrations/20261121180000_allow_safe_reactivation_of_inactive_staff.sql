@@ -94,7 +94,7 @@ begin
         updated_at=now();
 
   insert into public.staff_activity_log(staff_user_id,actor_user_id,activity,details)
-  values(p_target_user,v_actor,case when v_had_existing then 'staff_reactivated' else 'staff_assigned' end,
+  values(p_target_user,v_actor,'staff_activated',
     jsonb_build_object('previous_rank',v_existing.rank,'rank',p_rank,
       'previous_department',v_existing.department,'department',p_department,
       'scope_type',p_scope_type,'scope_governorate',p_scope_governorate,
