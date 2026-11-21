@@ -10,7 +10,7 @@ type CategoryBanner = {
   scroll_speed?: number | null; motion_direction?: "left" | "right" | "up" | "down" | null;
   motion_style?: "slide" | "fade" | "drop" | null; banner_title?: string | null; banner_description?: string | null;
 };
-const width = (Dimensions.get("window").width - 36) * (2 / 3);
+
 const fallbackSlides = [
   { id: "restaurant", title: "المطاعم", subtitle: "مطاعم وكافيهات", category: "restaurant" as const, image_url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=85" },
   { id: "hotel", title: "الفنادق", subtitle: "فنادق وشقق فندقية", category: "hotel" as const, image_url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=85" },
@@ -18,7 +18,8 @@ const fallbackSlides = [
   { id: "shop", title: "المتاجر", subtitle: "محلات ومتاجر قريبة", category: "store" as const, image_url: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=85" },
 ];
 
-export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
+export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { height?: number; width?: number }) {
+  const width = requestedWidth ?? (Dimensions.get("window").width - 36) * (2 / 3);
   const [banners, setBanners] = useState<CategoryBanner[]>([]);
   const [index, setIndex] = useState(0);
   const [imageFailed, setImageFailed] = useState(false);
