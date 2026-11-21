@@ -67,8 +67,8 @@ export default function PartnerPublicDetailsScreen() {
     const item = catalog.find((entry) => entry.id === line.catalog_item_id);
     return sum + (item ? Number(item.price_amount) * line.quantity : 0);
   }, 0), [cart, catalog]);
-  const cartCurrency = useMemo(() => {
-    const currencies = new Set(cart.map((line) => catalog.find((entry) => entry.id === line.catalog_item_id)?.currency).filter(Boolean));
+  const cartCurrency = useMemo<string | null>(() => {
+    const currencies = new Set<string>(cart.map((line) => catalog.find((entry) => entry.id === line.catalog_item_id)?.currency).filter((value): value is string => typeof value === "string" && value.length > 0));
     return currencies.size === 1 ? [...currencies][0] : null;
   }, [cart, catalog]);
 
