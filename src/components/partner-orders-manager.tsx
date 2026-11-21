@@ -6,13 +6,14 @@ const labels:Record<string,string>={pending:"بانتظار قبول المنش�
 const nextStatus:Record<string,{status:string;label:string}>={pending:{status:"accepted",label:"قبول الطلب"},accepted:{status:"preparing",label:"بدء التحضير"},preparing:{status:"ready",label:"الطلب جاهز"},ready:{status:"out_for_delivery",label:"خرج للتوصيل"},out_for_delivery:{status:"completed",label:"تأكيد التسليم"}};
 export function PartnerOrdersManager({businessIds}:{businessIds:string[]}) {
  const [orders,setOrders]=useState<PartnerOrder[]>([]);const [loading,setLoading]=useState(true);const [busyId,setBusyId]=useState<string|null>(null);
+ const businessKey=businessIds.join("|");
  const load=useCallback(async()=>{
-  if(!businessIds.length){setOrders([]);setLoading(false);return;}
+  if(!businessKey){setOrders([]);setLoading(false);return;}
   setLoading(true);
-  const {data,error}=await (supabase as any).from("partner_customer_orders").select("id,business_profile_id,order_type,requested_items,delivery_address,customer_note,status,partner_total,currency,created_at").in("business_profile_id",businessIds).order("created_at",{ascending:false}).limit(100);
+  const {data,error}=await (supabase as any).from("partner_customer_orders").select("id,business_profile_id,order_type,requested_items,delivery_address,customer_note,status,partner_total,currency,created_at").in("business_profile_id",businessKey.split("|")).order("created_at",{ascending:false}).limit(100);
   if(error){toast.error("تعذر تحميل طلبات الزبائن");setOrders([]);}else setOrders((data??[]) as PartnerOrder[]);
   setLoading(false);
- },[businessIds.join("|")]);
+ },[businessKey]);
  useEffect(()=>{void load();},[load]);
  async function updateStatus(order:PartnerOrder,status:string){
   setBusyId(order.id);
