@@ -6,6 +6,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { safeNavigate } from "@/lib/safe-navigation";
 import { Button } from "@/components/ui";
 import { palette, radius } from "@/styles/theme";
 import { LargeVehicleIllustration } from "@/components/large-vehicle-illustration";
@@ -23,7 +24,7 @@ const CATEGORIES = [
 ] as const;
 
 export default function DriverOnboarding() {
-  const { user, profile, refresh } = useAuth();
+  const { user, profile, refresh, setActiveRole } = useAuth();
   const params = useLocalSearchParams<{ providerType?: string }>();
   const largeDriverMode = params.providerType === "large_driver";
   const providerRole = largeDriverMode ? "large_driver" : "driver";
@@ -465,8 +466,8 @@ export default function DriverOnboarding() {
               const { error } = await supabase.rpc("grant_provider_role_safe", { _role: providerRole });
               if (error) throw error;
               await refresh();
-              await (await import("expo-secure-store")).setItemAsync("mamnoon_active_role", providerRole);
-              router.replace("/home");
+              await setActiveRole(providerRole);
+              safeNavigate("/home", "replace");
             } catch (error) {
               Alert.alert("تعذر تفعيل دور السائق", error instanceof Error ? error.message : "تأكد من اعتماد طلبك ثم حاول مجدداً.");
             } finally {
@@ -477,7 +478,7 @@ export default function DriverOnboarding() {
         ) : (
           <View style={{ gap: 10 }}>
             <Button title="تعديل البيانات وإعادة إرفاق السنوية والمستمسكات" onPress={() => setStatus(null)} />
-            <Button title="العودة للرئيسية" onPress={() => router.replace("/home")} />
+            <Button title="العودة للرئيسية" onPress={() => safeNavigate("/home", "replace")} />
           </View>
         )}
       </View>
