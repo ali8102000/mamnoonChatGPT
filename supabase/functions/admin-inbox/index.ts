@@ -65,9 +65,10 @@ Deno.serve(async (req: Request) => {
       const { data: conversations, error } = await query;
       if (error) return json({ error: "inbox_load_failed" }, 500);
       const ids = [...new Set((conversations ?? []).map((c: any) => c.user_id))];
-      const [{ data: profiles }, { data: roles }] = await Promise.all([
+      const [{ data: profiles }, { data: roles }, { data: partners }] = await Promise.all([
         ids.length ? admin.from("profiles").select("id,full_name,phone,email,governorate_key").in("id", ids) : Promise.resolve({ data: [] }),
         ids.length ? admin.from("user_roles").select("user_id,role").in("user_id", ids) : Promise.resolve({ data: [] }),
+        ids.length ? admin.from("partner_business_profiles").select("user_id,partner_type,business_vertical").in("user_id", ids) : Promise.resolve({ data: [] }),
       ]);
       const conversationIds = (conversations ?? []).map((c: any) => c.id);
       const { data: messages } = conversationIds.length
@@ -76,6 +77,7 @@ Deno.serve(async (req: Request) => {
       const profileById = new Map((profiles ?? []).map((p: any) => [p.id, p]));
       const rolesById = new Map<string, string[]>();
       for (const row of roles ?? []) rolesById.set(row.user_id, [...(rolesById.get(row.user_id) ?? []), String(row.role)]);
+      const partnerById = new Map((partners ?? []).map((p: any) => [p.user_id, String(p.partner_type || p.business_vertical || "")]));
       const latestByConversation = new Map<string, any>();
       for (const message of messages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
       return json({
@@ -87,6 +89,10 @@ Deno.serve(async (req: Request) => {
             const r = rolesById.get(c.user_id) ?? [];
             if (r.some(x => ["driver", "large_driver"].includes(x))) return "driver";
             if (r.includes("worker")) return "technician";
+            const partner = (partnerById.get(c.user_id) ?? "").toLowerCase();
+            if (partner.includes("restaurant") || partner.includes("food")) return "restaurant";
+            if (partner.includes("hotel") || partner.includes("hospitality")) return "hotel";
+            if (partner.includes("store") || partner.includes("shop") || partner.includes("grocery")) return "store";
             if (r.includes("restaurant")) return "restaurant";
             if (r.includes("hotel")) return "hotel";
             if (r.includes("store")) return "store";
