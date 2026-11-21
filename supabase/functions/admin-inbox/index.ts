@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "list") {
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(100, body.limit)) : 50;
-      const filter = ["all", "needs_reply", "unread", "bot", "human", "resolved"].includes(body.filter) ? body.filter : "all";
+      const filter = ["all", "needs_reply", "unread", "bot", "human", "resolved", "customer", "technician", "driver", "restaurant", "hotel", "store"].includes(body.filter) ? body.filter : "all";
       let query = admin.from("support_conversations")
         .select("id,user_id,subject,status,created_at,updated_at,priority_tier,ai_status,ticket_status,needs_admin_reply,handoff_status,assigned_staff_id,last_message_source,last_message_at")
         .order("needs_admin_reply", { ascending: false })
@@ -80,26 +80,30 @@ Deno.serve(async (req: Request) => {
       const partnerById = new Map((partners ?? []).map((p: any) => [p.user_id, String(p.partner_type || p.business_vertical || "")]));
       const latestByConversation = new Map<string, any>();
       for (const message of messages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
+      const mappedConversations = (conversations ?? []).map((c: any) => ({
+        ...c,
+        profile: profileById.get(c.user_id) ?? null,
+        roles: rolesById.get(c.user_id) ?? [],
+        account_category: (() => {
+          const r = rolesById.get(c.user_id) ?? [];
+          if (r.some(x => ["driver", "large_driver"].includes(x))) return "driver";
+          if (r.includes("worker")) return "technician";
+          const partner = (partnerById.get(c.user_id) ?? "").toLowerCase();
+          if (partner.includes("restaurant") || partner.includes("food")) return "restaurant";
+          if (partner.includes("hotel") || partner.includes("hospitality")) return "hotel";
+          if (partner.includes("store") || partner.includes("shop") || partner.includes("grocery")) return "store";
+          if (r.includes("restaurant")) return "restaurant";
+          if (r.includes("hotel")) return "hotel";
+          if (r.includes("store")) return "store";
+          return "customer";
+        })(),
+        latest_message: latestByConversation.get(c.id) ?? null,
+      }));
+      const categoryFilters = ["customer", "technician", "driver", "restaurant", "hotel", "store"];
       return json({
-        conversations: (conversations ?? []).map((c: any) => ({
-          ...c,
-          profile: profileById.get(c.user_id) ?? null,
-          roles: rolesById.get(c.user_id) ?? [],
-          account_category: (() => {
-            const r = rolesById.get(c.user_id) ?? [];
-            if (r.some(x => ["driver", "large_driver"].includes(x))) return "driver";
-            if (r.includes("worker")) return "technician";
-            const partner = (partnerById.get(c.user_id) ?? "").toLowerCase();
-            if (partner.includes("restaurant") || partner.includes("food")) return "restaurant";
-            if (partner.includes("hotel") || partner.includes("hospitality")) return "hotel";
-            if (partner.includes("store") || partner.includes("shop") || partner.includes("grocery")) return "store";
-            if (r.includes("restaurant")) return "restaurant";
-            if (r.includes("hotel")) return "hotel";
-            if (r.includes("store")) return "store";
-            return "customer";
-          })(),
-          latest_message: latestByConversation.get(c.id) ?? null,
-        })),
+        conversations: categoryFilters.includes(filter)
+          ? mappedConversations.filter((c: any) => c.account_category === filter)
+          : mappedConversations,
       });
     }
 
