@@ -147,7 +147,7 @@ export default function HomeScreen() {
     channel.subscribe();
     // Dispatch expands its search radius in 60-second waves. Polling keeps
     // later waves visible if Realtime is temporarily disconnected.
-    const refreshTimer = setInterval(() => { void loadIncoming(); }, 3000);
+    const refreshTimer = setInterval(() => { void loadIncoming(); }, 60_000);
     return () => {
       clearInterval(refreshTimer);
       supabase.removeChannel(channel);
