@@ -1930,13 +1930,15 @@ $retire_demand_notification_tiers$;
 DO $retire_subscription_cron$
 DECLARE v_job record;
 BEGIN
-  FOR v_job IN
-    SELECT jobid FROM cron.job
-    WHERE jobname = 'mamnoon-expire-subscriptions'
-       OR command ILIKE '%handle_expired_subscriptions%'
-  LOOP
-    PERFORM cron.unschedule(v_job.jobid);
-  END LOOP;
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    FOR v_job IN
+      SELECT jobid FROM cron.job
+      WHERE jobname = 'mamnoon-expire-subscriptions'
+         OR command ILIKE '%handle_expired_subscriptions%'
+    LOOP
+      PERFORM cron.unschedule(v_job.jobid);
+    END LOOP;
+  END IF;
 END;
 $retire_subscription_cron$;
 
