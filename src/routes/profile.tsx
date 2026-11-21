@@ -9,7 +9,6 @@ import {
   TrendingUp,
   ShieldCheck,
   ChevronLeft,
-  CreditCard,
   Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
