@@ -588,11 +588,11 @@ function CustomerHome({ userId }: { userId: string | null }) {
           const visualKey = tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
           const visual = visuals[visualKey] || {};
           if (visual.is_hidden === true) return null;
-          const tileHeight = Math.max(96, Math.min(360, Number(visual.card_height_px) || (tile.key === "large" ? 188 : 145)));
+          const tileHeight = Math.max(96, Math.min(360, Number(visual.card_height_px) || (tile.key === "large" ? 350 : 145)));
           const tilePadding = Math.max(4, Math.min(32, Number(visual.card_padding_px) || 10));
           const tileRadius = Math.max(8, Math.min(40, Number(visual.border_radius_px) || 20));
-          const iconWidth = Math.max(24, Math.min(180, Number(visual.width_px) || (tile.key === "service" ? 64 : 56)));
-          const iconHeight = Math.max(24, Math.min(180, Number(visual.height_px) || (tile.key === "service" ? 64 : 56)));
+          const iconWidth = Math.max(24, Math.min(180, Number(visual.width_px) || (tile.key === "service" ? 104 : 56)));
+          const iconHeight = Math.max(24, Math.min(180, Number(visual.height_px) || (tile.key === "service" ? 104 : 56)));
           const iconScale = Math.max(0.5, Math.min(2, Number(visual.icon_scale) || 1));
           const titleSize = Math.max(10, Math.min(28, Number(visual.title_size_px) || 16));
           const subtitleSize = Math.max(8, Math.min(20, Number(visual.subtitle_size_px) || 11));
@@ -643,7 +643,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
                 width: iconWidth,
                 height: iconHeight,
                 transform: [{ scale: iconScale }],
-                borderRadius: tile.key === "service" ? 12 : 14,
+                borderRadius: tile.key === "service" ? 18 : 14,
                 alignItems: "center",
                 justifyContent: "center",
                 overflow: "hidden",
@@ -668,8 +668,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
           </TouchableOpacity>
           );
         })}
-        <View style={{ width: HOME_GRID_WIDE_WIDTH, height: 188, direction: "rtl" }}>
-          <HomeCategoryCarousel height={188} />
+        <View style={{ width: HOME_GRID_WIDE_WIDTH, height: 360, direction: "rtl" }}>
+          <HomeCategoryCarousel height={360} />
         </View>
       </View>
 
