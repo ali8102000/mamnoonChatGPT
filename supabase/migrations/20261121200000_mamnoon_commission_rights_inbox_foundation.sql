@@ -277,8 +277,8 @@ BEGIN
       SELECT *
       FROM public.mamnoon_revenue_ledger
       WHERE user_id = v_payment.user_id
-        AND status IN ('accrued','partially_collected')
-        AND assessed_iqd > collected_iqd
+        AND status IN ('accrued','partially_collected','partially_waived')
+        AND assessed_iqd > collected_iqd + waived_iqd
       ORDER BY created_at ASC, id ASC
       FOR UPDATE
     LOOP
