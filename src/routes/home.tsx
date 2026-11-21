@@ -205,7 +205,7 @@ function CustomerHome() {
     let active = true;
     const load = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,is_active")
+        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
         .eq("is_active", true).eq("banner_type", "ad").order("display_order").order("created_at");
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
@@ -246,10 +246,10 @@ function CustomerHome() {
             <Sparkles className="h-3 w-3" /> مجاناً بلا عمولة
           </div>
           <div className="text-2xl font-black mt-2 leading-tight">
-            اطلب الآن، ادفع للمزوّد مباشرة
+            {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
           </div>
           <div className="text-xs opacity-90 mt-1">
-            {topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
+            {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
           </div>
         </div>
       </div>
