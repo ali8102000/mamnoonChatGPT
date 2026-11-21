@@ -24,6 +24,7 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import { useThemePreference } from "@/lib/theme-preference";
 import Svg, { Circle, Path } from "react-native-svg";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
+import { HomeTopSquareBanner } from "@/components/home-top-square-banner";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 
@@ -644,6 +645,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
             </View>
           </TouchableOpacity>
         ))}
+        <HomeTopSquareBanner width={HOME_GRID_NARROW_WIDTH} height={188} />
         <View style={{ width: HOME_GRID_WIDE_WIDTH, height: 188, direction: "rtl" }}>
           <HomeCategoryCarousel height={188} />
         </View>
