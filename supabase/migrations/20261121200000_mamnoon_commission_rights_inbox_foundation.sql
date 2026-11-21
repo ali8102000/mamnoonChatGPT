@@ -1,4 +1,4 @@
--- Mamnoon commission-first billing foundation (additive; not applied to production by this commit).
+-- Mamnoon commission-first billing foundation and complete legacy subscription removal (pre-launch migration).
 -- Wallet debt is capped at IQD 5,000 below zero. Gateway settlement remains disabled
 -- until the merchant account and ZainCash secrets pass UAT.
 
@@ -1541,7 +1541,7 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.mamnoon_provider_subscription_active_internal(uuid) FROM PUBLIC, anon, authenticated;
 
--- Retire legacy subscription RPCs without deleting historical subscription data.
+-- Temporarily neutralize legacy subscription RPCs before the final schema removal below.
 CREATE OR REPLACE FUNCTION public.get_user_subscription(_user_id uuid)
 RETURNS TABLE(
   plan_code text, plan_name_ar text, tier integer, max_requests_per_month integer,
@@ -2048,6 +2048,7 @@ DROP FUNCTION IF EXISTS public.mamnoon_guard_provider_offer();
 DROP FUNCTION IF EXISTS public.mamnoon_provider_subscription_active(uuid);
 DROP FUNCTION IF EXISTS public.mamnoon_provider_subscription_active_internal(uuid);
 DROP FUNCTION IF EXISTS public.mamnoon_start_provider_trial();
+DROP FUNCTION IF EXISTS public.mamnoon_provider_kinds(uuid);
 DROP FUNCTION IF EXISTS public.pause_own_subscription();
 DROP FUNCTION IF EXISTS public.refresh_support_conversation_priority(uuid);
 DROP FUNCTION IF EXISTS public.restore_own_subscription_continuation();
@@ -2077,3 +2078,28 @@ DROP TABLE IF EXISTS public.subscription_payments CASCADE;
 DROP TABLE IF EXISTS public.user_subscriptions CASCADE;
 DROP TABLE IF EXISTS public.subscription_settings CASCADE;
 DROP TABLE IF EXISTS public.subscription_plans CASCADE;
+
+-- Fail closed if any executable database function still depends on the removed
+-- subscription schema. This catches forgotten gates before the migration commits.
+DO $assert_no_subscription_dependencies$
+DECLARE v_function text;
+BEGIN
+  SELECT p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+  INTO v_function
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.prokind = 'f'
+    AND (
+      pg_get_functiondef(p.oid) ILIKE '%user_subscriptions%'
+      OR pg_get_functiondef(p.oid) ILIKE '%subscription_plans%'
+      OR pg_get_functiondef(p.oid) ILIKE '%subscription_settings%'
+      OR pg_get_functiondef(p.oid) ILIKE '%subscription_payments%'
+    )
+  LIMIT 1;
+
+  IF v_function IS NOT NULL THEN
+    RAISE EXCEPTION 'subscription_dependency_remains_in_function: %', v_function;
+  END IF;
+END;
+$assert_no_subscription_dependencies$;
+
