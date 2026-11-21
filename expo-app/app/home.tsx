@@ -514,7 +514,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
     <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: 12 }}>
       <TouchableOpacity activeOpacity={0.94} onPress={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }}>
       <LinearGradient
-        colors={[palette.brand, palette.brandGlow, palette.gold]}
+        colors={topBanner?.display_config?.background_color ? [topBanner.display_config.background_color, topBanner.display_config.background_color] : [palette.brand, palette.brandGlow, palette.gold]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -567,10 +567,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
         >
           <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ {topBanner?.badge_text || "مجاناً بلا عمولة"}</Text>
         </View>
-        <Text style={{ color: "#FFFFFF", fontSize: Math.max(12,Math.min(30,Number(topBanner?.display_config?.title_size_px)||20)), lineHeight: 25, fontWeight: "900", textAlign: topBanner?.display_config?.text_alignment || "right", color: topBanner?.display_config?.title_color || "#FFFFFF" }}>
+        <Text style={{ fontSize: Math.max(12,Math.min(30,Number(topBanner?.display_config?.title_size_px)||20)), lineHeight: 25, fontWeight: "900", textAlign: topBanner?.display_config?.text_alignment || "right", color: topBanner?.display_config?.title_color || "#FFFFFF" }}>
           {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
         </Text>
-        <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: Math.max(8,Math.min(20,Number(topBanner?.display_config?.subtitle_size_px)||11)), lineHeight: 14, marginTop: 2, textAlign: topBanner?.display_config?.text_alignment || "right", color: topBanner?.display_config?.description_color || "rgba(255,255,255,0.92)" }}>
+        <Text style={{ fontSize: Math.max(8,Math.min(20,Number(topBanner?.display_config?.subtitle_size_px)||11)), lineHeight: 14, marginTop: 2, textAlign: topBanner?.display_config?.text_alignment || "right", color: topBanner?.display_config?.description_color || "rgba(255,255,255,0.92)" }}>
           {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
         </Text>
         {topBanner?.display_config?.cta_visible !== false ? <View pointerEvents="none" style={{ alignSelf: "flex-end", marginTop: 4, marginBottom: 2, borderRadius: 20, backgroundColor: topBanner?.display_config?.cta_background_color || "#FFFFFF", paddingHorizontal: 13, paddingVertical: 6 }}><Text style={{ color: topBanner?.display_config?.cta_text_color || palette.brand, fontSize: 11, fontWeight: "900" }}>{topBanner?.display_config?.cta_text || "اطلب الآن"} ←</Text></View> : null}
