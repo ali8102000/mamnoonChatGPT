@@ -40,7 +40,7 @@ Deno.serve(async (req: Request) => {
       p_scope_governorate: null,
     });
     const { data: isSuperAdmin } = await caller.rpc("is_super_admin", { p_user_id: auth.user.id });
-    if (moderationError || (moderation !== true && permission !== true && isSuperAdmin !== true)) return json({ error: "forbidden" }, 403);
+    if ((moderationError && isSuperAdmin !== true) || (moderation !== true && permission !== true && isSuperAdmin !== true)) return json({ error: "forbidden" }, 403);
 
     const admin = createClient(url, secret, {
       global: { fetch: createSupabaseFetch(secret) },
