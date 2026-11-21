@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Image, View } from "react-native";
+import { Image, Text, View } from "react-native";
 import { getServiceImage } from "@/lib/service-visuals";
 import { supabase } from "@/lib/supabase";
 
@@ -53,6 +53,7 @@ export function ServiceIconPanorama({ imageUrl, imageScale = 1, imageFit, imageS
     >
       {(() => {
         const visual = visuals[SERVICES[index]] || {};
+        if (!imageUrl && visual.icon_name) return <Text style={{ fontSize: 28, textAlign: "center", transform: [{ translateX: Number(visual.content_position_x_px) || 0 }, { translateY: Number(visual.content_position_y_px) || 0 }, { scale: Math.max(.5, Math.min(2.5, Number(visual.content_scale) || 1)) }] }}>{visual.icon_name}</Text>;
         return <Image
           source={imageUrl ? { uri: imageUrl } : visual.image_url ? { uri: visual.image_url } : getServiceImage(SERVICES[index])}
           resizeMode={(imageUrl ? imageFit : visual.image_fit) === "contain" ? "contain" : "cover"}
