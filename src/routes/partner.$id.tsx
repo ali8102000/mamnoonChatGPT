@@ -103,7 +103,12 @@ function PublicPartnerDetailsPage() {
       p_expected_total: Number(cartSubtotal.toFixed(2)), p_expected_currency: cartCurrency,
     });
     setCheckoutBusy(false);
-    if (orderError || !orderId) { toast.error(orderError?.message || "تعذر إتمام الطلب. تحقق من توفر المنتجات."); await load(); return; }
+    if (orderError || !orderId) {
+      const message = orderError?.message?.includes("cart_price_changed_refresh_required")
+        ? "تغيّر سعر أحد المنتجات. حدّثنا السلة؛ راجع المجموع الجديد وأعد تأكيد الطلب."
+        : orderError?.message || "تعذر إتمام الطلب. تحقق من توفر المنتجات.";
+      toast.error(message); await load(); return;
+    }
     setDeliveryAddress(""); setCustomerNote("");
     await load();
     toast.success("تم إرسال طلبك للمنشأة. رقم الطلب: " + String(orderId).slice(0, 8));
