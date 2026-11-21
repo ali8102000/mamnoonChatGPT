@@ -1,0 +1,80 @@
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Stack } from "expo-router";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
+import { palette, radius, space } from "@/styles/theme";
+
+type UserRow={id:string;full_name:string|null;phone:string|null;email:string|null;governorate_key:string|null;roles:string[];balance_iqd:number;partner?:any};
+type Tab="wallet"|"special"|"policies"|"revenue";
+const durations=[{value:"1",label:"يوم"},{value:"7",label:"أسبوع"},{value:"30",label:"شهر"},{value:"90",label:"٣ أشهر"},{value:"180",label:"٦ أشهر"},{value:"365",label:"سنة"},{value:"permanent",label:"دائم"}];
+const govs=["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
+const govLabel:Record<string,string>={baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
+
+export default function AdminRightsScreen(){
+ const {user,loading:authLoading}=useAuth();
+ const [allowed,setAllowed]=useState<boolean|null>(null);
+ const [tab,setTab]=useState<Tab>("wallet");
+ const [query,setQuery]=useState("");const [users,setUsers]=useState<UserRow[]>([]);const [selected,setSelected]=useState<UserRow|null>(null);
+ const [amount,setAmount]=useState("");const [note,setNote]=useState("");const [kind,setKind]=useState<"debit"|"credit">("debit");
+ const [charge,setCharge]=useState("0");const [duration,setDuration]=useState("30");const [reason,setReason]=useState("ميزة خاصة من إدارة ممنون");
+ const [policies,setPolicies]=useState<any[]>([]);const [revenue,setRevenue]=useState<any[]>([]);
+ const [scope,setScope]=useState("global");const [scopeKey,setScopeKey]=useState("");const [rate,setRate]=useState("0");const [chargeRate,setChargeRate]=useState("100");const [event,setEvent]=useState("taxi_acceptance");const [trial,setTrial]=useState(false);const [trialDays,setTrialDays]=useState("30");const [newOnly,setNewOnly]=useState(true);const [enabled,setEnabled]=useState(false);
+ const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(false);const [error,setError]=useState("");
+ const invoke=useCallback(async(body:Record<string,unknown>)=>{const {data,error:callError}=await supabase.functions.invoke("admin-rights",{body});if(callError)throw new Error(callError.message||"تعذر الاتصال بحقوق ممنون");if(data?.error)throw new Error(data.error);return data;},[]);
+ const load=useCallback(async()=>{setLoading(true);try{const data=await invoke({action:"list"});setPolicies(data.policies??[]);setRevenue(data.revenue??[]);}catch(e:any){setError(String(e?.message||"تعذر تحميل البيانات"));}finally{setLoading(false);}},[invoke]);
+ useEffect(()=>{if(authLoading)return;if(!user?.id){setAllowed(false);return;}void supabase.rpc("is_super_admin",{p_user_id:user.id}).then(({data,error:err})=>setAllowed(!err&&data===true));},[authLoading,user?.id]);
+ useEffect(()=>{if(allowed&&["special","policies","revenue"].includes(tab))void load();},[allowed,tab,load]);
+ const searchUsers=async()=>{if(query.trim().length<2){Alert.alert("البحث","اكتب حرفين أو أكثر");return;}setBusy(true);try{const data=await invoke({action:"search_users",query:query.trim()});setUsers(data.users??[]);setSelected(null);}catch(e:any){Alert.alert("تعذر البحث",String(e?.message||"حاول مرة ثانية"));}finally{setBusy(false);}};
+ const adjust=async()=>{if(!selected||!/^\d+$/.test(amount)||Number(amount)<=0||!note.trim()){Alert.alert("تحقق من البيانات","اختار مستخدماً واكتب المبلغ والسبب");return;}Alert.alert("تأكيد العملية",`${kind==="debit"?"استقطاع":"إضافة"} ${Number(amount).toLocaleString("ar-IQ")} د.ع؟`,[{text:"رجوع",style:"cancel"},{text:"تأكيد",onPress:()=>{setBusy(true);const key=globalThis.crypto?.randomUUID?.()||("admin-"+Date.now()+"-"+selected.id);void invoke({action:"wallet_adjust",user_id:selected.id,amount_iqd:Number(amount),type:kind,note:note.trim(),idempotency_key:key}).then(async r=>{Alert.alert("تم",`الرصيد الجديد: ${Number(r.result?.balance_iqd??0).toLocaleString("ar-IQ")} د.ع`);setAmount("");setNote("");await searchUsers();}).catch((e:any)=>Alert.alert("تعذر التنفيذ",String(e?.message||"حاول مرة ثانية"))).finally(()=>setBusy(false));}}]);};
+ const saveOverride=async()=>{if(!selected||Number(charge)<0||Number(charge)>100||!reason.trim()){Alert.alert("تحقق من البيانات","تأكد من النسبة والسبب");return;}const end=duration==="permanent"?null:new Date(Date.now()+Number(duration)*86400000).toISOString();setBusy(true);try{await invoke({action:"save_override",user_id:selected.id,charge_percent:Number(charge),starts_at:new Date().toISOString(),ends_at:end,reason:reason.trim()});Alert.alert("تم","تم حفظ الميزة الخاصة");await load();}catch(e:any){Alert.alert("تعذر الحفظ",String(e?.message||"حاول مرة ثانية"));}finally{setBusy(false);}};
+ const savePolicy=async()=>{const key=scope==="global"?null:scopeKey.trim();if(scope!=="global"&&!key){Alert.alert("تحقق","حدد النطاق");return;}setBusy(true);try{await invoke({action:"save_policy",scope_type:scope,scope_key:key,commission_rate_percent:Number(rate),commission_charge_percent:Number(chargeRate),collection_event:event,free_trial_enabled:trial,free_trial_days:Number(trialDays),new_users_only:newOnly,is_enabled:enabled,starts_at:new Date().toISOString(),ends_at:null});Alert.alert("تم","تم حفظ سياسة العمولة");await load();}catch(e:any){Alert.alert("تعذر الحفظ",String(e?.message||"تحقق من الإعدادات"));}finally{setBusy(false);}};
+ if(authLoading||allowed===null)return <View style={s.center}><ActivityIndicator color={palette.brand}/><Text style={s.muted}>جارٍ التحقق من الصلاحية...</Text></View>;
+ if(!allowed)return <View style={s.center}><Text style={s.title}>غير مصرّح</Text></View>;
+ return <View style={s.page}><Stack.Screen options={{title:"حقوق ممنون"}}/>
+  <View style={s.header}><Text style={s.title}>حقوق ممنون</Text><Text style={s.muted}>المحافظ والعمولات والإعفاءات والإيرادات</Text></View>
+  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabs}>
+   {([["wallet","المحفظة"],["special","ميزات خاصة"],["policies","الاستقطاع"],["revenue","الإيرادات"]] as [Tab,string][]).map(([k,l])=><TouchableOpacity key={k} onPress={()=>setTab(k)} style={[s.tab,tab===k&&s.active]}><Text style={[s.tabText,tab===k&&s.activeText]}>{l}</Text></TouchableOpacity>)}
+  </ScrollView>
+  {!!error&&<Text style={s.error}>{error}</Text>}
+  <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={()=>void load()}/>}>
+   {(tab==="wallet"||tab==="special")&&<View style={s.card}><Text style={s.cardTitle}>البحث عن مستخدم</Text><View style={s.row}><TextInput value={query} onChangeText={setQuery} placeholder="الاسم أو رقم الهاتف" placeholderTextColor={palette.muted} style={[s.input,{flex:1}]}/><TouchableOpacity onPress={()=>void searchUsers()} style={s.primary}><Text style={s.primaryText}>بحث</Text></TouchableOpacity></View>
+    {users.map(u=><TouchableOpacity key={u.id} onPress={()=>setSelected(u)} style={[s.userCard,selected?.id===u.id&&s.selected]}><Text style={s.cardTitle}>{u.full_name||"مستخدم ممنون"}</Text><Text style={s.muted}>{u.phone||u.email} · {u.roles?.join("، ")}</Text><Text style={s.muted}>الرصيد {Number(u.balance_iqd).toLocaleString("ar-IQ")} د.ع · {govLabel[u.governorate_key||""]||u.governorate_key||"بلا محافظة"}</Text></TouchableOpacity>)}
+    {selected&&<View style={s.panel}><Text style={s.cardTitle}>{selected.full_name||selected.phone}</Text>
+     {tab==="wallet"?<>
+      <View style={s.row}><TouchableOpacity onPress={()=>setKind("debit")} style={[s.choice,kind==="debit"&&s.active]}><Text style={[s.tabText,kind==="debit"&&s.activeText]}>استقطاع شكوى</Text></TouchableOpacity><TouchableOpacity onPress={()=>setKind("credit")} style={[s.choice,kind==="credit"&&s.active]}><Text style={[s.tabText,kind==="credit"&&s.activeText]}>إضافة رصيد</Text></TouchableOpacity></View>
+      <TextInput value={amount} onChangeText={setAmount} keyboardType="number-pad" placeholder="المبلغ بالدينار" placeholderTextColor={palette.muted} style={s.input}/>
+      <TextInput value={note} onChangeText={setNote} placeholder="سبب العملية" placeholderTextColor={palette.muted} style={s.input}/>
+      <TouchableOpacity disabled={busy} onPress={()=>void adjust()} style={s.primary}><Text style={s.primaryText}>{busy?"جارٍ التنفيذ...":"تأكيد العملية"}</Text></TouchableOpacity>
+     </>:<>
+      <Text style={s.muted}>نسبة تحصيل عمولة ممنون من ٠٪ إلى ١٠٠٪</Text><TextInput value={charge} onChangeText={setCharge} keyboardType="decimal-pad" placeholder="0" style={s.input}/>
+      <Text style={s.muted}>المدة</Text><View style={s.rowWrap}>{durations.map(d=><TouchableOpacity key={d.value} onPress={()=>setDuration(d.value)} style={[s.choice,duration===d.value&&s.active]}><Text style={[s.tabText,duration===d.value&&s.activeText]}>{d.label}</Text></TouchableOpacity>)}</View>
+      <TextInput value={reason} onChangeText={setReason} style={s.input} placeholder="سبب الميزة"/>
+      <TouchableOpacity disabled={busy} onPress={()=>void saveOverride()} style={s.primary}><Text style={s.primaryText}>حفظ الميزة</Text></TouchableOpacity>
+     </>}
+    </View>}
+   </View>}
+   {tab==="policies"&&<View style={s.card}><Text style={s.cardTitle}>سياسة الاستقطاع</Text>
+    <Text style={s.muted}>النطاق</Text><View style={s.rowWrap}>{[["global","كل العراق"],["governorate","محافظة"],["role","فئة"],["governorate_role","فئة بمحافظة"]].map(([k,l])=><TouchableOpacity key={k} onPress={()=>{setScope(k);setScopeKey("");}} style={[s.choice,scope===k&&s.active]}><Text style={[s.tabText,scope===k&&s.activeText]}>{l}</Text></TouchableOpacity>)}</View>
+    {scope==="governorate"&&<View style={s.rowWrap}>{govs.map(g=><TouchableOpacity key={g} onPress={()=>setScopeKey(g)} style={[s.choice,scopeKey===g&&s.active]}><Text style={[s.tabText,scopeKey===g&&s.activeText]}>{govLabel[g]}</Text></TouchableOpacity>)}</View>}
+    {(scope==="role"||scope==="governorate_role")&&<View style={s.rowWrap}>{["driver","large_driver","worker"].map(r=><TouchableOpacity key={r} onPress={()=>setScopeKey(scope==="role"?r:(scopeKey.split(":")[0]||"najaf")+":"+r)} style={[s.choice,scopeKey.endsWith(r)&&s.active]}><Text style={[s.tabText,scopeKey.endsWith(r)&&s.activeText]}>{r==="driver"?"التكسي":r==="large_driver"?"التكسي الكبير":"الفنيون"}</Text></TouchableOpacity>)}</View>}
+    {scope==="governorate_role"&&<View style={s.rowWrap}>{govs.map(g=><TouchableOpacity key={g} onPress={()=>setScopeKey(g+":"+(scopeKey.split(":")[1]||"driver"))} style={[s.choice,scopeKey.startsWith(g+":")&&s.active]}><Text style={[s.tabText,scopeKey.startsWith(g+":")&&s.activeText]}>{govLabel[g]}</Text></TouchableOpacity>)}</View>}
+    <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" placeholder="نسبة عمولة ممنون من الأجرة %" style={s.input}/>
+    <TextInput value={chargeRate} onChangeText={setChargeRate} keyboardType="decimal-pad" placeholder="نسبة تحصيل العمولة %" style={s.input}/>
+    <View style={s.rowWrap}>{[["taxi_acceptance","قبول رحلة"],["service_acceptance","قبول خدمة"],["order_acceptance","قبول طلب متجر"]].map(([k,l])=><TouchableOpacity key={k} onPress={()=>setEvent(k)} style={[s.choice,event===k&&s.active]}><Text style={[s.tabText,event===k&&s.activeText]}>{l}</Text></TouchableOpacity>)}</View>
+    <TouchableOpacity onPress={()=>setTrial(v=>!v)} style={s.row}><Text style={s.muted}>تجربة مجانية</Text><Text style={s.cardTitle}>{trial?"مفعّلة":"متوقفة"}</Text></TouchableOpacity>
+    <TextInput value={trialDays} onChangeText={setTrialDays} keyboardType="number-pad" placeholder="أيام التجربة" style={s.input}/>
+    <TouchableOpacity onPress={()=>setNewOnly(v=>!v)} style={s.row}><Text style={s.muted}>المسجلون الجدد فقط</Text><Text style={s.cardTitle}>{newOnly?"نعم":"لا"}</Text></TouchableOpacity>
+    <TouchableOpacity onPress={()=>setEnabled(v=>!v)} style={s.row}><Text style={s.muted}>تفعيل الاستقطاع</Text><Text style={s.cardTitle}>{enabled?"مفعّل":"متوقف"}</Text></TouchableOpacity>
+    <TouchableOpacity disabled={busy} onPress={()=>void savePolicy()} style={s.primary}><Text style={s.primaryText}>حفظ الإعدادات</Text></TouchableOpacity>
+   </View>}
+   {tab==="revenue"&&<View style={s.card}><Text style={s.cardTitle}>دفتر الإيرادات</Text>{revenue.map(r=><View key={r.id} style={s.userCard}><Text style={s.cardTitle}>{r.profile?.full_name||r.profile?.phone||"مستخدم"}</Text><Text style={s.muted}>{r.revenue_type} · {new Date(r.created_at).toLocaleString("ar-IQ")}</Text><Text style={s.muted}>مستحق {Number(r.assessed_iqd).toLocaleString("ar-IQ")} · محصل {Number(r.collected_iqd).toLocaleString("ar-IQ")} · معفى {Number(r.waived_iqd).toLocaleString("ar-IQ")}</Text></View>)}{!revenue.length&&<Text style={s.muted}>لا توجد إيرادات مسجلة</Text>}</View>}
+  </ScrollView>
+ </View>;
+}
+
+const s=StyleSheet.create({
+ page:{flex:1,backgroundColor:palette.pageCanvas},header:{padding:space.lg,gap:4},title:{fontSize:21,fontWeight:"900",color:palette.ink,textAlign:"right"},muted:{fontSize:11,color:palette.muted,textAlign:"right",lineHeight:18},
+ center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor:palette.pageCanvas,gap:10},tabs:{paddingHorizontal:space.lg,paddingBottom:space.sm,gap:7},tab:{paddingHorizontal:13,paddingVertical:10,borderRadius:30,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line},active:{backgroundColor:palette.brand,borderColor:palette.brand},tabText:{fontSize:10,fontWeight:"900",color:palette.ink},activeText:{color:palette.white},
+ content:{padding:space.lg,gap:12,paddingBottom:50},card:{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radius.lg,padding:14,gap:10},cardTitle:{fontSize:13,fontWeight:"900",color:palette.ink,textAlign:"right"},row:{flexDirection:"row",alignItems:"center",gap:8},rowWrap:{flexDirection:"row",flexWrap:"wrap",gap:7},input:{backgroundColor:palette.pageCanvas,borderWidth:1,borderColor:palette.line,borderRadius:radius.md,padding:12,color:palette.ink,textAlign:"right",fontSize:12,minHeight:42},primary:{backgroundColor:palette.brand,padding:13,borderRadius:radius.md,alignItems:"center",justifyContent:"center"},primaryText:{color:palette.white,fontWeight:"900",fontSize:11},userCard:{padding:12,borderRadius:radius.md,borderWidth:1,borderColor:palette.line,gap:4},selected:{borderColor:palette.brand,backgroundColor:palette.brandSoft},panel:{backgroundColor:palette.brandSoft,borderRadius:radius.md,padding:12,gap:9},choice:{paddingHorizontal:11,paddingVertical:9,borderRadius:12,borderWidth:1,borderColor:palette.line,backgroundColor:palette.surface},error:{color:palette.danger,textAlign:"right",paddingHorizontal:space.lg,fontSize:11},
+});
