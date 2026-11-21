@@ -471,7 +471,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
     let active = true;
     const load = async () => {
       const { data, error } = await (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,is_active")
+        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
         .eq("is_active", true).eq("banner_type", "ad").order("display_order").order("created_at");
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
@@ -569,10 +569,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
           <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
         </View>
         <Text style={{ color: "#FFFFFF", fontSize: 24, lineHeight: 29, fontWeight: "900", textAlign: "right" }}>
-          اطلب الآن، ادفع للمزوّد مباشرة
+          {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
         </Text>
         <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 16, marginTop: 4, textAlign: "right" }}>
-          {topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
+          {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
         </Text>
       </LinearGradient>
 
