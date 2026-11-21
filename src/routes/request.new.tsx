@@ -1187,9 +1187,9 @@ function NewRequest() {
                         active ? "ring-2 ring-primary border-primary" : "border-border/60"
                       }`} style={{backgroundColor:visual.background_color||undefined,borderRadius:Number(visual.border_radius_px)||undefined,padding:Number(visual.card_padding_px)||undefined,transform:`scale(${Math.max(.6,Math.min(1.6,Number(visual.element_scale)||1))})`}}
                     >
-                      {uiVisuals[`vehicle_${c.key}`]?.icon_name ? <span className="text-3xl shrink-0">{uiVisuals[`vehicle_${c.key}`].icon_name}</span> : (
-                        <img src={uiVisuals[`vehicle_${c.key}`]?.image_url || c.img || `/vehicle-icons/${c.key}.svg`} alt={uiVisuals[`vehicle_${c.key}`]?.title || c.label} style={{ width: Number(visual.width_px) || 76, height: Number(visual.height_px) || 52, transform: `scale(${Math.max(.5,Math.min(2,Number(visual.icon_scale)||1))})` }} className="object-contain shrink-0" />
-                      )}
+                      <span className="inline-flex shrink-0 items-center justify-center" style={{ transform: `translate(${Math.max(-100,Math.min(100,Number(visual.content_position_x_px)||0))}px, ${Math.max(-100,Math.min(100,Number(visual.content_position_y_px)||0))}px) scale(${Math.max(.5,Math.min(2.5,Number(visual.content_scale)||1))})` }}>{uiVisuals[`vehicle_${c.key}`]?.icon_name ? <span className="text-3xl">{uiVisuals[`vehicle_${c.key}`].icon_name}</span> : (
+                        <img src={uiVisuals[`vehicle_${c.key}`]?.image_url || c.img || `/vehicle-icons/${c.key}.svg`} alt={uiVisuals[`vehicle_${c.key}`]?.title || c.label} style={{ width: Number(visual.width_px) || 76, height: Number(visual.height_px) || 52, transform: `scale(${Math.max(.5,Math.min(2,Number(visual.icon_scale)||1))})` }} className="object-contain" />
+                      )}</span>
                       <div className="flex-1 font-black text-sm" style={{fontSize:Number(visual.title_size_px)||14,color:visual.title_color||undefined}}>{visual.title || c.label}</div>
                       <div className="font-black text-base text-primary shrink-0">
                         {fare !== null ? `${fare.toLocaleString()} د.ع` : "—"}
