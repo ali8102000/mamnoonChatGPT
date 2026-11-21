@@ -26,8 +26,8 @@ for insert to authenticated with check (
     select 1
     from public.partner_business_profiles p
     join public.partner_catalog_items i on i.business_profile_id = p.id
-    where p.id = business_profile_id
-      and i.id = catalog_item_id
+    where p.id = partner_customer_cart_items.business_profile_id
+      and i.id = partner_customer_cart_items.catalog_item_id
       and p.is_published = true
       and p.partner_type in ('restaurant','store','mall')
       and i.is_active = true
@@ -45,8 +45,8 @@ with check (
     select 1
     from public.partner_business_profiles p
     join public.partner_catalog_items i on i.business_profile_id = p.id
-    where p.id = business_profile_id
-      and i.id = catalog_item_id
+    where p.id = partner_customer_cart_items.business_profile_id
+      and i.id = partner_customer_cart_items.catalog_item_id
       and p.is_published = true
       and p.partner_type in ('restaurant','store','mall')
       and i.is_active = true
@@ -57,6 +57,60 @@ with check (
 drop policy if exists partner_customer_cart_delete_own on public.partner_customer_cart_items;
 create policy partner_customer_cart_delete_own on public.partner_customer_cart_items
 for delete to authenticated using (customer_id = (select auth.uid()));
+
+create or replace function public.add_partner_customer_cart_item(
+  p_business_profile_id uuid,
+  p_catalog_item_id uuid,
+  p_quantity integer default 1
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_customer uuid := auth.uid();
+  v_partner_type text;
+  v_item public.partner_catalog_items%rowtype;
+  v_quantity integer;
+begin
+  if v_customer is null then raise exception 'unauthorized'; end if;
+  if p_quantity is null or p_quantity < 1 or p_quantity > 9999 then raise exception 'invalid_quantity'; end if;
+
+  select partner_type into v_partner_type
+  from public.partner_business_profiles
+  where id = p_business_profile_id and is_published = true
+    and partner_type in ('restaurant','store','mall');
+  if not found then raise exception 'business_unavailable'; end if;
+
+  select * into v_item
+  from public.partner_catalog_items
+  where id = p_catalog_item_id
+    and business_profile_id = p_business_profile_id
+    and is_active = true
+    and item_type = case when v_partner_type = 'restaurant' then 'menu_item' else 'product' end
+  for update;
+  if not found then raise exception 'item_unavailable'; end if;
+  if v_item.quantity_available is not null and p_quantity > v_item.quantity_available then
+    raise exception 'quantity_unavailable';
+  end if;
+
+  insert into public.partner_customer_cart_items(customer_id,business_profile_id,catalog_item_id,quantity,updated_at)
+  values(v_customer,p_business_profile_id,p_catalog_item_id,p_quantity,now())
+  on conflict(customer_id,catalog_item_id) do update
+    set quantity = public.partner_customer_cart_items.quantity + excluded.quantity,
+        updated_at = now()
+    where public.partner_customer_cart_items.business_profile_id = excluded.business_profile_id
+      and (v_item.quantity_available is null
+        or public.partner_customer_cart_items.quantity + excluded.quantity <= v_item.quantity_available)
+  returning quantity into v_quantity;
+
+  if v_quantity is null then raise exception 'quantity_unavailable_or_cart_conflict'; end if;
+  return v_quantity;
+end;
+$function$;
+revoke all on function public.add_partner_customer_cart_item(uuid,uuid,integer) from public, anon;
+grant execute on function public.add_partner_customer_cart_item(uuid,uuid,integer) to authenticated;
 
 create or replace function public.place_partner_customer_order(
   p_business_profile_id uuid,
