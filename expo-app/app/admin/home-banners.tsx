@@ -41,7 +41,9 @@ type Banner = {
   motion_style: MotionStyle;
 };
 
-type ContestEntry={id:string;campaign_id:string;user_id:string;text_content:string|null;storage_path:string|null;image_url:string|null;status:string;created_at:string};\n\nconst CATEGORY_LABELS: Record<BannerCategory, string> = {
+type ContestEntry={id:string;campaign_id:string;user_id:string;text_content:string|null;storage_path:string|null;image_url:string|null;status:string;created_at:string};
+
+const CATEGORY_LABELS: Record<BannerCategory, string> = {
   restaurant: "المطاعم",
   hotel: "الفنادق",
   store: "المتاجر",
@@ -53,7 +55,10 @@ export default function AdminHomeBannersScreen() {
   const [rows, setRows] = useState<Banner[]>([]);
   const [category, setCategory] = useState<BannerCategory>("restaurant");
   const [bannerType, setBannerType] = useState<BannerKind>("category");
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);\n  const [entries,setEntries]=useState<ContestEntry[]>([]);\n  const [editingRules,setEditingRules]=useState<Record<string,string>>({});\n  const [editingPrize,setEditingPrize]=useState<Record<string,string>>({});
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [entries,setEntries]=useState<ContestEntry[]>([]);
+  const [editingRules,setEditingRules]=useState<Record<string,string>>({});
+  const [editingPrize,setEditingPrize]=useState<Record<string,string>>({});
   const [campaignId, setCampaignId] = useState("");
   const [speed, setSpeed] = useState("5");
   const [order, setOrder] = useState("0");
@@ -97,7 +102,9 @@ export default function AdminHomeBannersScreen() {
       setMessage("");
     }
     const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,participation_mode,rules,prize_description,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
-    setCampaigns((campaignRows ?? []) as Campaign[]);\n    const {data:entryRows,error:entryError}=await (supabase as any).from("app_campaign_entries").select("id,campaign_id,user_id,text_content,storage_path,status,created_at").order("created_at",{ascending:false});\n    if(!entryError){const withImages=await Promise.all((entryRows??[]).map(async(entry:any)=>{let image_url:string|null=null;if(entry.storage_path){const signed=await supabase.storage.from("campaign-entries").createSignedUrl(entry.storage_path,3600);image_url=signed.data?.signedUrl??null;}return {...entry,image_url};}));setEntries(withImages as ContestEntry[]);}
+    setCampaigns((campaignRows ?? []) as Campaign[]);
+    const {data:entryRows,error:entryError}=await (supabase as any).from("app_campaign_entries").select("id,campaign_id,user_id,text_content,storage_path,status,created_at").order("created_at",{ascending:false});
+    if(!entryError){const withImages=await Promise.all((entryRows??[]).map(async(entry:any)=>{let image_url:string|null=null;if(entry.storage_path){const signed=await supabase.storage.from("campaign-entries").createSignedUrl(entry.storage_path,3600);image_url=signed.data?.signedUrl??null;}return {...entry,image_url};}));setEntries(withImages as ContestEntry[]);}
     setLoading(false);
     setRefreshing(false);
   }, [user?.id]);
@@ -219,7 +226,16 @@ export default function AdminHomeBannersScreen() {
     }
   };
 
-  const updateCampaign = async (campaign:Campaign,patch:Record<string,unknown>) => {\n    setBusy(true);const {error}=await (supabase as any).from("app_campaigns").update({...patch,updated_at:new Date().toISOString()}).eq("id",campaign.id);\n    if(error)Alert.alert("تعذر الحفظ","لم نتمكن من حفظ إعدادات المسابقة.");else{setMessage("تم حفظ إعدادات الحملة.");await load();}setBusy(false);\n  };\n  const reviewEntry = async(entry:ContestEntry,status:"approved"|"rejected")=>{\n    setBusy(true);const {error}=await (supabase as any).from("app_campaign_entries").update({status,reviewed_at:new Date().toISOString()}).eq("id",entry.id);\n    if(error)Alert.alert("تعذر تحديث المشاركة","تحقق من الصلاحيات والاتصال.");else{setMessage(status==="approved"?"تم قبول المشاركة.":"تم رفض المشاركة.");await load();}setBusy(false);\n  };\n\n  const toggleCampaignStatus = async (campaign: Campaign) => {
+  const updateCampaign = async (campaign:Campaign,patch:Record<string,unknown>) => {
+    setBusy(true);const {error}=await (supabase as any).from("app_campaigns").update({...patch,updated_at:new Date().toISOString()}).eq("id",campaign.id);
+    if(error)Alert.alert("تعذر الحفظ","لم نتمكن من حفظ إعدادات المسابقة.");else{setMessage("تم حفظ إعدادات الحملة.");await load();}setBusy(false);
+  };
+  const reviewEntry = async(entry:ContestEntry,status:"approved"|"rejected")=>{
+    setBusy(true);const {error}=await (supabase as any).from("app_campaign_entries").update({status,reviewed_at:new Date().toISOString()}).eq("id",entry.id);
+    if(error)Alert.alert("تعذر تحديث المشاركة","تحقق من الصلاحيات والاتصال.");else{setMessage(status==="approved"?"تم قبول المشاركة.":"تم رفض المشاركة.");await load();}setBusy(false);
+  };
+
+  const toggleCampaignStatus = async (campaign: Campaign) => {
     setBusy(true);
     const nextStatus = campaign.status === "published" ? "draft" : "published";
     const { error } = await (supabase as any).from("app_campaigns").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", campaign.id);
