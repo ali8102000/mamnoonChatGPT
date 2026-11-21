@@ -11,6 +11,7 @@ import { palette, radius, space } from "@/styles/theme";
 import { useThemePreference, type ThemeMode } from "@/lib/theme-preference";
 import { loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 import Svg, { Path } from "react-native-svg";
+import { safeNavigate } from "@/lib/safe-navigation";
 
 export default function AccountSettingsScreen() {
   const { user, profile, roles, refresh, activeRole, setActiveRole } = useAuth();
@@ -185,7 +186,7 @@ export default function AccountSettingsScreen() {
         throw new Error("جلسة الحساب تغيّرت أثناء التبديل. لم نكمل الانتقال حفاظاً على حسابك.");
       }
 
-      router.replace("/home");
+      safeNavigate("/home", "replace");
     } catch (error) {
       Alert.alert("تعذر تبديل الدور", error instanceof Error ? error.message : "حدث خطأ غير متوقع. حاول مرة ثانية.");
     } finally {
