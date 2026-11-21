@@ -43,11 +43,13 @@ export function HomeTopSquareBanner({ width = (Dimensions.get("window").width - 
 
   useEffect(() => {
     if (banners.length < 2) return;
-    const seconds = Math.max(1, Math.min(60, Number(current?.scroll_speed) || 5));
+    const delay = Math.max(1, Math.min(60, Number(current?.scroll_speed) || 5)) * 1000;
+    let nextAdvanceAt = Date.now() + delay;
     const timer = setInterval(() => {
-      if (Date.now() < pauseUntil.current) return;
+      if (Date.now() < pauseUntil.current || Date.now() < nextAdvanceAt) return;
       setIndex((value) => (value + 1) % banners.length);
-    }, seconds * 1000);
+      nextAdvanceAt = Date.now() + delay;
+    }, 150);
     return () => clearInterval(timer);
   }, [banners, current?.scroll_speed]);
 
@@ -57,6 +59,7 @@ export function HomeTopSquareBanner({ width = (Dimensions.get("window").width - 
       accessibilityLabel="بانر الشركاء والعروض، سيتوفر قريباً"
       onTouchStart={(event) => {
         touchStartX.current = event.nativeEvent.pageX;
+        pauseUntil.current = Number.MAX_SAFE_INTEGER;
         suppressPress.current = false;
       }}
       onTouchEnd={(event) => {
