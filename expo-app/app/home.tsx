@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRef } from "react";
-import { Animated, Easing } from "react-native";
+import { Animated, Easing, PanResponder } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import {
@@ -28,9 +28,6 @@ import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 
 const HOME_GRID_GAP = 12;
-const HOME_GRID_CONTENT_WIDTH = Dimensions.get("window").width - 24;
-const HOME_GRID_WIDE_WIDTH = ((HOME_GRID_CONTENT_WIDTH - HOME_GRID_GAP) * 2) / 3;
-const HOME_GRID_NARROW_WIDTH = (HOME_GRID_CONTENT_WIDTH - HOME_GRID_GAP) / 3;
 
 type IncomingRequest = {
   id: string;
@@ -429,6 +426,29 @@ function CustomerHome({ userId }: { userId: string | null }) {
   const [topBannerIndex, setTopBannerIndex] = useState(0);
   const [activeBannerCampaignId, setActiveBannerCampaignId] = useState<string | null>(null);
   const topBanner = topBanners[topBannerIndex] ?? null;
+  const suppressTopBannerPress = useRef(false);
+  const topBannerCount = useRef(0);
+  topBannerCount.current = topBanners.length;
+  const topBannerSwipeResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
+    onPanResponderRelease: (_, gesture) => {
+      if (topBannerCount.current < 2 || Math.abs(gesture.dx) < 38) return;
+      suppressTopBannerPress.current = true;
+      setTopBannerIndex((value) => (value + (gesture.dx < 0 ? 1 : -1) + topBannerCount.current) % topBannerCount.current);
+      setTimeout(() => { suppressTopBannerPress.current = false; }, 350);
+    },
+  })).current;
+  const gridLayout = visuals.home_customer_grid_layout || {};
+  const gridGap = Math.max(4, Math.min(28, Number(gridLayout.grid_gap_px) || HOME_GRID_GAP));
+  const firstRowHeight = Math.max(100, Math.min(260, Number(gridLayout.first_row_height_px) || 145));
+  const secondRowHeight = Math.max(120, Math.min(300, Number(gridLayout.second_row_height_px) || 188));
+  const carouselHeight = Math.max(120, Math.min(300, Number(gridLayout.carousel_height_px) || secondRowHeight));
+  const wideRatio = Math.max(1.4, Math.min(2.8, Number(gridLayout.wide_column_ratio) || 2));
+  const gridRadius = Math.max(8, Math.min(32, Number(gridLayout.card_radius_px) || 20));
+  const availableGridWidth = Dimensions.get("window").width - 24;
+  const wideCardWidth = (availableGridWidth - gridGap) * wideRatio / (wideRatio + 1);
+  const narrowCardWidth = availableGridWidth - gridGap - wideCardWidth;
   const bannerMotion = useRef(new Animated.Value(0)).current;
   const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(188);
   useEffect(() => {
@@ -486,7 +506,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "خلال دقائق",
       emoji: "🚕",
       colors: ["#E9AB2B", "#F97316"] as const,
-      width: HOME_GRID_WIDE_WIDTH,
+      width: wideCardWidth,
       type: "taxi" as const,
     },
     {
@@ -495,7 +515,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "١٦ خدمة",
       emoji: "🛠️",
       colors: ["#10B981", "#14B8A6"] as const,
-      width: HOME_GRID_NARROW_WIDTH,
+      width: narrowCardWidth,
       type: "service" as const,
     },
     {
@@ -504,21 +524,22 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "كيا حمل أو كيا ركاب أو باص",
       emoji: "🚚",
       colors: ["#F97316", "#D97706"] as const,
-      width: HOME_GRID_NARROW_WIDTH,
+      width: narrowCardWidth,
       type: "taxi" as const,
       vehicle: "large" as const,
     },
   ];
 
   return (
-    <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: 12 }}>
-      <TouchableOpacity activeOpacity={0.94} onPress={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }}>
+    <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: gridGap }}>
+      <View {...topBannerSwipeResponder.panHandlers} style={{ width: "100%" }}>
+      <TouchableOpacity activeOpacity={0.94} onPress={() => { if (suppressTopBannerPress.current) { suppressTopBannerPress.current = false; return; } if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }}>
       <LinearGradient
         colors={topBanner?.display_config?.background_color ? [topBanner.display_config.background_color, topBanner.display_config.background_color] : [palette.brand, palette.brandGlow, palette.gold]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          height: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)),
+          height: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||Number(gridLayout.top_banner_height_px)||130)),
           borderRadius: Math.max(8,Math.min(40,Number(topBanner?.display_config?.border_radius_px)||20)),
           padding: Math.max(8,Math.min(32,Number(topBanner?.display_config?.padding_px)||12)),
           backgroundColor: topBanner?.display_config?.background_color || undefined,
@@ -575,11 +596,12 @@ function CustomerHome({ userId }: { userId: string | null }) {
         {topBanner?.display_config?.cta_visible !== false ? <View pointerEvents="none" style={{ alignSelf: "flex-end", marginTop: 4, marginBottom: 2, borderRadius: 20, backgroundColor: topBanner?.display_config?.cta_background_color || "#FFFFFF", paddingHorizontal: 13, paddingVertical: 6 }}><Text style={{ color: topBanner?.display_config?.cta_text_color || palette.brand, fontSize: 11, fontWeight: "900" }}>{topBanner?.display_config?.cta_text || "اطلب الآن"} ←</Text></View> : null}
       </LinearGradient>
       </TouchableOpacity>
+      </View>
       {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
-      <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12 }}>
+      <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: gridGap, columnGap: gridGap }}>
         {[...tiles].sort((a,b) => {
           const keyA = a.key === "taxi" ? "home_customer_taxi" : a.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
           const keyB = b.key === "taxi" ? "home_customer_taxi" : b.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
@@ -588,11 +610,11 @@ function CustomerHome({ userId }: { userId: string | null }) {
           const visualKey = tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
           const visual = visuals[visualKey] || {};
           if (visual.is_hidden === true) return null;
-          const tileHeight = Math.max(96, Math.min(360, Number(visual.card_height_px) || (tile.key === "large" ? 350 : 145)));
+          const tileHeight = Math.max(96, Math.min(360, Number(visual.card_height_px) || (tile.key === "large" ? secondRowHeight : firstRowHeight)));
           const tilePadding = Math.max(4, Math.min(32, Number(visual.card_padding_px) || 10));
-          const tileRadius = Math.max(8, Math.min(40, Number(visual.border_radius_px) || 20));
-          const iconWidth = Math.max(24, Math.min(180, Number(visual.width_px) || (tile.key === "service" ? 104 : 56)));
-          const iconHeight = Math.max(24, Math.min(180, Number(visual.height_px) || (tile.key === "service" ? 104 : 56)));
+          const tileRadius = Math.max(8, Math.min(40, Number(visual.border_radius_px) || gridRadius));
+          const iconWidth = Math.max(24, Math.min(180, Number(visual.width_px) || (tile.key === "service" ? Number(gridLayout.service_icon_size_px) || 64 : tile.key === "taxi" ? Number(gridLayout.taxi_icon_size_px) || 56 : Number(gridLayout.large_icon_size_px) || 56)));
+          const iconHeight = Math.max(24, Math.min(180, Number(visual.height_px) || (tile.key === "service" ? Number(gridLayout.service_icon_size_px) || 64 : tile.key === "taxi" ? Number(gridLayout.taxi_icon_size_px) || 56 : Number(gridLayout.large_icon_size_px) || 56)));
           const iconScale = Math.max(0.5, Math.min(2, Number(visual.icon_scale) || 1));
           const titleSize = Math.max(10, Math.min(28, Number(visual.title_size_px) || 16));
           const subtitleSize = Math.max(8, Math.min(20, Number(visual.subtitle_size_px) || 11));
@@ -655,9 +677,12 @@ function CustomerHome({ userId }: { userId: string | null }) {
                 <ServiceIconPanorama
                   imageUrl={visual.image_url || visual.panorama_image_url || null}
                   imageScale={Number(visual.image_scale) || 1}
+                  imageFit={visual.image_fit}
+                  imageShape={visual.image_shape}
+                  imageRadius={Number(visual.image_border_radius_px ?? 18)}
                 />
               ) : (
-                visual.icon_name ? <Text style={{ fontSize: 30 }}>{visual.icon_name}</Text> : <Image source={visual.image_url ? { uri: visual.image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 52, height: 52 }} resizeMode="contain" />
+                visual.icon_name ? <Text style={{ fontSize: 30 }}>{visual.icon_name}</Text> : <Image source={visual.image_url ? { uri: visual.image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: iconWidth, height: iconHeight, borderRadius: Math.max(0, Math.min(60, Number(visual.image_border_radius_px) || 0)), aspectRatio: visual.image_shape === "landscape" ? 4/3 : visual.image_shape === "portrait" ? 3/4 : 1 }} resizeMode={visual.image_fit === "cover" ? "cover" : "contain"} />
               )}
               </View>
             </LinearGradient>
@@ -671,8 +696,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
           </TouchableOpacity>
           );
         })}
-        <View style={{ width: HOME_GRID_WIDE_WIDTH, height: 360, direction: "rtl" }}>
-          <HomeCategoryCarousel height={360} />
+        <View style={{ width: wideCardWidth, height: carouselHeight, direction: "rtl", borderRadius: gridRadius, overflow: "hidden" }}>
+          <HomeCategoryCarousel height={carouselHeight} width={wideCardWidth} />
         </View>
       </View>
 

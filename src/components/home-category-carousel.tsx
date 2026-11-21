@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -28,6 +28,8 @@ export function HomeCategoryCarousel() {
   const [banners, setBanners] = useState<CategoryBanner[]>([]);
   const [index, setIndex] = useState(0);
   const [imageFailed, setImageFailed] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressClick = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -87,7 +89,10 @@ export function HomeCategoryCarousel() {
             : "mamnoon-category-left .55s ease both";
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[18px] bg-[#173F35]" dir="rtl">
+    <div className="relative h-full w-full overflow-hidden rounded-[18px] bg-[#173F35]" dir="rtl" style={{ touchAction: "pan-y" }}
+      onPointerDown={(event) => { touchStart.current = { x: event.clientX, y: event.clientY }; }}
+      onPointerUp={(event) => { const start = touchStart.current; touchStart.current = null; if (!start || slides.length < 2) return; const dx = event.clientX - start.x; const dy = event.clientY - start.y; if (Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 1.2) { suppressClick.current = true; setIndex((value) => (value + (dx < 0 ? 1 : -1) + slides.length) % slides.length); window.setTimeout(() => { suppressClick.current = false; }, 350); } }}
+      onPointerCancel={() => { touchStart.current = null; }}>
       <style>{`
         @keyframes mamnoon-category-fade { from { opacity: .2 } to { opacity: 1 } }
         @keyframes mamnoon-category-drop { from { opacity: .4; transform: translateY(-16px) scale(.99) } to { opacity: 1; transform: translateY(0) scale(1) } }
@@ -96,7 +101,7 @@ export function HomeCategoryCarousel() {
         @keyframes mamnoon-category-up { from { opacity: .6; transform: translateY(18px) } to { opacity: 1; transform: translateY(0) } }
         @keyframes mamnoon-category-down { from { opacity: .6; transform: translateY(-18px) } to { opacity: 1; transform: translateY(0) } }
       `}</style>
-      {current ? <button type="button" onClick={() => void navigate({ to: "/discover/$category", params: { category: current.category } })} aria-label={`فتح قسم ${current.title}`} className="absolute inset-0 h-full w-full text-right">
+      {current ? <button type="button" onClick={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); return; } void navigate({ to: "/discover/$category", params: { category: current.category } }); }} aria-label={`فتح قسم ${current.title}`} className="absolute inset-0 h-full w-full text-right">
         {!imageFailed && <img key={current.id} src={current.image_url} alt="" onError={() => setImageFailed(true)} className="absolute inset-0 h-full w-full object-cover" style={{ animation }} />}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/5" />
         <div className="absolute right-4 bottom-4 left-4 text-white">

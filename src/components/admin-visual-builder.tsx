@@ -144,6 +144,9 @@ export default function AdminVisualBuilder() {
     setSelected(element);
     setDraft({ ...(element.config ?? {}), title: element.config?.title ?? element.title ?? "", subtitle: element.config?.subtitle ?? element.subtitle ?? "",
       image_url: element.config?.image_url ?? element.image_url ?? "",
+      image_fit: element.config?.image_fit ?? element.published_config?.image_fit ?? "contain",
+      image_shape: element.config?.image_shape ?? element.published_config?.image_shape ?? "square",
+      image_border_radius_px: element.config?.image_border_radius_px ?? element.published_config?.image_border_radius_px ?? 12,
       icon_name: element.config?.icon_name ?? element.icon_name ?? "",
       width_px: element.config?.width_px ?? element.width_px ?? 64,
       height_px: element.config?.height_px ?? element.height_px ?? 64,
@@ -359,8 +362,8 @@ export default function AdminVisualBuilder() {
                     className={`relative min-h-32 rounded-2xl border-2 p-3 text-right transition ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
                     <div className={`mb-2 grid h-16 place-items-center overflow-hidden bg-muted ${item.element_key === "home_customer_service" ? "rounded-none p-0" : "rounded-xl"}`}>
                       {image ? <img src={image} alt="" style={item.element_key === "home_customer_service"
-                        ? { width: "100%", height: "100%", objectFit: "cover", transform: `translate(${Number(visual.content_position_x_px) || 0}px, ${Number(visual.content_position_y_px) || 0}px) scale(${(Number(visual.image_scale) || 1) * (Number(visual.content_scale) || 1)})` }
-                        : { width, height, objectFit: "contain", transform: `translate(${Number(visual.content_position_x_px) || 0}px, ${Number(visual.content_position_y_px) || 0}px) scale(${Number(visual.content_scale) || 1})` }} /> : <span style={{ transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})`, fontSize: 30 }}>{visual.icon_name || <ImagePlus className="h-8 w-8 text-muted-foreground" />}</span>}
+                        ? { width: "100%", height: "100%", objectFit: visual.image_fit === "cover" ? "cover" : "contain", borderRadius: Number(visual.image_border_radius_px) || 12, aspectRatio: visual.image_shape === "landscape" ? "4 / 3" : visual.image_shape === "portrait" ? "3 / 4" : "1 / 1", transform: `translate(${Number(visual.content_position_x_px) || 0}px, ${Number(visual.content_position_y_px) || 0}px) scale(${(Number(visual.image_scale) || 1) * (Number(visual.content_scale) || 1)})` }
+                        : { width, height, objectFit: visual.image_fit === "cover" ? "cover" : "contain", borderRadius: Number(visual.image_border_radius_px) || 12, aspectRatio: visual.image_shape === "landscape" ? "4 / 3" : visual.image_shape === "portrait" ? "3 / 4" : "1 / 1", transform: `translate(${Number(visual.content_position_x_px) || 0}px, ${Number(visual.content_position_y_px) || 0}px) scale(${Number(visual.content_scale) || 1})` }} /> : <span style={{ transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})`, fontSize: 30 }}>{visual.icon_name || <ImagePlus className="h-8 w-8 text-muted-foreground" />}</span>}
                     </div>
                     <b className="block text-sm">{visual.title ?? item.title ?? item.label}</b>
                     <span className="mt-1 block text-[11px] text-muted-foreground">{visual.subtitle ?? item.subtitle}</span>
@@ -378,9 +381,24 @@ export default function AdminVisualBuilder() {
                       onClick={() => openEditor(item)}
                       className={`rounded-xl border-2 p-2 text-center ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border"}`}>
                       <div className="grid h-14 place-items-center rounded-lg bg-muted">
-                        {visual.image_url ? <img src={visual.image_url} alt="" style={{ width: Number(visual.width_px) || 52, height: Number(visual.height_px) || 52, objectFit: "contain", transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})` }} /> : <span className="text-2xl">{visual.icon_name || "🚘"}</span>}
+                        {visual.image_url ? <img src={visual.image_url} alt="" style={{ width: Number(visual.width_px) || 52, height: Number(visual.height_px) || 52, objectFit: visual.image_fit === "cover" ? "cover" : "contain", borderRadius: Number(visual.image_border_radius_px) || 0, aspectRatio: visual.image_shape === "landscape" ? "4 / 3" : visual.image_shape === "portrait" ? "3 / 4" : "1 / 1", transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})` }} /> : <span className="text-2xl">{visual.icon_name || "🚘"}</span>}
                       </div>
                       <span className="mt-1 block text-[10px] font-bold">{visual.title || item.title || item.label}</span>
+                    </button>;
+                  })}
+                </div>
+              </div>
+              <div className="mt-5">
+                <h4 className="mb-2 text-sm font-black">أيقونات الخدمات المنزلية</h4>
+                <p className="mb-2 text-[11px] text-muted-foreground">اختار أي خدمة لتبديل صورتها وقصّها وتحديد شكلها من الإدارة.</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {elements.filter((item) => item.placement_key === "home.customer.service_icons").map((item) => {
+                    const visual = item.element_key === selected?.element_key ? draft : item.published_config ?? {};
+                    return <button key={item.element_key} type="button" onClick={() => openEditor(item)} className={`rounded-xl border p-2 text-center ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border bg-background"}`}>
+                      <div className="mx-auto grid h-11 w-11 place-items-center overflow-hidden rounded-lg bg-muted">
+                        {visual.image_url ? <img src={visual.image_url} alt="" style={{width:"100%",height:"100%",objectFit:visual.image_fit==="contain"?"contain":"cover",borderRadius:Number(visual.image_border_radius_px??12)}}/> : <ImagePlus className="h-5 w-5 text-muted-foreground"/>}
+                      </div>
+                      <span className="mt-1 block truncate text-[9px] font-bold">{visual.title || item.title || item.label}</span>
                     </button>;
                   })}
                 </div>
@@ -412,6 +430,21 @@ export default function AdminVisualBuilder() {
               <div className="mb-3 grid grid-cols-2 gap-2">
                 <div><label className="mb-1 block text-xs font-bold">عرض الحاوية px</label><input type="number" min="16" max="600" className={inputClass} value={draft.width_px ?? 64} onChange={(e) => setDraft({ ...draft, width_px: Number(e.target.value) })} /></div>
                 <div><label className="mb-1 block text-xs font-bold">ارتفاع الحاوية px</label><input type="number" min="16" max="600" className={inputClass} value={draft.height_px ?? 64} onChange={(e) => setDraft({ ...draft, height_px: Number(e.target.value) })} /></div>
+              </div>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold">شكل الصورة
+                  <select className={inputClass + " mt-1"} value={draft.image_shape ?? "square"} onChange={(e) => { const shape = e.target.value; const imageWidth = Number(draft.width_px) || 64; setDraft({ ...draft, image_shape: shape, height_px: shape === "landscape" ? Math.round(imageWidth * 3 / 4) : shape === "portrait" ? Math.round(imageWidth * 4 / 3) : imageWidth }); }}>
+                    <option value="square">مربع 1:1</option><option value="landscape">مستطيل أفقي 4:3</option><option value="portrait">مستطيل عمودي 3:4</option>
+                  </select>
+                </label>
+                <label className="text-xs font-bold">طريقة القص
+                  <select className={inputClass + " mt-1"} value={draft.image_fit ?? "contain"} onChange={(e) => setDraft({ ...draft, image_fit: e.target.value })}>
+                    <option value="cover">قص وملء الإطار</option><option value="contain">إظهار الصورة كاملة</option>
+                  </select>
+                </label>
+                <label className="col-span-2 text-xs font-bold">استدارة زوايا الصورة px
+                  <input type="number" min="0" max="60" className={inputClass + " mt-1"} value={draft.image_border_radius_px ?? 12} onChange={(e) => setDraft({ ...draft, image_border_radius_px: Math.max(0, Math.min(60, Number(e.target.value) || 0)) })}/>
+                </label>
               </div>
               <label className="mb-1 block text-xs font-bold">تكبير / تصغير الصورة داخل الحاوية</label>
               <input type="range" min="0.65" max="1.8" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.image_scale) || 1} onChange={(e) => setDraft({ ...draft, image_scale: Number(e.target.value) })} />

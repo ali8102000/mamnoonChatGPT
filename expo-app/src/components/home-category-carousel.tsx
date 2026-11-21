@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Dimensions, Pressable, Text, View } from "react-native";
+import { Animated, Dimensions, PanResponder, Pressable, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -10,7 +10,7 @@ type CategoryBanner = {
   scroll_speed?: number | null; motion_direction?: "left" | "right" | "up" | "down" | null;
   motion_style?: "slide" | "fade" | "drop" | null; banner_title?: string | null; banner_description?: string | null;
 };
-const width = (Dimensions.get("window").width - 36) * (2 / 3);
+
 const fallbackSlides = [
   { id: "restaurant", title: "المطاعم", subtitle: "مطاعم وكافيهات", category: "restaurant" as const, image_url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=85" },
   { id: "hotel", title: "الفنادق", subtitle: "فنادق وشقق فندقية", category: "hotel" as const, image_url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=85" },
@@ -18,12 +18,19 @@ const fallbackSlides = [
   { id: "shop", title: "المتاجر", subtitle: "محلات ومتاجر قريبة", category: "store" as const, image_url: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=85" },
 ];
 
-export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
+export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { height?: number; width?: number }) {
+  const width = requestedWidth ?? (Dimensions.get("window").width - 36) * (2 / 3);
   const [banners, setBanners] = useState<CategoryBanner[]>([]);
   const [index, setIndex] = useState(0);
   const [imageFailed, setImageFailed] = useState(false);
   const opacity = useRef(new Animated.Value(1)).current;
   const translate = useRef(new Animated.Value(0)).current;
+  const slideCount = useRef(1);
+  const swipeResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
+    onPanResponderRelease: (_, gesture) => { if (slideCount.current < 2 || Math.abs(gesture.dx) < 38) return; setIndex((value) => (value + (gesture.dx < 0 ? 1 : -1) + slideCount.current) % slideCount.current); },
+  })).current;
 
   useEffect(() => {
     let active = true;
@@ -46,6 +53,7 @@ export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
     subtitle: item.banner_description || "اكتشف الأماكن والخدمات القريبة",
     scroll_speed: item.scroll_speed, motion_direction: item.motion_direction || "left", motion_style: item.motion_style || "slide",
   })) : fallbackSlides.map((item) => ({ ...item, scroll_speed: 5, motion_direction: "left" as const, motion_style: "slide" as const })), [banners]);
+  slideCount.current = slides.length;
   const current = slides[index % Math.max(1, slides.length)];
 
   useEffect(() => {
@@ -66,8 +74,9 @@ export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
 
   if (!current) return null;
   return (
+    <View {...swipeResponder.panHandlers} style={{ width, height, borderRadius: 18, overflow: "hidden", backgroundColor: "#173F35" }}>
     <Pressable onPress={() => router.push({ pathname: "/discover/[category]", params: { category: current.category } })} accessibilityRole="button" accessibilityLabel={`فتح قسم ${current.title}`}
-      style={{ width, height, borderRadius: 18, overflow: "hidden", backgroundColor: "#173F35" }}>
+      style={{ flex: 1 }}>
       {!imageFailed ? <Animated.Image source={{ uri: current.image_url }} onError={() => setImageFailed(true)} resizeMode="cover"
         style={{ position: "absolute", width: "100%", height: "100%", opacity, transform: [{ translateX: current.motion_direction === "left" || current.motion_direction === "right" ? translate : 0 }, { translateY: current.motion_direction === "up" || current.motion_direction === "down" || current.motion_style === "drop" ? translate : 0 }] }} /> : null}
       <LinearGradient pointerEvents="none" colors={["rgba(0,0,0,0.04)", "rgba(0,0,0,0.24)", "rgba(0,0,0,0.84)"]} locations={[0, 0.42, 1]} style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} />
@@ -79,5 +88,6 @@ export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
         <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>{index + 1} / {slides.length}</Text>
       </View>
     </Pressable>
+    </View>
   );
 }
