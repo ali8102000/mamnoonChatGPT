@@ -225,12 +225,12 @@ export default function AdminChatsScreen() {
             placeholder="اكتب رد الإدارة..."
             emptyText="لا توجد رسائل في هذه المحادثة بعد"
             showQuickReplies={false}
-            footer={
+            footer={selected?.conversation_type === "service" ? null : (
               <View style={s.actions}>
                 <TouchableOpacity disabled={busy} onPress={() => changeStatus("handoff")} style={s.secondaryAction}><Text style={s.secondaryText}>تحويل للدعم</Text></TouchableOpacity>
                 <TouchableOpacity disabled={busy} onPress={() => changeStatus("resolve")} style={s.secondaryAction}><Text style={s.secondaryText}>إنهاء</Text></TouchableOpacity>
               </View>
-            }
+            )}
           />
         </KeyboardAvoidingView>
       )}
