@@ -629,6 +629,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
               borderWidth: 1,
               borderColor: palette.line,
               elevation: 2,
+              transform: [
+                { translateX: Math.max(-140, Math.min(140, Number(visual.position_x_px) || 0)) },
+                { translateY: Math.max(-180, Math.min(180, Number(visual.position_y_px) || 0)) },
+              ],
             }}
           >
             <LinearGradient
