@@ -139,11 +139,12 @@ BEGIN
         ELSE 'admin'
       END,
       needs_admin_reply = CASE
-        WHEN NEW.is_ai THEN false
+        WHEN NEW.is_ai THEN (v_ai_status = 'waiting_human')
         WHEN NEW.sender_id = v_user_id THEN (v_ai_status = 'waiting_human')
         ELSE false
       END,
       handoff_status = CASE
+        WHEN NEW.is_ai AND v_ai_status = 'waiting_human' THEN 'waiting_for_admin'
         WHEN NEW.is_ai THEN handoff_status
         WHEN NEW.sender_id = v_user_id AND v_ai_status = 'waiting_human' THEN 'waiting_for_admin'
         WHEN NEW.sender_id <> v_user_id THEN 'assigned'
@@ -1351,3 +1352,27 @@ AFTER INSERT OR UPDATE OF partner_type,business_vertical,governorate_key
 ON public.partner_business_profiles
 FOR EACH ROW EXECUTE FUNCTION public.trigger_mamnoon_signup_trial_from_partner();
 REVOKE ALL ON FUNCTION public.trigger_mamnoon_signup_trial_from_partner() FROM PUBLIC, anon, authenticated;
+
+-- Backfill existing conversations so the new inbox classifies old threads correctly.
+WITH latest_messages AS (
+  SELECT DISTINCT ON (m.conversation_id)
+    m.conversation_id, m.sender_id, m.is_ai, m.created_at
+  FROM public.support_messages m
+  ORDER BY m.conversation_id, m.created_at DESC, m.id DESC
+)
+UPDATE public.support_conversations c
+SET last_message_at = lm.created_at,
+    last_message_source = CASE
+      WHEN lm.is_ai THEN 'bot'
+      WHEN lm.sender_id = c.user_id THEN 'user'
+      ELSE 'admin'
+    END,
+    needs_admin_reply = (c.ai_status = 'waiting_human'),
+    handoff_status = CASE
+      WHEN c.ai_status = 'waiting_human' THEN 'waiting_for_admin'
+      WHEN c.ticket_status = 'resolved' THEN 'resolved'
+      WHEN lm.is_ai THEN 'bot'
+      ELSE 'assigned'
+    END
+FROM latest_messages lm
+WHERE lm.conversation_id = c.id;
