@@ -185,8 +185,7 @@ ALTER TABLE public.mamnoon_revenue_collections ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.mamnoon_revenue_collections FROM anon, authenticated;
 
 -- Verified ZainCash wallet top-ups first repay the wallet debt, then credit any
--- remainder. New subscription purchases are intentionally disabled; historical
--- subscription rows remain untouched for audit/compatibility.
+-- remainder. Subscription purchase support is removed in the final retirement sweep.
 CREATE OR REPLACE FUNCTION public.finalize_zaincash_payment(
   p_payment_id uuid,
   p_gateway_transaction_id text,
@@ -488,8 +487,7 @@ CREATE INDEX IF NOT EXISTS mamnoon_user_trial_active_idx
 ALTER TABLE public.mamnoon_user_trial_entitlements ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.mamnoon_user_trial_entitlements FROM anon, authenticated;
 
--- Paid subscriptions are no longer a product entitlement. Keep legacy subscription
--- records intact, but do not let their settings block provider activity.
+-- Subscription-based eligibility is removed; provider access depends on role, approval, and safety checks.
 CREATE OR REPLACE FUNCTION public.mamnoon_provider_subscription_active(p_user_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -1479,8 +1477,7 @@ WHEN (OLD.ai_status IS DISTINCT FROM NEW.ai_status OR OLD.ticket_status IS DISTI
 EXECUTE FUNCTION public.sync_support_handoff_status();
 REVOKE ALL ON FUNCTION public.sync_support_handoff_status() FROM PUBLIC, anon, authenticated;
 
--- Stop the legacy subscription expiry/notification job. Historical subscription
--- rows remain available for reporting and are not deleted.
+-- Stop the legacy subscription expiry/notification job before dropping its schema.
 DO $retire_subscriptions$
 DECLARE
   v_job record;
@@ -1526,8 +1523,7 @@ $function$;
 REVOKE ALL ON FUNCTION public.admin_get_revenue_summary() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_get_revenue_summary() TO authenticated;
 
--- Internal assignment trigger used a separate subscription checker. Override it
--- too so legacy subscription rows can no longer block taxi/worker assignments.
+-- Remove the internal subscription eligibility check from provider assignment.
 CREATE OR REPLACE FUNCTION public.mamnoon_provider_subscription_active_internal(p_user_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -1765,8 +1761,7 @@ FOR EACH ROW EXECUTE FUNCTION public.reject_retired_subscription_payment();
 REVOKE ALL ON FUNCTION public.reject_retired_subscription_payment() FROM PUBLIC,anon,authenticated;
 
 
--- Final retirement sweep: remove residual subscription-only gates and ranking.
--- Existing subscription rows are retained as inert historical records.
+-- Final retirement sweep: remove residual subscription-only gates, RPCs, and schema.
 DROP TRIGGER IF EXISTS mamnoon_provider_trial_on_role_insert ON public.user_roles;
 
 CREATE OR REPLACE FUNCTION public.refresh_support_conversation_priority(p_user_id uuid)
