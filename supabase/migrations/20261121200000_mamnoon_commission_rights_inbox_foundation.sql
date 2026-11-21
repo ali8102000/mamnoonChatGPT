@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS public.mamnoon_commission_policies (
 
 DROP INDEX IF EXISTS public.mamnoon_commission_policies_scope_unique;
 CREATE UNIQUE INDEX mamnoon_commission_policies_scope_unique
-  ON public.mamnoon_commission_policies(scope_type, COALESCE(scope_key, ''))
+  ON public.mamnoon_commission_policies(scope_type, COALESCE(scope_key, ''), collection_event)
   WHERE is_enabled = true;
 
 CREATE TABLE IF NOT EXISTS public.mamnoon_user_fee_overrides (
@@ -1165,11 +1165,12 @@ BEGIN
   IF p_free_trial_days IS NULL OR p_free_trial_days NOT BETWEEN 0 AND 365 THEN RAISE EXCEPTION 'invalid_trial_days'; END IF;
   IF p_ends_at IS NOT NULL AND p_starts_at IS NOT NULL AND p_ends_at <= p_starts_at THEN RAISE EXCEPTION 'invalid_policy_dates'; END IF;
 
-  IF p_is_enabled THEN
-    UPDATE public.mamnoon_commission_policies
-    SET is_enabled=false, ends_at=now(), updated_at=now(), updated_by=auth.uid()
-    WHERE scope_type=p_scope_type AND COALESCE(scope_key,'')=COALESCE(p_scope_key,'') AND is_enabled=true;
-  END IF;
+  UPDATE public.mamnoon_commission_policies
+  SET is_enabled=false, ends_at=now(), updated_at=now(), updated_by=auth.uid()
+  WHERE scope_type=p_scope_type
+    AND COALESCE(scope_key,'')=COALESCE(p_scope_key,'')
+    AND collection_event=p_collection_event
+    AND is_enabled=true;
 
   INSERT INTO public.mamnoon_commission_policies(
     scope_type,scope_key,commission_rate_percent,commission_charge_percent,collection_event,
