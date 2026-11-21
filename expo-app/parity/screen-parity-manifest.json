@@ -166,17 +166,6 @@
       ]
     },
     {
-      "id": "commission-only",
-      "native": "app/subscriptions.tsx",
-      "web": "src/routes/subscriptions.tsx",
-      "url": "/subscriptions",
-      "contexts": [
-        "customer",
-        "driver",
-        "worker"
-      ]
-    },
-    {
       "id": "support",
       "native": "app/support.tsx",
       "web": "src/routes/support.tsx",
