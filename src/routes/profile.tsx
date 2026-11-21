@@ -281,12 +281,9 @@ function ProfilePage() {
             {profile?.phone}
           </div>
         {referralSummary && (
-          <div className="glass rounded-2xl p-4 mt-4 text-right">
-            <div className="font-black text-sm">رابط الإحالة الخاص بك</div>
-            <div className="font-black text-primary text-lg mt-1" dir="ltr">{referralSummary.referral_code}</div>
-            <div className="text-xs text-muted-foreground mt-1">التسجيلات الناجحة عن طريقك: {referralSummary.successful_signups}</div>
-            <button type="button" onClick={() => void shareReferralLink()} className="mt-3 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">مشاركة رابط الدعوة</button>
-          </div>
+          <button type="button" onClick={() => void shareReferralLink()} title={`مشاركة رابط الإحالة · التسجيلات الناجحة: ${referralSummary.successful_signups}`} className="mx-auto mt-1 mb-1 inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/30 px-2 py-0.5 text-[9px] font-medium text-muted-foreground opacity-75 hover:opacity-100">
+            <span>رابط الدعوة</span><span dir="ltr" className="font-semibold">{referralSummary.referral_code}</span><span>↗</span>
+          </button>
         )}
 
           <div className="flex justify-center gap-1.5 mt-3 flex-wrap">
