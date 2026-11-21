@@ -202,8 +202,8 @@ begin
 
   -- Stock rows are locked above; reserve quantities in the same transaction as order creation.
   for v_line in
-    select (entry->>'item_id')::uuid as item_id, (entry->>'quantity')::integer as quantity
-    from jsonb_array_elements(v_items) entry
+    select (entry.value->>'item_id')::uuid as item_id, (entry.value->>'quantity')::integer as quantity
+    from jsonb_array_elements(v_items) as entry(value)
   loop
     update public.partner_catalog_items
       set quantity_available = quantity_available - v_line.quantity,
