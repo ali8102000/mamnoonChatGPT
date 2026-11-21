@@ -23,7 +23,7 @@ const GROUPS: NavGroup[] = [
   { title: "المستخدمون وخدمة العملاء", description: "الحسابات والتواصل والبلاغات", icon: "👥", items: [
     { title: "المستخدمون", description: "بحث وإدارة حسابات العملاء", route: "/admin/users", icon: "👤" },
     { title: "المراقبة والبلاغات", description: "مراجعة البلاغات ومتابعة الحالات", route: "/admin/monitoring", icon: "🛡️" },
-    { title: "محادثات الدعم", description: "متابعة محادثات الدعم", route: "/admin/chats", icon: "💬" },
+    { title: "المراسلات", description: "مركز محادثات الزبائن والفنيين والسائقين والشركاء والبوت والدعم المباشر", route: "/admin/chats", icon: "💬" },
     { title: "الأصدقاء", description: "إدارة طلبات وعلاقات الأصدقاء", route: "/admin/friends", icon: "🤝" },
   ]},
   { title: "المالية وحقوق ممنون", description: "المحافظ والعمولات والإيرادات", icon: "💰", items: [
