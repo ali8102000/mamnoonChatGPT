@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { MyPartnerOrders } from "@/components/my-partner-orders";
 import { useServerFn } from "@tanstack/react-start";
 import { getReputation, getProviderReviews, type ReputationData } from "@/lib/reputation.functions";
 import { ReputationCard, StarRating, SubScoreBar } from "@/components/reputation";
@@ -462,6 +463,7 @@ function ProfilePage() {
             <span className="flex-1 font-bold text-sm">الإعدادات وسجّل معنا</span>
           </Link>
         </div>
+        <MyPartnerOrders customerId={session?.user.id ?? null} />
         <div className="mt-6 text-center text-[11px] text-muted-foreground">ممنون · v2.0</div>
       {showLogout && <div className="fixed inset-x-0 bottom-[100px] z-30 px-5 pointer-events-none">
         <div className="mx-auto max-w-md pointer-events-auto">
