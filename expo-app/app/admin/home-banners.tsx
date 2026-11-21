@@ -39,6 +39,7 @@ type Banner = {
   motion_axis: MotionAxis;
   motion_direction: MotionDirection;
   motion_style: MotionStyle;
+  display_config?: Record<string, any>;
 };
 
 type ContestEntry={id:string;campaign_id:string;user_id:string;text_content:string|null;storage_path:string|null;image_url:string|null;status:string;created_at:string};
@@ -100,7 +101,7 @@ export default function AdminHomeBannersScreen() {
     setAuthorized(true);
     const { data, error } = await (supabase as any)
       .from("home_carousel_banners")
-      .select("id,image_url,storage_path,target_category,banner_type,target_campaign_id,is_active,scroll_speed,display_order,badge_text,banner_title,banner_description,motion_axis,motion_direction,motion_style")
+      .select("id,image_url,storage_path,target_category,banner_type,target_campaign_id,is_active,scroll_speed,display_order,badge_text,banner_title,banner_description,motion_axis,motion_direction,motion_style,display_config")
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) {
@@ -536,6 +537,20 @@ export default function AdminHomeBannersScreen() {
               <View style={styles.categoryRow}>{([{value:"left",label:"يمين ← يسار"},{value:"right",label:"يسار ← يمين"},{value:"up",label:"أسفل ← أعلى"},{value:"down",label:"أعلى ← أسفل"}] as const).map(item=><TouchableOpacity key={item.value} onPress={()=>void updateBannerSettings(banner,{motion_direction:item.value,motion_axis:item.value==="up"||item.value==="down"?"vertical":"horizontal"})} style={[styles.categoryButton,banner.motion_direction===item.value&&styles.categorySelected]}><Text style={[styles.categoryText,banner.motion_direction===item.value&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}</View>
               <Text style={styles.label}>نمط الانتقال</Text>
               <View style={styles.categoryRow}>{([{value:"slide",label:"انزلاق"},{value:"fade",label:"تلاشي"},{value:"drop",label:"هبوط"}] as const).map(item=><TouchableOpacity key={item.value} onPress={()=>void updateBannerSettings(banner,{motion_style:item.value})} style={[styles.categoryButton,banner.motion_style===item.value&&styles.categorySelected]}><Text style={[styles.categoryText,banner.motion_style===item.value&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}</View>
+              {banner.banner_type === "ad" || banner.banner_type === "poll" || banner.banner_type === "contest" ? <>
+                <Text style={styles.sectionTitle}>شكل المستطيل العلوي</Text>
+                <View style={styles.fieldsRow}>
+                  {([{key:"height_px",label:"الارتفاع",fallback:142},{key:"padding_px",label:"الحشوة",fallback:12},{key:"border_radius_px",label:"الاستدارة",fallback:20}] as const).map(field=><View key={field.key} style={styles.field}><Text style={styles.label}>{field.label}</Text><TextInput defaultValue={String(banner.display_config?.[field.key]??field.fallback)} keyboardType="number-pad" style={styles.input} onEndEditing={({nativeEvent})=>void updateBannerSettings(banner,{display_config:{...(banner.display_config??{}),[field.key]:Math.max(8,Math.min(300,Number(nativeEvent.text)||field.fallback))}})}/></View>)}
+                </View>
+                <View style={styles.fieldsRow}>
+                  {([{key:"title_size_px",label:"حجم العنوان",fallback:20},{key:"subtitle_size_px",label:"حجم الوصف",fallback:11}] as const).map(field=><View key={field.key} style={styles.field}><Text style={styles.label}>{field.label}</Text><TextInput defaultValue={String(banner.display_config?.[field.key]??field.fallback)} keyboardType="number-pad" style={styles.input} onEndEditing={({nativeEvent})=>void updateBannerSettings(banner,{display_config:{...(banner.display_config??{}),[field.key]:Math.max(8,Math.min(30,Number(nativeEvent.text)||field.fallback))}})}/></View>)}
+                </View>
+                <Text style={styles.label}>نص زر الطلب</Text>
+                <TextInput defaultValue={banner.display_config?.cta_text??"اطلب الآن"} style={styles.input} textAlign="right" onEndEditing={({nativeEvent})=>void updateBannerSettings(banner,{display_config:{...(banner.display_config??{}),cta_text:nativeEvent.text.trim()||"اطلب الآن"}})}/>
+                <Text style={styles.label}>محاذاة النص</Text>
+                <View style={styles.categoryRow}>{([{value:"right",label:"يمين"},{value:"center",label:"وسط"},{value:"left",label:"يسار"}] as const).map(item=><TouchableOpacity key={item.value} onPress={()=>void updateBannerSettings(banner,{display_config:{...(banner.display_config??{}),text_alignment:item.value}})} style={[styles.categoryButton,(banner.display_config?.text_alignment??"right")===item.value&&styles.categorySelected]}><Text style={styles.categoryText}>{item.label}</Text></TouchableOpacity>)}</View>
+                <TouchableOpacity style={styles.secondaryButton} onPress={()=>void updateBannerSettings(banner,{display_config:{...(banner.display_config??{}),cta_visible:banner.display_config?.cta_visible===false}})}><Text style={styles.secondaryButtonText}>{banner.display_config?.cta_visible===false?"إظهار زر اطلب الآن":"إخفاء زر اطلب الآن"}</Text></TouchableOpacity>
+              </> : null}
             </View>
           ) : null}
           </View>
