@@ -55,7 +55,7 @@ export default function AdminVisualBuilderScreen(){
    <Text style={s.section}>{selected.label}</Text>
    <Text style={s.note}>معاينة مباشرة: اسحب البطاقة لتغيير مكانها، أو عدّل الإزاحة يدوياً. التغيير يبقى مسودة إلى أن تنشره.</Text>
    <View style={s.previewStage}>
-    <View {...dragResponder.panHandlers} style={[s.previewCard,{transform:[{translateX:Number(positionX)||0},{translateY:Number(positionY)||0},{scale:Math.max(.6,Math.min(1.6,Number(elementScale)||1))}],height:Math.max(96,Math.min(220,Number(cardHeight)||145)),padding:Math.max(4,Math.min(32,Number(cardPadding)||10)),borderRadius:Math.max(8,Math.min(40,Number(cardRadius)||20)),backgroundColor:backgroundColor||palette.canvas}]}>
+    <View {...dragResponder.panHandlers} style={[s.previewCard,{transform:[{scale:Math.max(.6,Math.min(1.6,Number(elementScale)||1))},{translateX:Number(positionX)||0},{translateY:Number(positionY)||0}],height:Math.max(96,Math.min(220,Number(cardHeight)||145)),padding:Math.max(4,Math.min(32,Number(cardPadding)||10)),borderRadius:Math.max(8,Math.min(40,Number(cardRadius)||20)),backgroundColor:backgroundColor||palette.canvas}]}>
      {url?<Image source={{uri:url}} style={{width:Math.max(24,Math.min(120,Number(width)||64)),height:Math.max(24,Math.min(120,Number(height)||64)),alignSelf:"center"}} resizeMode="contain"/>:<Text style={{fontSize:28,textAlign:"center"}}>🖼️</Text>}
      <Text style={{fontSize:Math.max(10,Math.min(28,Number(titleSize)||16)),fontWeight:"900",color:titleColor||palette.ink,textAlign:alignment as any}}>{title||selected.label}</Text>
      <Text style={{fontSize:Math.max(8,Math.min(20,Number(subtitleSize)||11)),color:subtitleColor||palette.muted,textAlign:alignment as any}}>{subtitle}</Text>
