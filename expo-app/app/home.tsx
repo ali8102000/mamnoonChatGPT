@@ -679,7 +679,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
           );
         })}
         <View style={{ width: wideCardWidth, height: carouselHeight, direction: "rtl", borderRadius: gridRadius, overflow: "hidden" }}>
-          <HomeCategoryCarousel height={carouselHeight} />
+          <HomeCategoryCarousel height={carouselHeight} width={wideCardWidth} />
         </View>
       </View>
 
