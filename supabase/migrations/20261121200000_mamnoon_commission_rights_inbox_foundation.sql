@@ -1740,3 +1740,23 @@ REVOKE ALL ON FUNCTION public.finalize_qicard_subscription_payment(uuid,text,int
 REVOKE ALL ON FUNCTION public.handle_expired_subscriptions() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.admin_grant_subscription(uuid,text,text) FROM PUBLIC,anon,authenticated;
 REVOKE INSERT,UPDATE,DELETE ON public.user_subscriptions FROM anon,authenticated;
+
+CREATE OR REPLACE FUNCTION public.reject_retired_subscription_payment()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  IF NEW.purpose::text = 'subscription' THEN
+    RAISE EXCEPTION 'subscriptions_retired';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS reject_retired_subscription_payment ON public.payment_transactions;
+CREATE TRIGGER reject_retired_subscription_payment
+BEFORE INSERT ON public.payment_transactions
+FOR EACH ROW EXECUTE FUNCTION public.reject_retired_subscription_payment();
+REVOKE ALL ON FUNCTION public.reject_retired_subscription_payment() FROM PUBLIC,anon,authenticated;
