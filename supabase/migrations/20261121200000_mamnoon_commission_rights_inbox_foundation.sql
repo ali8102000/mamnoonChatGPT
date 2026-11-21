@@ -561,7 +561,8 @@ BEGIN
   LIMIT 1;
   IF v_role IS NULL THEN RAISE EXCEPTION 'commission_provider_role_required'; END IF;
 
-  SELECT governorate_key INTO v_governorate FROM public.profiles WHERE id = p_user_id;
+  v_governorate := COALESCE(v_request.governorate_key,
+    (SELECT governorate_key FROM public.profiles WHERE id=p_user_id));
   v_event := CASE WHEN v_request.type::text = 'taxi' THEN 'taxi_acceptance' ELSE 'service_acceptance' END;
   v_revenue_type := CASE WHEN v_request.type::text = 'taxi' THEN 'taxi_commission' ELSE 'service_commission' END;
   v_base := COALESCE(p_base_amount_iqd, v_request.customer_payable::bigint,
