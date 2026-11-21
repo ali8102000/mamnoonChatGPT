@@ -319,6 +319,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    const pendingProfileTimers = new Set<ReturnType<typeof setTimeout>>();
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       authRevision.current += 1;
       setSession(nextSession);
@@ -328,7 +330,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextUserId) {
         if (previousId && previousId !== nextUserId) void clearCachedAuthProfile(previousId);
         lastUserId.current = nextUserId;
-        setTimeout(() => { void loadProfile(nextUserId); }, 0);
+        const timer = setTimeout(() => {
+          pendingProfileTimers.delete(timer);
+          if (active) void loadProfile(nextUserId);
+        }, 0);
+        pendingProfileTimers.add(timer);
       } else {
         lastUserId.current = null;
         setProfile(null);
@@ -338,7 +344,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    let active = true;
     const initialAuthRevision = authRevision.current;
     withStartupTimeout(supabase.auth.getSession(), 12000, "auth_session_restore_timeout")
       .then(async ({ data, error }) => {
@@ -362,6 +367,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       active = false;
+      pendingProfileTimers.forEach((timer) => clearTimeout(timer));
+      pendingProfileTimers.clear();
       sub.subscription.unsubscribe();
     };
   }, []);
