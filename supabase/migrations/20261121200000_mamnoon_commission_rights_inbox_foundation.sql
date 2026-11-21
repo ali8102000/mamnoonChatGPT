@@ -974,6 +974,8 @@ ALTER TABLE public.mamnoon_revenue_ledger
   DROP CONSTRAINT IF EXISTS mamnoon_revenue_ledger_collected_iqd_check,
   DROP CONSTRAINT IF EXISTS mamnoon_revenue_ledger_status_check;
 ALTER TABLE public.mamnoon_revenue_ledger
+  ADD CONSTRAINT mamnoon_revenue_collected_nonnegative_check
+    CHECK (collected_iqd >= 0),
   ADD CONSTRAINT mamnoon_revenue_collected_waived_check
     CHECK (collected_iqd + waived_iqd <= assessed_iqd),
   ADD CONSTRAINT mamnoon_revenue_ledger_status_check
