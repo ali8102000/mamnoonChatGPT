@@ -166,7 +166,7 @@
       ]
     },
     {
-      "id": "subscriptions",
+      "id": "commission-only",
       "native": "app/subscriptions.tsx",
       "web": "src/routes/subscriptions.tsx",
       "url": "/subscriptions",
@@ -271,10 +271,10 @@
       ]
     },
     {
-      "id": "admin-subscriptions",
-      "native": "app/admin/subscriptions.tsx",
-      "web": "src/routes/admin/subscriptions.tsx",
-      "url": "/admin/subscriptions",
+      "id": "admin-rights",
+      "native": "app/admin/rights.tsx",
+      "web": "src/components/admin-rights.tsx",
+      "url": "/admin/rights",
       "contexts": [
         "super_admin",
         "admin",
@@ -421,22 +421,6 @@
       ]
     },
     {
-      "id": "admin-section-subscriptions",
-      "key": "subscriptions",
-      "label": "الاشتراكات",
-      "native": [
-        "app/admin/subscriptions.tsx"
-      ],
-      "web": [
-        "src/routes/admin.tsx",
-        "src/routes/admin/subscriptions.tsx"
-      ],
-      "contexts": [
-        "super_admin",
-        "admin"
-      ]
-    },
-    {
       "id": "admin-section-coupons",
       "key": "coupons",
       "label": "الكوبونات",
@@ -568,6 +552,23 @@
       ],
       "contexts": [
         "super_admin"
+      ]
+    },
+    {
+      "id": "admin-section-rights",
+      "key": "rights",
+      "label": "حقوق ممنون",
+      "native": [
+        "app/admin/rights.tsx"
+      ],
+      "web": [
+        "src/routes/admin.tsx",
+        "src/components/admin-rights.tsx"
+      ],
+      "contexts": [
+        "super_admin",
+        "admin",
+        "finance"
       ]
     }
   ],
