@@ -475,6 +475,7 @@ CREATE TABLE IF NOT EXISTS public.mamnoon_user_trial_entitlements (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   account_role text NOT NULL,
   policy_id uuid REFERENCES public.mamnoon_commission_policies(id) ON DELETE SET NULL,
+  governorate_key text,
   starts_at timestamptz NOT NULL,
   ends_at timestamptz NOT NULL,
   granted_at timestamptz NOT NULL DEFAULT now(),
@@ -611,6 +612,7 @@ BEGIN
     SELECT 1 FROM public.mamnoon_user_trial_entitlements t
     WHERE t.user_id = p_user_id AND t.account_role = v_role
       AND t.starts_at <= now() AND t.ends_at > now()
+      AND (t.governorate_key IS NULL OR t.governorate_key = v_governorate)
   ) THEN
     v_charge_percent := 0;
   END IF;
@@ -852,6 +854,7 @@ AS $function$
 DECLARE
   v_signup_at timestamptz;
   v_governorate text;
+  v_trial_governorate text;
   v_policy public.mamnoon_commission_policies%ROWTYPE;
 BEGIN
   IF p_role NOT IN ('driver','large_driver','worker','restaurant','hotel','store') THEN RETURN; END IF;
@@ -892,10 +895,11 @@ BEGIN
 
   IF NOT FOUND THEN RETURN; END IF;
 
+  v_trial_governorate := CASE WHEN v_policy.scope_type IN ('governorate','governorate_role') THEN v_governorate ELSE NULL END;
   INSERT INTO public.mamnoon_user_trial_entitlements(
-    user_id, account_role, policy_id, starts_at, ends_at, source
+    user_id, account_role, policy_id, governorate_key, starts_at, ends_at, source
   ) VALUES (
-    p_user_id, p_role, v_policy.id, v_signup_at,
+    p_user_id, p_role, v_policy.id, v_trial_governorate, v_signup_at,
     v_signup_at + make_interval(days => v_policy.free_trial_days), 'signup'
   )
   ON CONFLICT (user_id, account_role) DO NOTHING;
@@ -1289,6 +1293,7 @@ BEGIN
     SELECT 1 FROM public.mamnoon_user_trial_entitlements
     WHERE user_id=v_partner.user_id AND account_role=v_role
       AND starts_at<=now() AND ends_at>now()
+      AND (governorate_key IS NULL OR governorate_key=v_governorate)
   ) THEN v_charge_percent := 0; END IF;
 
   v_commission := round(COALESCE(v_order.partner_total,0)::numeric*v_rate/100*v_charge_percent/100)::bigint;
