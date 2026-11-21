@@ -1,13 +1,12 @@
 import { Stack, router } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Wallet } from "lucide-react-native";
 import { palette, radius, space } from "@/styles/theme";
 
 export default function SubscriptionsScreen() {
   return <View style={s.page}>
     <Stack.Screen options={{title:"نظام العمولات"}}/>
     <View style={s.card}>
-      <View style={s.icon}><Wallet color={palette.brand} size={30}/></View>
+      <View style={s.icon}><Text style={{fontSize:30}}>💰</Text></View>
       <Text style={s.title}>ممنون بدون اشتراكات</Text>
       <Text style={s.body}>ماكو باقات أو اشتراكات شهرية وسنوية. استخدام ممنون يعتمد على العمولات والاستقطاعات التي تحددها الإدارة حسب نوع الخدمة والمحافظة، وتظهر المبالغ المستحقة داخل المحفظة.</Text>
       <TouchableOpacity onPress={()=>router.replace("/home")} style={s.button}><Text style={s.buttonText}>الرجوع للتطبيق</Text></TouchableOpacity>
