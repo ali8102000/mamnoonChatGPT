@@ -290,7 +290,7 @@ export default function AdminHomeBannersScreen() {
       >
         <Text style={styles.title}>بانرات المطاعم والفنادق والمتاجر</Text>
         <Text style={styles.muted}>
-          ارفع صور الإدارة فقط. لا تظهر صور تجريبية، وتنعكس التغييرات على الويب والأندرويد.
+          الإعلان العلوي يدعم الإعلانات والاستطلاعات والمسابقات. تحكم باتجاه تمرير الصورة داخل البانر (يمين/يسار/أعلى/أسفل) وسرعتها ونمط الانتقال، وتنعكس التغييرات على الويب والأندرويد.
         </Text>
         {message ? <Text style={styles.message}>{message}</Text> : null}
 
