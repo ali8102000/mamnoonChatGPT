@@ -273,7 +273,7 @@ function CustomerHome() {
           type="service"
           title={visuals.home_customer_service?.title || "طلب فني"}
           subtitle={visuals.home_customer_service?.subtitle || "١٦ خدمة"}
-          icon={<ServiceIconPanorama />}
+          icon={visuals.home_customer_service?.icon_name ? <span className="text-3xl">{visuals.home_customer_service.icon_name}</span> : visuals.home_customer_service?.image_url ? <img src={visuals.home_customer_service.image_url} alt="" style={{ width: Number(visuals.home_customer_service.width_px) || 64, height: Number(visuals.home_customer_service.height_px) || 64, objectFit: visuals.home_customer_service.image_fit === "cover" ? "cover" : "contain", borderRadius: Number(visuals.home_customer_service.image_border_radius_px) || 0, aspectRatio: visuals.home_customer_service.image_shape === "landscape" ? "4 / 3" : visuals.home_customer_service.image_shape === "portrait" ? "3 / 4" : "1 / 1" }} /> : <ServiceIconPanorama />}
           iconBoxSize={64}
           sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
           styleConfig={{ ...(visuals.home_customer_service || {}), card_height_px: Number(visuals.home_customer_service?.card_height_px) || firstRowHeight, border_radius_px: Number(visuals.home_customer_service?.border_radius_px) || gridRadius }}
