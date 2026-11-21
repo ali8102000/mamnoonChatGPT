@@ -72,6 +72,7 @@ export function HomeCategoryCarousel({ placement = "top_panorama" }: { placement
   })) : placement === "top_panorama" ? fallbackSlides.map((item) => ({ ...item, banner_type: "category" as const, target_campaign_id: null, scroll_speed: 5, motion_direction: "left" as const, motion_style: "slide" as const })) : [], [banners, placement]);
 
   const current = slides[index % Math.max(1, slides.length)];
+  if (!current) return null;
 
   useEffect(() => {
     if (slides.length < 2) return;
