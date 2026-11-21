@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Dimensions, Image, Pressable } from "react-native";
+import { Alert, Animated, Dimensions, Easing, Pressable } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { palette } from "@/styles/theme";
 
@@ -12,7 +12,15 @@ export function HomeTopSquareBanner({ width = (Dimensions.get("window").width - 
   const touchStartX = useRef<number | null>(null);
   const pauseUntil = useRef(0);
   const suppressPress = useRef(false);
+  const motion = useRef(new Animated.Value(0)).current;
   const current = banners[index] ?? null;
+
+  useEffect(() => {
+    motion.setValue(0);
+    const animation = Animated.timing(motion, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    animation.start();
+    return () => animation.stop();
+  }, [motion, current?.id]);
 
   useEffect(() => {
     let active = true;
@@ -77,8 +85,8 @@ export function HomeTopSquareBanner({ width = (Dimensions.get("window").width - 
       }}
     >
       {current?.image_url ? (
-        <Image key={current.id} source={{ uri: current.image_url }} resizeMode="cover"
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }} />
+        <Animated.Image key={current.id} source={{ uri: current.image_url }} resizeMode="cover"
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", opacity: motion, transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }} />
       ) : null}
     </Pressable>
   );
