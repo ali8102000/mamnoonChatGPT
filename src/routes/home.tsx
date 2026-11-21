@@ -293,7 +293,7 @@ function CustomerHome() {
           styleConfig={{ ...(visuals.home_customer_large_vehicle || {}), card_height_px: Number(visuals.home_customer_large_vehicle?.card_height_px) || secondRowHeight, border_radius_px: Number(visuals.home_customer_large_vehicle?.border_radius_px) || gridRadius }}
           gradient="from-orange-500 to-amber-600"
           span={1}
-          tileWidth={`${narrowCardWidth}px`}
+          tileWidth={`calc(${100 / (wideRatio + 1)}% - ${gridGap / (wideRatio + 1)}px)`}
           delay={0.15}
         />
         <div dir="rtl" className="min-w-0" style={{ width: `calc(${(wideRatio / (wideRatio + 1)) * 100}% - ${(gridGap * wideRatio) / (wideRatio + 1)}px)`, height: carouselHeight, flexShrink: 0, order: 1, borderRadius: gridRadius, overflow: "hidden" }}>
