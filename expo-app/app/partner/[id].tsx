@@ -118,7 +118,10 @@ export default function PartnerPublicDetailsScreen() {
     });
     setCheckoutBusy(false);
     if (orderError || !orderId) {
-      Alert.alert("تعذر إتمام الطلب", orderError?.message || "تأكد من توفر المنتجات ثم حاول مرة ثانية.");
+      const message = orderError?.message?.includes("cart_price_changed_refresh_required")
+        ? "تغيّر سعر أحد المنتجات. حدّثنا السلة؛ راجع المجموع الجديد وأعد تأكيد الطلب."
+        : orderError?.message || "تأكد من توفر المنتجات ثم حاول مرة ثانية.";
+      Alert.alert("تعذر إتمام الطلب", message);
       await load();
       return;
     }
