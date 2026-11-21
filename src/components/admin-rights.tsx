@@ -22,7 +22,7 @@ export default function AdminRights() {
   const [policies,setPolicies]=useState<Policy[]>([]); const [overrides,setOverrides]=useState<Override[]>([]); const [revenue,setRevenue]=useState<Revenue[]>([]); const [collections,setCollections]=useState<Collection[]>([]); const [summary,setSummary]=useState<any>({});
   const [scope,setScope]=useState("global"); const [scopeKey,setScopeKey]=useState("");
   const [commissionRate,setCommissionRate]=useState("0"); const [commissionCharge,setCommissionCharge]=useState("100");
-  const [event,setEvent]=useState("taxi_acceptance"); const [trialEnabled,setTrialEnabled]=useState(false); const [trialDays,setTrialDays]=useState("30"); const [newUsersOnly,setNewUsersOnly]=useState(true); const [policyEnabled,setPolicyEnabled]=useState(false);
+  const [event,setEvent]=useState("taxi_acceptance"); const [trialEnabled,setTrialEnabled]=useState(false); const [trialDays,setTrialDays]=useState("30"); const [policyEnabled,setPolicyEnabled]=useState(false);
   const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(false); const [error,setError]=useState("");
 
   const invoke=useCallback(async(body:Record<string,unknown>)=>{
@@ -77,7 +77,7 @@ export default function AdminRights() {
     const rate=Number(commissionRate),charge=Number(commissionCharge),days=Number(trialDays);
     if(![rate,charge,days].every(Number.isFinite)||rate<0||rate>100||charge<0||charge>100||days<0||days>365){toast.error("تحقق من النسب ومدة التجربة");return;}
     setBusy(true);
-    try{await invoke({action:"save_policy",scope_type:scope,scope_key:key,commission_rate_percent:rate,commission_charge_percent:charge,collection_event:event,free_trial_enabled:trialEnabled,free_trial_days:days,new_users_only:newUsersOnly,is_enabled:policyEnabled,starts_at:new Date().toISOString(),ends_at:null});toast.success(policyEnabled?"تم تفعيل سياسة العمولة":"تم إيقاف السياسة الجديدة وإغلاق السابقة");await load();}
+    try{await invoke({action:"save_policy",scope_type:scope,scope_key:key,commission_rate_percent:rate,commission_charge_percent:charge,collection_event:event,free_trial_enabled:trialEnabled,free_trial_days:days,new_users_only:true,is_enabled:policyEnabled,starts_at:new Date().toISOString(),ends_at:null});toast.success(policyEnabled?"تم تفعيل سياسة العمولة":"تم إيقاف السياسة الجديدة وإغلاق السابقة");await load();}
     catch(e:any){toast.error(String(e?.message||"تعذر حفظ سياسة العمولة"));}finally{setBusy(false);}
   };
 
@@ -120,7 +120,7 @@ export default function AdminRights() {
       <label className="block text-xs font-bold">متى يُستقطع؟</label><select value={event} onChange={e=>setEvent(e.target.value)} className="w-full rounded-xl border border-border bg-background p-3 text-xs"><option value="taxi_acceptance">عند قبول رحلة التكسي</option><option value="service_acceptance">عند قبول طلب فني</option><option value="order_acceptance">عند قبول طلب مطعم أو متجر</option></select>
       <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={trialEnabled} onChange={e=>setTrialEnabled(e.target.checked)}/> تفعيل التجربة المجانية</label>
       <label className="block text-xs font-bold">مدة التجربة بالأيام</label><input value={trialDays} onChange={e=>setTrialDays(e.target.value)} inputMode="numeric" className="w-full rounded-xl border border-border bg-background p-3 text-xs"/>
-      <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={newUsersOnly} onChange={e=>setNewUsersOnly(e.target.checked)}/> للمسجلين الجدد فقط من تاريخ التسجيل</label>
+      <p className="text-[10px] text-muted-foreground">تبدأ الفترة المجانية من تاريخ تسجيل المستخدم الجديد، وتبقى المدة الخاصة به ثابتة حتى لو أوقفت العرض لاحقاً.</p>
       <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={policyEnabled} onChange={e=>setPolicyEnabled(e.target.checked)}/> تفعيل سياسة الاستقطاع (نسبة التحصيل 0٪ تعني مجاني)</label>
       <button disabled={busy} onClick={()=>void savePolicy()} className="w-full rounded-xl bg-primary text-primary-foreground p-3 text-xs font-black">{busy?"جارٍ الحفظ...":"حفظ سياسة العمولة"}</button>
       <div className="border-t border-border pt-3 space-y-2"><h4 className="font-black text-xs">السياسات المحفوظة</h4>{policies.map(p=><div key={p.id} className="rounded-xl bg-card border border-border p-3 text-[10px]"><b>{p.scope_type} · {p.scope_key||"كل العراق"}</b><div>عمولة {p.commission_rate_percent}% · تحصيل {p.commission_charge_percent}% · {p.collection_event} · {p.is_enabled?"فعالة":"متوقفة"}</div><div>تجربة {p.free_trial_enabled?p.free_trial_days+" يوم":"متوقفة"} · {p.new_users_only?"جدد فقط":"غير مقيد"}</div></div>)}</div>
