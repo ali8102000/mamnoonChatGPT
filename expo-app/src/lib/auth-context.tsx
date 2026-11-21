@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { Session, User } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
+import { cleanupSessionAndListeners } from "./session-cleanup";
 
 export type AppRole =
   | "customer"
@@ -156,6 +157,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!uid) {
       throw new Error("جلسة الدخول غير موجودة. سجّل الدخول من جديد.");
     }
+
+    // Detach role-scoped listeners and background presence before switching.
+    await cleanupSessionAndListeners();
 
     // Invalidate an in-flight restore immediately, then serialize writes.
     const revision = ++roleRevision.current;
@@ -374,6 +378,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    await cleanupSessionAndListeners();
     await supabase.auth.signOut({ scope: "local" });
   };
 
