@@ -877,6 +877,11 @@ BEGIN
   WHERE p.free_trial_enabled = true
     AND p.new_users_only = true
     AND p.free_trial_days > 0
+    AND (
+      (p.collection_event='taxi_acceptance' AND p_role IN ('driver','large_driver'))
+      OR (p.collection_event='service_acceptance' AND p_role='worker')
+      OR (p.collection_event='order_acceptance' AND p_role IN ('restaurant','hotel','store'))
+    )
     AND COALESCE(p.starts_at, p.created_at) <= v_signup_at
     AND (p.ends_at IS NULL OR p.ends_at > v_signup_at)
     AND (
