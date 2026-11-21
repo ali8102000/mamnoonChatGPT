@@ -34,10 +34,10 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
       .order("created_at", { ascending: false });
     if (queryError) { setError(queryError.message); setLoading(false); return; }
     const now = Date.now();
-    const active = (data ?? []).filter((item: Campaign) =>
+    const active = (data ?? []).filter((item: Campaign) => campaignId || (
       (!item.starts_at || new Date(item.starts_at).getTime() <= now) &&
       (!item.ends_at || new Date(item.ends_at).getTime() > now)
-    );
+    ));
     setItems(active);
     if (userId && active.length) {
       const { data: own } = await (supabase as any).from("app_campaign_responses")
@@ -68,6 +68,9 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
 
   const vote = async (optionId: string) => {
     if (!current || !userId || saving) return;
+    const now = Date.now();
+    const votingOpen = (!current.starts_at || new Date(current.starts_at).getTime() <= now) && (!current.ends_at || new Date(current.ends_at).getTime() > now);
+    if (!votingOpen) return;
     setSaving(true); setError("");
     const { error: voteError } = await (supabase as any).from("app_campaign_responses").insert({
       campaign_id: current.id, option_id: optionId, user_id: userId,
@@ -82,6 +85,7 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
 
   if (loading || !current) return null;
   const options = [...(current.app_campaign_options ?? [])].sort((a, b) => a.sort_order - b.sort_order);
+  const votingOpen = (!current.starts_at || new Date(current.starts_at).getTime() <= Date.now()) && (!current.ends_at || new Date(current.ends_at).getTime() > Date.now());
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close}>
       <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.72)", justifyContent: "center", padding: space.lg }}>
@@ -95,11 +99,12 @@ export function HomeCampaignPopups({ userId, placementKey = "home.customer.conte
             <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right" }}>{current.title}</Text>
             {current.description ? <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 6, lineHeight: 20 }}>{current.description}</Text> : null}
             <View style={{ gap: 9, marginTop: 16 }}>
-              {options.map((option) => <Pressable key={option.id} disabled={saving || Boolean(answered[current.id])} onPress={() => void vote(option.id)} style={{ borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, backgroundColor: palette.pageCanvas }}>
+              {options.map((option) => <Pressable key={option.id} disabled={saving || Boolean(answered[current.id]) || !votingOpen} onPress={() => void vote(option.id)} style={{ borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, padding: 13, backgroundColor: palette.pageCanvas }}>
                 <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "800", textAlign: "right" }}>{option.label}</Text>
               </Pressable>)}
             </View>
             {!userId ? <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 10 }}>سجّل الدخول حتى تشارك.</Text> : null}
+            {!votingOpen ? <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 10 }}>انتهى وقت المشاركة أو لم تبدأ الحملة بعد.</Text> : null}
             {answered[current.id] ? <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "800", textAlign: "right", marginTop: 10 }}>سبق وسجلت مشاركتك بهذه الحملة.</Text> : null}
             {saving ? <ActivityIndicator color={palette.brand} style={{ marginTop: 12 }} /> : null}
             {error ? <Text style={{ color: palette.danger, fontSize: 12, textAlign: "right", marginTop: 10 }}>{error}</Text> : null}
