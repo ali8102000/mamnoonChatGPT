@@ -180,6 +180,21 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "messages") {
       if (!isUuid(body.conversation_id)) return json({ error: "invalid_conversation" }, 400);
+      if (body.conversation_type === "service") {
+        const { data: chat, error: chatError } = await admin.from("chats")
+          .select("id,request_id,customer_id,provider_id").eq("id", body.conversation_id).maybeSingle();
+        if (chatError || !chat) return json({ error: "conversation_not_found" }, 404);
+        const { data: messages, error } = await admin.from("messages")
+          .select("id,chat_id,sender_id,content,created_at")
+          .eq("chat_id", body.conversation_id).order("created_at", { ascending: true }).limit(500);
+        if (error) return json({ error: "messages_load_failed" }, 500);
+        const senderIds = [...new Set((messages ?? []).map((m: any) => m.sender_id))];
+        const { data: profiles } = senderIds.length
+          ? await admin.from("profiles").select("id,full_name,phone").in("id", senderIds)
+          : { data: [] };
+        const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+        return json({ conversation: chat, messages: (messages ?? []).map((m: any) => ({ ...m, body: m.content, is_ai: false, sender: byId.get(m.sender_id) ?? null })) });
+      }
       const { data: conversation, error: conversationError } = await admin.from("support_conversations")
         .select("id,user_id,subject,needs_admin_reply,handoff_status,assigned_staff_id")
         .eq("id", body.conversation_id).maybeSingle();
@@ -205,6 +220,18 @@ Deno.serve(async (req: Request) => {
     if (body.action === "reply") {
       if (!isUuid(body.conversation_id) || typeof body.message !== "string" || !body.message.trim() || body.message.length > 4000) {
         return json({ error: "invalid_reply" }, 400);
+      }
+      if (body.conversation_type === "service") {
+        const { data: chat, error: chatError } = await admin.from("chats")
+          .select("id").eq("id", body.conversation_id).maybeSingle();
+        if (chatError || !chat) return json({ error: "conversation_not_found" }, 404);
+        const { data: inserted, error: insertError } = await admin.from("messages").insert({
+          chat_id: body.conversation_id,
+          sender_id: auth.user.id,
+          content: body.message.trim(),
+        }).select("id,chat_id,sender_id,content,created_at").single();
+        if (insertError || !inserted) return json({ error: "reply_send_failed" }, 500);
+        return json({ ok: true, message: { ...inserted, body: inserted.content, is_ai: false } });
       }
       const { data: conversation, error: conversationError } = await admin.from("support_conversations")
         .select("id,user_id").eq("id", body.conversation_id).maybeSingle();
