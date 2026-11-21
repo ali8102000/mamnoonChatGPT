@@ -40,7 +40,7 @@ function DiscoverCategoryPage() {
   const isStoreSection = raw === "store", isRestaurantSection = raw === "restaurant";
   const categoryKey = isStore ? raw.slice(6) : isRestaurant ? raw.slice(11) : isHotelCategory ? raw.slice(6) : isGrocery ? (raw === "grocery" ? "grocery" : raw.slice(8)) : null;
   const vertical = isStore || isStoreSection ? "store" : isRestaurant || isRestaurantSection ? "restaurant" : isGrocery ? "grocery" : isHotelCategory || raw === "hotel" ? "hotel" : null;
-  const [title, setTitle] = useState(isGrocery ? "بقالة وخضروات" : vertical === "store" ? "المتاجر والمولات" : vertical === "restaurant" ? "المطاعم" : raw === "hotel" ? "الفنادق" : "اكتشاف");
+  const [title, setTitle] = useState(isGrocery ? "سوبر ماركت وبقالة" : vertical === "store" ? "المتاجر والمولات" : vertical === "restaurant" ? "المطاعم" : raw === "hotel" ? "الفنادق" : "اكتشاف");
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Business[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -75,7 +75,7 @@ function DiscoverCategoryPage() {
         (supabase as any).from("partner_catalog_categories").select("title").eq("category_key", categoryKey).maybeSingle(),
         (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,partner_type,promotion_latitude,promotion_longitude)").eq("category_key", categoryKey).eq("is_active", true).eq("profile.is_published", true).order("created_at", { ascending: false }),
         vertical === "store" || vertical === "restaurant" || vertical === "grocery"
-          ? (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").eq("vertical", vertical).eq("is_active", true).order("sort_order")
+          ? (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").in("vertical", vertical === "store" ? ["store", "grocery"] : [vertical]).eq("is_active", true).order("sort_order")
           : Promise.resolve({ data: [], error: null }),
       ]);
       if (cat.data?.title) setTitle(cat.data.title);
