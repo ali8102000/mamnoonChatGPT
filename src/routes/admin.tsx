@@ -2560,6 +2560,7 @@ function WalletAdjustModal({ onConfirm, onClose, busy = false }: any) {
               type="number"
               min={1}
               max={100000000}
+              step={1}
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               placeholder="المبلغ"
