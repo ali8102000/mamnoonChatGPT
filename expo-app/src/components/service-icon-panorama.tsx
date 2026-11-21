@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image, View } from "react-native";
 import { getServiceImage } from "@/lib/service-visuals";
+import { supabase } from "@/lib/supabase";
 
 const SERVICES = [
   "build","plaster","carpentry_form","flooring","chef",
@@ -17,7 +18,22 @@ type Props = {
 
 export function ServiceIconPanorama({ imageUrl, imageScale = 1 }: Props) {
   const [index, setIndex] = useState(0);
+  const [visuals, setVisuals] = useState<Record<string, any>>({});
   const scale = Math.min(1.8, Math.max(0.65, Number(imageScale) || 1));
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data, error } = await (supabase as any).from("app_ui_elements_public").select("element_key,published_config,title").eq("placement_key", "home.customer.service_icons");
+      if (!active || error) return;
+      const next: Record<string, any> = {};
+      for (const item of data ?? []) next[String(item.element_key).replace("service_", "")] = { ...(item.published_config ?? {}), title: item.title };
+      setVisuals(next);
+    };
+    void load();
+    const channel = supabase.channel("service-artwork-visuals-native").on("postgres_changes", { event: "*", schema: "public", table: "app_ui_elements" }, () => void load()).subscribe();
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, []);
 
   useEffect(() => {
     if (imageUrl) return;
@@ -30,16 +46,20 @@ export function ServiceIconPanorama({ imageUrl, imageScale = 1 }: Props) {
       pointerEvents="none"
       style={{ width: "100%", height: "100%", overflow: "hidden", borderRadius: 18, padding: 0, margin: 0, alignItems: "center", justifyContent: "center" }}
     >
-      <Image
-        source={imageUrl ? { uri: imageUrl } : getServiceImage(SERVICES[index])}
-        resizeMode="cover"
-        style={{
-          width: "100%",
-          height: "100%",
-          borderRadius: 18,
-          transform: [{ scale }],
-        }}
-      />
+      {(() => {
+        const visual = visuals[SERVICES[index]] || {};
+        return <Image
+          source={imageUrl ? { uri: imageUrl } : visual.image_url ? { uri: visual.image_url } : getServiceImage(SERVICES[index])}
+          resizeMode={visual.image_fit === "contain" ? "contain" : "cover"}
+          style={{
+            width: Number(visual.width_px) || "100%",
+            height: Number(visual.height_px) || "100%",
+            borderRadius: Number(visual.image_border_radius_px ?? 18),
+            aspectRatio: visual.image_shape === "landscape" ? 4/3 : visual.image_shape === "portrait" ? 3/4 : 1,
+            transform: [{ translateX: Number(visual.content_position_x_px) || 0 }, { translateY: Number(visual.content_position_y_px) || 0 }, { scale: scale * Math.max(.5,Math.min(2.5,Number(visual.content_scale)||1)) }],
+          }}
+        />;
+      })()}
     </View>
   );
 }
