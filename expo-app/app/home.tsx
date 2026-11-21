@@ -426,6 +426,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
   const [topBannerIndex, setTopBannerIndex] = useState(0);
   const [activeBannerCampaignId, setActiveBannerCampaignId] = useState<string | null>(null);
   const topBanner = topBanners[topBannerIndex] ?? null;
+  const topBannerTouchStart = useRef<number | null>(null);
+  const suppressTopBannerPress = useRef(false);
   const gridLayout = visuals.home_customer_grid_layout || {};
   const gridGap = Math.max(4, Math.min(28, Number(gridLayout.grid_gap_px) || HOME_GRID_GAP));
   const firstRowHeight = Math.max(100, Math.min(260, Number(gridLayout.first_row_height_px) || 145));
@@ -519,7 +521,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
   return (
     <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: gridGap }}>
-      <TouchableOpacity activeOpacity={0.94} onPress={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }}>
+      <TouchableOpacity activeOpacity={0.94} onPress={() => { if (suppressTopBannerPress.current) { suppressTopBannerPress.current = false; return; } if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }} onTouchStart={(event) => { topBannerTouchStart.current = event.nativeEvent.pageX; }} onTouchEnd={(event) => { const start = topBannerTouchStart.current; topBannerTouchStart.current = null; if (start === null || topBanners.length < 2) return; const dx = event.nativeEvent.pageX - start; if (Math.abs(dx) > 38) { suppressTopBannerPress.current = true; setTopBannerIndex((value) => (value + (dx < 0 ? 1 : -1) + topBanners.length) % topBanners.length); } }}>
       <LinearGradient
         colors={topBanner?.display_config?.background_color ? [topBanner.display_config.background_color, topBanner.display_config.background_color] : [palette.brand, palette.brandGlow, palette.gold]}
         start={{ x: 0, y: 0 }}
