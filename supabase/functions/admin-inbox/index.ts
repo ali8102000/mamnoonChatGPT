@@ -231,6 +231,7 @@ Deno.serve(async (req: Request) => {
           content: body.message.trim(),
         }).select("id,chat_id,sender_id,content,created_at").single();
         if (insertError || !inserted) return json({ error: "reply_send_failed" }, 500);
+        await admin.from("chats").update({ updated_at: inserted.created_at }).eq("id", body.conversation_id);
         return json({ ok: true, message: { ...inserted, body: inserted.content, is_ai: false } });
       }
       const { data: conversation, error: conversationError } = await admin.from("support_conversations")
