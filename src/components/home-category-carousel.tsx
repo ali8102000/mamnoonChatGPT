@@ -1,201 +1,83 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
-type Vertical = "store" | "restaurant" | "grocery";
-type CategoryTile = { category_key: string; vertical: Vertical; title: string; image_url: string; tile_width_px: number; tile_height_px: number; auto_scroll_seconds: number };
-type Banner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; banner_type: "category" | "poll" | "contest" | "ad"; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; badge_text: string | null; display_order: number };
-const categoryCopy: Record<Banner["target_category"], { title: string }> = {
-  restaurant: { title: "المطاعم" },
-  hotel: { title: "الفنادق" },
-  store: { title: "المولات والمحلات" },
+type CategoryBanner = { id: string; image_url: string; target_category: "restaurant" | "hotel" | "store"; banner_type: string; display_order: number; is_active: boolean };
+
+const FALLBACK_IMAGES = {
+  restaurant: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=640&q=85",
+  hotel: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=640&q=85",
+  mall: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=640&q=85",
+  shop: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=640&q=85",
 };
-const ribbons: { vertical: Vertical; title: string }[] = [
-  { vertical: "restaurant", title: "المطاعم حسب الفئة" },
-  { vertical: "store", title: "المحلات والمولات حسب الفئة" },
+
+const cards = [
+  { key: "restaurant", title: "المطاعم", subtitle: "مطاعم وكافيهات", category: "restaurant" as const, fallback: FALLBACK_IMAGES.restaurant },
+  { key: "hotel", title: "الفنادق", subtitle: "فنادق وشقق فندقية", category: "hotel" as const, fallback: FALLBACK_IMAGES.hotel },
+  { key: "mall", title: "المولات", subtitle: "مراكز تسوق وترفيه", category: "store" as const, fallback: FALLBACK_IMAGES.mall },
+  { key: "shop", title: "المحلات", subtitle: "متاجر ومحلات قريبة", category: "store" as const, fallback: FALLBACK_IMAGES.shop },
 ];
 
 export function HomeCategoryCarousel() {
   const navigate = useNavigate();
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [categoryTiles, setCategoryTiles] = useState<CategoryTile[]>([]);
-  const scrollRefs = useRef<Partial<Record<Vertical, HTMLDivElement | null>>>({});
-  const [index, setIndex] = useState(0);
-  const resumeAt = useRef(0);
-  const touchStartX = useRef<number | null>(null);
-  const movedBySwipe = useRef(false);
-  const pause = () => { resumeAt.current = Date.now() + 5000; };
-
-  const refresh = useCallback(async () => {
-    const { data, error } = await (supabase as any)
-      .from("home_carousel_banners")
-      .select("id,image_url,target_category,banner_type,target_campaign_id,is_active,scroll_speed,badge_text,display_order")
-      .eq("is_active", true).order("display_order").order("created_at");
-    if (!error) { setBanners(data ?? []); setIndex(0); resumeAt.current = 0; }
-  }, []);
-
-  const loadCategories = useCallback(async () => {
-    const { data, error } = await (supabase as any)
-      .from("partner_catalog_categories")
-      .select("category_key,vertical,title,image_url,tile_width_px,tile_height_px,auto_scroll_seconds")
-      .eq("is_active", true).order("sort_order");
-    if (!error) setCategoryTiles((data ?? []) as CategoryTile[]);
-  }, []);
+  const [banners, setBanners] = useState<CategoryBanner[]>([]);
+  const [failedImages, setFailedImages] = useState<string[]>([]);
 
   useEffect(() => {
-    void loadCategories();
-    const channel = supabase.channel("partner-category-ribbons-web")
-      .on("postgres_changes", { event: "*", schema: "public", table: "partner_catalog_categories" }, () => void loadCategories())
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [loadCategories]);
-
-  useEffect(() => {
-    const timers = ribbons.map(({ vertical }) => {
-      const tiles = categoryTiles.filter((tile) => tile.vertical === vertical);
-      if (tiles.length < 2) return null;
-      const seconds = Math.max(2, Math.min(30, Number(tiles[0].auto_scroll_seconds) || 5));
-      return window.setInterval(() => {
-        const node = scrollRefs.current[vertical];
-        if (!node || Date.now() < resumeAt.current) return;
-        const end = node.scrollWidth - node.clientWidth;
-        if (end <= 0) return;
-        if (node.scrollLeft >= end - 4) node.scrollTo({ left: 0, behavior: "smooth" });
-        else node.scrollBy({ left: 116, behavior: "smooth" });
-      }, seconds * 1000);
-    });
-    return () => timers.forEach((timer) => { if (timer !== null) window.clearInterval(timer); });
-  }, [categoryTiles]);
-
-  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      const { data, error } = await (supabase as any)
+        .from("home_carousel_banners")
+        .select("id,image_url,target_category,banner_type,display_order,is_active")
+        .eq("is_active", true)
+        .eq("banner_type", "category")
+        .order("display_order")
+        .order("created_at");
+      if (active && !error) {
+        setBanners(data ?? []);
+        setFailedImages([]);
+      }
+    };
     void refresh();
-    const channel = supabase.channel("home-category-banners-web")
+    const channel = supabase.channel("home-fixed-category-tiles-web")
       .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh())
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [refresh]);
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, []);
 
-  useEffect(() => {
-    if (banners.length < 2) return;
-    const delay = Math.max(1, Math.min(60, Number(banners[index]?.scroll_speed) || 5)) * 1000;
-    const timer = window.setInterval(() => {
-      if (Date.now() >= resumeAt.current) setIndex((value) => (value + 1) % banners.length);
-    }, delay);
-    return () => window.clearInterval(timer);
-  }, [banners, index]);
-
-  const categoryStrip = (vertical: Vertical, title: string) => {
-    const tiles = categoryTiles.filter((tile) => tile.vertical === vertical && !!tile.image_url);
-    if (!tiles.length) return null;
-    return (
-      <section key={vertical} dir="rtl" className="mb-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-black text-foreground">{title}</h3>
-          <span className="text-[10px] text-muted-foreground">اسحب للتصفح</span>
-        </div>
-        <div
-          ref={(node) => { scrollRefs.current[vertical] = node; }}
-          onTouchStart={pause}
-          onMouseDown={pause}
-          onWheel={pause}
-          className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {tiles.map((tile) => (
-            <button
-              key={tile.category_key}
-              type="button"
-              onClick={() => void navigate({ to: "/discover/$category", params: { category: vertical === "grocery" ? "grocery" : vertical + "-" + tile.category_key } })}
-              className="flex shrink-0 flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-1.5 shadow-sm"
-              style={{ width: Math.max(64, Math.min(110, tile.tile_width_px)), minHeight: Math.max(82, Math.min(140, tile.tile_height_px + 28)) }}
-            >
-              <img
-                src={tile.image_url}
-                alt={tile.title}
-                loading="lazy"
-                className="rounded-lg object-cover"
-                style={{ width: Math.max(44, Math.min(88, tile.tile_width_px - 12)), height: Math.max(44, Math.min(88, tile.tile_height_px - 12)) }}
-              />
-              <span className="max-w-full truncate text-[10px] font-black">{tile.title}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-    );
-  };
-
-  const categoryStrips = <>{ribbons.map((ribbon) => categoryStrip(ribbon.vertical, ribbon.title))}</>;
-  if (!banners.length) {
-    return (
-      <>
-        {categoryStrips}
-        <div className="flex h-[220px] w-full items-center justify-center rounded-[24px] bg-[#173F35] p-4 text-center text-white">
-          <div><div className="text-base font-black">اكتشف شركاء ممنون</div><p className="mt-2 text-xs font-bold opacity-90">المطاعم والفنادق والمولات والمتاجر المنشورة تظهر هنا</p></div>
-        </div>
-      </>
-    );
-  }
-
-  const current = banners[Math.min(index, banners.length - 1)];
-  const openContent = () => {
-    if (movedBySwipe.current || current.banner_type === "ad") { movedBySwipe.current = false; return; }
-    if ((current.banner_type === "poll" || current.banner_type === "contest") && current.target_campaign_id) {
-      void navigate({ to: "/campaign/$id", params: { id: current.target_campaign_id } });
-      return;
-    }
-    if (current.banner_type === "category") void navigate({ to: "/discover/$category", params: { category: current.target_category } });
-  };
-  const image = current.image_url ? (
-    <img
-      src={current.image_url}
-      alt={current.banner_type === "ad" ? "إعلان" : current.banner_type === "poll" ? "استطلاع رأي" : current.banner_type === "contest" ? "مسابقة" : categoryCopy[current.target_category].title}
-      draggable={false}
-      className="h-full w-full object-cover"
-    />
-  ) : null;
-
+  const storeBanners = banners.filter((item) => item.target_category === "store");
   return (
-    <>
-      {categoryStrips}
-      <div
-        className="relative h-[220px] w-full overflow-hidden rounded-[24px] border border-border bg-[#173F35] shadow-sm"
-        onPointerDown={(event) => { pause(); touchStartX.current = event.clientX; movedBySwipe.current = false; }}
-        onPointerUp={(event) => {
-          if (touchStartX.current !== null) {
-            const delta = event.clientX - touchStartX.current;
-            if (Math.abs(delta) > 35 && banners.length > 1) {
-              movedBySwipe.current = true;
-              setIndex((value) => (value + (delta < 0 ? 1 : -1) + banners.length) % banners.length);
-            }
-          }
-          touchStartX.current = null;
-          pause();
-        }}
-        onTouchStart={pause}
-        onTouchEnd={pause}
-        onMouseEnter={pause}
-      >
-        {current.banner_type === "ad" ? (
-          <div role="img" aria-label="إعلان" className="absolute inset-0 h-full w-full">{image}</div>
-        ) : (
+    <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-1.5" dir="rtl">
+      {cards.map((card) => {
+        const match = card.key === "mall" ? storeBanners[0] : card.key === "shop" ? storeBanners[1] : banners.find((item) => item.target_category === card.category);
+        const image = match?.image_url || card.fallback;
+        const imageKey = match?.id || card.key;
+        return (
           <button
+            key={card.key}
             type="button"
-            aria-label={current.banner_type === "poll" ? "المشاركة في الاستطلاع" : current.banner_type === "contest" ? "فتح المسابقة" : "عرض " + categoryCopy[current.target_category].title}
-            onClick={openContent}
-            className="absolute inset-0 h-full w-full touch-pan-y"
+            onClick={() => void navigate({ to: "/discover/$category", params: { category: card.category } })}
+            className="group relative min-h-0 overflow-hidden rounded-xl border border-white/20 bg-[#173F35] text-right shadow-sm transition-transform active:scale-[0.98]"
+            aria-label={`فتح قسم ${card.title}`}
           >
-            {image}
-            <span className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-2 text-xs font-black text-white">
-              {current.banner_type === "poll" ? "شارك برأيك ←" : current.banner_type === "contest" ? "شاهد المسابقة وشارك ←" : "استعراض المحتويات والخدمات ←"}
-            </span>
+            {!failedImages.includes(imageKey) && (
+              <img
+                src={failedImages.includes(imageKey) ? card.fallback : image}
+                alt=""
+                loading="lazy"
+                draggable={false}
+                onError={() => setFailedImages((current) => current.includes(imageKey) ? current : [...current, imageKey])}
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/5" />
+            <div className="absolute inset-x-2 bottom-2 text-white">
+              <div className="text-xs font-black leading-tight drop-shadow">{card.title}</div>
+              <div className="mt-0.5 text-[9px] font-bold text-white/85">{card.subtitle}</div>
+            </div>
           </button>
-        )}
-        {current.badge_text && <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-black/55 px-3 py-1 text-xs font-bold text-white">{current.badge_text}</span>}
-        {banners.length > 1 && (
-          <div className="pointer-events-none absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
-            {banners.map((banner, i) => <span key={banner.id} className={`h-1.5 rounded-full ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/60"}`} />)}
-          </div>
-        )}
-      </div>
-    </>
+        );
+      })}
+    </div>
   );
 }

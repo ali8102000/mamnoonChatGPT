@@ -1434,7 +1434,7 @@ export default function RequestDetail() {
           {request.work_description && <Text style={styles.infoRow}>تفاصيل العمل: {request.work_description}</Text>}
           {request.notes && (request.type !== "taxi" || request.vehicle_category === "large") && <Text style={styles.infoRow}>ملاحظات الطلب: {request.notes}</Text>}
           {attachmentUrl && (
-            <View style={{ marginTop: 12, gap: 8 }}>
+            <View style={{ marginTop: 12, gap: 8, alignItems: "center" }}>
               <Text style={styles.infoRow}>الصورة المرفقة بالطلب</Text>
               <Image source={{ uri: attachmentUrl }} style={styles.requestAttachmentImage} resizeMode="contain" />
             </View>
@@ -1857,7 +1857,7 @@ const styles = StyleSheet.create({
   infoType: { fontSize: 18, fontWeight: "900", color: palette.ink, marginBottom: 8 },
   taxiInfoType: { fontSize: 13, marginBottom: 3 },
   infoRow: { fontSize: 13, color: palette.muted, marginTop: 5 },
-  requestAttachmentImage: { width: "100%", height: 210, borderRadius: radius.md, backgroundColor: palette.surfaceSoft, borderWidth: 1, borderColor: palette.line },
+  requestAttachmentImage: { width: "100%", height: 240, alignSelf: "center", borderRadius: radius.md, backgroundColor: palette.surfaceSoft, borderWidth: 1, borderColor: palette.line },
   infoPrice: { fontSize: 18, fontWeight: "900", color: palette.brand, marginTop: 8 },
   actionsRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   actionBtn: { flex: 1, minHeight: 40, backgroundColor: palette.brand, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },

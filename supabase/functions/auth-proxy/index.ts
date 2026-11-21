@@ -97,6 +97,7 @@ const authenticatedHandler = withSupabase(
       const phone = normalizePhone(phoneInput);
       const accountEmail = "phone" + phone.replace(/\D/g, "") + "@mamnoon.app";
       const contactEmail = typeof body.contact_email === "string" ? body.contact_email.trim().toLowerCase() : "";
+      const referralCode = typeof body.referral_code === "string" ? body.referral_code.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) : "";
 
       if (fullName.length < 2 || fullName.length > 100) return json({ error: "الاسم غير صالح" }, 400);
       if (!isValidPhone(phone)) return json({ error: "رقم الهاتف غير صالح" }, 400);
@@ -130,7 +131,7 @@ const authenticatedHandler = withSupabase(
         email: accountEmail,
         password,
         email_confirm: true,
-        user_metadata: { phone, full_name: fullName, contact_email: contactEmail || null },
+        user_metadata: { phone, full_name: fullName, contact_email: contactEmail || null, referral_code: referralCode || null },
       });
 
       if (createError || !created?.user) {

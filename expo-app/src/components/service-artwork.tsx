@@ -8,7 +8,7 @@ export const hasServiceArtwork = (_slug: string) => false;
 
 export function ServiceArtwork({ slug }: Props) {
   return (
-    <View style={{ width: 88, height: 66, alignItems: "center", justifyContent: "center" }}>
+    <View style={{ width: 98, height: 74, alignSelf: "center", alignItems: "center", justifyContent: "center" }}>
       <Svg width="100%" height="100%" viewBox="0 0 120 90">
         <Rect x="2" y="2" width="116" height="86" rx="16" fill={pale} />
         {slug === "security_cameras" && <>

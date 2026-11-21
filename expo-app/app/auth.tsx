@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   View, Text, StyleSheet, ScrollView, Alert, Pressable, Image,
   KeyboardAvoidingView, Platform,
@@ -21,10 +21,12 @@ type AuthIconName = "user" | "phone" | "mail" | "lock";
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<Mode>("signup");
+  const routeParams = useLocalSearchParams<{ref?: string}>();
   const [identifier, setIdentifier] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [referralCode, setReferralCode] = useState(routeParams.ref || "");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const { refresh } = useAuth();
@@ -51,6 +53,7 @@ export default function AuthScreen() {
           phone: normalized,
           full_name: name.trim(),
           contact_email: contactEmail || null,
+          referral_code: referralCode.trim().toUpperCase() || null,
         });
         if (!result.session) throw new Error("تعذّر إكمال التسجيل. حاول مرة أخرى.");
         const { error } = await supabase.auth.setSession(result.session);
@@ -191,6 +194,9 @@ export default function AuthScreen() {
                     maxLength={255}
                     style={styles.inputLtr}
                   />
+                </AuthField>
+                <AuthField title="رمز الإحالة" hint="اختياري" icon="user">
+                  <RealInput value={referralCode} onChangeText={setReferralCode} placeholder="أدخل رمز دعوة صديقك" autoCapitalize="characters" maxLength={10} style={styles.inputLtr} />
                 </AuthField>
               </>
             ) : (

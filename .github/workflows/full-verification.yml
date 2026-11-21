@@ -46,3 +46,22 @@ jobs:
             echo "Checking $file"
             deno check --node-modules-dir=none "$file"
           done
+  expo:
+    name: Expo Android TypeScript verification
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: expo-app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "26"
+          cache: yarn
+          cache-dependency-path: expo-app/yarn.lock
+      - name: Verify Node.js runtime
+        run: node --version
+      - name: Install locked Expo dependencies
+        run: yarn install --frozen-lockfile
+      - name: Type-check Android app
+        run: yarn tsc --noEmit

@@ -184,6 +184,9 @@ function HomePage() {
 
 function CustomerHome() {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
+  const [topBanners, setTopBanners] = useState<any[]>([]);
+  const [topBannerIndex, setTopBannerIndex] = useState(0);
+  const topBanner = topBanners[topBannerIndex] ?? null;
 
   useEffect(() => {
     let active = true;
@@ -198,9 +201,45 @@ function CustomerHome() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data, error } = await (supabase as any).from("home_carousel_banners")
+        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
+        .eq("is_active", true).eq("banner_type", "ad").order("display_order").order("created_at");
+      if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
+    };
+    void load();
+    const channel = supabase.channel("home-top-banner-web")
+      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void load())
+      .subscribe();
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    if (topBanners.length < 2) return;
+    const seconds = Math.max(1, Math.min(60, Number(topBanner?.scroll_speed) || 5));
+    const timer = window.setInterval(() => {
+      const reverse = topBanner?.motion_direction === "right" || topBanner?.motion_direction === "down";
+      setTopBannerIndex((value) => (value + (reverse ? -1 : 1) + topBanners.length) % topBanners.length);
+    }, seconds * 1000);
+    return () => window.clearInterval(timer);
+  }, [topBanners, topBanner?.scroll_speed, topBanner?.motion_direction]);
+
   return (
-    <div className="space-y-4">
-      <div className="relative rounded-3xl p-6 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
+    <div className="-mx-2 space-y-3 pt-4">
+      <style>{`
+        @keyframes mamnoonBannerFade { from { opacity: 0; } to { opacity: .4; } }
+        @keyframes mamnoonBannerSlideLeft { from { opacity: 0; transform: translateX(28px); } to { opacity: .4; transform: translateX(0); } }
+        @keyframes mamnoonBannerSlideRight { from { opacity: 0; transform: translateX(-28px); } to { opacity: .4; transform: translateX(0); } }
+        @keyframes mamnoonBannerSlideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: .4; transform: translateY(0); } }
+        @keyframes mamnoonBannerSlideDown { from { opacity: 0; transform: translateY(-24px); } to { opacity: .4; transform: translateY(0); } }
+        @keyframes mamnoonBannerDrop { from { opacity: 0; transform: translateY(-22px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
+        @keyframes mamnoonBannerDropDown { from { opacity: 0; transform: translateY(22px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
+        @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; } }
+      `}</style>
+      <div className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
+        {topBanner?.image_url && <img key={topBanner.id} src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute inset-0 h-full w-full object-cover" style={{ animation: `${topBanner.motion_style === "fade" ? "mamnoonBannerFade" : topBanner.motion_style === "drop" ? (topBanner.motion_direction === "down" ? "mamnoonBannerDropDown" : "mamnoonBannerDrop") : topBanner.motion_direction === "right" ? "mamnoonBannerSlideRight" : topBanner.motion_direction === "up" ? "mamnoonBannerSlideUp" : topBanner.motion_direction === "down" ? "mamnoonBannerSlideDown" : "mamnoonBannerSlideLeft"} .55s ease-out both` }} />}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative">
@@ -208,24 +247,24 @@ function CustomerHome() {
             <Sparkles className="h-3 w-3" /> مجاناً بلا عمولة
           </div>
           <div className="text-2xl font-black mt-2 leading-tight">
-            اطلب الآن، ادفع للمزوّد مباشرة
+            {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
           </div>
           <div className="text-xs opacity-90 mt-1">
-            ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك
+            {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
           </div>
         </div>
       </div>
 
       <HomeCustomContent placementKey="home.customer.top" />
 
-      <div dir="ltr" className="grid grid-cols-3 gap-3">
+      <div dir="ltr" className="grid gap-3" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gridTemplateRows: "145px 188px", gridAutoFlow: "row" }}>
         <QuickTile
           to="/request/new"
           type="taxi"
           title={visuals.home_customer_taxi?.title && visuals.home_customer_taxi.title !== "طلب سيارة" ? visuals.home_customer_taxi.title : "طلب تكسي"}
           subtitle={visuals.home_customer_taxi?.subtitle || "خلال دقائق"}
-          icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: Number(visuals.home_customer_taxi?.width_px) || 44, height: Number(visuals.home_customer_taxi?.height_px) || 44, objectFit: "contain" }} />}
-          iconBoxSize={Math.max(Number(visuals.home_customer_taxi?.width_px) || 48, 48)}
+          icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
+          iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_taxi?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_taxi?.sort_order) || 10}
           gradient="from-amber-500 to-orange-500"
           span={2}
@@ -237,28 +276,31 @@ function CustomerHome() {
           title={visuals.home_customer_service?.title || "طلب فني"}
           subtitle={visuals.home_customer_service?.subtitle || "١٦ خدمة"}
           icon={<ServiceIconPanorama />}
-          iconBoxSize={68}
+          iconBoxSize={64}
           sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
+        <div className="col-span-2 flex min-w-0 gap-3" style={{ order: 30 }}>
         <QuickTile
           to="/request/new"
           type="taxi"
           vehicle="large"
           title={visuals.home_customer_large_vehicle?.title || "طلب سيارة كبيرة"}
           subtitle={visuals.home_customer_large_vehicle?.subtitle || "كيا حمل أو كيا ركاب أو باص"}
-          icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: Number(visuals.home_customer_large_vehicle?.width_px) || 44, height: Number(visuals.home_customer_large_vehicle?.height_px) || 44, objectFit: "contain" }} />}
-          iconBoxSize={Math.max(Number(visuals.home_customer_large_vehicle?.width_px) || 48, 48)}
+          icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
+          iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_large_vehicle?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
           gradient="from-orange-500 to-amber-600"
           span={1}
+          tileWidth="calc((100% - 12px) / 3)"
           delay={0.15}
         />
-        <div dir="rtl" className="col-span-2 min-w-0 h-full" style={{ order: 40 }}>
+<div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 24px) / 3)", flexShrink: 0, order: 1 }}>
           <HomeCategoryCarousel />
         </div>
       </div>
+        </div>
 
       <HomeCustomContent placementKey="home.customer.content" />
 
@@ -439,6 +481,7 @@ function QuickTile({
   delay = 0,
   iconBoxSize,
   sortOrder = 0,
+  tileWidth,
 }: {
   to: string;
   type: "taxi" | "service";
@@ -451,6 +494,7 @@ function QuickTile({
   delay?: number;
   iconBoxSize?: number;
   sortOrder?: number;
+  tileWidth?: string;
 }) {
   return (
     <Link
@@ -458,17 +502,17 @@ function QuickTile({
       to={to as any}
       search={{ type, ...(vehicle ? { vehicle } : {}) } as any}
       onClick={() => playClick("pop")}
-      className={`glass rounded-3xl p-4 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
-        span === 2 ? "col-span-2 min-h-[132px]" : "min-h-[132px]"
+      className={`glass rounded-[20px] p-2.5 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
+        vehicle === "large" ? "min-h-[188px] h-[188px]" : "min-h-[145px] h-[145px]"
       }`}
-      style={{ animationDelay: `${delay}s`, order: sortOrder }}
+      style={{ animationDelay: `${delay}s`, order: vehicle === "large" ? 0 : sortOrder, gridColumn: vehicle === "large" ? "1" : span === 2 ? "1" : "2", width: tileWidth, flexShrink: tileWidth ? 0 : undefined }}
     >
       <div
         className={`absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`}
       />
       <div className="relative flex flex-col h-full justify-between">
         <div
-          className={`${type === "service" ? "h-16 w-16" : "h-12 w-12"} rounded-2xl bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg overflow-hidden`}
+          className={`${type === "service" ? "h-16 w-16 rounded-xl" : "h-14 w-14 rounded-[14px]"} bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg overflow-hidden`}
           style={{ width: iconBoxSize, height: iconBoxSize }}
         >
           {icon}
@@ -879,7 +923,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
                   <img
                     src={popupAttachmentUrl}
                     alt="صورة مرفقة بطلب الزبون"
-                    className="w-full max-h-48 rounded-xl bg-background object-contain"
+                    className="mx-auto h-[224px] max-h-[32vh] w-full rounded-xl bg-background object-contain"
                   />
                 ) : (
                   <div className="py-4 text-center text-xs text-muted-foreground">

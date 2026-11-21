@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import { useRef } from "react";
+import { Animated, Easing } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import {
   View,
   Text,
+  Dimensions,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -23,6 +26,11 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
+
+const HOME_GRID_GAP = 12;
+const HOME_GRID_CONTENT_WIDTH = Dimensions.get("window").width - 24;
+const HOME_GRID_WIDE_WIDTH = ((HOME_GRID_CONTENT_WIDTH - HOME_GRID_GAP) * 2) / 3;
+const HOME_GRID_NARROW_WIDTH = (HOME_GRID_CONTENT_WIDTH - HOME_GRID_GAP) / 3;
 
 type IncomingRequest = {
   id: string;
@@ -435,7 +443,17 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
 
 function CustomerHome({ userId }: { userId: string | null }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
-  const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(132);
+  const [topBanners, setTopBanners] = useState<any[]>([]);
+  const [topBannerIndex, setTopBannerIndex] = useState(0);
+  const topBanner = topBanners[topBannerIndex] ?? null;
+  const bannerMotion = useRef(new Animated.Value(0)).current;
+  const [largeVehicleCardHeight, setLargeVehicleCardHeight] = useState(188);
+  useEffect(() => {
+    bannerMotion.setValue(0);
+    const animation = Animated.timing(bannerMotion, { toValue: 1, duration: 550, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    animation.start();
+    return () => animation.stop();
+  }, [bannerMotion, topBanner?.id, topBanner?.motion_style, topBanner?.motion_direction]);
   useEffect(() => {
     let active = true;
     (supabase as any).from("app_ui_elements_public")
@@ -449,6 +467,31 @@ function CustomerHome({ userId }: { userId: string | null }) {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data, error } = await (supabase as any).from("home_carousel_banners")
+        .select("id,image_url,banner_type,scroll_speed,motion_direction,motion_style,badge_text,banner_title,banner_description,is_active")
+        .eq("is_active", true).eq("banner_type", "ad").order("display_order").order("created_at");
+      if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
+    };
+    void load();
+    const channel = supabase.channel("home-top-banner-native")
+      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void load())
+      .subscribe();
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    if (topBanners.length < 2) return;
+    const seconds = Math.max(1, Math.min(60, Number(topBanner?.scroll_speed) || 5));
+    const timer = setInterval(() => {
+      const reverse = topBanner?.motion_direction === "right" || topBanner?.motion_direction === "down";
+      setTopBannerIndex((value) => (value + (reverse ? -1 : 1) + topBanners.length) % topBanners.length);
+    }, seconds * 1000);
+    return () => clearInterval(timer);
+  }, [topBanners, topBanner?.scroll_speed, topBanner?.motion_direction]);
+
   const tiles = [
     {
       key: "taxi",
@@ -456,7 +499,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "خلال دقائق",
       emoji: "🚕",
       colors: ["#E9AB2B", "#F97316"] as const,
-      width: "65%" as const,
+      width: HOME_GRID_WIDE_WIDTH,
       type: "taxi" as const,
     },
     {
@@ -465,7 +508,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "١٦ خدمة",
       emoji: "🛠️",
       colors: ["#10B981", "#14B8A6"] as const,
-      width: "31.5%" as const,
+      width: HOME_GRID_NARROW_WIDTH,
       type: "service" as const,
     },
     {
@@ -474,25 +517,34 @@ function CustomerHome({ userId }: { userId: string | null }) {
       subtitle: "كيا حمل أو كيا ركاب أو باص",
       emoji: "🚚",
       colors: ["#F97316", "#D97706"] as const,
-      width: "31.5%" as const,
+      width: HOME_GRID_NARROW_WIDTH,
       type: "taxi" as const,
       vehicle: "large" as const,
     },
   ];
 
   return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 16 }}>
+    <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: 12 }}>
       <LinearGradient
         colors={[palette.brand, palette.brandGlow, palette.gold]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          borderRadius: 24,
-          padding: 24,
+          borderRadius: 20,
+          height: 130,
+          padding: 16,
           overflow: "hidden",
           elevation: 5,
         }}
       >
+        {topBanner?.image_url ? (() => {
+          const style = topBanner.motion_style || "slide";
+          const direction = topBanner.motion_direction || "left";
+          const distance = style === "drop" ? (direction === "down" ? -22 : 22) : direction === "right" ? -26 : direction === "up" ? 22 : direction === "down" ? -22 : 26;
+          const translateX = style === "fade" || style === "drop" || direction === "up" || direction === "down" ? 0 : bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [distance, 0] });
+          const translateY = style === "fade" || (style !== "drop" && (direction === "left" || direction === "right")) ? 0 : bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [direction === "up" ? -Math.abs(distance) : distance, 0] });
+          return <Animated.Image source={{ uri: topBanner.image_url }} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", opacity: bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0, 0.38] }), transform: [{ translateX }, { translateY }, ...(style === "drop" ? [{ scale: bannerMotion.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) }] : [])] }} resizeMode="cover" />;
+        })() : null}
         <LinearGradient
           pointerEvents="none"
           colors={["rgba(255,255,255,0.24)", "rgba(255,255,255,0.02)", "rgba(255,255,255,0.10)"]}
@@ -517,16 +569,16 @@ function CustomerHome({ userId }: { userId: string | null }) {
           <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>✨ مجاناً بلا عمولة</Text>
         </View>
         <Text style={{ color: "#FFFFFF", fontSize: 24, lineHeight: 29, fontWeight: "900", textAlign: "right" }}>
-          اطلب الآن، ادفع للمزوّد مباشرة
+          {topBanner?.banner_title || "اطلب الآن، ادفع للمزوّد مباشرة"}
         </Text>
         <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 16, marginTop: 4, textAlign: "right" }}>
-          ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك
+          {topBanner?.banner_description || topBanner?.badge_text || "ممنون منصّة مجانية وسريعة — بدون أي نسبة على طلبك"}
         </Text>
       </LinearGradient>
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
-      <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 }}>
+      <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12 }}>
         {tiles.map((tile) => (
           <TouchableOpacity
             key={tile.key}
@@ -550,9 +602,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
             style={{
               direction: "rtl",
               width: tile.width,
-              minHeight: 132,
-              borderRadius: 24,
-              padding: 16,
+              height: tile.key === "large" ? 188 : 145,
+              minHeight: tile.key === "large" ? 188 : 145,
+              borderRadius: 20,
+              padding: 10,
               justifyContent: "space-between",
               backgroundColor: palette.surface,
               borderWidth: 1,
@@ -565,9 +618,9 @@ function CustomerHome({ userId }: { userId: string | null }) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.width_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 48, 48),
-                height: tile.key === "service" ? Math.min(120, Math.max(48, Number(visuals.home_customer_service?.height_px) || 68)) : Math.max(Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 48, 48),
-                borderRadius: tile.key === "service" ? 0 : 18,
+                width: tile.key === "service" ? 64 : 56,
+                height: tile.key === "service" ? 64 : 56,
+                borderRadius: tile.key === "service" ? 12 : 14,
                 alignItems: "center",
                 justifyContent: "center",
                 overflow: "hidden",
@@ -579,7 +632,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
                   imageScale={Number(visuals.home_customer_service?.image_scale) || 1}
                 />
               ) : (
-                visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.icon_name ? <Text style={{ fontSize: 30 }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].icon_name}</Text> : <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.width_px) || 54, height: Number(visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.height_px) || 42 }} resizeMode="contain" />
+                visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.icon_name ? <Text style={{ fontSize: 30 }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].icon_name}</Text> : <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 52, height: 52 }} resizeMode="contain" />
               )}
             </LinearGradient>
             <View>
@@ -591,8 +644,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
             </View>
           </TouchableOpacity>
         ))}
-        <View style={{ width: "65%", direction: "rtl" }}>
-          <HomeCategoryCarousel height={largeVehicleCardHeight} />
+        <View style={{ width: HOME_GRID_WIDE_WIDTH, height: 188, direction: "rtl" }}>
+          <HomeCategoryCarousel height={188} />
         </View>
       </View>
 

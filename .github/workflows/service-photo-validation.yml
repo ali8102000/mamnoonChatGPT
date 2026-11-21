@@ -38,9 +38,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: "26"
           cache: yarn
           cache-dependency-path: expo-app/yarn.lock
       - name: Install Expo dependencies

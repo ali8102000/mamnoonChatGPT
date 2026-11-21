@@ -78,6 +78,7 @@ function ProfilePage() {
   const [showProviderRecentTransactions, setShowProviderRecentTransactions] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [referralSummary, setReferralSummary] = useState<{referral_code:string;successful_signups:number}|null>(null);
   const [reputation, setReputation] = useState<ReputationData | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [showReviews, setShowReviews] = useState(false);
@@ -167,6 +168,25 @@ function ProfilePage() {
     }).catch(() => {});
     return () => { active = false; };
   }, [uid, activeRole, isProvider, getRepFn]);
+
+  useEffect(() => {
+    let active = true;
+    if (!uid) { setReferralSummary(null); return () => { active = false; }; }
+    (supabase as any).rpc("get_my_referral_summary").then(({ data, error }: any) => {
+      if (!active || error) return;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.referral_code) setReferralSummary({ referral_code: String(row.referral_code), successful_signups: Number(row.successful_signups) || 0 });
+    });
+    return () => { active = false; };
+  }, [uid]);
+
+  async function shareReferralLink() {
+    if (!referralSummary?.referral_code) return;
+    const link = `https://mamnoon-theta.vercel.app/invite?ref=${encodeURIComponent(referralSummary.referral_code)}`;
+    const message = `انضم إلى ممنون باستخدام رمز الإحالة الخاص بي: ${referralSummary.referral_code}\\n${link}`;
+    if (navigator.share) await navigator.share({ title: "دعوة إلى ممنون", text: message, url: link });
+    else { await navigator.clipboard.writeText(message); toast.success("تم نسخ رابط ورمز الإحالة"); }
+  }
 
   async function uploadAvatar(file?: File) {
     if (!file || !uid || avatarUploading) return;
@@ -260,6 +280,15 @@ function ProfilePage() {
           <div className="text-xs text-muted-foreground mt-1" dir="ltr">
             {profile?.phone}
           </div>
+        {referralSummary && (
+          <div className="glass rounded-2xl p-4 mt-4 text-right">
+            <div className="font-black text-sm">رابط الإحالة الخاص بك</div>
+            <div className="font-black text-primary text-lg mt-1" dir="ltr">{referralSummary.referral_code}</div>
+            <div className="text-xs text-muted-foreground mt-1">التسجيلات الناجحة عن طريقك: {referralSummary.successful_signups}</div>
+            <button type="button" onClick={() => void shareReferralLink()} className="mt-3 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">مشاركة رابط الدعوة</button>
+          </div>
+        )}
+
           <div className="flex justify-center gap-1.5 mt-3 flex-wrap">
             {roles.map((r) => (
               <span

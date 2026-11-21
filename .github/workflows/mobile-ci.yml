@@ -26,6 +26,11 @@ jobs:
         working-directory: expo-app
     steps:
       - uses: actions/checkout@v5
+      - name: Set up Node.js 26
+        uses: actions/setup-node@v5
+        with:
+          node-version: "26"
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
