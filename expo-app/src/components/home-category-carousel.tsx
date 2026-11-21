@@ -47,9 +47,15 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth, plac
       if (active && !error) { setBanners(data ?? []); setIndex(0); setImageFailed(false); }
     };
     void refresh();
-    const channel = supabase.channel("home-category-panorama-native")
-      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh())
-      .subscribe();
+    // Give every mounted carousel its own topic. Multiple placements/screens
+    // can mount this component concurrently; reusing a topic can hand back a
+    // channel that is already subscribed, where adding another postgres_changes
+    // callback throws in supabase-realtime.
+    const channelTopic = `home-category-panorama-native:${placement}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const channel = supabase
+      .channel(channelTopic)
+      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh());
+    channel.subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
   }, [placement]);
 
