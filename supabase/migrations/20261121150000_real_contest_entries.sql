@@ -57,10 +57,10 @@ create policy "Users submit one entry to active contests" on public.app_campaign
             and image_url is null and storage_path is null)
           or (c.participation_mode = 'image'
             and nullif(trim(coalesce(text_content,'')), '') is null
-            and image_url is not null and storage_path like ('campaign-entries/' || c.id::text || '/' || (select auth.uid())::text || '/%'))
+            and image_url is not null and storage_path like (c.id::text || '/' || (select auth.uid())::text || '/%'))
           or (c.participation_mode = 'both'
             and nullif(trim(coalesce(text_content,'')), '') is not null
-            and image_url is not null and storage_path like ('campaign-entries/' || c.id::text || '/' || (select auth.uid())::text || '/%'))
+            and image_url is not null and storage_path like (c.id::text || '/' || (select auth.uid())::text || '/%'))
         )
     )
   );
