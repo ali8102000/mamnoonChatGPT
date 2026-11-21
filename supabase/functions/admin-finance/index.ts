@@ -145,7 +145,7 @@ Deno.serve(async (req: Request) => {
             (typeof body.expires_at !== "string" || !Number.isFinite(Date.parse(body.expires_at))))) {
         return json({ error: "invalid_request" }, 400);
       }
-      await requirePermission("promotions.manage", false);
+      await requirePermission("promotions.manage");
       return await rpc("admin_save_coupon", {
         p_id: body.id ?? null, p_code: body.code.trim().toUpperCase(),
         p_type: body.type, p_value: body.value, p_max_uses: body.max_uses,
@@ -168,7 +168,7 @@ Deno.serve(async (req: Request) => {
             (body.single_user_id !== undefined && !uuid(body.single_user_id)))) {
         return json({ error: "invalid_request" }, 400);
       }
-      await requirePermission("promotions.manage", false);
+      await requirePermission("promotions.manage");
       const { data, error } = await caller.rpc("admin_distribute_coupon", {
         p_coupon_id: body.coupon_id, p_target: body.target,
         p_single_user_id: body.single_user_id ?? null,
@@ -186,7 +186,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "delete_coupon") {
       if (!uuid(body.coupon_id)) return json({ error: "invalid_coupon_id" }, 400);
-      await requirePermission("promotions.manage", false);
+      await requirePermission("promotions.manage");
       return await rpc("admin_delete_coupon", { p_coupon_id: body.coupon_id });
     }
 
