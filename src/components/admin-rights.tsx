@@ -81,7 +81,14 @@ export default function AdminRights() {
     catch(e:any){toast.error(String(e?.message||"تعذر حفظ سياسة العمولة"));}finally{setBusy(false);}
   };
 
-  const categoryLabel=(u:User)=>u.partner?.partner_type||u.partner?.business_vertical||u.roles?.join("، ")||"مستخدم";
+  const categoryLabel=(u:User)=>{
+    const value=String(u.partner?.partner_type||u.partner?.business_vertical||"").toLowerCase();
+    if(value.includes("restaurant")||value.includes("food"))return "مطعم";
+    if(value.includes("hotel")||value.includes("hospitality"))return "فندق";
+    if(value.includes("store")||value.includes("shop")||value.includes("grocery"))return "متجر";
+    const labels:Record<string,string>={driver:"صاحب تكسي",large_driver:"تكسي كبير",worker:"فني",customer:"زبون",restaurant:"مطعم",hotel:"فندق",store:"متجر"};
+    return (u.roles??[]).map(r=>labels[r]||r).join("، ")||"مستخدم";
+  };
   return <section dir="rtl" className="space-y-4">
     <header><h2 className="text-xl font-black flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary"/> حقوق ممنون</h2><p className="text-xs text-muted-foreground mt-1">المحافظ والعمولات والإعفاءات وسجل إيرادات ممنون.</p></header>
     <div className="flex flex-wrap gap-2">{[
