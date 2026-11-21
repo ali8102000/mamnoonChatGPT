@@ -120,6 +120,7 @@ type Section =
   | "friends"
   | "reports"
   | "subscriptions"
+  | "rights"
   | "coupons"
   | "wallet"
   | "stats"
