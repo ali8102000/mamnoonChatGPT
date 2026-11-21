@@ -1982,7 +1982,7 @@ $old$, '');
   EXECUTE v_def;
 
   v_def := pg_get_functiondef('public.find_nearby_provider_pins(numeric,numeric,text,text,uuid,numeric,integer)'::regprocedure);
-  v_def := replace(v_def, '    and public.mamnoon_provider_subscription_active_internal(pp.user_id)\n', '');
+  v_def := replace(v_def, $old$    and public.mamnoon_provider_subscription_active_internal(pp.user_id)\n$old$, '');
   IF position('mamnoon_provider_subscription_active_internal' in v_def) > 0 THEN
     RAISE EXCEPTION 'provider_pins_subscription_gate_remains';
   END IF;
