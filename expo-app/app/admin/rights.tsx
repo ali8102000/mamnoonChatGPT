@@ -11,7 +11,7 @@ const durations=[{value:"1",label:"يوم"},{value:"7",label:"أسبوع"},{valu
 const govs=["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
 const revenueLabel:Record<string,string>={taxi_commission:"عمولة التكسي",service_commission:"عمولة الفني",order_commission:"عمولة طلب شريك",complaint_deduction:"استقطاع شكوى",wallet_debt_collection:"تحصيل دين المحفظة",admin_credit_reversal:"تسوية إدارية"};
 const scopeLabel:Record<string,string>={global:"كل العراق",governorate:"محافظة",role:"فئة",governorate_role:"فئة داخل محافظة"};
-const eventLabel:Record<string,string>={taxi_acceptance:"قبول رحلة تكسي",service_acceptance:"قبول طلب فني",order_acceptance:"قبول طلب شريك"};
+const eventLabel:Record<string,string>={taxi_acceptance:"قبول رحلة تكسي",service_acceptance:"قبول طلب فني",order_acceptance:"قبول طلب شريك",all_acceptance:"كل العمليات"};
 const formatScopeKey=(p:any)=>{
  if(p.scope_type==="global")return "كل العراق";
  const roles:Record<string,string>={driver:"أصحاب التكسي",large_driver:"التكسي الكبير",worker:"الفنيون",restaurant:"المطاعم",hotel:"الفنادق",store:"المتاجر"};
