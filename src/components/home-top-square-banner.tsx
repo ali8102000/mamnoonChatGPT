@@ -58,6 +58,7 @@ export function HomeTopSquareBanner() {
 
   return (
     <>
+      <style>{"@keyframes mamnoon-square-slide { from { opacity: .45; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }"}</style>
       <button
         type="button"
         aria-label="بانر الشركاء والعروض، قريباً"
@@ -67,14 +68,13 @@ export function HomeTopSquareBanner() {
           if (suppressPress.current) { suppressPress.current = false; return; }
           setShowSoon(true);
         }}
-        className="relative block aspect-square w-full overflow-hidden rounded-[20px] border border-dashed border-border bg-card text-right"
+        className="relative block h-full w-full overflow-hidden rounded-[20px] border border-dashed border-border bg-card text-right"
       >
         {current?.image_url ? (
           <img key={current.id} src={current.image_url} alt="" draggable={false}
             className="absolute inset-0 h-full w-full object-cover"
             style={{ animation: "mamnoon-square-slide .45s ease-out both" }} />
         ) : null}
-        <style>{"@keyframes mamnoon-square-slide { from { opacity: .45; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }"}</style>
       </button>
       {showSoon && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-5" role="presentation" onClick={() => setShowSoon(false)}>
