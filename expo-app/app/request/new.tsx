@@ -2205,7 +2205,7 @@ const styles = StyleSheet.create({
   serviceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   serviceTile: { width: "31%", height: 148, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", overflow: "hidden", paddingVertical: 4 },
   serviceEmoji: { fontSize: 30, marginBottom: 4 },
-  serviceImage: { width: "100%", height: 112, marginBottom: 5 },
+  serviceImage: { width: "92%", height: 120, alignSelf: "center", marginBottom: 5, borderRadius: 8 },
   serviceLabel: { fontSize: 12, fontWeight: "800", color: palette.ink, textAlign: "center", paddingHorizontal: 3 },
   mapModeRow: { flexDirection: "row", gap: 8, alignItems: "center" },
   governorateRow: { flexDirection: "row", gap: 8, paddingVertical: 4 },
