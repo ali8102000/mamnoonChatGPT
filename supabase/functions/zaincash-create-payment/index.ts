@@ -60,7 +60,7 @@ Deno.serve(async (req: Request) => {
       requestId=request.id;
     }
     const {data:payment,error:insertError}=await admin.from("payment_transactions").insert({
-      user_id:user.id,purpose:body.purpose,plan_id:null,request_id:requestId,amount,currency:"IQD",provider:"zaincash",status:"pending"
+      user_id:user.id,purpose:body.purpose,request_id:requestId,amount,currency:"IQD",provider:"zaincash",status:"pending"
     }).select("id,external_reference_id").single();
     if(insertError || !payment) return json({error:"payment_record_failed"},500);
     try {
