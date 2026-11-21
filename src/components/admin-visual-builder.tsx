@@ -148,6 +148,9 @@ export default function AdminVisualBuilder() {
       width_px: element.config?.width_px ?? element.width_px ?? 64,
       height_px: element.config?.height_px ?? element.height_px ?? 64,
       image_scale: element.config?.image_scale ?? element.published_config?.image_scale ?? 1,
+      content_scale: element.config?.content_scale ?? element.published_config?.content_scale ?? 1,
+      content_position_x_px: element.config?.content_position_x_px ?? element.published_config?.content_position_x_px ?? 0,
+      content_position_y_px: element.config?.content_position_y_px ?? element.published_config?.content_position_y_px ?? 0,
       element_scale: element.config?.element_scale ?? element.published_config?.element_scale ?? 1,
       card_height_px: element.config?.card_height_px ?? element.published_config?.card_height_px ?? 145,
       card_padding_px: element.config?.card_padding_px ?? element.published_config?.card_padding_px ?? 10,
@@ -356,8 +359,8 @@ export default function AdminVisualBuilder() {
                     className={`relative min-h-32 rounded-2xl border-2 p-3 text-right transition ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
                     <div className={`mb-2 grid h-16 place-items-center overflow-hidden bg-muted ${item.element_key === "home_customer_service" ? "rounded-none p-0" : "rounded-xl"}`}>
                       {image ? <img src={image} alt="" style={item.element_key === "home_customer_service"
-                        ? { width: "100%", height: "100%", objectFit: "cover", transform: `scale(${Number(visual.image_scale) || 1})` }
-                        : { width, height, objectFit: "contain" }} /> : <ImagePlus className="h-8 w-8 text-muted-foreground" />}
+                        ? { width: "100%", height: "100%", objectFit: "cover", transform: `translate(${Number(visual.content_position_x_px) || 0}px, ${Number(visual.content_position_y_px) || 0}px) scale(${(Number(visual.image_scale) || 1) * (Number(visual.content_scale) || 1)})` }
+                        : { width, height, objectFit: "contain", transform: `translate(${Number(visual.content_position_x_px) || 0}px, ${Number(visual.content_position_y_px) || 0}px) scale(${Number(visual.content_scale) || 1})` }} /> : <span style={{ transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})`, fontSize: 30 }}>{visual.icon_name || <ImagePlus className="h-8 w-8 text-muted-foreground" />}</span>}
                     </div>
                     <b className="block text-sm">{visual.title ?? item.title ?? item.label}</b>
                     <span className="mt-1 block text-[11px] text-muted-foreground">{visual.subtitle ?? item.subtitle}</span>
@@ -375,7 +378,7 @@ export default function AdminVisualBuilder() {
                       onClick={() => openEditor(item)}
                       className={`rounded-xl border-2 p-2 text-center ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border"}`}>
                       <div className="grid h-14 place-items-center rounded-lg bg-muted">
-                        {visual.image_url ? <img src={visual.image_url} alt="" style={{ width: Number(visual.width_px) || 52, height: Number(visual.height_px) || 52, objectFit: "contain" }} /> : <span className="text-2xl">{visual.icon_name || "🚘"}</span>}
+                        {visual.image_url ? <img src={visual.image_url} alt="" style={{ width: Number(visual.width_px) || 52, height: Number(visual.height_px) || 52, objectFit: "contain", transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})` }} /> : <span className="text-2xl">{visual.icon_name || "🚘"}</span>}
                       </div>
                       <span className="mt-1 block text-[10px] font-bold">{visual.title || item.title || item.label}</span>
                     </button>;
@@ -413,6 +416,13 @@ export default function AdminVisualBuilder() {
               <label className="mb-1 block text-xs font-bold">تكبير / تصغير الصورة داخل الحاوية</label>
               <input type="range" min="0.65" max="1.8" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.image_scale) || 1} onChange={(e) => setDraft({ ...draft, image_scale: Number(e.target.value) })} />
               <div className="mb-3 flex justify-between text-[11px] text-muted-foreground"><span>تصغير</span><b>{Math.round((Number(draft.image_scale) || 1) * 100)}%</b><span>تكبير</span></div>
+              <label className="mb-1 block text-xs font-bold">حجم ومكان المحتوى داخل المربع</label>
+              <input type="range" min="0.5" max="2.5" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.content_scale) || 1} onChange={(e) => setDraft({ ...draft, content_scale: Number(e.target.value) })} />
+              <div className="mb-2 flex justify-between text-[11px] text-muted-foreground"><span>أصغر</span><b>{Math.round((Number(draft.content_scale) || 1) * 100)}%</b><span>أكبر</span></div>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold">تحريك المحتوى يمين / يسار px<input type="number" min="-100" max="100" className={inputClass + " mt-1"} value={draft.content_position_x_px ?? 0} onChange={(e) => setDraft({ ...draft, content_position_x_px: Math.max(-100, Math.min(100, Number(e.target.value) || 0)) })} /></label>
+                <label className="text-xs font-bold">تحريك المحتوى أعلى / أسفل px<input type="number" min="-100" max="100" className={inputClass + " mt-1"} value={draft.content_position_y_px ?? 0} onChange={(e) => setDraft({ ...draft, content_position_y_px: Math.max(-100, Math.min(100, Number(e.target.value) || 0)) })} /></label>
+              </div>
               <label className="mb-1 block text-xs font-bold">تكبير / تصغير العنصر بالكامل</label>
               <input type="range" min="0.6" max="1.6" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.element_scale) || 1} onChange={(e) => setDraft({ ...draft, element_scale: Number(e.target.value) })} />
               <div className="mb-3 flex justify-between text-[11px] text-muted-foreground"><span>60%</span><b>{Math.round((Number(draft.element_scale) || 1) * 100)}%</b><span>160%</span></div>
