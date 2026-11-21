@@ -63,7 +63,7 @@ function DiscoverCategoryPage() {
         businessQuery.order("business_name"),
       ]);
       if (categoryResult.error || businessResult.error) setError("تعذر تحميل القسم حالياً.");
-      setCategories(((categoryResult.data ?? []) as Category[]).filter(category => category.vertical === "store" || category.category_key === "grocery"));
+      setCategories(((categoryResult.data ?? []) as Category[]).filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery"));
       setItems(sortByNearest((businessResult.data ?? []) as Business[], currentLocation));
       setProducts([]);
       setLoading(false);
