@@ -502,6 +502,8 @@ function QuickTile({
   const titleSize = Math.max(10, Math.min(28, Number(styleConfig.title_size_px) || 16));
   const subtitleSize = Math.max(8, Math.min(20, Number(styleConfig.subtitle_size_px) || 11));
   const iconScale = Math.max(0.5, Math.min(2, Number(styleConfig.icon_scale) || 1));
+  const iconWidth = Math.max(24, Math.min(180, Number(styleConfig.width_px) || iconBoxSize || 56));
+  const iconHeight = Math.max(24, Math.min(180, Number(styleConfig.height_px) || iconBoxSize || 56));
   return (
     <Link
       dir="rtl"
@@ -517,7 +519,7 @@ function QuickTile({
       <div className="relative flex h-full justify-between" style={{ flexDirection: styleConfig.content_direction === "row" ? "row" : "column", alignItems: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end" }}>
         <div
           className={`grid place-items-center text-white shadow-lg overflow-hidden ${type === "service" ? "rounded-xl" : "rounded-[14px]"} bg-gradient-to-br ${gradient}`}
-          style={{ width: iconBoxSize, height: iconBoxSize, transform: `scale(${iconScale})` }}
+          style={{ width: iconWidth, height: iconHeight, transform: `scale(${iconScale})` }}
         >
           {icon}
         </div>
