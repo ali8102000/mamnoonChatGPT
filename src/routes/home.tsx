@@ -254,6 +254,7 @@ function CustomerHome() {
           icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
           iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_taxi?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_taxi?.sort_order) || 10}
+          styleConfig={visuals.home_customer_taxi || {}}
           gradient="from-amber-500 to-orange-500"
           span={2}
           delay={0.05}
@@ -266,6 +267,7 @@ function CustomerHome() {
           icon={<ServiceIconPanorama />}
           iconBoxSize={64}
           sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
+          styleConfig={visuals.home_customer_service || {}}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
@@ -279,6 +281,7 @@ function CustomerHome() {
           icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
           iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_large_vehicle?.width_px) || 56))}
           sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
+          styleConfig={visuals.home_customer_large_vehicle || {}}
           gradient="from-orange-500 to-amber-600"
           span={1}
           tileWidth="calc((100% - 12px) / 3)"
@@ -475,6 +478,7 @@ function QuickTile({
   iconBoxSize,
   sortOrder = 0,
   tileWidth,
+  styleConfig = {},
 }: {
   to: string;
   type: "taxi" | "service";
@@ -488,36 +492,43 @@ function QuickTile({
   iconBoxSize?: number;
   sortOrder?: number;
   tileWidth?: string;
+  styleConfig?: Record<string, any>;
 }) {
+  if (styleConfig.is_hidden === true) return null;
+  const cardHeight = Math.max(96, Math.min(360, Number(styleConfig.card_height_px) || (vehicle === "large" ? 188 : 145)));
+  const cardPadding = Math.max(4, Math.min(32, Number(styleConfig.card_padding_px) || 10));
+  const radius = Math.max(8, Math.min(40, Number(styleConfig.border_radius_px) || 20));
+  const alignment = ["left", "center", "right"].includes(styleConfig.content_alignment) ? styleConfig.content_alignment : "right";
+  const titleSize = Math.max(10, Math.min(28, Number(styleConfig.title_size_px) || 16));
+  const subtitleSize = Math.max(8, Math.min(20, Number(styleConfig.subtitle_size_px) || 11));
+  const iconScale = Math.max(0.5, Math.min(2, Number(styleConfig.icon_scale) || 1));
   return (
     <Link
       dir="rtl"
       to={to as any}
       search={{ type, ...(vehicle ? { vehicle } : {}) } as any}
       onClick={() => playClick("pop")}
-      className={`glass rounded-[20px] p-2.5 btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group ${
-        vehicle === "large" ? "min-h-[188px] h-[188px]" : "min-h-[145px] h-[145px]"
-      }`}
-      style={{ animationDelay: `${delay}s`, order: vehicle === "large" ? 0 : sortOrder, gridColumn: vehicle === "large" ? "1" : span === 2 ? "1" : "2", width: tileWidth, flexShrink: tileWidth ? 0 : undefined }}
+      className="glass btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group"
+      style={{ animationDelay: `${delay}s`, order: vehicle === "large" ? 0 : sortOrder, gridColumn: vehicle === "large" ? "1" : span === 2 ? "1" : "2", width: tileWidth, flexShrink: tileWidth ? 0 : undefined, height: cardHeight, minHeight: cardHeight, borderRadius: radius, padding: cardPadding, backgroundColor: styleConfig.background_color || undefined }}
     >
       <div
         className={`absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`}
       />
-      <div className="relative flex flex-col h-full justify-between">
+      <div className="relative flex h-full justify-between" style={{ flexDirection: styleConfig.content_direction === "row" ? "row" : "column", alignItems: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end" }}>
         <div
-          className={`${type === "service" ? "h-16 w-16 rounded-xl" : "h-14 w-14 rounded-[14px]"} bg-gradient-to-br ${gradient} grid place-items-center text-white shadow-lg overflow-hidden`}
-          style={{ width: iconBoxSize, height: iconBoxSize }}
+          className={`grid place-items-center text-white shadow-lg overflow-hidden ${type === "service" ? "rounded-xl" : "rounded-[14px]"} bg-gradient-to-br ${gradient}`}
+          style={{ width: iconBoxSize, height: iconBoxSize, transform: `scale(${iconScale})` }}
         >
           {icon}
         </div>
-        <div>
-          <div className="flex items-center gap-1">
-            <div className="font-black text-base text-foreground group-hover:text-primary transition-colors">
+        <div style={{ width: styleConfig.content_direction === "row" ? "auto" : "100%", textAlign: alignment }}>
+          <div className="flex items-center gap-1" style={{ justifyContent: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end" }}>
+            <div className="font-black group-hover:text-primary transition-colors" style={{ fontSize: titleSize, color: styleConfig.title_color || undefined }}>
               {title}
             </div>
             <ArrowUpLeft className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>
+          <div className="mt-0.5" style={{ fontSize: subtitleSize, color: styleConfig.subtitle_color || undefined }}>{subtitle}</div>
         </div>
       </div>
     </Link>
