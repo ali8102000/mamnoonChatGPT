@@ -827,7 +827,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
     PERFORM cron.schedule(
       'mamnoon-expire-unaccepted-requests',
-      '*/10 * * * *',
+      '* * * * *',
       'select public.expire_unaccepted_mamnoon_requests();'
     );
   END IF;
