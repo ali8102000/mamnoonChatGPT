@@ -2138,6 +2138,8 @@ BEGIN
       OR pg_get_functiondef(p.oid) ILIKE '%subscription_settings%'
       OR pg_get_functiondef(p.oid) ILIKE '%subscription_payments%'
       OR pg_get_functiondef(p.oid) ILIKE '%subscriptions.manage%'
+      OR pg_get_functiondef(p.oid) ILIKE '%mamnoon_provider_subscription_active%'
+      OR pg_get_functiondef(p.oid) ILIKE '%get_user_subscription%'
     )
   LIMIT 1;
 
