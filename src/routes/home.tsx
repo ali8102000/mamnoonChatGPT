@@ -233,17 +233,16 @@ function CustomerHome() {
   return (
     <div className="-mx-2 space-y-3 pt-4">
       <style>{`
-        @keyframes mamnoonBannerFade { from { opacity: 0; } to { opacity: .4; } }
-        @keyframes mamnoonBannerSlideLeft { from { opacity: 0; transform: translateX(28px); } to { opacity: .4; transform: translateX(0); } }
-        @keyframes mamnoonBannerSlideRight { from { opacity: 0; transform: translateX(-28px); } to { opacity: .4; transform: translateX(0); } }
-        @keyframes mamnoonBannerSlideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: .4; transform: translateY(0); } }
-        @keyframes mamnoonBannerSlideDown { from { opacity: 0; transform: translateY(-24px); } to { opacity: .4; transform: translateY(0); } }
-        @keyframes mamnoonBannerDrop { from { opacity: 0; transform: translateY(-22px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
-        @keyframes mamnoonBannerDropDown { from { opacity: 0; transform: translateY(22px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
-        @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; } }
+        @keyframes mamnoonBannerPanLeft { from { transform: translate3d(0,0,0) scale(1.2); } to { transform: translate3d(-9%,0,0) scale(1.2); } }
+        @keyframes mamnoonBannerPanRight { from { transform: translate3d(0,0,0) scale(1.2); } to { transform: translate3d(9%,0,0) scale(1.2); } }
+        @keyframes mamnoonBannerPanUp { from { transform: translate3d(0,0,0) scale(1.2); } to { transform: translate3d(0,-9%,0) scale(1.2); } }
+        @keyframes mamnoonBannerPanDown { from { transform: translate3d(0,0,0) scale(1.2); } to { transform: translate3d(0,9%,0) scale(1.2); } }
+        @keyframes mamnoonBannerFadeIn { from { opacity: 0; } to { opacity: .4; } }
+        @keyframes mamnoonBannerDropIn { from { opacity: 0; transform: translateY(-18px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
+        @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; transform: scale(1.2); } }
       `}</style>
       <div role={topBanner?.target_campaign_id ? "button" : undefined} tabIndex={topBanner?.target_campaign_id ? 0 : undefined} aria-label={topBanner?.target_campaign_id ? "فتح الاستطلاع أو المسابقة" : "ممنون مجاناً بلا عمولة"} onClick={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }} onKeyDown={(event) => { if (topBanner?.target_campaign_id && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setActiveBannerCampaignId(topBanner.target_campaign_id); } }} className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
-        {topBanner?.image_url && <img key={topBanner.id} src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute inset-0 h-full w-full object-cover" style={{ animation: `${topBanner.motion_style === "fade" ? "mamnoonBannerFade" : topBanner.motion_style === "drop" ? (topBanner.motion_direction === "down" ? "mamnoonBannerDropDown" : "mamnoonBannerDrop") : topBanner.motion_direction === "right" ? "mamnoonBannerSlideRight" : topBanner.motion_direction === "up" ? "mamnoonBannerSlideUp" : topBanner.motion_direction === "down" ? "mamnoonBannerSlideDown" : "mamnoonBannerSlideLeft"} .55s ease-out both` }} />}
+        {topBanner?.image_url && <div key={topBanner.id} className="absolute inset-0 overflow-hidden" style={{ animation: topBanner.motion_style === "fade" ? "mamnoonBannerFadeIn .55s ease-out both" : topBanner.motion_style === "drop" ? "mamnoonBannerDropIn .55s ease-out both" : undefined }}><img src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute -inset-[10%] h-[120%] w-[120%] object-cover" style={{ animation: `mamnoonBannerPan${topBanner.motion_direction === "right" ? "Right" : topBanner.motion_direction === "up" ? "Up" : topBanner.motion_direction === "down" ? "Down" : "Left"} ${Math.max(2, Math.min(120, (Number(topBanner.scroll_speed) || 5) * 2))}s ease-in-out infinite alternate` }} /></div>}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative">
