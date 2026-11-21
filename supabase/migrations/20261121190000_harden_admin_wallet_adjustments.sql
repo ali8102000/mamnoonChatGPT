@@ -17,7 +17,7 @@ declare
 begin
   if auth.uid() is null then raise exception 'unauthorized'; end if;
   if p_user_id is null then raise exception 'invalid_user'; end if;
-  if p_amount is null or p_amount <= 0 or p_amount > 100000000 then
+  if p_amount is null or p_amount <= 0 or p_amount > 100000000 or p_amount <> trunc(p_amount) then
     raise exception 'invalid_amount';
   end if;
   if p_type is null or p_type not in ('credit','debit') then
