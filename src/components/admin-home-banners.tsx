@@ -123,7 +123,7 @@ export default function AdminHomeBanners() {
     if (!title) { setMessage("اكتب عنوان الحملة أولاً."); return; }
     if (mode === "options" && options.length < 2) { setMessage("أضف خيارين على الأقل للاستطلاع أو التصويت."); return; }
     setBusy(true); setMessage("");
-    const { data, error } = await (supabase as any).from("app_campaigns").insert({campaign_type:newCampaignType,title,placement_key:newCampaignPlacement,description:newCampaignDescription.trim()||null,status:"draft",placement_key:newCampaignPlacement,participation_mode:mode,rules:newCampaignRules.trim()||null,prize_description:newCampaignType==="contest"?(newCampaignPrize.trim()||null):null}).select("id").single();
+    const { data, error } = await (supabase as any).from("app_campaigns").insert({campaign_type:newCampaignType,title,description:newCampaignDescription.trim()||null,status:"draft",placement_key:newCampaignPlacement,participation_mode:mode,rules:newCampaignRules.trim()||null,prize_description:newCampaignType==="contest"?(newCampaignPrize.trim()||null):null}).select("id").single();
     if (error || !data) { setMessage("تعذر إنشاء الحملة: "+(error?.message??"خطأ غير معروف")); setBusy(false); return; }
     if (options.length && mode === "options") {
       const { error: optionsError } = await (supabase as any).from("app_campaign_options").insert(options.map((label,index)=>({campaign_id:data.id,label,sort_order:index})));
