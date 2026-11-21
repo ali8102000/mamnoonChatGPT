@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { ImagePlus, RefreshCw, Trash2, Upload, Power } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-type BannerKind = "category" | "poll" | "contest" | "ad";
+type BannerKind = "category" | "poll" | "contest" | "ad" | "top_square";
 type Category = "restaurant" | "hotel" | "store";
 type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string };
 type Banner = { id: string; image_url: string; storage_path: string | null; target_category: Category; banner_type: BannerKind; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; display_order: number; badge_text: string | null; banner_title?: string | null; banner_description?: string | null; motion_axis: "horizontal" | "vertical"; motion_direction: "left" | "right" | "up" | "down"; motion_style: "slide" | "fade" | "drop" };
 const labels = { restaurant: "المطاعم", hotel: "الفنادق", store: "المتاجر" } as const;
-const kindLabels: Record<BannerKind,string> = { category: "مطاعم / فنادق / متاجر", poll: "استطلاع رأي", contest: "مسابقة", ad: "إعلان صوري فقط" };
+const kindLabels: Record<BannerKind,string> = { category: "مطاعم / فنادق / متاجر", poll: "استطلاع رأي", contest: "مسابقة", ad: "الإعلان العلوي الرئيسي", top_square: "البانر المربع أعلى الصفحة" };
 const input = "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm";
 export default function AdminHomeBanners() {
   const [rows, setRows] = useState<Banner[]>([]);
@@ -54,7 +54,7 @@ export default function AdminHomeBanners() {
       image_url: data.publicUrl, storage_path: path, target_category: category, banner_type: bannerType, target_campaign_id: bannerType === "poll" || bannerType === "contest" ? campaignId || null : null, is_active: true,
       scroll_speed: speed, display_order: order, badge_text: badge.trim() || null,
       banner_title: bannerTitle.trim() || null, banner_description: bannerDescription.trim() || null,
-      motion_axis: motionAxis, motion_direction: motionDirection, motion_style: motionStyle,
+      motion_axis: bannerType === "top_square" ? "horizontal" : motionAxis, motion_direction: bannerType === "top_square" ? "left" : motionDirection, motion_style: bannerType === "top_square" ? "slide" : motionStyle,
     });
     if (error) { setMessage("ترتفعت الصورة لكن تعذر حفظ بياناتها: " + error.message); }
     else { setMessage("تم رفع ونشر البانر، وسيظهر بالويب والأندرويد."); setFile(null); setBadge(""); setBannerTitle(""); setBannerDescription(""); await load(); }
@@ -71,13 +71,13 @@ export default function AdminHomeBanners() {
     setMessage(error ? "تعذر حذف البانر: " + error.message : "تم حذف البانر."); if (!error) await load();
   };
   return <div className="space-y-5" dir="rtl">
-    <header><h2 className="text-xl font-black">بانرات الصفحة الرئيسية</h2><p className="mt-1 text-sm text-muted-foreground">صور مربعات المطاعم والفنادق والمولات والمحلات ثابتة ولا تتبدل تلقائياً. المطاعم تستخدم أول صورة مطاعم منشورة، والفنادق أول صورة فنادق، وأول صورة من قسم المتاجر للمولات وثاني صورة للمحلات. أما الإعلان العلوي فتُطبّق عليه مدة العرض واتجاه الحركة ونمط الانتقال الذي تختاره، ويتزامن عرضه بين الويب والأندرويد. ارفع صورة جديدة ثم أوقف أو احذف القديمة لتغيير الصورة.</p></header>
+    <header><h2 className="text-xl font-black">بانرات الصفحة الرئيسية</h2><p className="mt-1 text-sm text-muted-foreground">صور مربعات المطاعم والفنادق والمولات والمحلات ثابتة ولا تتبدل تلقائياً. المطاعم تستخدم أول صورة مطاعم منشورة، والفنادق أول صورة فنادق، وأول صورة من قسم المتاجر للمولات وثاني صورة للمحلات. أما الإعلان العلوي الرئيسي فله إعدادات عنوانه ووصفه وحركته، والبانر المربع مستقل عنه ويظهر بجوار بطاقة السيارة الكبيرة. كلاهما يتزامن بين الويب والأندرويد. ارفع صورة جديدة ثم أوقف أو احذف القديمة لتغيير الصورة.</p></header>
     {message && <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm">{message}</div>}
     <section className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-2">
-      <label className="text-sm font-bold">نوع البانر<select className={input+" mt-2"} value={bannerType} onChange={e=>{setBannerType(e.target.value as BannerKind);setCampaignId("");}}><option value="category">مطاعم / فنادق / متاجر</option><option value="poll">استطلاع رأي</option><option value="contest">مسابقة</option><option value="ad">إعلان صوري فقط</option></select></label>
+      <label className="text-sm font-bold">نوع البانر<select className={input+" mt-2"} value={bannerType} onChange={e=>{setBannerType(e.target.value as BannerKind);setCampaignId("");}}><option value="category">مطاعم / فنادق / متاجر</option><option value="poll">استطلاع رأي</option><option value="contest">مسابقة</option><option value="ad">الإعلان العلوي الرئيسي</option><option value="top_square">البانر المربع أعلى الصفحة</option></select></label>
       {(bannerType === "category") ? <label className="text-sm font-bold">القسم<select className={input+" mt-2"} value={category} onChange={e=>setCategory(e.target.value as Category)}><option value="restaurant">المطاعم</option><option value="hotel">الفنادق</option><option value="store">المتاجر</option></select></label> : null}
       {(bannerType === "poll" || bannerType === "contest") ? <label className="text-sm font-bold">الحملة المرتبطة<select className={input+" mt-2"} value={campaignId} onChange={e=>setCampaignId(e.target.value)}><option value="">اختر حملة منشورة</option>{campaigns.filter(c=>c.campaign_type===bannerType).map(c=><option key={c.id} value={c.id}>{c.title}</option>)}</select></label> : null}
-      {bannerType === "ad" && <p className="text-xs text-muted-foreground md:col-span-2">الإعلان يظهر كصورة فقط، والضغط عليه لا يفتح أي صفحة.</p>}
+      {bannerType === "ad" && <p className="text-xs text-muted-foreground md:col-span-2">هذا هو الإعلان العلوي الرئيسي، مستقل عن البانر المربع.</p>}{bannerType === "top_square" && <p className="text-xs text-muted-foreground md:col-span-2">يبقى مكانه فارغاً بلا صورة افتراضية إذا لم توجد صورة منشورة. الضغط عليه يعرض رسالة «سيتوفر قريباً» ونص الشركاء، ويتوقف السحب التلقائي 5 ثوانٍ بعد اللمس.</p>}
       <label className="text-sm font-bold">مدة عرض الصورة بالثواني (1–60)<input className={input+" mt-2"} type="number" min="1" max="60" value={speed} onChange={e=>setSpeed(Math.max(1,Math.min(60,Number(e.target.value)||5)))}/></label>
       <label className="text-sm font-bold">اتجاه الحركة<select className={input+" mt-2"} value={motionDirection} onChange={e=>{const value=e.target.value as typeof motionDirection;setMotionDirection(value);setMotionAxis(value==="up"||value==="down"?"vertical":"horizontal");}}><option value="left">من اليمين لليسار</option><option value="right">من اليسار لليمين</option><option value="up">من الأسفل للأعلى</option><option value="down">من الأعلى للأسفل</option></select></label>
       <label className="text-sm font-bold">نمط الانتقال<select className={input+" mt-2"} value={motionStyle} onChange={e=>setMotionStyle(e.target.value as typeof motionStyle)}><option value="slide">انزلاق</option><option value="fade">تلاشي</option><option value="drop">هبوط</option></select></label>
