@@ -31,13 +31,14 @@ for (const section of manifest.adminSections) {
   check("web admin section key: " + section.key, webAdmin.includes('key: "' + section.key + '"'), section.label);
 }
 for (const route of [
-  "/admin/monitoring", "/admin/live-map", "/admin/subscriptions", "/admin/users",
+  "/admin/monitoring", "/admin/live-map", "/admin/rights", "/admin/users",
   "/admin/providers", "/admin/requests", "/admin/finance", "/admin/governance",
   "/admin/staff", "/admin/staff-hierarchy", "/admin/friends", "/admin/notifications",
   "/admin/regions", "/admin/import", "/admin/chats", "/support-chat"
 ]) {
   const found = nativeAdmin.includes('router.push("' + route + '"') ||
-    nativeStaffHub.includes('route: "' + route + '"');
+    nativeAdmin.includes('route: "' + route + '"') ||
+    nativeStaffHub.includes('route: "' + route + '");
   check("native admin navigation: " + route, found, "Dashboard or staff hub must expose the destination");
 }
 
