@@ -36,6 +36,8 @@ export default function AdminChatsScreen() {
   const { user, loading: authLoading } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [searchInput, setSearchInput] = useState("");
+  const [remoteSearch, setRemoteSearch] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -53,9 +55,9 @@ export default function AdminChatsScreen() {
   }, []);
 
   const loadInbox = useCallback(async () => {
-    const result = await invoke({ action: "list", filter, limit: 100 });
+    const result = await invoke({ action: "list", filter, limit: 100, search: remoteSearch });
     setConversations(result.conversations ?? []);
-  }, [filter, invoke]);
+  }, [filter, invoke, remoteSearch]);
 
   const loadMessages = useCallback(async (id: string) => {
     const result = await invoke({ action: "messages", conversation_id: id });
@@ -171,6 +173,10 @@ export default function AdminChatsScreen() {
             <Text style={s.title}>مراسلات ممنون</Text>
             <Text style={s.muted}>صندوق موحد للزبائن والفنيين والسائقين والشركاء والبوت</Text>
           </View>
+          <View style={s.searchRow}>
+            <TextInput value={searchInput} onChangeText={setSearchInput} onSubmitEditing={()=>setRemoteSearch(searchInput.trim())} placeholder="ابحث بالاسم أو الهاتف..." placeholderTextColor={palette.muted} style={s.searchInput}/>
+            <TouchableOpacity onPress={()=>setRemoteSearch(searchInput.trim())} style={s.searchButton}><Text style={s.sendText}>بحث</Text></TouchableOpacity>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>
             {filters.map(f => <TouchableOpacity key={f.key} onPress={() => setFilter(f.key)} style={[s.filter, filter === f.key && s.filterActive]}>
               <Text style={[s.filterText, filter === f.key && s.filterTextActive]}>{f.label}</Text>
@@ -231,7 +237,7 @@ const s = StyleSheet.create({
   header:{paddingHorizontal:space.lg,paddingTop:space.lg,gap:4},
   title:{fontSize:21,fontWeight:"900",color:palette.ink,textAlign:"right"},
   muted:{fontSize:11,color:palette.muted,textAlign:"right",lineHeight:18},
-  filters:{paddingHorizontal:space.lg,paddingVertical:space.md,gap:7},
+  searchRow:{flexDirection:"row",gap:8,paddingHorizontal:space.lg,paddingTop:space.md},\n  searchInput:{flex:1,minHeight:40,borderRadius:12,borderWidth:1,borderColor:palette.line,backgroundColor:palette.surface,paddingHorizontal:12,color:palette.ink,textAlign:"right",fontSize:11},\n  searchButton:{paddingHorizontal:16,justifyContent:"center",borderRadius:12,backgroundColor:palette.brand},\n  filters:{paddingHorizontal:space.lg,paddingVertical:space.md,gap:7},
   filter:{paddingHorizontal:13,paddingVertical:9,borderRadius:30,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line},
   filterActive:{backgroundColor:palette.brand,borderColor:palette.brand},
   filterText:{fontSize:11,fontWeight:"800",color:palette.ink},
