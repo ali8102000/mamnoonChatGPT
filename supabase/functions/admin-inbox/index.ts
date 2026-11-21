@@ -52,13 +52,8 @@ Deno.serve(async (req: Request) => {
     if (body.action === "list") {
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(100, body.limit)) : 50;
       const filter = ["all", "needs_reply", "unread", "bot", "human", "resolved", "customer", "technician", "driver", "restaurant", "hotel", "store"].includes(body.filter) ? body.filter : "all";
-      let query = admin.from("support_conversations")
-        .select("id,user_id,subject,status,created_at,updated_at,priority_tier,ai_status,ticket_status,needs_admin_reply,handoff_status,assigned_staff_id,last_message_source,last_message_at")
-        .order("needs_admin_reply", { ascending: false })
-        .order("last_message_at", { ascending: false, nullsFirst: false })
-        .order("updated_at", { ascending: false })
-        .limit(limit);
       const searchTerm = typeof body.search === "string" ? body.search.trim().slice(0, 100) : "";
+      let matchedIds: string[] | null = null;
       if (searchTerm.length >= 2) {
         const safeSearch = searchTerm.replace(/[,%()]/g, " ");
         const { data: matches, error: searchError } = await admin.from("profiles")
@@ -66,67 +61,121 @@ Deno.serve(async (req: Request) => {
           .or(`full_name.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`)
           .limit(200);
         if (searchError) return json({ error: "inbox_search_failed" }, 500);
-        const matchedIds = (matches ?? []).map((p: any) => p.id);
+        matchedIds = (matches ?? []).map((p: any) => p.id);
         if (!matchedIds.length) return json({ conversations: [] });
-        query = query.in("user_id", matchedIds);
       }
-      if (filter === "needs_reply") query = query.eq("needs_admin_reply", true);
-      if (filter === "resolved") query = query.eq("handoff_status", "resolved");
-      const { data: conversations, error } = await query;
-      if (error) return json({ error: "inbox_load_failed" }, 500);
-      const ids = [...new Set((conversations ?? []).map((c: any) => c.user_id))];
-      const [{ data: profiles }, { data: roles }, { data: partners }] = await Promise.all([
-        ids.length ? admin.from("profiles").select("id,full_name,phone,email,governorate_key").in("id", ids) : Promise.resolve({ data: [] }),
-        ids.length ? admin.from("user_roles").select("user_id,role").in("user_id", ids) : Promise.resolve({ data: [] }),
-        ids.length ? admin.from("partner_business_profiles").select("user_id,partner_type,business_vertical").in("user_id", ids) : Promise.resolve({ data: [] }),
+
+      let supportQuery = admin.from("support_conversations")
+        .select("id,user_id,subject,status,created_at,updated_at,priority_tier,ai_status,ticket_status,needs_admin_reply,handoff_status,assigned_staff_id,last_message_source,last_message_at")
+        .order("last_message_at", { ascending: false, nullsFirst: false })
+        .order("updated_at", { ascending: false })
+        .limit(limit);
+      if (matchedIds) supportQuery = supportQuery.in("user_id", matchedIds);
+      if (filter === "needs_reply") supportQuery = supportQuery.eq("needs_admin_reply", true);
+      if (filter === "resolved") supportQuery = supportQuery.eq("handoff_status", "resolved");
+      const [{ data: supportRows, error: supportError }, { data: chatRows, error: chatError }] = await Promise.all([
+        supportQuery,
+        admin.from("chats").select("id,request_id,customer_id,provider_id,updated_at").order("updated_at", { ascending: false }).limit(limit),
       ]);
-      const conversationIds = (conversations ?? []).map((c: any) => c.id);
-      const { data: messages } = conversationIds.length
-        ? await admin.from("support_messages").select("id,conversation_id,sender_id,body,created_at,is_ai,ai_reply_to,read_at").in("conversation_id", conversationIds).order("created_at", { ascending: false })
-        : { data: [] };
+      if (supportError || chatError) return json({ error: "inbox_load_failed" }, 500);
+
+      const requestIds = [...new Set((chatRows ?? []).map((c: any) => c.request_id).filter(Boolean))];
+      const [{ data: supportMessages }, { data: serviceMessages }, { data: requests }] = await Promise.all([
+        (supportRows ?? []).length
+          ? admin.from("support_messages").select("id,conversation_id,sender_id,body,created_at,is_ai,ai_reply_to,read_at").in("conversation_id", (supportRows ?? []).map((c: any) => c.id)).order("created_at", { ascending: false })
+          : Promise.resolve({ data: [] }),
+        (chatRows ?? []).length
+          ? admin.from("messages").select("id,chat_id,sender_id,content,created_at").in("chat_id", (chatRows ?? []).map((c: any) => c.id)).order("created_at", { ascending: false })
+          : Promise.resolve({ data: [] }),
+        requestIds.length
+          ? admin.from("service_requests").select("id,type,status,vehicle_category").in("id", requestIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const participantIds = [...new Set([
+        ...(supportRows ?? []).map((c: any) => c.user_id),
+        ...(chatRows ?? []).flatMap((c: any) => [c.customer_id, c.provider_id]).filter(Boolean),
+      ])];
+      const [{ data: profiles }, { data: roles }, { data: partners }] = await Promise.all([
+        participantIds.length ? admin.from("profiles").select("id,full_name,phone,email,governorate_key,avatar_url").in("id", participantIds) : Promise.resolve({ data: [] }),
+        participantIds.length ? admin.from("user_roles").select("user_id,role").in("user_id", participantIds) : Promise.resolve({ data: [] }),
+        participantIds.length ? admin.from("partner_business_profiles").select("user_id,partner_type,business_vertical").in("user_id", participantIds) : Promise.resolve({ data: [] }),
+      ]);
       const profileById = new Map((profiles ?? []).map((p: any) => [p.id, p]));
       const rolesById = new Map<string, string[]>();
       for (const row of roles ?? []) rolesById.set(row.user_id, [...(rolesById.get(row.user_id) ?? []), String(row.role)]);
       const partnerById = new Map((partners ?? []).map((p: any) => [p.user_id, String(p.partner_type || p.business_vertical || "")]));
-      const latestByConversation = new Map<string, any>();
-      for (const message of messages ?? []) if (!latestByConversation.has(message.conversation_id)) latestByConversation.set(message.conversation_id, message);
-      const mappedConversations = (conversations ?? []).map((c: any) => ({
-        ...c,
-        profile: profileById.get(c.user_id) ?? null,
-        roles: rolesById.get(c.user_id) ?? [],
-        account_category: (() => {
-          const r = rolesById.get(c.user_id) ?? [];
-          if (r.some(x => ["driver", "large_driver"].includes(x))) return "driver";
-          if (r.includes("worker")) return "technician";
-          const partner = (partnerById.get(c.user_id) ?? "").toLowerCase();
-          if (partner.includes("restaurant") || partner.includes("food")) return "restaurant";
-          if (partner.includes("hotel") || partner.includes("hospitality")) return "hotel";
-          if (partner.includes("store") || partner.includes("shop") || partner.includes("grocery")) return "store";
-          if (r.includes("restaurant")) return "restaurant";
-          if (r.includes("hotel")) return "hotel";
-          if (r.includes("store")) return "store";
-          return "customer";
-        })(),
-        latest_message: latestByConversation.get(c.id) ?? null,
+      const requestById = new Map((requests ?? []).map((request: any) => [request.id, request]));
+      const categoryFor = (userId: string) => {
+        const roleList = rolesById.get(userId) ?? [];
+        if (roleList.some(x => ["driver", "large_driver"].includes(x))) return "driver";
+        if (roleList.includes("worker")) return "technician";
+        const partner = (partnerById.get(userId) ?? "").toLowerCase();
+        if (partner.includes("restaurant") || partner.includes("food") || roleList.includes("restaurant")) return "restaurant";
+        if (partner.includes("hotel") || partner.includes("hospitality") || roleList.includes("hotel")) return "hotel";
+        if (partner.includes("store") || partner.includes("shop") || partner.includes("grocery") || roleList.includes("store")) return "store";
+        return "customer";
+      };
+      const latestSupport = new Map<string, any>();
+      for (const message of supportMessages ?? []) if (!latestSupport.has(message.conversation_id)) latestSupport.set(message.conversation_id, message);
+      const latestService = new Map<string, any>();
+      for (const message of serviceMessages ?? []) if (!latestService.has(message.chat_id)) latestService.set(message.chat_id, message);
+
+      const mappedSupport = (supportRows ?? []).map((conversation: any) => ({
+        ...conversation,
+        conversation_type: "support",
+        profile: profileById.get(conversation.user_id) ?? null,
+        roles: rolesById.get(conversation.user_id) ?? [],
+        account_category: categoryFor(conversation.user_id),
+        latest_message: latestSupport.get(conversation.id) ?? null,
       }));
+      const mappedService = (chatRows ?? []).map((chat: any) => {
+        const request = requestById.get(chat.request_id);
+        const latest = latestService.get(chat.id);
+        return {
+          id: chat.id,
+          conversation_type: "service",
+          user_id: chat.customer_id,
+          request_id: chat.request_id,
+          request_type: request?.type ?? "service",
+          request_status: request?.status ?? null,
+          vehicle_category: request?.vehicle_category ?? null,
+          subject: request?.type === "taxi" ? "محادثة رحلة تكسي" : "محادثة طلب خدمة",
+          status: request?.status ?? "open",
+          created_at: chat.updated_at,
+          updated_at: chat.updated_at,
+          last_message_at: latest?.created_at ?? chat.updated_at,
+          last_message_source: latest?.sender_id === chat.customer_id ? "customer" : latest?.sender_id === chat.provider_id ? "provider" : "admin",
+          needs_admin_reply: false,
+          handoff_status: "service_chat",
+          ticket_status: "in_progress",
+          assigned_staff_id: null,
+          profile: profileById.get(chat.customer_id) ?? null,
+          provider_profile: profileById.get(chat.provider_id) ?? null,
+          roles: rolesById.get(chat.provider_id) ?? [],
+          account_category: request?.type === "taxi" ? "driver" : categoryFor(chat.provider_id || chat.customer_id),
+          customer_category: categoryFor(chat.customer_id),
+          latest_message: latest ? { ...latest, body: latest.content, conversation_id: chat.id } : null,
+        };
+      }).filter((chat: any) => !matchedIds || matchedIds.includes(chat.user_id) || matchedIds.includes(chat.provider_profile?.id));
+
+      let allConversations = [...mappedSupport, ...mappedService];
       const categoryFilters = ["customer", "technician", "driver", "restaurant", "hotel", "store"];
-      let filteredConversations = mappedConversations;
       if (categoryFilters.includes(filter)) {
-        filteredConversations = filteredConversations.filter((c: any) => c.account_category === filter);
+        allConversations = allConversations.filter((c: any) => c.account_category === filter || c.customer_category === filter);
       } else if (filter === "unread") {
-        filteredConversations = filteredConversations.filter((c: any) =>
-          c.latest_message && !c.latest_message.read_at && c.latest_message.sender_id === c.user_id
-        );
+        allConversations = allConversations.filter((c: any) => c.conversation_type === "support" && c.latest_message && !c.latest_message.read_at && c.latest_message.sender_id === c.user_id);
       } else if (filter === "bot") {
-        filteredConversations = filteredConversations.filter((c: any) =>
-          c.last_message_source === "bot" || c.latest_message?.is_ai === true
-        );
+        allConversations = allConversations.filter((c: any) => c.conversation_type === "support" && (c.last_message_source === "bot" || c.latest_message?.is_ai === true));
       } else if (filter === "human") {
-        filteredConversations = filteredConversations.filter((c: any) =>
-          ["waiting_for_admin","assigned"].includes(c.handoff_status) || c.last_message_source === "admin"
-        );
+        allConversations = allConversations.filter((c: any) => c.conversation_type === "support" && (["waiting_for_admin", "assigned"].includes(c.handoff_status) || c.last_message_source === "admin"));
+      } else if (filter === "needs_reply") {
+        allConversations = allConversations.filter((c: any) => c.conversation_type === "support" && c.needs_admin_reply);
+      } else if (filter === "resolved") {
+        allConversations = allConversations.filter((c: any) => c.conversation_type === "support" && c.handoff_status === "resolved");
       }
-      return json({ conversations: filteredConversations });
+      allConversations.sort((a: any, b: any) => Date.parse(b.last_message_at || b.updated_at) - Date.parse(a.last_message_at || a.updated_at));
+      return json({ conversations: allConversations.slice(0, limit) });
     }
 
     if (body.action === "messages") {
