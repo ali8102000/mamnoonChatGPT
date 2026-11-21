@@ -294,7 +294,7 @@ function CustomerHome() {
           tileWidth="calc((100% - 12px) / 3)"
           delay={0.15}
         />
-        <div dir="rtl" className="min-w-0" style={{ width: `calc((200% - ${gridGap * 2}px) / 3)`, height: carouselHeight, flexShrink: 0, order: 1, borderRadius: gridRadius, overflow: "hidden" }}>
+        <div dir="rtl" className="min-w-0" style={{ width: `calc(${(wideRatio / (wideRatio + 1)) * 100}% - ${(gridGap * wideRatio) / (wideRatio + 1)}px)`, height: carouselHeight, flexShrink: 0, order: 1, borderRadius: gridRadius, overflow: "hidden" }}>
           <HomeCategoryCarousel />
         </div>
       </div>
