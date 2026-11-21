@@ -14,9 +14,14 @@ const SERVICES = [
 type Props = {
   imageUrl?: string | null;
   imageScale?: number;
+  imageFit?: "cover" | "contain";
+  imageShape?: "square" | "landscape" | "portrait";
+  imageRadius?: number;
+  contentPositionX?: number;
+  contentPositionY?: number;
 };
 
-export function ServiceIconPanorama({ imageUrl, imageScale = 1 }: Props) {
+export function ServiceIconPanorama({ imageUrl, imageScale = 1, imageFit, imageShape, imageRadius, contentPositionX, contentPositionY }: Props) {
   const [index, setIndex] = useState(0);
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const scale = Math.min(1.8, Math.max(0.65, Number(imageScale) || 1));
@@ -50,13 +55,13 @@ export function ServiceIconPanorama({ imageUrl, imageScale = 1 }: Props) {
         const visual = visuals[SERVICES[index]] || {};
         return <Image
           source={imageUrl ? { uri: imageUrl } : visual.image_url ? { uri: visual.image_url } : getServiceImage(SERVICES[index])}
-          resizeMode={visual.image_fit === "contain" ? "contain" : "cover"}
+          resizeMode={(imageUrl ? imageFit : visual.image_fit) === "contain" ? "contain" : "cover"}
           style={{
             width: Number(visual.width_px) || "100%",
             height: Number(visual.height_px) || "100%",
-            borderRadius: Number(visual.image_border_radius_px ?? 18),
-            aspectRatio: visual.image_shape === "landscape" ? 4/3 : visual.image_shape === "portrait" ? 3/4 : 1,
-            transform: [{ translateX: Number(visual.content_position_x_px) || 0 }, { translateY: Number(visual.content_position_y_px) || 0 }, { scale: scale * Math.max(.5,Math.min(2.5,Number(visual.content_scale)||1)) }],
+            borderRadius: Number(imageUrl ? imageRadius ?? 18 : visual.image_border_radius_px ?? 18),
+            aspectRatio: (imageUrl ? imageShape : visual.image_shape) === "landscape" ? 4/3 : (imageUrl ? imageShape : visual.image_shape) === "portrait" ? 3/4 : 1,
+            transform: [{ translateX: Number(imageUrl ? contentPositionX : visual.content_position_x_px) || 0 }, { translateY: Number(imageUrl ? contentPositionY : visual.content_position_y_px) || 0 }, { scale: scale * Math.max(.5,Math.min(2.5,Number(visual.content_scale)||1)) }],
           }}
         />;
       })()}
