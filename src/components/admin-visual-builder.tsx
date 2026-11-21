@@ -381,9 +381,24 @@ export default function AdminVisualBuilder() {
                       onClick={() => openEditor(item)}
                       className={`rounded-xl border-2 p-2 text-center ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border"}`}>
                       <div className="grid h-14 place-items-center rounded-lg bg-muted">
-                        {visual.image_url ? <img src={visual.image_url} alt="" style={{ width: Number(visual.width_px) || 52, height: Number(visual.height_px) || 52, objectFit: "contain", transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})` }} /> : <span className="text-2xl">{visual.icon_name || "🚘"}</span>}
+                        {visual.image_url ? <img src={visual.image_url} alt="" style={{ width: Number(visual.width_px) || 52, height: Number(visual.height_px) || 52, objectFit: visual.image_fit === "cover" ? "cover" : "contain", borderRadius: Number(visual.image_border_radius_px) || 0, aspectRatio: visual.image_shape === "landscape" ? "4 / 3" : visual.image_shape === "portrait" ? "3 / 4" : "1 / 1", transform: `translate(${Number(visual.content_position_x_px)||0}px, ${Number(visual.content_position_y_px)||0}px) scale(${Number(visual.content_scale)||1})` }} /> : <span className="text-2xl">{visual.icon_name || "🚘"}</span>}
                       </div>
                       <span className="mt-1 block text-[10px] font-bold">{visual.title || item.title || item.label}</span>
+                    </button>;
+                  })}
+                </div>
+              </div>
+              <div className="mt-5">
+                <h4 className="mb-2 text-sm font-black">أيقونات الخدمات المنزلية</h4>
+                <p className="mb-2 text-[11px] text-muted-foreground">اختار أي خدمة لتبديل صورتها وقصّها وتحديد شكلها من الإدارة.</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {elements.filter((item) => item.placement_key === "home.customer.service_icons").map((item) => {
+                    const visual = item.element_key === selected?.element_key ? draft : item.published_config ?? {};
+                    return <button key={item.element_key} type="button" onClick={() => openEditor(item)} className={`rounded-xl border p-2 text-center ${selected?.element_key === item.element_key ? "border-primary bg-primary/5" : "border-border bg-background"}`}>
+                      <div className="mx-auto grid h-11 w-11 place-items-center overflow-hidden rounded-lg bg-muted">
+                        {visual.image_url ? <img src={visual.image_url} alt="" style={{width:"100%",height:"100%",objectFit:visual.image_fit==="contain"?"contain":"cover",borderRadius:Number(visual.image_border_radius_px??12)}}/> : <ImagePlus className="h-5 w-5 text-muted-foreground"/>}
+                      </div>
+                      <span className="mt-1 block truncate text-[9px] font-bold">{visual.title || item.title || item.label}</span>
                     </button>;
                   })}
                 </div>
