@@ -34,6 +34,8 @@ type Banner = {
   scroll_speed: number;
   display_order: number;
   badge_text: string | null;
+  banner_title?: string | null;
+  banner_description?: string | null;
   motion_axis: MotionAxis;
   motion_direction: MotionDirection;
   motion_style: MotionStyle;
@@ -56,6 +58,8 @@ export default function AdminHomeBannersScreen() {
   const [speed, setSpeed] = useState("5");
   const [order, setOrder] = useState("0");
   const [badge, setBadge] = useState("");
+  const [bannerTitle, setBannerTitle] = useState("");
+  const [bannerDescription, setBannerDescription] = useState("");
   const [motionAxis, setMotionAxis] = useState<MotionAxis>("horizontal");
   const [motionDirection, setMotionDirection] = useState<MotionDirection>("left");
   const [motionStyle, setMotionStyle] = useState<MotionStyle>("slide");
@@ -83,7 +87,7 @@ export default function AdminHomeBannersScreen() {
     setAuthorized(true);
     const { data, error } = await (supabase as any)
       .from("home_carousel_banners")
-      .select("id,image_url,storage_path,target_category,banner_type,target_campaign_id,is_active,scroll_speed,display_order,badge_text,motion_axis,motion_direction,motion_style")
+      .select("id,image_url,storage_path,target_category,banner_type,target_campaign_id,is_active,scroll_speed,display_order,badge_text,banner_title,banner_description,motion_axis,motion_direction,motion_style")
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) {
@@ -183,6 +187,8 @@ export default function AdminHomeBannersScreen() {
           scroll_speed: numericSpeed,
           display_order: numericOrder,
           badge_text: badge.trim() || null,
+          banner_title: bannerTitle.trim() || null,
+          banner_description: bannerDescription.trim() || null,
           motion_axis: motionAxis,
           motion_direction: motionDirection,
           motion_style: motionStyle,
@@ -194,6 +200,8 @@ export default function AdminHomeBannersScreen() {
       }
       setAsset(null);
       setBadge("");
+      setBannerTitle("");
+      setBannerDescription("");
       await load();
       setMessage("تم نشر البانر، وسيظهر في الصفحة الرئيسية على الويب والأندرويد.");
     } catch {
@@ -317,7 +325,7 @@ export default function AdminHomeBannersScreen() {
               {!campaigns.some((item)=>item.campaign_type===bannerType) ? <Text style={styles.muted}>ماكو {bannerType==="poll"?"استطلاع":"مسابقة"} منشورة حالياً. انشرها أولاً من إدارة الحملات.</Text> : null}
             </View>
           </> : null}
-          {bannerType === "ad" ? <Text style={styles.muted}>الإعلان العلوي الرئيسي مستقل عن البانر المربع.</Text> : null}{bannerType === "top_square" ? <Text style={styles.muted}>يبقى مكانه فارغاً بلا صورة افتراضية عند عدم وجود صورة. الضغط عليه يعرض «سيتوفر قريباً» ونص الشركاء، ويتوقف السحب 5 ثوانٍ بعد اللمس.</Text> : null}
+          {bannerType === "ad" ? <><Text style={styles.muted}>الإعلان العلوي الرئيسي مستقل عن البانر المربع.</Text><Text style={styles.label}>عنوان الإعلان</Text><TextInput value={bannerTitle} onChangeText={setBannerTitle} style={styles.input} textAlign="right" placeholder="عنوان البانر الرئيسي" maxLength={100}/><Text style={styles.label}>وصف الإعلان</Text><TextInput value={bannerDescription} onChangeText={setBannerDescription} style={styles.input} textAlign="right" placeholder="تفاصيل مختصرة تظهر أسفل العنوان" maxLength={240}/></> : null}{bannerType === "top_square" ? <Text style={styles.muted}>يبقى مكانه فارغاً بلا صورة افتراضية عند عدم وجود صورة. الضغط عليه يعرض «سيتوفر قريباً» ونص الشركاء، ويتوقف السحب 5 ثوانٍ بعد اللمس.</Text> : null}
           <View style={styles.fieldsRow}>
             <View style={styles.field}>
               <Text style={styles.label}>مدة عرض الصورة (1–60 ثانية)</Text>
@@ -400,7 +408,7 @@ export default function AdminHomeBannersScreen() {
               <Text style={[styles.status, banner.is_active ? styles.active : styles.inactive]}>
                 {banner.is_active ? "منشور" : "متوقف"}
               </Text>
-              {banner.badge_text ? <Text style={styles.muted}>الشارة: {banner.badge_text}</Text> : null}
+              {banner.banner_title ? <Text style={styles.muted}>العنوان: {banner.banner_title}</Text> : null}{banner.banner_description ? <Text style={styles.muted}>الوصف: {banner.banner_description}</Text> : null}{banner.badge_text ? <Text style={styles.muted}>الشارة: {banner.badge_text}</Text> : null}
             </View>
             <View style={styles.actions}>
               <TouchableOpacity style={styles.secondaryButton} onPress={() => void toggleBanner(banner)} disabled={busy}>
