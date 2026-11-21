@@ -26,6 +26,7 @@ const tabs = [
   { id: "visual", label: "محرر الأيقونات والواجهة", icon: LayoutTemplate },
   { id: "sections", label: "الأقسام والجداول", icon: Table2 },
   { id: "campaigns", label: "الاستطلاعات والمسابقات", icon: Trophy },
+  { id: "legal", label: "الخصوصية والشروط", icon: Check },
 ] as const;
 
 export default function AdminVisualBuilder() {
@@ -33,6 +34,8 @@ export default function AdminVisualBuilder() {
   const [elements, setElements] = useState<UiElement[]>([]);
   const [sections, setSections] = useState<ContentSection[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [legalPages, setLegalPages] = useState<any[]>([]);
+  const [legalDrafts, setLegalDrafts] = useState<Record<string, { title: string; body: string; is_published: boolean }>>({});
   const [selected, setSelected] = useState<UiElement | null>(null);
   const [draft, setDraft] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -60,19 +63,40 @@ export default function AdminVisualBuilder() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [ui, content, campaign] = await Promise.all([
+    const [ui, content, campaign, legal] = await Promise.all([
       (supabase as any).from("app_ui_elements").select("*").order("sort_order"),
       (supabase as any).from("app_content_sections").select("*").order("sort_order"),
       (supabase as any).from("app_campaigns").select("*, app_campaign_options(id,label,sort_order)").order("sort_order").order("created_at", { ascending: false }),
+      (supabase as any).from("app_legal_pages").select("slug,title,body,is_published").order("slug"),
     ]);
     if (ui.error) setMessage("تعذر تحميل عناصر الواجهة: " + ui.error.message);
     else setElements((ui.data ?? []) as UiElement[]);
     if (!content.error) setSections((content.data ?? []) as ContentSection[]);
     if (!campaign.error) setCampaigns((campaign.data ?? []) as Campaign[]);
+    if (!legal.error) {
+      const pages = legal.data ?? [];
+      setLegalPages(pages);
+      setLegalDrafts(Object.fromEntries(pages.map((page: any) => [page.slug, { title: page.title, body: page.body ?? "", is_published: Boolean(page.is_published) }])));
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const saveLegalPage = async (slug: "privacy" | "terms") => {
+    const draft = legalDrafts[slug];
+    if (!draft?.title.trim() || !draft.body.trim()) {
+      setMessage("اكتب عنوان ومحتوى الصفحة قبل الحفظ."); return;
+    }
+    setSaving(true);
+    const { error } = await (supabase as any).from("app_legal_pages").upsert({
+      slug, title: draft.title.trim(), body: draft.body.trim(),
+      is_published: draft.is_published, updated_at: new Date().toISOString(),
+    }, { onConflict: "slug" });
+    setMessage(error ? "تعذر حفظ الصفحة القانونية: " + error.message : "تم حفظ الصفحة القانونية ونشر إعدادها.");
+    if (!error) await load();
+    setSaving(false);
+  };
 
   const startHold = (element: UiElement) => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
@@ -248,7 +272,7 @@ export default function AdminVisualBuilder() {
         <button className={buttonClass + " border border-border"} onClick={() => void load()}><Eye className="h-4 w-4" /> تحديث</button>
       </header>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {tabs.map((item) => <button key={item.id} onClick={() => setTab(item.id)}
           className={buttonClass + (tab === item.id ? " bg-primary text-primary-foreground" : " border border-border bg-card")}>
           <item.icon className="h-4 w-4" />{item.label}
@@ -358,6 +382,24 @@ export default function AdminVisualBuilder() {
                 {!section.is_published && <button className={buttonClass + " bg-primary text-primary-foreground"} onClick={() => void publishSection(section)}>نشر</button>}</div>
             </div>)}
           </section>
+        </div>
+      )}
+
+      {tab === "legal" && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {(["privacy", "terms"] as const).map((slug) => {
+            const draft = legalDrafts[slug] ?? { title: slug === "privacy" ? "سياسة الخصوصية" : "الشروط والأحكام", body: "", is_published: true };
+            return <section key={slug} className="space-y-3 rounded-2xl border border-border bg-card p-4">
+              <h3 className="font-black">{slug === "privacy" ? "سياسة الخصوصية" : "الشروط والأحكام"}</h3>
+              <label className="block text-xs font-bold">عنوان الصفحة</label>
+              <input className={inputClass} value={draft.title} onChange={(e) => setLegalDrafts((old) => ({ ...old, [slug]: { ...draft, title: e.target.value } }))} />
+              <label className="block text-xs font-bold">نص الصفحة (اكتب فقراتك، وافصل بينها بسطر فارغ)</label>
+              <textarea className={inputClass + " min-h-72"} value={draft.body} onChange={(e) => setLegalDrafts((old) => ({ ...old, [slug]: { ...draft, body: e.target.value } }))} placeholder="اكتب سياسة الخصوصية أو الشروط والأحكام هنا..." />
+              <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={draft.is_published} onChange={(e) => setLegalDrafts((old) => ({ ...old, [slug]: { ...draft, is_published: e.target.checked } }))} /> الصفحة منشورة ومتاحة للمستخدمين</label>
+              <button disabled={saving} onClick={() => void saveLegalPage(slug)} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Save className="h-4 w-4" />حفظ ونشر الصفحة</button>
+              <p className="text-[11px] leading-5 text-muted-foreground">التغييرات تظهر على الويب والأندرويد بعد تفعيل تحديث قاعدة البيانات والبناء الجديد. يُفضّل مراجعة النص قانونياً قبل نشره.</p>
+            </section>;
+          })}
         </div>
       )}
 
