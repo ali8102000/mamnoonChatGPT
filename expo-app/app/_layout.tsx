@@ -124,8 +124,7 @@ function PushNotificationSetup() {
           if (error) Alert.alert("تعذّر قبول الطلب", error.message || "قد يكون العرض انتهى أو قبله مزوّد آخر.");
           else router.push({ pathname: "/request/[id]", params: { id: data.request_id } });
         } else if (typeof data?.request_id === "string") router.push({ pathname: "/request/[id]", params: { id: data.request_id } });
-        else if (data?.type === "taxi_high_demand") router.push("/subscriptions" as any);
-        else if (data?.type === "subscription_granted" || data?.type === "company_announcement") router.push("/home");
+        else if (data?.type === "taxi_high_demand" || data?.type === "company_announcement") router.push("/home");
         else router.push("/profile");
       } catch (error) {
         console.warn("[notifications] Response handling failed:", error);
