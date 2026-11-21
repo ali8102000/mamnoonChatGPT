@@ -114,6 +114,18 @@ export default function AdminVisualBuilder() {
       width_px: element.config?.width_px ?? element.width_px ?? 64,
       height_px: element.config?.height_px ?? element.height_px ?? 64,
       image_scale: element.config?.image_scale ?? element.published_config?.image_scale ?? 1,
+      card_height_px: element.config?.card_height_px ?? element.published_config?.card_height_px ?? 145,
+      card_padding_px: element.config?.card_padding_px ?? element.published_config?.card_padding_px ?? 10,
+      border_radius_px: element.config?.border_radius_px ?? element.published_config?.border_radius_px ?? 20,
+      title_size_px: element.config?.title_size_px ?? element.published_config?.title_size_px ?? 16,
+      subtitle_size_px: element.config?.subtitle_size_px ?? element.published_config?.subtitle_size_px ?? 11,
+      title_color: element.config?.title_color ?? element.published_config?.title_color ?? "",
+      subtitle_color: element.config?.subtitle_color ?? element.published_config?.subtitle_color ?? "",
+      background_color: element.config?.background_color ?? element.published_config?.background_color ?? "",
+      content_alignment: element.config?.content_alignment ?? element.published_config?.content_alignment ?? "right",
+      content_direction: element.config?.content_direction ?? element.published_config?.content_direction ?? "column",
+      icon_scale: element.config?.icon_scale ?? element.published_config?.icon_scale ?? 1,
+      is_hidden: element.config?.is_hidden ?? element.published_config?.is_hidden ?? false,
       sort_order: element.config?.sort_order ?? element.sort_order ?? 0,
     });
     setMessage("");
@@ -350,6 +362,24 @@ export default function AdminVisualBuilder() {
               <input type="range" min="0.65" max="1.8" step="0.05" className="mb-1 w-full accent-primary" value={Number(draft.image_scale) || 1} onChange={(e) => setDraft({ ...draft, image_scale: Number(e.target.value) })} />
               <div className="mb-3 flex justify-between text-[11px] text-muted-foreground"><span>تصغير</span><b>{Math.round((Number(draft.image_scale) || 1) * 100)}%</b><span>تكبير</span></div>
               <label className="mb-1 block text-xs font-bold">ترتيب الظهور</label><input type="number" className={inputClass + " mb-3"} value={draft.sort_order ?? 0} onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) })} />
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold">ارتفاع البطاقة px<input type="number" min="96" max="360" className={inputClass+" mt-1"} value={draft.card_height_px ?? 145} onChange={e=>setDraft({...draft,card_height_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">حشوة البطاقة px<input type="number" min="4" max="32" className={inputClass+" mt-1"} value={draft.card_padding_px ?? 10} onChange={e=>setDraft({...draft,card_padding_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">استدارة الزوايا px<input type="number" min="8" max="40" className={inputClass+" mt-1"} value={draft.border_radius_px ?? 20} onChange={e=>setDraft({...draft,border_radius_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">حجم عنوان الزر px<input type="number" min="10" max="28" className={inputClass+" mt-1"} value={draft.title_size_px ?? 16} onChange={e=>setDraft({...draft,title_size_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">حجم الوصف px<input type="number" min="8" max="20" className={inputClass+" mt-1"} value={draft.subtitle_size_px ?? 11} onChange={e=>setDraft({...draft,subtitle_size_px:Number(e.target.value)})}/></label>
+                <label className="text-xs font-bold">تكبير الأيقونة<input type="number" min="0.5" max="2" step="0.05" className={inputClass+" mt-1"} value={draft.icon_scale ?? 1} onChange={e=>setDraft({...draft,icon_scale:Number(e.target.value)})}/></label>
+              </div>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold">لون العنوان<input type="text" dir="ltr" placeholder="#222222" className={inputClass+" mt-1"} value={draft.title_color ?? ""} onChange={e=>setDraft({...draft,title_color:e.target.value})}/></label>
+                <label className="text-xs font-bold">لون الوصف<input type="text" dir="ltr" placeholder="#777777" className={inputClass+" mt-1"} value={draft.subtitle_color ?? ""} onChange={e=>setDraft({...draft,subtitle_color:e.target.value})}/></label>
+                <label className="text-xs font-bold col-span-2">لون خلفية البطاقة<input type="text" dir="ltr" placeholder="اتركه فارغاً للخلفية الافتراضية" className={inputClass+" mt-1"} value={draft.background_color ?? ""} onChange={e=>setDraft({...draft,background_color:e.target.value})}/></label>
+              </div>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold">محاذاة المحتوى<select className={inputClass+" mt-1"} value={draft.content_alignment ?? "right"} onChange={e=>setDraft({...draft,content_alignment:e.target.value})}><option value="right">يمين</option><option value="center">وسط</option><option value="left">يسار</option></select></label>
+                <label className="text-xs font-bold">اتجاه ترتيب العناصر<select className={inputClass+" mt-1"} value={draft.content_direction ?? "column"} onChange={e=>setDraft({...draft,content_direction:e.target.value})}><option value="column">عمودي</option><option value="row">أفقي</option></select></label>
+              </div>
+              <label className="mb-3 flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={Boolean(draft.is_hidden)} onChange={e=>setDraft({...draft,is_hidden:e.target.checked})}/> إخفاء هذا العنصر من واجهة المستخدم</label>
               <div className="mb-3 rounded-xl bg-muted p-3 text-xs"><b>المعاينة الفورية</b><div className="mt-2 flex items-center gap-3"><div className="grid h-20 w-20 place-items-center overflow-hidden rounded-none bg-background">{draft.image_url ? <img src={draft.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${Number(draft.image_scale) || 1})` }} /> : <ImagePlus className="h-7 w-7" />}</div><div><b>{draft.title || selected.label}</b><p className="text-muted-foreground">{draft.subtitle}</p></div></div></div>
               <button disabled={saving} onClick={() => void saveDraft()} className={buttonClass + " mb-2 w-full border border-border"}><Save className="h-4 w-4" />حفظ كمسودة</button>
               <button disabled={saving} onClick={() => void publishElement()} className={buttonClass + " w-full bg-primary text-primary-foreground"}><Check className="h-4 w-4" />{selectedPublished ? "نشر التعديلات" : "نشر العنصر"}</button>
