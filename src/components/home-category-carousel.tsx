@@ -23,7 +23,7 @@ const fallbackSlides = [
   { id: "shop", title: "المتاجر", subtitle: "محلات ومتاجر قريبة", category: "store" as const, image_url: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1200&q=85" },
 ];
 
-export function HomeCategoryCarousel() {
+export function HomeCategoryCarousel({ placement = "top_panorama" }: { placement?: "top_panorama" | "restaurant_section" }) {
   const navigate = useNavigate();
   const [banners, setBanners] = useState<CategoryBanner[]>([]);
   const [index, setIndex] = useState(0);
@@ -39,6 +39,7 @@ export function HomeCategoryCarousel() {
         .select("id,image_url,target_category,display_order,is_active,scroll_speed,motion_direction,motion_style,banner_title,banner_description")
         .eq("is_active", true)
         .eq("banner_type", "category")
+        .eq("display_location", placement)
         .order("display_order")
         .order("created_at");
       if (active && !error) {
@@ -52,7 +53,7 @@ export function HomeCategoryCarousel() {
       .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh())
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
-  }, []);
+  }, [placement]);
 
   const slides = useMemo(() => banners.length ? banners.map((item) => ({
     id: item.id,
