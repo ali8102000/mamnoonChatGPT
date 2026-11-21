@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
     const { data: canAdjust } = await caller.rpc("admin_has_permission", {
       p_permission_key: "finance.wallet.adjust", p_scope_type: "global", p_scope_governorate: null,
     });
-    if (isAdmin !== true && canAdjust !== true) return json({ error: "forbidden" }, 403);
+    if (isAdmin !== true && canAdjust !== true && isSuperAdmin !== true) return json({ error: "forbidden" }, 403);
 
     const admin = createClient(url, secret, {
       global: { fetch: createSupabaseFetch(secret) },
