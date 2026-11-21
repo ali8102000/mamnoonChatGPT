@@ -1972,6 +1972,8 @@ $old$, '');
   IF position('mamnoon_provider_subscription_active' in v_def) > 0 THEN
     RAISE EXCEPTION 'accept_service_request_subscription_gate_remains';
   END IF;
+  v_def := replace(v_def, $old$  PERFORM public.charge_mamnoon_commission_on_accept(auth.uid(), _request_id, NULL);
+$old$, '');
   EXECUTE v_def;
 
   v_def := pg_get_functiondef('public.submit_large_vehicle_offer(uuid,integer,text)'::regprocedure);
@@ -2026,6 +2028,9 @@ DROP TRIGGER IF EXISTS mamnoon_provider_trial_on_role_insert ON public.user_role
 -- The provider radius is a normal profile setting (1–55 km), not a paid tier.
 -- These replacements were created above and remain as the only implementations.
 -- The old support-priority subscription triggers are removed with their table.
+
+DROP TRIGGER IF EXISTS reject_retired_subscription_payment ON public.payment_transactions;
+DROP FUNCTION IF EXISTS public.reject_retired_subscription_payment();
 
 -- Remove all subscription-only RPCs and trigger functions after their callers
 -- have been converted. Explicit signatures avoid CASCADE surprises.
