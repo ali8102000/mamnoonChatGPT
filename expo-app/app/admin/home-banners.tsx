@@ -80,6 +80,7 @@ export default function AdminHomeBannersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user?.id) {
@@ -283,6 +284,15 @@ export default function AdminHomeBannersScreen() {
     setBusy(false);
   };
 
+  const updateBannerSettings = async (banner: Banner, patch: Record<string, unknown>) => {
+    setBusy(true);
+    const { error } = await (supabase as any).from("home_carousel_banners")
+      .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", banner.id);
+    if (error) Alert.alert("تعذر حفظ البانر", error.message);
+    else { setMessage("تم حفظ إعدادات البانر."); await load(); }
+    setBusy(false);
+  };
+
   const deleteBanner = (banner: Banner) => {
     Alert.alert("حذف البانر", "سيتم حذف سجل البانر وصورته من التخزين. هل تريد المتابعة؟", [
       { text: "إلغاء", style: "cancel" },
@@ -465,6 +475,9 @@ export default function AdminHomeBannersScreen() {
               {banner.banner_title ? <Text style={styles.muted}>العنوان: {banner.banner_title}</Text> : null}{banner.banner_description ? <Text style={styles.muted}>الوصف: {banner.banner_description}</Text> : null}{banner.badge_text ? <Text style={styles.muted}>الشارة: {banner.badge_text}</Text> : null}
             </View>
             <View style={styles.actions}>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => setEditingBannerId(editingBannerId === banner.id ? null : banner.id)} disabled={busy}>
+                <Text style={styles.secondaryButtonText}>{editingBannerId === banner.id ? "إغلاق" : "تعديل"}</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryButton} onPress={() => void toggleBanner(banner)} disabled={busy}>
                 <Text style={styles.secondaryButtonText}>{banner.is_active ? "إيقاف" : "تفعيل"}</Text>
               </TouchableOpacity>
@@ -473,6 +486,25 @@ export default function AdminHomeBannersScreen() {
               </TouchableOpacity>
             </View>
           </View>
+          {editingBannerId === banner.id ? (
+            <View style={[styles.card, { marginTop: 8, width: "100%" }]}>
+              <Text style={styles.sectionTitle}>تعديل إعدادات هذا البانر</Text>
+              <Text style={styles.label}>العنوان</Text>
+              <TextInput defaultValue={banner.banner_title ?? ""} style={styles.input} textAlign="right" onEndEditing={({nativeEvent})=>void updateBannerSettings(banner,{banner_title:nativeEvent.text.trim()||null})}/>
+              <Text style={styles.label}>الوصف</Text>
+              <TextInput defaultValue={banner.banner_description ?? ""} style={styles.input} textAlign="right" onEndEditing={({nativeEvent})=>void updateBannerSettings(banner,{banner_description:nativeEvent.text.trim()||null})}/>
+              <Text style={styles.label}>الشارة</Text>
+              <TextInput defaultValue={banner.badge_text ?? ""} style={styles.input} textAlign="right" onEndEditing={({nativeEvent})=>void updateBannerSettings(banner,{badge_text:nativeEvent.text.trim()||null})}/>
+              <View style={styles.fieldsRow}>
+                <View style={styles.field}><Text style={styles.label}>مدة العرض (ثوانٍ)</Text><TextInput defaultValue={String(banner.scroll_speed)} keyboardType="number-pad" style={styles.input} onEndEditing={({nativeEvent})=>void updateBannerSettings(banner,{scroll_speed:Math.max(1,Math.min(60,Number(nativeEvent.text)||5))})}/></View>
+                <View style={styles.field}><Text style={styles.label}>ترتيب العرض</Text><TextInput defaultValue={String(banner.display_order)} keyboardType="number-pad" style={styles.input} onEndEditing={({nativeEvent})=>void updateBannerSettings(banner,{display_order:Number(nativeEvent.text)||0})}/></View>
+              </View>
+              <Text style={styles.label}>اتجاه الحركة</Text>
+              <View style={styles.categoryRow}>{([{value:"left",label:"يمين ← يسار"},{value:"right",label:"يسار ← يمين"},{value:"up",label:"أسفل ← أعلى"},{value:"down",label:"أعلى ← أسفل"}] as const).map(item=><TouchableOpacity key={item.value} onPress={()=>void updateBannerSettings(banner,{motion_direction:item.value,motion_axis:item.value==="up"||item.value==="down"?"vertical":"horizontal"})} style={[styles.categoryButton,banner.motion_direction===item.value&&styles.categorySelected]}><Text style={[styles.categoryText,banner.motion_direction===item.value&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}</View>
+              <Text style={styles.label}>نمط الانتقال</Text>
+              <View style={styles.categoryRow}>{([{value:"slide",label:"انزلاق"},{value:"fade",label:"تلاشي"},{value:"drop",label:"هبوط"}] as const).map(item=><TouchableOpacity key={item.value} onPress={()=>void updateBannerSettings(banner,{motion_style:item.value})} style={[styles.categoryButton,banner.motion_style===item.value&&styles.categorySelected]}><Text style={[styles.categoryText,banner.motion_style===item.value&&styles.categoryTextSelected]}>{item.label}</Text></TouchableOpacity>)}</View>
+            </View>
+          ) : null}
         ))}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>إنشاء استطلاع أو مسابقة جديدة</Text>
