@@ -93,7 +93,7 @@ export default function AdminHomeBannersScreen() {
     if (error) {
       setMessage("تعذر تحميل البانرات. تحقق من الاتصال ثم أعد المحاولة.");
     } else {
-      setRows((data ?? []) as Banner[]);
+      setRows((data ?? []).filter((row: Banner) => row.banner_type !== "top_square") as Banner[]);
       setMessage("");
     }
     const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
