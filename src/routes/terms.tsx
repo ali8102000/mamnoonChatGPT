@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/terms")({
   ssr: false,
@@ -16,10 +18,18 @@ export const Route = createFileRoute("/terms")({
 });
 
 function TermsPage() {
+  const [managedPage, setManagedPage] = useState<{ title: string; body: string } | null>(null);
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("app_legal_pages").select("title,body,is_published").eq("slug", "terms").maybeSingle()
+      .then(({ data }: any) => { if (active && data?.is_published && data.body?.trim()) setManagedPage({ title: data.title || "الشروط والأحكام", body: data.body }); });
+    return () => { active = false; };
+  }, []);
   return (
     <div className="min-h-screen px-5 pt-10 pb-20 max-w-2xl mx-auto" dir="rtl">
-      <h1 className="text-2xl font-black mb-6">الشروط والأحكام</h1>
+      <h1 className="text-2xl font-black mb-6">{managedPage?.title || "الشروط والأحكام"}</h1>
       <div className="glass rounded-3xl p-6 space-y-4 text-sm leading-relaxed text-muted-foreground">
+        {managedPage ? managedPage.body.split(/\\n\\s*\\n/).filter(Boolean).map((paragraph, index) => <p key={index} className="whitespace-pre-wrap">{paragraph}</p>) : <>
         <section>
           <h2 className="font-black text-foreground mb-2">قبول الشروط</h2>
           <p>
@@ -74,6 +84,7 @@ function TermsPage() {
         <section>
           <p className="text-xs text-muted-foreground/60">آخر تحديث: يوليو ٢٠٢٦</p>
         </section>
+        </>}
       </div>
     </div>
   );
