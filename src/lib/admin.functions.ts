@@ -326,7 +326,7 @@ export const adminAdjustWallet = createClientFn({ method: "POST" })
     z
       .object({
         user_id: z.string().uuid(),
-        amount: z.number(),
+        amount: z.number().int().positive().max(100_000_000),
         note: z.string().max(500).optional(),
         type: z.enum(["credit", "debit"]).default("credit"),
       })
