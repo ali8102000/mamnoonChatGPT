@@ -111,6 +111,7 @@ export default function AdminScreen() {
         </View>
         <Text style={s.heroTitle}>كل أقسام الشركة بمكان واحد</Text>
         <Text style={s.heroText}>اختَر القسم حتى تفتح أدواته ومحتوياته وحدها، بدون تكدّس بقية الأقسام أسفل الصفحة.</Text>
+        <TouchableOpacity onPress={() => router.push("/admin/control-center")} style={s.controlShortcut}><Text style={s.controlShortcutText}>🧩 افتح مركز التحكم الشامل ←</Text></TouchableOpacity>
         <View style={s.artPanel}>
           <Svg width="100%" height="112" viewBox="0 0 320 112">
             <Circle cx="270" cy="25" r="30" fill="#7CE7E0" opacity=".18"/>
@@ -162,7 +163,7 @@ const s=StyleSheet.create({
   brandRow:{flexDirection:"row",alignItems:"center",gap:12},
   logo:{width:58,height:58,borderRadius:18,backgroundColor:"#fff"},logoFallback:{width:58,height:58,borderRadius:18,backgroundColor:palette.brand,alignItems:"center",justifyContent:"center"},
   logoLetter:{color:palette.white,fontSize:30,fontWeight:"900"},brandName:{color:"#FFFFFF",fontSize:20,fontWeight:"900",textAlign:"right"},heroCaption:{color:"#C7F5F4",fontSize:11,textAlign:"right",marginTop:3},
-  heroTitle:{color:"#FFFFFF",fontSize:23,fontWeight:"900",textAlign:"right",marginTop:8},heroText:{color:"#D9F5FA",fontSize:12,lineHeight:20,textAlign:"right"},
+  heroTitle:{color:"#FFFFFF",fontSize:23,fontWeight:"900",textAlign:"right",marginTop:8},controlShortcut:{alignSelf:"flex-start",marginTop:14,paddingHorizontal:16,paddingVertical:11,borderRadius:14,backgroundColor:"rgba(255,255,255,0.16)",borderWidth:1,borderColor:"rgba(255,255,255,0.28)"},controlShortcutText:{color:"#FFFFFF",fontSize:12,fontWeight:"900"},heroText:{color:"#D9F5FA",fontSize:12,lineHeight:20,textAlign:"right"},
   artPanel:{backgroundColor:"rgba(255,255,255,0.08)",borderColor:"rgba(255,255,255,0.16)",borderWidth:1,borderRadius:18,padding:8,marginTop:6},
   
   
