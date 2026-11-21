@@ -119,7 +119,6 @@ type Section =
   | "chat"
   | "friends"
   | "reports"
-  | "subscriptions"
   | "rights"
   | "coupons"
   | "wallet"
@@ -212,7 +211,7 @@ const NAV_GROUPS: { title: string; keys: Section[] }[] = [
   { title: "الرئيسية", keys: ["overview"] },
   { title: "الإحصائيات والمحافظات", keys: ["stats", "regions"] },
   { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"] },
-  { title: "المالية والعروض", keys: ["subscriptions", "coupons", "wallet"] },
+  { title: "المالية وحقوق ممنون", keys: ["rights", "coupons", "wallet"] },
   { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones"] },
   { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "controlCenter", "imageStudio"] },
   { title: "الموظفون والأمان", keys: ["roles", "staff", "audit"] },
@@ -1980,29 +1979,6 @@ function ReportsSection() {
   );
 }
 
-function SubscriptionsSection() {
-  return (
-    <div>
-      <h2 className="text-xl font-black mb-4">إدارة الاشتراكات</h2>
-      <Link
-        to="/admin/subscriptions"
-        className="glass rounded-2xl p-5 flex items-center justify-between border-2 border-amber-500/20"
-      >
-        <div className="flex items-center gap-3">
-          <Crown className="h-6 w-6 text-amber-500" />
-          <div>
-            <div className="font-black text-sm">نظام الاشتراكات والباقات</div>
-            <div className="text-xs text-muted-foreground">
-              إدارة الباقات، المشتركين، والإعدادات
-            </div>
-          </div>
-        </div>
-        <ChevronLeft className="h-5 w-5 text-muted-foreground" />
-      </Link>
-    </div>
-  );
-}
-
 function CouponsSection() {
   const [coupons, setCoupons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2890,7 +2866,7 @@ function StaffHierarchySection() {
     ["pricing.peak.edit","الذروة والاستعجال"],["pricing.services.edit","تسعير الخدمات"],
     ["promotions.read","عرض الخصومات"],["promotions.manage","إدارة الخصومات"],
     ["finance.read","عرض المالية"],["finance.wallet.adjust","تسوية المحفظة"],["finance.refund","استرداد المدفوعات"],
-    ["subscriptions.manage","الاشتراكات"],["support.manage","الدعم"],["notifications.send","الإشعارات"],
+["support.manage","الدعم"],["notifications.send","الإشعارات"],
     ["regions.manage","المحافظات"],["staff.read","عرض الموظفين"],["staff.assign","إضافة موظفين"],
     ["staff.manage_created","إدارة الموظفين التابعين"],["staff.delegate","تفويض الصلاحيات"],
     ["staff.approve","مراجعة الموافقات"],["settings.manage","إعدادات المنصة"],["audit.read","سجل التدقيق"],
