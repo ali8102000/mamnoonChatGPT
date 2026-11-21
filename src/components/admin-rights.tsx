@@ -71,6 +71,7 @@ export default function AdminRights() {
     catch(e:any){toast.error(String(e?.message||"تعذر إلغاء الميزة"));}
   };
 
+  const policyHelp="لإيقاف كل الاستقطاعات بمحافظة: اختر (كل العمليات)، ثم المحافظة، واجعل نسبة تحصيل العمولة 0٪ مع تفعيل السياسة.";
   const savePolicy=async()=>{
     const key=scope==="global"?null:scopeKey.trim();
     if(scope!=="global"&&!key){toast.error("حدد المحافظة أو الفئة");return;}
