@@ -1608,7 +1608,7 @@ export default function NewRequest() {
                   disabled={busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))}
                   onPress={() => void submit()}
                 >
-                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: uiVisuals.request_primary_cta?.title_color || undefined }]}>{uiVisuals.request_primary_cta?.title || "اطلب الآن"}</Text>}
+                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: uiVisuals.request_primary_cta?.title_color || undefined }]}>{"اطلب الآن"}</Text>}
                 </TouchableOpacity>
               </>
             )}
