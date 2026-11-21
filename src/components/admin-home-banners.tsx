@@ -83,6 +83,36 @@ export default function AdminHomeBanners() {
     const { error } = await (supabase as any).from("home_carousel_banners").update({ is_active: !row.is_active, updated_at: new Date().toISOString() }).eq("id", row.id);
     setMessage(error ? "تعذر تغيير الحالة: " + error.message : "تم تحديث حالة البانر."); if (!error) await load();
   };
+  const updateBanner = async (row: Banner, patch: Record<string, unknown>) => {
+    setBusy(true);
+    const { error } = await (supabase as any).from("home_carousel_banners")
+      .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", row.id);
+    setMessage(error ? "تعذر حفظ إعدادات البانر: " + error.message : "تم حفظ إعدادات البانر ونشرها.");
+    if (!error) await load();
+    setBusy(false);
+  };
+  const replaceBannerImage = async (row: Banner, nextFile?: File) => {
+    if (!nextFile) return;
+    if (!nextFile.type.startsWith("image/") || nextFile.size > 8 * 1024 * 1024) {
+      setMessage("الصورة لازم تكون بصيغة صورة وحجمها أقل من 8 ميغابايت."); return;
+    }
+    setBusy(true);
+    const path = `home-banners/${row.target_category}/${Date.now()}-${nextFile.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+    const stored = await supabase.storage.from("app-visuals").upload(path, nextFile, { upsert: false, contentType: nextFile.type });
+    if (stored.error) { setMessage("فشل رفع الصورة: " + stored.error.message); setBusy(false); return; }
+    const url = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
+    const { error } = await (supabase as any).from("home_carousel_banners")
+      .update({ image_url: url, storage_path: path, updated_at: new Date().toISOString() }).eq("id", row.id);
+    if (error) {
+      await supabase.storage.from("app-visuals").remove([path]);
+      setMessage("تعذر ربط الصورة الجديدة بالبانر: " + error.message);
+    } else {
+      if (row.storage_path) await supabase.storage.from("app-visuals").remove([row.storage_path]);
+      setMessage("تم تبديل صورة البانر.");
+      await load();
+    }
+    setBusy(false);
+  };
   const createCampaign = async () => {
     const title = newCampaignTitle.trim();
     const options = newCampaignOptions.split(String.fromCharCode(10)).map(value=>value.trim()).filter(Boolean);
@@ -145,6 +175,19 @@ export default function AdminHomeBanners() {
       {rows.map(row=><article key={row.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
         <img src={row.image_url} alt="" className="h-20 w-20 rounded-xl object-cover"/>
         <div className="min-w-0 flex-1"><b className="text-sm">{kindLabels[row.banner_type] || labels[row.target_category]}{row.banner_type === "category" ? ` · ${labels[row.target_category]}` : ""}</b><p className="text-xs text-muted-foreground">الترتيب {row.display_order} · كل {row.scroll_speed} ثوانٍ</p>{row.banner_title && <p className="text-xs font-bold">{row.banner_title}</p>}{row.banner_description && <p className="text-xs text-muted-foreground">{row.banner_description}</p>}<p className="text-xs text-muted-foreground">{row.motion_axis === "vertical" ? (row.motion_direction === "up" ? "من الأسفل للأعلى" : "من الأعلى للأسفل") : (row.motion_direction === "left" ? "من اليمين لليسار" : "من اليسار لليمين")} · {row.motion_style === "fade" ? "تلاشي" : row.motion_style === "drop" ? "هبوط" : "انزلاق"}</p><p className="text-xs">{row.is_active ? "منشور" : "متوقف"}</p></div>
+        <details className="min-w-0 basis-full rounded-xl border border-border p-3">
+          <summary className="cursor-pointer text-xs font-black text-primary">تعديل البانر المنشور بالكامل</summary>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <label className="text-xs font-bold">العنوان<input className={input+" mt-1"} defaultValue={row.banner_title ?? ""} onBlur={e=>{if(e.target.value!==(row.banner_title??""))void updateBanner(row,{banner_title:e.target.value.trim()||null});}} /></label>
+            <label className="text-xs font-bold">الوصف<input className={input+" mt-1"} defaultValue={row.banner_description ?? ""} onBlur={e=>{if(e.target.value!==(row.banner_description??""))void updateBanner(row,{banner_description:e.target.value.trim()||null});}} /></label>
+            <label className="text-xs font-bold">شارة قصيرة<input className={input+" mt-1"} defaultValue={row.badge_text ?? ""} onBlur={e=>{if(e.target.value!==(row.badge_text??""))void updateBanner(row,{badge_text:e.target.value.trim()||null});}} /></label>
+            <label className="text-xs font-bold">مدة عرض الصورة (1–60 ثانية)<input type="number" min="1" max="60" className={input+" mt-1"} defaultValue={row.scroll_speed} onBlur={e=>void updateBanner(row,{scroll_speed:Math.max(1,Math.min(60,Number(e.target.value)||5))})} /></label>
+            <label className="text-xs font-bold">ترتيب العرض<input type="number" className={input+" mt-1"} defaultValue={row.display_order} onBlur={e=>void updateBanner(row,{display_order:Number(e.target.value)||0})} /></label>
+            <label className="text-xs font-bold">اتجاه الحركة<select className={input+" mt-1"} defaultValue={row.motion_direction} onChange={e=>void updateBanner(row,{motion_direction:e.target.value,motion_axis:["up","down"].includes(e.target.value)?"vertical":"horizontal"})}><option value="left">يمين ← يسار</option><option value="right">يسار ← يمين</option><option value="up">أسفل ← أعلى</option><option value="down">أعلى ← أسفل</option></select></label>
+            <label className="text-xs font-bold">نمط الانتقال<select className={input+" mt-1"} defaultValue={row.motion_style} onChange={e=>void updateBanner(row,{motion_style:e.target.value})}><option value="slide">انزلاق</option><option value="fade">تلاشي</option><option value="drop">هبوط</option></select></label>
+            <label className="text-xs font-bold sm:col-span-2">تبديل الصورة<input type="file" accept="image/*" className={input+" mt-1"} disabled={busy} onChange={e=>void replaceBannerImage(row,e.target.files?.[0])} /></label>
+          </div>
+        </details>
         <button title="تفعيل أو إيقاف" onClick={()=>void toggle(row)} className="rounded-lg border border-border p-2"><Power className="h-4 w-4"/></button>
         <button title="حذف" onClick={()=>void remove(row)} className="rounded-lg border border-border p-2 text-destructive"><Trash2 className="h-4 w-4"/></button>
       </article>)}
