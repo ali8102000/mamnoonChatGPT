@@ -2020,6 +2020,8 @@ $function$;
 -- Remove the obsolete assignment/offer trigger gates.
 DROP TRIGGER IF EXISTS mamnoon_require_subscription_for_offer ON public.request_offers;
 DROP TRIGGER IF EXISTS mamnoon_require_subscription_for_assignment ON public.service_requests;
+DROP TRIGGER IF EXISTS trg_guard_trial_subscription_upgrade ON public.user_subscriptions;
+DROP TRIGGER IF EXISTS trg_sync_support_priority_after_subscription_change ON public.user_subscriptions;
 DROP TRIGGER IF EXISTS mamnoon_provider_trial_on_role_insert ON public.user_roles;
 
 -- The provider radius is a normal profile setting (1–55 km), not a paid tier.
