@@ -909,7 +909,8 @@ BEGIN
     WHEN 'governorate' THEN 2
     WHEN 'role' THEN 3
     ELSE 4
-  END
+  END,
+  CASE WHEN p.collection_event='all_acceptance' THEN 1 ELSE 0 END
   LIMIT 1;
 
   IF NOT FOUND THEN RETURN; END IF;
