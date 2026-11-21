@@ -238,7 +238,7 @@ function CustomerHome() {
         @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; } }
       `}</style>
       <div className="relative h-[130px] rounded-[20px] p-4 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground">
-        {topBanner?.image_url && <img key={topBanner.id} src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute inset-0 h-full w-full object-cover" style={{ animation: `${topBanner.motion_style === "fade" ? "mamnoonBannerFade" : topBanner.motion_style === "drop" ? "mamnoonBannerDrop" : topBanner.motion_direction === "right" ? "mamnoonBannerSlideRight" : topBanner.motion_direction === "up" ? "mamnoonBannerSlideUp" : topBanner.motion_direction === "down" ? "mamnoonBannerSlideDown" : "mamnoonBannerSlideLeft"} .55s ease-out both` }} />
+        {topBanner?.image_url && <img key={topBanner.id} src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute inset-0 h-full w-full object-cover" style={{ animation: `${topBanner.motion_style === "fade" ? "mamnoonBannerFade" : topBanner.motion_style === "drop" ? "mamnoonBannerDrop" : topBanner.motion_direction === "right" ? "mamnoonBannerSlideRight" : topBanner.motion_direction === "up" ? "mamnoonBannerSlideUp" : topBanner.motion_direction === "down" ? "mamnoonBannerSlideDown" : "mamnoonBannerSlideLeft"} .55s ease-out both` }} />}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div className="relative">
