@@ -4,7 +4,6 @@ import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
-import { getAdminStaffRoles } from "@/lib/admin-access";
 
 type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
 type Conversation = {
@@ -68,12 +67,9 @@ export default function AdminChatsScreen() {
   useEffect(() => {
     if (authLoading) return;
     if (!user?.id) { setAllowed(false); setLoading(false); return; }
-    void (async () => {
-      try {
-        const roles = await getAdminStaffRoles(user.id);
-        setAllowed(roles.some(role => ["super_admin", "admin", "support", "moderator", "customer_service"].includes(role)));
-      } catch { setAllowed(false); }
-    })();
+    void supabase.rpc("has_chat_moderation_access", { p_user_id: user.id })
+      .then(({ data, error: accessError }) => setAllowed(!accessError && data === true))
+      .catch(() => setAllowed(false));
   }, [authLoading, user?.id]);
 
   useEffect(() => {
