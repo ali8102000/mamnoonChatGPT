@@ -1446,3 +1446,21 @@ FOR EACH ROW
 WHEN (OLD.ai_status IS DISTINCT FROM NEW.ai_status OR OLD.ticket_status IS DISTINCT FROM NEW.ticket_status)
 EXECUTE FUNCTION public.sync_support_handoff_status();
 REVOKE ALL ON FUNCTION public.sync_support_handoff_status() FROM PUBLIC, anon, authenticated;
+
+-- Stop the legacy subscription expiry/notification job. Historical subscription
+-- rows remain available for reporting and are not deleted.
+DO $retire_subscriptions$
+DECLARE
+  v_job record;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname='pg_cron') THEN
+    FOR v_job IN
+      SELECT jobid FROM cron.job
+      WHERE jobname ILIKE '%subscription%'
+         OR command ILIKE '%handle_expired_subscriptions%'
+    LOOP
+      PERFORM cron.unschedule(v_job.jobid);
+    END LOOP;
+  END IF;
+END;
+$retire_subscriptions$;
