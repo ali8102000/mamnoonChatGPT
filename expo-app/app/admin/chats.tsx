@@ -67,9 +67,14 @@ export default function AdminChatsScreen() {
   useEffect(() => {
     if (authLoading) return;
     if (!user?.id) { setAllowed(false); setLoading(false); return; }
-    void supabase.rpc("has_chat_moderation_access", { p_user_id: user.id })
-      .then(({ data, error: accessError }) => setAllowed(!accessError && data === true))
-      .catch(() => setAllowed(false));
+    void (async () => {
+      try {
+        const { data, error: accessError } = await supabase.rpc("has_chat_moderation_access", { p_user_id: user.id });
+        setAllowed(!accessError && data === true);
+      } catch {
+        setAllowed(false);
+      }
+    })();
   }, [authLoading, user?.id]);
 
   useEffect(() => {
