@@ -57,7 +57,15 @@ export default function AdminHomeBanners() {
       motion_axis: bannerType === "top_square" ? "horizontal" : motionAxis, motion_direction: bannerType === "top_square" ? "left" : motionDirection, motion_style: bannerType === "top_square" ? "slide" : motionStyle,
     });
     if (error) { setMessage("ترتفعت الصورة لكن تعذر حفظ بياناتها: " + error.message); }
-    else { setMessage("تم رفع ونشر البانر، وسيظهر بالويب والأندرويد."); setFile(null); setBadge(""); setBannerTitle(""); setBannerDescription(""); await load(); }
+    else {
+      let campaignImageWarning = false;
+      if ((bannerType === "poll" || bannerType === "contest") && campaignId) {
+        const { error: campaignImageError } = await (supabase as any).from("app_campaigns").update({ image_url: data.publicUrl, updated_at: new Date().toISOString() }).eq("id", campaignId);
+        campaignImageWarning = Boolean(campaignImageError);
+      }
+      setMessage(campaignImageWarning ? "تم نشر البانر، لكن تعذر تحديث صورة الحملة نفسها." : "تم رفع ونشر البانر وصورة الحملة، وسيظهر بالويب والأندرويد.");
+      setFile(null); setBadge(""); setBannerTitle(""); setBannerDescription(""); await load();
+    }
     setBusy(false);
   };
   const toggle = async (row: Banner) => {
