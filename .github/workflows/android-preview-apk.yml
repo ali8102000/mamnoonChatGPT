@@ -18,7 +18,6 @@ concurrency:
 
 jobs:
   build-preview-apk:
-    # Build a fresh preview for main pushes, pull requests, and manual runs.
     name: Build standalone Android preview APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -32,22 +31,17 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: "26"
-
-
       - name: Set up Java for Android Gradle
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
       - name: Install locked app dependencies
         run: bun install
-
       - name: Generate standalone Android release APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -60,7 +54,6 @@ jobs:
           fi
           bunx eas-cli@latest env:exec production 'node scripts/validate-production-env.mjs && bunx expo prebuild --platform android --no-install && cd android && ./gradlew assembleRelease'
           test -s android/app/build/outputs/apk/release/app-release.apk
-
       - name: Ensure Android build tools are available
         shell: bash
         run: |
@@ -68,7 +61,6 @@ jobs:
           if [ ! -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" ]; then
             yes | sdkmanager "build-tools;35.0.0"
           fi
-
       - name: Verify APK signature, manifest, and alignment
         id: verify-apk
         shell: bash
@@ -80,13 +72,12 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
           "$BUILD_TOOLS/zipalign" -c -v 4 "$APK"
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
-          printf '%s\n' "$BADGING"
+          printf '%s\\n' "$BADGING"
           grep -Eq "^package: name='com\\.mamnoon\\.app'([ ,]|$)" <<< "$BADGING"
           grep -Fq "sdkVersion:'24'" <<< "$BADGING"
           grep -Fq "targetSdkVersion:'35'" <<< "$BADGING"
           grep -Eq "^application-label(:[a-z]{2,3})?:'.+'" <<< "$BADGING"
           grep -Fq "ممنون" <<< "$BADGING"
-
       - name: Upload standalone preview APK
         if: always() && steps.verify-apk.outcome == 'success'
         uses: actions/upload-artifact@v4
@@ -95,12 +86,9 @@ jobs:
           path: expo-app/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 7
-
-      - name: Install and launch APK on Android 15 emulator
+      - name: Install, launch, and inspect startup on Android 15 emulator
         uses: reactivecircus/android-emulator-runner@v2
         env:
-          # GitHub-hosted Linux runners may not expose KVM. The emulator
-          # otherwise exits immediately when acceleration is disabled.
           ANDROID_I_WANT_MY_TCG: "yes"
         with:
           api-level: 35
@@ -109,8 +97,18 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
+            set -euo pipefail
             adb install -r expo-app/android/app/build/outputs/apk/release/app-release.apk
             adb shell monkey -p com.mamnoon.app 1
-            sleep 25
-            adb shell pidof com.mamnoon.app || (adb logcat -d -t 500 && exit 1)
-
+            sleep 30
+            if ! adb shell pidof com.mamnoon.app >/dev/null; then
+              adb logcat -d -t 1000
+              echo "::error::Mamnoon process exited during startup."
+              exit 1
+            fi
+            adb logcat -d -t 3000 > /tmp/mamnoon-startup-log.txt
+            if grep -E -i "app-boundary.*Unhandled render error|Unhandled render error.*app-boundary" /tmp/mamnoon-startup-log.txt; then
+              echo "::error::Mamnoon displayed its root React error boundary during startup."
+              exit 1
+            fi
+            echo "App process remained alive and no root React error-boundary event was logged."
