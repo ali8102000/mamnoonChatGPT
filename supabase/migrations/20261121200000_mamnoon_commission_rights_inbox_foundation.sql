@@ -40,8 +40,10 @@ CREATE TABLE IF NOT EXISTS public.mamnoon_commission_policies (
   )
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS mamnoon_commission_policies_scope_unique
-  ON public.mamnoon_commission_policies(scope_type, COALESCE(scope_key, ''));
+DROP INDEX IF EXISTS public.mamnoon_commission_policies_scope_unique;
+CREATE UNIQUE INDEX mamnoon_commission_policies_scope_unique
+  ON public.mamnoon_commission_policies(scope_type, COALESCE(scope_key, ''))
+  WHERE is_enabled = true;
 
 CREATE TABLE IF NOT EXISTS public.mamnoon_user_fee_overrides (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -819,3 +821,105 @@ BEGIN
   END IF;
 END;
 $schedule$;
+
+-- Signup-based trials are snapshotted by account role. Turning an offer off closes
+-- its policy window for future signups but never shortens already granted trials.
+CREATE OR REPLACE FUNCTION public.grant_mamnoon_signup_trial_for_role(
+  p_user_id uuid,
+  p_role text
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_signup_at timestamptz;
+  v_governorate text;
+  v_policy public.mamnoon_commission_policies%ROWTYPE;
+BEGIN
+  IF p_role NOT IN ('driver','large_driver','worker') THEN RETURN; END IF;
+
+  SELECT created_at INTO v_signup_at FROM auth.users WHERE id = p_user_id;
+  IF v_signup_at IS NULL THEN RETURN; END IF;
+  SELECT governorate_key INTO v_governorate FROM public.profiles WHERE id = p_user_id;
+
+  SELECT * INTO v_policy
+  FROM public.mamnoon_commission_policies p
+  WHERE p.free_trial_enabled = true
+    AND p.new_users_only = true
+    AND p.free_trial_days > 0
+    AND COALESCE(p.starts_at, p.created_at) <= v_signup_at
+    AND (p.ends_at IS NULL OR p.ends_at > v_signup_at)
+    AND (
+      (p.scope_type = 'governorate_role' AND p.scope_key = COALESCE(v_governorate,'') || ':' || p_role)
+      OR (p.scope_type = 'governorate' AND p.scope_key = v_governorate)
+      OR (p.scope_type = 'role' AND p.scope_key = p_role)
+      OR (p.scope_type = 'global' AND p.scope_key IS NULL)
+    )
+  ORDER BY CASE p.scope_type
+    WHEN 'governorate_role' THEN 1
+    WHEN 'governorate' THEN 2
+    WHEN 'role' THEN 3
+    ELSE 4
+  END
+  LIMIT 1;
+
+  IF NOT FOUND THEN RETURN; END IF;
+
+  INSERT INTO public.mamnoon_user_trial_entitlements(
+    user_id, account_role, policy_id, starts_at, ends_at, source
+  ) VALUES (
+    p_user_id, p_role, v_policy.id, v_signup_at,
+    v_signup_at + make_interval(days => v_policy.free_trial_days), 'signup'
+  )
+  ON CONFLICT (user_id, account_role) DO NOTHING;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.trigger_mamnoon_signup_trial_from_role()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  PERFORM public.grant_mamnoon_signup_trial_for_role(NEW.user_id, NEW.role::text);
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS mamnoon_signup_trial_after_role_insert ON public.user_roles;
+CREATE TRIGGER mamnoon_signup_trial_after_role_insert
+AFTER INSERT ON public.user_roles
+FOR EACH ROW EXECUTE FUNCTION public.trigger_mamnoon_signup_trial_from_role();
+
+CREATE OR REPLACE FUNCTION public.trigger_mamnoon_signup_trial_from_profile()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_role text;
+BEGIN
+  IF NEW.governorate_key IS DISTINCT FROM OLD.governorate_key THEN
+    FOR v_role IN
+      SELECT role::text FROM public.user_roles
+      WHERE user_id = NEW.id AND role::text IN ('driver','large_driver','worker')
+    LOOP
+      PERFORM public.grant_mamnoon_signup_trial_for_role(NEW.id, v_role);
+    END LOOP;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS mamnoon_signup_trial_after_governorate_update ON public.profiles;
+CREATE TRIGGER mamnoon_signup_trial_after_governorate_update
+AFTER UPDATE OF governorate_key ON public.profiles
+FOR EACH ROW EXECUTE FUNCTION public.trigger_mamnoon_signup_trial_from_profile();
+
+REVOKE ALL ON FUNCTION public.grant_mamnoon_signup_trial_for_role(uuid,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.trigger_mamnoon_signup_trial_from_role() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.trigger_mamnoon_signup_trial_from_profile() FROM PUBLIC, anon, authenticated;
