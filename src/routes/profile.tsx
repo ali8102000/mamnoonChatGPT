@@ -253,6 +253,11 @@ function ProfilePage() {
               {(profile?.full_name || "؟").charAt(0)}
             </div>
           )}
+        {referralSummary && (
+          <button type="button" onClick={() => void shareReferralLink()} title={`مشاركة رابط الإحالة · التسجيلات الناجحة: ${referralSummary.successful_signups}`} className="mx-auto mt-1 mb-1 inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/30 px-2 py-0.5 text-[9px] font-medium text-muted-foreground opacity-75 hover:opacity-100">
+            <span>رابط الدعوة</span><span dir="ltr" className="font-semibold">{referralSummary.referral_code}</span><span>↗</span>
+          </button>
+        )}
           {!isProvider && <>
             <input
               ref={avatarInputRef}
@@ -280,11 +285,7 @@ function ProfilePage() {
           <div className="text-xs text-muted-foreground mt-1" dir="ltr">
             {profile?.phone}
           </div>
-        {referralSummary && (
-          <button type="button" onClick={() => void shareReferralLink()} title={`مشاركة رابط الإحالة · التسجيلات الناجحة: ${referralSummary.successful_signups}`} className="mx-auto mt-1 mb-1 inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/30 px-2 py-0.5 text-[9px] font-medium text-muted-foreground opacity-75 hover:opacity-100">
-            <span>رابط الدعوة</span><span dir="ltr" className="font-semibold">{referralSummary.referral_code}</span><span>↗</span>
-          </button>
-        )}
+
 
           <div className="flex justify-center gap-1.5 mt-3 flex-wrap">
             {roles.map((r) => (
