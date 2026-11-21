@@ -1254,8 +1254,15 @@ function NewRequest() {
               disabled={busy || !pickupCoords || (vehicle !== "large" && (!destCoords || routeKm === null || !!routeError))}
               onClick={() => void submit()}
               className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-black text-base shadow-xl btn-press disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{
+                backgroundColor: uiVisuals.request_primary_cta?.background_color || undefined,
+                color: uiVisuals.request_primary_cta?.title_color || undefined,
+                borderRadius: Number(uiVisuals.request_primary_cta?.border_radius_px) || undefined,
+                padding: Number(uiVisuals.request_primary_cta?.card_padding_px) || undefined,
+                transform: `scale(${Math.max(.6, Math.min(1.6, Number(uiVisuals.request_primary_cta?.element_scale) || 1))})`,
+              }}
             >
-              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>{vehicle === "large" ? "إرسال الطلب" : "اطلب الآن"}</span>}
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>{uiVisuals.request_primary_cta?.title || (vehicle === "large" ? "إرسال الطلب" : "اطلب الآن")}</span>}
             </button>
           </div>
         )}
