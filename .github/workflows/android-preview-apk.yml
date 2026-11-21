@@ -97,18 +97,10 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
             adb install -r expo-app/android/app/build/outputs/apk/release/app-release.apk
             adb shell monkey -p com.mamnoon.app 1
             sleep 30
-            if ! adb shell pidof com.mamnoon.app >/dev/null; then
-              adb logcat -d -t 1000
-              echo "::error::Mamnoon process exited during startup."
-              exit 1
-            fi
+            adb shell pidof com.mamnoon.app >/dev/null || (adb logcat -d -t 1000; echo "Mamnoon process exited during startup."; exit 1)
             adb logcat -d -t 3000 > /tmp/mamnoon-startup-log.txt
-            if grep -E -i "app-boundary.*Unhandled render error|Unhandled render error.*app-boundary" /tmp/mamnoon-startup-log.txt; then
-              echo "::error::Mamnoon displayed its root React error boundary during startup."
-              exit 1
-            fi
+            ! grep -E -i "app-boundary.*Unhandled render error|Unhandled render error.*app-boundary" /tmp/mamnoon-startup-log.txt || (echo "Mamnoon displayed its root React error boundary during startup."; exit 1)
             echo "App process remained alive and no root React error-boundary event was logged."
