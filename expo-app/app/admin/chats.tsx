@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
 
-type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved";
+type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
 type Conversation = {
   id: string; user_id: string; subject: string; status: string; created_at: string; updated_at: string;
   priority_tier: number; ai_status: string; ticket_status: string; needs_admin_reply: boolean;
@@ -23,7 +23,7 @@ type Message = {
 const filters: { key: Filter; label: string }[] = [
   { key: "all", label: "الكل" }, { key: "needs_reply", label: "تحتاج رد" },
   { key: "unread", label: "جديدة" }, { key: "bot", label: "البوت" },
-  { key: "human", label: "الدعم المباشر" }, { key: "resolved", label: "محلولة" },
+  { key: "human", label: "الدعم المباشر" }, { key: "resolved", label: "محلولة" }, { key: "customer", label: "الزبائن" },\n  { key: "technician", label: "الفنيون" }, { key: "driver", label: "التكسي" },\n  { key: "restaurant", label: "المطاعم" }, { key: "hotel", label: "الفنادق" }, { key: "store", label: "المتاجر" },
 ];
 const categoryLabel: Record<string, string> = {
   customer: "زبون", technician: "فني", driver: "صاحب تكسي",
