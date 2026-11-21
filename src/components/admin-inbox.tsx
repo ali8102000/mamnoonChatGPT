@@ -6,9 +6,9 @@ import { MessageSquare, Search, Send, RefreshCw, Bot, UserRound, Headset, CheckC
 
 type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
 type Conversation = {
-  id: string; user_id: string; subject: string; updated_at: string; last_message_at: string | null;
+  id: string; user_id: string; subject: string; updated_at: string; last_message_at: string | null; conversation_type?: "support" | "service"; request_id?: string; request_type?: string;
   needs_admin_reply: boolean; handoff_status: string; last_message_source: string; ticket_status: string;
-  account_category: string; profile: { full_name: string | null; phone: string | null; email: string | null } | null;
+  account_category: string; profile: { id?: string; full_name: string | null; phone: string | null; email: string | null } | null; provider_profile?: { id: string; full_name: string | null; phone: string | null } | null;
   latest_message: Message | null;
 };
 type Message = { id: string; conversation_id: string; sender_id: string; body: string; created_at: string; is_ai: boolean; read_at?: string | null; sender?: { full_name?: string | null } | null };
@@ -49,7 +49,7 @@ export default function AdminInbox() {
   }, [filter, invoke, remoteSearch]);
 
   const loadMessages = useCallback(async (id: string) => {
-    const result = await invoke({ action: "messages", conversation_id: id });
+    const result = await invoke({ action: "messages", conversation_id: id, conversation_type: selected?.conversation_type ?? "support" });
     setMessages(result.messages ?? []);
   }, [invoke]);
 
@@ -81,7 +81,7 @@ export default function AdminInbox() {
     if (!selectedId || !draft.trim() || busy) return;
     setBusy(true); setError("");
     try {
-      await invoke({ action: "reply", conversation_id: selectedId, message: draft.trim() });
+      await invoke({ action: "reply", conversation_id: selectedId, conversation_type: selected?.conversation_type ?? "support", message: draft.trim() });
       setDraft("");
       await Promise.all([load(), loadMessages(selectedId)]);
     } catch (e: any) { setError(String(e?.message || "تعذر إرسال الرد")); }
@@ -116,9 +116,9 @@ export default function AdminInbox() {
         <div className="flex flex-wrap gap-1.5 mb-3">{filters.map(f=><button key={f.key} onClick={()=>setFilter(f.key)} className={`rounded-full px-3 py-1.5 text-[10px] font-bold ${filter===f.key?"bg-primary text-primary-foreground":"bg-muted text-muted-foreground"}`}>{f.label}</button>)}</div>
         <div className="space-y-2 overflow-y-auto flex-1">
           {loading ? <p className="text-center text-xs text-muted-foreground p-6">جارٍ تحميل المحادثات...</p> : filtered.length===0 ? <p className="text-center text-xs text-muted-foreground p-6">ماكو محادثات بهذا التصنيف</p> : filtered.map(item=><button key={item.id} onClick={()=>setSelectedId(item.id)} className={`w-full rounded-xl border p-3 text-right transition ${selectedId===item.id?"border-primary bg-primary/5":"border-border bg-card hover:bg-muted/40"}`}>
-            <div className="flex justify-between items-center gap-2"><span className="font-black text-xs truncate">{item.profile?.full_name || item.profile?.phone || "مستخدم ممنون"}</span><span className="text-[9px] text-muted-foreground">{item.last_message_at?new Date(item.last_message_at).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"}):""}</span></div>
+            <div className="flex justify-between items-center gap-2"><span className="font-black text-xs truncate">{item.conversation_type === "service" ? `${item.profile?.full_name || "الزبون"} ↔ ${item.provider_profile?.full_name || "منفّذ الخدمة"}` : item.profile?.full_name || item.profile?.phone || "مستخدم ممنون"}</span><span className="text-[9px] text-muted-foreground">{item.last_message_at?new Date(item.last_message_at).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"}):""}</span></div>
             <div className="flex flex-wrap gap-1.5 mt-2 justify-start">
-              <span className="rounded-md bg-muted px-2 py-1 text-[9px]">{categories[item.account_category]||"مستخدم"}</span>
+              <span className="rounded-md bg-muted px-2 py-1 text-[9px]">{item.conversation_type === "service" ? "محادثة طلب" : categories[item.account_category]||"مستخدم"}</span>
               <span className="rounded-md bg-muted px-2 py-1 text-[9px]">{item.last_message_source==="bot"?"البوت":item.last_message_source==="admin"?"الإدارة":"المستخدم"}</span>
               {item.needs_admin_reply&&<span className="rounded-md bg-orange-100 text-orange-800 px-2 py-1 text-[9px] font-black">تحتاج رد</span>}
             </div>
@@ -132,10 +132,10 @@ export default function AdminInbox() {
             <div><h3 className="font-black text-sm">{selected.profile?.full_name || selected.profile?.phone || "مستخدم ممنون"}</h3><p className="text-[10px] text-muted-foreground">{categories[selected.account_category]||"مستخدم"} · {selected.profile?.phone || selected.profile?.email || ""}</p></div>
             <div className="flex gap-1.5"><button disabled={busy} onClick={()=>void runAction("handoff")} className="rounded-lg border border-border px-3 py-2 text-[10px] font-bold"><Headset className="inline h-3.5 w-3.5 ml-1"/> تحويل للدعم</button><button disabled={busy} onClick={()=>void runAction("resolve")} className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-[10px] font-bold"><CheckCircle2 className="inline h-3.5 w-3.5 ml-1"/> إنهاء</button></div>
           </header>
-          {selected.needs_admin_reply&&<div className="mt-3 rounded-lg bg-orange-100 text-orange-900 px-3 py-2 text-xs font-black"><AlertCircle className="inline h-4 w-4 ml-1"/> هذه المحادثة تحتاج رد الإدارة</div>}
+          {selected.conversation_type !== "service" && selected.needs_admin_reply&&<div className="mt-3 rounded-lg bg-orange-100 text-orange-900 px-3 py-2 text-xs font-black"><AlertCircle className="inline h-4 w-4 ml-1"/> هذه المحادثة تحتاج رد الإدارة</div>}
           <div className="flex-1 overflow-y-auto py-3 space-y-2 min-h-[300px]">
             {messages.map(m=><div key={m.id} className={`max-w-[85%] rounded-2xl p-3 ${m.is_ai?"ml-auto bg-violet-100 text-violet-950":m.sender_id===session?.user.id?"mr-auto bg-primary/10":"ml-auto bg-muted"}`}>
-              <div className="text-[9px] font-black mb-1 flex items-center gap-1">{m.is_ai?<><Bot className="h-3 w-3"/> مساعد ممنون</>:m.sender_id===session?.user.id?<><Headset className="h-3 w-3"/> الإدارة</>:<><UserRound className="h-3 w-3"/> المستخدم</>}</div>
+              <div className="text-[9px] font-black mb-1 flex items-center gap-1">{m.is_ai?<><Bot className="h-3 w-3"/> مساعد ممنون</>:m.sender_id===session?.user.id?<><Headset className="h-3 w-3"/> الإدارة</>:selected.conversation_type === "service" && m.sender_id === selected.provider_profile?.id?<><UserRound className="h-3 w-3"/> منفّذ الخدمة</>:selected.conversation_type === "service"?<><UserRound className="h-3 w-3"/> الزبون</>:<><UserRound className="h-3 w-3"/> المستخدم</>}</div>
               <p className="text-xs whitespace-pre-wrap break-words">{m.body}</p><p className="text-[9px] opacity-60 mt-1">{new Date(m.created_at).toLocaleString("ar-IQ")}</p>
             </div>)}
           </div>
