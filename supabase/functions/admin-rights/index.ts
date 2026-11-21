@@ -113,7 +113,10 @@ Deno.serve(async (req: Request) => {
       const ids = [...new Set((overrides.data ?? []).map((r:any)=>r.user_id).concat((revenue.data ?? []).map((r:any)=>r.user_id)))];
       const { data: profiles } = ids.length ? await admin.from("profiles").select("id,full_name,phone").in("id",ids) : { data: [] };
       const byId = new Map((profiles ?? []).map((p:any)=>[p.id,p]));
+      const { data: summary, error: summaryError } = await caller.rpc("admin_get_revenue_summary");
+      if (summaryError) return json({ error: "revenue_summary_load_failed" }, 500);
       return json({
+        summary: summary ?? {},
         policies: policies.data ?? [],
         overrides: (overrides.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null})),
         revenue: (revenue.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null})),
