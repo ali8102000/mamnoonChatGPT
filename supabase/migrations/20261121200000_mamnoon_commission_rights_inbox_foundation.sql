@@ -846,7 +846,16 @@ BEGIN
 
   SELECT created_at INTO v_signup_at FROM auth.users WHERE id = p_user_id;
   IF v_signup_at IS NULL THEN RETURN; END IF;
-  SELECT governorate_key INTO v_governorate FROM public.profiles WHERE id = p_user_id;
+  IF p_role IN ('restaurant','hotel','store') THEN
+    SELECT governorate_key INTO v_governorate
+    FROM public.partner_business_profiles
+    WHERE user_id=p_user_id
+    ORDER BY created_at DESC
+    LIMIT 1;
+  END IF;
+  IF v_governorate IS NULL THEN
+    SELECT governorate_key INTO v_governorate FROM public.profiles WHERE id = p_user_id;
+  END IF;
 
   SELECT * INTO v_policy
   FROM public.mamnoon_commission_policies p
