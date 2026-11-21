@@ -842,7 +842,7 @@ DECLARE
   v_governorate text;
   v_policy public.mamnoon_commission_policies%ROWTYPE;
 BEGIN
-  IF p_role NOT IN ('driver','large_driver','worker') THEN RETURN; END IF;
+  IF p_role NOT IN ('driver','large_driver','worker','restaurant','hotel','store') THEN RETURN; END IF;
 
   SELECT created_at INTO v_signup_at FROM auth.users WHERE id = p_user_id;
   IF v_signup_at IS NULL THEN RETURN; END IF;
@@ -1195,3 +1195,150 @@ REVOKE ALL ON FUNCTION public.admin_save_commission_policy(text,text,numeric,num
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_save_commission_policy(text,text,numeric,numeric,text,boolean,integer,boolean,boolean,timestamptz,timestamptz)
   TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.charge_mamnoon_partner_order_commission(
+  p_order_id uuid
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_order public.partner_customer_orders%ROWTYPE;
+  v_partner public.partner_business_profiles%ROWTYPE;
+  v_role text;
+  v_governorate text;
+  v_rate numeric(7,4) := 0;
+  v_charge_percent numeric(7,4) := 100;
+  v_override numeric(7,4);
+  v_policy public.mamnoon_commission_policies%ROWTYPE;
+  v_commission bigint := 0;
+  v_balance bigint := 0;
+  v_next_balance bigint := 0;
+  v_key text;
+BEGIN
+  SELECT * INTO v_order FROM public.partner_customer_orders WHERE id=p_order_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'partner_order_not_found'; END IF;
+  SELECT * INTO v_partner FROM public.partner_business_profiles WHERE id=v_order.business_profile_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'partner_profile_not_found'; END IF;
+
+  v_role := CASE
+    WHEN lower(COALESCE(v_partner.partner_type,v_partner.business_vertical,'')) LIKE '%restaurant%'
+      OR lower(COALESCE(v_partner.partner_type,v_partner.business_vertical,'')) LIKE '%food%' THEN 'restaurant'
+    WHEN lower(COALESCE(v_partner.partner_type,v_partner.business_vertical,'')) LIKE '%hotel%'
+      OR lower(COALESCE(v_partner.partner_type,v_partner.business_vertical,'')) LIKE '%hospitality%' THEN 'hotel'
+    ELSE 'store'
+  END;
+  v_governorate := COALESCE(v_partner.governorate_key,
+    (SELECT governorate_key FROM public.profiles WHERE id=v_partner.user_id));
+
+  SELECT * INTO v_policy
+  FROM public.mamnoon_commission_policies p
+  WHERE p.is_enabled=true AND p.collection_event='order_acceptance'
+    AND (p.starts_at IS NULL OR p.starts_at<=now())
+    AND (p.ends_at IS NULL OR p.ends_at>now())
+    AND (
+      (p.scope_type='governorate_role' AND p.scope_key=COALESCE(v_governorate,'')||':'||v_role)
+      OR (p.scope_type='governorate' AND p.scope_key=v_governorate)
+      OR (p.scope_type='role' AND p.scope_key=v_role)
+      OR (p.scope_type='global' AND p.scope_key IS NULL)
+    )
+  ORDER BY CASE p.scope_type WHEN 'governorate_role' THEN 1 WHEN 'governorate' THEN 2 WHEN 'role' THEN 3 ELSE 4 END
+  LIMIT 1;
+  IF NOT FOUND THEN RETURN 0; END IF;
+
+  v_rate := v_policy.commission_rate_percent;
+  v_charge_percent := v_policy.commission_charge_percent;
+  SELECT commission_charge_percent INTO v_override
+  FROM public.mamnoon_user_fee_overrides
+  WHERE user_id=v_partner.user_id AND revoked_at IS NULL
+    AND starts_at<=now() AND (ends_at IS NULL OR ends_at>now())
+  ORDER BY starts_at DESC,created_at DESC LIMIT 1;
+  IF FOUND THEN v_charge_percent := v_override; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.mamnoon_user_trial_entitlements
+    WHERE user_id=v_partner.user_id AND account_role=v_role
+      AND starts_at<=now() AND ends_at>now()
+  ) THEN v_charge_percent := 0; END IF;
+
+  v_commission := round(COALESCE(v_order.partner_total,0)::numeric*v_rate/100*v_charge_percent/100)::bigint;
+  IF v_commission<=0 THEN RETURN 0; END IF;
+  v_key := 'mamnoon-order-commission:'||p_order_id::text||':'||v_partner.user_id::text;
+
+  IF EXISTS (SELECT 1 FROM public.account_wallet_transactions WHERE idempotency_key=v_key) THEN
+    RETURN abs((SELECT amount_iqd FROM public.account_wallet_transactions WHERE idempotency_key=v_key));
+  END IF;
+
+  INSERT INTO public.account_wallets(user_id) VALUES(v_partner.user_id) ON CONFLICT(user_id) DO NOTHING;
+  SELECT balance_iqd INTO v_balance FROM public.account_wallets WHERE user_id=v_partner.user_id FOR UPDATE;
+  v_next_balance := v_balance-v_commission;
+  IF v_next_balance < -5000 THEN RAISE EXCEPTION 'wallet_debt_limit_exceeded'; END IF;
+
+  INSERT INTO public.account_wallet_transactions(
+    user_id,transaction_type,amount_iqd,balance_after_iqd,provider,provider_reference,idempotency_key,description,metadata
+  ) VALUES(
+    v_partner.user_id,'deduction',-v_commission,v_next_balance,'mamnoon',p_order_id::text,v_key,
+    'عمولة ممنون عند قبول طلب الشريك',
+    jsonb_build_object('order_id',p_order_id,'business_profile_id',v_partner.id,'commission_rate_percent',v_rate,'commission_charge_percent',v_charge_percent)
+  );
+  UPDATE public.account_wallets SET balance_iqd=v_next_balance,updated_at=now() WHERE user_id=v_partner.user_id;
+  INSERT INTO public.mamnoon_revenue_ledger(
+    user_id,revenue_type,assessed_iqd,collected_iqd,status,idempotency_key,metadata
+  ) VALUES(
+    v_partner.user_id,'order_commission',v_commission,0,'accrued',v_key,
+    jsonb_build_object('order_id',p_order_id,'base_amount_iqd',v_order.partner_total,'commission_rate_percent',v_rate,'commission_charge_percent',v_charge_percent)
+  ) ON CONFLICT(idempotency_key) DO NOTHING;
+  RETURN v_commission;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.charge_mamnoon_partner_order_commission(uuid) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.charge_commission_on_partner_order_acceptance()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  IF OLD.status='pending' AND NEW.status='accepted' THEN
+    PERFORM public.charge_mamnoon_partner_order_commission(NEW.id);
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS charge_commission_on_partner_order_acceptance ON public.partner_customer_orders;
+CREATE TRIGGER charge_commission_on_partner_order_acceptance
+BEFORE UPDATE OF status ON public.partner_customer_orders
+FOR EACH ROW EXECUTE FUNCTION public.charge_commission_on_partner_order_acceptance();
+REVOKE ALL ON FUNCTION public.charge_commission_on_partner_order_acceptance() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.trigger_mamnoon_signup_trial_from_partner()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_role text;
+BEGIN
+  v_role := CASE
+    WHEN lower(COALESCE(NEW.partner_type,NEW.business_vertical,'')) LIKE '%restaurant%'
+      OR lower(COALESCE(NEW.partner_type,NEW.business_vertical,'')) LIKE '%food%' THEN 'restaurant'
+    WHEN lower(COALESCE(NEW.partner_type,NEW.business_vertical,'')) LIKE '%hotel%'
+      OR lower(COALESCE(NEW.partner_type,NEW.business_vertical,'')) LIKE '%hospitality%' THEN 'hotel'
+    ELSE 'store'
+  END;
+  PERFORM public.grant_mamnoon_signup_trial_for_role(NEW.user_id,v_role);
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS mamnoon_signup_trial_after_partner_profile ON public.partner_business_profiles;
+CREATE TRIGGER mamnoon_signup_trial_after_partner_profile
+AFTER INSERT OR UPDATE OF partner_type,business_vertical,governorate_key
+ON public.partner_business_profiles
+FOR EACH ROW EXECUTE FUNCTION public.trigger_mamnoon_signup_trial_from_partner();
+REVOKE ALL ON FUNCTION public.trigger_mamnoon_signup_trial_from_partner() FROM PUBLIC, anon, authenticated;
