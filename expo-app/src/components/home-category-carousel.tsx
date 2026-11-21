@@ -56,10 +56,10 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth, plac
   const slides = useMemo(() => banners.length ? banners.map((item) => ({
     id: item.id, image_url: item.image_url, category: item.target_category,
     banner_type: item.banner_type || "category", target_campaign_id: item.target_campaign_id || null,
-    title: item.banner_title || (item.target_category === "restaurant" ? "المطاعم" : item.target_category === "hotel" ? "الفنادق" : "المتاجر"),
+    title: item.banner_title || (item.banner_type === "poll" ? "استطلاع رأي" : item.banner_type === "contest" ? "مسابقة" : item.banner_type === "ad" ? "إعلان" : item.target_category === "restaurant" ? "المطاعم" : item.target_category === "hotel" ? "الفنادق" : "المتاجر"),
     subtitle: item.banner_description || "اكتشف الأماكن والخدمات القريبة",
     scroll_speed: item.scroll_speed, motion_direction: item.motion_direction || "left", motion_style: item.motion_style || "slide",
-  })) : fallbackSlides.map((item) => ({ ...item, scroll_speed: 5, motion_direction: "left" as const, motion_style: "slide" as const })), [banners]);
+  })) : placement === "top_panorama" ? fallbackSlides.map((item) => ({ ...item, banner_type: "category" as const, target_campaign_id: null, scroll_speed: 5, motion_direction: "left" as const, motion_style: "slide" as const })) : [], [banners, placement]);
   slideCount.current = slides.length;
   const current = slides[index % Math.max(1, slides.length)];
 
