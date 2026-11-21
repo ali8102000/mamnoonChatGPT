@@ -1537,3 +1537,206 @@ BEGIN
 END;
 $function$;
 REVOKE ALL ON FUNCTION public.mamnoon_provider_subscription_active_internal(uuid) FROM PUBLIC, anon, authenticated;
+
+-- Retire legacy subscription RPCs without deleting historical subscription data.
+CREATE OR REPLACE FUNCTION public.get_user_subscription(_user_id uuid)
+RETURNS TABLE(
+  plan_code text, plan_name_ar text, tier integer, max_requests_per_month integer,
+  priority_weight integer, offer_priority integer, badge_label text, badge_color text,
+  show_stats boolean, priority_support boolean, status text,
+  current_period_end timestamptz, request_count integer, auto_renew boolean,
+  subscription_enabled boolean
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT 'commission'::text, 'حسب نظام عمولات ممنون'::text, 0, 2147483647,
+    0, 0, NULL::text, NULL::text, true, false, 'active'::text,
+    NULL::timestamptz, 0, false, false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.has_subscription_admin_access(p_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_grant_subscription(p_user_id uuid,p_plan_code text,p_duration text)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  RAISE EXCEPTION 'subscriptions_retired';
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_grant_subscriptions_bulk(p_user_ids uuid[],p_plan_code text,p_duration text)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  RAISE EXCEPTION 'subscriptions_retired';
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_extend_subscription(p_user_id uuid,p_days integer)
+RETURNS timestamptz
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  RAISE EXCEPTION 'subscriptions_retired';
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_cancel_free_subscription(p_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_pause_all_subscriptions()
+RETURNS integer
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT 0;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_set_subscription_status(p_user_id uuid,p_status text)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.cancel_own_subscription_at_period_end()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.pause_own_subscription()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.restore_own_subscription_continuation()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.resume_own_subscription()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.finalize_qicard_subscription_payment(
+  p_merchant_request_id uuid,p_gateway_payment_id text,p_confirmed_amount integer,
+  p_currency text,p_gateway_status text,p_gateway_payload jsonb
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.handle_expired_subscriptions()
+RETURNS integer
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT 0;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_subscription_stats()
+RETURNS TABLE(total_subscribers bigint,active_subscriptions bigint,expired_subscriptions bigint,monthly_revenue bigint,yearly_revenue bigint,free_count bigint,silver_count bigint,gold_count bigint)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT 0::bigint,0::bigint,0::bigint,0::bigint,0::bigint,0::bigint,0::bigint,0::bigint;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_subscription_stats_v2()
+RETURNS TABLE(total_subscribers bigint,active_subscriptions bigint,expired_subscriptions bigint,monthly_revenue bigint,yearly_revenue bigint,free_count bigint,bronze_count bigint,silver_count bigint,gold_count bigint,trial_count bigint)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT 0::bigint,0::bigint,0::bigint,0::bigint,0::bigint,0::bigint,0::bigint,0::bigint,0::bigint,0::bigint;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.guard_trial_subscription_upgrade()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  RAISE EXCEPTION 'subscriptions_retired';
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.sync_support_priority_after_subscription_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.admin_grant_subscription(uuid,text,text) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.admin_grant_subscriptions_bulk(uuid[],text,text) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.admin_extend_subscription(uuid,integer) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.admin_cancel_free_subscription(uuid) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.admin_pause_all_subscriptions() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.admin_set_subscription_status(uuid,text) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.cancel_own_subscription_at_period_end() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.pause_own_subscription() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.restore_own_subscription_continuation() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.resume_own_subscription() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.finalize_qicard_subscription_payment(uuid,text,integer,text,text,jsonb) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.handle_expired_subscriptions() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.admin_grant_subscription(uuid,text,text) FROM PUBLIC,anon,authenticated;
+REVOKE INSERT,UPDATE,DELETE ON public.user_subscriptions FROM anon,authenticated;
