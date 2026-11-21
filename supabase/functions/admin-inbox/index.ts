@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "list") {
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(100, body.limit)) : 50;
-      const filter = ["all", "needs_reply", "unread", "bot", "human", "resolved", "customer", "technician", "driver", "restaurant", "hotel", "store"].includes(body.filter) ? body.filter : "all";
+      const filter = ["all", "needs_reply", "unread", "bot", "human", "resolved", "complaints", "customer", "technician", "driver", "restaurant", "hotel", "store"].includes(body.filter) ? body.filter : "all";
       const searchTerm = typeof body.search === "string" ? body.search.trim().slice(0, 100) : "";
       let matchedIds: string[] | null = null;
       if (searchTerm.length >= 2) {
@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
       if (supportError || chatError) return json({ error: "inbox_load_failed" }, 500);
 
       const requestIds = [...new Set((chatRows ?? []).map((c: any) => c.request_id).filter(Boolean))];
-      const [{ data: supportMessages }, { data: serviceMessages }, { data: requests }] = await Promise.all([
+      const [{ data: supportMessages }, { data: serviceMessages }, { data: requests }, { data: reports }] = await Promise.all([
         (supportRows ?? []).length
           ? admin.from("support_messages").select("id,conversation_id,sender_id,body,created_at,is_ai,ai_reply_to,read_at").in("conversation_id", (supportRows ?? []).map((c: any) => c.id)).order("created_at", { ascending: false })
           : Promise.resolve({ data: [] }),
@@ -89,6 +89,9 @@ Deno.serve(async (req: Request) => {
           : Promise.resolve({ data: [] }),
         requestIds.length
           ? admin.from("service_requests").select("id,type,status,vehicle_category").in("id", requestIds)
+          : Promise.resolve({ data: [] }),
+        requestIds.length
+          ? admin.from("user_reports").select("id,request_id,reporter_id,reported_id,reason,details,status,created_at").in("request_id", requestIds).order("created_at", { ascending: false })
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -106,6 +109,8 @@ Deno.serve(async (req: Request) => {
       for (const row of roles ?? []) rolesById.set(row.user_id, [...(rolesById.get(row.user_id) ?? []), String(row.role)]);
       const partnerById = new Map((partners ?? []).map((p: any) => [p.user_id, String(p.partner_type || p.business_vertical || "")]));
       const requestById = new Map((requests ?? []).map((request: any) => [request.id, request]));
+      const reportsByRequest = new Map<string, any[]>();
+      for (const report of reports ?? []) reportsByRequest.set(report.request_id, [...(reportsByRequest.get(report.request_id) ?? []), report]);
       const categoryFor = (userId: string) => {
         const roleList = rolesById.get(userId) ?? [];
         if (roleList.some(x => ["driver", "large_driver"].includes(x))) return "driver";
@@ -155,6 +160,7 @@ Deno.serve(async (req: Request) => {
           roles: rolesById.get(chat.provider_id) ?? [],
           account_category: request?.type === "taxi" ? "driver" : categoryFor(chat.provider_id || chat.customer_id),
           customer_category: categoryFor(chat.customer_id),
+          complaints: reportsByRequest.get(chat.request_id) ?? [],
           latest_message: latest ? { ...latest, body: latest.content, conversation_id: chat.id } : null,
         };
       }).filter((chat: any) => !matchedIds || matchedIds.includes(chat.user_id) || matchedIds.includes(chat.provider_profile?.id));
@@ -163,6 +169,8 @@ Deno.serve(async (req: Request) => {
       const categoryFilters = ["customer", "technician", "driver", "restaurant", "hotel", "store"];
       if (categoryFilters.includes(filter)) {
         allConversations = allConversations.filter((c: any) => c.account_category === filter || c.customer_category === filter);
+      } else if (filter === "complaints") {
+        allConversations = allConversations.filter((c: any) => c.conversation_type === "service" && (c.complaints?.length ?? 0) > 0);
       } else if (filter === "unread") {
         allConversations = allConversations.filter((c: any) => c.conversation_type === "support" && c.latest_message && !c.latest_message.read_at && c.latest_message.sender_id === c.user_id);
       } else if (filter === "bot") {
