@@ -511,7 +511,7 @@ function QuickTile({
       search={{ type, ...(vehicle ? { vehicle } : {}) } as any}
       onClick={() => playClick("pop")}
       className="glass btn-press shadow-card tap-highlight-none animate-pop-in relative overflow-hidden group"
-      style={{ animationDelay: `${delay}s`, order: vehicle === "large" ? 0 : sortOrder, gridColumn: vehicle === "large" ? "1" : span === 2 ? "1" : "2", width: tileWidth, flexShrink: tileWidth ? 0 : undefined, height: cardHeight, minHeight: cardHeight, borderRadius: radius, padding: cardPadding, backgroundColor: styleConfig.background_color || undefined, translate: `${Number(styleConfig.position_x_px) || 0}px ${Number(styleConfig.position_y_px) || 0}px` }}
+      style={{ animationDelay: `${delay}s`, order: vehicle === "large" ? 0 : sortOrder, gridColumn: vehicle === "large" ? "1" : span === 2 ? "1" : "2", width: tileWidth, flexShrink: tileWidth ? 0 : undefined, height: cardHeight, minHeight: cardHeight, borderRadius: radius, padding: cardPadding, backgroundColor: styleConfig.background_color || undefined, translate: `${Number(styleConfig.position_x_px) || 0}px ${Number(styleConfig.position_y_px) || 0}px`, transform: `scale(${Math.max(0.6, Math.min(1.6, Number(styleConfig.element_scale) || 1))})` }}
     >
       <div
         className={`absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity`}
