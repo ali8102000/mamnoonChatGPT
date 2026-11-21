@@ -5,6 +5,7 @@ import { Wallet, Search, PlusCircle, MinusCircle, ShieldCheck, Settings2, Receip
 
 type User = { id:string; full_name:string|null; phone:string|null; email:string|null; governorate_key:string|null; roles:string[]; partner?:any; balance_iqd:number };
 type Policy = { id:string; scope_type:string; scope_key:string|null; commission_rate_percent:number; commission_charge_percent:number; collection_event:string; free_trial_enabled:boolean; free_trial_days:number; new_users_only:boolean; is_enabled:boolean; starts_at:string|null; ends_at:string|null };
+type Override = { id:string; user_id:string; commission_charge_percent:number; ends_at:string|null; created_at:string; profile?:{full_name?:string|null;phone?:string|null}|null };
 type Revenue = { id:string; user_id:string; revenue_type:string; assessed_iqd:number; collected_iqd:number; waived_iqd:number; status:string; created_at:string; profile?:{full_name?:string|null;phone?:string|null}|null };
 
 const durations = [{value:"1",label:"يوم"},{value:"7",label:"أسبوع"},{value:"30",label:"شهر"},{value:"90",label:"٣ أشهر"},{value:"180",label:"٦ أشهر"},{value:"365",label:"سنة"},{value:"permanent",label:"دائم"}];
@@ -17,7 +18,7 @@ export default function AdminRights() {
   const [query,setQuery]=useState(""); const [users,setUsers]=useState<User[]>([]); const [selected,setSelected]=useState<User|null>(null);
   const [amount,setAmount]=useState(""); const [note,setNote]=useState(""); const [kind,setKind]=useState<"debit"|"credit">("debit");
   const [chargePercent,setChargePercent]=useState("0"); const [duration,setDuration]=useState("30"); const [overrideReason,setOverrideReason]=useState("إعفاء أو تخفيض عمولة بموافقة الإدارة");
-  const [policies,setPolicies]=useState<Policy[]>([]); const [revenue,setRevenue]=useState<Revenue[]>([]);
+  const [policies,setPolicies]=useState<Policy[]>([]); const [overrides,setOverrides]=useState<Override[]>([]); const [revenue,setRevenue]=useState<Revenue[]>([]);
   const [scope,setScope]=useState("global"); const [scopeKey,setScopeKey]=useState("");
   const [commissionRate,setCommissionRate]=useState("0"); const [commissionCharge,setCommissionCharge]=useState("100");
   const [event,setEvent]=useState("taxi_acceptance"); const [trialEnabled,setTrialEnabled]=useState(false); const [trialDays,setTrialDays]=useState("30"); const [newUsersOnly,setNewUsersOnly]=useState(true); const [policyEnabled,setPolicyEnabled]=useState(false);
@@ -32,7 +33,7 @@ export default function AdminRights() {
 
   const load=useCallback(async()=>{
     setLoading(true);setError("");
-    try{const data=await invoke({action:"list"});setPolicies(data.policies??[]);setRevenue(data.revenue??[]);}
+    try{const data=await invoke({action:"list"});setPolicies(data.policies??[]);setOverrides(data.overrides??[]);setRevenue(data.revenue??[]);}
     catch(e:any){setError(String(e?.message||"تعذر تحميل إعدادات الحقوق"));}finally{setLoading(false);}
   },[invoke]);
   useEffect(()=>{if(tab==="policies"||tab==="revenue"||tab==="special") void load();},[tab,load]);
@@ -61,6 +62,12 @@ export default function AdminRights() {
     setBusy(true);
     try{await invoke({action:"save_override",user_id:selected.id,charge_percent:Number(chargePercent),starts_at:new Date().toISOString(),ends_at:end,reason:overrideReason.trim()});toast.success("تم حفظ الميزة الخاصة");await load();}
     catch(e:any){toast.error(String(e?.message||"تعذر حفظ الميزة"));}finally{setBusy(false);}
+  };
+
+  const revokeOverride=async(id:string)=>{
+    if(!confirm("تأكيد إلغاء الميزة الخاصة؟")) return;
+    try{await invoke({action:"revoke_override",override_id:id});toast.success("تم إلغاء الميزة");await load();}
+    catch(e:any){toast.error(String(e?.message||"تعذر إلغاء الميزة"));}
   };
 
   const savePolicy=async()=>{
@@ -99,6 +106,7 @@ export default function AdminRights() {
           <button disabled={busy} onClick={()=>void saveOverride()} className="w-full rounded-xl bg-primary text-primary-foreground p-3 text-xs font-black">حفظ الميزة الخاصة</button>
         </>}
       </div>}
+      {tab==="special"&&<div className="border-t border-border pt-3 space-y-2"><h4 className="font-black text-xs">الإعفاءات والميزات السارية</h4>{overrides.map(o=><div key={o.id} className="rounded-xl bg-card border border-border p-3 flex items-center justify-between gap-2"><div className="min-w-0"><b className="text-xs">{o.profile?.full_name||o.profile?.phone||"مستخدم"}</b><p className="text-[10px] text-muted-foreground">تحصيل {o.commission_charge_percent}% · {o.ends_at?new Date(o.ends_at).toLocaleDateString("ar-IQ"):"دائم"}</p></div><button onClick={()=>void revokeOverride(o.id)} className="rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-[10px] font-bold">إلغاء</button></div>)}{!overrides.length&&<p className="text-[10px] text-muted-foreground">لا توجد ميزات خاصة سارية</p>}</div>}
     </div>}
     {tab==="policies"&&<div className="glass rounded-2xl p-4 space-y-3">
       <div className="flex justify-between items-center"><h3 className="font-black text-sm">سياسة العمولة والتجربة المجانية</h3><button onClick={()=>void load()} className="text-xs text-primary"><RefreshCw className="inline h-3.5 w-3.5 ml-1"/>تحديث</button></div>
