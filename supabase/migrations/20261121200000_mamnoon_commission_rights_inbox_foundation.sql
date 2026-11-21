@@ -1477,22 +1477,7 @@ WHEN (OLD.ai_status IS DISTINCT FROM NEW.ai_status OR OLD.ticket_status IS DISTI
 EXECUTE FUNCTION public.sync_support_handoff_status();
 REVOKE ALL ON FUNCTION public.sync_support_handoff_status() FROM PUBLIC, anon, authenticated;
 
--- Stop the legacy subscription expiry/notification job before dropping its schema.
-DO $retire_subscriptions$
-DECLARE
-  v_job record;
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname='pg_cron') THEN
-    FOR v_job IN
-      SELECT jobid FROM cron.job
-      WHERE jobname ILIKE '%subscription%'
-         OR command ILIKE '%handle_expired_subscriptions%'
-    LOOP
-      PERFORM cron.unschedule(v_job.jobid);
-    END LOOP;
-  END IF;
-END;
-$retire_subscriptions$;
+-- The exact legacy expiry job was already unscheduled by the named-job cleanup above.
 
 CREATE OR REPLACE FUNCTION public.admin_get_revenue_summary()
 RETURNS jsonb
