@@ -79,6 +79,21 @@ function ProfilePage() {
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [referralSummary, setReferralSummary] = useState<{referral_code:string;successful_signups:number}|null>(null);
+  const [showLogout, setShowLogout] = useState(false);
+
+  useEffect(() => {
+    const updateLogoutVisibility = () => {
+      const root = document.documentElement;
+      setShowLogout(window.scrollY + window.innerHeight >= root.scrollHeight - 48);
+    };
+    window.addEventListener("scroll", updateLogoutVisibility, { passive: true });
+    window.addEventListener("resize", updateLogoutVisibility);
+    updateLogoutVisibility();
+    return () => {
+      window.removeEventListener("scroll", updateLogoutVisibility);
+      window.removeEventListener("resize", updateLogoutVisibility);
+    };
+  }, []);
   const [reputation, setReputation] = useState<ReputationData | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [showReviews, setShowReviews] = useState(false);
@@ -448,7 +463,7 @@ function ProfilePage() {
           </Link>
         </div>
         <div className="mt-6 text-center text-[11px] text-muted-foreground">ممنون · v2.0</div>
-      <div className="fixed inset-x-0 bottom-[100px] z-30 px-5 pointer-events-none">
+      {showLogout && <div className="fixed inset-x-0 bottom-[100px] z-30 px-5 pointer-events-none">
         <div className="mx-auto max-w-md pointer-events-auto">
           <button
             type="button"
@@ -462,7 +477,7 @@ function ProfilePage() {
             <span className="flex-1 font-bold text-sm">تسجيل الخروج</span>
           </button>
         </div>
-      </div>
+      </div>}
     </MobileShell>
   );
 }
