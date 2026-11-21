@@ -147,7 +147,7 @@ function PublicPartnerDetailsPage() {
           {!cartCurrency&&<p className="text-xs text-destructive">لا يمكن جمع منتجات بعملات مختلفة في سلة واحدة.</p>}
           <label className="block text-xs font-bold">عنوان التوصيل<input value={deliveryAddress} onChange={e=>setDeliveryAddress(e.target.value)} maxLength={500} placeholder="المحافظة، المنطقة، الشارع، أقرب نقطة دالة" className="input-base mt-1 w-full rounded-xl"/></label>
           <label className="block text-xs font-bold">ملاحظات للمنشأة<textarea value={customerNote} onChange={e=>setCustomerNote(e.target.value)} maxLength={1000} placeholder="ملاحظات إضافية (اختياري)" className="input-base mt-1 min-h-20 w-full rounded-xl"/></label>
-          <button type="button" disabled={checkoutBusy||!cartCurrency} onClick={()=>void submitOrder()} className="w-full rounded-xl bg-primary p-3.5 text-sm font-black text-primary-foreground disabled:opacity-50">{checkoutBusy?"جارٍ تأكيد الطلب...":"تأكيد الطلب وإرساله للمنشأة"}</button>
+          <button type="button" disabled={checkoutBusy||!cartCurrency} onClick={()=>void submitOrder()} className="w-full rounded-xl border-2 border-amber-300 ring-2 ring-amber-500/20 bg-primary p-3.5 text-sm font-black text-primary-foreground shadow-lg disabled:opacity-50">{checkoutBusy?"جارٍ تأكيد الطلب...":"تأكيد الطلب وإرساله للمنشأة"}</button>
         </>}
       </section>}
       <button onClick={()=>void load()} className="inline-flex items-center gap-2 text-xs font-bold text-primary"><RefreshCw className="h-3.5 w-3.5"/> تحديث المحتويات</button>
