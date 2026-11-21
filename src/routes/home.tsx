@@ -26,6 +26,7 @@ import { useTheme } from "@/lib/use-theme";
 import { playClick } from "@/lib/click-sound";
 import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { HomeCategoryCarousel } from "@/components/home-category-carousel";
+import { HomeTopSquareBanner } from "@/components/home-top-square-banner";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 
 export const Route = createFileRoute("/home")({
@@ -281,7 +282,7 @@ function CustomerHome() {
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
-        <div className="col-span-2 flex min-w-0 gap-3" style={{ order: 30 }}>
+        <div className="col-span-2 flex min-w-0 flex-wrap gap-3" style={{ order: 30 }}>
         <QuickTile
           to="/request/new"
           type="taxi"
@@ -296,7 +297,10 @@ function CustomerHome() {
           tileWidth="calc((100% - 12px) / 3)"
           delay={0.15}
         />
-<div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 24px) / 3)", flexShrink: 0, order: 1 }}>
+<div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((100% - 12px) / 3)", flexShrink: 0, order: 1 }}>
+          <HomeTopSquareBanner />
+        </div>
+        <div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 24px) / 3)", flexShrink: 0, order: 1 }}>
           <HomeCategoryCarousel />
         </div>
       </div>
