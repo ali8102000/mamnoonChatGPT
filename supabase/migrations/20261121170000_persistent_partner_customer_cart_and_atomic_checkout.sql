@@ -131,6 +131,8 @@ declare
   v_items jsonb := '[]'::jsonb;
   v_total numeric(14,2) := 0;
   v_currency text := null;
+  v_cart_count integer := 0;
+  v_valid_count integer := 0;
   v_line record;
 begin
   if v_customer is null then raise exception 'unauthorized'; end if;
@@ -144,6 +146,10 @@ begin
     and partner_type in ('restaurant','store','mall')
   for share;
   if not found then raise exception 'business_unavailable'; end if;
+
+  select count(*)::integer into v_cart_count
+  from public.partner_customer_cart_items
+  where customer_id = v_customer and business_profile_id = p_business_profile_id;
 
   v_order_type := case when v_partner.partner_type = 'restaurant' then 'restaurant' else 'store' end;
   v_expected_item_type := case when v_order_type = 'restaurant' then 'menu_item' else 'product' end;
@@ -161,6 +167,7 @@ begin
     order by ci.id
     for update of ci, i
   loop
+    v_valid_count := v_valid_count + 1;
     if v_line.quantity_available is not null and v_line.quantity > v_line.quantity_available then
       raise exception 'الكمية المطلوبة من % غير متوفرة حالياً', v_line.name;
     end if;
@@ -180,7 +187,8 @@ begin
     ));
   end loop;
 
-  if jsonb_array_length(v_items) = 0 then raise exception 'السلة فارغة أو لم تعد تحتوي على منتجات متاحة'; end if;
+  if v_cart_count = 0 or jsonb_array_length(v_items) = 0 then raise exception 'السلة فارغة أو لم تعد تحتوي على منتجات متاحة'; end if;
+  if v_valid_count <> v_cart_count then raise exception 'بعض منتجات السلة لم تعد متاحة. حدّث السلة قبل تأكيد الطلب'; end if;
 
   insert into public.partner_customer_orders(
     business_profile_id, customer_id, order_type, requested_items,
