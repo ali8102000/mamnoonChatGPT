@@ -25,6 +25,7 @@ import {
   AlertCircle,
   Eye,
   ImagePlus,
+  LayoutGrid,
   X,
 } from "lucide-react";
 import {
@@ -90,6 +91,7 @@ import AdminDispatchZones from "@/components/admin-dispatch-zones";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
 import AdminImageStudio from "@/components/admin-image-studio";
+import AdminControlCenter from "@/components/admin-control-center";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/admin")({
@@ -129,7 +131,8 @@ type Section =
   | "company"
   | "driverTiers"
   | "dispatchZones"
-  | "imageStudio";
+  | "imageStudio"
+  | "controlCenter";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
   {
@@ -197,6 +200,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
+  { key: "controlCenter", label: "مركز التحكم الشامل", icon: LayoutGrid, roles: ["super_admin"] },
   { key: "imageStudio", label: "مركز الصور والتصميم", icon: ImagePlus, roles: ["super_admin"] },
   { key: "audit", label: "سجل العمليات", icon: ScrollText, roles: ["super_admin", "admin"] },
 ];
@@ -207,7 +211,7 @@ const NAV_GROUPS: { title: string; keys: Section[] }[] = [
   { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"] },
   { title: "المالية والعروض", keys: ["subscriptions", "coupons", "wallet"] },
   { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones"] },
-  { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "imageStudio"] },
+  { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "controlCenter", "imageStudio"] },
   { title: "الموظفون والأمان", keys: ["roles", "staff", "audit"] },
 ];
 
@@ -439,6 +443,7 @@ function AdminPage() {
           {section === "dispatchZones" && <AdminDispatchZones />}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
+          {section === "controlCenter" && <AdminControlCenter />}
           {section === "imageStudio" && <AdminImageStudio />}
           {section === "company" && <AdminImageStudio initialTab="identity" />}
           {section === "audit" && <AuditSection />}
