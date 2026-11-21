@@ -65,7 +65,7 @@ export default function AdminRightsScreen(){
     <TouchableOpacity onPress={()=>setTrial(v=>!v)} style={s.row}><Text style={s.muted}>تجربة مجانية</Text><Text style={s.cardTitle}>{trial?"مفعّلة":"متوقفة"}</Text></TouchableOpacity>
     <TextInput value={trialDays} onChangeText={setTrialDays} keyboardType="number-pad" placeholder="أيام التجربة" style={s.input}/>
     <TouchableOpacity onPress={()=>setNewOnly(v=>!v)} style={s.row}><Text style={s.muted}>المسجلون الجدد فقط</Text><Text style={s.cardTitle}>{newOnly?"نعم":"لا"}</Text></TouchableOpacity>
-    <TouchableOpacity onPress={()=>setEnabled(v=>!v)} style={s.row}><Text style={s.muted}>تفعيل الاستقطاع</Text><Text style={s.cardTitle}>{enabled?"مفعّل":"متوقف"}</Text></TouchableOpacity>
+    <TouchableOpacity onPress={()=>setEnabled(v=>!v)} style={s.row}><Text style={s.muted}>تفعيل السياسة (نسبة 0٪ تعني مجاني)</Text><Text style={s.cardTitle}>{enabled?"مفعّل":"متوقف"}</Text></TouchableOpacity>
     <TouchableOpacity disabled={busy} onPress={()=>void savePolicy()} style={s.primary}><Text style={s.primaryText}>حفظ الإعدادات</Text></TouchableOpacity>
    </View>}
    {tab==="revenue"&&<View style={s.card}><Text style={s.cardTitle}>دفتر الإيرادات</Text>{revenue.map(r=><View key={r.id} style={s.userCard}><Text style={s.cardTitle}>{r.profile?.full_name||r.profile?.phone||"مستخدم"}</Text><Text style={s.muted}>{r.revenue_type} · {new Date(r.created_at).toLocaleString("ar-IQ")}</Text><Text style={s.muted}>مستحق {Number(r.assessed_iqd).toLocaleString("ar-IQ")} · محصل {Number(r.collected_iqd).toLocaleString("ar-IQ")} · معفى {Number(r.waived_iqd).toLocaleString("ar-IQ")}</Text></View>)}{!revenue.length&&<Text style={s.muted}>لا توجد إيرادات مسجلة</Text>}</View>}
