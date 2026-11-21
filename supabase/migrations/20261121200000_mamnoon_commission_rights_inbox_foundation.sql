@@ -1423,10 +1423,15 @@ SET search_path = public
 AS $function$
 BEGIN
   UPDATE public.support_conversations
-  SET needs_admin_reply = (NEW.ai_status = 'waiting_human' AND NEW.ticket_status <> 'resolved'),
+  SET needs_admin_reply = (
+        NEW.ai_status = 'waiting_human'
+        AND NEW.ticket_status <> 'resolved'
+        AND NEW.handoff_status <> 'assigned'
+      ),
       handoff_status = CASE
-        WHEN NEW.ai_status = 'waiting_human' THEN 'waiting_for_admin'
         WHEN NEW.ticket_status = 'resolved' THEN 'resolved'
+        WHEN NEW.ai_status = 'waiting_human' AND NEW.handoff_status = 'assigned' THEN 'assigned'
+        WHEN NEW.ai_status = 'waiting_human' THEN 'waiting_for_admin'
         ELSE 'bot'
       END
   WHERE id = NEW.id;
