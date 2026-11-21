@@ -590,7 +590,8 @@ BEGIN
     WHEN 'governorate' THEN 2
     WHEN 'role' THEN 3
     ELSE 4
-  END
+  END,
+    CASE WHEN p.collection_event=v_event THEN 0 ELSE 1 END
   LIMIT 1;
 
   IF NOT FOUND THEN RETURN 0; END IF;
@@ -1284,7 +1285,7 @@ BEGIN
 
   SELECT * INTO v_policy
   FROM public.mamnoon_commission_policies p
-  WHERE p.is_enabled=true AND p.collection_event='order_acceptance'
+  WHERE p.is_enabled=true AND p.collection_event IN ('order_acceptance','all_acceptance')
     AND (p.starts_at IS NULL OR p.starts_at<=now())
     AND (p.ends_at IS NULL OR p.ends_at>now())
     AND (
@@ -1294,7 +1295,7 @@ BEGIN
       OR (p.scope_type='global' AND p.scope_key IS NULL)
     )
   ORDER BY CASE p.scope_type WHEN 'governorate_role' THEN 1 WHEN 'governorate' THEN 2 WHEN 'role' THEN 3 ELSE 4 END,
-    CASE WHEN p.collection_event=v_event THEN 0 ELSE 1 END
+    CASE WHEN p.collection_event='order_acceptance' THEN 0 ELSE 1 END
   LIMIT 1;
   IF NOT FOUND THEN RETURN 0; END IF;
 
