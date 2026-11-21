@@ -5,6 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { MyPartnerOrders } from "@/components/my-partner-orders";
 import { palette, radius, space } from "@/styles/theme";
 
 type AccountWallet = { balance_iqd: number; currency?: string };
