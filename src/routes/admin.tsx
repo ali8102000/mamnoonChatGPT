@@ -2518,10 +2518,10 @@ function WalletSection() {
               <div className="flex justify-between mb-1">
                 <span className="font-bold">{tx.profiles?.full_name ?? "—"}</span>
                 <span
-                  className={`font-black ${tx.type === "credit" ? "text-emerald-600" : "text-red-500"}`}
+                  className={`font-black ${tx.type === "credit" || (tx.type === "adjustment" && Number(tx.amount) >= 0) ? "text-emerald-600" : "text-red-500"}`}
                 >
-                  {tx.type === "credit" ? "+" : "-"}
-                  {Number(tx.amount).toLocaleString()} د.ع
+                  {tx.type === "credit" || (tx.type === "adjustment" && Number(tx.amount) >= 0) ? "+" : "-"}
+                  {Math.abs(Number(tx.amount)).toLocaleString()} د.ع
                 </span>
               </div>
               <div className="text-[10px] text-muted-foreground">
