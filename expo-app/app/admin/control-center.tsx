@@ -38,7 +38,7 @@ export default function AdminControlCenterScreen(){
   if(error)Alert.alert("تعذر الحفظ",error.message);else{setConfig(safe);Alert.alert(publish?"تم النشر":"تم حفظ المسودة",publish?"تم نشر المقاسات للويب والأندرويد.":"المسودة محفوظة ولم تظهر للزبائن.");}
  };
  if(loading)return <View style={s.center}><ActivityIndicator color={palette.brand}/></View>;
- if(!allowed)return <View style={s.center}><Text style={s.title}>هذا المركز متاح للمدير الأعلى فقط.</Text></View>;
+ if(!allowed)return <View style={s.center}><Text style={s.heroTitle}>هذا المركز متاح للمدير الأعلى فقط.</Text></View>;
  return <ScrollView style={s.page} contentContainerStyle={s.content}>
   <Stack.Screen options={{title:"مركز التحكم الشامل"}}/>
   <View style={s.hero}><Text style={s.eyebrow}>MAMNOON ADMIN CONTROL</Text><Text style={s.heroTitle}>مركز التحكم الشامل</Text><Text style={s.heroText}>تحكم بمقاسات واجهة التطبيق من الإدارة فقط، مع معاينة قبل النشر.</Text></View>
