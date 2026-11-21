@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast";
 
 type CampaignOption = { id: string; label: string; sort_order: number };
-type Entry = { id: string; text_content: string | null; image_url: string | null; status: string };
+type Entry = { id: string; text_content: string | null; image_url: string | null; storage_path: string | null; status: string };
 type Campaign = {
   id: string; campaign_type: "poll" | "contest"; title: string; description: string | null;
   image_url: string | null; starts_at: string | null; ends_at: string | null;
@@ -39,7 +39,7 @@ export function HomeBannerCampaignDialog({ campaignId, onClose }: { campaignId: 
         const [own, results, ownEntry] = await Promise.all([
           (supabase as any).from("app_campaign_responses").select("option_id").eq("campaign_id", campaignId).eq("user_id", session.user.id).maybeSingle(),
           (supabase as any).from("app_campaign_option_results").select("option_id,vote_count").eq("campaign_id", campaignId),
-          (supabase as any).from("app_campaign_entries").select("id,text_content,image_url,status").eq("campaign_id", campaignId).eq("user_id", session.user.id).maybeSingle(),
+          (supabase as any).from("app_campaign_entries").select("id,text_content,storage_path,status").eq("campaign_id", campaignId).eq("user_id", session.user.id).maybeSingle(),
         ]);
         if (!active) return;
         setSelected(own.data?.option_id ?? null);
@@ -87,7 +87,7 @@ export function HomeBannerCampaignDialog({ campaignId, onClose }: { campaignId: 
         image_url: storagePath ? "private://" + storagePath : null, storage_path: storagePath,
       }).select("id,text_content,image_url,status").single();
       if (error) throw error;
-      setEntry(data as Entry); setEntryText(""); setEntryFile(null); toast.success("تم استلام مشاركتك وإرسالها للمراجعة.");
+      setEntry({ ...data, image_url: imageUrl }); setEntryText(""); setEntryFile(null); toast.success("تم استلام مشاركتك وإرسالها للمراجعة.");
     } catch (error: any) {
       if (storagePath) await supabase.storage.from("campaign-entries").remove([storagePath]);
       toast.error(error?.code === "23505" ? "سبق وقدمت مشاركة بهذه المسابقة." : "تعذر إرسال المشاركة. حاول مرة ثانية.");
