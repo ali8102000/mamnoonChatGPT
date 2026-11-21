@@ -174,6 +174,13 @@ function CustomerHome() {
   const [activeBannerCampaignId, setActiveBannerCampaignId] = useState<string | null>(null);
   const closeBannerCampaign = useCallback(() => setActiveBannerCampaignId(null), []);
   const topBanner = topBanners[topBannerIndex] ?? null;
+  const gridLayout = visuals.home_customer_grid_layout || {};
+  const gridGap = Math.max(4, Math.min(28, Number(gridLayout.grid_gap_px) || 12));
+  const firstRowHeight = Math.max(100, Math.min(260, Number(gridLayout.first_row_height_px) || 145));
+  const secondRowHeight = Math.max(120, Math.min(300, Number(gridLayout.second_row_height_px) || 188));
+  const carouselHeight = Math.max(120, Math.min(300, Number(gridLayout.carousel_height_px) || secondRowHeight));
+  const wideRatio = Math.max(1.4, Math.min(2.8, Number(gridLayout.wide_column_ratio) || 2));
+  const gridRadius = Math.max(8, Math.min(32, Number(gridLayout.card_radius_px) || 20));
 
   useEffect(() => {
     let active = true;
@@ -224,7 +231,7 @@ function CustomerHome() {
         @keyframes mamnoonBannerDropIn { from { opacity: 0; transform: translateY(-18px) scale(.985); } to { opacity: .4; transform: translateY(0) scale(1); } }
         @media (prefers-reduced-motion: reduce) { .mamnoon-top-banner-image { animation: none !important; opacity: .4; transform: scale(1.2); } }
       `}</style>
-      <div role={topBanner?.target_campaign_id ? "button" : undefined} tabIndex={topBanner?.target_campaign_id ? 0 : undefined} aria-label={topBanner?.target_campaign_id ? "فتح الاستطلاع أو المسابقة" : "ممنون مجاناً بلا عمولة"} onClick={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }} onKeyDown={(event) => { if (topBanner?.target_campaign_id && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setActiveBannerCampaignId(topBanner.target_campaign_id); } }} className="relative min-h-[142px] rounded-[20px] px-4 pt-3 pb-3 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground" style={{ minHeight: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)), height: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)), borderRadius: Math.max(8,Math.min(40,Number(topBanner?.display_config?.border_radius_px)||20)), padding: Math.max(8,Math.min(32,Number(topBanner?.display_config?.padding_px)||12)), background: topBanner?.display_config?.background_color || undefined }}>
+      <div role={topBanner?.target_campaign_id ? "button" : undefined} tabIndex={topBanner?.target_campaign_id ? 0 : undefined} aria-label={topBanner?.target_campaign_id ? "فتح الاستطلاع أو المسابقة" : "ممنون مجاناً بلا عمولة"} onClick={() => { if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); }} onKeyDown={(event) => { if (topBanner?.target_campaign_id && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setActiveBannerCampaignId(topBanner.target_campaign_id); } }} className="relative min-h-[130px] rounded-[20px] px-4 pt-3 pb-3 overflow-hidden animate-pop-in shadow-elegant bg-gradient-to-br from-primary via-primary-glow to-accent text-primary-foreground" style={{ minHeight: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||Number(gridLayout.top_banner_height_px)||130)), height: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)), borderRadius: Math.max(8,Math.min(40,Number(topBanner?.display_config?.border_radius_px)||20)), padding: Math.max(8,Math.min(32,Number(topBanner?.display_config?.padding_px)||12)), background: topBanner?.display_config?.background_color || undefined }}>
         {topBanner?.image_url && <div key={topBanner.id} className="absolute inset-0 overflow-hidden" style={{ animation: topBanner.motion_style === "fade" ? "mamnoonBannerFadeIn .55s ease-out both" : topBanner.motion_style === "drop" ? "mamnoonBannerDropIn .55s ease-out both" : undefined }}><img src={topBanner.image_url} alt="" className="mamnoon-top-banner-image absolute -inset-[10%] h-[120%] w-[120%] object-cover" style={{ opacity: Math.max(0.05,Math.min(1,Number(topBanner.display_config?.image_opacity)||0.4)), animation: `mamnoonBannerPan${topBanner.motion_direction === "right" ? "Right" : topBanner.motion_direction === "up" ? "Up" : topBanner.motion_direction === "down" ? "Down" : "Left"} ${Math.max(2, Math.min(120, (Number(topBanner.scroll_speed) || 5) * 2))}s ease-in-out infinite alternate` }} /></div>}
         <div className="absolute inset-0 shine opacity-40 mix-blend-overlay" />
         <div className="absolute -top-8 -left-8 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
@@ -245,16 +252,16 @@ function CustomerHome() {
 
       <HomeCustomContent placementKey="home.customer.top" />
 
-      <div dir="ltr" className="grid gap-3" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gridTemplateRows: "145px 188px", gridAutoFlow: "row" }}>
+      <div dir="ltr" className="grid" style={{ gap: gridGap, gridTemplateColumns: `minmax(0, ${wideRatio}fr) minmax(0, 1fr)`, gridTemplateRows: `${firstRowHeight}px ${secondRowHeight}px`, gridAutoFlow: "row" }}>
         <QuickTile
           to="/request/new"
           type="taxi"
           title={visuals.home_customer_taxi?.title && visuals.home_customer_taxi.title !== "طلب سيارة" ? visuals.home_customer_taxi.title : "طلب تكسي"}
           subtitle={visuals.home_customer_taxi?.subtitle || "خلال دقائق"}
           icon={visuals.home_customer_taxi?.icon_name ? <span className="text-3xl">{visuals.home_customer_taxi.icon_name}</span> : <img src={visuals.home_customer_taxi?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
-          iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_taxi?.width_px) || 56))}
+          iconBoxSize={Math.max(32, Math.min(96, Number(visuals.home_customer_taxi?.width_px) || Number(gridLayout.taxi_icon_size_px) || 56))}
           sortOrder={Number(visuals.home_customer_taxi?.sort_order) || 10}
-          styleConfig={visuals.home_customer_taxi || {}}
+          styleConfig={{ ...(visuals.home_customer_taxi || {}), card_height_px: Number(visuals.home_customer_taxi?.card_height_px) || firstRowHeight, border_radius_px: Number(visuals.home_customer_taxi?.border_radius_px) || gridRadius }}
           gradient="from-amber-500 to-orange-500"
           span={2}
           delay={0.05}
@@ -267,7 +274,7 @@ function CustomerHome() {
           icon={<ServiceIconPanorama />}
           iconBoxSize={64}
           sortOrder={Number(visuals.home_customer_service?.sort_order) || 20}
-          styleConfig={visuals.home_customer_service || {}}
+          styleConfig={{ ...(visuals.home_customer_service || {}), card_height_px: Number(visuals.home_customer_service?.card_height_px) || firstRowHeight, border_radius_px: Number(visuals.home_customer_service?.border_radius_px) || gridRadius }}
           gradient="from-emerald-500 to-teal-400"
           delay={0.1}
         />
@@ -279,15 +286,15 @@ function CustomerHome() {
           title={visuals.home_customer_large_vehicle?.title || "طلب سيارة كبيرة"}
           subtitle={visuals.home_customer_large_vehicle?.subtitle || "كيا حمل أو كيا ركاب أو باص"}
           icon={visuals.home_customer_large_vehicle?.icon_name ? <span className="text-3xl">{visuals.home_customer_large_vehicle.icon_name}</span> : <img src={visuals.home_customer_large_vehicle?.image_url || "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png"} alt="" style={{ width: 52, height: 52, objectFit: "contain" }} />}
-          iconBoxSize={Math.max(52, Math.min(56, Number(visuals.home_customer_large_vehicle?.width_px) || 56))}
+          iconBoxSize={Math.max(32, Math.min(96, Number(visuals.home_customer_large_vehicle?.width_px) || Number(gridLayout.large_icon_size_px) || 56))}
           sortOrder={Number(visuals.home_customer_large_vehicle?.sort_order) || 30}
-          styleConfig={visuals.home_customer_large_vehicle || {}}
+          styleConfig={{ ...(visuals.home_customer_large_vehicle || {}), card_height_px: Number(visuals.home_customer_large_vehicle?.card_height_px) || secondRowHeight, border_radius_px: Number(visuals.home_customer_large_vehicle?.border_radius_px) || gridRadius }}
           gradient="from-orange-500 to-amber-600"
           span={1}
           tileWidth="calc((100% - 12px) / 3)"
           delay={0.15}
         />
-        <div dir="rtl" className="min-w-0 h-[188px]" style={{ width: "calc((200% - 24px) / 3)", flexShrink: 0, order: 1 }}>
+        <div dir="rtl" className="min-w-0" style={{ width: `calc((200% - ${gridGap * 2}px) / 3)`, height: carouselHeight, flexShrink: 0, order: 1, borderRadius: gridRadius, overflow: "hidden" }}>
           <HomeCategoryCarousel />
         </div>
       </div>
