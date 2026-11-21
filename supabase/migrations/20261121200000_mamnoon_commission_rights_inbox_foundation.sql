@@ -165,3 +165,186 @@ AFTER INSERT ON public.support_messages
 FOR EACH ROW EXECUTE FUNCTION public.sync_support_inbox_metadata();
 
 REVOKE ALL ON FUNCTION public.sync_support_inbox_metadata() FROM PUBLIC, anon, authenticated;
+
+CREATE TABLE IF NOT EXISTS public.mamnoon_revenue_collections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  revenue_ledger_id uuid NOT NULL REFERENCES public.mamnoon_revenue_ledger(id),
+  payment_id uuid NOT NULL REFERENCES public.payment_transactions(id),
+  amount_iqd bigint NOT NULL CHECK (amount_iqd > 0),
+  provider_reference text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT mamnoon_revenue_collection_once UNIQUE (revenue_ledger_id, payment_id)
+);
+CREATE INDEX IF NOT EXISTS mamnoon_revenue_collections_payment_idx
+  ON public.mamnoon_revenue_collections(payment_id);
+ALTER TABLE public.mamnoon_revenue_collections ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.mamnoon_revenue_collections FROM anon, authenticated;
+
+-- Verified ZainCash wallet top-ups first repay the wallet debt, then credit any
+-- remainder. New subscription purchases are intentionally disabled; historical
+-- subscription rows remain untouched for audit/compatibility.
+CREATE OR REPLACE FUNCTION public.finalize_zaincash_payment(
+  p_payment_id uuid,
+  p_gateway_transaction_id text,
+  p_gateway_status text,
+  p_confirmed_amount integer,
+  p_currency text,
+  p_payload jsonb DEFAULT '{}'::jsonb
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_payment public.payment_transactions%ROWTYPE;
+  v_balance bigint;
+  v_debt_collected bigint := 0;
+  v_remaining bigint := 0;
+  v_due bigint := 0;
+  v_take bigint := 0;
+  v_wallet_result jsonb;
+  v_revenue public.mamnoon_revenue_ledger%ROWTYPE;
+  v_fallback_id uuid;
+BEGIN
+  IF (auth.jwt() ->> 'role') IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service_role_required';
+  END IF;
+
+  SELECT * INTO v_payment
+  FROM public.payment_transactions
+  WHERE id = p_payment_id
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'payment_not_found'; END IF;
+  IF v_payment.status = 'paid' THEN RETURN true; END IF;
+  IF v_payment.status <> 'pending' THEN RETURN false; END IF;
+
+  IF p_gateway_status <> 'SUCCESS' THEN
+    UPDATE public.payment_transactions
+    SET gateway_status = p_gateway_status,
+        status = CASE WHEN p_gateway_status = 'EXPIRED' THEN 'expired' ELSE 'failed' END,
+        gateway_transaction_id = COALESCE(gateway_transaction_id,p_gateway_transaction_id),
+        metadata = metadata || COALESCE(p_payload,'{}'::jsonb),
+        updated_at = now()
+    WHERE id = v_payment.id;
+    RETURN false;
+  END IF;
+
+  IF p_confirmed_amount <> v_payment.amount OR p_currency <> 'IQD' THEN
+    RAISE EXCEPTION 'payment_amount_or_currency_mismatch';
+  END IF;
+
+  IF v_payment.purpose = 'subscription' THEN
+    RAISE EXCEPTION 'subscriptions_disabled_use_commission_billing';
+  ELSIF v_payment.purpose = 'wallet_topup' THEN
+    IF p_gateway_transaction_id IS NULL OR length(p_gateway_transaction_id) < 3 THEN
+      RAISE EXCEPTION 'gateway_transaction_id_required';
+    END IF;
+
+    INSERT INTO public.account_wallets(user_id)
+    VALUES (v_payment.user_id)
+    ON CONFLICT (user_id) DO NOTHING;
+
+    SELECT balance_iqd INTO v_balance
+    FROM public.account_wallets
+    WHERE user_id = v_payment.user_id
+    FOR UPDATE;
+
+    v_debt_collected := LEAST(v_payment.amount::bigint, GREATEST(0, -v_balance));
+
+    v_wallet_result := public.apply_account_wallet_transaction(
+      v_payment.user_id,
+      'zaincash_topup',
+      v_payment.amount::bigint,
+      'zaincash-payment:' || v_payment.id::text,
+      'zaincash',
+      p_gateway_transaction_id,
+      'شحن محفظة ممنون عبر زين كاش - تسوية الدين أولاً',
+      jsonb_build_object(
+        'payment_id', v_payment.id,
+        'external_reference_id', v_payment.external_reference_id,
+        'gateway_transaction_id', p_gateway_transaction_id,
+        'verified_status', 'SUCCESS',
+        'debt_collected_iqd', v_debt_collected
+      )
+    );
+
+    v_remaining := v_debt_collected;
+    FOR v_revenue IN
+      SELECT *
+      FROM public.mamnoon_revenue_ledger
+      WHERE user_id = v_payment.user_id
+        AND status IN ('accrued','partially_collected')
+        AND assessed_iqd > collected_iqd
+      ORDER BY created_at ASC, id ASC
+      FOR UPDATE
+    LOOP
+      EXIT WHEN v_remaining <= 0;
+      v_due := v_revenue.assessed_iqd - v_revenue.collected_iqd;
+      v_take := LEAST(v_remaining, v_due);
+      UPDATE public.mamnoon_revenue_ledger
+      SET collected_iqd = collected_iqd + v_take,
+          status = CASE
+            WHEN collected_iqd + v_take >= assessed_iqd THEN 'collected'
+            ELSE 'partially_collected'
+          END,
+          updated_at = now()
+      WHERE id = v_revenue.id;
+
+      INSERT INTO public.mamnoon_revenue_collections(
+        revenue_ledger_id, payment_id, amount_iqd, provider_reference
+      ) VALUES (v_revenue.id, v_payment.id, v_take, p_gateway_transaction_id)
+      ON CONFLICT (revenue_ledger_id, payment_id) DO NOTHING;
+
+      v_remaining := v_remaining - v_take;
+    END LOOP;
+
+    IF v_remaining > 0 THEN
+      INSERT INTO public.mamnoon_revenue_ledger(
+        user_id, revenue_type, assessed_iqd, collected_iqd, status,
+        idempotency_key, provider_reference, metadata
+      ) VALUES (
+        v_payment.user_id, 'wallet_debt_collection', v_remaining, v_remaining, 'collected',
+        'zaincash-debt:' || v_payment.id::text, p_gateway_transaction_id,
+        jsonb_build_object('payment_id', v_payment.id, 'source', 'wallet_negative_balance')
+      )
+      ON CONFLICT (idempotency_key) DO UPDATE
+        SET collected_iqd = EXCLUDED.collected_iqd,
+            status = EXCLUDED.status,
+            provider_reference = EXCLUDED.provider_reference,
+            updated_at = now()
+      RETURNING id INTO v_fallback_id;
+
+      INSERT INTO public.mamnoon_revenue_collections(
+        revenue_ledger_id, payment_id, amount_iqd, provider_reference
+      ) VALUES (v_fallback_id, v_payment.id, v_remaining, p_gateway_transaction_id)
+      ON CONFLICT (revenue_ledger_id, payment_id) DO NOTHING;
+    END IF;
+
+  ELSIF v_payment.purpose = 'service_request' THEN
+    UPDATE public.service_requests
+    SET payment_method='zaincash', updated_at=now()
+    WHERE id=v_payment.request_id
+      AND customer_id=v_payment.user_id
+      AND status IN ('accepted','in_progress','completed');
+    IF NOT FOUND THEN RAISE EXCEPTION 'request_not_payable_or_not_owned'; END IF;
+  ELSE
+    RAISE EXCEPTION 'unsupported_payment_purpose';
+  END IF;
+
+  UPDATE public.payment_transactions
+  SET status='paid',gateway_status='SUCCESS',
+      gateway_transaction_id=p_gateway_transaction_id,paid_at=now(),
+      metadata=metadata || COALESCE(p_payload,'{}'::jsonb) ||
+        jsonb_build_object('debt_collected_iqd',v_debt_collected),
+      updated_at=now()
+  WHERE id=v_payment.id;
+
+  RETURN true;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.finalize_zaincash_payment(uuid,text,text,integer,text,jsonb)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.finalize_zaincash_payment(uuid,text,text,integer,text,jsonb)
+  TO service_role;
