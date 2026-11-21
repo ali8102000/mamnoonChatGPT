@@ -90,9 +90,10 @@ export function HomeCategoryCarousel() {
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[18px] bg-[#173F35]" dir="rtl" style={{ touchAction: "pan-y" }}
-      onPointerDown={(event) => { touchStart.current = { x: event.clientX, y: event.clientY }; }}
-      onPointerUp={(event) => { const start = touchStart.current; touchStart.current = null; if (!start || slides.length < 2) return; const dx = event.clientX - start.x; const dy = event.clientY - start.y; if (Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 1.2) { suppressClick.current = true; setIndex((value) => (value + (dx < 0 ? 1 : -1) + slides.length) % slides.length); window.setTimeout(() => { suppressClick.current = false; }, 350); } }}
-      onPointerCancel={() => { touchStart.current = null; }}>
+      onPointerDown={(event) => { touchStart.current = { x: event.clientX, y: event.clientY }; try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* capture may be unavailable in embedded webviews */ } }}
+      onPointerUp={(event) => { const start = touchStart.current; touchStart.current = null; if (!start || slides.length < 2) return; const dx = event.clientX - start.x; const dy = event.clientY - start.y; if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15) { suppressClick.current = true; setIndex((value) => (value + (dx < 0 ? 1 : -1) + slides.length) % slides.length); window.setTimeout(() => { suppressClick.current = false; }, 450); } }}
+      onPointerCancel={() => { touchStart.current = null; }}
+      onLostPointerCapture={() => { touchStart.current = null; }}>
       <style>{`
         @keyframes mamnoon-category-fade { from { opacity: .2 } to { opacity: 1 } }
         @keyframes mamnoon-category-drop { from { opacity: .4; transform: translateY(-16px) scale(.99) } to { opacity: 1; transform: translateY(0) scale(1) } }
