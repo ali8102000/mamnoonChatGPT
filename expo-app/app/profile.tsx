@@ -289,7 +289,8 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 104 }}>
+    <View style={styles.screen}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 170 }}>
       <View style={styles.header}>
         <View style={styles.avatar}>
           {profile?.avatar_url ? (
@@ -420,16 +421,30 @@ export default function ProfileScreen() {
           <Text style={styles.menuArrow}>←</Text>
         </TouchableOpacity>
       )}
-      <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={handleSignOut}>
-        <Text style={[styles.menuItemText, { color: "#dc2626" }]}>تسجيل الخروج</Text>
-        <Text style={[styles.menuArrow, { color: "#dc2626" }]}>←</Text>
-      </TouchableOpacity>
     </ScrollView>
+    <View pointerEvents="box-none" style={styles.logoutFooter}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="تسجيل الخروج"
+        activeOpacity={0.82}
+        style={styles.logoutButton}
+        onPress={handleSignOut}
+      >
+        <Text style={styles.logoutButtonText}>تسجيل الخروج</Text>
+        <Text style={styles.logoutButtonIcon}>↪</Text>
+      </TouchableOpacity>
+    </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: palette.pageCanvas },
   container: { flex: 1, backgroundColor: palette.pageCanvas, paddingHorizontal: space.xl, paddingTop: 54 },
+  logoutFooter: { position: "absolute", left: 20, right: 20, bottom: 102, zIndex: 40, elevation: 8 },
+  logoutButton: { minHeight: 54, borderRadius: radius.xl, borderWidth: 1, borderColor: "#dc262655", backgroundColor: palette.surface, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } },
+  logoutButtonText: { color: "#dc2626", fontSize: 14, fontWeight: "900" },
+  logoutButtonIcon: { color: "#dc2626", fontSize: 22, fontWeight: "900" },
   header: { alignItems: "center", marginBottom: 20, backgroundColor: palette.surface, borderRadius: radius.xl, padding: space.xl, borderWidth: 1, borderColor: palette.line },
   avatar: { width: 84, height: 84, borderRadius: 28, backgroundColor: palette.brand, borderWidth: 1, borderColor: palette.gold, alignItems: "center", justifyContent: "center", marginBottom: 12, overflow: "hidden" },
   avatarText: { fontSize: 32, fontWeight: "900", color: palette.white },
