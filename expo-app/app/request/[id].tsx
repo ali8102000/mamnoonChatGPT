@@ -1707,6 +1707,7 @@ export default function RequestDetail() {
             request.status !== "cancelled" &&
             request.status !== "completed" &&
             request.status !== "in_progress" &&
+            !(request.type === "taxi" && request.status === "accepted") &&
             !request.provider_arrived_at && (
               <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: palette.danger }]}
