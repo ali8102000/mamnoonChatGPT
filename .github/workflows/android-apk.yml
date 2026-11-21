@@ -148,23 +148,11 @@ jobs:
             # through its own shell wrapper, so avoid multiline shell loops.
             sleep 45
             adb logcat -d -t 6000 > expo-app/release-artifacts/emulator-logcat.txt
-            if grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt; then
-              echo "::error::Mamnoon raised a fatal Android exception during launch."
-              tail -n 160 expo-app/release-artifacts/emulator-logcat.txt
-              exit 1
-            fi
-            if ! grep -Fq 'ReactNativeJS: Running "main"' expo-app/release-artifacts/emulator-logcat.txt; then
-              echo "::error::Mamnoon did not reach the React Native main entry point."
-              tail -n 160 expo-app/release-artifacts/emulator-logcat.txt
-              exit 1
-            fi
+            if grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt; then echo "::error::Mamnoon raised a fatal Android exception during launch."; tail -n 160 expo-app/release-artifacts/emulator-logcat.txt; exit 1; fi
+            if ! grep -Fq 'ReactNativeJS: Running "main"' expo-app/release-artifacts/emulator-logcat.txt; then echo "::error::Mamnoon did not reach the React Native main entry point."; tail -n 160 expo-app/release-artifacts/emulator-logcat.txt; exit 1; fi
             sleep 5
             adb logcat -d -t 6000 > expo-app/release-artifacts/emulator-logcat.txt
-            if grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt; then
-              echo "::error::Mamnoon crashed after the React Native entry point started."
-              tail -n 160 expo-app/release-artifacts/emulator-logcat.txt
-              exit 1
-            fi
+            if grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt; then echo "::error::Mamnoon crashed after the React Native entry point started."; tail -n 160 expo-app/release-artifacts/emulator-logcat.txt; exit 1; fi
             adb shell screencap -p /sdcard/mamnoon-screen.png
             adb pull /sdcard/mamnoon-screen.png expo-app/release-artifacts/emulator-screen.png
       - name: Upload Android emulator smoke evidence
