@@ -6,7 +6,7 @@ import { MobileShell } from "@/components/mobile-shell";
 
 type PartnerType = "hotel" | "restaurant" | "store" | "mall";
 type Coordinates = { latitude: number; longitude: number };
-type Category = { category_key: string; vertical: "store" | "restaurant" | "hotel"; title: string; image_url: string };
+type Category = { category_key: string; vertical: "store" | "restaurant" | "hotel" | "grocery"; title: string; image_url: string };
 type Business = { id: string; partner_type: PartnerType; business_name: string; city: string; address: string; description: string | null; phone: string; promotion_latitude: number | null; promotion_longitude: number | null };
 type Product = { id: string; name: string; description: string | null; price_amount: number; currency: string; image_urls: string[]; profile: { id: string; business_name: string; city: string; address: string; business_vertical: string; partner_type: PartnerType; promotion_latitude: number | null; promotion_longitude: number | null } };
 
@@ -36,11 +36,11 @@ function sortByNearest<T extends { promotion_latitude: number | null; promotion_
 
 function DiscoverCategoryPage() {
   const { category: raw } = Route.useParams();
-  const isStore = raw.startsWith("store-"), isRestaurant = raw.startsWith("restaurant-"), isHotelCategory = raw.startsWith("hotel-"), isGrocery = raw === "grocery";
+  const isStore = raw.startsWith("store-"), isRestaurant = raw.startsWith("restaurant-"), isHotelCategory = raw.startsWith("hotel-"), isGrocery = raw === "grocery" || raw.startsWith("grocery-");
   const isStoreSection = raw === "store", isRestaurantSection = raw === "restaurant";
-  const categoryKey = isStore ? raw.slice(6) : isRestaurant ? raw.slice(11) : isHotelCategory ? raw.slice(6) : isGrocery ? "grocery" : null;
-  const vertical = isStore || isStoreSection ? "store" : isRestaurant || isRestaurantSection ? "restaurant" : isHotelCategory || raw === "hotel" ? "hotel" : null;
-  const [title, setTitle] = useState(isGrocery ? "بقالة وخضروات" : vertical === "store" ? "المتاجر والمولات" : vertical === "restaurant" ? "المطاعم" : raw === "hotel" ? "الفنادق" : "اكتشاف");
+  const categoryKey = isStore ? raw.slice(6) : isRestaurant ? raw.slice(11) : isHotelCategory ? raw.slice(6) : isGrocery ? (raw === "grocery" ? "grocery" : raw.slice(8)) : null;
+  const vertical = isStore || isStoreSection ? "store" : isRestaurant || isRestaurantSection ? "restaurant" : isGrocery ? "grocery" : isHotelCategory || raw === "hotel" ? "hotel" : null;
+  const [title, setTitle] = useState(isGrocery ? "سوبر ماركت وبقالة" : vertical === "store" ? "المتاجر والمولات" : vertical === "restaurant" ? "المطاعم" : raw === "hotel" ? "الفنادق" : "اكتشاف");
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Business[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -56,13 +56,14 @@ function DiscoverCategoryPage() {
 
     if (vertical && !categoryKey) {
       let businessQuery = (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,phone,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]);
-      if (vertical !== "hotel") businessQuery = businessQuery.eq("business_vertical", vertical);
+      if (vertical === "store") businessQuery = businessQuery.in("business_vertical", ["store", "grocery"]);
+      else if (vertical !== "hotel") businessQuery = businessQuery.eq("business_vertical", vertical);
       const [categoryResult, businessResult] = await Promise.all([
-        (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").eq("vertical", vertical).eq("is_active", true).order("sort_order"),
+        (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").in("vertical", vertical === "store" ? ["store", "grocery"] : [vertical]).eq("is_active", true).order("sort_order"),
         businessQuery.order("business_name"),
       ]);
       if (categoryResult.error || businessResult.error) setError("تعذر تحميل القسم حالياً.");
-      setCategories((categoryResult.data ?? []) as Category[]);
+      setCategories(((categoryResult.data ?? []) as Category[]).filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery").map(category => category.vertical === "grocery" && category.category_key === "grocery" ? { ...category, title: "سوبر ماركت وبقالة" } : category));
       setItems(sortByNearest((businessResult.data ?? []) as Business[], currentLocation));
       setProducts([]);
       setLoading(false);
@@ -73,8 +74,8 @@ function DiscoverCategoryPage() {
       const [cat, rows, categoryList] = await Promise.all([
         (supabase as any).from("partner_catalog_categories").select("title").eq("category_key", categoryKey).maybeSingle(),
         (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,partner_type,promotion_latitude,promotion_longitude)").eq("category_key", categoryKey).eq("is_active", true).eq("profile.is_published", true).order("created_at", { ascending: false }),
-        vertical === "store" || vertical === "restaurant"
-          ? (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").eq("vertical", vertical).eq("is_active", true).order("sort_order")
+        vertical === "store" || vertical === "restaurant" || vertical === "grocery"
+          ? (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").in("vertical", vertical === "store" ? ["store", "grocery"] : [vertical]).eq("is_active", true).order("sort_order")
           : Promise.resolve({ data: [], error: null }),
       ]);
       if (cat.data?.title) setTitle(cat.data.title);
@@ -90,7 +91,7 @@ function DiscoverCategoryPage() {
         const dist = (p: Product) => p.profile.promotion_latitude == null || p.profile.promotion_longitude == null ? Number.POSITIVE_INFINITY : distanceKm(currentLocation, { latitude: p.profile.promotion_latitude, longitude: p.profile.promotion_longitude });
         return dist(a) - dist(b);
       }) : visible;
-      setProducts(ordered); setItems([]); setCategories((categoryList.data ?? []) as Category[]); setLoading(false); return;
+      setProducts(ordered); setItems([]); setCategories(((categoryList.data ?? []) as Category[]).filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery").map(category => category.vertical === "grocery" && category.category_key === "grocery" ? { ...category, title: "سوبر ماركت وبقالة" } : category)); setLoading(false); return;
     }
 
     const types: PartnerType[] = raw === "hotel" ? ["hotel"] : [];
@@ -122,7 +123,7 @@ function DiscoverCategoryPage() {
     {!location && !loading && <p className="rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">فعّل إذن الموقع حتى نرتّب النتائج حسب الأقرب إلك. ما تحتاج تحدد محافظتك.</p>}
     {loading ? <div className="rounded-2xl border p-8 text-center text-sm">جارٍ تحديد موقعك وتحميل الأقرب...</div> : error ? <div role="alert" className="rounded-2xl border border-destructive/30 p-5 text-sm text-destructive">{error}<button onClick={() => void load()} className="mr-3 inline-flex items-center gap-1 font-bold"><RefreshCw className="h-3.5 w-3.5" /> إعادة المحاولة</button></div> : <>
       {categories.length > 0 && <section className="space-y-2"><h2 className="font-black">الأقسام</h2><div ref={categoryStripRef} dir="rtl" className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{categories.map(c => <Link key={c.category_key} to="/discover/$category" params={{ category: c.vertical + "-" + c.category_key }} className={`relative h-[76px] w-[76px] shrink-0 overflow-hidden rounded-2xl border bg-card shadow-sm ${categoryKey === c.category_key ? "border-primary ring-2 ring-primary/30" : "border-border"}`}><img src={c.image_url} alt={c.title} loading="lazy" className="h-full w-full object-cover" /><span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-2 py-1 text-right text-[11px] font-black text-white">{c.title}</span></Link>)}</div></section>}
-      {categoryKey ? products.length === 0 ? <div className="rounded-2xl border border-dashed p-8 text-center"><h2 className="font-black">ماكو منتجات منشورة بهذه الفئة حالياً</h2></div> : <div className="grid gap-3 sm:grid-cols-2">{products.map(p => <Link key={p.id} to="/partner/$id" params={{ id: p.profile.id }} className="overflow-hidden rounded-2xl border bg-card">{p.image_urls?.[0] ? <img src={p.image_urls[0]} alt={p.name} loading="lazy" className="h-44 w-full object-cover" /> : <div className="h-24 bg-muted" />}<div className="space-y-2 p-4"><h2 className="font-black">{p.name}</h2>{p.description && <p className="line-clamp-2 text-xs text-muted-foreground">{p.description}</p>}<strong className="text-sm text-primary">{Number(p.price_amount).toLocaleString("ar-IQ")} {p.currency === "USD" ? "$" : "د.ع"}</strong><p className="text-[11px] text-muted-foreground">{p.profile.business_name} · {p.profile.city}</p></div></Link>)}</div> : items.length === 0 ? <div className="rounded-2xl border border-dashed p-8 text-center"><h2 className="font-black">ماكو منشآت منشورة حالياً</h2></div> : <div className="grid gap-3 sm:grid-cols-2">{items.map(item => <Link key={item.id} to="/partner/$id" params={{ id: item.id }} className="rounded-2xl border bg-card p-4"><div className="flex items-center justify-between gap-2"><span className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-black text-primary">{item.partner_type === "hotel" ? "فندق" : item.partner_type === "restaurant" ? "مطعم" : item.partner_type === "mall" ? "مول" : "متجر"}</span><h2 className="text-base font-black">{item.business_name}</h2></div><p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3.5 w-3.5" />{item.city} · {item.address}</p>{distanceLabel(item.promotion_latitude, item.promotion_longitude) && <p className="mt-1 text-xs font-bold text-primary">{distanceLabel(item.promotion_latitude, item.promotion_longitude)}</p>}{item.description && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}<p className="mt-3 text-xs font-black text-primary">عرض المحتويات ←</p></Link>)}</div>}
+      {categoryKey ? products.length === 0 ? <div className="rounded-2xl border border-dashed p-8 text-center"><h2 className="font-black">ماكو منتجات منشورة بهذه الفئة حالياً</h2></div> : <div className="grid gap-3 sm:grid-cols-2">{products.map(p => <Link key={p.id} to="/partner/$id" params={{ id: p.profile.id }} className="overflow-hidden rounded-2xl border bg-card">{p.image_urls?.[0] ? <img src={p.image_urls[0]} alt={p.name} loading="lazy" className="h-44 w-full object-cover" /> : <div className="h-24 bg-muted" />}<div className="space-y-2 p-4"><h2 className="font-black">{p.name}</h2>{p.description && <p className="line-clamp-2 text-xs text-muted-foreground">{p.description}</p>}<strong className="text-sm text-primary">{Number(p.price_amount).toLocaleString("ar-IQ")} {p.currency === "USD" ? "$" : "د.ع"}</strong><p className="text-[11px] text-muted-foreground">{p.profile.business_name} · {p.profile.city}</p><span className="mt-2 inline-flex rounded-full border-2 border-primary/60 bg-primary/5 px-3 py-1 text-[10px] font-black text-primary">اطلب الآن ←</span></div></Link>)}</div> : items.length === 0 ? <div className="rounded-2xl border border-dashed p-8 text-center"><h2 className="font-black">ماكو منشآت منشورة حالياً</h2></div> : <div className="grid gap-3 sm:grid-cols-2">{items.map(item => <Link key={item.id} to="/partner/$id" params={{ id: item.id }} className="rounded-2xl border bg-card p-4"><div className="flex items-center justify-between gap-2"><span className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-black text-primary">{item.partner_type === "hotel" ? "فندق" : item.partner_type === "restaurant" ? "مطعم" : item.partner_type === "mall" ? "مول" : "متجر"}</span><h2 className="text-base font-black">{item.business_name}</h2></div><p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="h-3.5 w-3.5" />{item.city} · {item.address}</p>{distanceLabel(item.promotion_latitude, item.promotion_longitude) && <p className="mt-1 text-xs font-bold text-primary">{distanceLabel(item.promotion_latitude, item.promotion_longitude)}</p>}{item.description && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}<span className="mt-3 inline-flex rounded-full border-2 border-primary/60 bg-primary/5 px-3 py-1 text-[10px] font-black text-primary">اطلب الآن ←</span></Link>)}</div>}
     </>}
   </main></MobileShell>;
 }

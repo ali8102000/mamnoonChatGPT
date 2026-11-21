@@ -16,7 +16,7 @@ export function calculateMobileTaxiFare(
     throw new Error("مدة الانتظار يجب أن تكون من 5 إلى 120 دقيقة وبفواصل 5 دقائق");
   }
 
-  const baseFare = distanceKm * (isIntercity ? 187.5 : 400);
+  const baseFare = distanceKm * (isIntercity ? 187.5 : 350);
   const pricingEconomyBase = Math.max(1000, baseFare);
   const tierPercent = category === "economy"
     ? 0

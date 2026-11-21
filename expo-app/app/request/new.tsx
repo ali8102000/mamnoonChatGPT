@@ -1627,6 +1627,7 @@ export default function NewRequest() {
             <TouchableOpacity key={service.slug} style={styles.serviceTile} onPress={() => { setSelectedService(service.slug); if (!EXPERT_ONLY_SERVICE_SLUGS.has(service.slug)) setWorkerLevel("fani"); setServiceDetailsStep(true); }}>
               {hasServiceArtwork(service.slug) ? <ServiceArtwork slug={service.slug} /> : <Image source={getServiceImage(service.slug)} style={styles.serviceImage} resizeMode="cover" />}
               <Text style={styles.serviceLabel}>{service.name_ar}</Text>
+              <View style={{ marginTop: 7, borderWidth: 1.5, borderColor: palette.brand, backgroundColor: palette.brandSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}><Text style={{ color: palette.brand, fontSize: 10, fontWeight: "900" }}>اطلب الآن ←</Text></View>
             </TouchableOpacity>
           ))}
         </View>
@@ -2209,7 +2210,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
   label: { fontSize: 13, fontWeight: "900", color: palette.ink, marginBottom: 8, marginTop: 16 },
   serviceGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  serviceTile: { width: "31%", height: 148, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", overflow: "hidden", paddingVertical: 4 },
+  serviceTile: { width: "31%", height: 178, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", overflow: "hidden", paddingVertical: 4 },
   serviceEmoji: { fontSize: 30, marginBottom: 4 },
   serviceImage: { width: "92%", height: 120, alignSelf: "center", marginBottom: 5, borderRadius: 8 },
   serviceLabel: { fontSize: 12, fontWeight: "800", color: palette.ink, textAlign: "center", paddingHorizontal: 3 },
