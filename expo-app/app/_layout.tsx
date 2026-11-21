@@ -21,6 +21,7 @@ import { RegionalServiceBanner } from "@/components/regional-service-banner";
 import { NativeBottomNavigation } from "@/components/native-bottom-navigation";
 import { palette } from "@/styles/theme";
 import { loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 
 I18nManager.forceRTL(true);
 I18nManager.allowRTL(true);
@@ -194,6 +195,7 @@ export default function RootLayout() {
     console.warn("[startup] Tajawal font loading failed; continuing with system fonts:", fontError);
   }
   return (
+    <AppErrorBoundary>
     <ThemePreferenceProvider>
       <AuthProvider>
         <PushNotificationSetup />
@@ -234,5 +236,6 @@ export default function RootLayout() {
         </View>
       </AuthProvider>
     </ThemePreferenceProvider>
+    </AppErrorBoundary>
   );
 }
