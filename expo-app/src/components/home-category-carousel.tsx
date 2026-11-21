@@ -87,9 +87,7 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth }: { 
         <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "900", textAlign: "right" }}>{current.title}</Text>
         <Text style={{ color: "rgba(255,255,255,0.92)", fontSize: 11, fontWeight: "700", textAlign: "right", marginTop: 3 }}>{current.subtitle}</Text>
       </View>
-      <View style={{ position: "absolute", top: 10, left: 10, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.38)", paddingHorizontal: 8, paddingVertical: 4 }}>
-        <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>{index + 1} / {slides.length}</Text>
-      </View>
+      <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: 8, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}>{slides.map((slide, dotIndex) => <Pressable key={slide.id} accessibilityRole="button" accessibilityLabel={`عرض الشريحة ${dotIndex + 1}`} onPress={() => setIndex(dotIndex)} style={{ width: dotIndex === index ? 20 : 6, height: 6, borderRadius: 8, backgroundColor: dotIndex === index ? "#FFFFFF" : "rgba(255,255,255,0.62)" }} />)}</View>
     </Pressable>
     </View>
   );

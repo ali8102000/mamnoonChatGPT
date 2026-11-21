@@ -109,7 +109,7 @@ export function HomeCategoryCarousel() {
           <div className="text-lg font-black drop-shadow">{current.title}</div>
           <div className="mt-1 text-xs font-bold text-white/90">{current.subtitle}</div>
         </div>
-        <div className="absolute left-3 top-3 rounded-full bg-black/35 px-2 py-1 text-[10px] font-bold text-white">{index + 1} / {slides.length}</div>
+        {slides.length > 1 && <div className="absolute inset-x-0 bottom-2 flex items-center justify-center gap-1.5" dir="ltr" aria-label="التنقل بين صور البانوراما">{slides.map((slide, dotIndex) => <button key={slide.id} type="button" aria-label={`عرض الشريحة ${dotIndex + 1}`} aria-current={dotIndex === index ? "true" : undefined} onClick={(event) => { event.stopPropagation(); setIndex(dotIndex); }} className={`h-1.5 rounded-full transition-all duration-300 ${dotIndex === index ? "w-5 bg-white shadow" : "w-1.5 bg-white/55 hover:bg-white/80"}`} />)}</div>}
       </button> : null}
     </div>
   );
