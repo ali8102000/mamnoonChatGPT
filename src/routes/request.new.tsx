@@ -1176,6 +1176,7 @@ function NewRequest() {
               <div className="space-y-2">
                 {VEHICLE_CATS.filter((item) => item.key !== "large").sort((a, b) => Number(uiVisuals[`vehicle_${a.key}`]?.sort_order ?? 0) - Number(uiVisuals[`vehicle_${b.key}`]?.sort_order ?? 0)).map((c) => {
                   const active = vehicleCategory === c.key;
+                  const visual = uiVisuals[`vehicle_${c.key}`] || {};
                   const fare = routeKm !== null ? (serverTaxiFares[c.key as Exclude<VehicleCategory, "large">] ?? (active ? serverTaxiFare : null)) : null;
                   return (
                     <button
@@ -1184,12 +1185,12 @@ function NewRequest() {
                       onClick={() => setVehicleCategory(c.key)}
                       className={`w-full text-right p-3 rounded-2xl btn-press flex items-center gap-3 border ${
                         active ? "ring-2 ring-primary border-primary" : "border-border/60"
-                      }`}
+                      }`} style={{backgroundColor:visual.background_color||undefined,borderRadius:Number(visual.border_radius_px)||undefined,padding:Number(visual.card_padding_px)||undefined}}
                     >
                       {uiVisuals[`vehicle_${c.key}`]?.icon_name ? <span className="text-3xl shrink-0">{uiVisuals[`vehicle_${c.key}`].icon_name}</span> : (
-                        <img src={uiVisuals[`vehicle_${c.key}`]?.image_url || c.img || `/vehicle-icons/${c.key}.svg`} alt={uiVisuals[`vehicle_${c.key}`]?.title || c.label} style={{ width: Number(uiVisuals[`vehicle_${c.key}`]?.width_px) || 76, height: Number(uiVisuals[`vehicle_${c.key}`]?.height_px) || 52 }} className="object-contain shrink-0" />
+                        <img src={uiVisuals[`vehicle_${c.key}`]?.image_url || c.img || `/vehicle-icons/${c.key}.svg`} alt={uiVisuals[`vehicle_${c.key}`]?.title || c.label} style={{ width: Number(visual.width_px) || 76, height: Number(visual.height_px) || 52, transform: `scale(${Math.max(.5,Math.min(2,Number(visual.icon_scale)||1))})` }} className="object-contain shrink-0" />
                       )}
-                      <div className="flex-1 font-black text-sm text-foreground">{uiVisuals[`vehicle_${c.key}`]?.title || c.label}</div>
+                      <div className="flex-1 font-black text-sm" style={{fontSize:Number(visual.title_size_px)||14,color:visual.title_color||undefined}}>{visual.title || c.label}</div>
                       <div className="font-black text-base text-primary shrink-0">
                         {fare !== null ? `${fare.toLocaleString()} د.ع` : "—"}
                       </div>
