@@ -83,8 +83,8 @@ export default function AdminRightsScreen(){
     <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" placeholder="نسبة عمولة ممنون من الأجرة %" style={s.input}/>
     <TextInput value={chargeRate} onChangeText={setChargeRate} keyboardType="decimal-pad" placeholder="نسبة تحصيل العمولة %" style={s.input}/>
     <View style={s.rowWrap}>{[["taxi_acceptance","قبول رحلة"],["service_acceptance","قبول خدمة"],["order_acceptance","قبول طلب متجر"],["all_acceptance","كل العمليات"]].map(([k,l])=><TouchableOpacity key={k} onPress={()=>setEvent(k)} style={[s.choice,event===k&&s.active]}><Text style={[s.tabText,event===k&&s.activeText]}>{l}</Text></TouchableOpacity>)}</View>
-    <TouchableOpacity onPress={()=>setTrial(v=>!v)} style={s.row}><Text style={s.muted}>تجربة مجانية</Text><Text style={s.cardTitle}>{trial?"مفعّلة":"متوقفة"}</Text></TouchableOpacity>
-    <TextInput value={trialDays} onChangeText={setTrialDays} keyboardType="number-pad" placeholder="أيام التجربة" style={s.input}/>
+    <TouchableOpacity onPress={()=>setTrial(v=>!v)} style={s.row}><Text style={s.muted}>إعفاء من العمولة</Text><Text style={s.cardTitle}>{trial?"مفعّلة":"متوقفة"}</Text></TouchableOpacity>
+    <TextInput value={trialDays} onChangeText={setTrialDays} keyboardType="number-pad" placeholder="أيام الإعفاء" style={s.input}/>
     <Text style={s.muted}>تبدأ الفترة من تاريخ تسجيل المستخدم الجديد وتستمر له حتى نهايتها حتى لو أوقفت العرض.</Text>
     <TouchableOpacity onPress={()=>setEnabled(v=>!v)} style={s.row}><Text style={s.muted}>تفعيل السياسة (نسبة 0٪ تعني مجاني)</Text><Text style={s.cardTitle}>{enabled?"مفعّل":"متوقف"}</Text></TouchableOpacity>
     <TouchableOpacity disabled={busy} onPress={()=>void savePolicy()} style={s.primary}><Text style={s.primaryText}>حفظ الإعدادات</Text></TouchableOpacity>
