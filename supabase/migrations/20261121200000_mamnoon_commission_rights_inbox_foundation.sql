@@ -1522,3 +1522,18 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.admin_get_revenue_summary() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_get_revenue_summary() TO authenticated;
+
+-- Internal assignment trigger used a separate subscription checker. Override it
+-- too so legacy subscription rows can no longer block taxi/worker assignments.
+CREATE OR REPLACE FUNCTION public.mamnoon_provider_subscription_active_internal(p_user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  RETURN p_user_id IS NOT NULL;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.mamnoon_provider_subscription_active_internal(uuid) FROM PUBLIC, anon, authenticated;
