@@ -1470,3 +1470,32 @@ BEGIN
   END IF;
 END;
 $retire_subscriptions$;
+
+CREATE OR REPLACE FUNCTION public.admin_get_revenue_summary()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_summary jsonb;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_super_admin(auth.uid()) THEN RAISE EXCEPTION 'super_admin_required'; END IF;
+  SELECT jsonb_build_object(
+    'assessed_iqd',COALESCE(SUM(assessed_iqd),0),
+    'collected_iqd',COALESCE(SUM(collected_iqd),0),
+    'waived_iqd',COALESCE(SUM(waived_iqd),0),
+    'outstanding_iqd',COALESCE(SUM(assessed_iqd-collected_iqd-waived_iqd),0),
+    'entry_count',COUNT(*)
+  ) INTO v_summary
+  FROM public.mamnoon_revenue_ledger
+  WHERE status <> 'void';
+
+  RETURN v_summary || jsonb_build_object(
+    'zaincash_debt_collected_iqd',
+    (SELECT COALESCE(SUM(amount_iqd),0) FROM public.mamnoon_revenue_collections)
+  );
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.admin_get_revenue_summary() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_get_revenue_summary() TO authenticated;
