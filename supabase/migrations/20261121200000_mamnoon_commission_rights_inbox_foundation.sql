@@ -679,7 +679,7 @@ BEGIN
     RAISE EXCEPTION 'provider_role_required';
   END IF;
   IF NOT public.mamnoon_provider_subscription_active(auth.uid()) THEN
-    RAISE EXCEPTION 'provider_unavailable';
+    RAISE EXCEPTION 'subscription_required';
   END IF;
   IF EXISTS (SELECT 1 FROM public.user_blocks b WHERE b.user_id = auth.uid()
     AND (b.expires_at IS NULL OR b.expires_at > now())) THEN
