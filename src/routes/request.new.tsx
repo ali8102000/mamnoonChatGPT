@@ -814,6 +814,7 @@ function NewRequest() {
               className="min-h-44 rounded-2xl bg-card p-1 flex flex-col items-center justify-center gap-0 border border-border shadow-sm overflow-hidden">
               <img src={serviceIcon(s.slug)} alt="" className="mx-auto h-40 w-[92%] rounded-xl object-cover block" />
               <span className="px-2 py-2 text-sm font-black text-center">{s.name_ar}</span>
+              <span className="mb-2 inline-flex rounded-full border-2 border-primary/60 bg-primary/5 px-3 py-1 text-[10px] font-black text-primary">اطلب الآن ←</span>
             </button>
           ))}
         </div>
