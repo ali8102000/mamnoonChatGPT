@@ -60,12 +60,13 @@ export default function AdminChatsScreen() {
     setConversations(result.conversations ?? []);
   }, [filter, invoke, remoteSearch]);
 
+  const selected = useMemo(() => conversations.find(c => c.id === selectedId) ?? null, [conversations, selectedId]);
+
   const loadMessages = useCallback(async (id: string) => {
     const result = await invoke({ action: "messages", conversation_id: id, conversation_type: selected?.conversation_type ?? "support" });
     setMessages(result.messages ?? []);
   }, [invoke]);
 
-  const selected = useMemo(() => conversations.find(c => c.id === selectedId) ?? null, [conversations, selectedId]);
 
   useEffect(() => {
     if (authLoading) return;
