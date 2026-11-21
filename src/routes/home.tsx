@@ -540,7 +540,6 @@ function QuickTile({
             <ArrowUpLeft className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
           <div className="mt-0.5" style={{ fontSize: subtitleSize, color: styleConfig.subtitle_color || undefined }}>{subtitle}</div>
-          <span className="mt-2 inline-flex w-fit items-center rounded-full border-2 border-primary/60 bg-background/90 px-3 py-1 text-[11px] font-black text-primary shadow-sm">اطلب الآن ←</span>
         </div>
       </div>
     </Link>
