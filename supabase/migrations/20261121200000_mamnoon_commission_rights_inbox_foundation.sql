@@ -533,6 +533,7 @@ DECLARE
   v_rate numeric(7,4) := 0;
   v_charge_percent numeric(7,4) := 100;
   v_override numeric(7,4);
+  v_override_found boolean := false;
   v_commission bigint := 0;
   v_balance bigint := 0;
   v_next_balance bigint := 0;
@@ -596,9 +597,10 @@ BEGIN
     AND (ends_at IS NULL OR ends_at > now())
   ORDER BY starts_at DESC, created_at DESC
   LIMIT 1;
-  IF FOUND THEN v_charge_percent := v_override; END IF;
+  v_override_found := FOUND;
+  IF v_override_found THEN v_charge_percent := v_override; END IF;
 
-  IF EXISTS (
+  IF NOT v_override_found AND EXISTS (
     SELECT 1 FROM public.mamnoon_user_trial_entitlements t
     WHERE t.user_id = p_user_id AND t.account_role = v_role
       AND t.starts_at <= now() AND t.ends_at > now()
@@ -1222,6 +1224,7 @@ DECLARE
   v_rate numeric(7,4) := 0;
   v_charge_percent numeric(7,4) := 100;
   v_override numeric(7,4);
+  v_override_found boolean := false;
   v_policy public.mamnoon_commission_policies%ROWTYPE;
   v_commission bigint := 0;
   v_balance bigint := 0;
@@ -1265,9 +1268,10 @@ BEGIN
   WHERE user_id=v_partner.user_id AND revoked_at IS NULL
     AND starts_at<=now() AND (ends_at IS NULL OR ends_at>now())
   ORDER BY starts_at DESC,created_at DESC LIMIT 1;
-  IF FOUND THEN v_charge_percent := v_override; END IF;
+  v_override_found := FOUND;
+  IF v_override_found THEN v_charge_percent := v_override; END IF;
 
-  IF EXISTS (
+  IF NOT v_override_found AND EXISTS (
     SELECT 1 FROM public.mamnoon_user_trial_entitlements
     WHERE user_id=v_partner.user_id AND account_role=v_role
       AND starts_at<=now() AND ends_at>now()
