@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 type BannerKind = "category" | "poll" | "contest" | "ad" | "top_square"; // top_square retained only for legacy rows
 type Category = "restaurant" | "hotel" | "store";
-type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string };
+type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string; starts_at: string | null; ends_at: string | null; result_visibility: string; app_campaign_options: { id: string; label: string; sort_order: number }[]; app_campaign_option_results: { option_id: string; vote_count: number }[] };
 type Banner = { id: string; image_url: string; storage_path: string | null; target_category: Category; banner_type: BannerKind; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; display_order: number; badge_text: string | null; banner_title?: string | null; banner_description?: string | null; motion_axis: "horizontal" | "vertical"; motion_direction: "left" | "right" | "up" | "down"; motion_style: "slide" | "fade" | "drop" };
 const labels = { restaurant: "المطاعم", hotel: "الفنادق", store: "المتاجر" } as const;
 const kindLabels: Record<BannerKind,string> = { category: "مطاعم / فنادق / متاجر", poll: "استطلاع رأي", contest: "مسابقة", ad: "الإعلان العلوي الرئيسي", top_square: "البانر المربع أعلى الصفحة" };
@@ -30,7 +30,7 @@ export default function AdminHomeBanners() {
     const { data, error } = await (supabase as any).from("home_carousel_banners").select("*").order("display_order").order("created_at");
     if (error) setMessage("تعذر تحميل البانرات: " + error.message);
     else setRows(data ?? []);
-    const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status").eq("status","published").order("sort_order").order("created_at",{ascending:false});
+    const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
     setCampaigns((campaignRows ?? []) as Campaign[]);
   }, []);
   useEffect(() => {
@@ -63,6 +63,12 @@ export default function AdminHomeBanners() {
   const toggle = async (row: Banner) => {
     const { error } = await (supabase as any).from("home_carousel_banners").update({ is_active: !row.is_active, updated_at: new Date().toISOString() }).eq("id", row.id);
     setMessage(error ? "تعذر تغيير الحالة: " + error.message : "تم تحديث حالة البانر."); if (!error) await load();
+  };
+  const toggleCampaignStatus = async (campaign: Campaign) => {
+    const nextStatus = campaign.status === "published" ? "draft" : "published";
+    const { error } = await (supabase as any).from("app_campaigns").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", campaign.id);
+    setMessage(error ? "تعذر تحديث حالة الحملة: " + error.message : nextStatus === "published" ? "تم نشر الحملة." : "تم إيقاف نشر الحملة.");
+    if (!error) await load();
   };
   const remove = async (row: Banner) => {
     if (!window.confirm("متأكد تريد حذف هذا البانر نهائياً؟")) return;
@@ -99,6 +105,18 @@ export default function AdminHomeBanners() {
         <button title="تفعيل أو إيقاف" onClick={()=>void toggle(row)} className="rounded-lg border border-border p-2"><Power className="h-4 w-4"/></button>
         <button title="حذف" onClick={()=>void remove(row)} className="rounded-lg border border-border p-2 text-destructive"><Trash2 className="h-4 w-4"/></button>
       </article>)}
+    </section>
+    <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-2"><h3 className="font-black">إدارة الاستطلاعات والمسابقات والنتائج ({campaigns.length})</h3><button onClick={()=>void load()} className="rounded-lg border border-border px-3 py-2 text-xs font-bold">تحديث النتائج</button></div>
+      {campaigns.length===0 ? <p className="text-sm text-muted-foreground">ماكو حملات مسجلة حالياً.</p> : campaigns.map(campaign=>{
+        const results = campaign.app_campaign_option_results || [];
+        const total = results.reduce((sum,item)=>sum+Number(item.vote_count||0),0);
+        return <article key={campaign.id} className="space-y-2 rounded-xl border border-border p-3">
+          <div className="flex items-start justify-between gap-2"><div><b className="text-sm">{campaign.campaign_type==="poll"?"استطلاع رأي":"مسابقة"} · {campaign.title}</b><p className="text-xs text-muted-foreground mt-1">المشاركات المسجلة: {total} · الحالة: {campaign.status==="published"?"منشورة":campaign.status}</p></div><button onClick={()=>void toggleCampaignStatus(campaign)} className="rounded-lg border border-border px-3 py-2 text-xs font-bold">{campaign.status==="published"?"إيقاف":"نشر"}</button></div>
+          <div className="space-y-1">{[...(campaign.app_campaign_options||[])].sort((a,b)=>a.sort_order-b.sort_order).map(option=>{const count=Number(results.find(item=>item.option_id===option.id)?.vote_count||0);return <div key={option.id} className="flex justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs"><span>{option.label}</span><b className="tabular-nums">{count}</b></div>;})}</div>
+          <p className="text-[10px] text-muted-foreground">النتائج التفصيلية محمية وتُعرض هنا للمدير فقط.</p>
+        </article>;
+      })}
     </section>
   </div>;
 }
