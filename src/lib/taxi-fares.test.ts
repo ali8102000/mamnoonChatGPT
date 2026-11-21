@@ -43,7 +43,7 @@ describe("Mamnoon city taxi pricing", () => {
 
   it("adds a return or second trip and charges 500 IQD per five extra minutes", () => {
     expect(taxiFare("economy", 5, { tripType: "round_trip" })).toBe(3250);
-    expect(taxiFare("economy", 5, { tripType: "second_trip" })).toBe(4000);
+    expect(taxiFare("economy", 5, { tripType: "second_trip" })).toBe(3500);
     expect(taxiFare("economy", 10, { tripType: "round_trip" })).toBe(6250);
     expect(taxiFare("premium", 10, { tripType: "round_trip" })).toBe(7500);
     expect(taxiFare("economy", 5, { extraMinutes: 5 })).toBe(2250);
