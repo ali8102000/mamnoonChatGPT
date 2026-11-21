@@ -551,7 +551,12 @@ BEGIN
   SELECT role::text INTO v_role
   FROM public.user_roles
   WHERE user_id = p_user_id AND role::text IN ('driver','large_driver','worker')
-  ORDER BY CASE role::text WHEN 'driver' THEN 1 WHEN 'large_driver' THEN 2 ELSE 3 END
+  ORDER BY CASE
+    WHEN v_request.type::text = 'taxi' AND v_request.vehicle_category::text = 'large' AND role::text = 'large_driver' THEN 1
+    WHEN role::text = 'driver' THEN 2
+    WHEN role::text = 'large_driver' THEN 3
+    ELSE 4
+  END
   LIMIT 1;
   IF v_role IS NULL THEN RAISE EXCEPTION 'commission_provider_role_required'; END IF;
 
