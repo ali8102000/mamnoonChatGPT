@@ -38,7 +38,7 @@ for (const route of [
 ]) {
   const found = nativeAdmin.includes('router.push("' + route + '"') ||
     nativeAdmin.includes('route: "' + route + '"') ||
-    nativeStaffHub.includes('route: "' + route + '");
+    nativeStaffHub.includes('route: "' + route + '"');
   check("native admin navigation: " + route, found, "Dashboard or staff hub must expose the destination");
 }
 
