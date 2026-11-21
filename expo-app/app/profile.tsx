@@ -59,6 +59,7 @@ export default function ProfileScreen() {
   const [providerTransactions, setProviderTransactions] = useState<WalletTransaction[]>([]);
   const [providerWalletOffline, setProviderWalletOffline] = useState(false);
   const [showProviderEarningsDetails, setShowProviderEarningsDetails] = useState(false);
+  const [showLogout, setShowLogout] = useState(false);
   const [staffRank, setStaffRank] = useState<string | null>(null);
   const [referralSummary, setReferralSummary] = useState<{referral_code:string;successful_signups:number}|null>(null);
   const isGeneralManager = staffRank === "general_manager";
@@ -290,7 +291,15 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.screen}>
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 170 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 170 }}
+      scrollEventThrottle={100}
+      onScroll={(event) => {
+        const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+        setShowLogout(contentOffset.y + layoutMeasurement.height >= contentSize.height - 32);
+      }}
+    >
       <View style={styles.header}>
         <View style={styles.avatar}>
           {profile?.avatar_url ? (
@@ -422,7 +431,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       )}
     </ScrollView>
-    <View pointerEvents="box-none" style={styles.logoutFooter}>
+    {showLogout ? <View pointerEvents="box-none" style={styles.logoutFooter}>
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel="تسجيل الخروج"
@@ -433,7 +442,7 @@ export default function ProfileScreen() {
         <Text style={styles.logoutButtonText}>تسجيل الخروج</Text>
         <Text style={styles.logoutButtonIcon}>↪</Text>
       </TouchableOpacity>
-    </View>
+    </View> : null}
     </View>
   );
 }
