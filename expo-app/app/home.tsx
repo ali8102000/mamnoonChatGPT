@@ -518,7 +518,6 @@ function CustomerHome({ userId }: { userId: string | null }) {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          borderRadius: 20,
           height: Math.max(100,Math.min(300,Number(topBanner?.display_config?.height_px)||142)),
           borderRadius: Math.max(8,Math.min(40,Number(topBanner?.display_config?.border_radius_px)||20)),
           padding: Math.max(8,Math.min(32,Number(topBanner?.display_config?.padding_px)||12)),
