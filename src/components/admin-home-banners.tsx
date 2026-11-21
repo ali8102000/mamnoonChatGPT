@@ -4,16 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 type BannerKind = "category" | "poll" | "contest" | "ad" | "top_square"; // top_square retained only for legacy rows
 type Category = "restaurant" | "hotel" | "store";
-type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string; starts_at: string | null; ends_at: string | null; result_visibility: string; app_campaign_options: { id: string; label: string; sort_order: number }[]; app_campaign_option_results: { option_id: string; vote_count: number }[] };
+type Campaign = { id: string; title: string; campaign_type: "poll" | "contest"; status: string; starts_at: string | null; ends_at: string | null; result_visibility: string; participation_mode?: "options"|"text"|"image"|"both"; rules?: string|null; prize_description?: string|null; app_campaign_options: { id: string; label: string; sort_order: number }[]; app_campaign_option_results: { option_id: string; vote_count: number }[] };
 type Banner = { id: string; image_url: string; storage_path: string | null; target_category: Category; banner_type: BannerKind; target_campaign_id: string | null; is_active: boolean; scroll_speed: number; display_order: number; badge_text: string | null; banner_title?: string | null; banner_description?: string | null; motion_axis: "horizontal" | "vertical"; motion_direction: "left" | "right" | "up" | "down"; motion_style: "slide" | "fade" | "drop" };
-const labels = { restaurant: "المطاعم", hotel: "الفنادق", store: "المتاجر" } as const;
+type ContestEntry = { id:string; campaign_id:string; user_id:string; text_content:string|null; storage_path:string|null; image_url:string|null; status:string; created_at:string };\nconst labels = { restaurant: "المطاعم", hotel: "الفنادق", store: "المتاجر" } as const;
 const kindLabels: Record<BannerKind,string> = { category: "مطاعم / فنادق / متاجر", poll: "استطلاع رأي", contest: "مسابقة", ad: "الإعلان العلوي الرئيسي", top_square: "البانر المربع أعلى الصفحة" };
 const input = "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm";
 export default function AdminHomeBanners() {
   const [rows, setRows] = useState<Banner[]>([]);
   const [category, setCategory] = useState<Category>("restaurant");
   const [bannerType, setBannerType] = useState<BannerKind>("category");
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);\n  const [entries, setEntries] = useState<ContestEntry[]>([]);
   const [campaignId, setCampaignId] = useState("");
   const [speed, setSpeed] = useState(5);
   const [motionAxis, setMotionAxis] = useState<"horizontal" | "vertical">("horizontal");
@@ -31,7 +31,7 @@ export default function AdminHomeBanners() {
     if (error) setMessage("تعذر تحميل البانرات: " + error.message);
     else setRows((data ?? []).filter((row: Banner) => row.banner_type !== "top_square"));
     const { data: campaignRows } = await (supabase as any).from("app_campaigns").select("id,title,campaign_type,status,starts_at,ends_at,result_visibility,app_campaign_options(id,label,sort_order),app_campaign_option_results(option_id,vote_count)").order("sort_order").order("created_at",{ascending:false});
-    setCampaigns((campaignRows ?? []) as Campaign[]);
+    setCampaigns((campaignRows ?? []) as Campaign[]);\n    const { data: entryRows, error: entryError } = await (supabase as any).from("app_campaign_entries").select("id,campaign_id,user_id,text_content,storage_path,status,created_at").order("created_at",{ascending:false});\n    if (!entryError) { const withImages = await Promise.all((entryRows ?? []).map(async (entry: any) => { let image_url: string|null = null; if (entry.storage_path) { const signed = await supabase.storage.from("campaign-entries").createSignedUrl(entry.storage_path,3600); image_url = signed.data?.signedUrl ?? null; } return { ...entry, image_url }; })); setEntries(withImages as ContestEntry[]); }
   }, []);
   useEffect(() => {
     void load();
@@ -72,7 +72,7 @@ export default function AdminHomeBanners() {
     const { error } = await (supabase as any).from("home_carousel_banners").update({ is_active: !row.is_active, updated_at: new Date().toISOString() }).eq("id", row.id);
     setMessage(error ? "تعذر تغيير الحالة: " + error.message : "تم تحديث حالة البانر."); if (!error) await load();
   };
-  const toggleCampaignStatus = async (campaign: Campaign) => {
+  const updateCampaign = async (campaign: Campaign, patch: Record<string, unknown>) => {\n    const { error } = await (supabase as any).from("app_campaigns").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", campaign.id);\n    setMessage(error ? "تعذر حفظ إعدادات المسابقة: " + error.message : "تم حفظ إعدادات الحملة."); if (!error) await load();\n  };\n  const reviewEntry = async (entry: ContestEntry, status: "approved"|"rejected") => {\n    const { error } = await (supabase as any).from("app_campaign_entries").update({ status, reviewed_at: new Date().toISOString() }).eq("id", entry.id);\n    setMessage(error ? "تعذر تحديث المشاركة: " + error.message : status === "approved" ? "تم قبول المشاركة." : "تم رفض المشاركة."); if (!error) await load();\n  };\n  const toggleCampaignStatus = async (campaign: Campaign) => {
     const nextStatus = campaign.status === "published" ? "draft" : "published";
     const { error } = await (supabase as any).from("app_campaigns").update({ status: nextStatus, updated_at: new Date().toISOString() }).eq("id", campaign.id);
     setMessage(error ? "تعذر تحديث حالة الحملة: " + error.message : nextStatus === "published" ? "تم نشر الحملة." : "تم إيقاف نشر الحملة.");
@@ -122,6 +122,22 @@ export default function AdminHomeBanners() {
         return <article key={campaign.id} className="space-y-2 rounded-xl border border-border p-3">
           <div className="flex items-start justify-between gap-2"><div><b className="text-sm">{campaign.campaign_type==="poll"?"استطلاع رأي":"مسابقة"} · {campaign.title}</b><p className="text-xs text-muted-foreground mt-1">المشاركات المسجلة: {total} · الحالة: {campaign.status==="published"?"منشورة":campaign.status}</p></div><button onClick={()=>void toggleCampaignStatus(campaign)} className="rounded-lg border border-border px-3 py-2 text-xs font-bold">{campaign.status==="published"?"إيقاف":"نشر"}</button></div>
           <div className="space-y-1">{[...(campaign.app_campaign_options||[])].sort((a,b)=>a.sort_order-b.sort_order).map(option=>{const count=Number(results.find(item=>item.option_id===option.id)?.vote_count||0);return <div key={option.id} className="flex justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs"><span>{option.label}</span><b className="tabular-nums">{count}</b></div>;})}</div>
+          {campaign.campaign_type === "contest" && <div className="space-y-2 border-t border-border pt-3">
+            <b className="text-xs">طريقة المشاركة بهذه المسابقة</b>
+            <select className={input} value={campaign.participation_mode ?? "options"} onChange={e=>void updateCampaign(campaign,{participation_mode:e.target.value})}>
+              <option value="text">نص فقط</option><option value="image">صورة فقط</option><option value="both">نص وصورة معاً</option><option value="options">اختيارات وتصويت</option>
+            </select>
+            <label className="block space-y-1 text-xs font-bold">الشروط والتعليمات<textarea className={input} rows={3} defaultValue={campaign.rules ?? ""} onBlur={e=>{if(e.target.value!==(campaign.rules??""))void updateCampaign(campaign,{rules:e.target.value.trim()||null});}} placeholder="شروط المشاركة..."/></label>
+            <label className="block space-y-1 text-xs font-bold">الجائزة<textarea className={input} rows={2} defaultValue={campaign.prize_description ?? ""} onBlur={e=>{if(e.target.value!==(campaign.prize_description??""))void updateCampaign(campaign,{prize_description:e.target.value.trim()||null});}} placeholder="وصف الجائزة..."/></label>
+            <b className="text-xs">مشاركات المتسابقين ({entries.filter(entry=>entry.campaign_id===campaign.id).length})</b>
+            {entries.filter(entry=>entry.campaign_id===campaign.id).map(entry=><div key={entry.id} className="space-y-2 rounded-lg border border-border p-3 text-xs">
+              <p>المستخدم: {entry.user_id.slice(0,8)}… · {new Date(entry.created_at).toLocaleString("ar-IQ")}</p>
+              {entry.text_content&&<p className="whitespace-pre-wrap">{entry.text_content}</p>}
+              {entry.image_url&&<a href={entry.image_url} target="_blank" rel="noreferrer"><img src={entry.image_url} alt="مشاركة المتسابق" className="max-h-56 rounded-lg object-contain"/></a>}
+              <p>الحالة: {entry.status==="approved"?"مقبولة":entry.status==="rejected"?"مرفوضة":"قيد المراجعة"}</p>
+              {entry.status==="pending"&&<div className="flex gap-2"><button onClick={()=>void reviewEntry(entry,"approved")} className="rounded-lg bg-primary px-3 py-2 font-bold text-primary-foreground">قبول</button><button onClick={()=>void reviewEntry(entry,"rejected")} className="rounded-lg border border-destructive px-3 py-2 font-bold text-destructive">رفض</button></div>}
+            </div>)}
+          </div>}
           <p className="text-[10px] text-muted-foreground">النتائج التفصيلية محمية وتُعرض هنا للمدير فقط.</p>
         </article>;
       })}
