@@ -1207,7 +1207,7 @@ BEGIN
      OR p_commission_charge_percent IS NULL OR p_commission_charge_percent NOT BETWEEN 0 AND 100 THEN
     RAISE EXCEPTION 'invalid_commission_percent';
   END IF;
-  IF p_collection_event NOT IN ('taxi_acceptance','service_acceptance','order_acceptance') THEN RAISE EXCEPTION 'invalid_collection_event'; END IF;
+  IF p_collection_event NOT IN ('taxi_acceptance','service_acceptance','order_acceptance','all_acceptance') THEN RAISE EXCEPTION 'invalid_collection_event'; END IF;
   IF p_free_trial_days IS NULL OR p_free_trial_days NOT BETWEEN 0 AND 365 THEN RAISE EXCEPTION 'invalid_trial_days'; END IF;
   IF p_ends_at IS NOT NULL AND p_starts_at IS NOT NULL AND p_ends_at <= p_starts_at THEN RAISE EXCEPTION 'invalid_policy_dates'; END IF;
 
