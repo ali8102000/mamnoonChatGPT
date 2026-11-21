@@ -29,7 +29,7 @@ function PrivacyPage() {
     <div className="min-h-screen px-5 pt-10 pb-20 max-w-2xl mx-auto" dir="rtl">
       <h1 className="text-2xl font-black mb-6">{managedPage?.title || "سياسة الخصوصية"}</h1>
       <div className="glass rounded-3xl p-6 space-y-4 text-sm leading-relaxed text-muted-foreground">
-        {managedPage ? managedPage.body.split(/\\n\\s*\\n/).filter(Boolean).map((paragraph, index) => <p key={index} className="whitespace-pre-wrap">{paragraph}</p>) : <>
+        {managedPage ? managedPage.body.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => <p key={index} className="whitespace-pre-wrap">{paragraph}</p>) : <>
         <section>
           <h2 className="font-black text-foreground mb-2">مقدمة</h2>
           <p>
