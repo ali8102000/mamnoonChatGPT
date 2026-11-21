@@ -298,6 +298,11 @@ export default function ProfileScreen() {
             <Text style={styles.avatarText}>{(profile?.full_name || "؟")[0]}</Text>
           )}
         </View>
+              {referralSummary ? (
+        <TouchableOpacity onPress={() => void shareReferralLink()} activeOpacity={0.75} style={{ alignSelf: "center", marginTop: 3, marginBottom: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface }}>
+          <Text style={{ color: palette.muted, fontSize: 9, fontWeight: "600" }}>رابط الدعوة · {referralSummary.referral_code} ↗</Text>
+        </TouchableOpacity>
+      ) : null}
         {!isProvider && <TouchableOpacity style={styles.avatarButton} onPress={chooseAndUploadAvatar} disabled={uploadingAvatar}>
           {uploadingAvatar ? <ActivityIndicator color="#fff" /> : <Text style={styles.avatarButtonText}>تغيير الصورة الشخصية</Text>}
         </TouchableOpacity>}
@@ -311,11 +316,7 @@ export default function ProfileScreen() {
         </View>
         <Text style={styles.phone}>{profile?.phone}</Text>
       </View>
-      {referralSummary ? (
-        <TouchableOpacity onPress={() => void shareReferralLink()} activeOpacity={0.75} style={{ alignSelf: "center", marginTop: 3, marginBottom: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface }}>
-          <Text style={{ color: palette.muted, fontSize: 9, fontWeight: "600" }}>رابط الدعوة · {referralSummary.referral_code} ↗</Text>
-        </TouchableOpacity>
-      ) : null}
+
 
       <View style={styles.rolesRow}>
         {roles.filter((r) => ["customer", "driver", "large_driver", "worker"].includes(r)).map((r) => (
