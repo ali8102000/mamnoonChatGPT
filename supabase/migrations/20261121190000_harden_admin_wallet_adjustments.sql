@@ -17,10 +17,10 @@ declare
 begin
   if auth.uid() is null then raise exception 'unauthorized'; end if;
   if p_user_id is null then raise exception 'invalid_user'; end if;
-  if p_amount is null or p_amount <= 0 or p_amount > 1000000000 then
+  if p_amount is null or p_amount <= 0 or p_amount > 100000000 then
     raise exception 'invalid_amount';
   end if;
-  if p_type not in ('credit','debit') then
+  if p_type is null or p_type not in ('credit','debit') then
     raise exception 'invalid_adjustment_type';
   end if;
   if p_note is not null and length(p_note) > 500 then
@@ -48,7 +48,7 @@ begin
   insert into public.driver_wallets(user_id,balance)
   values(p_user_id,v_delta)
   on conflict(user_id) do update
-    set balance = public.driver_wallets.balance + v_delta,
+    set balance = driver_wallets.balance + v_delta,
         updated_at = now()
   returning balance into v_balance;
 
