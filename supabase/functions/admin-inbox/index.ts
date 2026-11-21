@@ -122,16 +122,16 @@ Deno.serve(async (req: Request) => {
         .select("id,user_id,subject,needs_admin_reply,handoff_status,assigned_staff_id")
         .eq("id", body.conversation_id).maybeSingle();
       if (conversationError || !conversation) return json({ error: "conversation_not_found" }, 404);
-      const { data: messages, error } = await admin.from("support_messages")
-        .select("id,conversation_id,sender_id,body,created_at,is_ai,ai_reply_to,read_at,read_by")
-        .eq("conversation_id", body.conversation_id).order("created_at", { ascending: true }).limit(500);
-      if (error) return json({ error: "messages_load_failed" }, 500);
-      // Opening a thread marks incoming messages read through the caller JWT so the
-      // existing read-receipt trigger can attribute the action to the staff member.
+      // Mark incoming messages read through the caller JWT before loading them,
+      // so the returned thread reflects the updated read receipts.
       await caller.from("support_messages").update({ read_at: new Date().toISOString() })
         .eq("conversation_id", body.conversation_id).neq("sender_id", auth.user.id).is("read_at", null);
       await admin.from("support_conversations").update({ ticket_status: "in_progress" })
         .eq("id", body.conversation_id).eq("ticket_status", "new");
+      const { data: messages, error } = await admin.from("support_messages")
+        .select("id,conversation_id,sender_id,body,created_at,is_ai,ai_reply_to,read_at,read_by")
+        .eq("conversation_id", body.conversation_id).order("created_at", { ascending: true }).limit(500);
+      if (error) return json({ error: "messages_load_failed" }, 500);
       const senderIds = [...new Set((messages ?? []).map((m: any) => m.sender_id))];
       const { data: profiles } = senderIds.length
         ? await admin.from("profiles").select("id,full_name,phone").in("id", senderIds)
