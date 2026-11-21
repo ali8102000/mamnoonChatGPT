@@ -79,7 +79,7 @@ export default function AdminControlCenter() {
     <label key={key} className="block rounded-xl border border-slate-200 bg-white p-3 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
       <span className="mb-2 block">{label}</span>
       <input type="range" min={min} max={max} step={step} value={config[key]} onChange={(event) => update(key, Number(event.target.value))} className="w-full accent-cyan-600"/>
-      <span className="mt-1 block text-left font-black tabular-nums text-cyan-700 dark:text-cyan-300">{config[key]} px</span>
+      <span className="mt-1 block text-left font-black tabular-nums text-cyan-700 dark:text-cyan-300">{key === "wide_column_ratio" ? `${config[key].toFixed(1)} : 1` : `${config[key]} px`}</span>
     </label>
   );
 
