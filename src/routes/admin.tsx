@@ -2474,6 +2474,7 @@ function WalletSection() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [adjustModal, setAdjustModal] = useState(false);
+  const [adjustBusy, setAdjustBusy] = useState(false);
   const listTx = adminListTransactions;
   const adjustWallet = adminAdjustWallet;
   const load = useCallback(async () => {
@@ -2488,11 +2489,14 @@ function WalletSection() {
     load();
   }, [load]);
   async function handleAdjust(userId: string, amount: number, type: string, note: string) {
+    if (adjustBusy) return;
+    setAdjustBusy(true);
     try {
       await adjustWallet({ data: { user_id: userId, amount, type, note } });
       setAdjustModal(false);
-      load();
+      await load();
     } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); }
+    finally { setAdjustBusy(false); }
   }
   return (
     <div>
@@ -2529,13 +2533,13 @@ function WalletSection() {
         </div>
       )}
       {adjustModal && (
-        <WalletAdjustModal onConfirm={handleAdjust} onClose={() => setAdjustModal(false)} />
+        <WalletAdjustModal onConfirm={handleAdjust} onClose={() => setAdjustModal(false)} busy={adjustBusy} />
       )}
     </div>
   );
 }
 
-function WalletAdjustModal({ onConfirm, onClose }: any) {
+function WalletAdjustModal({ onConfirm, onClose, busy = false }: any) {
   const [userId, setUserId] = useState("");
   const [amount, setAmount] = useState(0);
   const [type, setType] = useState("credit");
@@ -2580,10 +2584,10 @@ function WalletAdjustModal({ onConfirm, onClose }: any) {
           <div className="flex gap-2">
             <button
               onClick={() => onConfirm(userId, amount, type, note)}
-              disabled={!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId) || !Number.isFinite(amount) || amount <= 0 || amount > 100000000 || note.length > 500}
+              disabled={busy || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId) || !Number.isFinite(amount) || amount <= 0 || amount > 100000000 || note.length > 500}
               className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50"
             >
-              تنفيذ
+              {busy ? "جارٍ التنفيذ..." : "تنفيذ"}
             </button>
             <button onClick={onClose} className="px-4 py-2.5 rounded-xl glass text-sm font-bold">
               إلغاء
