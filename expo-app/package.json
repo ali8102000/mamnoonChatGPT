@@ -1,6 +1,9 @@
 {
   "name": "mamnoon-app",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=26.0.0"
+  },
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
