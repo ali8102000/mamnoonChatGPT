@@ -581,7 +581,20 @@ function CustomerHome({ userId }: { userId: string | null }) {
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
       <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12 }}>
-        {tiles.map((tile) => (
+        {tiles.map((tile) => {
+          const visualKey = tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle";
+          const visual = visuals[visualKey] || {};
+          if (visual.is_hidden === true) return null;
+          const tileHeight = Math.max(96, Math.min(360, Number(visual.card_height_px) || (tile.key === "large" ? 188 : 145)));
+          const tilePadding = Math.max(4, Math.min(32, Number(visual.card_padding_px) || 10));
+          const tileRadius = Math.max(8, Math.min(40, Number(visual.border_radius_px) || 20));
+          const iconWidth = Math.max(24, Math.min(180, Number(visual.width_px) || (tile.key === "service" ? 64 : 56)));
+          const iconHeight = Math.max(24, Math.min(180, Number(visual.height_px) || (tile.key === "service" ? 64 : 56)));
+          const iconScale = Math.max(0.5, Math.min(2, Number(visual.icon_scale) || 1));
+          const titleSize = Math.max(10, Math.min(28, Number(visual.title_size_px) || 16));
+          const subtitleSize = Math.max(8, Math.min(20, Number(visual.subtitle_size_px) || 11));
+          const alignment = visual.content_alignment || "right";
+          return (
           <TouchableOpacity
             key={tile.key}
             accessibilityRole="button"
@@ -604,12 +617,12 @@ function CustomerHome({ userId }: { userId: string | null }) {
             style={{
               direction: "rtl",
               width: tile.width,
-              height: tile.key === "large" ? 188 : 145,
-              minHeight: tile.key === "large" ? 188 : 145,
-              borderRadius: 20,
-              padding: 10,
+              height: tileHeight,
+              minHeight: tileHeight,
+              borderRadius: tileRadius,
+              padding: tilePadding,
               justifyContent: "space-between",
-              backgroundColor: palette.surface,
+              backgroundColor: visual.background_color || palette.surface,
               borderWidth: 1,
               borderColor: palette.line,
               elevation: 2,
@@ -620,8 +633,9 @@ function CustomerHome({ userId }: { userId: string | null }) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: tile.key === "service" ? 64 : 56,
-                height: tile.key === "service" ? 64 : 56,
+                width: iconWidth,
+                height: iconHeight,
+                transform: [{ scale: iconScale }],
                 borderRadius: tile.key === "service" ? 12 : 14,
                 alignItems: "center",
                 justifyContent: "center",
@@ -630,22 +644,23 @@ function CustomerHome({ userId }: { userId: string | null }) {
             >
               {tile.key === "service" ? (
                 <ServiceIconPanorama
-                  imageUrl={visuals.home_customer_service?.image_url || visuals.home_customer_service?.panorama_image_url || null}
-                  imageScale={Number(visuals.home_customer_service?.image_scale) || 1}
+                  imageUrl={visual.image_url || visual.panorama_image_url || null}
+                  imageScale={Number(visual.image_scale) || 1}
                 />
               ) : (
-                visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.icon_name ? <Text style={{ fontSize: 30 }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].icon_name}</Text> : <Image source={visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"]?.image_url ? { uri: visuals[tile.key === "taxi" ? "home_customer_taxi" : "home_customer_large_vehicle"].image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 52, height: 52 }} resizeMode="contain" />
+                visual.icon_name ? <Text style={{ fontSize: 30 }}>{visual.icon_name}</Text> : <Image source={visual.image_url ? { uri: visual.image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 52, height: 52 }} resizeMode="contain" />
               )}
             </LinearGradient>
-            <View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>{(tile.key === "taxi" && visuals.home_customer_taxi?.title === "طلب سيارة") ? "طلب تكسي" : (visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.title || tile.title)}</Text>
+            <View style={{ alignItems: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end", flexDirection: visual.content_direction === "row" ? "row" : "column", justifyContent: "space-between", flex: visual.content_direction === "row" ? 1 : undefined }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, justifyContent: alignment === "center" ? "center" : alignment === "left" ? "flex-start" : "flex-end" }}>
+                <Text style={{ color: visual.title_color || palette.ink, fontSize: titleSize, fontWeight: "900", textAlign: alignment }}>{(tile.key === "taxi" && visual.title === "طلب سيارة") ? "طلب تكسي" : (visual.title || tile.title)}</Text>
                 <HomeGlyph name="arrow" color={palette.muted} size={14} />
               </View>
-              <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "700", marginTop: 3, textAlign: "right" }}>{visuals[tile.key === "taxi" ? "home_customer_taxi" : tile.key === "service" ? "home_customer_service" : "home_customer_large_vehicle"]?.subtitle || tile.subtitle}</Text>
+              <Text style={{ color: visual.subtitle_color || palette.muted, fontSize: subtitleSize, fontWeight: "700", marginTop: 3, textAlign: alignment }}>{visual.subtitle || tile.subtitle}</Text>
             </View>
           </TouchableOpacity>
-        ))}
+          );
+        })}
         <View style={{ width: HOME_GRID_WIDE_WIDTH, height: 188, direction: "rtl" }}>
           <HomeCategoryCarousel height={188} />
         </View>
