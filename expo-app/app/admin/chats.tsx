@@ -215,7 +215,7 @@ export default function AdminChatsScreen() {
               body: message.body,
               createdAt: message.created_at,
               isBot: message.is_ai,
-              senderLabel: message.is_ai ? "مساعد ممنون" : message.sender_id === user?.id ? "الإدارة" : selected?.conversation_type === "service" && message.sender_id === selected.provider_profile?.id ? "منفّذ الخدمة" : selected?.conversation_type === "service" ? "الزبون" : "المستخدم",
+              senderLabel: message.is_ai ? "مساعد ممنون" : message.sender_id === user?.id ? "الإدارة" : selected?.conversation_type === "service" && message.sender_id === selected.provider_profile?.id ? "منفّذ الخدمة" : selected?.conversation_type === "service" && message.sender_id === selected.profile?.id ? "الزبون" : selected?.conversation_type === "service" ? "الإدارة" : "المستخدم",
             }))}
             currentUserId={user?.id ?? ""}
             draft={draft}
