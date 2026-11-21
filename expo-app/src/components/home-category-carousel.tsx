@@ -24,10 +24,11 @@ export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
   const [imageFailed, setImageFailed] = useState(false);
   const opacity = useRef(new Animated.Value(1)).current;
   const translate = useRef(new Animated.Value(0)).current;
+  const slideCount = useRef(1);
   const swipeResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
-    onPanResponderRelease: (_, gesture) => { if (slides.length < 2 || Math.abs(gesture.dx) < 38) return; setIndex((value) => (value + (gesture.dx < 0 ? 1 : -1) + slides.length) % slides.length); },
+    onPanResponderRelease: (_, gesture) => { if (slideCount.current < 2 || Math.abs(gesture.dx) < 38) return; setIndex((value) => (value + (gesture.dx < 0 ? 1 : -1) + slideCount.current) % slideCount.current); },
   })).current;
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export function HomeCategoryCarousel({ height = 360 }: { height?: number }) {
     subtitle: item.banner_description || "اكتشف الأماكن والخدمات القريبة",
     scroll_speed: item.scroll_speed, motion_direction: item.motion_direction || "left", motion_style: item.motion_style || "slide",
   })) : fallbackSlides.map((item) => ({ ...item, scroll_speed: 5, motion_direction: "left" as const, motion_style: "slide" as const })), [banners]);
+  slideCount.current = slides.length;
   const current = slides[index % Math.max(1, slides.length)];
 
   useEffect(() => {
