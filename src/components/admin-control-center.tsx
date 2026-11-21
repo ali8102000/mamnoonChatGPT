@@ -99,11 +99,15 @@ export default function AdminControlCenter() {
       {loading ? <p className="py-8 text-center text-sm">جاري تحميل الإعدادات…</p> : <>
         <div className="mx-auto w-full max-w-[336px] rounded-[26px] border-[7px] border-slate-900 bg-slate-50 p-2 shadow-xl">
           <div className="mb-2 grid place-items-center rounded-xl bg-gradient-to-l from-amber-500 to-orange-500 px-3 text-center text-xs font-black text-white" style={{height:config.top_banner_height_px,borderRadius:config.card_radius_px}}>اطلب الآن — ممنون</div>
-          <div dir="ltr" className="grid" style={{gap:config.grid_gap_px,gridTemplateColumns:`minmax(0, ${config.wide_column_ratio}fr) minmax(0, 1fr)`,gridTemplateRows:`${config.first_row_height_px}px ${config.second_row_height_px}px`}}>
-            <div className="grid place-items-center bg-amber-500 text-white font-black" style={{borderRadius:config.card_radius_px}}>طلب تكسي</div>
-            <div className="grid place-items-center bg-emerald-500 text-white font-black" style={{borderRadius:config.card_radius_px}}>طلب فني</div>
-            <div className="grid place-items-center bg-orange-600 text-white font-black" style={{borderRadius:config.card_radius_px,gridColumn:"2",gridRow:"2"}}>البانر التالي</div>
-            <div className="grid place-items-center bg-amber-700 text-white font-black" style={{borderRadius:config.card_radius_px,gridColumn:"1",gridRow:"2"}}>سيارة كبيرة</div>
+          <div className="space-y-2">
+            <div dir="ltr" className="flex" style={{gap:config.grid_gap_px}}>
+              <div className="grid place-items-center bg-amber-500 text-white font-black" style={{flex:config.wide_column_ratio,height:config.first_row_height_px,borderRadius:config.card_radius_px}}>طلب تكسي</div>
+              <div className="grid place-items-center bg-emerald-500 text-white font-black" style={{flex:1,height:config.first_row_height_px,borderRadius:config.card_radius_px}}>طلب فني</div>
+            </div>
+            <div dir="ltr" className="flex flex-row-reverse" style={{gap:config.grid_gap_px}}>
+              <div className="grid place-items-center bg-orange-600 text-white font-black" style={{flex:config.wide_column_ratio,height:config.second_row_height_px,borderRadius:config.card_radius_px}}>البانر التالي</div>
+              <div className="grid place-items-center bg-amber-700 text-white font-black" style={{flex:1,height:config.second_row_height_px,borderRadius:config.card_radius_px}}>سيارة كبيرة</div>
+            </div>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
