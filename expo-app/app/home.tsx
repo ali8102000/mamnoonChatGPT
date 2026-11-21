@@ -706,6 +706,12 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
       <HomeCustomContent userId={userId} placementKey="home.customer.content" />
 
+      <View style={{ marginTop: 18, gap: 10 }}>
+        <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>قسم المطاعم</Text>
+        <HomeCategoryCarousel height={180} width={Dimensions.get("window").width - 40} placement="restaurant_section" />
+        <HomeCustomContent userId={userId} placementKey="home.restaurant.content" />
+      </View>
+
       <View style={{ borderRadius: 18, borderWidth: 1, borderColor: palette.brand + "33", backgroundColor: palette.brand + "0D", padding: 12 }}>
         <TouchableOpacity onPress={() => router.push("/ask-mamnoon")} activeOpacity={0.86} style={{ padding: 3, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flex: 1 }}><Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>🤖 اسأل ممنون</Text><Text style={{ color: palette.muted, fontSize: 11, marginTop: 4, textAlign: "right" }}>مساعد ذكي يجاوبك عن خدمات التطبيق</Text></View>
