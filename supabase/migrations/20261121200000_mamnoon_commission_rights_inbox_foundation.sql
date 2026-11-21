@@ -556,7 +556,10 @@ BEGIN
   v_event := CASE WHEN v_request.type::text = 'taxi' THEN 'taxi_acceptance' ELSE 'service_acceptance' END;
   v_revenue_type := CASE WHEN v_request.type::text = 'taxi' THEN 'taxi_commission' ELSE 'service_commission' END;
   v_base := COALESCE(p_base_amount_iqd, v_request.customer_payable::bigint,
-                     v_request.customer_price::bigint, v_request.price_estimate::bigint, 0);
+                     v_request.customer_price::bigint, v_request.price_estimate::bigint,
+                     (SELECT ro.proposed_price::bigint FROM public.request_offers ro
+                       WHERE ro.request_id = p_request_id AND ro.provider_id = p_user_id
+                       ORDER BY ro.sent_at DESC NULLS LAST LIMIT 1), 0);
   IF v_base <= 0 THEN RETURN 0; END IF;
 
   SELECT * INTO v_policy
@@ -923,3 +926,30 @@ FOR EACH ROW EXECUTE FUNCTION public.trigger_mamnoon_signup_trial_from_profile()
 REVOKE ALL ON FUNCTION public.grant_mamnoon_signup_trial_for_role(uuid,text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.trigger_mamnoon_signup_trial_from_role() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.trigger_mamnoon_signup_trial_from_profile() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.charge_commission_on_request_acceptance()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+BEGIN
+  IF OLD.status::text IN ('pending','searching')
+     AND NEW.status::text = 'accepted'
+     AND NEW.provider_id IS NOT NULL
+     AND NEW.type::text IN ('taxi','service') THEN
+    PERFORM public.charge_mamnoon_commission_on_accept(
+      NEW.provider_id,
+      NEW.id,
+      COALESCE(NEW.customer_payable::bigint, NEW.customer_price::bigint, NEW.price_estimate::bigint)
+    );
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS charge_commission_on_request_acceptance ON public.service_requests;
+CREATE TRIGGER charge_commission_on_request_acceptance
+BEFORE UPDATE OF status ON public.service_requests
+FOR EACH ROW EXECUTE FUNCTION public.charge_commission_on_request_acceptance();
+REVOKE ALL ON FUNCTION public.charge_commission_on_request_acceptance() FROM PUBLIC, anon, authenticated;
