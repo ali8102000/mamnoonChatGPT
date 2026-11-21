@@ -667,7 +667,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
                   imageScale={Number(visual.image_scale) || 1}
                 />
               ) : (
-                visual.icon_name ? <Text style={{ fontSize: 30 }}>{visual.icon_name}</Text> : <Image source={visual.image_url ? { uri: visual.image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: 52, height: 52 }} resizeMode="contain" />
+                visual.icon_name ? <Text style={{ fontSize: 30 }}>{visual.icon_name}</Text> : <Image source={visual.image_url ? { uri: visual.image_url } : { uri: tile.key === "taxi" ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/service-kia-driver.png" }} style={{ width: iconWidth, height: iconHeight, borderRadius: Math.max(0, Math.min(60, Number(visual.image_border_radius_px) || 0)), aspectRatio: visual.image_shape === "landscape" ? 4/3 : visual.image_shape === "portrait" ? 3/4 : 1 }} resizeMode={visual.image_fit === "cover" ? "cover" : "contain"} />
               )}
               </View>
             </LinearGradient>
