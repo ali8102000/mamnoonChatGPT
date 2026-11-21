@@ -348,3 +348,120 @@ REVOKE ALL ON FUNCTION public.finalize_zaincash_payment(uuid,text,text,integer,t
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.finalize_zaincash_payment(uuid,text,text,integer,text,jsonb)
   TO service_role;
+
+-- Permit provider commission deductions to create a controlled wallet debt.
+CREATE OR REPLACE FUNCTION public.apply_account_wallet_transaction(
+  p_user_id uuid,
+  p_transaction_type text,
+  p_amount_iqd bigint,
+  p_idempotency_key text,
+  p_provider text DEFAULT NULL,
+  p_provider_reference text DEFAULT NULL,
+  p_description text DEFAULT NULL,
+  p_metadata jsonb DEFAULT '{}'::jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_balance bigint;
+  v_next_balance bigint;
+  v_transaction_id uuid;
+  v_existing public.account_wallet_transactions%ROWTYPE;
+  v_role text;
+BEGIN
+  v_role := auth.jwt() ->> 'role';
+  IF v_role IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service_role_required';
+  END IF;
+  IF p_user_id IS NULL THEN RAISE EXCEPTION 'wallet_user_required'; END IF;
+  IF p_transaction_type NOT IN ('topup','zaincash_topup','payment','deduction','refund','cashout','adjustment') THEN
+    RAISE EXCEPTION 'invalid_wallet_transaction_type';
+  END IF;
+  IF p_amount_iqd IS NULL OR p_amount_iqd = 0 THEN
+    RAISE EXCEPTION 'wallet_amount_must_be_nonzero_iqd';
+  END IF;
+  IF p_transaction_type IN ('topup','zaincash_topup','refund') AND p_amount_iqd < 0 THEN
+    RAISE EXCEPTION 'wallet_credit_must_be_positive';
+  END IF;
+  IF p_transaction_type IN ('payment','deduction','cashout') AND p_amount_iqd > 0 THEN
+    RAISE EXCEPTION 'wallet_debit_must_be_negative';
+  END IF;
+  IF p_idempotency_key IS NULL OR length(btrim(p_idempotency_key)) NOT BETWEEN 8 AND 200 THEN
+    RAISE EXCEPTION 'valid_idempotency_key_required';
+  END IF;
+  IF p_metadata IS NULL OR jsonb_typeof(p_metadata) <> 'object' THEN
+    RAISE EXCEPTION 'wallet_metadata_must_be_object';
+  END IF;
+
+  INSERT INTO public.account_wallets(user_id)
+  VALUES (p_user_id)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  SELECT balance_iqd INTO v_balance
+  FROM public.account_wallets
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  SELECT * INTO v_existing
+  FROM public.account_wallet_transactions
+  WHERE idempotency_key = p_idempotency_key
+     OR (p_provider IS NOT NULL AND p_provider_reference IS NOT NULL
+         AND provider = p_provider AND provider_reference = p_provider_reference)
+  LIMIT 1;
+
+  IF FOUND THEN
+    IF v_existing.user_id <> p_user_id
+       OR v_existing.transaction_type <> p_transaction_type
+       OR v_existing.amount_iqd <> p_amount_iqd
+       OR v_existing.idempotency_key <> p_idempotency_key THEN
+      RAISE EXCEPTION 'wallet_idempotency_or_provider_reference_conflict';
+    END IF;
+    RETURN jsonb_build_object('transaction_id',v_existing.id,'balance_iqd',v_existing.balance_after_iqd,'duplicate',true);
+  END IF;
+
+  v_next_balance := v_balance + p_amount_iqd;
+  IF v_next_balance < -5000 THEN
+    RAISE EXCEPTION 'wallet_debt_limit_exceeded';
+  END IF;
+
+  INSERT INTO public.account_wallet_transactions(
+    user_id,transaction_type,amount_iqd,balance_after_iqd,
+    provider,provider_reference,idempotency_key,description,metadata
+  ) VALUES (
+    p_user_id,p_transaction_type,p_amount_iqd,v_next_balance,
+    p_provider,p_provider_reference,p_idempotency_key,left(p_description,500),p_metadata
+  )
+  ON CONFLICT DO NOTHING
+  RETURNING id INTO v_transaction_id;
+
+  IF v_transaction_id IS NULL THEN
+    SELECT * INTO v_existing
+    FROM public.account_wallet_transactions
+    WHERE idempotency_key = p_idempotency_key
+       OR (p_provider IS NOT NULL AND p_provider_reference IS NOT NULL
+           AND provider = p_provider AND provider_reference = p_provider_reference)
+    LIMIT 1;
+    IF NOT FOUND OR v_existing.user_id <> p_user_id
+       OR v_existing.transaction_type <> p_transaction_type
+       OR v_existing.amount_iqd <> p_amount_iqd
+       OR v_existing.idempotency_key <> p_idempotency_key THEN
+      RAISE EXCEPTION 'wallet_idempotency_or_provider_reference_conflict';
+    END IF;
+    RETURN jsonb_build_object('transaction_id',v_existing.id,'balance_iqd',v_existing.balance_after_iqd,'duplicate',true);
+  END IF;
+
+  UPDATE public.account_wallets
+  SET balance_iqd = v_next_balance, updated_at = now()
+  WHERE user_id = p_user_id;
+
+  RETURN jsonb_build_object('transaction_id',v_transaction_id,'balance_iqd',v_next_balance,'duplicate',false);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.apply_account_wallet_transaction(uuid,text,bigint,text,text,text,text,jsonb)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_account_wallet_transaction(uuid,text,bigint,text,text,text,text,jsonb)
+  TO service_role;
