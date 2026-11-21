@@ -66,13 +66,13 @@ create policy "Users submit one entry to active contests" on public.app_campaign
   );
 
 drop policy if exists "Super admins review contest entries" on public.app_campaign_entries;
-create policy "Super admins review contest entries"
+create policy "Super admins review contest entries" on public.app_campaign_entries
   for update to authenticated
   using (public.is_super_admin((select auth.uid())))
   with check (public.is_super_admin((select auth.uid())));
 
 drop policy if exists "Super admins delete contest entries" on public.app_campaign_entries;
-create policy "Super admins delete contest entries"
+create policy "Super admins delete contest entries" on public.app_campaign_entries
   for delete to authenticated
   using (public.is_super_admin((select auth.uid())));
 
