@@ -8,7 +8,7 @@ type Policy = { id:string; scope_type:string; scope_key:string|null; commission_
 type Revenue = { id:string; user_id:string; revenue_type:string; assessed_iqd:number; collected_iqd:number; waived_iqd:number; status:string; created_at:string; profile?:{full_name?:string|null;phone?:string|null}|null };
 
 const durations = [{value:"1",label:"يوم"},{value:"7",label:"أسبوع"},{value:"30",label:"شهر"},{value:"90",label:"٣ أشهر"},{value:"180",label:"٦ أشهر"},{value:"365",label:"سنة"},{value:"permanent",label:"دائم"}];
-const roles = [{value:"driver",label:"أصحاب التكسي"},{value:"large_driver",label:"التكسي الكبير"},{value:"worker",label:"الفنيون"}];
+const roles = [{value:"driver",label:"أصحاب التكسي"},{value:"large_driver",label:"التكسي الكبير"},{value:"worker",label:"الفنيون"},{value:"restaurant",label:"المطاعم"},{value:"hotel",label:"الفنادق"},{value:"store",label:"المتاجر"}];
 const governorates = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
 const govLabels:Record<string,string>={baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
 
