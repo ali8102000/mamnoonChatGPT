@@ -64,7 +64,7 @@ export default function DiscoverCategoryScreen() {
         businessQuery.order("business_name"),
       ]);
       if (categoryResult.error || businessResult.error) setError("تعذر تحميل القسم حالياً.");
-      setCategories(((categoryResult.data ?? []) as Category[]).filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery"));
+      setCategories(((categoryResult.data ?? []) as Category[]).filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery").map(category => category.vertical === "grocery" && category.category_key === "grocery" ? { ...category, title: "سوبر ماركت وبقالة" } : category));
       setItems(sortByNearest((businessResult.data ?? []) as Business[], currentLocation));
       setProducts([]); setLoading(false); return;
     }
@@ -90,7 +90,7 @@ export default function DiscoverCategoryScreen() {
         const dist = (p: Product) => p.profile.promotion_latitude == null || p.profile.promotion_longitude == null ? Number.POSITIVE_INFINITY : distanceKm(currentLocation, { latitude: p.profile.promotion_latitude, longitude: p.profile.promotion_longitude });
         return dist(a) - dist(b);
       }) : visible;
-      setProducts(ordered); setItems([]); setCategories(((categoryList.data ?? []) as Category[]).filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery")); setLoading(false); return;
+      setProducts(ordered); setItems([]); setCategories(((categoryList.data ?? []) as Category[]).filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery").map(category => category.vertical === "grocery" && category.category_key === "grocery" ? { ...category, title: "سوبر ماركت وبقالة" } : category)); setLoading(false); return;
     }
 
     const types: PartnerType[] = raw === "hotel" ? ["hotel"] : [];
