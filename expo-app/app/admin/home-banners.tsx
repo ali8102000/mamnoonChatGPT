@@ -198,12 +198,17 @@ export default function AdminHomeBannersScreen() {
         uploaded = false;
         throw new Error("banner_save_failed");
       }
+      let campaignImageWarning = false;
+      if ((bannerType === "poll" || bannerType === "contest") && campaignId) {
+        const { error: campaignImageError } = await (supabase as any).from("app_campaigns").update({ image_url: publicData.publicUrl, updated_at: new Date().toISOString() }).eq("id", campaignId);
+        campaignImageWarning = Boolean(campaignImageError);
+      }
       setAsset(null);
       setBadge("");
       setBannerTitle("");
       setBannerDescription("");
       await load();
-      setMessage("تم نشر البانر، وسيظهر في الصفحة الرئيسية على الويب والأندرويد.");
+      setMessage(campaignImageWarning ? "تم نشر البانر، لكن تعذر تحديث صورة الحملة نفسها." : "تم نشر البانر وصورة الحملة، وسيظهر في الويب والأندرويد.");
     } catch {
       if (uploaded) {
         await supabase.storage.from("app-visuals").remove([path]);
