@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router, usePathname } from "expo-router";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { palette } from "@/styles/theme";
+import { safeNavigate } from "@/lib/safe-navigation";
 
 type Tab = { path: string; label: string; icon: "home" | "clipboard" | "message" | "user" };
 
@@ -37,7 +38,7 @@ export function NativeBottomNavigation() {
               accessibilityRole="button"
               accessibilityLabel={tab.label}
               accessibilityState={{ selected: active }}
-              onPress={() => { if (!active) router.push(tab.path as never); }}
+              onPress={() => { if (!active) safeNavigate(tab.path as never); }}
               style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
             >
               <NavigationIcon name={tab.icon} color={color} />
