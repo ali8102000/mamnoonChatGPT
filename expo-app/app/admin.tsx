@@ -32,6 +32,7 @@ const GROUPS: NavGroup[] = [
     { title: "الإحصائيات", description: "تقارير المنصة ومؤشراتها", route: "/admin/analytics", icon: "📊" },
   ]},
   { title: "المحتوى وهوية الشركة", description: "الشعار والبانرات ومحتوى التطبيق", icon: "🎨", items: [
+    { title: "مركز التحكم الشامل", description: "تحكم بمقاسات الشبكة ومعاينة الواجهة ونشر إعداداتها", route: "/admin/control-center", icon: "🧩" },
     { title: "مركز الصور والتصميم", description: "كل صور التطبيق والبانرات والشعارات والفئات في مكان واحد", route: "/admin/image-studio", icon: "🎨" },
     { title: "الإشعارات", description: "إرسال تنبيهات للمستخدمين", route: "/admin/notifications", icon: "🔔" },
   ]},
