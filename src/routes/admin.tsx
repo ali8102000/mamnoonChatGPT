@@ -2554,6 +2554,8 @@ function WalletAdjustModal({ onConfirm, onClose }: any) {
           <div className="grid grid-cols-2 gap-3">
             <input
               type="number"
+              min={1}
+              max={100000000}
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               placeholder="المبلغ"
@@ -2570,6 +2572,7 @@ function WalletAdjustModal({ onConfirm, onClose }: any) {
           </div>
           <input
             value={note}
+            maxLength={500}
             onChange={(e) => setNote(e.target.value)}
             placeholder="ملاحظة"
             className="w-full glass rounded-xl px-4 py-2.5 text-sm"
@@ -2577,7 +2580,7 @@ function WalletAdjustModal({ onConfirm, onClose }: any) {
           <div className="flex gap-2">
             <button
               onClick={() => onConfirm(userId, amount, type, note)}
-              disabled={!userId || amount === 0}
+              disabled={!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId) || !Number.isFinite(amount) || amount <= 0 || amount > 100000000 || note.length > 500}
               className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50"
             >
               تنفيذ
