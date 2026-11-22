@@ -558,21 +558,36 @@ export default function NewRequest() {
       return;
     }
     let active = true;
+    let inFlight = false;
     const loadNearbyDrivers = async () => {
-      const { data, error } = await (supabase as any).rpc("find_nearby_provider_pins", {
-        _lat: pickupCoords.latitude,
-        _lng: pickupCoords.longitude,
-        _type: "taxi",
-        _category: isLargeVehicle ? "large" : vehicleCat,
-        _service_id: null,
-        _radius_km: isLargeVehicle ? 25 : 5,
-        _limit: 30,
-      });
-      if (!active || error) return;
-      setNearbyDrivers((data ?? []).filter((item: any) =>
-        typeof item?.lat === "number" && typeof item?.lng === "number" &&
-        Number.isFinite(item.lat) && Number.isFinite(item.lng)
-      ));
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const { data, error } = await (supabase as any).rpc("find_nearby_provider_pins", {
+          _lat: pickupCoords.latitude,
+          _lng: pickupCoords.longitude,
+          _type: "taxi",
+          _category: isLargeVehicle ? "large" : vehicleCat,
+          _service_id: null,
+          _radius_km: isLargeVehicle ? 25 : 5,
+          _limit: 30,
+        });
+        if (!active || error) return;
+        const next = (data ?? []).filter((item: any) =>
+          typeof item?.lat === "number" && typeof item?.lng === "number" &&
+          Number.isFinite(item.lat) && Number.isFinite(item.lng)
+        );
+        setNearbyDrivers((current) => {
+          if (current.length !== next.length) return next;
+          const unchanged = current.every((pin, index) =>
+            pin.pin_id === next[index]?.pin_id && pin.lat === next[index]?.lat &&
+            pin.lng === next[index]?.lng && pin.heading === next[index]?.heading
+          );
+          return unchanged ? current : next;
+        });
+      } finally {
+        inFlight = false;
+      }
     };
     void loadNearbyDrivers();
     const timer = setInterval(() => void loadNearbyDrivers(), 15000);
