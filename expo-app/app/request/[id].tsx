@@ -1091,7 +1091,7 @@ export default function RequestDetail() {
       }
     };
     if (request?.type === "service") {
-      const maxTeamSize = Math.min(3, Math.max(1, Number(request.workers_count) || 1));
+      const maxTeamSize = Math.min(3, Math.max(1, remainingPeopleCount || Number(request.workers_count) || 1));
       const teamChoices = [1, 2, 3].filter((size) => size <= maxTeamSize).map((size) => ({
         text: size === 1 ? "أنا وحدي · 1" : size === 2 ? "أنا + عامل · 2" : "أنا + عاملين · 3",
         onPress: () => void acceptWithTeam(size),
