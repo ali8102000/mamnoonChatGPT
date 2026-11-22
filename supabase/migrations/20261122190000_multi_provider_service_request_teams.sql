@@ -61,6 +61,22 @@ $$;
 REVOKE ALL ON FUNCTION public.is_service_request_provider(uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_service_request_provider(uuid, uuid) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.is_service_request(_request_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $
+  SELECT EXISTS (
+    SELECT 1 FROM public.service_requests sr
+    WHERE sr.id = _request_id AND sr.type::text = 'service'
+  );
+$;
+
+REVOKE ALL ON FUNCTION public.is_service_request(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_service_request(uuid) TO authenticated;
+
 DROP POLICY IF EXISTS "Service request providers see own membership" ON public.service_request_providers;
 CREATE POLICY "Service request providers see own membership"
   ON public.service_request_providers FOR SELECT TO authenticated
@@ -91,10 +107,7 @@ CREATE POLICY "Chat participants see chat"
     (SELECT auth.uid()) = customer_id
     OR (
       (SELECT auth.uid()) = provider_id
-      AND NOT EXISTS (
-        SELECT 1 FROM public.service_requests sr
-        WHERE sr.id = chats.request_id AND sr.type = 'service'::public.request_type
-      )
+      AND NOT public.is_service_request(chats.request_id)
     )
     OR (
       request_id IS NOT NULL
@@ -114,10 +127,7 @@ CREATE POLICY "Chat participants read messages"
           (SELECT auth.uid()) = c.customer_id
           OR (
             (SELECT auth.uid()) = c.provider_id
-            AND NOT EXISTS (
-              SELECT 1 FROM public.service_requests sr
-              WHERE sr.id = c.request_id AND sr.type = 'service'::public.request_type
-            )
+            AND NOT public.is_service_request(c.request_id)
           )
           OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
         )
@@ -137,10 +147,7 @@ CREATE POLICY "Chat participants send messages"
           (SELECT auth.uid()) = c.customer_id
           OR (
             (SELECT auth.uid()) = c.provider_id
-            AND NOT EXISTS (
-              SELECT 1 FROM public.service_requests sr
-              WHERE sr.id = c.request_id AND sr.type = 'service'::public.request_type
-            )
+            AND NOT public.is_service_request(c.request_id)
           )
           OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
         )
@@ -159,10 +166,7 @@ CREATE POLICY "Receiver marks read"
           (SELECT auth.uid()) = c.customer_id
           OR (
             (SELECT auth.uid()) = c.provider_id
-            AND NOT EXISTS (
-              SELECT 1 FROM public.service_requests sr
-              WHERE sr.id = c.request_id AND sr.type = 'service'::public.request_type
-            )
+            AND NOT public.is_service_request(c.request_id)
           )
           OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
         )
@@ -177,10 +181,7 @@ CREATE POLICY "Receiver marks read"
           (SELECT auth.uid()) = c.customer_id
           OR (
             (SELECT auth.uid()) = c.provider_id
-            AND NOT EXISTS (
-              SELECT 1 FROM public.service_requests sr
-              WHERE sr.id = c.request_id AND sr.type = 'service'::public.request_type
-            )
+            AND NOT public.is_service_request(c.request_id)
           )
           OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
         )
