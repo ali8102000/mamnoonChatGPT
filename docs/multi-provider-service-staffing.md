@@ -6,7 +6,8 @@
 - Each provider chooses the total size of their team (provider included) before accepting an offer.
 - The database snapshots that team size in `service_request_providers`; later profile edits do not change an accepted request.
 - A request remains in `searching` while the accepted headcount is below the target.
-- The first accepted provider remains the legacy `service_requests.provider_id` lead; all accepted providers are members of the request's shared chat.
+- The first accepted provider remains the legacy `service_requests.provider_id` lead; all accepted providers are members of the request's shared chat and can see the customer and other accepted team profiles.
+- Web and Android inbox/history queries include team membership, not just the legacy lead provider id.
 - Acceptance is serialized by request row lock plus provider advisory lock. The final accepted team size is clamped to the remaining headcount.
 - Reaching the target automatically changes the request to `accepted`, removes the dispatch queue, and cancels outstanding offers.
 - The customer may stop a partial search with `stop_service_request_acceptance`. The current accepted team is retained and the request moves to `accepted`.
