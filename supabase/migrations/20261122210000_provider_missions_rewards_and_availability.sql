@@ -205,8 +205,8 @@ as $function$
   from public.provider_mission_participants p
   join public.provider_missions m on m.id=p.mission_id
   where p.provider_id=auth.uid()
-    and (m.ends_at>now() or p.reward_status in ('eligible','approved','rejected'))
-  order by case when p.reward_status='eligible' then 0 when p.reward_status='in_progress' then 1 else 2 end,m.ends_at;
+  order by case when p.reward_status='eligible' then 0 when p.reward_status='in_progress' then 1 else 2 end,m.ends_at desc
+  limit 30;
 $function$;
 revoke all on function public.provider_get_missions() from public,anon;
 grant execute on function public.provider_get_missions() to authenticated;
