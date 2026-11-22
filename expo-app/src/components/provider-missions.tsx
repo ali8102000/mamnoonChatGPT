@@ -41,7 +41,7 @@ export function ProviderMissions(){
       const progress=Math.min(100,Math.round(m.progress_count/Math.max(1,m.target_count)*100));
       return <View key={m.mission_id} style={styles.card}>
        <Text style={styles.title}>{m.title}</Text>
-       <Text style={styles.status}>{statusText(m.reward_status)}</Text>
+       <Text style={styles.status}>{statusText(m.reward_status,m.ends_at)}</Text>
        {!!m.description&&<Text style={styles.description}>{m.description}</Text>}
        <View style={styles.progressHeader}><Text style={styles.progressText}>الإنجاز {m.progress_count} من {m.target_count}</Text><Text style={styles.progressText}>{progress}%</Text></View>
        <View style={styles.track}><View style={[styles.fill,{width:(progress+"%") as any}]}/></View>
