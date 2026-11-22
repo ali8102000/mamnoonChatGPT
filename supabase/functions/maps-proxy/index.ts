@@ -358,7 +358,17 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   const merged=new Map<string,any>();
   for(const item of [...refreshed,...initialSuggestions]) merged.set(item.id,item);
   const osmSuggestions=Array.from(merged.values());
+  // Return live Photon results even when the local catalogue upsert/RPC is
+  // delayed or unavailable; every point was already filtered to this governorate.
+  const photonSuggestions=fetchedRows.map((row:any)=>({
+    id:String(row.source_key),text:String(row.name_ar),address:String(row.address||row.name_ar),
+    coords:{lat:Number(row.latitude),lng:Number(row.longitude)},governorateKey:key,source:"photon"
+  }));
   const seen=new Set(osmSuggestions.map((item:any)=>`${normalized(item.text)}|${Number(item.coords.lat).toFixed(4)}|${Number(item.coords.lng).toFixed(4)}`));
+  for(const item of photonSuggestions) {
+    const dedupeKey=`${normalized(item.text)}|${Number(item.coords.lat).toFixed(4)}|${Number(item.coords.lng).toFixed(4)}`;
+    if(!seen.has(dedupeKey)) { osmSuggestions.push(item); seen.add(dedupeKey); }
+  }
   for(const item of googleSuggestions) {
     const dedupeKey=`${normalized(item.text)}|${Number(item.coords.lat).toFixed(4)}|${Number(item.coords.lng).toFixed(4)}`;
     if(!seen.has(dedupeKey)) { osmSuggestions.push(item); seen.add(dedupeKey); }
