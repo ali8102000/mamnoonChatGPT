@@ -1,0 +1,430 @@
+-- Multi-provider service requests with provider team-size snapshots.
+-- Taxi acceptance and taxi dispatch are intentionally unchanged.
+
+ALTER TABLE public.worker_profiles
+  ADD COLUMN IF NOT EXISTS team_size integer NOT NULL DEFAULT 1;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.worker_profiles'::regclass
+      AND conname = 'worker_profiles_team_size_range'
+  ) THEN
+    ALTER TABLE public.worker_profiles
+      ADD CONSTRAINT worker_profiles_team_size_range CHECK (team_size BETWEEN 1 AND 10);
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.service_request_providers (
+  request_id uuid NOT NULL REFERENCES public.service_requests(id) ON DELETE CASCADE,
+  provider_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  team_size integer NOT NULL CHECK (team_size BETWEEN 1 AND 10),
+  accepted_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (request_id, provider_id)
+);
+
+CREATE INDEX IF NOT EXISTS service_request_providers_provider_active_idx
+  ON public.service_request_providers(provider_id, request_id);
+
+ALTER TABLE public.service_request_providers ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.is_service_request_provider(_request_id uuid, _user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.service_request_providers srp
+    WHERE srp.request_id = _request_id
+      AND srp.provider_id = _user_id
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_service_request_provider(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_service_request_provider(uuid, uuid) TO authenticated;
+
+DROP POLICY IF EXISTS "Service request providers see own membership" ON public.service_request_providers;
+CREATE POLICY "Service request providers see own membership"
+  ON public.service_request_providers FOR SELECT TO authenticated
+  USING (
+    provider_id = (SELECT auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM public.service_requests sr
+      WHERE sr.id = service_request_providers.request_id
+        AND sr.customer_id = (SELECT auth.uid())
+    )
+    OR public.has_provider_ops_access((SELECT auth.uid()))
+  );
+
+REVOKE INSERT, UPDATE, DELETE ON public.service_request_providers FROM anon, authenticated;
+
+DROP POLICY IF EXISTS "Accepted service providers see request" ON public.service_requests;
+CREATE POLICY "Accepted service providers see request"
+  ON public.service_requests FOR SELECT TO authenticated
+  USING (
+    type = 'service'::public.request_type
+    AND public.is_service_request_provider(id, (SELECT auth.uid()))
+  );
+
+DROP POLICY IF EXISTS "Chat participants see chat" ON public.chats;
+CREATE POLICY "Chat participants see chat"
+  ON public.chats FOR SELECT TO authenticated
+  USING (
+    (SELECT auth.uid()) = customer_id
+    OR (SELECT auth.uid()) = provider_id
+    OR (
+      request_id IS NOT NULL
+      AND public.is_service_request_provider(request_id, (SELECT auth.uid()))
+    )
+    OR public.has_chat_moderation_access((SELECT auth.uid()))
+  );
+
+DROP POLICY IF EXISTS "Chat participants read messages" ON public.messages;
+CREATE POLICY "Chat participants read messages"
+  ON public.messages FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.chats c
+      WHERE c.id = messages.chat_id
+        AND (
+          (SELECT auth.uid()) = c.customer_id
+          OR (SELECT auth.uid()) = c.provider_id
+          OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
+        )
+    )
+    OR public.has_chat_moderation_access((SELECT auth.uid()))
+  );
+
+DROP POLICY IF EXISTS "Chat participants send messages" ON public.messages;
+CREATE POLICY "Chat participants send messages"
+  ON public.messages FOR INSERT TO authenticated
+  WITH CHECK (
+    (SELECT auth.uid()) = sender_id
+    AND EXISTS (
+      SELECT 1 FROM public.chats c
+      WHERE c.id = messages.chat_id
+        AND (
+          (SELECT auth.uid()) = c.customer_id
+          OR (SELECT auth.uid()) = c.provider_id
+          OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "Receiver marks read" ON public.messages;
+CREATE POLICY "Receiver marks read"
+  ON public.messages FOR UPDATE TO authenticated
+  USING (
+    sender_id <> (SELECT auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.chats c
+      WHERE c.id = messages.chat_id
+        AND (
+          (SELECT auth.uid()) = c.customer_id
+          OR (SELECT auth.uid()) = c.provider_id
+          OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
+        )
+    )
+  )
+  WITH CHECK (
+    sender_id <> (SELECT auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.chats c
+      WHERE c.id = messages.chat_id
+        AND (
+          (SELECT auth.uid()) = c.customer_id
+          OR (SELECT auth.uid()) = c.provider_id
+          OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
+        )
+    )
+  );
+
+CREATE OR REPLACE FUNCTION public.accept_service_request(_request_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'public'
+AS $function$
+DECLARE
+  r public.service_requests%ROWTYPE;
+  v_customer uuid;
+  v_team_size integer := 1;
+  v_people_before integer := 0;
+  v_people_after integer := 0;
+  v_target integer := 1;
+  v_updated integer := 0;
+  v_is_first boolean := false;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+
+  IF NOT (public.has_role(auth.uid(), 'driver') OR public.has_role(auth.uid(), 'worker')) THEN
+    RAISE EXCEPTION 'provider_role_required';
+  END IF;
+  IF NOT public.mamnoon_provider_subscription_active(auth.uid()) THEN
+    RAISE EXCEPTION 'subscription_required';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.user_blocks b
+    WHERE b.user_id = auth.uid() AND (b.expires_at IS NULL OR b.expires_at > now())
+  ) THEN RAISE EXCEPTION 'user_blocked'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.driver_profiles dp
+    WHERE dp.user_id = auth.uid() AND dp.suspended_until IS NOT NULL AND dp.suspended_until > now()
+  ) OR EXISTS (
+    SELECT 1 FROM public.worker_profiles wp
+    WHERE wp.user_id = auth.uid() AND wp.suspended_until IS NOT NULL AND wp.suspended_until > now()
+  ) THEN RAISE EXCEPTION 'provider_temporarily_suspended'; END IF;
+
+  SELECT * INTO r FROM public.service_requests WHERE id = _request_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_unavailable'; END IF;
+
+  PERFORM 1 FROM public.request_offers o
+  WHERE o.request_id = _request_id
+    AND o.provider_id = auth.uid()
+    AND o.status = 'pending'
+    AND o.expires_at > now()
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_offer_expired'; END IF;
+
+  -- Keep the original one-driver taxi flow intact.
+  IF r.type::text = 'taxi' THEN
+    PERFORM pg_advisory_xact_lock(91840060);
+    IF EXISTS (
+      SELECT 1 FROM public.service_requests active
+      WHERE active.provider_id = auth.uid()
+        AND active.status IN ('accepted', 'in_progress')
+    ) THEN RAISE EXCEPTION 'لديك طلب نشط بالفعل'; END IF;
+
+    PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
+    UPDATE public.service_requests sr
+    SET provider_id = auth.uid(), status = 'accepted', accepted_at = now()
+    WHERE sr.id = _request_id
+      AND sr.status IN ('pending', 'searching')
+      AND sr.provider_id IS NULL
+      AND r.type::text = 'taxi'
+      AND r.vehicle_category::text IS DISTINCT FROM 'large'
+      AND public.has_role(auth.uid(), 'driver')
+      AND EXISTS (
+        SELECT 1 FROM public.driver_profiles dp
+        WHERE dp.user_id = auth.uid()
+          AND dp.vehicle_category = r.vehicle_category
+          AND dp.vehicle_category::text IN ('economy', 'premium', 'luxury')
+          AND dp.status = 'approved' AND dp.available = true
+          AND (dp.suspended_until IS NULL OR dp.suspended_until <= now())
+      )
+    RETURNING sr.customer_id INTO v_customer;
+    PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
+    GET DIAGNOSTICS v_updated = ROW_COUNT;
+    IF v_updated = 0 THEN RAISE EXCEPTION 'request_unavailable_or_specialty_mismatch'; END IF;
+
+    INSERT INTO public.chats(request_id, customer_id, provider_id)
+    VALUES (_request_id, v_customer, auth.uid())
+    ON CONFLICT (request_id)
+    DO UPDATE SET provider_id = EXCLUDED.provider_id, updated_at = now();
+
+    UPDATE public.request_offers
+    SET status = CASE WHEN provider_id = auth.uid() THEN 'accepted' ELSE 'cancelled' END,
+        responded_at = now()
+    WHERE request_id = _request_id AND status = 'pending';
+
+    INSERT INTO public.notifications(user_id, type, title, body, link, data)
+    VALUES (v_customer, 'request_accepted', 'تم قبول طلبك',
+      'مقدّم الخدمة قبل طلبك ويمكنك متابعة التفاصيل الآن.',
+      '/request/' || _request_id,
+      jsonb_build_object('request_id', _request_id, 'provider_id', auth.uid()));
+    RETURN true;
+  END IF;
+
+  IF r.type::text <> 'service' THEN
+    RAISE EXCEPTION 'unsupported_request_type';
+  END IF;
+  IF r.status NOT IN ('pending', 'searching') THEN
+    RAISE EXCEPTION 'request_unavailable';
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtextextended(_request_id::text, 91840060));
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.service_request_providers active_provider
+    JOIN public.service_requests active_request ON active_request.id = active_provider.request_id
+    WHERE active_provider.provider_id = auth.uid()
+      AND active_request.id <> _request_id
+      AND active_request.status IN ('accepted', 'in_progress')
+  ) OR EXISTS (
+    SELECT 1 FROM public.service_requests active_request
+    WHERE active_request.provider_id = auth.uid()
+      AND active_request.id <> _request_id
+      AND active_request.type::text = 'taxi'
+      AND active_request.status IN ('accepted', 'in_progress')
+  ) THEN
+    RAISE EXCEPTION 'لديك طلب نشط بالفعل';
+  END IF;
+
+  SELECT COALESCE(wp.team_size, 1) INTO v_team_size
+  FROM public.worker_profiles wp
+  WHERE wp.user_id = auth.uid()
+    AND wp.status = 'approved'
+    AND wp.available = true
+    AND (wp.suspended_until IS NULL OR wp.suspended_until <= now())
+    AND (r.level_required IS NULL OR wp.level = r.level_required);
+  IF NOT FOUND THEN RAISE EXCEPTION 'provider_unavailable_or_level_mismatch'; END IF;
+
+  IF r.service_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.worker_services ws
+    WHERE ws.worker_id = auth.uid() AND ws.service_id = r.service_id
+  ) OR NOT public.has_role(auth.uid(), 'worker') THEN
+    RAISE EXCEPTION 'provider_specialty_mismatch';
+  END IF;
+
+  SELECT COALESCE(sum(team_size), 0)::integer INTO v_people_before
+  FROM public.service_request_providers
+  WHERE request_id = _request_id;
+  v_target := greatest(COALESCE(r.workers_count, 1), 1);
+  IF v_people_before >= v_target THEN RAISE EXCEPTION 'request_fully_staffed'; END IF;
+
+  -- Clamp the final provider's contribution so accepted headcount never exceeds the request.
+  v_team_size := LEAST(greatest(v_team_size, 1), v_target - v_people_before);
+
+  INSERT INTO public.service_request_providers(request_id, provider_id, team_size)
+  VALUES (_request_id, auth.uid(), v_team_size)
+  ON CONFLICT (request_id, provider_id) DO NOTHING;
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+  IF v_updated = 0 THEN RAISE EXCEPTION 'provider_already_accepted'; END IF;
+
+  v_people_after := v_people_before + v_team_size;
+  v_is_first := r.provider_id IS NULL;
+  v_customer := r.customer_id;
+
+  PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
+  UPDATE public.service_requests
+  SET provider_id = COALESCE(provider_id, auth.uid()),
+      status = CASE WHEN v_people_after >= v_target THEN 'accepted'::public.request_status
+                    ELSE 'searching'::public.request_status END,
+      accepted_at = CASE WHEN v_people_after >= v_target THEN now() ELSE NULL END
+  WHERE id = _request_id;
+  PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
+
+  IF v_is_first THEN
+    INSERT INTO public.chats(request_id, customer_id, provider_id)
+    VALUES (_request_id, v_customer, auth.uid())
+    ON CONFLICT (request_id) DO NOTHING;
+  END IF;
+
+  UPDATE public.request_offers
+  SET status = CASE WHEN provider_id = auth.uid() THEN 'accepted' ELSE 'cancelled' END,
+      responded_at = now()
+  WHERE request_id = _request_id
+    AND provider_id = auth.uid()
+    AND status = 'pending';
+
+  IF v_people_after >= v_target THEN
+    DELETE FROM public.service_dispatch_queue WHERE request_id = _request_id;
+    UPDATE public.request_offers
+    SET status = 'cancelled', responded_at = now()
+    WHERE request_id = _request_id AND status = 'pending';
+    INSERT INTO public.notifications(user_id, type, title, body, link, data)
+    VALUES (v_customer, 'request_accepted', 'اكتمل عدد الفنيين',
+      'اكتمل العدد المطلوب لطلبك. تگدر تتابع الفريق من تفاصيل الطلب.',
+      '/request/' || _request_id,
+      jsonb_build_object('request_id', _request_id, 'accepted_people_count', v_people_after,
+        'workers_count', v_target, 'remaining_people_count', 0));
+  ELSE
+    INSERT INTO public.notifications(user_id, type, title, body, link, data)
+    VALUES (v_customer, 'request_provider_added', 'انضم فني إلى طلبك',
+      'تم تأكيد ' || v_people_after::text || ' من ' || v_target::text ||
+      ' أشخاص. المتبقي ' || (v_target - v_people_after)::text || '.',
+      '/request/' || _request_id,
+      jsonb_build_object('request_id', _request_id, 'accepted_people_count', v_people_after,
+        'workers_count', v_target, 'remaining_people_count', v_target - v_people_after));
+  END IF;
+
+  RETURN true;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.accept_service_request(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.accept_service_request(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.stop_service_request_acceptance(_request_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'public'
+AS $function$
+DECLARE
+  r public.service_requests%ROWTYPE;
+  v_people integer := 0;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  SELECT * INTO r
+  FROM public.service_requests
+  WHERE id = _request_id
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
+  IF r.customer_id <> auth.uid() THEN RAISE EXCEPTION 'forbidden'; END IF;
+  IF r.type::text <> 'service' OR r.status NOT IN ('pending', 'searching') THEN
+    RAISE EXCEPTION 'request_not_searching';
+  END IF;
+
+  SELECT COALESCE(sum(team_size), 0)::integer INTO v_people
+  FROM public.service_request_providers
+  WHERE request_id = _request_id;
+  IF v_people < 1 THEN RAISE EXCEPTION 'no_provider_accepted_yet'; END IF;
+
+  PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
+  UPDATE public.service_requests
+  SET status = 'accepted', accepted_at = now()
+  WHERE id = _request_id;
+  PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
+
+  DELETE FROM public.service_dispatch_queue WHERE request_id = _request_id;
+  UPDATE public.request_offers
+  SET status = 'cancelled', responded_at = now()
+  WHERE request_id = _request_id AND status = 'pending';
+
+  INSERT INTO public.notifications(user_id, type, title, body, link, data)
+  SELECT srp.provider_id, 'request_staffing_closed', 'اكتمل العدد المطلوب',
+    'الزبون اكتفى بالعدد المتوفر وأوقف استقبال فنيين إضافيين.',
+    '/request/' || _request_id,
+    jsonb_build_object('request_id', _request_id, 'accepted_people_count', v_people,
+      'workers_count', r.workers_count)
+  FROM public.service_request_providers srp
+  WHERE srp.request_id = _request_id;
+
+  RETURN true;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.stop_service_request_acceptance(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.stop_service_request_acceptance(uuid) TO authenticated;
+
+-- Keep service dispatch active until the requested headcount is reached.
+DO $migration$
+DECLARE
+  v_definition text;
+  v_updated text;
+  v_old_stop text := 'OR r.provider_id IS NOT NULL OR r.service_id IS NULL';
+  v_new_stop text := 'OR r.service_id IS NULL OR COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0) >= GREATEST(COALESCE(r.workers_count, 1), 1)';
+BEGIN
+  SELECT pg_get_functiondef('public.advance_service_dispatch(uuid)'::regprocedure)
+  INTO v_definition;
+
+  IF position(v_old_stop IN v_definition) = 0
+     OR position('IF q.stage >= 6 THEN' IN v_definition) = 0 THEN
+    RAISE EXCEPTION 'Unexpected advance_service_dispatch definition; refusing to patch';
+  END IF;
+
+  v_updated := replace(v_definition, v_old_stop, v_new_stop);
+  v_updated := replace(v_updated, 'IF q.stage >= 6 THEN',
+    'IF q.stage >= (6 * GREATEST(COALESCE(r.workers_count, 1), 1)) THEN');
+  v_updated := replace(v_updated,
+    '''workers_count'', r.workers_count,',
+    '''workers_count'', r.workers_count, ''accepted_people_count'', COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), ''remaining_people_count'', GREATEST(r.workers_count - COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), 0),');
+  EXECUTE v_updated;
+END
+$migration$;
