@@ -5,7 +5,6 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Phone,
-  Send,
   Loader2,
   CheckCircle2,
   Clock,
@@ -22,6 +21,7 @@ import { LiveTrackMap } from "@/components/live-track-map";
 import { useLiveTracking } from "@/lib/use-live-tracking";
 import { CancelReasonModal } from "@/components/cancel-reason-modal";
 import { QuickReplies } from "@/components/quick-replies";
+import { MamnoonChatThread } from "@/components/mamnoon-chat-thread";
 import {
   cancelRequest,
   providerCancelRequest,
@@ -101,7 +101,6 @@ function RequestDetail() {
   const [navModalOpen, setNavModalOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [otherRep, setOtherRep] = useState<ReputationData | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const weeklyRatingNoticeRef = useRef<string | null>(null);
   const getRepFn = useServerFn(getReputation);
   const cancelFn = useServerFn(cancelRequest);
@@ -327,20 +326,6 @@ function RequestDetail() {
     }, 5000);
     return () => clearInterval(t);
   }, [requestId, requestStatus, myRole, loadAll, retryFn, req?.vehicle_category]);
-
-  const lastMessageId = messages[messages.length - 1]?.id;
-  useEffect(() => {
-    const go = () => {
-      const el = scrollRef.current;
-      if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    };
-    const raf = requestAnimationFrame(go);
-    const t = setTimeout(go, 350);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(t);
-    };
-  }, [messages.length, lastMessageId, chat?.id, req?.status, loading]);
 
   if (authLoading || loading)
     return (
@@ -887,32 +872,29 @@ function RequestDetail() {
             {other?.phone && <ContactOptions phone={other.phone} label="اتصال / واتساب" className="h-10 rounded-xl bg-primary px-3 grid place-items-center text-xs font-black text-primary-foreground" />}
             <button type="button" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); setSoundEnabledState(next); toast.success(next ? "تم تفعيل صوت الإشعارات" : "تم إيقاف صوت الإشعارات"); }} className="h-10 w-10 rounded-xl border border-border grid place-items-center" title={soundEnabled ? "إيقاف صوت الإشعارات" : "تفعيل صوت الإشعارات"}>{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
           </div>
-          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-2.5">
-            {messages.length === 0 && <div className="text-center text-xs text-muted-foreground py-10">ابدأ المحادثة 👋</div>}
-            {messages.map((m) => {
-              const mine = m.sender_id === session.user.id;
-              const timeStr = m.created_at ? new Date(m.created_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" }) : "";
-              return (
-                <div key={m.id} className={`flex ${mine ? "justify-start" : "justify-end"}`}>
-                  <div className={`max-w-[84%] rounded-[22px] px-4 py-3 text-sm leading-7 shadow-sm break-words ${mine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card text-foreground border border-border rounded-bl-md"}`}>
-                    <div>{m.content}</div>
-                    {timeStr && <div className={`text-[9px] mt-1 text-left ${mine ? "text-primary-foreground/75" : "text-muted-foreground"}`}>{timeStr}</div>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="shrink-0 bg-card p-3 border-t border-border pb-[max(env(safe-area-inset-bottom),12px)] space-y-2">
-            <QuickReplies role={myRole} type={req.type as "taxi" | "service"} onPick={async (text) => {
-              if (!chat || !session) return;
-              const { error } = await supabase.from("messages").insert({ chat_id: chat.id, sender_id: session.user.id, content: text });
-              if (error) toast.error(error.message);
-            }} />
-            <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-2">
-              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="اكتب رسالة..." className="flex-1 min-w-0 bg-background border border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-primary" />
-              <button type="submit" className="h-12 w-12 shrink-0 rounded-2xl bg-primary grid place-items-center text-primary-foreground"><Send className="h-5 w-5" /></button>
-            </form>
-          </div>
+          <MamnoonChatThread
+            messages={messages.map((m) => ({
+              id: m.id,
+              senderId: m.sender_id,
+              body: m.content,
+              createdAt: m.created_at,
+            }))}
+            currentUserId={session.user.id}
+            draft={draft}
+            onDraftChange={setDraft}
+            onSend={() => void send()}
+            placeholder="اكتب رسالة..."
+            emptyText="ابدأ المحادثة 👋"
+            footer={
+              <div className="border-t border-border/60 px-3 pt-2">
+                <QuickReplies role={myRole} type={req.type as "taxi" | "service"} onPick={async (text) => {
+                  if (!chat || !session) return;
+                  const { error } = await supabase.from("messages").insert({ chat_id: chat.id, sender_id: session.user.id, content: text });
+                  if (error) toast.error(error.message);
+                }} />
+              </div>
+            }
+          />
         </div>
       )}
 
