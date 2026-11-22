@@ -22,3 +22,7 @@ export async function getOrLoadDiscoverData<T>(
   inflight.set(key, request);
   return request;
 }
+
+export function invalidateDiscoverData(key: string) {
+  cache.delete(key);
+}
