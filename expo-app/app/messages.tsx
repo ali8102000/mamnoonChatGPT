@@ -36,7 +36,15 @@ export default function MessagesScreen() {
         .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
         .in("status", ["pending", "searching", "accepted", "in_progress"]);
       if (activeError) throw activeError;
-      const activeIds = (activeRequests ?? []).map((request) => request.id);
+      const { data: memberships, error: membershipError } = await (supabase as any)
+        .from("service_request_providers")
+        .select("request_id")
+        .eq("provider_id", user.id);
+      if (membershipError) console.warn("[messages] Team chat memberships unavailable:", membershipError.message);
+      const activeIds = [...new Set([
+        ...(activeRequests ?? []).map((request) => request.id),
+        ...(memberships ?? []).map((row: any) => row.request_id),
+      ])];
       if (!activeIds.length) {
         setChats([]);
         setUsingCachedData(false);
@@ -47,7 +55,6 @@ export default function MessagesScreen() {
       const { data, error } = await supabase
         .from("chats")
         .select("id, request_id, customer_id, provider_id, created_at, request:service_requests(type, status)")
-        .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
         .in("request_id", activeIds)
         .order("created_at", { ascending: false });
       if (error || !data) throw error ?? new Error("تعذر تحميل المحادثات");
@@ -91,6 +98,7 @@ export default function MessagesScreen() {
       .channel(`chats-list:${user?.id ?? "guest"}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "chats" }, () => loadChats())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "service_requests" }, () => loadChats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_request_providers" }, () => loadChats())
       .subscribe();
     return () => {
       supabase.removeChannel(sub);
