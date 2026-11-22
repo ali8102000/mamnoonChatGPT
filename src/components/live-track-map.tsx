@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { loadGoogleMaps } from "@/lib/google-maps";
 import { Loader2, Navigation, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { getLiveRoadRoute } from "@/lib/maps.functions";
+import { serviceIcon } from "@/lib/service-visuals";
+import luxuryCarImage from "@/assets/car-luxury.png";
 
 export type Coords = { lat: number; lng: number; heading?: number | null; updatedAt?: string; accuracy?: number };
 
@@ -41,6 +44,8 @@ export interface LiveTrackMapProps {
   driverName?: string;
   driverPhone?: string;
   vehicleCategory?: string;
+  vehicleType?: string;
+  serviceSlug?: string;
   meColor?: string;
   otherColor?: string;
   height?: number;
@@ -81,6 +86,7 @@ export function LiveTrackMap({
   const renderedDriverHeadingRef = useRef(0);
   const routeLineRef = useRef<any>(null);
   const travelledLineRef = useRef<any>(null);
+  const trafficLinesRef = useRef<any[]>([]);
   const readyRef = useRef(false);
   const didInitialFitRef = useRef(false);
   const arrivedNotifiedRef = useRef(false);
@@ -95,6 +101,7 @@ export function LiveTrackMap({
   const [atPickup, setAtPickup] = useState(false);
   const [routeMode, setRouteMode] = useState<"road" | "direct" | "waiting">("waiting");
   const [routeProvider, setRouteProvider] = useState<"google" | "osrm" | "none">("none");
+  const [nextInstruction, setNextInstruction] = useState<string | null>(null);
   useEffect(() => {
     setIsFullscreen(fullscreen);
   }, [fullscreen]);
@@ -160,6 +167,8 @@ export function LiveTrackMap({
       if (driverMarkerRef.current) driverMarkerRef.current.setMap(null);
       if (routeLineRef.current) routeLineRef.current.setMap(null);
       if (travelledLineRef.current) travelledLineRef.current.setMap(null);
+      trafficLinesRef.current.forEach((line) => line.setMap(null));
+      trafficLinesRef.current = [];
       pickupMarkerRef.current = null;
       destMarkerRef.current = null;
       meMarkerRef.current = null;
@@ -226,12 +235,16 @@ export function LiveTrackMap({
       const heading = activeDriverCoord.heading != null && Number.isFinite(activeDriverCoord.heading)
         ? activeDriverCoord.heading
         : movementHeading ?? (effectivePickup ? bearingDeg(activeDriverCoord, effectivePickup) : renderedDriverHeadingRef.current);
-      const carSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><image href="https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" x="6" y="14" width="52" height="36" preserveAspectRatio="xMidYMid meet" transform="rotate(' + heading + ' 32 32)"/></svg>';
-      const carIcon = serviceType === "taxi"
-        ? { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(carSvg), scaledSize: new g.maps.Size(58, 58), anchor: new g.maps.Point(29, 29) }
-        : { path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 6, fillColor: "#16a34a", fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 2.5, rotation: heading };
+      const markerImage = serviceType === "taxi"
+        ? vehicleCategory === "large"
+          ? serviceIcon(vehicleType === "kia_cargo" ? "cargo_handling" : "goods_transport")
+          : luxuryCarImage
+        : serviceIcon(serviceSlug || "general");
+      const markerRotation = serviceType === "taxi" ? heading : 0;
+      const markerSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><defs><clipPath id="requestPhotoClip"><circle cx="22" cy="22" r="16"/></clipPath><filter id="requestPhotoShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".28"/></filter></defs><circle cx="22" cy="22" r="20" fill="#fff" stroke="#D6A43B" stroke-width="2" filter="url(#requestPhotoShadow)"/><image href="' + markerImage + '" x="6" y="6" width="32" height="32" preserveAspectRatio="xMidYMid slice" clip-path="url(#requestPhotoClip)" transform="rotate(' + markerRotation + ' 22 22)"/></svg>';
+      const carIcon = { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(markerSvg), scaledSize: new g.maps.Size(42, 42), anchor: new g.maps.Point(21, 21) };
       if (!driverMarkerRef.current) {
-        driverMarkerRef.current = new g.maps.Marker({ position: activeDriverCoord, map, icon: carIcon, title: serviceType === "taxi" ? "سيارة السائق" : driverName, zIndex: 20, optimized: false });
+        driverMarkerRef.current = new g.maps.Marker({ position: activeDriverCoord, map, icon: carIcon, title: serviceType === "taxi" ? (vehicleCategory === "large" ? (vehicleType === "kia_passenger" ? "كيا ركاب" : "كيا حمل") : "سيارة الكابتن") : driverName, zIndex: 20, optimized: false });
         renderedDriverPositionRef.current = { ...activeDriverCoord };
         renderedDriverHeadingRef.current = heading;
       } else {
@@ -275,7 +288,7 @@ export function LiveTrackMap({
 
       if (!routeLineRef.current) {
         routeLineRef.current = new g.maps.Polyline({
-          path: [activeDriverCoord, targetPoint],
+          path: [],
           map,
           geodesic: true,
           strokeColor: "#D6A43B",
@@ -284,44 +297,15 @@ export function LiveTrackMap({
         });
       }
 
-      const requestOsrmRoute = async (sequence: number) => {
-        try {
-          const configuredBase = typeof import.meta !== "undefined" && import.meta.env
-            ? (import.meta.env["VITE_OSRM_ROUTING_URL"] as string | undefined)
-            : undefined;
-          const rawBase = configuredBase || "https://router.project-osrm.org";
-          const base = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
-          const url = base + "/route/v1/driving/" + activeDriverCoord.lng + "," + activeDriverCoord.lat + ";" + targetPoint.lng + "," + targetPoint.lat + "?overview=full&geometries=geojson&steps=false";
-          const response = await fetch(url, { headers: { Accept: "application/json" } });
-          if (!response.ok) throw new Error("OSRM HTTP " + response.status);
-          const data = await response.json();
-          if (sequence !== directionsSequenceRef.current || !readyRef.current) return;
-          const route = data?.code === "Ok" ? data.routes?.[0] : null;
-          const coordinates = route?.geometry?.coordinates;
-          if (!Array.isArray(coordinates) || coordinates.length < 2) throw new Error("No road route returned");
-          routeLineRef.current?.setPath(coordinates.map((point: [number, number]) => ({ lat: point[1], lng: point[0] })));
-          setRouteMode("road");
-          setRouteProvider("osrm");
-          if (typeof route.distance === "number") setDistanceKm(route.distance / 1000);
-          if (typeof route.duration === "number") setEtaMinutes(Math.max(1, Math.round(route.duration / 60)));
-        } catch (error) {
-          if (sequence !== directionsSequenceRef.current || !readyRef.current) return;
-          setRouteMode("direct");
-          setRouteProvider("none");
-          setDistanceKm(directDistance);
-          setEtaMinutes(Math.max(1, Math.round((directDistance / 28) * 60)));
-          console.warn("[live-map] OSRM road routing unavailable; direct fallback:", error);
-        }
-      };
-      const signature = `${status}:${targetPoint.lat.toFixed(5)}:${targetPoint.lng.toFixed(5)}`;
+      const signature = status + ":" + targetPoint.lat.toFixed(5) + ":" + targetPoint.lng.toFixed(5);
       const previous = lastDirectionsRequestRef.current;
       const moved = !previous ||
-        haversineKm(previous.origin, activeDriverCoord) >= 0.025 ||
+        haversineKm(previous.origin, activeDriverCoord) >= 0.015 ||
         haversineKm(previous.destination, targetPoint) >= 0.02 ||
         previous.signature !== signature ||
-        Date.now() - previous.requestedAt >= 10000;
+        Date.now() - previous.requestedAt >= 8000;
 
-      if (hasRoadRouting && moved) {
+      if (moved) {
         setRouteMode("waiting");
         setRouteProvider("none");
         const sequence = ++directionsSequenceRef.current;
@@ -331,31 +315,50 @@ export function LiveTrackMap({
           requestedAt: Date.now(),
           signature,
         };
-        const service = new g.maps.DirectionsService();
-        service.route({
-          origin: activeDriverCoord,
-          destination: targetPoint,
-          travelMode: g.maps.TravelMode.DRIVING,
-          provideRouteAlternatives: false,
-          drivingOptions: { departureTime: new Date(), trafficModel: g.maps.TrafficModel?.BEST_GUESS },
-        }, (result: any, routeStatus: string) => {
+        void getLiveRoadRoute(
+          { lat: activeDriverCoord.lat, lng: activeDriverCoord.lng },
+          { lat: targetPoint.lat, lng: targetPoint.lng },
+        ).then((route) => {
           if (sequence !== directionsSequenceRef.current || !readyRef.current) return;
-          const route = result?.routes?.[0];
-          const leg = route?.legs?.[0];
-          if (routeStatus === "OK" && route?.overview_path?.length && leg) {
-            routeLineRef.current?.setPath(route.overview_path);
-            setRouteMode("road");
-            setRouteProvider("google");
-            if (typeof leg.distance?.value === "number") setDistanceKm(leg.distance.value / 1000);
-            const durationSeconds = leg.duration_in_traffic?.value ?? leg.duration?.value;
-            if (typeof durationSeconds === "number") setEtaMinutes(Math.max(1, Math.round(durationSeconds / 60)));
-          } else {
-            void requestOsrmRoute(sequence);
-            console.warn("[live-map] Google road directions unavailable; trying OSRM:", routeStatus);
-          }
+          const points = (route.routePoints ?? []).filter((point) =>
+            Number.isFinite(point.lat) && Number.isFinite(point.lng) &&
+            Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180,
+          );
+          if (points.length < 2) throw new Error("لم يصل مسار شوارع صالح");
+          routeLineRef.current?.setPath(points.map((point) => ({ lat: point.lat, lng: point.lng })));
+          trafficLinesRef.current.forEach((line) => line.setMap(null));
+          trafficLinesRef.current = [];
+          (route.trafficSegments ?? []).forEach((segment) => {
+            const segmentPoints = points.slice(segment.startIndex, segment.endIndex);
+            if (segmentPoints.length < 2) return;
+            const color = segment.speed === "TRAFFIC_JAM" ? "#DC2626" : segment.speed === "SLOW" ? "#F59E0B" : "#16A34A";
+            trafficLinesRef.current.push(new g.maps.Polyline({
+              path: segmentPoints.map((point) => ({ lat: point.lat, lng: point.lng })),
+              map,
+              geodesic: false,
+              strokeColor: color,
+              strokeOpacity: 1,
+              strokeWeight: 7,
+              zIndex: 5,
+            }));
+          });
+          setRouteMode("road");
+          setRouteProvider(route.routeSource === "google_routes_traffic" ? "google" : "osrm");
+          setNextInstruction(route.routeSteps?.[0]?.instruction ?? null);
+          if (typeof route.distanceKm === "number") setDistanceKm(route.distanceKm);
+          if (typeof route.durationMin === "number") setEtaMinutes(Math.max(1, Math.round(route.durationMin)));
+        }).catch((error) => {
+          if (sequence !== directionsSequenceRef.current || !readyRef.current) return;
+          routeLineRef.current?.setPath([]);
+          trafficLinesRef.current.forEach((line) => line.setMap(null));
+          trafficLinesRef.current = [];
+          setRouteMode("direct");
+          setRouteProvider("none");
+          setNextInstruction(null);
+          setDistanceKm(null);
+          setEtaMinutes(null);
+          console.warn("[live-map] road route unavailable:", error);
         });
-      } else if (!hasRoadRouting && moved) {
-        void requestOsrmRoute(++directionsSequenceRef.current);
       }
 
       if (directDistance < 0.07 && !arrivedNotifiedRef.current) {
@@ -453,6 +456,8 @@ export function LiveTrackMap({
                 <span className="mr-2 text-[10px]">{routeMode === "road" ? "· مسار الشوارع" : routeMode === "waiting" ? "· جارٍ حساب الطريق" : "· تقدير مباشر"}</span>
               </div>
             )}
+            {nextInstruction && <div className="mt-1 max-w-[260px] truncate text-[10px] font-bold text-emerald-700">التالي: {nextInstruction}</div>}
+            {routeProvider === "google" && <div className="mt-0.5 text-[9px] font-bold text-emerald-700">مسار وحركة مرور مباشرة</div>}
           </div>
         </div>}
 
