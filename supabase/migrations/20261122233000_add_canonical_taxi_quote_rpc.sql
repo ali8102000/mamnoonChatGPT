@@ -50,7 +50,7 @@ BEGIN
   IF v_governorate IS NULL OR p_is_intercity IS NULL
      OR p_distance_km IS NULL OR p_distance_km <= 0
      OR p_duration_min IS NULL OR p_duration_min < 0
-     OR p_trip_type NOT IN ('one_way', 'round_trip', 'second_trip', 'stop')
+     OR p_trip_type IS NULL OR p_trip_type NOT IN ('one_way', 'round_trip', 'second_trip', 'stop')
      OR p_extra_minutes IS NULL OR p_extra_minutes < 0
      OR p_extra_minutes > 120 OR p_extra_minutes % 5 <> 0 THEN
     RAISE EXCEPTION 'بيانات التسعير أو الطريق غير صالحة.';
