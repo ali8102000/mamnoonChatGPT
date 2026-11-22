@@ -244,7 +244,7 @@ export function LiveTrackMap({
       const taxiTier = ["economy", "premium", "luxury"].includes(vehicleCategory || "") ? vehicleCategory : "economy";
       const markerImage = serviceType === "taxi"
         ? vehicleCategory === "large"
-          ? serviceIcon(vehicleType === "kia_cargo" ? "cargo_handling" : "goods_transport")
+          ? vehicleType === "kia_cargo" ? "/images/kia-cargo.svg" : "/images/kia-passenger.svg"
           : "/vehicle-icons/" + taxiTier + ".svg"
         : serviceIcon(serviceSlug || "general");
       const markerImageHref = markerImage.startsWith("http") || markerImage.startsWith("data:") ? markerImage : window.location.origin + (markerImage.startsWith("/") ? markerImage : "/" + markerImage);
