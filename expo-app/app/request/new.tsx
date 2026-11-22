@@ -59,7 +59,7 @@ const IRAQ_REGION = {
   longitudeDelta: 11,
 };
 
-function MapCenterPin({ color }: { color: string }) {
+function MapCenterPin({ color = "#1687F8" }: { color?: string }) {
   const motion = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(Animated.sequence([
@@ -534,7 +534,7 @@ export default function NewRequest() {
         void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
           .then((result) => { if (mounted) setPickupGovernorateKey(result.key); })
           .catch(() => {});
-        moveMap({ ...coords, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+        moveMap({ ...coords, latitudeDelta: 0.007, longitudeDelta: 0.007 });
         const address = formatAddress(await Location.reverseGeocodeAsync(coords));
         if (address) setPickup(address);
       } catch {
