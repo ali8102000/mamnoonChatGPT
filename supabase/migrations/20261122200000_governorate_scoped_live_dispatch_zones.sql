@@ -77,7 +77,9 @@ $function$;
 revoke all on function public.get_regional_dispatch_ring(text,integer,text,text) from public,anon,authenticated;
 grant execute on function public.get_regional_dispatch_ring(text,integer,text,text) to service_role;
 
-create or replace function public.admin_get_dispatch_zone_settings()
+drop function if exists public.admin_get_dispatch_zone_settings();
+
+create function public.admin_get_dispatch_zone_settings()
 returns table(
   governorate_key text, dispatch_type text, category_key text,
   ring1_min_km numeric,ring1_max_km numeric,
@@ -142,6 +144,23 @@ revoke all on function public.admin_get_dispatch_zone_settings() from public,ano
 revoke all on function public.admin_update_dispatch_zone_settings(text,text,text,numeric,numeric,numeric) from public,anon;
 grant execute on function public.admin_get_dispatch_zone_settings() to authenticated;
 grant execute on function public.admin_update_dispatch_zone_settings(text,text,text,numeric,numeric,numeric) to authenticated;
+
+-- Keep older clients working: the legacy four-argument RPC now updates the global fallback.
+create or replace function public.admin_update_dispatch_zone_settings(
+  p_dispatch_type text,p_ring1_max_km numeric,p_ring2_max_km numeric,p_ring3_max_km numeric
+)
+returns boolean
+language plpgsql security definer
+set search_path = public
+as $legacy$
+begin
+  return public.admin_update_dispatch_zone_settings(
+    'all',p_dispatch_type,'all',p_ring1_max_km,p_ring2_max_km,p_ring3_max_km
+  );
+end;
+$legacy$;
+revoke all on function public.admin_update_dispatch_zone_settings(text,numeric,numeric,numeric) from public,anon;
+grant execute on function public.admin_update_dispatch_zone_settings(text,numeric,numeric,numeric) to authenticated;
 
 -- Each dispatch stage resolves the current province + service slug from Supabase.
 do $migration$
