@@ -31,12 +31,19 @@ function MessagesPage() {
       .select("id")
       .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
       .in("status", ["pending", "searching", "accepted", "in_progress"]);
-    const activeIds = (activeRequests ?? []).map((request) => request.id);
+    const { data: memberships, error: membershipError } = await (supabase as any)
+      .from("service_request_providers")
+      .select("request_id")
+      .eq("provider_id", userId);
+    if (membershipError) console.warn("[messages] Team chat memberships unavailable:", membershipError.message);
+    const activeIds = [...new Set([
+      ...(activeRequests ?? []).map((request) => request.id),
+      ...(memberships ?? []).map((row: any) => row.request_id),
+    ])];
     if (activeIds.length === 0) { setChats([]); return; }
     const { data } = await supabase
       .from("chats")
       .select("id, request_id, customer_id, provider_id, created_at")
-      .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
       .in("request_id", activeIds)
       .order("created_at", { ascending: false });
     if (!data) return;
@@ -64,6 +71,7 @@ function MessagesPage() {
       .channel(`chats-${userId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () => loadChats())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "service_requests" }, () => loadChats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_request_providers" }, () => loadChats())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
