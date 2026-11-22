@@ -648,9 +648,11 @@ BEGIN
   IF v.type::text = 'taxi' AND coalesce(v.vehicle_category::text, '') <> 'large' THEN
     RAISE EXCEPTION 'arrival_confirmation_not_required';
   END IF;
+  PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
   UPDATE public.service_requests
   SET provider_arrived_at = coalesce(provider_arrived_at, now())
   WHERE id = _request_id;
+  PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
   RETURN true;
 END;
 $function$;
