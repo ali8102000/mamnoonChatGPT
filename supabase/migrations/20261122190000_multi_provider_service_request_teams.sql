@@ -474,8 +474,8 @@ BEGIN
   WHERE request_id = _request_id AND status = 'pending';
 
   INSERT INTO public.notifications(user_id, type, title, body, link, data)
-  SELECT srp.provider_id, 'request_staffing_closed', 'اكتمل العدد المطلوب',
-    'الزبون اكتفى بالعدد المتوفر وأوقف استقبال فنيين إضافيين.',
+  SELECT srp.provider_id, 'request_staffing_closed', 'اكتفى الزبون بالفريق المتوفر',
+    'اختار الزبون الاكتفاء بالفريق الحالي وأوقف استقبال فنيين إضافيين.',
     '/request/' || _request_id,
     jsonb_build_object('request_id', _request_id, 'accepted_people_count', v_people,
       'workers_count', r.workers_count)
