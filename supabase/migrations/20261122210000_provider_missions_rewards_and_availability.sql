@@ -156,6 +156,7 @@ begin
   from public.user_roles ur
   join public.profiles p on p.id=ur.user_id
   where ur.role::text=p_provider_type
+    and (p_provider_type<>'driver' or not exists(select 1 from public.user_roles other_role where other_role.user_id=ur.user_id and other_role.role::text='large_driver'))
     and (cardinality(coalesce(p_target_governorates,'{}'::text[]))=0 or p.governorate_key=any(p_target_governorates))
     and (
       (p_provider_type='driver' and exists(select 1 from public.driver_profiles dp where dp.user_id=ur.user_id and dp.status='approved'))
@@ -383,7 +384,7 @@ begin
 
   if new.type::text='taxi' then
     v_providers:=case when new.provider_id is null then '{}'::uuid[] else array[new.provider_id] end;
-    v_provider_type:=case when exists(select 1 from public.user_roles where user_id=new.provider_id and role::text='large_driver') then 'large_driver' else 'driver' end;
+    v_provider_type:=case when new.vehicle_category::text='large' then 'large_driver' else 'driver' end;
   elsif new.type::text='service' then
     select coalesce(array_agg(distinct x), '{}'::uuid[]) into v_providers
     from (
