@@ -821,7 +821,28 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       if (type === "taxi") query = query.neq("vehicle_category", "large");
       const { data } = await query.order("urgency_multiplier", { ascending: false }).order("created_at", { ascending: false }).limit(50);
       const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
-      const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
+      let acceptedCountByRequest = new Map<string, number>();
+      if (type === "service") {
+        const { data: acceptedRows, error: acceptedRowsError } = await (supabase as any)
+          .from("service_request_providers")
+          .select("request_id,team_size")
+          .in("request_id", requestIds);
+        if (!acceptedRowsError) {
+          acceptedCountByRequest = (acceptedRows ?? []).reduce((map: Map<string, number>, row: any) => {
+            map.set(row.request_id, (map.get(row.request_id) ?? 0) + Number(row.team_size || 1));
+            return map;
+          }, new Map<string, number>());
+        }
+      }
+      const mappedRequests = (data ?? []).map((request: any) => {
+        const acceptedPeople = acceptedCountByRequest.get(request.id) ?? 0;
+        return {
+          ...request,
+          my_offer: offerByRequest.get(request.id),
+          accepted_people_count: acceptedPeople,
+          remaining_people_count: Math.max(0, Number(request.workers_count || 1) - acceptedPeople),
+        };
+      });
       setRequests(mappedRequests);
       const popupKey = mappedRequests[0] ? `${mappedRequests[0].id}:${mappedRequests[0].my_offer?.sent_at ?? ""}` : null;
       if (mappedRequests.length && popupShownRef.current !== popupKey) {
@@ -959,8 +980,9 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
               <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
                 <div className="text-xs font-black text-foreground">كم شخص يجي وياك؟</div>
                 <div className="mt-1 text-[11px] text-muted-foreground">العدد يشمل الخبير نفسه، حتى نحسب الفريق بدقة.</div>
+                <div className="mt-2 text-[11px] font-bold text-primary">المؤكد حالياً: {popupRequest.accepted_people_count ?? 0} · المتبقي: {popupRequest.remaining_people_count ?? popupRequest.workers_count ?? 1}</div>
                 <select value={teamSize} onChange={(event) => setTeamSize(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm font-bold text-foreground">
-                  {Array.from({ length: Math.min(5, Math.max(1, Number(popupRequest.workers_count) || 1)) }, (_, index) => index + 1).map((count) => (
+                  {Array.from({ length: Math.min(5, Math.max(1, Number(popupRequest.remaining_people_count ?? popupRequest.workers_count) || 1)) }, (_, index) => index + 1).map((count) => (
                     <option key={count} value={String(count)}>
                       {count === 1 ? "أنا وحدي · شخص واحد" : `أنا + ${count - 1} ${count === 2 ? "عامل" : "عمال"} · ${count} أشخاص`}
                     </option>
