@@ -1091,12 +1091,12 @@ export default function RequestDetail() {
       }
     };
     if (request?.type === "service") {
-      Alert.alert("كم شخص يجي وياك؟", "اختَر العدد الكلي ويّاك (الخبير محسوب ضمن العدد).", [
-        { text: "أنا وحدي · 1", onPress: () => void acceptWithTeam(1) },
-        { text: "أنا + عامل · 2", onPress: () => void acceptWithTeam(2) },
-        { text: "أنا + عاملين · 3", onPress: () => void acceptWithTeam(3) },
-
-      ]);
+      const maxTeamSize = Math.min(3, Math.max(1, Number(request.workers_count) || 1));
+      const teamChoices = [1, 2, 3].filter((size) => size <= maxTeamSize).map((size) => ({
+        text: size === 1 ? "أنا وحدي · 1" : size === 2 ? "أنا + عامل · 2" : "أنا + عاملين · 3",
+        onPress: () => void acceptWithTeam(size),
+      }));
+      Alert.alert("كم شخص يجي وياك؟", "اختَر العدد الكلي ويّاك (الخبير محسوب ضمن العدد).", teamChoices);
       return;
     }
     await acceptWithTeam(1);
