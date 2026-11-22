@@ -49,3 +49,11 @@ as $function$
 $function$;
 revoke all on function public.infer_governorate_key(numeric,numeric) from public;
 grant execute on function public.infer_governorate_key(numeric,numeric) to anon,authenticated;
+
+-- Correct any still-searching legacy requests before the next dispatch round.
+update public.service_requests r
+set governorate_key = public.infer_governorate_key(r.pickup_lat,r.pickup_lng)
+where r.status::text in ('pending','searching')
+  and r.pickup_lat is not null and r.pickup_lng is not null
+  and public.infer_governorate_key(r.pickup_lat,r.pickup_lng) is not null
+  and r.governorate_key is distinct from public.infer_governorate_key(r.pickup_lat,r.pickup_lng);
