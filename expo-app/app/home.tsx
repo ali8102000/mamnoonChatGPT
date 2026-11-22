@@ -85,7 +85,7 @@ export default function HomeScreen() {
 
   const loadIncoming = useCallback(async () => {
     if (!user || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) {
-      setIncoming([]);
+      setIncoming((current) => current.length ? [] : current);
       return;
     }
     const isDriver = selectedRole === "driver" || selectedRole === "large_driver";
@@ -97,12 +97,12 @@ export default function HomeScreen() {
       .gt("expires_at", new Date().toISOString());
     if (offersError) {
       console.warn("[incoming-requests] Offer lookup failed:", offersError.message);
-      setIncoming([]);
+      setIncoming((current) => current.length ? [] : current);
       return;
     }
     const requestIds = [...new Set((offerRows ?? []).map((row: { request_id: string }) => row.request_id))];
     if (requestIds.length === 0) {
-      setIncoming([]);
+      setIncoming((current) => current.length ? [] : current);
       return;
     }
     const { data, error } = await supabase
@@ -115,14 +115,15 @@ export default function HomeScreen() {
       .limit(10);
     if (error) {
       console.warn("[incoming-requests] Request lookup failed:", error.message);
-      setIncoming([]);
+      setIncoming((current) => current.length ? [] : current);
       return;
     }
     const offerByRequest = new Map((offerRows ?? []).map((offer: any) => [offer.request_id, offer]));
-    setIncoming((data ?? []).map((request: any) => ({
+    const nextIncoming = (data ?? []).map((request: any) => ({
       ...request,
       my_offer: offerByRequest.get(request.id) ?? null,
-    })) as IncomingRequest[]);
+    })) as IncomingRequest[];
+    setIncoming((current) => JSON.stringify(current) === JSON.stringify(nextIncoming) ? current : nextIncoming);
   }, [selectedRole, user]);
 
   useEffect(() => {
