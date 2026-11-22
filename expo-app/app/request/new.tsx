@@ -1217,7 +1217,13 @@ export default function NewRequest() {
             notes,
           },
         });
-        if (taxiError) throw taxiError;
+        if (taxiError) {
+          if ((taxiError as any).context?.status === 409) {
+            setRouteRetry((value) => value + 1);
+            throw new Error("تغيّر سعر الإدارة بعد آخر عرض. حدّثت الحساب؛ راجع السعر الجديد ثم أرسل الطلب مرة ثانية.");
+          }
+          throw taxiError;
+        }
         if (!taxiRequest?.requestId) throw new Error(taxiRequest?.error || "تعذّر إنشاء طلب التكسي.");
         requestId = taxiRequest.requestId;
       } else {
