@@ -1521,7 +1521,7 @@ export default function RequestDetail() {
               </View>;
             })()}
             {request.type === "service" && <Text style={{ color: palette.brand, fontSize: 13, fontWeight: "900", textAlign: "center" }}>الفريق المؤكد: {acceptedPeopleCount} من {request.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</Text>}
-            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : request.type === "service" ? "نواصل البحث بدورات متكررة إلى أن يكتمل الفريق أو تختار الاكتفاء بالعدد المتوفر." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : request.type === "service" ? (Number(request.workers_count || 1) > 1 ? "نواصل البحث بدورات متكررة إلى أن يكتمل الفريق أو تختار الاكتفاء بالعدد المتوفر." : "نبحث عن فني متاح ضمن نطاقات البحث المعتادة.") : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
             {request.type === "service" && acceptedPeopleCount > 0 && (
               <TouchableOpacity
                 onPress={async () => {
