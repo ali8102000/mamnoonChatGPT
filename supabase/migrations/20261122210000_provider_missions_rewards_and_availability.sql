@@ -225,7 +225,8 @@ begin
   if not public.can_manage_provider_mission(null) then raise exception 'missing_mission_permission'; end if;
   return query
     select m.id,m.title,m.provider_type,m.service_slug,m.target_governorates,m.location_scope,
-      m.target_count,m.reward_amount_iqd,m.starts_at,m.ends_at,m.status,
+      m.target_count,m.reward_amount_iqd,m.starts_at,m.ends_at,
+      case when m.status='active' and m.ends_at<=now() then 'expired' else m.status end,
       count(p.id),count(p.id) filter(where p.reward_status='eligible'),
       count(p.id) filter(where p.reward_status='approved'),
       count(p.id) filter(where p.reward_status='rejected')
