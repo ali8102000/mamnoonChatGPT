@@ -6,7 +6,7 @@ import { Loader2, Navigation, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { getLiveRoadRoute } from "@/lib/maps.functions";
 import { serviceIcon } from "@/lib/service-visuals";
-import luxuryCarImage from "@/assets/car-luxury.png";
+
 
 export type Coords = { lat: number; lng: number; heading?: number | null; updatedAt?: string; accuracy?: number };
 
@@ -238,10 +238,11 @@ export function LiveTrackMap({
       const heading = activeDriverCoord.heading != null && Number.isFinite(activeDriverCoord.heading)
         ? activeDriverCoord.heading
         : movementHeading ?? (effectivePickup ? bearingDeg(activeDriverCoord, effectivePickup) : renderedDriverHeadingRef.current);
+      const taxiTier = ["economy", "premium", "luxury"].includes(vehicleCategory || "") ? vehicleCategory : "economy";
       const markerImage = serviceType === "taxi"
         ? vehicleCategory === "large"
           ? serviceIcon(vehicleType === "kia_cargo" ? "cargo_handling" : "goods_transport")
-          : luxuryCarImage
+          : "/vehicle-icons/" + taxiTier + ".svg"
         : serviceIcon(serviceSlug || "general");
       const markerImageHref = markerImage.startsWith("http") || markerImage.startsWith("data:") ? markerImage : window.location.origin + (markerImage.startsWith("/") ? markerImage : "/" + markerImage);
       const markerRotation = serviceType === "taxi" ? heading : 0;
