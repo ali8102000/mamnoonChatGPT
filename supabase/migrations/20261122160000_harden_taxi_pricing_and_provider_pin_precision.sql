@@ -89,7 +89,7 @@ AS $function$
     AND pp.updated_at > now() - interval '5 minutes'
     AND extensions.st_dwithin(
       pp.location, o.point,
-      (least(greatest(coalesce(_radius_km, 5), 0.1), 25) * 1000 * 1.01) + 5
+      least(greatest(coalesce(_radius_km, 5), 0.1), 25) * 1000
     )
     AND public.mamnoon_provider_subscription_active_internal(pp.user_id)
     AND (
@@ -127,12 +127,7 @@ AS $function$
         )
       )
     )
-    AND 6371 * acos(least(1.0, greatest(-1.0,
-      cos(radians(_lat::double precision)) * cos(radians(pp.lat)) *
-      cos(radians(pp.lng) - radians(_lng::double precision)) +
-      sin(radians(_lat::double precision)) * sin(radians(pp.lat))
-    ))) <= least(greatest(coalesce(_radius_km, 5), 0.1), 25)
-  ORDER BY pp.updated_at DESC
+  ORDER BY pp.location <-> o.point ASC, pp.updated_at DESC
   LIMIT least(greatest(coalesce(_limit, 30), 1), 30);
 $function$;
 
