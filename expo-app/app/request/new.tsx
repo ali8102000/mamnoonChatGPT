@@ -1256,7 +1256,7 @@ export default function NewRequest() {
         >
           {mapMode === "destination" && pickupCoords && (
             <Marker coordinate={pickupCoords} title="نقطة الانطلاق" anchor={{ x: 0.5, y: 1 }}>
-              <View style={styles.savedPickupMarker}><View style={styles.savedPickupMarkerDot} /></View>
+              <MapCenterPin color="#1687F8" />
             </Marker>
           )}
           {mapMode === "pickup" && nearbyDrivers.map((driver) => (
@@ -2156,8 +2156,6 @@ const styles = StyleSheet.create({
   taxiNearbyMarkerText: { fontSize: 19 },
   taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -15, marginTop: -38, zIndex: 4 },
   pinArtwork: { width: 30, height: 40, alignItems: "center", justifyContent: "flex-start" },
-  savedPickupMarker: { width: 18, height: 18, borderRadius: 9, backgroundColor: "#1687F8", borderWidth: 3, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 4 },
-  savedPickupMarkerDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#FFFFFF" },
   taxiTopBar: { position: "absolute", top: 42, left: 10, right: 10, zIndex: 10, flexDirection: "column", alignItems: "stretch", gap: 8 },
   taxiTopControls: { flexDirection: "row", alignItems: "center", gap: 7 },
   taxiBackButton: { width: 42, height: 44, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
