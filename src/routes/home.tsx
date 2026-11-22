@@ -623,6 +623,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   const [teamSize, setTeamSize] = useState("1");
   const [popupRequest, setPopupRequest] = useState<any | null>(null);
   const popupShownRef = useRef<string | null>(null);
+  useEffect(() => { setTeamSize("1"); }, [popupRequest?.id, popupRequest?.remaining_people_count]);
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
   const [popupAttachmentUrl, setPopupAttachmentUrl] = useState<string | null>(null);
   const [popupAttachmentLoading, setPopupAttachmentLoading] = useState(false);
