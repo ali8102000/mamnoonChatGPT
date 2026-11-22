@@ -490,6 +490,9 @@ BEGIN
   v_updated := replace(v_updated,
     '''workers_count'', r.workers_count,',
     '''workers_count'', r.workers_count, ''accepted_people_count'', COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), ''remaining_people_count'', GREATEST(r.workers_count - COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), 0),');
+  v_updated := replace(v_updated,
+    ''' د.ع. لديك 60 ثانية لقبول الطلب.'',',
+    ''' د.ع. الفريق المؤكد '' || COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0)::text || ''، والمتبقي '' || GREATEST(r.workers_count - COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), 0)::text || ''. لديك 60 ثانية لقبول الطلب.'',');
   -- Exclude every member of an accepted service team from future dispatch rounds.
   IF position('SELECT 1 FROM public.service_request_providers srp_active' IN v_updated) = 0 THEN
     v_updated := replace(
@@ -625,11 +628,14 @@ BEGIN
     SELECT srp.provider_id, 'request_cancelled', 'أُلغي الطلب',
       coalesce(left(_reason, 200), 'ألغى الزبون الطلب'), '/request/' || _request_id
     FROM public.service_request_providers srp WHERE srp.request_id = _request_id;
-    IF r.provider_id IS NOT NULL THEN
+    IF r.provider_id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM public.service_request_providers srp
+         WHERE srp.request_id = _request_id AND srp.provider_id = r.provider_id
+       ) THEN
       INSERT INTO public.notifications(user_id, type, title, body, link)
       VALUES (r.provider_id, 'request_cancelled', 'أُلغي الطلب',
-        coalesce(left(_reason, 200), 'ألغى الزبون الطلب'), '/request/' || _request_id)
-      ON CONFLICT DO NOTHING;
+        coalesce(left(_reason, 200), 'ألغى الزبون الطلب'), '/request/' || _request_id);
     END IF;
     RETURN 'cancelled';
   END IF;
