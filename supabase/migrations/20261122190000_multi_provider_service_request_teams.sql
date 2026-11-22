@@ -590,7 +590,7 @@ BEGIN
     '''. لديك '' || (60 * GREATEST(COALESCE(r.workers_count, 1), 1))::text || '' ثانية لقبول الطلب.'',');
   IF position('accepted_people_count' IN v_updated) = 0
      OR position('remaining_people_count' IN v_updated) = 0
-     OR position('''expires_in_seconds'', 60' IN v_updated) > 0
+     OR position('''expires_in_seconds'', 60' || chr(10) IN v_updated) > 0
      OR position('expires_at = now() + interval ''60 seconds''' IN v_updated) > 0
      OR position('now(), now() + interval ''60 seconds''' IN v_updated) > 0
      OR position('''. لديك 60 ثانية لقبول الطلب.''' IN v_updated) > 0 THEN
