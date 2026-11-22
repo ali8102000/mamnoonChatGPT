@@ -1211,7 +1211,7 @@ export default function NewRequest() {
             pickupText: pickup, destinationText: destination,
             governorateKey: effectivePickupGovernorateKey,
             pickupGovernorateKey: effectivePickupGovernorateKey,
-            destinationGovernorateKey: destinationGovernorateKey ?? effectivePickupGovernorateKey,
+            destinationGovernorateKey: destinationGovernorateKey ?? undefined,
             vehicleCategory: vehicleCat, urgencyEnabled, notes,
           },
         });
