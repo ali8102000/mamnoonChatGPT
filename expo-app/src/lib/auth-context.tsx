@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const roleRevision = useRef(0);
   // Serialize SecureStore writes so an older switch cannot finish after a newer one.
   const roleWriteQueue = useRef<Promise<void>>(Promise.resolve());
-  // Share one in-flight profile bootstrap between auth events and explicit refresh calls.
+  // Reuse one account bootstrap when Supabase auth events and login refresh overlap.
   const profileLoadInFlight = useRef(new Map<string, Promise<void>>());
 
   async function restoreActiveRole(uid: string, availableRoles: AppRole[]) {
@@ -177,7 +177,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await write;
 
     // If a newer role was requested while this write was pending, its queued
-    // write will become the   function loadProfile(uid: string): Promise<void> {
+    // write will become the persisted value and only it may update the UI.
+    if (roleRevision.current !== revision || lastUserId.current !== uid) return;
+    setActiveRoleState(role);
+  }
+
+  function loadProfile(uid: string): Promise<void> {
     const existing = profileLoadInFlight.current.get(uid);
     if (existing) return existing;
 
@@ -288,10 +293,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     void operation.then(clearInFlight, clearInFlight);
     return operation;
-  }uld not restore the active role; using customer fallback:", roleError);
-        if (lastUserId.current === uid) setActiveRoleState("customer");
-      });
-    }
   }
 
   // Keep the context refresh function referentially stable. Screens use it
