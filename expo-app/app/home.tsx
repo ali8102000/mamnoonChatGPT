@@ -872,6 +872,68 @@ function HomeCustomContent({ userId, placementKey }: { userId: string | null; pl
   );
 }
 
+function IncomingRequestList({ incoming }: { incoming: IncomingRequest[] }) {
+  const [dispatchClock, setDispatchClock] = useState(Date.now());
+  useEffect(() => {
+    if (incoming.length === 0) return;
+    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [incoming.length]);
+
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>الطلبات الواردة</Text>
+      <Text style={styles.sectionSubTitle}>العروض الجديدة تظهر هنا أول ما توصلك</Text>
+      {incoming.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyText}>لا توجد طلبات حالياً</Text>
+          <Text style={styles.emptySubtext}>سيظهر هنا عند وصول طلب جديد</Text>
+        </View>
+      ) : (
+        incoming.map((req) => {
+          const remaining = req.my_offer?.expires_at
+            ? Math.max(0, Math.ceil((Date.parse(req.my_offer.expires_at) - dispatchClock) / 1000))
+            : 0;
+          const timeLabel = `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
+          const urgent = remaining <= 10;
+          const urgentFlash = urgent && Math.floor(dispatchClock / 1000) % 2 === 0;
+          return (
+            <TouchableOpacity
+              key={req.id}
+              style={styles.requestCard}
+              onPress={() => router.push({ pathname: "/request/[id]", params: { id: req.id } })}
+              activeOpacity={0.85}
+            >
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={styles.requestCustomer}>طلب جديد · {req.type === "taxi" ? "سائق" : "فني"}</Text>
+                {(req.service_urgency_enabled || req.large_vehicle_urgency_enabled || req.taxi_urgency_enabled || Number(req.urgency_multiplier ?? 1) > 1) && <Text style={{ color: "#B45309", fontSize: 11, fontWeight: "900", textAlign: "right" }}>⚡ طلب عاجل{Number(req.urgency_multiplier ?? 1) > 1 ? ` ×${req.urgency_multiplier}` : ""}</Text>}
+                <Text style={styles.requestType}>
+                  {req.vehicle_category === "large" ? `🚚 سيارة كبيرة — ${req.vehicle_type === "kia_passenger" ? "كيا ركاب" : req.vehicle_type === "bus" ? "باص" : "كيا حمل"}` : req.type === "taxi" ? "🚕 طلب سيارة" : "🔧 طلب خدمة"}
+                </Text>
+                {(req.service_urgency_enabled || req.large_vehicle_urgency_enabled || req.taxi_urgency_enabled) && <Text style={{ color: "#D97706", fontSize: 11, fontWeight: "900", textAlign: "right" }}>⚡ طلب مستعجل</Text>}
+                {!!req.pickup_text && <Text style={{ color: palette.ink, fontSize: 11, textAlign: "right" }}>من: {req.pickup_text}</Text>}
+                {!!req.dest_text && <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>إلى: {req.dest_text}</Text>}
+                {req.my_offer?.distance_km != null && <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>تبعد عنك {Number(req.my_offer.distance_km).toFixed(1)} كم</Text>}
+                <Text style={styles.requestPrice}>
+                  {(req.customer_price ?? req.customer_payable ?? req.price_estimate) != null ? `${Number(req.customer_price ?? req.customer_payable ?? req.price_estimate).toLocaleString("en")} د.ع` : req.vehicle_category === "large" ? "بانتظار عروض الأسعار" : "السعر قيد التحديد"}
+                </Text>
+                <Text style={{ color: urgentFlash ? "#dc2626" : palette.muted, fontSize: 10, fontWeight: "900", textAlign: "right" }}>
+                  {urgent ? "انتبه، ينتهي العرض الآن" : "ينتهي العرض خلال"}
+                </Text>
+              </View>
+              <View style={{ width: 62, height: 62, borderRadius: 31, borderWidth: 5, borderColor: urgentFlash ? "#dc2626" : palette.gold, alignItems: "center", justifyContent: "center", backgroundColor: palette.surface }}>
+                <Text style={{ color: urgentFlash ? "#dc2626" : palette.ink, fontSize: 14, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{timeLabel}</Text>
+                <Text style={{ color: palette.muted, fontSize: 8, fontWeight: "800" }}>قبول</Text>
+              </View>
+              <Text style={styles.requestArrow}>←</Text>
+            </TouchableOpacity>
+          );
+        })
+      )}
+    </View>
+  );
+}
+
 function ProviderHome({
   available,
   verified,
@@ -887,12 +949,6 @@ function ProviderHome({
   toggleAvailable: () => void;
   incoming: IncomingRequest[];
 }) {
-  const [dispatchClock, setDispatchClock] = useState(Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   return (
     <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
       <View
@@ -948,54 +1004,7 @@ function ProviderHome({
           </TouchableOpacity>
         </View>
       </View>
-      <Text style={styles.sectionTitle}>الطلبات الواردة</Text>
-      <Text style={styles.sectionSubTitle}>العروض الجديدة تظهر هنا أول ما توصلك</Text>
-      {incoming.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <Text style={styles.emptyText}>لا توجد طلبات حالياً</Text>
-          <Text style={styles.emptySubtext}>سيظهر هنا عند وصول طلب جديد</Text>
-        </View>
-      ) : (
-        incoming.map((req) => {
-          const remaining = req.my_offer?.expires_at
-            ? Math.max(0, Math.ceil((Date.parse(req.my_offer.expires_at) - dispatchClock) / 1000))
-            : 0;
-          const timeLabel = `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
-          const urgent = remaining <= 10;
-          const urgentFlash = urgent && Math.floor(dispatchClock / 1000) % 2 === 0;
-          return (
-            <TouchableOpacity
-              key={req.id}
-              style={styles.requestCard}
-              onPress={() => router.push({ pathname: "/request/[id]", params: { id: req.id } })}
-              activeOpacity={0.85}
-            >
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.requestCustomer}>طلب جديد · {req.type === "taxi" ? "سائق" : "فني"}</Text>
-                {(req.service_urgency_enabled || req.large_vehicle_urgency_enabled || req.taxi_urgency_enabled || Number(req.urgency_multiplier ?? 1) > 1) && <Text style={{ color: "#B45309", fontSize: 11, fontWeight: "900", textAlign: "right" }}>⚡ طلب عاجل{Number(req.urgency_multiplier ?? 1) > 1 ? ` ×${req.urgency_multiplier}` : ""}</Text>}
-                <Text style={styles.requestType}>
-                  {req.vehicle_category === "large" ? `🚚 سيارة كبيرة — ${req.vehicle_type === "kia_passenger" ? "كيا ركاب" : req.vehicle_type === "bus" ? "باص" : "كيا حمل"}` : req.type === "taxi" ? "🚕 طلب سيارة" : "🔧 طلب خدمة"}
-                </Text>
-                {(req.service_urgency_enabled || req.large_vehicle_urgency_enabled || req.taxi_urgency_enabled) && <Text style={{ color: "#D97706", fontSize: 11, fontWeight: "900", textAlign: "right" }}>⚡ طلب مستعجل</Text>}
-                {!!req.pickup_text && <Text style={{ color: palette.ink, fontSize: 11, textAlign: "right" }}>من: {req.pickup_text}</Text>}
-                {!!req.dest_text && <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>إلى: {req.dest_text}</Text>}
-                {req.my_offer?.distance_km != null && <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>تبعد عنك {Number(req.my_offer.distance_km).toFixed(1)} كم</Text>}
-                <Text style={styles.requestPrice}>
-                  {(req.customer_price ?? req.customer_payable ?? req.price_estimate) != null ? `${Number(req.customer_price ?? req.customer_payable ?? req.price_estimate).toLocaleString("en")} د.ع` : req.vehicle_category === "large" ? "بانتظار عروض الأسعار" : "السعر قيد التحديد"}
-                </Text>
-                <Text style={{ color: urgentFlash ? "#dc2626" : palette.muted, fontSize: 10, fontWeight: "900", textAlign: "right" }}>
-                  {urgent ? "انتبه، ينتهي العرض الآن" : "ينتهي العرض خلال"}
-                </Text>
-              </View>
-              <View style={{ width: 62, height: 62, borderRadius: 31, borderWidth: 5, borderColor: urgentFlash ? "#dc2626" : palette.gold, alignItems: "center", justifyContent: "center", backgroundColor: palette.surface }}>
-                <Text style={{ color: urgentFlash ? "#dc2626" : palette.ink, fontSize: 14, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{timeLabel}</Text>
-                <Text style={{ color: palette.muted, fontSize: 8, fontWeight: "800" }}>قبول</Text>
-              </View>
-              <Text style={styles.requestArrow}>←</Text>
-            </TouchableOpacity>
-          );
-        })
-      )}
+      <IncomingRequestList incoming={incoming} />
     </View>
   );
 }
