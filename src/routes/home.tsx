@@ -590,6 +590,26 @@ function FeatureRow({
   );
 }
 
+function ProviderOfferCountdown({ expiresAt }: { expiresAt: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const remaining = Math.max(0, Math.ceil((Date.parse(expiresAt) - now) / 1000));
+  const progress = Math.max(0, Math.min(100, remaining / 60 * 100));
+  const urgentFlash = remaining <= 10 && remaining % 2 === 0;
+  return <div className="my-4 flex items-center justify-center gap-3">
+    <div className="grid h-20 w-20 place-items-center rounded-full" style={{ background: `conic-gradient(${urgentFlash ? "#dc2626" : "#d69e36"} ${progress}%, #e5e7eb ${progress}% 100%)` }}>
+      <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-background text-center">
+        <span className={`text-xl font-black tabular-nums ${urgentFlash ? "text-red-600" : ""}`}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</span>
+        <span className="text-[9px] text-muted-foreground">للقبول</span>
+      </div>
+    </div>
+    <div className={`max-w-[210px] text-xs leading-6 ${remaining <= 10 ? "font-black text-red-600" : "text-muted-foreground"}`}>{remaining <= 10 ? "انتبه، راح ينتهي العرض خلال ثوانٍ!" : "أول مزوّد يقبل الطلب يحصل عليه، وبعد انتهاء الدقيقة ينتقل البحث للنطاق التالي."}</div>
+  </div>;
+}
+
 function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "service"; largeDriverMode?: boolean }) {
   const { session } = useAuth();
   const navigate = useNavigate();
@@ -605,17 +625,17 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
   const [popupAttachmentUrl, setPopupAttachmentUrl] = useState<string | null>(null);
   const [popupAttachmentLoading, setPopupAttachmentLoading] = useState(false);
-  const [dispatchClock, setDispatchClock] = useState(Date.now());
-
-  useEffect(() => {
-    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   useEffect(() => {
     const expiresAt = popupRequest?.my_offer?.expires_at;
-    if (expiresAt && Date.parse(expiresAt) <= dispatchClock) setPopupRequest(null);
-  }, [popupRequest?.my_offer?.expires_at, dispatchClock]);
+    if (!expiresAt) return;
+    const remainingMs = Date.parse(expiresAt) - Date.now();
+    if (remainingMs <= 0) {
+      setPopupRequest(null);
+      return;
+    }
+    const timer = window.setTimeout(() => setPopupRequest(null), remainingMs);
+    return () => window.clearTimeout(timer);
+  }, [popupRequest?.my_offer?.expires_at]);
 
   useEffect(() => {
     let active = true;
@@ -920,20 +940,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
             <div className="mb-3 text-xs font-black text-primary">🔔 طلب جديد موجّه إلك</div>
             <div className="text-lg font-black text-foreground">{type === "taxi" ? (largeDriverMode ? "طلب سيارة كبيرة جديد" : "طلب رحلة جديد") : "طلب خدمة جديد"}</div>
             {(popupRequest.service_urgency_enabled || popupRequest.large_vehicle_urgency_enabled || popupRequest.taxi_urgency_enabled || Number(popupRequest.urgency_multiplier ?? 1) > 1) && <div className="mt-2 inline-flex rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-600">⚡ طلب مستعجل{Number(popupRequest.urgency_multiplier ?? 1) > 1 ? ` ×${popupRequest.urgency_multiplier}` : ""}</div>}
-            {popupRequest.my_offer?.expires_at && (() => {
-              const remaining = Math.max(0, Math.ceil((Date.parse(popupRequest.my_offer.expires_at) - dispatchClock) / 1000));
-              const progress = Math.max(0, Math.min(100, remaining / 60 * 100));
-              const urgentFlash = remaining <= 10 && remaining % 2 === 0;
-              return <div className="my-4 flex items-center justify-center gap-3">
-                <div className="grid h-20 w-20 place-items-center rounded-full" style={{ background: `conic-gradient(${urgentFlash ? "#dc2626" : "#d69e36"} ${progress}%, #e5e7eb ${progress}% 100%)` }}>
-                  <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-background text-center">
-                    <span className={`text-xl font-black tabular-nums ${urgentFlash ? "text-red-600" : ""}`}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</span>
-                    <span className="text-[9px] text-muted-foreground">للقبول</span>
-                  </div>
-                </div>
-                <div className={`max-w-[210px] text-xs leading-6 ${remaining <= 10 ? "font-black text-red-600" : "text-muted-foreground"}`}>{remaining <= 10 ? "انتبه، راح ينتهي العرض خلال ثوانٍ!" : "أول مزوّد يقبل الطلب يحصل عليه، وبعد انتهاء الدقيقة ينتقل البحث للنطاق التالي."}</div>
-              </div>;
-            })()}
+            {popupRequest.my_offer?.expires_at && <ProviderOfferCountdown expiresAt={popupRequest.my_offer.expires_at} />}
             <div className="mt-2 rounded-2xl bg-muted/60 p-3 text-sm font-bold text-foreground">📍 {popupRequest.pickup_text || "موقع الزبون"}</div>
             {popupRequest.dest_text && <div className="mt-2 text-xs text-muted-foreground">🎯 {popupRequest.dest_text}</div>}
             {popupRequest.my_offer?.distance_km != null && <div className="mt-2 text-xs font-bold text-muted-foreground">المسافة إليك: {Number(popupRequest.my_offer.distance_km).toFixed(1)} كم</div>}
