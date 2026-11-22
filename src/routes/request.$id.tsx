@@ -181,6 +181,8 @@ function RequestDetail() {
         return;
       }
       setReq(r);
+      // Show the accepted request immediately; secondary details hydrate below.
+      setLoading(false);
       if (r.type === "service") {
         setServiceProviders([]);
         const { data: acceptedProviders, error: acceptedProvidersError } = await (supabase as any)
