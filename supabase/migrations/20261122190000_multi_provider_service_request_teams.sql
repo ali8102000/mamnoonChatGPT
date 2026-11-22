@@ -299,7 +299,7 @@ BEGIN
     JOIN public.service_requests active_request ON active_request.id = active_provider.request_id
     WHERE active_provider.provider_id = auth.uid()
       AND active_request.id <> _request_id
-      AND active_request.status IN ('accepted', 'in_progress')
+      AND active_request.status IN ('pending', 'searching', 'accepted', 'in_progress')
   ) OR EXISTS (
     SELECT 1 FROM public.service_requests active_request
     WHERE active_request.provider_id = auth.uid()
@@ -515,7 +515,7 @@ BEGIN
       '        SELECT 1 FROM public.service_request_providers srp_active' || chr(10) ||
       '        JOIN public.service_requests active_team_request ON active_team_request.id = srp_active.request_id' || chr(10) ||
       '        WHERE srp_active.provider_id = wp.user_id' || chr(10) ||
-      '          AND active_team_request.status IN (''accepted'', ''in_progress'')' || chr(10) ||
+      '          AND active_team_request.status IN (''pending'', ''searching'', ''accepted'', ''in_progress'')' || chr(10) ||
       '      )' || chr(10) ||
       '      AND NOT EXISTS (' || chr(10) || '        SELECT 1 FROM public.user_blocks b'
     );
