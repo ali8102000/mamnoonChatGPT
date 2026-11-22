@@ -33,6 +33,7 @@ type Props = {
   showQuickReplies?: boolean;
   footer?: ReactNode;
   onMessageLongPress?: (message: MamnoonThreadMessage) => void;
+  readOnly?: boolean;
 };
 
 function dayKey(value: string) {
@@ -82,6 +83,7 @@ export default function MamnoonChatThread({
   showQuickReplies = true,
   footer,
   onMessageLongPress,
+  readOnly = false,
 }: Props) {
   const scrollRef = useRef<ScrollView>(null);
   const groupedMessages = useMemo(() => {
@@ -182,6 +184,7 @@ export default function MamnoonChatThread({
 
       {footer}
 
+      {!readOnly && (
       <View style={styles.composer}>
         <View style={styles.inputShell}>
           <TextInput
@@ -208,6 +211,7 @@ export default function MamnoonChatThread({
           <Text style={styles.sendText}>{busy ? "…" : "➤"}</Text>
         </TouchableOpacity>
       </View>
+      )}
     </View>
   );
 }
