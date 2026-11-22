@@ -24,6 +24,7 @@ type Props = {
   quickReplies?: string[];
   footer?: React.ReactNode;
   className?: string;
+  readOnly?: boolean;
 };
 
 function dateKey(value: string) {
@@ -59,6 +60,7 @@ export function MamnoonChatThread({
   quickReplies = [],
   footer,
   className = "",
+  readOnly = false,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const grouped = useMemo(() => {
@@ -115,10 +117,10 @@ export function MamnoonChatThread({
       </div>
       {quickReplies.length > 0 && <div className="flex gap-2 overflow-x-auto border-t border-border/60 px-3 py-2">{quickReplies.map((reply) => <button key={reply} type="button" disabled={busy} onClick={() => { onDraftChange(reply); }} className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] font-bold text-foreground disabled:opacity-50">{reply}</button>)}</div>}
       {footer}
-      <form onSubmit={(event) => { event.preventDefault(); if (!busy && draft.trim()) onSend(); }} className="flex shrink-0 items-end gap-2 border-t border-border bg-card p-3 pb-[max(env(safe-area-inset-bottom),12px)]">
+      {!readOnly && <form onSubmit={(event) => { event.preventDefault(); if (!busy && draft.trim()) onSend(); }} className="flex shrink-0 items-end gap-2 border-t border-border bg-card p-3 pb-[max(env(safe-area-inset-bottom),12px)]">
         <textarea value={draft} onChange={(event) => onDraftChange(event.target.value)} rows={1} maxLength={4000} placeholder={placeholder} className="max-h-28 min-h-11 flex-1 resize-y rounded-2xl border border-border bg-background px-4 py-3 text-right text-sm outline-none focus:border-primary" />
         <button type="submit" disabled={busy || !draft.trim()} aria-label="إرسال الرسالة" className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground disabled:opacity-40"><Send className="h-4 w-4" /></button>
-      </form>
+      </form>}
     </div>
   );
 }
