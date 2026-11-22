@@ -760,6 +760,8 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   }, [session, available, table]);
 
   useEffect(() => {
+    setVerified(false);
+    setAvailable(false);
     if (!session) return;
     const providerUserId = session.user.id;
     supabase
