@@ -1497,7 +1497,7 @@ export default function RequestDetail() {
           )}
         </View>
         {isProvider && request.type === "service" && request.status === "searching" && (
-          <View style={{ marginTop: 12, borderRadius: 16, padding: 13, backgroundColor: palette.successSoft ?? "#E8F7EF", borderWidth: 1, borderColor: palette.success }}>
+          <View style={{ marginTop: 12, borderRadius: 16, padding: 13, backgroundColor: "#E8F7EF", borderWidth: 1, borderColor: palette.success }}>
             <Text style={{ color: palette.ink, fontWeight: "900", textAlign: "right" }}>تم تسجيلك ضمن فريق الطلب</Text>
             <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 4 }}>الفريق المؤكد: {acceptedPeopleCount} من {request.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</Text>
           </View>
