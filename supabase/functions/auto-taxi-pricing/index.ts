@@ -174,7 +174,11 @@ Deno.serve(async (req) => {
     return json({error:"فئة السيارة المرسلة غير مدعومة للتسعير التلقائي",code:"INVALID_VEHICLE_CATEGORY",receivedCategory:rawCategory||null,allowedCategories:["economy","premium","luxury"]},400);
   }
   const category=rawCategory as Category;
-  const tripType=["one_way","round_trip","second_trip","stop"].includes(body.tripType)?body.tripType:"one_way";
+  const allowedTripTypes = ["one_way","round_trip","second_trip","stop"] as const;
+  if (body.tripType != null && !allowedTripTypes.includes(body.tripType)) {
+    return json({error:"نوع الرحلة غير صالح",code:"INVALID_TRIP_TYPE"},400);
+  }
+  const tripType = (body.tripType ?? "one_way") as typeof allowedTripTypes[number];
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
   const suppliedPickupKey = typeof body.pickupGovernorateKey === "string"
@@ -239,8 +243,8 @@ Deno.serve(async (req) => {
     console.error("[auto-taxi-pricing] pricing settings lookup failed", settingsError?.code || "no_row");
     return json({error:"تعذّر قراءة تعريفة السيارة حالياً",code:"PRICING_SETTINGS_READ_FAILED"},503);
   }
-  const effectiveSettings=(serviceType:string)=>settingsRows.find((row:any)=>row.service_type===serviceType&&row.governorate_key===fromGovernorate)
-    ||settingsRows.find((row:any)=>row.service_type===serviceType&&row.governorate_key==="all");
+  const effectiveSettings=(serviceType:"economy"|"premium"|"luxury")=>
+    resolveGovernorateTariff(settingsRows as any[],fromGovernorate,serviceType);
   const settings=effectiveSettings(category);
   const economySettings=effectiveSettings("economy");
   if(!settings||!economySettings) {
