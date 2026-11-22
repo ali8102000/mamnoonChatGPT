@@ -86,11 +86,12 @@ export default function AuthScreen() {
         const { data: sessionData, error } = await supabase.auth.setSession(result.session);
         if (error) throw error;
         const userId = sessionData.session?.user.id;
-        const { data: roleRows } = userId
-          ? await supabase.from("user_roles").select("role").eq("user_id", userId)
-          : { data: [] as { role: string }[] };
-        await refresh();
-        if (roleRows?.some((row) => row.role === "super_admin")) {
+        const roleRowsPromise = userId
+          ? supabase.from("user_roles").select("role").eq("user_id", userId)
+          : Promise.resolve({ data: [] as { role: string }[] });
+        // Load the bootstrap role and the remaining account profile at the same time.
+        const [roleResult] = await Promise.all([roleRowsPromise, refresh()]);
+        if (roleResult.data?.some((row) => row.role === "super_admin")) {
           router.replace("/admin/bootstrap");
         } else {
           router.replace("/");
