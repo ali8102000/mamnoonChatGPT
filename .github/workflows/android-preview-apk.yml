@@ -104,3 +104,4 @@ jobs:
             adb logcat -d -t 3000 > /tmp/mamnoon-startup-log.txt
             ! grep -E -i "app-boundary.*Unhandled render error|Unhandled render error.*app-boundary" /tmp/mamnoon-startup-log.txt || (echo "Mamnoon displayed its root React error boundary during startup."; exit 1)
             echo "App process remained alive and no root React error-boundary event was logged."
+            bash scripts/android-navigation-smoke.sh
