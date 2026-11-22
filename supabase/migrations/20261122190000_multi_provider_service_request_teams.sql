@@ -490,21 +490,22 @@ BEGIN
   v_updated := replace(v_updated,
     '''workers_count'', r.workers_count,',
     '''workers_count'', r.workers_count, ''accepted_people_count'', COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), ''remaining_people_count'', GREATEST(r.workers_count - COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), 0),');
-  v_updated := replace(v_updated,
-    'AND NOT EXISTS (',
-    'AND NOT EXISTS (');
   -- Exclude every member of an accepted service team from future dispatch rounds.
-  v_updated := replace(v_updated,
-    'WHERE active.provider_id = wp.user_id',
-    'WHERE active.provider_id = wp.user_id');
-  IF position('AND NOT EXISTS (SELECT 1 FROM public.service_request_providers srp_active WHERE srp_active.provider_id = wp.user_id AND srp_active.request_id = active.id)' IN v_updated) = 0 THEN
-    v_updated := replace(v_updated,
-      'AND active.status IN (''accepted'', ''in_progress'')',
-      'AND active.status IN (''accepted'', ''in_progress'')');
-    -- Insert a separate membership guard immediately before the user-block exclusion.
-    v_updated := replace(v_updated,
-      '      AND NOT EXISTS (\n        SELECT 1 FROM public.user_blocks b',
-      '      AND NOT EXISTS (\n        SELECT 1 FROM public.service_request_providers srp_active\n        JOIN public.service_requests active_team_request ON active_team_request.id = srp_active.request_id\n        WHERE srp_active.provider_id = wp.user_id\n          AND active_team_request.status IN (''accepted'', ''in_progress'')\n      )\n      AND NOT EXISTS (\n        SELECT 1 FROM public.user_blocks b');
+  IF position('SELECT 1 FROM public.service_request_providers srp_active' IN v_updated) = 0 THEN
+    v_updated := replace(
+      v_updated,
+      '      AND NOT EXISTS (' || chr(10) || '        SELECT 1 FROM public.user_blocks b',
+      '      AND NOT EXISTS (' || chr(10) ||
+      '        SELECT 1 FROM public.service_request_providers srp_active' || chr(10) ||
+      '        JOIN public.service_requests active_team_request ON active_team_request.id = srp_active.request_id' || chr(10) ||
+      '        WHERE srp_active.provider_id = wp.user_id' || chr(10) ||
+      '          AND active_team_request.status IN (''accepted'', ''in_progress'')' || chr(10) ||
+      '      )' || chr(10) ||
+      '      AND NOT EXISTS (' || chr(10) || '        SELECT 1 FROM public.user_blocks b'
+    );
+    IF position('SELECT 1 FROM public.service_request_providers srp_active' IN v_updated) = 0 THEN
+      RAISE EXCEPTION 'Unable to add active service team provider exclusion';
+    END IF;
   END IF;
   EXECUTE v_updated;
 END
