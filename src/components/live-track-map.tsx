@@ -67,6 +67,7 @@ export function LiveTrackMap({
   myRole = "customer",
   serviceType = "taxi",
   driverName = "الفني",
+  driverPhone,
   vehicleCategory,
   vehicleType,
   serviceSlug,
