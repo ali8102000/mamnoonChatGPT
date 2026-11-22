@@ -155,6 +155,9 @@ function RequestDetail() {
   }, [req?.id, req?.status, myRole, soundEnabled]);
   const otherBadges = otherRep?.badges ?? [];
   const trackingActive = !!req && (req.status === "accepted" || req.status === "in_progress");
+  useEffect(() => {
+    if (trackingActive) setMapOpen(true);
+  }, [req?.id, trackingActive]);
   const { me: myLive, other: otherLive, routePoints: providerRoutePoints } = useLiveTracking({
     requestId: req?.id ?? null,
     myUserId,
@@ -711,8 +714,10 @@ function RequestDetail() {
               driverName={other?.full_name ?? "الفني"}
               driverPhone={other?.phone}
               vehicleCategory={req.vehicle_category}
+              vehicleType={req.vehicle_type}
+              serviceSlug={req.services?.slug}
               height={req.type === "taxi" ? 390 : 280}
-              showStatusOverlay={req.type !== "taxi"}
+              showStatusOverlay
               fullscreen={mapOpen}
               onClose={() => setMapOpen(false)}
               onOpenNavigation={myRole === "provider" ? () => setNavModalOpen(true) : undefined}
