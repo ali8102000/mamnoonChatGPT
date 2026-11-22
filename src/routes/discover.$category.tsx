@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, MapPin, RefreshCw, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
+import { getOrLoadDiscoverData } from "@/lib/discover-cache";
 
 type PartnerType = "hotel" | "restaurant" | "store" | "mall";
 type Coordinates = { latitude: number; longitude: number };
@@ -34,6 +35,18 @@ function sortByNearest<T extends { promotion_latitude: number | null; promotion_
   });
 }
 
+type DiscoverPayload = { categories: Category[]; items: Business[]; products: Product[]; title?: string; error?: string };
+
+function sortProductsByNearest(rows: Product[], location: Coordinates | null) {
+  if (!location) return rows;
+  return [...rows].sort((a, b) => {
+    const distance = (p: Product) => p.profile.promotion_latitude == null || p.profile.promotion_longitude == null
+      ? Number.POSITIVE_INFINITY
+      : distanceKm(location, { latitude: p.profile.promotion_latitude, longitude: p.profile.promotion_longitude });
+    return distance(a) - distance(b);
+  });
+}
+
 function DiscoverCategoryPage() {
   const { category: raw } = Route.useParams();
   const isStore = raw.startsWith("store-"), isRestaurant = raw.startsWith("restaurant-"), isHotelCategory = raw.startsWith("hotel-"), isGrocery = raw === "grocery" || raw.startsWith("grocery-");
@@ -48,62 +61,107 @@ function DiscoverCategoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const categoryStripRef = useRef<HTMLDivElement | null>(null);
+  const loadSequenceRef = useRef(0);
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
-    const currentLocation = await getBrowserLocation();
-    setLocation(currentLocation);
+    const loadId = ++loadSequenceRef.current;
+    setLoading(true);
+    setError("");
+    // Location lookup runs alongside catalog queries and never blocks first paint.
+    const locationPromise = getBrowserLocation();
+    const cacheKey = "discover:web:" + raw;
 
-    if (vertical && !categoryKey) {
-      let businessQuery = (supabase as any).from("partner_business_profiles").select("id,partner_type,business_name,city,address,description,phone,promotion_latitude,promotion_longitude").eq("is_published", true).in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]);
-      if (vertical === "store") businessQuery = businessQuery.in("business_vertical", ["store", "grocery"]);
-      else if (vertical !== "hotel") businessQuery = businessQuery.eq("business_vertical", vertical);
-      const [categoryResult, businessResult] = await Promise.all([
-        (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").in("vertical", vertical === "store" ? ["store", "grocery"] : [vertical]).eq("is_active", true).order("sort_order"),
-        businessQuery.order("business_name"),
-      ]);
-      if (categoryResult.error || businessResult.error) setError("تعذر تحميل القسم حالياً.");
-      setCategories(((categoryResult.data ?? []) as Category[]).filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery").map(category => category.vertical === "grocery" && category.category_key === "grocery" ? { ...category, title: "سوبر ماركت وبقالة" } : category));
-      setItems(sortByNearest((businessResult.data ?? []) as Business[], currentLocation));
-      setProducts([]);
+    try {
+      const payload = await getOrLoadDiscoverData<DiscoverPayload>(cacheKey, async () => {
+        if (vertical && !categoryKey) {
+          let businessQuery = (supabase as any).from("partner_business_profiles")
+            .select("id,partner_type,business_name,city,address,description,phone,promotion_latitude,promotion_longitude")
+            .eq("is_published", true)
+            .in("partner_type", vertical === "restaurant" ? ["restaurant"] : vertical === "hotel" ? ["hotel"] : ["store", "mall"]);
+          if (vertical === "store") businessQuery = businessQuery.in("business_vertical", ["store", "grocery"]);
+          else if (vertical !== "hotel") businessQuery = businessQuery.eq("business_vertical", vertical);
+          const [categoryResult, businessResult] = await Promise.all([
+            (supabase as any).from("partner_catalog_categories")
+              .select("category_key,vertical,title,image_url")
+              .in("vertical", vertical === "store" ? ["store", "grocery"] : [vertical])
+              .eq("is_active", true).order("sort_order"),
+            businessQuery.order("business_name"),
+          ]);
+          if (categoryResult.error || businessResult.error) throw categoryResult.error || businessResult.error;
+          return {
+            categories: ((categoryResult.data ?? []) as Category[])
+              .filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery")
+              .map(category => category.vertical === "grocery" && category.category_key === "grocery" ? { ...category, title: "سوبر ماركت وبقالة" } : category),
+            items: (businessResult.data ?? []) as Business[],
+            products: [],
+          };
+        }
+
+        if (categoryKey) {
+          const [cat, rows, categoryList] = await Promise.all([
+            (supabase as any).from("partner_catalog_categories").select("title").eq("category_key", categoryKey).maybeSingle(),
+            (supabase as any).from("partner_catalog_items")
+              .select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,partner_type,promotion_latitude,promotion_longitude)")
+              .eq("category_key", categoryKey).eq("is_active", true).eq("profile.is_published", true)
+              .order("created_at", { ascending: false }),
+            vertical === "store" || vertical === "restaurant" || vertical === "grocery"
+              ? (supabase as any).from("partner_catalog_categories")
+                  .select("category_key,vertical,title,image_url")
+                  .in("vertical", vertical === "store" ? ["store", "grocery"] : [vertical])
+                  .eq("is_active", true).order("sort_order")
+              : Promise.resolve({ data: [], error: null }),
+          ]);
+          if (rows.error || categoryList.error) throw rows.error || categoryList.error;
+          const visible = ((rows.data ?? []) as Product[]).filter(p =>
+            isGrocery ? p.profile.business_vertical === "grocery"
+              : isHotelCategory ? p.profile.partner_type === "hotel"
+              : isStore ? p.profile.business_vertical === "store" && ["store", "mall"].includes(p.profile.partner_type)
+              : isRestaurant ? p.profile.partner_type === "restaurant" && p.profile.business_vertical === "restaurant"
+              : true
+          );
+          return {
+            title: cat.data?.title,
+            categories: ((categoryList.data ?? []) as Category[])
+              .filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery")
+              .map(category => category.vertical === "grocery" && category.category_key === "grocery" ? { ...category, title: "سوبر ماركت وبقالة" } : category),
+            items: [],
+            products: visible,
+          };
+        }
+
+        const types: PartnerType[] = raw === "hotel" ? ["hotel"] : [];
+        if (!types.length) throw new Error("هذا القسم غير متاح.");
+        const { data, error: queryError } = await (supabase as any).from("partner_business_profiles")
+          .select("id,partner_type,business_name,city,address,description,phone,promotion_latitude,promotion_longitude")
+          .eq("is_published", true).in("partner_type", types).order("business_name");
+        if (queryError) throw queryError;
+        return { categories: [], items: (data ?? []) as Business[], products: [] };
+      });
+
+      if (loadId !== loadSequenceRef.current) return;
+      if (payload.title) setTitle(payload.title);
+      setCategories(payload.categories);
+      setItems(payload.items);
+      setProducts(payload.products);
+      setError(payload.error ?? "");
       setLoading(false);
-      return;
+
+      void locationPromise.then((currentLocation) => {
+        if (loadId !== loadSequenceRef.current) return;
+        setLocation(currentLocation);
+        if (currentLocation) {
+          setItems(current => sortByNearest(current, currentLocation));
+          setProducts(current => sortProductsByNearest(current, currentLocation));
+        }
+      });
+    } catch (loadError) {
+      if (loadId !== loadSequenceRef.current) return;
+      setError(loadError instanceof Error && loadError.message === "هذا القسم غير متاح." ? loadError.message : "تعذر تحميل القسم حالياً.");
+      setLoading(false);
     }
+  }, [raw, categoryKey, vertical, isGrocery, isStore, isRestaurant, isHotelCategory]);
 
-    if (categoryKey) {
-      const [cat, rows, categoryList] = await Promise.all([
-        (supabase as any).from("partner_catalog_categories").select("title").eq("category_key", categoryKey).maybeSingle(),
-        (supabase as any).from("partner_catalog_items").select("id,name,description,price_amount,currency,image_urls,profile:partner_business_profiles!inner(id,business_name,city,address,business_vertical,partner_type,promotion_latitude,promotion_longitude)").eq("category_key", categoryKey).eq("is_active", true).eq("profile.is_published", true).order("created_at", { ascending: false }),
-        vertical === "store" || vertical === "restaurant" || vertical === "grocery"
-          ? (supabase as any).from("partner_catalog_categories").select("category_key,vertical,title,image_url").in("vertical", vertical === "store" ? ["store", "grocery"] : [vertical]).eq("is_active", true).order("sort_order")
-          : Promise.resolve({ data: [], error: null }),
-      ]);
-      if (cat.data?.title) setTitle(cat.data.title);
-      if (rows.error || categoryList.error) setError("تعذر تحميل محتويات القسم حالياً.");
-      const visible = ((rows.data ?? []) as Product[]).filter(p =>
-        isGrocery ? p.profile.business_vertical === "grocery"
-          : isHotelCategory ? p.profile.partner_type === "hotel"
-          : isStore ? p.profile.business_vertical === "store" && ["store", "mall"].includes(p.profile.partner_type)
-          : isRestaurant ? p.profile.partner_type === "restaurant" && p.profile.business_vertical === "restaurant"
-          : true
-      );
-      const ordered = currentLocation ? [...visible].sort((a, b) => {
-        const dist = (p: Product) => p.profile.promotion_latitude == null || p.profile.promotion_longitude == null ? Number.POSITIVE_INFINITY : distanceKm(currentLocation, { latitude: p.profile.promotion_latitude, longitude: p.profile.promotion_longitude });
-        return dist(a) - dist(b);
-      }) : visible;
-      setProducts(ordered); setItems([]); setCategories(((categoryList.data ?? []) as Category[]).filter(category => vertical !== "store" || category.vertical === "store" || category.category_key === "grocery").map(category => category.vertical === "grocery" && category.category_key === "grocery" ? { ...category, title: "سوبر ماركت وبقالة" } : category)); setLoading(false); return;
-    }
-
-    const types: PartnerType[] = raw === "hotel" ? ["hotel"] : [];
-    if (!types.length) { setError("هذا القسم غير متاح."); setLoading(false); return; }
-    const { data, error: queryError } = await (supabase as any).from("partner_business_profiles")
-      .select("id,partner_type,business_name,city,address,description,phone,promotion_latitude,promotion_longitude")
-      .eq("is_published", true).in("partner_type", types).order("business_name");
-    if (queryError) setError("تعذر تحميل المنشآت حالياً.");
-    setItems(sortByNearest((data ?? []) as Business[], currentLocation)); setProducts([]); setCategories([]); setLoading(false);
-  }, [raw, categoryKey, vertical, isGrocery]);
-
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); return () => { loadSequenceRef.current += 1; }; }, [load]);
   useEffect(() => {
     if (categories.length < 2) return;
     const timer = window.setInterval(() => {
