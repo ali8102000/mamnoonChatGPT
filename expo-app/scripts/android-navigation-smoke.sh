@@ -4,10 +4,13 @@ set -euo pipefail
 PKG="com.mamnoon.app"
 LOG="/tmp/mamnoon-navigation-log.txt"
 UI="/tmp/mamnoon-window.xml"
+REMOTE_UI="/data/local/tmp/mamnoon-window.xml"
 
 dump_ui() {
-  adb shell uiautomator dump /sdcard/mamnoon-window.xml >/dev/null
-  adb pull /sdcard/mamnoon-window.xml "$UI" >/dev/null
+  # Android 15 restricts pulling files directly from shared storage on some
+  # emulator images. uiautomator writes to the shell-owned local tmp directory.
+  adb shell uiautomator dump "$REMOTE_UI" >/dev/null
+  adb pull "$REMOTE_UI" "$UI" >/dev/null
   test -s "$UI"
   python3 - "$UI" <<'PY'
 import sys, xml.etree.ElementTree as ET
