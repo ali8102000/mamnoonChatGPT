@@ -1147,7 +1147,7 @@ export default function NewRequest() {
             governorateKey: effectivePickupGovernorateKey,
             pickupGovernorateKey: effectivePickupGovernorateKey,
             destinationGovernorateKey: destinationGovernorateKey ?? effectivePickupGovernorateKey,
-            vehicleCategory: vehicleCat, urgencyEnabled: false, notes,
+            vehicleCategory: vehicleCat, urgencyEnabled, notes,
           },
         });
         if (taxiError) throw taxiError;
