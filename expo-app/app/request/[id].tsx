@@ -1452,13 +1452,12 @@ export default function RequestDetail() {
                   <TaxiCarMarker
                     coordinate={(isProvider ? myLocation : otherLocation)!}
                     heading={(isProvider ? myLocation : otherLocation)?.heading}
-                    imageSource={request.vehicle_category === "large"
-                      ? SERVICE_IMAGES[request.vehicle_type === "kia_cargo" ? "cargo_handling" : "goods_transport"]
-                      : undefined}
-                    imageUri={request.vehicle_category !== "large"
-                      ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/public/vehicle-icons/" +
-                        (["economy", "premium", "luxury"].includes(request.vehicle_category ?? "") ? request.vehicle_category : "economy") + ".svg"
-                      : undefined}
+                    imageSource={undefined}
+                    imageUri={request.vehicle_category === "large"
+                      ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/public/images/" +
+                        (request.vehicle_type === "kia_cargo" ? "kia-cargo" : "kia-passenger") + ".svg"
+                      : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/public/vehicle-icons/" +
+                        (["economy", "premium", "luxury"].includes(request.vehicle_category ?? "") ? request.vehicle_category : "economy") + ".svg"}
                   />
                 )}
                 {(isProvider ? otherLocation : myLocation) && (
