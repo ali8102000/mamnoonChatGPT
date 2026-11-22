@@ -75,7 +75,13 @@ CREATE POLICY "Chat participants see chat"
   ON public.chats FOR SELECT TO authenticated
   USING (
     (SELECT auth.uid()) = customer_id
-    OR (SELECT auth.uid()) = provider_id
+    OR (
+      (SELECT auth.uid()) = provider_id
+      AND NOT EXISTS (
+        SELECT 1 FROM public.service_requests sr
+        WHERE sr.id = chats.request_id AND sr.type = 'service'::public.request_type
+      )
+    )
     OR (
       request_id IS NOT NULL
       AND public.is_service_request_provider(request_id, (SELECT auth.uid()))
@@ -92,7 +98,13 @@ CREATE POLICY "Chat participants read messages"
       WHERE c.id = messages.chat_id
         AND (
           (SELECT auth.uid()) = c.customer_id
-          OR (SELECT auth.uid()) = c.provider_id
+          OR (
+            (SELECT auth.uid()) = c.provider_id
+            AND NOT EXISTS (
+              SELECT 1 FROM public.service_requests sr
+              WHERE sr.id = c.request_id AND sr.type = 'service'::public.request_type
+            )
+          )
           OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
         )
     )
@@ -109,7 +121,13 @@ CREATE POLICY "Chat participants send messages"
       WHERE c.id = messages.chat_id
         AND (
           (SELECT auth.uid()) = c.customer_id
-          OR (SELECT auth.uid()) = c.provider_id
+          OR (
+            (SELECT auth.uid()) = c.provider_id
+            AND NOT EXISTS (
+              SELECT 1 FROM public.service_requests sr
+              WHERE sr.id = c.request_id AND sr.type = 'service'::public.request_type
+            )
+          )
           OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
         )
     )
@@ -125,7 +143,13 @@ CREATE POLICY "Receiver marks read"
       WHERE c.id = messages.chat_id
         AND (
           (SELECT auth.uid()) = c.customer_id
-          OR (SELECT auth.uid()) = c.provider_id
+          OR (
+            (SELECT auth.uid()) = c.provider_id
+            AND NOT EXISTS (
+              SELECT 1 FROM public.service_requests sr
+              WHERE sr.id = c.request_id AND sr.type = 'service'::public.request_type
+            )
+          )
           OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
         )
     )
@@ -137,7 +161,13 @@ CREATE POLICY "Receiver marks read"
       WHERE c.id = messages.chat_id
         AND (
           (SELECT auth.uid()) = c.customer_id
-          OR (SELECT auth.uid()) = c.provider_id
+          OR (
+            (SELECT auth.uid()) = c.provider_id
+            AND NOT EXISTS (
+              SELECT 1 FROM public.service_requests sr
+              WHERE sr.id = c.request_id AND sr.type = 'service'::public.request_type
+            )
+          )
           OR public.is_service_request_provider(c.request_id, (SELECT auth.uid()))
         )
     )
