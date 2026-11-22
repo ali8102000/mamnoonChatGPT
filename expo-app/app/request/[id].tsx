@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import MapView, { AnimatedRegion, Marker, Polyline } from "react-native-maps";
 import { LinearGradient } from "expo-linear-gradient";
+import { SvgUri } from "react-native-svg";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -115,7 +116,7 @@ type ChatMessage = {
 };
 
 
-function TaxiCarMarker({ coordinate, heading, imageSource }: { coordinate: Coordinates; heading?: number | null; imageSource?: any }) {
+function TaxiCarMarker({ coordinate, heading, imageSource, imageUri }: { coordinate: Coordinates; heading?: number | null; imageSource?: any; imageUri?: string }) {
   const animatedCoordinate = useRef(new AnimatedRegion(coordinate)).current;
   const lastCoordinateRef = useRef(coordinate);
   const rotation = useSharedValue(Number.isFinite(heading) ? Number(heading) : 0);
@@ -167,7 +168,7 @@ function TaxiCarMarker({ coordinate, heading, imageSource }: { coordinate: Coord
       tracksViewChanges
     >
       <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
-        <Image source={imageSource ?? { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />
+        {imageUri ? <SvgUri uri={imageUri} width={32} height={24} /> : <Image source={imageSource ?? { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />}
       </Animated.View>
     </Marker.Animated>
   );
@@ -1446,6 +1447,10 @@ export default function RequestDetail() {
                     heading={(isProvider ? myLocation : otherLocation)?.heading}
                     imageSource={request.vehicle_category === "large"
                       ? SERVICE_IMAGES[request.vehicle_type === "kia_cargo" ? "cargo_handling" : "goods_transport"]
+                      : undefined}
+                    imageUri={request.vehicle_category !== "large"
+                      ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/public/vehicle-icons/" +
+                        (["economy", "premium", "luxury"].includes(request.vehicle_category ?? "") ? request.vehicle_category : "economy") + ".svg"
                       : undefined}
                   />
                 )}
