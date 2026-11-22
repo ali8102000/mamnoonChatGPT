@@ -27,6 +27,24 @@ CREATE TABLE IF NOT EXISTS public.service_request_providers (
 CREATE INDEX IF NOT EXISTS service_request_providers_provider_active_idx
   ON public.service_request_providers(provider_id, request_id);
 
+-- Preserve already-running legacy service requests. Their existing single assigned
+-- provider is grandfathered as covering the committed request headcount; new requests
+-- use the explicit team-size selection introduced below.
+INSERT INTO public.service_request_providers(request_id, provider_id, team_size)
+SELECT
+  sr.id,
+  sr.provider_id,
+  CASE
+    WHEN sr.status IN ('accepted', 'in_progress')
+      THEN LEAST(GREATEST(COALESCE(sr.workers_count, 1), 1), 10)
+    ELSE 1
+  END
+FROM public.service_requests sr
+WHERE sr.type::text = 'service'
+  AND sr.provider_id IS NOT NULL
+  AND sr.status IN ('pending', 'searching', 'accepted', 'in_progress')
+ON CONFLICT (request_id, provider_id) DO NOTHING;
+
 ALTER TABLE public.service_request_providers ENABLE ROW LEVEL SECURITY;
 
 DO $realtime$
