@@ -379,7 +379,7 @@ begin
 
   v_origin:=public.infer_governorate_key(new.pickup_lat,new.pickup_lng);
   v_destination:=public.infer_governorate_key(new.dest_lat,new.dest_lng);
-  v_duration:=extract(epoch from (new.completed_at-new.created_at))/3600.0;
+  v_duration:=extract(epoch from (new.completed_at-coalesce(new.started_at,new.provider_arrived_at,new.created_at)))/3600.0;
 
   if new.type::text='taxi' then
     v_providers:=case when new.provider_id is null then '{}'::uuid[] else array[new.provider_id] end;
@@ -419,7 +419,7 @@ begin
         request_completed_at,duration_minutes,origin_governorate,destination_governorate
       ) values(
         v_m.id,v_participant.id,v_provider,new.id,new.customer_id,new.created_at,new.completed_at,
-        greatest(0,round(extract(epoch from(new.completed_at-new.created_at))/60)::integer),v_origin,v_destination
+        greatest(0,round(extract(epoch from(new.completed_at-coalesce(new.started_at,new.provider_arrived_at,new.created_at)))/60)::integer),v_origin,v_destination
       ) on conflict(mission_id,provider_id,request_id) do nothing;
       get diagnostics v_new_count=row_count;
       if v_new_count=0 then continue; end if;
