@@ -254,13 +254,14 @@ export default function RequestDetail() {
   const [retryingDispatch, setRetryingDispatch] = useState(false);
   const [taxiUrgencyBusy, setTaxiUrgencyBusy] = useState(false);
   const [activeOffer, setActiveOffer] = useState<any>(null);
+  const [serviceProviders, setServiceProviders] = useState<any[]>([]);
   const scrollRef = useRef<ScrollView>(null);
   const weeklyRatingNoticeRef = useRef<string | null>(null);
-  const isProvider = request?.provider_id === user?.id;
+  const isProvider = request?.provider_id === user?.id || serviceProviders.some((member) => member.provider_id === user?.id);
   const isCustomer = request?.customer_id === user?.id;
   const canAccept = Boolean(
     request &&
-    !request.provider_id &&
+    (request.type === "service" ? Boolean(activeOffer) : !request.provider_id) &&
     request.customer_id !== user?.id &&
     ((request.type === "taxi" && (request.vehicle_category === "large" ? roles.includes("large_driver") : roles.includes("driver")) ) ||
       (request.type === "service" && roles.includes("worker"))),
@@ -346,7 +347,8 @@ export default function RequestDetail() {
     let active = true;
     void (async () => {
       const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
-      const remaining = Math.max(0, 360 - Math.floor((Date.now() - start) / 1000));
+      const totalSeconds = 360 * (request.type === "service" ? Math.max(1, Number(request.workers_count) || 1) : 1);
+      const remaining = Math.max(0, totalSeconds - Math.floor((Date.now() - start) / 1000));
       if (remaining <= 0) return;
       const preferences = await loadNotificationPreferences();
       if (!active || !preferences.soundEnabled) return;
@@ -373,7 +375,7 @@ export default function RequestDetail() {
       countdownNotificationIdRef.current = null;
       if (notificationId) void Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => {});
     };
-  }, [request?.id, request?.status, request?.searching_started_at, request?.created_at, isCustomer]);
+  }, [request?.id, request?.status, request?.searching_started_at, request?.created_at, request?.type, request?.workers_count, isCustomer]);
 
 
   useEffect(() => {
@@ -399,6 +401,16 @@ export default function RequestDetail() {
       return;
     }
     setRequest(data as RequestRecord | null);
+    if (data?.type === "service") {
+      const { data: members, error: membersError } = await (supabase as any)
+        .from("service_request_providers")
+        .select("provider_id,team_size,accepted_at")
+        .eq("request_id", id)
+        .order("accepted_at", { ascending: true });
+      if (!membersError) setServiceProviders(members ?? []);
+    } else {
+      setServiceProviders([]);
+    }
     if (data && user?.id && data.customer_id !== user.id) {
       const { data: ownOffer } = await (supabase as any)
         .from("request_offers")
@@ -554,6 +566,11 @@ export default function RequestDetail() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "request_offers", filter: `request_id=eq.${id}` },
+        () => { void loadRequest(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_request_providers", filter: `request_id=eq.${id}` },
         () => { void loadRequest(); },
       )
       .subscribe();
@@ -1055,11 +1072,34 @@ export default function RequestDetail() {
   }
 
   async function acceptRequest() {
-    const { error } = await supabase.rpc("accept_service_request", { _request_id: id });
-    if (error) Alert.alert("خطأ", error.message);
-    else {
-      await Promise.all([loadRequest(), loadChat()]);
+    const acceptWithTeam = async (teamSize: number) => {
+      if (request?.type === "service" && user?.id) {
+        const { error: teamError } = await (supabase as any)
+          .from("worker_profiles")
+          .update({ team_size: teamSize })
+          .eq("user_id", user.id);
+        if (teamError) {
+          Alert.alert("تعذر حفظ حجم الفريق", teamError.message);
+          return;
+        }
+      }
+      const { error } = await supabase.rpc("accept_service_request", { _request_id: id });
+      if (error) Alert.alert("تعذر قبول الطلب", error.message);
+      else {
+        await Promise.all([loadRequest(), loadChat()]);
+      }
+    };
+    if (request?.type === "service") {
+      Alert.alert("كم شخص يجي وياك؟", "اختَر العدد الكلي ويّاك (الخبير محسوب ضمن العدد).", [
+        { text: "أنا وحدي · 1", onPress: () => void acceptWithTeam(1) },
+        { text: "أنا + عامل · 2", onPress: () => void acceptWithTeam(2) },
+        { text: "أنا + عاملين · 3", onPress: () => void acceptWithTeam(3) },
+        { text: "أنا + 3 عمال · 4", onPress: () => void acceptWithTeam(4) },
+        { text: "إلغاء", style: "cancel" },
+      ]);
+      return;
     }
+    await acceptWithTeam(1);
   }
 
   async function retryLargeOffers() {
