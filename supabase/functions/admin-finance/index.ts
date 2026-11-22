@@ -100,9 +100,6 @@ Deno.serve(async (req: Request) => {
         .in("role", ["driver", "worker", "large_driver"]);
       if (roleError || !roleRows?.length) return json({ error: "provider_account_required" }, 400);
 
-      const { data: assignment } = await caller.from("staff_assignments")
-        .select("scope_type,scope_governorate").eq("user_id", auth.user.id)
-        .eq("active", true).maybeSingle();
       const permissionScopeType = profile.governorate_key ? "governorate" : "global";
       const permissionScopeGovernorate = profile.governorate_key ?? null;
       const [financePermission, adminAccess] = await Promise.all([
