@@ -25,6 +25,17 @@ export const acceptServiceRequest = async ({ data }: { data: { requestId: string
   return { ok: true };
 };
 
+/** Customer ends service staffing once the available headcount is sufficient. */
+export const stopServiceRequestAcceptance = async ({ data }: { data: { requestId: string } }) => {
+  const input = z.object({ requestId: z.string().uuid() }).parse(data);
+  const { data: stopped, error } = await (supabase as any).rpc("stop_service_request_acceptance", {
+    _request_id: input.requestId,
+  });
+  if (error) throw new Error(error.message);
+  if (!stopped) throw new Error("تعذّر إيقاف استقبال الفنيين");
+  return { ok: true };
+};
+
 /** Provider responds to a specific offer (accept/reject/expire). */
 export const respondToOffer = async ({ data }: { data: { offerId: string; action: "accept" | "reject" } }) => {
   const input = z.object({ offerId: z.string().min(1), action: z.enum(["accept", "reject"]) }).parse(data);
