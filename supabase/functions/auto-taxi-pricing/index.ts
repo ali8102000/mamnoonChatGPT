@@ -275,6 +275,10 @@ Deno.serve(async (req) => {
   const urgencyIsEnabled=Boolean(quoteData.urgencyEnabled);
   if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,urgencyEnabled:urgencyIsEnabled,urgencyAllowed,urgencyPercent,governorateKey:fromGovernorate,fromGovernorateKey:fromGovernorate,toGovernorateKey:toGovernorate,isIntercity});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
+  const expectedPrice=Number(body.expectedPriceEstimate);
+  if(!Number.isSafeInteger(expectedPrice)||expectedPrice!==priceEstimate) {
+    return json({error:"تغيّر السعر بعد آخر عرض. حدّث السعر وراجعه قبل إرسال الطلب.",code:"FARE_CHANGED",currentPrice:priceEstimate},409);
+  }
   const governorate=fromGovernorate;
   const couponCode=typeof body.couponCode==="string"&&body.couponCode.trim()?body.couponCode.trim().toUpperCase():null;
   if(couponCode) {
