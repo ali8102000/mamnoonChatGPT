@@ -146,7 +146,7 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
       const intervals=(selected.travelAdvisory?.speedReadingIntervals??[]).flatMap((item:any)=>{
         const startIndex=Number(item.startPolylinePointIndex??0);
         const endIndex=Number(item.endPolylinePointIndex??0);
-        return Number.isInteger(startIndex)&&Number.isInteger(endIndex)&&endIndex>startIndex&&endIndex<points.length
+        return Number.isInteger(startIndex)&&Number.isInteger(endIndex)&&endIndex>startIndex&&endIndex<=points.length
           ?[{startIndex,endIndex,speed:String(item.speed??"NORMAL")}]:[];
       });
       routed={distanceKm:Number(selected.distanceMeters)/1000,durationMin:parseFloat(selected.duration)/60,
