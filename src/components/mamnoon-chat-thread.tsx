@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Check, CheckCheck, Send } from "lucide-react";
 
 export type MamnoonWebMessage = {
@@ -22,7 +22,7 @@ type Props = {
   placeholder?: string;
   emptyText?: string;
   quickReplies?: string[];
-  footer?: React.ReactNode;
+  footer?: ReactNode;
   className?: string;
   readOnly?: boolean;
 };
