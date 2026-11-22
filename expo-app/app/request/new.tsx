@@ -333,7 +333,7 @@ export default function NewRequest() {
       return false;
     });
     return () => subscription.remove();
-  }, [selectedService, mapMode, pickupCoords, pickupGovernorateKey]);
+  }, [selectedService, mapMode, pickupCoords, pickupGovernorateKey, destinationConfirmed]);
 
   useEffect(() => {
     const requestedType = type || "taxi";
