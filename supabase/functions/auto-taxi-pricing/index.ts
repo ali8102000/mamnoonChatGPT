@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 import boundaries from "./iraq-governorate-boundaries.json" with { type: "json" };
+import { calculateServerTaxiFare, resolveGovernorateTariff } from "../_shared/taxi-pricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
