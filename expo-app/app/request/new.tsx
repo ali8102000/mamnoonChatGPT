@@ -263,6 +263,7 @@ export default function NewRequest() {
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
+  const [nearbyWorkers, setNearbyWorkers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
   const [uiVisuals, setUiVisuals] = useState<Record<string, any>>({});
@@ -381,6 +382,7 @@ export default function NewRequest() {
   }, []);
 
   const isTaxi = selectedService === "taxi";
+  const selectedServiceId = serviceCatalog.find((service) => service.slug === selectedService)?.id ?? null;
   const isLargeVehicle = vehicle === "large";
   const isIntercity = routeIsIntercity;
   const showRequestPhoto = !isTaxi || isLargeVehicle;
@@ -599,6 +601,52 @@ export default function NewRequest() {
     };
   }, [pickupCoords?.latitude, pickupCoords?.longitude, isTaxi, isLargeVehicle, vehicleCat]);
 
+  useEffect(() => {
+    if (!pickupCoords || isTaxi) {
+      setNearbyWorkers((current) => current.length ? [] : current);
+      return;
+    }
+    let active = true;
+    let inFlight = false;
+    const loadNearbyWorkers = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const { data, error } = await (supabase as any).rpc("find_nearby_provider_pins", {
+          _lat: pickupCoords.latitude,
+          _lng: pickupCoords.longitude,
+          _type: "service",
+          _category: null,
+          _service_id: selectedServiceId,
+          _radius_km: 25,
+          _limit: 30,
+        });
+        if (!active || error) return;
+        const next = (data ?? []).filter((item: any) =>
+          typeof item?.lat === "number" && typeof item?.lng === "number" &&
+          Number.isFinite(item.lat) && Number.isFinite(item.lng)
+        );
+        setNearbyWorkers((current) => {
+          if (current.length !== next.length) return next;
+          const unchanged = current.every((pin, index) =>
+            pin.pin_id === next[index]?.pin_id && pin.lat === next[index]?.lat &&
+            pin.lng === next[index]?.lng && pin.heading === next[index]?.heading
+          );
+          return unchanged ? current : next;
+        });
+      } catch {
+        // Keep the last known worker markers during a transient connection issue.
+      } finally {
+        inFlight = false;
+      }
+    };
+    void loadNearbyWorkers();
+    const timer = setInterval(() => void loadNearbyWorkers(), 15000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [pickupCoords?.latitude, pickupCoords?.longitude, isTaxi, selectedServiceId]);
   useEffect(() => {
     if (!pickupCoords || !destinationCoords || mapMode !== "destination" || !isTaxi || isLargeVehicle) {
       setRouteKm(null);
@@ -1822,7 +1870,18 @@ export default function NewRequest() {
           showsMyLocationButton={false}
           loadingEnabled
         >
-
+          {nearbyWorkers.map((worker) => (
+            <Marker
+              key={worker.pin_id}
+              coordinate={{ latitude: worker.lat, longitude: worker.lng }}
+              title="فني قريب"
+              anchor={{ x: 0.5, y: 0.5 }}
+              flat
+              rotation={Number.isFinite(worker.heading) ? Number(worker.heading) : 0}
+            >
+              <View style={styles.taxiNearbyMarker}><Text style={styles.taxiNearbyMarkerText}>🔧</Text></View>
+            </Marker>
+          ))}
         </MapView>
         <View pointerEvents="none" style={styles.mapCenterPin}><MapCenterPin /></View>
         <Text style={styles.mapHint}>
