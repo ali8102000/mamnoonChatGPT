@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast";
-import { MessageSquare, Search, Send, RefreshCw, Bot, UserRound, Headset, CheckCircle2, AlertCircle } from "lucide-react";
+import { MessageSquare, Search, RefreshCw, Headset, CheckCircle2, AlertCircle } from "lucide-react";
+import { MamnoonChatThread } from "@/components/mamnoon-chat-thread";
 
 type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "complaints" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
 type Conversation = {
@@ -133,13 +134,29 @@ export default function AdminInbox() {
             {selected.conversation_type !== "service" && <div className="flex gap-1.5"><button disabled={busy} onClick={()=>void runAction("handoff")} className="rounded-lg border border-border px-3 py-2 text-[10px] font-bold"><Headset className="inline h-3.5 w-3.5 ml-1"/> تحويل للدعم</button><button disabled={busy} onClick={()=>void runAction("resolve")} className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-[10px] font-bold"><CheckCircle2 className="inline h-3.5 w-3.5 ml-1"/> إنهاء</button></div>}
           </header>
           {!!selected.complaints?.length&&<div className="mt-3 rounded-lg bg-red-100 text-red-900 px-3 py-2 text-xs font-black">شكوى مرتبطة بالطلب: {selected.complaints[0].reason}{selected.complaints.length > 1 ? ` · وشكاوى أخرى ${selected.complaints.length - 1}` : ""}</div>}{selected.conversation_type !== "service" && selected.needs_admin_reply&&<div className="mt-3 rounded-lg bg-orange-100 text-orange-900 px-3 py-2 text-xs font-black"><AlertCircle className="inline h-4 w-4 ml-1"/> هذه المحادثة تحتاج رد الإدارة</div>}
-          <div className="flex-1 overflow-y-auto py-3 space-y-2 min-h-[300px]">
-            {messages.map(m=><div key={m.id} className={`max-w-[85%] rounded-2xl p-3 ${m.is_ai?"ml-auto bg-violet-100 text-violet-950":m.sender_id===session?.user.id?"mr-auto bg-primary/10":"ml-auto bg-muted"}`}>
-              <div className="text-[9px] font-black mb-1 flex items-center gap-1">{m.is_ai?<><Bot className="h-3 w-3"/> مساعد ممنون</>:m.sender_id===session?.user.id?<><Headset className="h-3 w-3"/> الإدارة</>:selected.conversation_type === "service" && m.sender_id === selected.provider_profile?.id?<><UserRound className="h-3 w-3"/> منفّذ الخدمة</>:selected.conversation_type === "service" && m.sender_id === selected.profile?.id?<><UserRound className="h-3 w-3"/> الزبون</>:selected.conversation_type === "service"?<><Headset className="h-3 w-3"/> الإدارة</>:<><UserRound className="h-3 w-3"/> المستخدم</>}</div>
-              <p className="text-xs whitespace-pre-wrap break-words">{m.body}</p><p className="text-[9px] opacity-60 mt-1">{new Date(m.created_at).toLocaleString("ar-IQ")}</p>
-            </div>)}
-          </div>
-          <div className="border-t border-border pt-3 flex items-end gap-2"><textarea value={draft} onChange={e=>setDraft(e.target.value)} rows={2} maxLength={4000} placeholder="اكتب رد الإدارة..." className="flex-1 rounded-xl border border-border bg-background p-3 text-xs outline-none resize-y"/><button disabled={busy||!draft.trim()} onClick={()=>void send()} className="rounded-xl bg-primary text-primary-foreground p-3 disabled:opacity-40"><Send className="h-4 w-4"/></button></div>
+          <MamnoonChatThread
+            messages={messages.map((m) => ({
+              id: m.id,
+              senderId: m.sender_id,
+              body: m.body,
+              createdAt: m.created_at,
+              isBot: m.is_ai,
+              senderLabel: m.is_ai ? "مساعد ممنون" : m.sender_id === session?.user.id ? "الإدارة" : selected.conversation_type === "service" && m.sender_id === selected.provider_profile?.id ? "منفّذ الخدمة" : selected.conversation_type === "service" && m.sender_id === selected.profile?.id ? "الزبون" : selected.conversation_type === "service" ? "الإدارة" : "المستخدم",
+            }))}
+            currentUserId={session?.user.id ?? ""}
+            draft={draft}
+            onDraftChange={setDraft}
+            onSend={() => void send()}
+            busy={busy}
+            placeholder="اكتب رد الإدارة..."
+            emptyText="لا توجد رسائل في هذه المحادثة بعد"
+            footer={selected.conversation_type !== "service" ? (
+              <div className="flex justify-end gap-2 px-3 pt-2">
+                <button disabled={busy} onClick={() => void runAction("handoff")} className="rounded-lg border border-border px-3 py-2 text-[10px] font-bold"><Headset className="ml-1 inline h-3.5 w-3.5"/> تحويل للدعم</button>
+                <button disabled={busy} onClick={() => void runAction("resolve")} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white"><CheckCircle2 className="ml-1 inline h-3.5 w-3.5"/> إنهاء</button>
+              </div>
+            ) : null}
+          />
         </>}
       </main>
     </div>

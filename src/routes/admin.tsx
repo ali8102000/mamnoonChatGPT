@@ -88,6 +88,7 @@ import {
 import RegionalControlsSection from "@/components/admin-regional-controls";
 import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
 import AdminDispatchZones from "@/components/admin-dispatch-zones";
+import AdminProviderMissions from "@/components/admin-provider-missions";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
 import AdminImageStudio from "@/components/admin-image-studio";
@@ -133,6 +134,7 @@ type Section =
   | "company"
   | "driverTiers"
   | "dispatchZones"
+  | "missions"
   | "imageStudio"
   | "controlCenter";
 
@@ -199,6 +201,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "pricing", label: "التسعير والذروة", icon: Tag, roles: ["super_admin", "admin", "pricing_access"] },
   { key: "driverTiers", label: "رتب أداء السائقين", icon: Car, roles: ["super_admin", "admin"] },
   { key: "dispatchZones", label: "نطاقات توزيع الطلبات", icon: MapPin, roles: ["super_admin", "admin"] },
+  { key: "missions", label: "المهمات والمكافآت", icon: ListChecks, roles: ["super_admin", "admin"] },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
@@ -212,7 +215,7 @@ const NAV_GROUPS: { title: string; keys: Section[] }[] = [
   { title: "الإحصائيات والمحافظات", keys: ["stats", "regions"] },
   { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"] },
   { title: "المالية وحقوق ممنون", keys: ["rights", "coupons", "wallet"] },
-  { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones"] },
+  { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones", "missions"] },
   { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "controlCenter", "imageStudio"] },
   { title: "الموظفون والأمان", keys: ["roles", "staff", "audit"] },
 ];
@@ -308,9 +311,9 @@ function AdminPage() {
   const filteredItems = visibleItems.filter((item) => item.label.includes(navSearch.trim()));
 
   return (
-    <div dir="rtl" className="min-h-screen flex bg-gradient-to-br from-sky-50 via-slate-50 to-indigo-100/70 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
+    <div dir="rtl" className="min-h-screen flex bg-gradient-to-br from-[#f7f5ef] via-[#eef2f6] to-[#e5edf4] dark:from-[#071525] dark:via-[#0b1f33] dark:to-[#102c45]">
       <aside
-        className={`fixed lg:sticky top-0 right-0 z-40 h-screen w-72 overflow-y-auto border-l border-white/10 bg-gradient-to-b from-slate-950 via-[#14263f] to-[#1d3150] text-white shadow-2xl transition-transform ${
+        className={`fixed lg:sticky top-0 right-0 z-40 h-screen w-72 overflow-y-auto border-l border-white/10 bg-gradient-to-b from-[#071525] via-[#102b43] to-[#173d58] text-white shadow-2xl transition-transform ${
           sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
         }`}
       >
@@ -342,7 +345,7 @@ function AdminPage() {
                       key={item.key}
                       onClick={() => { setSection(item.key); setSidebarOpen(false); }}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                        section === item.key ? "bg-gradient-to-l from-cyan-500 to-blue-600 text-white shadow-lg shadow-blue-950/30" : "text-slate-200 hover:bg-white/10 hover:text-white"
+                        section === item.key ? "bg-gradient-to-l from-amber-300 to-yellow-500 text-slate-950 shadow-lg shadow-amber-950/20" : "text-slate-200 hover:bg-white/10 hover:text-white"
                       }`}
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
@@ -376,8 +379,8 @@ function AdminPage() {
           <div className="w-9" />
         </div>
         <header className="sticky top-0 z-20 hidden items-center justify-between border-b border-slate-200/70 bg-white/85 px-6 py-3 shadow-sm backdrop-blur-xl dark:border-slate-700/70 dark:bg-slate-950/85 lg:flex">
-          <div><div className="text-[10px] font-black tracking-widest text-cyan-700 dark:text-cyan-300">MAMNOON ADMINISTRATION</div><div className="mt-1 text-lg font-black text-slate-900 dark:text-white">{NAV_ITEMS.find((item) => item.key === section)?.label ?? "لوحة الإدارة"}</div></div>
-          <div className="flex items-center gap-3"><span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-900 dark:border-cyan-900 dark:bg-cyan-950 dark:text-cyan-100">{staffDisplayTitle ?? "حساب إداري"}</span><Link to="/" className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800">العودة للتطبيق</Link></div>
+          <div><div className="text-[10px] font-black tracking-widest text-amber-700 dark:text-amber-300">MAMNOON ADMINISTRATION</div><div className="mt-1 text-lg font-black text-slate-900 dark:text-white">{NAV_ITEMS.find((item) => item.key === section)?.label ?? "لوحة الإدارة"}</div></div>
+          <div className="flex items-center gap-3"><span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">{staffDisplayTitle ?? "حساب إداري"}</span><Link to="/" className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800">العودة للتطبيق</Link></div>
         </header>
         <div className="mx-auto max-w-7xl p-4 lg:p-8">
           {section === "overview" && (
@@ -453,6 +456,7 @@ function AdminPage() {
           {section === "pricing" && <AdminTaxiPricingControls />}
           {section === "driverTiers" && <DriverPerformanceTierSettings />}
           {section === "dispatchZones" && <AdminDispatchZones />}
+          {section === "missions" && <AdminProviderMissions />}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "controlCenter" && <AdminControlCenter />}

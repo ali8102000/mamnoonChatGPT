@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 import { getSupabasePublishableKey, getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 import boundaries from "./iraq-governorate-boundaries.json" with { type: "json" };
+import { calculateServerTaxiFare } from "../_shared/taxi-pricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -146,31 +147,7 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
   if(cacheWriteError) console.warn("[route] cache write unavailable",cacheWriteError.code||"unknown");
   return {...routed,cacheHit:false};
 }
-function fare(
-  category: Category,
-  economyRaw: number,
-  settings: any,
-  tripType: string,
-  extraMinutes: number,
-  peakPercent: number,
-  urgencyPercent: number,
-) {
-  const tierPercent = category === "economy"
-    ? 0
-    : category === "premium"
-      ? (economyRaw < 10000 ? 20 : economyRaw <= 50000 ? 15 : 5)
-      : (economyRaw < 10000 ? 40 : economyRaw <= 50000 ? 25 : 10);
-  const tripMultiplier = tripType === "round_trip" ? 1.8 : tripType === "second_trip" ? 2 : 1;
-  const extraFare = Math.ceil(extraMinutes / 5) * 500;
-  // The 1,000 IQD minimum is a floor, not a surcharge. When the raw
-  // economy calculation is below it, category percentages start from 1,000.
-  const pricingEconomyBase = Math.max(1000, economyRaw);
-  let raw = pricingEconomyBase * (1 + tierPercent / 100) * tripMultiplier + extraFare;
-  if (tripType === "round_trip") raw = pricingEconomyBase * (1 + tierPercent / 100) * 2 * 0.9 + extraFare;
-  raw *= 1 + peakPercent / 100;
-  raw *= 1 + urgencyPercent / 100;
-  return Math.max(1000, Number(settings.min_fare) || 0, Math.round(raw / 250) * 250);
-}
+
 Deno.serve(async (req) => {
   if(req.method==="OPTIONS") return new Response("ok",{headers:corsHeaders});
   if(req.method!=="POST") return json({error:"الطريقة غير مدعومة"},405);
@@ -197,7 +174,11 @@ Deno.serve(async (req) => {
     return json({error:"فئة السيارة المرسلة غير مدعومة للتسعير التلقائي",code:"INVALID_VEHICLE_CATEGORY",receivedCategory:rawCategory||null,allowedCategories:["economy","premium","luxury"]},400);
   }
   const category=rawCategory as Category;
-  const tripType=["one_way","round_trip","second_trip","stop"].includes(body.tripType)?body.tripType:"one_way";
+  const allowedTripTypes = ["one_way","round_trip","second_trip","stop"] as const;
+  if (body.tripType != null && !allowedTripTypes.includes(body.tripType)) {
+    return json({error:"نوع الرحلة غير صالح",code:"INVALID_TRIP_TYPE"},400);
+  }
+  const tripType = (body.tripType ?? "one_way") as typeof allowedTripTypes[number];
   const extraMinutes=Number(body.extraMinutes??0);
   if(!Number.isInteger(extraMinutes)||extraMinutes<0||extraMinutes>120||extraMinutes%5!==0) return json({error:"وقت التوقف يجب أن يكون من 0 إلى 120 دقيقة وبفواصل 5 دقائق"},400);
   const suppliedPickupKey = typeof body.pickupGovernorateKey === "string"
@@ -245,53 +226,59 @@ Deno.serve(async (req) => {
     routeSource: String(routeData.routeSource || "maps_proxy"),
     cacheHit: routeData.cacheHit === true,
   };
-  // Read through the authenticated customer session: pricing_settings grants
-  // SELECT to authenticated only. Keep service-role access for request creation.
-  const [
-    {data:settingsRows,error:settingsError},
-    {data:controlRows,error:controlError},
-  ] = await Promise.all([
-    userClient.from("pricing_settings").select("*")
-      .in("governorate_key",["all",fromGovernorate])
-      .in("service_type",["economy","premium","luxury"]).eq("is_intercity",isIntercity),
-    userClient.from("taxi_pricing_controls")
-      .select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent")
-      .in("governorate_key",["all",fromGovernorate]),
-  ]);
-  if(settingsError||!settingsRows?.length) {
-    console.error("[auto-taxi-pricing] pricing settings lookup failed", settingsError?.code || "no_row");
-    return json({error:"تعذّر قراءة تعريفة السيارة حالياً",code:"PRICING_SETTINGS_READ_FAILED"},503);
+  // Supabase is the single source of truth for tariffs and fare arithmetic.
+  // The private RPC is executable only by service_role; it resolves local then global admin tariffs.
+  const {data:quoteData,error:quoteError}=await admin.rpc("calculate_taxi_quote_internal",{
+    p_governorate_key:fromGovernorate,
+    p_is_intercity:isIntercity,
+    p_distance_km:routed.distanceKm,
+    p_duration_min:routed.durationMin,
+    p_trip_type:tripType,
+    p_extra_minutes:extraMinutes,
+    p_urgency_enabled:body.urgencyEnabled===true,
+  });
+  if(quoteError||!quoteData) {
+    console.error("[auto-taxi-pricing] canonical Supabase quote failed",quoteError?.code||"no_quote");
+    return json({error:"تعذّر التحقق من تعرفة الإدارة حالياً. لم ننشئ سعراً تخمينياً.",code:"CANONICAL_PRICING_FAILED"},503);
   }
-  const effectiveSettings=(serviceType:string)=>settingsRows.find((row:any)=>row.service_type===serviceType&&row.governorate_key===fromGovernorate)
-    ||settingsRows.find((row:any)=>row.service_type===serviceType&&row.governorate_key==="all");
-  const settings=effectiveSettings(category);
-  const economySettings=effectiveSettings("economy");
-  if(!settings||!economySettings) {
-    console.error("[auto-taxi-pricing] category pricing row missing",category,isIntercity);
-    return json({error:"تعذّر قراءة تعريفة السيارة المختارة",code:"PRICING_SETTINGS_READ_FAILED"},503);
+  const categoryPrices=quoteData.categoryPrices as Record<Category,number>;
+  const minFares=quoteData.minFares as Record<Category,number>;
+  const economyRaw=Number(quoteData.economyRaw);
+  const peakPercent=Number(quoteData.peakPercent);
+  const urgencyPercent=Number(quoteData.urgencyPercent);
+  if(!categoryPrices||!minFares||!Number.isFinite(economyRaw)||economyRaw<0||
+     !Number.isFinite(peakPercent)||peakPercent<0||peakPercent>200||
+     !Number.isFinite(urgencyPercent)||urgencyPercent<0||urgencyPercent>100||
+     !Number.isSafeInteger(Number(categoryPrices.economy))||
+     !Number.isSafeInteger(Number(categoryPrices.premium))||
+     !Number.isSafeInteger(Number(categoryPrices.luxury))) {
+    console.error("[auto-taxi-pricing] canonical quote returned invalid fields");
+    return json({error:"أعاد نظام التسعير بيانات غير مكتملة. أوقفنا الطلب للحماية.",code:"INVALID_CANONICAL_QUOTE"},503);
   }
-  if(controlError) {
-    console.error("[auto-taxi-pricing] controls lookup failed",controlError.code||"unknown");
-    return json({error:"تعذّر قراءة إعدادات الذروة والاستعجال",code:"TAXI_CONTROLS_READ_FAILED"},503);
+  // Independent parity check: if edge and database arithmetic ever diverge,
+  // reject the quote rather than show a price that could differ on insert.
+  for(const fareCategory of ["economy","premium","luxury"] as Category[]) {
+    const minimum=Number(minFares[fareCategory]);
+    if(!Number.isFinite(minimum)||minimum<0) {
+      return json({error:"الحد الأدنى لتعرفة إحدى الفئات غير صالح.",code:"INVALID_CATEGORY_MINIMUM"},503);
+    }
+    const expected=calculateServerTaxiFare({
+      category:fareCategory,economyRaw,minFare:minimum,tripType,extraMinutes,peakPercent,urgencyPercent,
+    });
+    if(expected!==Number(categoryPrices[fareCategory])) {
+      console.error("[auto-taxi-pricing] database/edge fare parity mismatch",fareCategory);
+      return json({error:"اكتشفنا اختلافاً في التحقق من السعر. أوقفنا التسعير حتى لا يظهر مبلغ خاطئ.",code:"FARE_PARITY_MISMATCH"},503);
+    }
   }
-  const globalControls=controlRows?.find((r:any)=>r.governorate_key==="all");
-  const regionalControls=controlRows?.find((r:any)=>r.governorate_key===fromGovernorate)||globalControls;
-  const peakPercent=regionalControls?.peak_enabled
-    ? Math.max(0,Math.min(200,Number(regionalControls.peak_percent)||0)) : 0;
-  const urgencyEnabled=body.urgencyEnabled===true && globalControls?.urgency_enabled===true;
-  const urgencyPercent=urgencyEnabled
-    ? Math.max(0,Math.min(100,Number(globalControls?.urgency_max_percent)||0)) : 0;
-  const economyRaw=Number(economySettings.base_fare)+routed.distanceKm*Number(economySettings.per_km_rate)+routed.durationMin*Number(economySettings.per_min_rate);
-  const effectiveRows=(["economy","premium","luxury"] as Category[]).map((serviceType)=>effectiveSettings(serviceType)).filter(Boolean);
-  const categoryPrices=Object.fromEntries(effectiveRows.map((row:any)=>{
-    // The quote returns all three category prices in one request. Apply the
-    // same customer-selected urgency setting to every displayed category so
-    // changing the vehicle card does not require another route/pricing call.
-    return [row.service_type,fare(row.service_type as Category,economyRaw,{...row,is_intercity:isIntercity},tripType,extraMinutes,peakPercent,urgencyPercent)];
-  })) as Record<Category,number>;
-  const priceEstimate=categoryPrices[category];
-  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,urgencyEnabled:urgencyPercent>0,urgencyAllowed:Boolean(globalControls?.urgency_enabled && Number(globalControls?.urgency_max_percent)>0),urgencyPercent,governorateKey:fromGovernorate,fromGovernorateKey:fromGovernorate,toGovernorateKey:toGovernorate,isIntercity});
+  const priceEstimate=Number(categoryPrices[category]);
+  const urgencyAllowed=Boolean(quoteData.urgencyAllowed);
+  const urgencyIsEnabled=Boolean(quoteData.urgencyEnabled);
+  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,urgencyEnabled:urgencyIsEnabled,urgencyAllowed,urgencyPercent,governorateKey:fromGovernorate,fromGovernorateKey:fromGovernorate,toGovernorateKey:toGovernorate,isIntercity});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
+  const expectedPrice=Number(body.expectedPriceEstimate);
+  if(!Number.isSafeInteger(expectedPrice)||expectedPrice!==priceEstimate) {
+    return json({error:"تغيّر السعر بعد آخر عرض. حدّث السعر وراجعه قبل إرسال الطلب.",code:"FARE_CHANGED",currentPrice:priceEstimate},409);
+  }
   const governorate=fromGovernorate;
   const couponCode=typeof body.couponCode==="string"&&body.couponCode.trim()?body.couponCode.trim().toUpperCase():null;
   if(couponCode) {

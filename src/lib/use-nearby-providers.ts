@@ -31,25 +31,27 @@ export function useNearbyProviders(opts: {
   const [pins, setPins] = useState<ProviderPin[]>([]);
   const timerRef = useRef<any>(null);
   const debounceRef = useRef<any>(null);
-  const inflightRef = useRef(false);
   const findPinsFn = useServerFn(findNearbyProviderPins);
+  const centerLat = center?.lat;
+  const centerLng = center?.lng;
 
   useEffect(() => {
-    if (!enabled || !center) {
+    if (!enabled || centerLat == null || centerLng == null) {
       setPins([]);
       return;
     }
 
     let cancelled = false;
+    let inFlight = false;
 
     const fetchPins = async () => {
-      if (inflightRef.current) return;
-      inflightRef.current = true;
+      if (inFlight) return;
+      inFlight = true;
       try {
         const rows = await findPinsFn({
           data: {
-            lat: center.lat,
-            lng: center.lng,
+            lat: centerLat,
+            lng: centerLng,
             type,
             category,
             serviceId,
@@ -58,18 +60,25 @@ export function useNearbyProviders(opts: {
           },
         });
         if (cancelled) return;
-        setPins(
-          (rows as ServerPin[]).map((r) => ({
-            pin_id: String(r.pin_id),
-            lat: Number(r.lat),
-            lng: Number(r.lng),
-            heading: r.heading == null ? null : Number(r.heading),
-          })),
-        );
+        const nextPins = (rows as ServerPin[]).map((r) => ({
+          pin_id: String(r.pin_id),
+          lat: Number(r.lat),
+          lng: Number(r.lng),
+          heading: r.heading == null ? null : Number(r.heading),
+        }));
+        setPins((current) => {
+          if (current.length !== nextPins.length) return nextPins;
+          const unchanged = current.every((pin, index) => {
+            const next = nextPins[index];
+            return pin.pin_id === next.pin_id && pin.lat === next.lat &&
+              pin.lng === next.lng && pin.heading === next.heading;
+          });
+          return unchanged ? current : nextPins;
+        });
       } catch {
         // ignore — pins are non-critical
       } finally {
-        inflightRef.current = false;
+        inFlight = false;
       }
     };
 
@@ -95,7 +104,7 @@ export function useNearbyProviders(opts: {
       clearTimeout(debounceRef.current);
       supabase.removeChannel(ch);
     };
-  }, [center, center?.lat, center?.lng, findPinsFn, type, category, serviceId, radiusKm, enabled, intervalMs]);
+  }, [centerLat, centerLng, findPinsFn, type, category, serviceId, radiusKm, enabled, intervalMs]);
 
   return pins;
 }

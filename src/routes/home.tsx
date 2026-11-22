@@ -1,12 +1,12 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import ProviderMissions from "@/components/provider-missions";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
 import {
   Car,
   Wrench,
-  Power,
   Bell,
   Sun,
   Moon,
@@ -590,32 +590,55 @@ function FeatureRow({
   );
 }
 
+function ProviderOfferCountdown({ expiresAt }: { expiresAt: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const remaining = Math.max(0, Math.ceil((Date.parse(expiresAt) - now) / 1000));
+  const progress = Math.max(0, Math.min(100, remaining / 60 * 100));
+  const urgentFlash = remaining <= 10 && remaining % 2 === 0;
+  return <div className="my-4 flex items-center justify-center gap-3">
+    <div className="grid h-20 w-20 place-items-center rounded-full" style={{ background: `conic-gradient(${urgentFlash ? "#dc2626" : "#d69e36"} ${progress}%, #e5e7eb ${progress}% 100%)` }}>
+      <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-background text-center">
+        <span className={`text-xl font-black tabular-nums ${urgentFlash ? "text-red-600" : ""}`}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</span>
+        <span className="text-[9px] text-muted-foreground">للقبول</span>
+      </div>
+    </div>
+    <div className={`max-w-[210px] text-xs leading-6 ${remaining <= 10 ? "font-black text-red-600" : "text-muted-foreground"}`}>{remaining <= 10 ? "انتبه، راح ينتهي العرض خلال ثوانٍ!" : "أول مزوّد يقبل الطلب يحصل عليه، وبعد انتهاء الدقيقة ينتقل البحث للنطاق التالي."}</div>
+  </div>;
+}
+
 function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "service"; largeDriverMode?: boolean }) {
   const { session } = useAuth();
   const navigate = useNavigate();
   const acceptFn = useServerFn(acceptServiceRequest);
   const [available, setAvailable] = useState(false);
+  const [verified, setVerified] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [stats, setStats] = useState({ jobs: 0 });
   const [largeOfferPrices, setLargeOfferPrices] = useState<Record<string, string>>({});
   const [largeOfferMessages, setLargeOfferMessages] = useState<Record<string, string>>({});
   const [offerBusy, setOfferBusy] = useState<string | null>(null);
+  const [teamSize, setTeamSize] = useState("1");
   const [popupRequest, setPopupRequest] = useState<any | null>(null);
   const popupShownRef = useRef<string | null>(null);
+  useEffect(() => { setTeamSize("1"); }, [popupRequest?.id, popupRequest?.remaining_people_count]);
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
   const [popupAttachmentUrl, setPopupAttachmentUrl] = useState<string | null>(null);
   const [popupAttachmentLoading, setPopupAttachmentLoading] = useState(false);
-  const [dispatchClock, setDispatchClock] = useState(Date.now());
-
-  useEffect(() => {
-    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   useEffect(() => {
     const expiresAt = popupRequest?.my_offer?.expires_at;
-    if (expiresAt && Date.parse(expiresAt) <= dispatchClock) setPopupRequest(null);
-  }, [popupRequest?.my_offer?.expires_at, dispatchClock]);
+    if (!expiresAt) return;
+    const remainingMs = Date.parse(expiresAt) - Date.now();
+    if (remainingMs <= 0) {
+      setPopupRequest(null);
+      return;
+    }
+    const timer = window.setTimeout(() => setPopupRequest(null), remainingMs);
+    return () => window.clearTimeout(timer);
+  }, [popupRequest?.my_offer?.expires_at]);
 
   useEffect(() => {
     let active = true;
@@ -737,6 +760,8 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   }, [session, available, table]);
 
   useEffect(() => {
+    setVerified(false);
+    setAvailable(false);
     if (!session) return;
     const providerUserId = session.user.id;
     supabase
@@ -746,7 +771,9 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
-          setAvailable(data.available);
+          const isApproved = String(data.status ?? "") === "approved";
+          setVerified(isApproved);
+          setAvailable(Boolean(data.available) && isApproved);
           const d: any = data;
           setStats({ jobs: d.completed_jobs ?? d.completed_rides ?? 0 });
         }
@@ -793,15 +820,39 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       const requestIds: string[] = [...new Set<string>(offerRows.map((offer: any) => String(offer.request_id)))];
       let query = supabase
         .from("service_requests")
-        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km, urgency_multiplier, service_urgency_enabled, large_vehicle_urgency_enabled, taxi_urgency_enabled, taxi_urgency_percent")
+        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km, workers_count, urgency_multiplier, service_urgency_enabled, large_vehicle_urgency_enabled, taxi_urgency_enabled, taxi_urgency_percent")
         .in("id", requestIds)
         .in("status", ["pending", "searching"])
         .eq("type", type);
       if (type === "taxi") query = query.neq("vehicle_category", "large");
       const { data } = await query.order("urgency_multiplier", { ascending: false }).order("created_at", { ascending: false }).limit(50);
       const offerByRequest = new Map(offerRows.map((offer: any) => [offer.request_id, offer]));
-      const mappedRequests = (data ?? []).map((request: any) => ({ ...request, my_offer: offerByRequest.get(request.id) }));
+      let acceptedCountByRequest = new Map<string, number>();
+      if (type === "service") {
+        const { data: acceptedRows, error: acceptedRowsError } = await (supabase as any)
+          .from("service_request_providers")
+          .select("request_id,team_size")
+          .in("request_id", requestIds);
+        if (!acceptedRowsError) {
+          acceptedCountByRequest = (acceptedRows ?? []).reduce((map: Map<string, number>, row: any) => {
+            map.set(row.request_id, (map.get(row.request_id) ?? 0) + Number(row.team_size || 1));
+            return map;
+          }, new Map<string, number>());
+        }
+      }
+      const mappedRequests = (data ?? []).map((request: any) => {
+        const acceptedPeople = acceptedCountByRequest.get(request.id) ?? 0;
+        return {
+          ...request,
+          my_offer: offerByRequest.get(request.id),
+          accepted_people_count: acceptedPeople,
+          remaining_people_count: Math.max(0, Number(request.workers_count || 1) - acceptedPeople),
+        };
+      });
       setRequests(mappedRequests);
+      setPopupRequest((current: any) => current
+        ? mappedRequests.find((request: any) => request.id === current.id) ?? current
+        : current);
       const popupKey = mappedRequests[0] ? `${mappedRequests[0].id}:${mappedRequests[0].my_offer?.sent_at ?? ""}` : null;
       if (mappedRequests.length && popupShownRef.current !== popupKey) {
         popupShownRef.current = popupKey;
@@ -838,6 +889,10 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
 
   async function toggleAvail() {
     playClick("toggle");
+    if (!verified) {
+      toast.error("حسابك بانتظار التوثيق؛ لن تستقبل طلبات حتى تعتمد الإدارة حسابك.");
+      return;
+    }
     const next = !available;
 
     // Never advertise a provider as available before a fresh location is stored.
@@ -903,9 +958,17 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   async function accept(id: string) {
     playClick("pop");
     try {
+      if (type === "service" && session?.user.id) {
+        const selectedTeamSize = Math.max(1, Math.min(10, Number(teamSize) || 1));
+        const { error: teamError } = await (supabase as any)
+          .from("worker_profiles")
+          .update({ team_size: selectedTeamSize })
+          .eq("user_id", session.user.id);
+        if (teamError) throw teamError;
+      }
       await acceptFn({ data: { requestId: id } });
       setPopupRequest(null);
-      toast.success("تم قبول الطلب");
+      toast.success("تم قبول الطلب وإرسال عدد أفراد فريقك");
       navigate({ to: `/request/$id`, params: { id } });
     } catch (e: any) {
       toast.error(e.message ?? "تعذّر قبول الطلب");
@@ -920,25 +983,27 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
             <div className="mb-3 text-xs font-black text-primary">🔔 طلب جديد موجّه إلك</div>
             <div className="text-lg font-black text-foreground">{type === "taxi" ? (largeDriverMode ? "طلب سيارة كبيرة جديد" : "طلب رحلة جديد") : "طلب خدمة جديد"}</div>
             {(popupRequest.service_urgency_enabled || popupRequest.large_vehicle_urgency_enabled || popupRequest.taxi_urgency_enabled || Number(popupRequest.urgency_multiplier ?? 1) > 1) && <div className="mt-2 inline-flex rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-600">⚡ طلب مستعجل{Number(popupRequest.urgency_multiplier ?? 1) > 1 ? ` ×${popupRequest.urgency_multiplier}` : ""}</div>}
-            {popupRequest.my_offer?.expires_at && (() => {
-              const remaining = Math.max(0, Math.ceil((Date.parse(popupRequest.my_offer.expires_at) - dispatchClock) / 1000));
-              const progress = Math.max(0, Math.min(100, remaining / 60 * 100));
-              const urgentFlash = remaining <= 10 && remaining % 2 === 0;
-              return <div className="my-4 flex items-center justify-center gap-3">
-                <div className="grid h-20 w-20 place-items-center rounded-full" style={{ background: `conic-gradient(${urgentFlash ? "#dc2626" : "#d69e36"} ${progress}%, #e5e7eb ${progress}% 100%)` }}>
-                  <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-background text-center">
-                    <span className={`text-xl font-black tabular-nums ${urgentFlash ? "text-red-600" : ""}`}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</span>
-                    <span className="text-[9px] text-muted-foreground">للقبول</span>
-                  </div>
-                </div>
-                <div className={`max-w-[210px] text-xs leading-6 ${remaining <= 10 ? "font-black text-red-600" : "text-muted-foreground"}`}>{remaining <= 10 ? "انتبه، راح ينتهي العرض خلال ثوانٍ!" : "أول مزوّد يقبل الطلب يحصل عليه، وبعد انتهاء الدقيقة ينتقل البحث للنطاق التالي."}</div>
-              </div>;
-            })()}
+            {popupRequest.my_offer?.expires_at && <ProviderOfferCountdown expiresAt={popupRequest.my_offer.expires_at} />}
             <div className="mt-2 rounded-2xl bg-muted/60 p-3 text-sm font-bold text-foreground">📍 {popupRequest.pickup_text || "موقع الزبون"}</div>
             {popupRequest.dest_text && <div className="mt-2 text-xs text-muted-foreground">🎯 {popupRequest.dest_text}</div>}
             {popupRequest.my_offer?.distance_km != null && <div className="mt-2 text-xs font-bold text-muted-foreground">المسافة إليك: {Number(popupRequest.my_offer.distance_km).toFixed(1)} كم</div>}
             {(popupRequest.customer_price ?? popupRequest.customer_payable ?? popupRequest.price_estimate) != null && <div className="mt-2 text-sm font-black text-primary">السعر: {Number(popupRequest.customer_price ?? popupRequest.customer_payable ?? popupRequest.price_estimate).toLocaleString("ar-IQ")} د.ع</div>}
             {popupRequest.work_description && <div className="mt-2 text-xs text-muted-foreground">🛠️ {popupRequest.work_description}</div>}
+            {type === "service" && (
+              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <div className="text-xs font-black text-foreground">كم شخص يجي وياك؟</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">العدد يشمل الخبير نفسه، حتى نحسب الفريق بدقة.</div>
+                <div className="mt-2 text-[11px] font-bold text-primary">المؤكد حالياً: {popupRequest.accepted_people_count ?? 0} · المتبقي: {popupRequest.remaining_people_count ?? popupRequest.workers_count ?? 1}</div>
+                <select value={teamSize} onChange={(event) => setTeamSize(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm font-bold text-foreground">
+                  {Array.from({ length: Math.min(5, Math.max(1, Number(popupRequest.remaining_people_count ?? popupRequest.workers_count) || 1)) }, (_, index) => index + 1).map((count) => (
+                    <option key={count} value={String(count)}>
+                      {count === 1 ? "أنا وحدي · شخص واحد" : `أنا + ${count - 1} ${count === 2 ? "عامل" : "عمال"} · ${count} أشخاص`}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-2 text-[11px] font-bold text-primary">المطلوب من الزبون: {popupRequest.workers_count ?? 1} أشخاص</div>
+              </div>
+            )}
             {popupRequest.attachment_path && (
               <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
                 <div className="mb-2 text-sm font-black text-primary">صورة الزبون المرفقة بالطلب</div>
@@ -964,29 +1029,25 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
           </div>
         </div>
       )}
-      <div
-        className={`relative rounded-3xl p-5 overflow-hidden animate-pop-in shadow-card ${
-          available ? "bg-gradient-to-br from-emerald-500 to-teal-400 text-white" : "glass"
-        }`}
-      >
-        {available && <div className="absolute inset-0 shine opacity-30 mix-blend-overlay" />}
-        <div className="relative flex items-center justify-between">
-          <div>
-            <div className={`text-xs ${available ? "text-white/80" : "text-muted-foreground"}`}>
-              حالة التوفر
-            </div>
-            <div className="font-black text-lg mt-0.5">{available ? "متاح للعمل" : "غير متاح"}</div>
-          </div>
-          <button
-            onClick={toggleAvail}
-            className={`h-14 w-14 rounded-2xl grid place-items-center btn-press transition ${
-              available ? "bg-white/25 backdrop-blur" : "bg-surface-2"
-            }`}
-          >
-            <Power className={`h-6 w-6 ${available ? "text-white" : "text-muted-foreground"}`} />
-          </button>
-        </div>
+      <div className="relative min-h-[260px] rounded-3xl p-5 overflow-hidden animate-pop-in shadow-card glass flex flex-col items-center justify-center gap-4">
+        <div className="text-sm font-black text-foreground">حالة استقبال العمل</div>
+        <button
+          onClick={toggleAvail}
+          disabled={!verified}
+          aria-disabled={!verified}
+          aria-label={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
+          className={`h-36 w-36 rounded-full grid place-items-center border-[5px] btn-press transition-all duration-300 font-black text-2xl tracking-wide ${
+            available
+              ? "bg-emerald-600 border-emerald-200 text-white shadow-[0_0_12px_rgba(16,185,129,0.55),0_0_32px_rgba(16,185,129,0.32)]"
+              : "bg-red-600 border-red-200 text-white shadow-[0_0_12px_rgba(239,68,68,0.5),0_0_30px_rgba(239,68,68,0.28)]"
+          }`}
+        >
+          {available ? "مفتوح" : "مغلق"}
+        </button>
+        <div className="text-xs font-semibold text-muted-foreground">{available ? "أنت تستقبل الطلبات الآن" : "اضغط على الدائرة لتفعيل استقبال الطلبات"}</div>
       </div>
+
+      <ProviderMissions />
 
       <div className="glass rounded-2xl p-4 animate-pop-in" style={{ animationDelay: "0.05s" }}>
         <div className="text-xs text-muted-foreground">الطلبات المكتملة</div>

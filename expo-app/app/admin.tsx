@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Stack, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -14,10 +14,11 @@ type NavGroup = { title: string; description: string; icon: string; items: NavIt
 
 const GROUPS: NavGroup[] = [
   { title: "العمليات والطلبات", description: "إدارة الرحلات والخدمات ومقدمي الخدمة", icon: "🚕", items: [
-    { title: "الطلبات", description: "متابعة الطلبات وحالاتها", route: "/admin/requests", icon: "📋" },
-    { title: "السائقون والفنيون", description: "الحسابات والتوثيق والتوفر", route: "/admin/providers", icon: "🧑‍🔧" },
+    { title: "الطلبات", description: "طلبات التكسي والفنيين والسيارات الكبيرة ومراجعة الحالات", route: "/admin/requests", icon: "📋" },
+    { title: "مقدمو الخدمة", description: "تكسي اقتصادي ومتميز وفاخر، سيارات كبيرة كيا حمل وركاب وباص، والفنيون مع التوثيق والتوفر", route: "/admin/providers", icon: "🧑‍🔧" },
     { title: "الخريطة المباشرة", description: "مواقع الطلبات ومقدمي الخدمة", route: "/admin/live-map", icon: "🗺️" },
     { title: "نطاقات التوزيع", description: "حدود وصول الطلبات", route: "/admin/dispatch-zones", icon: "📍" },
+    { title: "المهمات والمكافآت", description: "إنشاء المهمات ومتابعة الإنجاز واعتماد مكافآت المحافظ", route: "/admin/missions", icon: "🎯" },
     { title: "رتب السائقين", description: "معايير الأداء والتقييم", route: "/admin/driver-tiers", icon: "🏅" },
   ]},
   { title: "المستخدمون وخدمة العملاء", description: "الحسابات والتواصل والبلاغات", icon: "👥", items: [
@@ -34,6 +35,7 @@ const GROUPS: NavGroup[] = [
   { title: "المحتوى وهوية الشركة", description: "الشعار والبانرات ومحتوى التطبيق", icon: "🎨", items: [
     { title: "مركز التحكم الشامل", description: "تحكم بمقاسات الشبكة ومعاينة الواجهة ونشر إعداداتها", route: "/admin/control-center", icon: "🧩" },
     { title: "مركز الصور والتصميم", description: "كل صور التطبيق والبانرات والشعارات والفئات في مكان واحد", route: "/admin/image-studio", icon: "🎨" },
+    { title: "إعدادات الشركة والهوية", description: "اسم ممنون ورسالة الترحيب والشعار والهوية الرسمية", route: "/admin/company", icon: "🏛️" },
     { title: "الإشعارات", description: "إرسال تنبيهات للمستخدمين", route: "/admin/notifications", icon: "🔔" },
   ]},
   { title: "الموظفون والحوكمة", description: "التعيين والترقية والتنزيل والصلاحيات", icon: "🧑‍💼", items: [
@@ -55,11 +57,14 @@ export default function AdminScreen() {
   const [authorized, setAuthorized] = useState(false);
   const [stats, setStats] = useState<Stats>({ users: 0, requests: 0, drivers: 0, workers: 0, active: 0 });
   const [statsError, setStatsError] = useState("");
+  const [statsLoading, setStatsLoading] = useState(true);
+  const initialLoadDone = useRef(false);
   const [expanded, setExpanded] = useState<string | null>("العمليات والطلبات");
 
   const load = useCallback(async () => {
-    if (!user?.id) { router.replace("/auth"); setLoading(false); return; }
-    setLoading(true);
+    if (!user?.id) { router.replace("/auth"); initialLoadDone.current = true; setLoading(false); return; }
+    setLoading(!initialLoadDone.current);
+    setStatsLoading(true);
     setStatsError("");
     try {
       const { data: owner, error: ownerError } = await supabase.rpc("is_super_admin", { p_user_id: user.id });
@@ -78,6 +83,9 @@ export default function AdminScreen() {
         return;
       }
       setAuthorized(true);
+      // Render the management workspace as soon as access is confirmed; metrics load separately.
+      initialLoadDone.current = true;
+      setLoading(false);
       const [users, requests, drivers, workers, active] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("service_requests").select("id", { count: "exact", head: true }),
@@ -92,11 +100,15 @@ export default function AdminScreen() {
       setStatsError(String(error?.message || "تعذر تحميل إحصائيات الإدارة"));
     } finally {
       setLoading(false);
+      setStatsLoading(false);
     }
   }, [user?.id]);
 
   useEffect(() => { if (!authLoading) void load(); }, [authLoading, load]);
-  const refresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await load(); } finally { setRefreshing(false); }
+  }, [load]);
 
   if (authLoading || loading) return <View style={s.center}><ActivityIndicator color={palette.brand} size="large"/><Text style={s.muted}>جاري تجهيز مركز الإدارة...</Text></View>;
   if (!authorized) return <View style={s.center}><Text style={s.title}>جارٍ تحويلك إلى القسم المسموح</Text></View>;
@@ -104,7 +116,7 @@ export default function AdminScreen() {
   return <View style={s.page}>
     <Stack.Screen options={{ title: "مركز إدارة ممنون" }}/>
     <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
-      <LinearGradient colors={["#071b34","#12466a","#087e8b"]} start={{x:0,y:0}} end={{x:1,y:1}} style={s.hero}>
+      <LinearGradient colors={["#071525","#102D49","#15566A"]} start={{x:0,y:0}} end={{x:1,y:1}} style={s.hero}>
         <View style={s.brandRow}>
           {logoUrl ? <Image source={{ uri: logoUrl }} style={s.logo} resizeMode="contain"/> : <View style={s.logoFallback}><Text style={s.logoLetter}>م</Text></View>}
           <View style={{flex:1}}><Text style={s.brandName}>{companyName}</Text><Text style={s.heroCaption}>مركز التحكم والإدارة العليا</Text></View>
@@ -132,7 +144,7 @@ export default function AdminScreen() {
       {statsError ? <View style={s.statsError}>
         <Text style={s.statsErrorText}>تعذر تحميل بعض الإحصائيات: {statsError}</Text>
         <TouchableOpacity onPress={() => void load()} style={s.retryButton}><Text style={s.retryText}>إعادة المحاولة</Text></TouchableOpacity>
-      </View> : <View style={s.statsGrid}>
+      </View> : statsLoading && stats.requests === 0 ? <View style={s.statsLoading}><ActivityIndicator color={palette.brand} size="small"/><Text style={s.muted}>يتم تحديث مؤشرات الإدارة...</Text></View> : <View style={s.statsGrid}>
         {[
           ["المستخدمون",stats.users,"👥"],["كل الطلبات",stats.requests,"📋"],["السائقون",stats.drivers,"🚗"],["الفنيون",stats.workers,"🧰"],["الطلبات النشطة",stats.active,"⚡"],
         ].map(([label,value,icon])=><View key={String(label)} style={s.statCard}><Text style={s.statIcon}>{icon}</Text><Text style={s.statValue}>{Number(value).toLocaleString("ar-IQ")}</Text><Text style={s.statLabel}>{label}</Text></View>)}
@@ -140,7 +152,7 @@ export default function AdminScreen() {
 
       {GROUPS.map((group,index)=><View key={group.title} style={s.groupCard}>
         <TouchableOpacity onPress={()=>setExpanded(current=>current===group.title?null:group.title)} style={s.groupHeader} accessibilityRole="button" accessibilityState={{expanded:expanded===group.title}}>
-          <LinearGradient colors={index%2===0?["#DDF7F4","#C7E9FF"]:["#FCE8D8","#F5D8E8"]} style={s.groupIcon}><Text style={{fontSize:23}}>{group.icon}</Text></LinearGradient>
+          <LinearGradient colors={index%2===0?["#F3E8C8","#E4EEF6"]:["#E7EDF5","#F2E5D0"]} style={s.groupIcon}><Text style={{fontSize:23}}>{group.icon}</Text></LinearGradient>
           <View style={{flex:1}}><Text style={s.groupTitle}>{group.title}</Text><Text style={s.groupDescription}>{group.description}</Text></View>
           <Text style={s.expand}>{expanded===group.title?"−":"+"}</Text>
         </TouchableOpacity>
@@ -159,7 +171,8 @@ export default function AdminScreen() {
 const s=StyleSheet.create({
   page:{flex:1,backgroundColor:palette.pageCanvas},content:{padding:space.lg,paddingBottom:50,gap:12},
   center:{flex:1,alignItems:"center",justifyContent:"center",gap:12,backgroundColor:palette.pageCanvas,padding:24},
-  hero:{borderRadius:radius.xl,padding:18,gap:10,overflow:"hidden",elevation:7,shadowColor:"#06213b",shadowOpacity:.22,shadowRadius:18,shadowOffset:{width:0,height:9}},
+  hero:{borderRadius:radius.xl,padding:20,gap:11,overflow:"hidden",borderWidth:1,borderColor:"rgba(224,190,116,0.42)",elevation:9,shadowColor:"#071a2c",shadowOpacity:.28,shadowRadius:20,shadowOffset:{width:0,height:10}},
+  statsLoading:{minHeight:74,backgroundColor:palette.surface,borderColor:"#D9C28E",borderWidth:1,borderRadius:radius.md,padding:14,alignItems:"center",justifyContent:"center",flexDirection:"row",gap:10},
   brandRow:{flexDirection:"row",alignItems:"center",gap:12},
   logo:{width:58,height:58,borderRadius:18,backgroundColor:"#fff"},logoFallback:{width:58,height:58,borderRadius:18,backgroundColor:palette.brand,alignItems:"center",justifyContent:"center"},
   logoLetter:{color:palette.white,fontSize:30,fontWeight:"900"},brandName:{color:"#FFFFFF",fontSize:20,fontWeight:"900",textAlign:"right"},heroCaption:{color:"#C7F5F4",fontSize:11,textAlign:"right",marginTop:3},
@@ -170,9 +183,9 @@ const s=StyleSheet.create({
   flowBranches:{width:"100%",flexDirection:"row",flexWrap:"wrap",justifyContent:"center",gap:7},
   flowBranch:{minWidth:"22%",flexGrow:1,backgroundColor:"rgba(255,255,255,0.12)",borderColor:"rgba(255,255,255,0.18)",borderWidth:1,borderRadius:12,padding:8,alignItems:"center",gap:4},
   flowBranchIcon:{fontSize:17},flowBranchText:{fontSize:10,color:"#FFFFFF",fontWeight:"800"},
-  statsGrid:{flexDirection:"row",flexWrap:"wrap",gap:8},statCard:{flexBasis:"30%",flexGrow:1,backgroundColor:palette.surface,borderColor:palette.line,borderWidth:1,borderRadius:radius.md,padding:11,alignItems:"center",gap:3},
+  statsGrid:{flexDirection:"row",flexWrap:"wrap",gap:8},statCard:{flexBasis:"30%",flexGrow:1,backgroundColor:palette.surface,borderColor:"#D7C79F",borderWidth:1,borderRadius:radius.md,padding:11,alignItems:"center",gap:3},
   statIcon:{fontSize:19},statValue:{fontSize:21,color:palette.brand,fontWeight:"900"},statLabel:{fontSize:10,color:palette.muted,fontWeight:"800"},
-  groupCard:{backgroundColor:palette.surface,borderColor:"#D7E5EF",borderWidth:1,borderRadius:radius.lg,overflow:"hidden",elevation:2,shadowColor:"#183B55",shadowOpacity:.07,shadowRadius:8,shadowOffset:{width:0,height:3}},
+  groupCard:{backgroundColor:palette.surface,borderColor:"#D7C79F",borderWidth:1,borderRadius:radius.lg,overflow:"hidden",elevation:2,shadowColor:"#183B55",shadowOpacity:.07,shadowRadius:8,shadowOffset:{width:0,height:3}},
   groupHeader:{flexDirection:"row",alignItems:"center",gap:10,padding:13},groupIcon:{width:46,height:46,borderRadius:15,alignItems:"center",justifyContent:"center"},
   groupTitle:{color:palette.ink,fontSize:14,fontWeight:"900",textAlign:"right"},groupDescription:{color:palette.muted,fontSize:10,textAlign:"right",marginTop:3},expand:{fontSize:24,color:palette.brand,fontWeight:"900",paddingHorizontal:5},
   items:{paddingHorizontal:10,paddingBottom:10,gap:7},item:{flexDirection:"row",alignItems:"center",gap:10,backgroundColor:"#F3F8FC",borderWidth:1,borderColor:"#E2EDF4",borderRadius:radius.md,padding:11,minHeight:66},

@@ -31,12 +31,30 @@ function MessagesPage() {
       .select("id")
       .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
       .in("status", ["pending", "searching", "accepted", "in_progress"]);
-    const activeIds = (activeRequests ?? []).map((request) => request.id);
+    const { data: memberships, error: membershipError } = await (supabase as any)
+      .from("service_request_providers")
+      .select("request_id")
+      .eq("provider_id", userId);
+    if (membershipError) console.warn("[messages] Team chat memberships unavailable:", membershipError.message);
+    const teamIds: string[] = [...new Set<string>((memberships ?? []).map((row: any) => String(row.request_id)))];
+    let activeTeamIds: string[] = [];
+    if (teamIds.length) {
+      const { data: teamActiveRows, error: teamActiveError } = await supabase
+        .from("service_requests")
+        .select("id")
+        .in("id", teamIds)
+        .in("status", ["pending", "searching", "accepted", "in_progress"]);
+      if (!teamActiveError) activeTeamIds = (teamActiveRows ?? []).map((request) => request.id);
+      else console.warn("[messages] Active team chats unavailable:", teamActiveError.message);
+    }
+    const activeIds: string[] = [...new Set<string>([
+      ...(activeRequests ?? []).map((request) => request.id),
+      ...activeTeamIds,
+    ])];
     if (activeIds.length === 0) { setChats([]); return; }
     const { data } = await supabase
       .from("chats")
       .select("id, request_id, customer_id, provider_id, created_at")
-      .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
       .in("request_id", activeIds)
       .order("created_at", { ascending: false });
     if (!data) return;
@@ -64,6 +82,7 @@ function MessagesPage() {
       .channel(`chats-${userId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats" }, () => loadChats())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "service_requests" }, () => loadChats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_request_providers" }, () => loadChats())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);

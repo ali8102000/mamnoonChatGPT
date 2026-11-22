@@ -106,8 +106,59 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
   }
   if(cacheReadError) console.warn("[route] cache read unavailable",cacheReadError.code||"unknown");
 
-  let routed:{distanceKm:number;durationMin:number;routeSource:string;routePoints?:Point[]}|null=null;
-  if(osrmBase) {
+  let routed:{distanceKm:number;durationMin:number;routeSource:string;routePoints?:Point[];routeSteps?:{instruction:string;distanceMeters:number;durationSeconds:number;maneuver?:string}[];trafficSegments?:{startIndex:number;endIndex:number;speed:string}[];staticDurationMin?:number}|null=null;
+
+  // Live tracking requests use Google's traffic-aware road geometry first.
+  // Fare estimation keeps the existing OSRM/standard Google path below.
+  const googleKey=Deno.env.get("GOOGLE_MAPS_API_KEY");
+  if(includeGeometry&&googleKey) {
+    try {
+      const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","X-Goog-Api-Key":googleKey,
+          "X-Goog-FieldMask":"routes.distanceMeters,routes.duration,routes.staticDuration,routes.polyline.encodedPolyline,routes.travelAdvisory.speedReadingIntervals,routes.legs.steps.navigationInstruction.instructions,routes.legs.steps.navigationInstruction.maneuver,routes.legs.steps.distanceMeters,routes.legs.steps.staticDuration"},
+        body:JSON.stringify({
+          origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
+          destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
+          travelMode:"DRIVE",routingPreference:"TRAFFIC_AWARE_OPTIMAL",
+          departureTime:new Date().toISOString(),polylineQuality:"HIGH_QUALITY",
+          polylineEncoding:"ENCODED_POLYLINE",extraComputations:["TRAFFIC_ON_POLYLINE"],
+          languageCode:"ar",units:"METRIC",computeAlternativeRoutes:false
+        }),
+        signal:AbortSignal.timeout(12000)
+      });
+      if(!response.ok) throw new Error("Google traffic route HTTP "+response.status);
+      const result=await response.json() as any;
+      const selected=(result.routes??[]).find((r:any)=>Number.isFinite(r.distanceMeters)&&
+        r.distanceMeters>0&&typeof r.duration==="string"&&/^\d+(\.\d+)?s$/.test(r.duration)&&
+        typeof r.polyline?.encodedPolyline==="string");
+      if(!selected) throw new Error("Google traffic route geometry unavailable");
+      const points=decodeGooglePolyline(selected.polyline.encodedPolyline).filter(validPoint);
+      if(points.length<2) throw new Error("Google traffic route returned invalid geometry");
+      const steps=(selected.legs??[]).flatMap((leg:any)=>(leg.steps??[]).flatMap((step:any)=>{
+        const instruction=String(step.navigationInstruction?.instructions??"").trim();
+        const distanceMeters=Number(step.distanceMeters??0);
+        const durationSeconds=parseFloat(String(step.staticDuration??"0s"));
+        return instruction?[{instruction,distanceMeters:Number.isFinite(distanceMeters)?distanceMeters:0,
+          durationSeconds:Number.isFinite(durationSeconds)?durationSeconds:0,
+          ...(step.navigationInstruction?.maneuver?{maneuver:String(step.navigationInstruction.maneuver)}:{})}]:[];
+      }));
+      const intervals=(selected.travelAdvisory?.speedReadingIntervals??[]).flatMap((item:any)=>{
+        const startIndex=Number(item.startPolylinePointIndex??0);
+        const endIndex=Number(item.endPolylinePointIndex??0);
+        return Number.isInteger(startIndex)&&Number.isInteger(endIndex)&&endIndex>startIndex&&endIndex<=points.length
+          ?[{startIndex,endIndex,speed:String(item.speed??"NORMAL")}]:[];
+      });
+      routed={distanceKm:Number(selected.distanceMeters)/1000,durationMin:parseFloat(selected.duration)/60,
+        staticDurationMin:parseFloat(String(selected.staticDuration??selected.duration))/60,
+        routeSource:"google_routes_traffic",routePoints:points,routeSteps:steps,trafficSegments:intervals};
+    } catch(error) {
+      console.warn("[route] Google traffic-aware route unavailable; falling back to road routing",
+        error instanceof Error?error.message:"unknown");
+    }
+  }
+
+  if(!routed&&osrmBase) {
     try {
       const url=new URL(osrmBase+"/route/v1/driving/"+from.lng+","+from.lat+";"+to.lng+","+to.lat);
       url.searchParams.set("overview",includeGeometry?"full":"false");
@@ -129,7 +180,7 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
   }
 
   if(!routed) {
-    const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
+    const key=googleKey;
     if(!key) throw new Error("تعذّر حساب مسافة الطريق الفعلية حالياً. أعد المحاولة لاحقاً.");
     const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
       method:"POST",
@@ -252,11 +303,12 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // A fresh query cache is authoritative for this query. Return it immediately;
   // otherwise enrich partial local results from Photon instead of only searching
   // externally when the local database is completely empty.
-  if(cacheFresh && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
+  if(cacheFresh && initialSuggestions.length>0 && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
     return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
   }
 
   let fetchedRows:any[]=[];
+  let photonLookupSucceeded=false;
   if(initialSuggestions.length<LIMIT) {
     const url=new URL("https://photon.komoot.io/api/");
     url.searchParams.set("q",q);
@@ -268,8 +320,9 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
     url.searchParams.set("zoom","16");
     try {
       const response=await fetch(url,{headers:{Accept:"application/geo+json","User-Agent":"Mamnoon/1.0"},
-        signal:AbortSignal.timeout(1200)});
+        signal:AbortSignal.timeout(4500)});
       if(response.ok) {
+        photonLookupSucceeded=true;
         const features=(await response.json() as any).features??[];
         fetchedRows=features.flatMap((feature:any)=>{
           const c=feature.geometry?.coordinates,p=feature.properties??{};
@@ -296,12 +349,16 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
           suggestionsPersisted=!error;
           if(error) console.error("[maps-proxy] suggestions upsert failed",error.code);
         }
-        const {error:cacheError}=await admin.from("map_place_search_cache").upsert({
-          governorate_key:key,normalized_query:normalized(q),
-          expires_at:new Date(Date.now()+(suggestionsPersisted&&fetchedRows.length?7*86400000:300000)).toISOString(),
-          updated_at:new Date().toISOString()
-        },{onConflict:"governorate_key,normalized_query"});
-        if(cacheError) console.warn("[maps-proxy] search cache write failed",cacheError.code);
+        // Cache only completed Photon lookups. A timeout must not become a
+        // five-minute empty-result cache for an entire governorate.
+        if(photonLookupSucceeded) {
+          const {error:cacheError}=await admin.from("map_place_search_cache").upsert({
+            governorate_key:key,normalized_query:normalized(q),
+            expires_at:new Date(Date.now()+(suggestionsPersisted&&fetchedRows.length?7*86400000:60000)).toISOString(),
+            updated_at:new Date().toISOString()
+          },{onConflict:"governorate_key,normalized_query"});
+          if(cacheError) console.warn("[maps-proxy] search cache write failed",cacheError.code);
+        }
       }
     } catch(error) {
       console.warn("[maps-proxy] Photon unavailable",error instanceof Error?error.message:"unknown");
@@ -352,7 +409,17 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   const merged=new Map<string,any>();
   for(const item of [...refreshed,...initialSuggestions]) merged.set(item.id,item);
   const osmSuggestions=Array.from(merged.values());
+  // Return live Photon results even when the local catalogue upsert/RPC is
+  // delayed or unavailable; every point was already filtered to this governorate.
+  const photonSuggestions=fetchedRows.map((row:any)=>({
+    id:String(row.source_key),text:String(row.name_ar),address:String(row.address||row.name_ar),
+    coords:{lat:Number(row.latitude),lng:Number(row.longitude)},governorateKey:key,source:"photon"
+  }));
   const seen=new Set(osmSuggestions.map((item:any)=>`${normalized(item.text)}|${Number(item.coords.lat).toFixed(4)}|${Number(item.coords.lng).toFixed(4)}`));
+  for(const item of photonSuggestions) {
+    const dedupeKey=`${normalized(item.text)}|${Number(item.coords.lat).toFixed(4)}|${Number(item.coords.lng).toFixed(4)}`;
+    if(!seen.has(dedupeKey)) { osmSuggestions.push(item); seen.add(dedupeKey); }
+  }
   for(const item of googleSuggestions) {
     const dedupeKey=`${normalized(item.text)}|${Number(item.coords.lat).toFixed(4)}|${Number(item.coords.lng).toFixed(4)}`;
     if(!seen.has(dedupeKey)) { osmSuggestions.push(item); seen.add(dedupeKey); }

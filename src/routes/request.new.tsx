@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGoBack } from "@/components/back-button";
 import luxuryCar from "@/assets/car-luxury.png";
 import { serviceIcon } from "@/lib/service-visuals";
@@ -177,6 +177,7 @@ function NewRequest() {
   const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destLabel, setDestLabel] = useState("");
   const [mapStep, setMapStep] = useState<"pickup" | "dest">("pickup");
+  const backFromDestinationRef = useRef(false);
   const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
   const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
   const [favoriteName, setFavoriteName] = useState("");
@@ -254,6 +255,25 @@ function NewRequest() {
     return () => window.removeEventListener("storage", restoreGovernorate);
   }, []);
   const gov = getGovernorate(govKey);
+  function handleTaxiMapBack() {
+    if (mapStep === "dest") {
+      backFromDestinationRef.current = true;
+      setMapStep("pickup");
+      setDestConfirmed(false);
+      setShowFareDetails(false);
+      return;
+    }
+    if (backFromDestinationRef.current) {
+      backFromDestinationRef.current = false;
+      setPickupCoords(null); setPickupLabel("");
+      setDestCoords(null); setDestLabel("");
+      setDestinationGovernorateKey(null); setDestConfirmed(false);
+      setRouteKm(null); setRouteError(null); setShowFareDetails(false);
+      return;
+    }
+    goBack();
+  }
+
   function chooseGov(key: string) {
     localStorage.setItem(GOV_STORAGE_KEY, key);
     setGovKey(key);
@@ -423,7 +443,7 @@ function NewRequest() {
     const t = setTimeout(async () => {
       try {
         const { data, error } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, pickupGovernorateKey: govKey, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, pickupGovernorateKey: govKey, destinationGovernorateKey: destinationGovernorateKey ?? undefined, urgencyEnabled },
         });
         if (error) throw error;
         if (stale) return;
@@ -517,6 +537,7 @@ function NewRequest() {
       setDestConfirmed(true);
       return;
     }
+    backFromDestinationRef.current = false;
     setMapStep("dest");
     setDestConfirmed(false);
     setInterCity(false);
@@ -620,9 +641,15 @@ function NewRequest() {
       let error: any;
       if (type === "taxi" && vehicle !== "large") {
         const { data: secureTaxi, error: secureTaxiError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled: false, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
+          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? undefined, urgencyEnabled, expectedPriceEstimate: priceEstimate, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
         });
-        if (secureTaxiError) throw secureTaxiError;
+        if (secureTaxiError) {
+          if ((secureTaxiError as any).context?.status === 409) {
+            setRouteRetry((value) => value + 1);
+            throw new Error("تغيّر سعر الإدارة بعد آخر عرض. حدّثت الحساب؛ راجع السعر الجديد ثم أرسل الطلب مرة ثانية.");
+          }
+          throw secureTaxiError;
+        }
         if (!secureTaxi?.requestId) throw new Error(secureTaxi?.error || "تعذّر إنشاء طلب التاكسي.");
         data = { id: secureTaxi.requestId, coupon_discount: secureTaxi.couponDiscount ?? 0, customer_payable: secureTaxi.customerPayable };
       } else {
@@ -887,7 +914,7 @@ function NewRequest() {
             <MapPicker
               key={`${gov.key}-${mapStep}-${mapStep === "dest" ? destinationGovernorateKey ?? gov.key : gov.key}`}
               value={mapStep === "pickup" ? pickupCoords : destCoords}
-              accent={mapStep === "pickup" ? "#0284c7" : "#e11d48"}
+              accent={mapStep === "pickup" ? "#1687F8" : "#16A34A"}
               nearby={mapStep === "pickup" ? nearby : undefined}
               nearbyKind="car"
               autoLocateOnMount={mapStep === "pickup"}
@@ -950,17 +977,7 @@ function NewRequest() {
           <div className="flex items-center gap-2 pointer-events-auto">
             <button
               type="button"
-              onClick={() => {
-                if (mapStep === "dest") {
-                  setMapStep("pickup");
-                  setDestConfirmed(false);
-                  setDestCoords(null);
-                  setDestLabel("");
-                  setRouteKm(null);
-                  setRouteError(null);
-                  setShowFareDetails(false);
-                } else goBack();
-              }}
+              onClick={handleTaxiMapBack}
               className="h-11 w-11 rounded-2xl bg-white/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md shadow-lg border border-border/40 grid place-items-center btn-press text-foreground shrink-0"
               aria-label="رجوع"
             >
@@ -1004,11 +1021,11 @@ function NewRequest() {
                 }}
                 className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 btn-press ${
                   mapStep === "dest"
-                    ? "bg-rose-600 text-white shadow-md scale-[1.02]"
+                    ? "bg-green-600 text-white shadow-md scale-[1.02]"
                     : "text-muted-foreground hover:bg-slate-100"
                 }`}
               >
-                <span className="h-2 w-2 rounded-full bg-rose-300" />
+                <span className="h-2 w-2 rounded-full bg-green-300" />
                 <span>٢. الوجهة</span>
                 {destCoords && <CheckCircle2 className="h-3 w-3" />}
               </button>)}
@@ -1056,7 +1073,7 @@ function NewRequest() {
           <div className="mt-auto relative z-30 p-4 pb-6">
             <div className="bg-white/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-border/50 max-w-md mx-auto space-y-3">
               <div className="flex items-center gap-2.5">
-                <MapPin className="h-5 w-5 text-rose-600 shrink-0" />
+                <MapPin className="h-5 w-5 text-green-600 shrink-0" />
                 <div className="text-sm font-black text-foreground truncate">
                   {destLabel || "حرّك الخريطة إلى وجهتك"}
                 </div>

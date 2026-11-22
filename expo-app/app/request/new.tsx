@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import {
   View,
   Text,
+  Animated,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -58,16 +59,27 @@ const IRAQ_REGION = {
   longitudeDelta: 11,
 };
 
-function MapCenterPin() {
+function MapCenterPin({ color = "#1687F8" }: { color?: string }) {
+  const motion = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(motion, { toValue: 1, duration: 520, useNativeDriver: true }),
+      Animated.timing(motion, { toValue: 0, duration: 520, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [motion]);
   return (
-    <View style={styles.pinArtwork}>
-      <Svg width={42} height={52} viewBox="0 0 42 52">
-        <Path d="M21 50C17 43 3 29 3 19A18 18 0 1 1 39 19C39 29 25 43 21 50Z" fill="#D6A43B" stroke="#FFFFFF" strokeWidth={2.5} />
-        <Circle cx={21} cy={19} r={7} fill="#FFFFFF" />
-        <Circle cx={21} cy={19} r={3.2} fill="#17324D" />
+    <Animated.View style={[styles.pinArtwork, { transform: [
+      { translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) },
+      { scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] }) },
+    ] }]}>
+      <Svg width={30} height={40} viewBox="0 0 42 52">
+        <Path d="M21 50C17 43 3 29 3 19A18 18 0 1 1 39 19C39 29 25 43 21 50Z" fill={color} stroke="#FFFFFF" strokeWidth={3} />
+        <Circle cx={21} cy={19} r={8} fill="#FFFFFF" />
+        <Circle cx={21} cy={19} r={4} fill={color} />
       </Svg>
-      <View style={styles.pinShadow} />
-    </View>
+    </Animated.View>
   );
 }
 
@@ -189,6 +201,7 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
+  const backFromDestinationRef = useRef(false);
   const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
   const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
   const [favoriteName, setFavoriteName] = useState("");
@@ -250,6 +263,7 @@ export default function NewRequest() {
   useEffect(() => { if (pickupGovernorateKey) void SecureStore.setItemAsync("mamnoon_governorate", pickupGovernorateKey).catch(() => {}); }, [pickupGovernorateKey]);
   const [region, setRegion] = useState(IRAQ_REGION);
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
+  const [nearbyWorkers, setNearbyWorkers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
   const [locationLoading, setLocationLoading] = useState(true);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
   const [uiVisuals, setUiVisuals] = useState<Record<string, any>>({});
@@ -313,20 +327,14 @@ export default function NewRequest() {
   }, []);
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (selectedService === "taxi" && vehicle !== "large" && mapMode === "destination") {
-        setMapMode("pickup");
-        setDestinationCoords(null);
-        setDestination("");
-        setDestinationConfirmed(false);
-        setRouteKm(null);
-        setRouteDurationMin(null);
-        setRouteError(null);
+      if (selectedService === "taxi") {
+        handleTaxiBack();
         return true;
       }
       return false;
     });
     return () => subscription.remove();
-  }, [selectedService, vehicle, mapMode]);
+  }, [selectedService, mapMode, pickupCoords, pickupGovernorateKey]);
 
   useEffect(() => {
     const requestedType = type || "taxi";
@@ -374,6 +382,7 @@ export default function NewRequest() {
   }, []);
 
   const isTaxi = selectedService === "taxi";
+  const selectedServiceId = serviceCatalog.find((service) => service.slug === selectedService)?.id ?? null;
   const isLargeVehicle = vehicle === "large";
   const isIntercity = routeIsIntercity;
   const showRequestPhoto = !isTaxi || isLargeVehicle;
@@ -423,7 +432,33 @@ export default function NewRequest() {
 
   function moveMap(nextRegion: typeof region) {
     setRegion(nextRegion);
-    mapRef.current?.animateToRegion(nextRegion, 0);
+    mapRef.current?.animateToRegion(nextRegion, 520);
+  }
+
+  function handleTaxiBack() {
+    if (mapMode === "destination") {
+      // First back returns to pickup editing without destroying either saved point.
+      backFromDestinationRef.current = true;
+      setMapMode("pickup");
+      setDestinationConfirmed(false);
+      return;
+    }
+    if (backFromDestinationRef.current) {
+      // Only the second back after leaving destination explicitly resets pickup.
+      backFromDestinationRef.current = false;
+      setPickupCoords(null);
+      setPickup("");
+      setPickupGovernorateKey(null);
+      setDestinationCoords(null);
+      setDestination("");
+      setDestinationGovernorateKey(null);
+      setDestinationConfirmed(false);
+      setRouteKm(null);
+      setRouteDurationMin(null);
+      setRouteError(null);
+      return;
+    }
+    router.back();
   }
 
   useEffect(() => {
@@ -504,7 +539,7 @@ export default function NewRequest() {
         void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
           .then((result) => { if (mounted) setPickupGovernorateKey(result.key); })
           .catch(() => {});
-        moveMap({ ...coords, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+        moveMap({ ...coords, latitudeDelta: 0.007, longitudeDelta: 0.007 });
         const address = formatAddress(await Location.reverseGeocodeAsync(coords));
         if (address) setPickup(address);
       } catch {
@@ -525,21 +560,38 @@ export default function NewRequest() {
       return;
     }
     let active = true;
+    let inFlight = false;
     const loadNearbyDrivers = async () => {
-      const { data, error } = await (supabase as any).rpc("find_nearby_provider_pins", {
-        _lat: pickupCoords.latitude,
-        _lng: pickupCoords.longitude,
-        _type: "taxi",
-        _category: isLargeVehicle ? "large" : vehicleCat,
-        _service_id: null,
-        _radius_km: isLargeVehicle ? 25 : 5,
-        _limit: 30,
-      });
-      if (!active || error) return;
-      setNearbyDrivers((data ?? []).filter((item: any) =>
-        typeof item?.lat === "number" && typeof item?.lng === "number" &&
-        Number.isFinite(item.lat) && Number.isFinite(item.lng)
-      ));
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const { data, error } = await (supabase as any).rpc("find_nearby_provider_pins", {
+          _lat: pickupCoords.latitude,
+          _lng: pickupCoords.longitude,
+          _type: "taxi",
+          _category: isLargeVehicle ? "large" : vehicleCat,
+          _service_id: null,
+          _radius_km: isLargeVehicle ? 25 : 5,
+          _limit: 30,
+        });
+        if (!active || error) return;
+        const next = (data ?? []).filter((item: any) =>
+          typeof item?.lat === "number" && typeof item?.lng === "number" &&
+          Number.isFinite(item.lat) && Number.isFinite(item.lng)
+        );
+        setNearbyDrivers((current) => {
+          if (current.length !== next.length) return next;
+          const unchanged = current.every((pin, index) =>
+            pin.pin_id === next[index]?.pin_id && pin.lat === next[index]?.lat &&
+            pin.lng === next[index]?.lng && pin.heading === next[index]?.heading
+          );
+          return unchanged ? current : next;
+        });
+      } catch {
+        // Keep the last known provider markers when a transient network error occurs.
+      } finally {
+        inFlight = false;
+      }
     };
     void loadNearbyDrivers();
     const timer = setInterval(() => void loadNearbyDrivers(), 15000);
@@ -549,6 +601,52 @@ export default function NewRequest() {
     };
   }, [pickupCoords?.latitude, pickupCoords?.longitude, isTaxi, isLargeVehicle, vehicleCat]);
 
+  useEffect(() => {
+    if (!pickupCoords || isTaxi) {
+      setNearbyWorkers((current) => current.length ? [] : current);
+      return;
+    }
+    let active = true;
+    let inFlight = false;
+    const loadNearbyWorkers = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const { data, error } = await (supabase as any).rpc("find_nearby_provider_pins", {
+          _lat: pickupCoords.latitude,
+          _lng: pickupCoords.longitude,
+          _type: "service",
+          _category: null,
+          _service_id: selectedServiceId,
+          _radius_km: 25,
+          _limit: 30,
+        });
+        if (!active || error) return;
+        const next = (data ?? []).filter((item: any) =>
+          typeof item?.lat === "number" && typeof item?.lng === "number" &&
+          Number.isFinite(item.lat) && Number.isFinite(item.lng)
+        );
+        setNearbyWorkers((current) => {
+          if (current.length !== next.length) return next;
+          const unchanged = current.every((pin, index) =>
+            pin.pin_id === next[index]?.pin_id && pin.lat === next[index]?.lat &&
+            pin.lng === next[index]?.lng && pin.heading === next[index]?.heading
+          );
+          return unchanged ? current : next;
+        });
+      } catch {
+        // Keep the last known worker markers during a transient connection issue.
+      } finally {
+        inFlight = false;
+      }
+    };
+    void loadNearbyWorkers();
+    const timer = setInterval(() => void loadNearbyWorkers(), 15000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [pickupCoords?.latitude, pickupCoords?.longitude, isTaxi, selectedServiceId]);
   useEffect(() => {
     if (!pickupCoords || !destinationCoords || mapMode !== "destination" || !isTaxi || isLargeVehicle) {
       setRouteKm(null);
@@ -697,7 +795,7 @@ export default function NewRequest() {
         longitude: position.coords.longitude,
       };
       setDestinationConfirmed(false);
-      moveMap({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
+      moveMap({ ...coords, latitudeDelta: 0.006, longitudeDelta: 0.006 });
       const geocodeRequest = ++reverseGeocodeRequestRef.current;
       // Commit the GPS point immediately so the fare quote can start without
       // waiting for reverse geocoding or a governorate lookup.
@@ -734,33 +832,44 @@ export default function NewRequest() {
     userPannedMapRef.current = false;
     if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
     regionChangeTimerRef.current = setTimeout(() => {
-      const coords = { latitude: nextRegion.latitude, longitude: nextRegion.longitude };
-      // Commit the pin immediately. The authoritative auto-taxi-pricing quote
-      // validates the exact Iraq governorate boundaries in parallel; a separate
-      // validation request here used to add a full network round-trip before pricing.
-      setDestinationConfirmed(false);
-      const geocodeRequest = ++reverseGeocodeRequestRef.current;
-      if (mapMode === "pickup") {
-        setPickupCoords(coords);
-        setPickupGovernorateKey(null);
-        setPickup("موقع محدد على الخريطة");
-      } else {
-        setDestinationCoords(coords);
-        setDestinationGovernorateKey(null);
-        setDestination("وجهة محددة على الخريطة");
-      }
-      // Reverse geocoding is decorative metadata and must never block fare calculation.
-      void Location.reverseGeocodeAsync(coords).then((parts) => {
-        if (geocodeRequest !== reverseGeocodeRequestRef.current) return;
-        const address = formatAddress(parts);
-        if (!address) return;
-        if (mapMode === "pickup") setPickup(address);
-        else setDestination(address);
-      }).catch(() => {});
-    }, 80);
+      void (async () => {
+        // The visible pin is offset by the top controls and bottom sheet. Ask
+        // MapView for the coordinate under that exact screen pixel instead of
+        // assuming the camera's geographic centre is directly under the pin.
+        let coords = { latitude: nextRegion.latitude, longitude: nextRegion.longitude };
+        try {
+          const pinY = 158 + Math.max(0, window.height - 158 - taxiSheetHeight) / 2;
+          const exact = await mapRef.current?.coordinateForPoint({ x: window.width / 2, y: pinY });
+          if (exact && Number.isFinite(exact.latitude) && Number.isFinite(exact.longitude)) {
+            coords = { latitude: exact.latitude, longitude: exact.longitude };
+          }
+        } catch {
+          // Fall back to the settled map centre on providers that lack this API.
+        }
+        setDestinationConfirmed(false);
+        const geocodeRequest = ++reverseGeocodeRequestRef.current;
+        if (mapMode === "pickup") {
+          setPickupCoords(coords);
+          setPickupGovernorateKey(null);
+          setPickup("موقع محدد على الخريطة");
+        } else {
+          setDestinationCoords(coords);
+          setDestinationGovernorateKey(null);
+          setDestination("وجهة محددة على الخريطة");
+        }
+        void Location.reverseGeocodeAsync(coords).then((parts) => {
+          if (geocodeRequest !== reverseGeocodeRequestRef.current) return;
+          const address = formatAddress(parts);
+          if (!address) return;
+          if (mapMode === "pickup") setPickup(address);
+          else setDestination(address);
+        }).catch(() => {});
+      })();
+    }, 100);
   }
 
   function chooseGovernorate(key: string) {
+    placeSelectionRef.current += 1;
     const governorate = getMobileGovernorate(key);
     if (!governorate) return;
     setDestinationConfirmed(false);
@@ -771,7 +880,7 @@ export default function NewRequest() {
     setPlaceSuggestions([]);
     setPlaceSearchError(null);
     setFocusSearchAfterProvince(true);
-    moveMap({ latitude: governorate.latitude, longitude: governorate.longitude, latitudeDelta: 0.12, longitudeDelta: 0.12 });
+    moveMap({ latitude: governorate.latitude, longitude: governorate.longitude, latitudeDelta: 0.045, longitudeDelta: 0.045 });
     if (mapMode === "pickup") {
       setPickupCoords(null);
       setPickup("");
@@ -885,7 +994,7 @@ export default function NewRequest() {
         setDestinationGovernorateKey(item.governorateKey ?? activeGovernorateKey ?? null);
         setDestination(label);
       }
-      moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+      moveMap({ ...coords, latitudeDelta: 0.0045, longitudeDelta: 0.0045 });
       setPlaceQuery("");
       setPlaceSuggestions([]);
 
@@ -930,6 +1039,7 @@ export default function NewRequest() {
         setDestinationConfirmed(true);
         return;
       }
+      backFromDestinationRef.current = false;
       setMapMode("destination");
       setDestinationConfirmed(false);
       setDestinationCoords(null);
@@ -1101,11 +1211,19 @@ export default function NewRequest() {
             pickupText: pickup, destinationText: destination,
             governorateKey: effectivePickupGovernorateKey,
             pickupGovernorateKey: effectivePickupGovernorateKey,
-            destinationGovernorateKey: destinationGovernorateKey ?? effectivePickupGovernorateKey,
-            vehicleCategory: vehicleCat, urgencyEnabled: false, notes,
+            destinationGovernorateKey: destinationGovernorateKey ?? undefined,
+            vehicleCategory: vehicleCat, urgencyEnabled,
+            expectedPriceEstimate: serverTaxiFares[vehicleCat as Exclude<VehicleCategory, "large">] ?? serverTaxiFare,
+            notes,
           },
         });
-        if (taxiError) throw taxiError;
+        if (taxiError) {
+          if ((taxiError as any).context?.status === 409) {
+            setRouteRetry((value) => value + 1);
+            throw new Error("تغيّر سعر الإدارة بعد آخر عرض. حدّثت الحساب؛ راجع السعر الجديد ثم أرسل الطلب مرة ثانية.");
+          }
+          throw taxiError;
+        }
         if (!taxiRequest?.requestId) throw new Error(taxiRequest?.error || "تعذّر إنشاء طلب التكسي.");
         requestId = taxiRequest.requestId;
       } else {
@@ -1214,11 +1332,9 @@ export default function NewRequest() {
           loadingEnabled
         >
           {mapMode === "destination" && pickupCoords && (
-            <Marker
-              coordinate={pickupCoords}
-              title="نقطة الانطلاق"
-              pinColor="#0284c7"
-            />
+            <Marker coordinate={pickupCoords} title="نقطة الانطلاق" anchor={{ x: 0.5, y: 1 }}>
+              <MapCenterPin color="#1687F8" />
+            </Marker>
           )}
           {mapMode === "pickup" && nearbyDrivers.map((driver) => (
             <Marker
@@ -1253,22 +1369,15 @@ export default function NewRequest() {
             <Text style={styles.taxiLocateFloatingText}>موقعي</Text>
           </TouchableOpacity>
         )}
-        <View pointerEvents="none" style={[styles.taxiCenterPin, { top: 158 + Math.max(0, window.height - 158 - taxiSheetHeight) / 2 - 50 }]}>
-          <MapCenterPin />
+        <View pointerEvents="none" style={[styles.taxiCenterPin, { top: 158 + Math.max(0, window.height - 158 - taxiSheetHeight) / 2 - 38 }]}>
+          <MapCenterPin color={mapMode === "pickup" ? "#1687F8" : "#16A34A"} />
         </View>
 
         <View style={styles.taxiTopBar}>
           <View style={styles.taxiTopControls}>
           <TouchableOpacity
             style={styles.taxiBackButton}
-            onPress={() => {
-              if (mapMode === "destination") {
-                setMapMode("pickup");
-                setDestinationConfirmed(false);
-              } else {
-                router.back();
-              }
-            }}
+            onPress={handleTaxiBack}
             accessibilityRole="button"
             accessibilityLabel="رجوع"
           >
@@ -1769,7 +1878,18 @@ export default function NewRequest() {
           showsMyLocationButton={false}
           loadingEnabled
         >
-
+          {nearbyWorkers.map((worker) => (
+            <Marker
+              key={worker.pin_id}
+              coordinate={{ latitude: worker.lat, longitude: worker.lng }}
+              title="فني قريب"
+              anchor={{ x: 0.5, y: 0.5 }}
+              flat
+              rotation={Number.isFinite(worker.heading) ? Number(worker.heading) : 0}
+            >
+              <View style={styles.taxiNearbyMarker}><Text style={styles.taxiNearbyMarkerText}>🔧</Text></View>
+            </Marker>
+          ))}
         </MapView>
         <View pointerEvents="none" style={styles.mapCenterPin}><MapCenterPin /></View>
         <Text style={styles.mapHint}>
@@ -2122,9 +2242,8 @@ const styles = StyleSheet.create({
   placeSearchTop: { borderWidth: 1.5, borderColor: palette.gold, backgroundColor: palette.surface, minHeight: 52, marginTop: 8 },
   taxiNearbyMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.surface, borderWidth: 2, borderColor: palette.brand, alignItems: "center", justifyContent: "center", elevation: 5 },
   taxiNearbyMarkerText: { fontSize: 19 },
-  taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -21, marginTop: -48, zIndex: 4 },
-  pinArtwork: { width: 42, height: 58, alignItems: "center", justifyContent: "flex-start" },
-  pinShadow: { width: 17, height: 5, borderRadius: 10, backgroundColor: "rgba(15,23,42,0.22)", marginTop: -1 },
+  taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -15, marginTop: -38, zIndex: 4 },
+  pinArtwork: { width: 30, height: 40, alignItems: "center", justifyContent: "flex-start" },
   taxiTopBar: { position: "absolute", top: 42, left: 10, right: 10, zIndex: 10, flexDirection: "column", alignItems: "stretch", gap: 8 },
   taxiTopControls: { flexDirection: "row", alignItems: "center", gap: 7 },
   taxiBackButton: { width: 42, height: 44, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center" },
@@ -2137,7 +2256,7 @@ const styles = StyleSheet.create({
   taxiStepTabs: { flex: 1, flexDirection: "row", padding: 4, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, gap: 4 },
   taxiStepTab: { flex: 1, minHeight: 36, borderRadius: radius.sm, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
   taxiStepTabPickup: { backgroundColor: "#0284c7" },
-  taxiStepTabDestination: { backgroundColor: "#e11d48" },
+  taxiStepTabDestination: { backgroundColor: "#16A34A" },
   taxiStepText: { color: palette.muted, fontSize: 10, fontFamily: "Tajawal_900Black", fontWeight: "900" },
   taxiStepTextActive: { color: "#FFFFFF" },
   taxiBottomSheet: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "66%", backgroundColor: palette.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, borderColor: palette.line, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, shadowColor: "#000000", shadowOpacity: 0.18, shadowRadius: 16, elevation: 12 },

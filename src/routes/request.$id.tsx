@@ -5,7 +5,6 @@ import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Phone,
-  Send,
   Loader2,
   CheckCircle2,
   Clock,
@@ -22,6 +21,7 @@ import { LiveTrackMap } from "@/components/live-track-map";
 import { useLiveTracking } from "@/lib/use-live-tracking";
 import { CancelReasonModal } from "@/components/cancel-reason-modal";
 import { QuickReplies } from "@/components/quick-replies";
+import { MamnoonChatThread } from "@/components/mamnoon-chat-thread";
 import {
   cancelRequest,
   providerCancelRequest,
@@ -70,6 +70,7 @@ function RequestDetail() {
   const [other, setOther] = useState<any>(null);
   const [otherAvatarFailed, setOtherAvatarFailed] = useState(false);
   const [largeOffers, setLargeOffers] = useState<any[]>([]);
+  const [serviceProviders, setServiceProviders] = useState<any[]>([]);
   const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
   const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
   const [chat, setChat] = useState<any>(null);
@@ -101,7 +102,6 @@ function RequestDetail() {
   const [navModalOpen, setNavModalOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [otherRep, setOtherRep] = useState<ReputationData | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const weeklyRatingNoticeRef = useRef<string | null>(null);
   const getRepFn = useServerFn(getReputation);
   const cancelFn = useServerFn(cancelRequest);
@@ -110,6 +110,8 @@ function RequestDetail() {
   const runStartRide = useServerFn(startRide);
   const runCompleteRide = useServerFn(completeRide);
 
+  const acceptedPeopleCount = serviceProviders.reduce((sum, member) => sum + Number(member.team_size || 1), 0);
+  const remainingPeopleCount = Math.max(0, Number(req?.workers_count || 1) - acceptedPeopleCount);
   const myUserId = session?.user.id ?? null;
   const sessionUser = session?.user;
   const otherUserId = req
@@ -119,6 +121,7 @@ function RequestDetail() {
     : null;
   const myRole: "customer" | "provider" =
     req && myUserId === req.customer_id ? "customer" : "provider";
+  const isServiceTeamMember = serviceProviders.some((member) => member.provider_id === myUserId);
   useEffect(() => { setOtherAvatarFailed(false); }, [other?.avatar_url]);
   useEffect(() => {
     const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
@@ -138,12 +141,13 @@ function RequestDetail() {
   useEffect(() => {
     if (!req || myRole !== "customer" || !["pending","searching"].includes(req.status)) return;
     const start = Date.parse(req.searching_started_at || req.created_at || new Date().toISOString());
-    const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
+    const totalSeconds = 360 * (req.type === "service" ? Math.max(1, Number(req.workers_count) || 1) : 1);
+    const remaining = Math.max(0, totalSeconds - Math.floor((dispatchClock - start) / 1000));
     if (remaining <= 10 && remaining > 0 && countdownAlertedRef.current !== req.id && soundEnabled) {
       countdownAlertedRef.current = req.id;
       playMessageSound(true);
     }
-  }, [req?.id, req?.status, req?.searching_started_at, req?.created_at, dispatchClock, myRole, soundEnabled]);
+  }, [req?.id, req?.status, req?.searching_started_at, req?.created_at, req?.type, req?.workers_count, dispatchClock, myRole, soundEnabled]);
   useEffect(() => {
     if (!req || myRole !== "customer" || req.status !== "accepted" || lastAcceptedAlertRef.current === req.id) return;
     lastAcceptedAlertRef.current = req.id;
@@ -151,6 +155,9 @@ function RequestDetail() {
   }, [req?.id, req?.status, myRole, soundEnabled]);
   const otherBadges = otherRep?.badges ?? [];
   const trackingActive = !!req && (req.status === "accepted" || req.status === "in_progress");
+  useEffect(() => {
+    if (trackingActive) setMapOpen(true);
+  }, [req?.id, trackingActive]);
   const { me: myLive, other: otherLive, routePoints: providerRoutePoints } = useLiveTracking({
     requestId: req?.id ?? null,
     myUserId,
@@ -174,6 +181,19 @@ function RequestDetail() {
         return;
       }
       setReq(r);
+      // Show the accepted request immediately; secondary details hydrate below.
+      setLoading(false);
+      if (r.type === "service") {
+        setServiceProviders([]);
+        const { data: acceptedProviders, error: acceptedProvidersError } = await (supabase as any)
+          .from("service_request_providers")
+          .select("provider_id,team_size,accepted_at")
+          .eq("request_id", id)
+          .order("accepted_at", { ascending: true });
+        if (!acceptedProvidersError) setServiceProviders(acceptedProviders ?? []);
+      } else {
+        setServiceProviders([]);
+      }
       if (r.attachment_path) {
         const { data: signedAttachment, error: attachmentError } = await supabase.storage
           .from("request-attachments")
@@ -312,6 +332,11 @@ function RequestDetail() {
         { event: "*", schema: "public", table: "request_offers", filter: `request_id=eq.${id}` },
         () => loadAll(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_request_providers", filter: `request_id=eq.${id}` },
+        () => loadAll(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -327,20 +352,6 @@ function RequestDetail() {
     }, 5000);
     return () => clearInterval(t);
   }, [requestId, requestStatus, myRole, loadAll, retryFn, req?.vehicle_category]);
-
-  const lastMessageId = messages[messages.length - 1]?.id;
-  useEffect(() => {
-    const go = () => {
-      const el = scrollRef.current;
-      if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    };
-    const raf = requestAnimationFrame(go);
-    const t = setTimeout(go, 350);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(t);
-    };
-  }, [messages.length, lastMessageId, chat?.id, req?.status, loading]);
 
   if (authLoading || loading)
     return (
@@ -510,14 +521,16 @@ function RequestDetail() {
   }
 
   const statusLabel =
-    {
-      pending: "بانتظار القبول",
-      searching: "جاري البحث",
-      accepted: "تم القبول",
-      in_progress: "قيد التنفيذ",
-      completed: "مكتمل",
-      cancelled: "ملغي",
-    }[req.status as string] ?? req.status;
+    req.type === "service" && req.status === "accepted" && remainingPeopleCount > 0
+      ? "اكتفى الزبون بالعدد المتوفر"
+      : ({
+          pending: "بانتظار القبول",
+          searching: "جاري البحث",
+          accepted: "تم القبول",
+          in_progress: "قيد التنفيذ",
+          completed: "مكتمل",
+          cancelled: "ملغي",
+        }[req.status as string] ?? req.status);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -574,13 +587,20 @@ function RequestDetail() {
           </div>
         )}
 
+        {myRole === "provider" && isServiceTeamMember && req.type === "service" && req.status === "searching" && (
+          <div className="mt-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-right">
+            <div className="text-sm font-black text-emerald-700 dark:text-emerald-300">تم تسجيلك ضمن فريق الطلب</div>
+            <div className="mt-1 text-xs text-muted-foreground">الفريق المؤكد: {acceptedPeopleCount} من {req.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</div>
+          </div>
+        )}
         {req.type === "service" && (
           <div className="glass rounded-2xl p-3 flex items-center gap-3" dir="rtl">
             <img src={serviceIcon(req.services?.slug ?? "")} alt={req.services?.name_ar ?? "الخدمة"} className="h-16 w-16 rounded-xl object-cover border border-border" />
             <div className="min-w-0 flex-1">
               <div className="text-[10px] text-muted-foreground">الخدمة المطلوبة</div>
               <div className="font-black text-base">{req.services?.name_ar ?? "خدمة منزلية"}</div>
-              <div className="text-[11px] text-muted-foreground">{req.level_required === "khabir" ? "خبير" : "فني"} · عدد الفريق {req.workers_count ?? 1}</div>
+              <div className="text-[11px] text-muted-foreground">{req.level_required === "khabir" ? "خبير" : "فني"} · العدد المطلوب {req.workers_count ?? 1}</div>
+              <div className="mt-1 text-[11px] font-bold text-primary">تم تأكيد {acceptedPeopleCount} · المتبقي {remainingPeopleCount}</div>
             </div>
           </div>
         )}
@@ -696,8 +716,11 @@ function RequestDetail() {
               driverName={other?.full_name ?? "الفني"}
               driverPhone={other?.phone}
               vehicleCategory={req.vehicle_category}
+              vehicleType={req.vehicle_type}
+              serviceSlug={req.services?.slug}
+              serviceName={req.services?.name_ar}
               height={req.type === "taxi" ? 390 : 280}
-              showStatusOverlay={req.type !== "taxi"}
+              showStatusOverlay
               fullscreen={mapOpen}
               onClose={() => setMapOpen(false)}
               onOpenNavigation={myRole === "provider" ? () => setNavModalOpen(true) : undefined}
@@ -887,32 +910,29 @@ function RequestDetail() {
             {other?.phone && <ContactOptions phone={other.phone} label="اتصال / واتساب" className="h-10 rounded-xl bg-primary px-3 grid place-items-center text-xs font-black text-primary-foreground" />}
             <button type="button" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); setSoundEnabledState(next); toast.success(next ? "تم تفعيل صوت الإشعارات" : "تم إيقاف صوت الإشعارات"); }} className="h-10 w-10 rounded-xl border border-border grid place-items-center" title={soundEnabled ? "إيقاف صوت الإشعارات" : "تفعيل صوت الإشعارات"}>{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
           </div>
-          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-2.5">
-            {messages.length === 0 && <div className="text-center text-xs text-muted-foreground py-10">ابدأ المحادثة 👋</div>}
-            {messages.map((m) => {
-              const mine = m.sender_id === session.user.id;
-              const timeStr = m.created_at ? new Date(m.created_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" }) : "";
-              return (
-                <div key={m.id} className={`flex ${mine ? "justify-start" : "justify-end"}`}>
-                  <div className={`max-w-[84%] rounded-[22px] px-4 py-3 text-sm leading-7 shadow-sm break-words ${mine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card text-foreground border border-border rounded-bl-md"}`}>
-                    <div>{m.content}</div>
-                    {timeStr && <div className={`text-[9px] mt-1 text-left ${mine ? "text-primary-foreground/75" : "text-muted-foreground"}`}>{timeStr}</div>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="shrink-0 bg-card p-3 border-t border-border pb-[max(env(safe-area-inset-bottom),12px)] space-y-2">
-            <QuickReplies role={myRole} type={req.type as "taxi" | "service"} onPick={async (text) => {
-              if (!chat || !session) return;
-              const { error } = await supabase.from("messages").insert({ chat_id: chat.id, sender_id: session.user.id, content: text });
-              if (error) toast.error(error.message);
-            }} />
-            <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-2">
-              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="اكتب رسالة..." className="flex-1 min-w-0 bg-background border border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-primary" />
-              <button type="submit" className="h-12 w-12 shrink-0 rounded-2xl bg-primary grid place-items-center text-primary-foreground"><Send className="h-5 w-5" /></button>
-            </form>
-          </div>
+          <MamnoonChatThread
+            messages={messages.map((m) => ({
+              id: m.id,
+              senderId: m.sender_id,
+              body: m.content,
+              createdAt: m.created_at,
+            }))}
+            currentUserId={session.user.id}
+            draft={draft}
+            onDraftChange={setDraft}
+            onSend={() => void send()}
+            placeholder="اكتب رسالة..."
+            emptyText="ابدأ المحادثة 👋"
+            footer={
+              <div className="border-t border-border/60 px-3 pt-2">
+                <QuickReplies role={myRole} type={req.type as "taxi" | "service"} onPick={async (text) => {
+                  if (!chat || !session) return;
+                  const { error } = await supabase.from("messages").insert({ chat_id: chat.id, sender_id: session.user.id, content: text });
+                  if (error) toast.error(error.message);
+                }} />
+              </div>
+            }
+          />
         </div>
       )}
 
@@ -924,15 +944,17 @@ function RequestDetail() {
               {req.type === "service" && req.services?.name_ar && <div className="mb-1 text-sm font-black">{req.services.name_ar}</div>}
               <div className="text-lg font-black text-foreground">طلبك وصل إلى ممنون</div>
               <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                {req.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار أول ما توصل." : "نبحث عن أقرب مزوّد متاح ومؤهل. أول شخص يقبل الطلب راح يتواصل وياك مباشرة."}
+                {req.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار أول ما توصل." : req.type === "service" ? "نستقبل موافقات الفنيين إلى أن يكتمل عدد الفريق المطلوب أو تختار الاكتفاء بالعدد المتوفر." : "نبحث عن أقرب مزوّد متاح ومؤهل. أول شخص يقبل الطلب راح يتواصل وياك مباشرة."}
               </p>
+              {req.type === "service" && <div className="mt-3 rounded-xl bg-background/80 p-3 text-sm font-black text-right">الفريق المؤكد: {acceptedPeopleCount} من {req.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</div>}
               {(
                 (() => {
                   const start = Date.parse(req.searching_started_at || req.created_at || new Date().toISOString());
-                  const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
+                  const totalSeconds = 360 * (req.type === "service" ? Math.max(1, Number(req.workers_count) || 1) : 1);
+                  const remaining = Math.max(0, totalSeconds - Math.floor((dispatchClock - start) / 1000));
                   const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
                   const ss = String(remaining % 60).padStart(2, "0");
-                  const progress = Math.max(0, Math.min(100, remaining / 360 * 100));
+                  const progress = Math.max(0, Math.min(100, remaining / totalSeconds * 100));
                   return <div className="mt-5 flex flex-col items-center gap-2">
                     <div className={`grid h-28 w-28 place-items-center rounded-full ${remaining > 0 && remaining <= 10 ? "animate-pulse" : ""}`} style={{ background: `conic-gradient(${remaining > 0 && remaining <= 10 ? "hsl(var(--destructive))" : "hsl(var(--primary))"} ${progress}%, hsl(var(--muted)) ${progress}% 100%)` }}>
                       <div className="grid h-24 w-24 place-items-center rounded-full bg-background">
@@ -940,7 +962,7 @@ function RequestDetail() {
                         <div className="text-[10px] font-bold text-muted-foreground">وقت البحث</div>
                       </div>
                     </div>
-                    <div className="text-xs font-bold text-muted-foreground">{req.vehicle_category === "large" ? (remaining === 0 ? "انتهت جولات البحث، والعروض التي وصلت تبقى متاحة لاختيارك." : "نعرض الطلب على أصحاب السيارات ضمن ثلاثة نطاقات، ثم نعيد المحاولة مرة ثانية.") : "نجرب ثلاث نطاقات قريبة ثم نعيد المحاولة مرة ثانية"}</div>
+                    <div className="text-xs font-bold text-muted-foreground">{req.vehicle_category === "large" ? (remaining === 0 ? "انتهت جولات البحث، والعروض التي وصلت تبقى متاحة لاختيارك." : "نعرض الطلب على أصحاب السيارات ضمن ثلاثة نطاقات، ثم نعيد المحاولة مرة ثانية.") : req.type === "service" ? (Number(req.workers_count || 1) > 1 ? (remaining === 0 ? "انتهت الدورة الأولى، لكن البحث مستمر إلى أن يكتمل العدد أو تختار الاكتفاء." : "نبحث ضمن نطاقات متدرجة ونكرر البحث حسب عدد أفراد الفريق المطلوب.") : (remaining === 0 ? "انتهت مهلة البحث عن الفني." : "نبحث عن فني متاح ومؤهل بالقرب منك.")) : "نجرب ثلاث نطاقات قريبة ثم نعيد المحاولة مرة ثانية"}</div>
                   </div>;
                 })()
               )}
@@ -971,7 +993,22 @@ function RequestDetail() {
                 </div>
               )}
 
-              <button onClick={() => setShowCancel(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
+              {req.type === "service" && acceptedPeopleCount > 0 && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const { error } = await (supabase as any).rpc("stop_service_request_acceptance", { _request_id: id });
+                      if (error) throw error;
+                      toast.success("تم الاكتفاء بالفريق الحالي وإيقاف استقبال فنيين إضافيين");
+                      await loadAll();
+                    } catch (error: any) {
+                      toast.error(error?.message ?? "تعذّر إيقاف استقبال الفنيين");
+                    }
+                  }}
+                  className="mt-4 min-h-12 w-full rounded-2xl bg-emerald-600 text-white font-black"
+                >اكتفيت بالعدد المتوفر ({acceptedPeopleCount})</button>
+              )}
+              <button onClick={() => setShowCancel(true)} className="mt-2 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
             </>
           ) : (
             <>

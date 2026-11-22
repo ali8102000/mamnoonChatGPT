@@ -22,3 +22,34 @@ export async function lookupMapPlace({ data }: { data: MapLookupInput }) {
   }
   return result;
 }
+
+
+export type LiveRoadRoute = {
+  distanceKm?: number;
+  durationMin?: number;
+  staticDurationMin?: number;
+  routeSource?: string;
+  routePoints?: { lat: number; lng: number }[];
+  routeSteps?: { instruction: string; distanceMeters: number; durationSeconds: number; maneuver?: string }[];
+  trafficSegments?: { startIndex: number; endIndex: number; speed: string }[];
+};
+
+export async function getLiveRoadRoute(from: { lat: number; lng: number }, to: { lat: number; lng: number }) {
+  const { data, error } = await supabase.functions.invoke("maps-proxy", {
+    body: { action: "route", from, to, includeGeometry: true },
+  });
+  if (error) {
+    const message = data && typeof data === "object" && typeof (data as any).error === "string"
+      ? (data as any).error
+      : error.message || "تعذّر حساب مسار الشوارع.";
+    throw new Error(message);
+  }
+  if (!data || typeof data !== "object" || typeof (data as any).error === "string") {
+    throw new Error(typeof (data as any)?.error === "string" ? (data as any).error : "لم يصل مسار صالح من خدمة الخرائط.");
+  }
+  const route = data as LiveRoadRoute;
+  if (!Array.isArray(route.routePoints) || route.routePoints.length < 2) {
+    throw new Error("لم يتم العثور على مسار طرق صالح.");
+  }
+  return route;
+}

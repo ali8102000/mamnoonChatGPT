@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import MapView, { AnimatedRegion, Marker, Polyline } from "react-native-maps";
 import { LinearGradient } from "expo-linear-gradient";
+import { SvgUri } from "react-native-svg";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -37,6 +38,15 @@ import service_cleaning from "../../assets/services/cleaning.jpg";
 import service_wood_carpentry from "../../assets/services/wood_carpentry.jpg";
 import service_blacksmith from "../../assets/services/blacksmith.jpg";
 import service_general from "../../assets/services/general.jpg";
+import service_goods_transport from "../../assets/services/goods_transport.jpg";
+import service_cargo_handling from "../../assets/services/cargo_handling.jpg";
+import service_computer_repair from "../../assets/services/computer_repair.jpg";
+import service_electronics_repair from "../../assets/services/electronics_repair.jpg";
+import service_furniture_moving from "../../assets/services/furniture_moving.jpg";
+import service_gardener from "../../assets/services/gardener.jpg";
+import service_internet_install from "../../assets/services/internet_install.jpg";
+import service_phone_repair from "../../assets/services/phone_repair.jpg";
+import service_security_cameras from "../../assets/services/security_cameras.jpg";
 import { palette, radius } from "@/styles/theme";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { showContactOptions } from "@/lib/contact-actions";
@@ -113,7 +123,7 @@ type ChatMessage = {
 };
 
 
-function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; heading?: number | null }) {
+function TaxiCarMarker({ coordinate, heading, imageSource, imageUri }: { coordinate: Coordinates; heading?: number | null; imageSource?: any; imageUri?: string }) {
   const animatedCoordinate = useRef(new AnimatedRegion(coordinate)).current;
   const lastCoordinateRef = useRef(coordinate);
   const rotation = useSharedValue(Number.isFinite(heading) ? Number(heading) : 0);
@@ -165,7 +175,7 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
       tracksViewChanges
     >
       <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
-        <Image source={{ uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />
+        {imageUri ? <SvgUri uri={imageUri} width={32} height={24} /> : <Image source={imageSource ?? { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />}
       </Animated.View>
     </Marker.Animated>
   );
@@ -177,6 +187,16 @@ function LocationTargetMarker({ coordinate, title }: { coordinate: Coordinates; 
     <Marker coordinate={coordinate} title={title} anchor={{ x: 0.5, y: 1 }}>
       <View style={styles.endpointPin}>
         <View style={styles.endpointPinCore}><View style={styles.endpointPinDot} /></View>
+      </View>
+    </Marker>
+  );
+}
+
+function ServicePhotoMarker({ coordinate, imageSource, title }: { coordinate: Coordinates; imageSource: any; title: string }) {
+  return (
+    <Marker coordinate={coordinate} title={title} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+      <View style={styles.requestPhotoMarker}>
+        <Image source={imageSource} style={styles.requestPhotoMarkerImage} resizeMode="cover" />
       </View>
     </Marker>
   );
@@ -223,6 +243,9 @@ export default function RequestDetail() {
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
   const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
   const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
+  const [roadTrafficSegments, setRoadTrafficSegments] = useState<{ startIndex: number; endIndex: number; speed: string }[]>([]);
+  const [nextRouteInstruction, setNextRouteInstruction] = useState<string | null>(null);
+  const [liveRouteSource, setLiveRouteSource] = useState<string | null>(null);
   const acceptedMapRef = useRef<MapView | null>(null);
   const acceptedMapFitKeyRef = useRef<string | null>(null);
   const roadRouteSequenceRef = useRef(0);
@@ -254,13 +277,14 @@ export default function RequestDetail() {
   const [retryingDispatch, setRetryingDispatch] = useState(false);
   const [taxiUrgencyBusy, setTaxiUrgencyBusy] = useState(false);
   const [activeOffer, setActiveOffer] = useState<any>(null);
+  const [serviceProviders, setServiceProviders] = useState<any[]>([]);
   const scrollRef = useRef<ScrollView>(null);
   const weeklyRatingNoticeRef = useRef<string | null>(null);
-  const isProvider = request?.provider_id === user?.id;
+  const isProvider = request?.provider_id === user?.id || serviceProviders.some((member) => member.provider_id === user?.id);
   const isCustomer = request?.customer_id === user?.id;
   const canAccept = Boolean(
     request &&
-    !request.provider_id &&
+    (request.type === "service" ? Boolean(activeOffer) : !request.provider_id) &&
     request.customer_id !== user?.id &&
     ((request.type === "taxi" && (request.vehicle_category === "large" ? roles.includes("large_driver") : roles.includes("driver")) ) ||
       (request.type === "service" && roles.includes("worker"))),
@@ -268,8 +292,7 @@ export default function RequestDetail() {
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
   const acceptedMapMode = Boolean(
     request && (isProvider || isCustomer) && isActive &&
-    (request.type === "taxi" || request.type === "service") &&
-    (request.pickup_lat != null && request.pickup_lng != null || myLocation || otherLocation),
+    (request.type === "taxi" || request.type === "service")
   );
   const providerLiveLocation = isCustomer ? otherLocation : myLocation;
   const driverLocationFresh = Boolean(providerLiveLocation?.updatedAt && Number.isFinite(Date.parse(providerLiveLocation.updatedAt)) && freshnessClock - Date.parse(providerLiveLocation.updatedAt) < 25000);
@@ -346,7 +369,8 @@ export default function RequestDetail() {
     let active = true;
     void (async () => {
       const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
-      const remaining = Math.max(0, 360 - Math.floor((Date.now() - start) / 1000));
+      const totalSeconds = 360 * (request.type === "service" ? Math.max(1, Number(request.workers_count) || 1) : 1);
+      const remaining = Math.max(0, totalSeconds - Math.floor((Date.now() - start) / 1000));
       if (remaining <= 0) return;
       const preferences = await loadNotificationPreferences();
       if (!active || !preferences.soundEnabled) return;
@@ -373,7 +397,7 @@ export default function RequestDetail() {
       countdownNotificationIdRef.current = null;
       if (notificationId) void Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => {});
     };
-  }, [request?.id, request?.status, request?.searching_started_at, request?.created_at, isCustomer]);
+  }, [request?.id, request?.status, request?.searching_started_at, request?.created_at, request?.type, request?.workers_count, isCustomer]);
 
 
   useEffect(() => {
@@ -399,6 +423,19 @@ export default function RequestDetail() {
       return;
     }
     setRequest(data as RequestRecord | null);
+    // Render the core request before optional offers, attachments and payment status finish loading.
+    setLoading(false);
+    if (data?.type === "service") {
+      setServiceProviders([]);
+      const { data: members, error: membersError } = await (supabase as any)
+        .from("service_request_providers")
+        .select("provider_id,team_size,accepted_at")
+        .eq("request_id", id)
+        .order("accepted_at", { ascending: true });
+      if (!membersError) setServiceProviders(members ?? []);
+    } else {
+      setServiceProviders([]);
+    }
     if (data && user?.id && data.customer_id !== user.id) {
       const { data: ownOffer } = await (supabase as any)
         .from("request_offers")
@@ -554,6 +591,11 @@ export default function RequestDetail() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "request_offers", filter: `request_id=eq.${id}` },
+        () => { void loadRequest(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_request_providers", filter: `request_id=eq.${id}` },
         () => { void loadRequest(); },
       )
       .subscribe();
@@ -819,6 +861,9 @@ export default function RequestDetail() {
     if (!isActive || !providerLiveLocation || !driverLocationFresh) {
       roadRouteSequenceRef.current += 1;
       setRoadRoutePoints([]);
+      setRoadTrafficSegments([]);
+      setNextRouteInstruction(null);
+      setLiveRouteSource(null);
       return;
     }
     // The provider always routes to the saved work/pickup point for a service.
@@ -849,7 +894,7 @@ export default function RequestDetail() {
         )
       : Number.POSITIVE_INFINITY;
     if (previousRouteRequest && previousRouteRequest.routeKey === routeKey &&
-        movedMeters < 25 && Date.now() - previousRouteRequest.requestedAt < 12000) return;
+        movedMeters < 15 && Date.now() - previousRouteRequest.requestedAt < 8000) return;
 
     const sequence = ++roadRouteSequenceRef.current;
     const timeout = setTimeout(() => {
@@ -859,7 +904,12 @@ export default function RequestDetail() {
         longitude: origin.longitude,
         requestedAt: Date.now(),
       };
-      void callMamnoonMapsApi<{ routePoints?: { lat: number; lng: number }[] }>({
+      void callMamnoonMapsApi<{
+        routePoints?: { lat: number; lng: number }[];
+        routeSteps?: { instruction: string; distanceMeters: number }[];
+        trafficSegments?: { startIndex: number; endIndex: number; speed: string }[];
+        routeSource?: string;
+      }>({
         action: "route",
         from: { lat: origin.latitude, lng: origin.longitude },
         to: { lat: destination.latitude, lng: destination.longitude },
@@ -871,9 +921,18 @@ export default function RequestDetail() {
           Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180,
         );
         setRoadRoutePoints(points.length > 1 ? points.map((point) => ({ latitude: point.lat, longitude: point.lng })) : []);
+        setRoadTrafficSegments((route.trafficSegments ?? []).filter((segment) =>
+          Number.isInteger(segment.startIndex) && Number.isInteger(segment.endIndex) &&
+          segment.startIndex >= 0 && segment.endIndex > segment.startIndex && segment.endIndex <= points.length,
+        ));
+        setNextRouteInstruction(route.routeSteps?.[0]?.instruction ?? null);
+        setLiveRouteSource(route.routeSource ?? null);
       }).catch((error) => {
         if (sequence === roadRouteSequenceRef.current) {
           setRoadRoutePoints([]);
+          setRoadTrafficSegments([]);
+          setNextRouteInstruction(null);
+          setLiveRouteSource(null);
           console.warn("[Mamnoon] road route unavailable:", error instanceof Error ? error.message : "unknown");
         }
       });
@@ -1055,11 +1114,44 @@ export default function RequestDetail() {
   }
 
   async function acceptRequest() {
-    const { error } = await supabase.rpc("accept_service_request", { _request_id: id });
-    if (error) Alert.alert("خطأ", error.message);
-    else {
-      await Promise.all([loadRequest(), loadChat()]);
+    const acceptWithTeam = async (teamSize: number) => {
+      if (request?.type === "service" && user?.id) {
+        const { error: teamError } = await (supabase as any)
+          .from("worker_profiles")
+          .update({ team_size: teamSize })
+          .eq("user_id", user.id);
+        if (teamError) {
+          Alert.alert("تعذر حفظ حجم الفريق", teamError.message);
+          return;
+        }
+      }
+      const { error } = await supabase.rpc("accept_service_request", { _request_id: id });
+      if (error) Alert.alert("تعذر قبول الطلب", error.message);
+      else {
+        await Promise.all([loadRequest(), loadChat()]);
+      }
+    };
+    if (request?.type === "service") {
+      const maxTeamSize = Math.min(5, Math.max(1, remainingPeopleCount || Number(request.workers_count) || 1));
+      const teamChoices = (sizes: number[]) => sizes.filter((size) => size <= maxTeamSize).map((size) => ({
+        text: size === 1 ? "أنا وحدي · 1" : size === 2 ? "أنا + عامل · 2" : `أنا + ${size - 1} عمال · ${size}`,
+        onPress: () => void acceptWithTeam(size),
+      }));
+      const prompt = "اختَر العدد الكلي ويّاك (الخبير محسوب ضمن العدد).";
+      if (maxTeamSize <= 3) {
+        Alert.alert("كم شخص يجي وياك؟", prompt, teamChoices([1, 2, 3]));
+      } else {
+        Alert.alert("كم شخص يجي وياك؟", prompt, [
+          ...teamChoices([1, 2]).slice(0, 2),
+          {
+            text: "خيارات أكثر",
+            onPress: () => Alert.alert("اختَر عدد أفراد الفريق", prompt, teamChoices([3, 4, 5])),
+          },
+        ]);
+      }
+      return;
     }
+    await acceptWithTeam(1);
   }
 
   async function retryLargeOffers() {
@@ -1296,6 +1388,8 @@ export default function RequestDetail() {
     cancelled: "ملغي",
   };
   const quickReplies = isCustomer ? QUICK_REPLIES_CUSTOMER : QUICK_REPLIES_PROVIDER;
+  const acceptedPeopleCount = serviceProviders.reduce((sum, member) => sum + Number(member.team_size || 1), 0);
+  const remainingPeopleCount = Math.max(0, Number(request.workers_count || 1) - acceptedPeopleCount);
   const ratingReasonOptions = isProvider
     ? ["محترم وحسن التعامل", "ملتزم بالموعد", "متعاون وواضح", "قدّم معلومات دقيقة", "احترم وقتي", "التزم بالاتفاق", "تأخر دون إشعار", "صعّب التواصل", "غيّر الاتفاق دون تنسيق", "تعامل غير لائق"]
     : request?.type === "taxi"
@@ -1335,7 +1429,15 @@ export default function RequestDetail() {
             rotateEnabled
           >
             {roadRoutePoints.length > 1 && (
-              <Polyline coordinates={roadRoutePoints} strokeColor="#2563EB" strokeWidth={6} />
+              <>
+                <Polyline coordinates={roadRoutePoints} strokeColor="#2563EB" strokeWidth={5} />
+                {roadTrafficSegments.map((segment, index) => {
+                  const segmentPoints = roadRoutePoints.slice(segment.startIndex, segment.endIndex);
+                  if (segmentPoints.length < 2) return null;
+                  const trafficColor = segment.speed === "TRAFFIC_JAM" ? "#DC2626" : segment.speed === "SLOW" ? "#F59E0B" : "#16A34A";
+                  return <Polyline key={index} coordinates={segmentPoints} strokeColor={trafficColor} strokeWidth={6} />;
+                })}
+              </>
             )}
             {providerRoutePoints.length > 1 && (
               <Polyline coordinates={providerRoutePoints} strokeColor="#D6A43B" strokeWidth={5} geodesic />
@@ -1349,7 +1451,16 @@ export default function RequestDetail() {
                   <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
                 )}
                 {(isProvider ? myLocation : otherLocation) && (
-                  <TaxiCarMarker coordinate={(isProvider ? myLocation : otherLocation)!} heading={(isProvider ? myLocation : otherLocation)?.heading} />
+                  <TaxiCarMarker
+                    coordinate={(isProvider ? myLocation : otherLocation)!}
+                    heading={(isProvider ? myLocation : otherLocation)?.heading}
+                    imageSource={undefined}
+                    imageUri={request.vehicle_category === "large"
+                      ? "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/public/images/" +
+                        (request.vehicle_type === "kia_cargo" ? "kia-cargo" : "kia-passenger") + ".svg"
+                      : "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/public/vehicle-icons/" +
+                        (["economy", "premium", "luxury"].includes(request.vehicle_category ?? "") ? request.vehicle_category : "economy") + ".svg"}
+                  />
                 )}
                 {(isProvider ? otherLocation : myLocation) && (
                   <LocationTargetMarker coordinate={(isProvider ? otherLocation : myLocation)!} title={isProvider ? "موقع الزبون" : "موقعك"} />
@@ -1363,8 +1474,19 @@ export default function RequestDetail() {
                 {request.dest_lat != null && request.dest_lng != null && (
                   <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
                 )}
-                {myLocation && <LocationTargetMarker coordinate={myLocation} title={isProvider ? "موقعي كفني" : "موقعي"} />}
-                {otherLocation && <LocationTargetMarker coordinate={otherLocation} title={isProvider ? "موقع الزبون" : "موقع مقدم الخدمة"} />}
+                {(isProvider ? myLocation : otherLocation) && (
+                  <ServicePhotoMarker
+                    coordinate={(isProvider ? myLocation : otherLocation)!}
+                    imageSource={SERVICE_IMAGES[request.services?.slug ?? ""] ?? service_general}
+                    title={request.services?.name_ar || "مقدم الخدمة"}
+                  />
+                )}
+                {(isProvider ? otherLocation : myLocation) && (
+                  <LocationTargetMarker
+                    coordinate={(isProvider ? otherLocation : myLocation)!}
+                    title={isProvider ? "موقع الزبون" : "موقعك"}
+                  />
+                )}
               </>
             )}
           </MapView>
@@ -1374,7 +1496,7 @@ export default function RequestDetail() {
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backBtn}>→</Text>
           </TouchableOpacity>
-          <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>{otherLocation && request.pickup_lat != null && request.pickup_lng != null && (() => { const rad = (value: number) => value * Math.PI / 180; const dLat = rad(otherLocation.latitude - request.pickup_lat!); const dLng = rad(otherLocation.longitude - request.pickup_lng!); const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(request.pickup_lat!)) * Math.cos(rad(otherLocation.latitude)) * Math.sin(dLng / 2) ** 2; const meters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return !driverLocationFresh ? "بانتظار تحديث موقع السائق" : meters <= 50 ? "انا في نقطة الانطلاق" : driverEtaMinutes != null && driverEtaMinutes <= 2 ? "دقيقتين واوصل" : driverEtaMinutes != null ? `باقي ${driverEtaMinutes} دقيقة واوصل` : "الكابتن متجه إليك"; })()}</Text>}</View>
+          <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{request.type === "service" && request.status === "accepted" && remainingPeopleCount > 0 ? "اكتفى الزبون بالعدد المتوفر" : statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>{otherLocation && request.pickup_lat != null && request.pickup_lng != null && (() => { const rad = (value: number) => value * Math.PI / 180; const dLat = rad(otherLocation.latitude - request.pickup_lat!); const dLng = rad(otherLocation.longitude - request.pickup_lng!); const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(request.pickup_lat!)) * Math.cos(rad(otherLocation.latitude)) * Math.sin(dLng / 2) ** 2; const meters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return !driverLocationFresh ? "بانتظار تحديث موقع السائق" : meters <= 50 ? "انا في نقطة الانطلاق" : driverEtaMinutes != null && driverEtaMinutes <= 2 ? "دقيقتين واوصل" : driverEtaMinutes != null ? `باقي ${driverEtaMinutes} دقيقة واوصل` : "الكابتن متجه إليك"; })()}</Text>}</View>
           <View style={{ width: 30 }} />
         </View>
         <ScrollView
@@ -1400,6 +1522,8 @@ export default function RequestDetail() {
                     ? "الموقع يتحدث مباشرة"
                     : "بانتظار تحديث الموقع"}
             </Text>
+            {nextRouteInstruction && <Text style={styles.mapLiveBadgeText} numberOfLines={1}>التالي: {nextRouteInstruction}</Text>}
+            {liveRouteSource === "google_routes_traffic" && <Text style={styles.mapTrafficLabel}>المسار وحركة المرور المباشرة من Google</Text>}
           </View>
         )}
         {otherProfile && !["completed", "cancelled"].includes(request.status) && (
@@ -1440,7 +1564,7 @@ export default function RequestDetail() {
             </View>
           )}
           {request.workers_count != null && request.type === "service" && (
-            <Text style={styles.infoRow}>عدد العاملين: {request.workers_count}</Text>
+            <Text style={styles.infoRow}>العدد المطلوب: {request.workers_count} · تم تأكيد: {acceptedPeopleCount} · المتبقي: {remainingPeopleCount}</Text>
           )}
           {request.work_hours != null && (
             <Text style={styles.infoRow}>الساعات المتوقعة: {request.work_hours}</Text>
@@ -1455,23 +1579,46 @@ export default function RequestDetail() {
             <Text style={styles.infoPrice}>الأجر قابل للتفاوض</Text>
           )}
         </View>
+        {isProvider && request.type === "service" && request.status === "searching" && (
+          <View style={{ marginTop: 12, borderRadius: 16, padding: 13, backgroundColor: "#E8F7EF", borderWidth: 1, borderColor: palette.success }}>
+            <Text style={{ color: palette.ink, fontWeight: "900", textAlign: "right" }}>تم تسجيلك ضمن فريق الطلب</Text>
+            <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 4 }}>الفريق المؤكد: {acceptedPeopleCount} من {request.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</Text>
+          </View>
+        )}
         {isCustomer && ["pending", "searching"].includes(request.status) && (
           <View style={{ marginTop: 14, borderRadius: 22, padding: 18, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand + "35", alignItems: "center", gap: 8 }}>
             {request.type === "taxi" ? <Text style={{ fontSize: 28 }}>🚕</Text> : request.services?.slug && SERVICE_IMAGES[request.services.slug] ? <Image source={SERVICE_IMAGES[request.services.slug]} style={{ width: 76, height: 76, borderRadius: 18 }} resizeMode="cover" /> : <Text style={{ fontSize: 28 }}>🛠️</Text>}
             {request.type === "service" && request.services?.name_ar && <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900" }}>{request.services.name_ar}</Text>}
             <Text style={{ color: palette.ink, fontSize: 18, fontWeight: "900" }}>طلبك وصل إلى ممنون</Text>
             <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", lineHeight: 20 }}>
-              {request.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار عند وصولها." : "نبحث عن أقرب سائق أو فني متاح ومؤهل. أول شخص يقبل الطلب يحصل عليه."}
+              {request.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار عند وصولها." : request.type === "service" ? "نستقبل موافقات الفنيين إلى أن يكتمل العدد المطلوب أو تختار الاكتفاء بالفريق المتوفر." : "نبحث عن أقرب سائق أو فني متاح ومؤهل. أول شخص يقبل الطلب يحصل عليه."}
             </Text>
             {(() => {
               const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
-              const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
+              const totalSeconds = 360 * (request.type === "service" ? Math.max(1, Number(request.workers_count) || 1) : 1);
+              const remaining = Math.max(0, totalSeconds - Math.floor((dispatchClock - start) / 1000));
               return <View style={{ width: 104, height: 104, borderRadius: 52, borderWidth: 7, borderColor: remaining <= 10 && remaining > 0 ? palette.danger : palette.gold, alignItems: "center", justifyContent: "center", marginTop: 8, backgroundColor: remaining <= 10 && remaining > 0 ? palette.dangerSoft : palette.surface, opacity: remaining <= 10 && remaining > 0 ? 0.78 + (dispatchClock % 2) * 0.22 : 1 }}>
                 <Text style={{ color: palette.ink, fontSize: 23, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</Text>
                 <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "800" }}>وقت البحث</Text>
               </View>;
             })()}
-            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
+            {request.type === "service" && <Text style={{ color: palette.brand, fontSize: 13, fontWeight: "900", textAlign: "center" }}>الفريق المؤكد: {acceptedPeopleCount} من {request.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</Text>}
+            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : request.type === "service" ? (Number(request.workers_count || 1) > 1 ? "نواصل البحث بدورات متكررة إلى أن يكتمل الفريق أو تختار الاكتفاء بالعدد المتوفر." : "نبحث عن فني متاح ضمن نطاقات البحث المعتادة.") : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
+            {request.type === "service" && acceptedPeopleCount > 0 && (
+              <TouchableOpacity
+                onPress={async () => {
+                  const { error } = await (supabase as any).rpc("stop_service_request_acceptance", { _request_id: id });
+                  if (error) Alert.alert("تعذر إيقاف البحث", error.message);
+                  else {
+                    Alert.alert("تم الاكتفاء بالعدد", "أوقفنا استقبال فنيين إضافيين.");
+                    await loadRequest();
+                  }
+                }}
+                style={{ width: "100%", borderRadius: 14, padding: 13, backgroundColor: palette.success, marginTop: 6 }}
+              >
+                <Text style={{ color: "#FFFFFF", fontWeight: "900", textAlign: "center" }}>اكتفيت بالعدد المتوفر ({acceptedPeopleCount})</Text>
+              </TouchableOpacity>
+            )}
             {urgencyAllowed && Number(request.customer_price ?? request.price_estimate ?? 0) > 0 && <View style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
               <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>⚡ وضع الاستعجال</Text>
               <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>نسبة الزيادة الأساسية من الإدارة: {urgencyAdminPercent}٪. اختر ×2 أو ×3 لرفع الأجر وتشجيع المزوّدين على قبول الطلب.</Text>
@@ -1782,7 +1929,7 @@ const styles = StyleSheet.create({
   containerMap: { backgroundColor: "transparent" },
   fullScreenTrackingMap: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
   headerOnMap: { backgroundColor: "rgba(255,255,255,0.94)", borderBottomColor: "rgba(15,23,42,0.10)", elevation: 4 },
-  requestScrollOnMap: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "64%", backgroundColor: "rgba(255,255,255,0.96)", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden", elevation: 8 },
+  requestScrollOnMap: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "38%", backgroundColor: "rgba(255,255,255,0.96)", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden", elevation: 8 },
   mapLiveBadge: { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: 7, marginTop: 10, marginBottom: 3, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.96)", borderWidth: 1, borderColor: palette.line, elevation: 3 },
   mapLiveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.success },
   mapLiveBadgeTitle: { color: palette.ink, fontSize: 11, fontWeight: "900" },
@@ -1830,8 +1977,11 @@ const styles = StyleSheet.create({
   destinationPin: { width: 34, height: 42, alignItems: "center", justifyContent: "flex-start", paddingTop: 5, borderRadius: 18, borderBottomLeftRadius: 4, transform: [{ rotate: "-45deg" }], borderWidth: 2.5, borderColor: "#FFFFFF", elevation: 10, shadowColor: "#9F1239", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, overflow: "hidden" },
   destinationPinCore: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   destinationPinDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#C62828" },
-  luxuryCarPhoto: { width: 54, height: 36 },
-  luxuryCarMarker: { width: 48, height: 30, borderRadius: 13, backgroundColor: "#B88A24", borderWidth: 2, borderColor: "#172033", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 7 },
+  luxuryCarPhoto: { width: 32, height: 24, borderRadius: 12 },
+  requestPhotoMarker: { width: 38, height: 38, borderRadius: 19, overflow: "hidden", borderWidth: 3, borderColor: "#FFFFFF", backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 9, shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
+  requestPhotoMarkerImage: { width: 32, height: 32, borderRadius: 16 },
+  mapTrafficLabel: { color: "#0F766E", fontSize: 9, fontWeight: "900" },
+  luxuryCarMarker: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#FFFFFF", borderWidth: 3, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 7 },
   luxuryCarRoof: { position: "absolute", top: 3, width: 25, height: 12, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: "#24364A" },
   luxuryCarWindows: { position: "absolute", top: 5, width: 21, height: 7, borderRadius: 4, backgroundColor: "#9CC6D8" },
   luxuryCarFront: { position: "absolute", right: 2, width: 4, height: 8, borderRadius: 3, backgroundColor: "#F8E7A0" },

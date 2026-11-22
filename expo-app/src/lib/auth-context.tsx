@@ -118,6 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const roleRevision = useRef(0);
   // Serialize SecureStore writes so an older switch cannot finish after a newer one.
   const roleWriteQueue = useRef<Promise<void>>(Promise.resolve());
+  // Reuse one account bootstrap when Supabase auth events and login refresh overlap.
+  const profileLoadInFlight = useRef(new Map<string, Promise<void>>());
 
   async function restoreActiveRole(uid: string, availableRoles: AppRole[]) {
     const revisionAtStart = roleRevision.current;
@@ -163,16 +165,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // restore briefly overwrite the customer's newly selected role.
     const revision = ++roleRevision.current;
 
-    // Detach role-scoped listeners and stop provider presence before switching.
-    await cleanupSessionAndListeners();
-    if (roleRevision.current !== revision || lastUserId.current !== uid) return;
-
-    // Serialize SecureStore writes so rapid taps cannot persist roles out of order.
+    // Detach old role listeners and persist the next role concurrently.
+    // The UI changes only after both finish, so old provider presence cannot leak.
+    const cleanup = cleanupSessionAndListeners();
     const write = roleWriteQueue.current
       .catch(() => undefined)
       .then(() => withStartupTimeout(SecureStore.setItemAsync(rolePreferenceKey(uid), role), 8000, "active_role_write_timeout"));
     roleWriteQueue.current = write;
-    await write;
+    await Promise.all([cleanup, write]);
+    if (roleRevision.current !== revision || lastUserId.current !== uid) return;
 
     // If a newer role was requested while this write was pending, its queued
     // write will become the persisted value and only it may update the UI.
@@ -180,7 +181,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveRoleState(role);
   }
 
-  async function loadProfile(uid: string) {
+  function loadProfile(uid: string): Promise<void> {
+    const existing = profileLoadInFlight.current.get(uid);
+    if (existing) return existing;
+
+    const operation = (async () => {
     let cached: CachedAuthProfile | null = null;
     try {
       cached = await withStartupTimeout(readCachedAuthProfile(uid), 5000, "local_account_cache_timeout");
@@ -278,6 +283,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (lastUserId.current === uid) setActiveRoleState("customer");
       });
     }
+    })();
+    profileLoadInFlight.current.set(uid, operation);
+    const clearInFlight = () => {
+      if (profileLoadInFlight.current.get(uid) === operation) {
+        profileLoadInFlight.current.delete(uid);
+      }
+    };
+    void operation.then(clearInFlight, clearInFlight);
+    return operation;
   }
 
   // Keep the context refresh function referentially stable. Screens use it

@@ -31,12 +31,40 @@ function HistoryPage() {
 
   useEffect(() => {
     if (!session) return;
-    supabase
-      .from("service_requests")
-      .select("id, type, status, price_estimate, pickup_text, dest_text, created_at")
-      .or(`customer_id.eq.${session.user.id},provider_id.eq.${session.user.id}`)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => setItems(data ?? []));
+    let active = true;
+    const loadHistory = async () => {
+      const { data: directRows, error: directError } = await supabase
+        .from("service_requests")
+        .select("id, type, status, price_estimate, pickup_text, dest_text, created_at")
+        .or(`customer_id.eq.${session.user.id},provider_id.eq.${session.user.id}`)
+        .order("created_at", { ascending: false });
+      if (directError) {
+        console.warn("[history] Direct request history failed:", directError.message);
+        if (active) setItems([]);
+        return;
+      }
+      const { data: memberships, error: membershipError } = await (supabase as any)
+        .from("service_request_providers")
+        .select("request_id")
+        .eq("provider_id", session.user.id);
+      let teamRows: any[] = [];
+      if (!membershipError && memberships?.length) {
+        const teamIds = [...new Set<string>(memberships.map((row: any) => String(row.request_id)))];
+        const { data: rows, error: teamError } = await supabase
+          .from("service_requests")
+          .select("id, type, status, price_estimate, pickup_text, dest_text, created_at")
+          .in("id", teamIds);
+        if (!teamError) teamRows = rows ?? [];
+        else console.warn("[history] Team request history failed:", teamError.message);
+      }
+      if (membershipError) console.warn("[history] Team membership history unavailable:", membershipError.message);
+      const merged = new Map<string, any>();
+      [...(directRows ?? []), ...teamRows].forEach((row) => merged.set(row.id, row));
+      const rows = [...merged.values()].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+      if (active) setItems(rows);
+    };
+    void loadHistory();
+    return () => { active = false; };
   }, [session]);
 
   if (loading) return null;

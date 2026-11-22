@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { getOrLoadDiscoverData, invalidateDiscoverData } from "@/lib/discover-cache";
 import { HomeBannerCampaignDialog } from "@/components/home-banner-campaign-dialog";
 
 type Category = "restaurant" | "hotel" | "store";
@@ -37,23 +38,33 @@ export function HomeCategoryCarousel({ placement = "top_panorama" }: { placement
 
   useEffect(() => {
     let active = true;
-    const refresh = async () => {
-      let query = (supabase as any)
-        .from("home_carousel_banners")
-        .select("id,image_url,target_category,banner_type,target_campaign_id,display_order,is_active,scroll_speed,motion_direction,motion_style,banner_title,banner_description")
-        .eq("is_active", true)
-        .eq("display_location", placement);
-      if (placement === "top_panorama") query = query.eq("banner_type", "category");
-      const { data, error } = await query.order("display_order").order("created_at");
-      if (active && !error) {
-        setBanners(data ?? []);
-        setIndex(0);
-        setImageFailed(false);
+    const cacheKey = "home-carousel:web:" + placement;
+    const refresh = async (forceFresh = false) => {
+      try {
+        if (forceFresh) invalidateDiscoverData(cacheKey);
+        const rows = await getOrLoadDiscoverData<CategoryBanner[]>(cacheKey, async () => {
+          let query = (supabase as any)
+            .from("home_carousel_banners")
+            .select("id,image_url,target_category,banner_type,target_campaign_id,display_order,is_active,scroll_speed,motion_direction,motion_style,banner_title,banner_description")
+            .eq("is_active", true)
+            .eq("display_location", placement);
+          if (placement === "top_panorama") query = query.eq("banner_type", "category");
+          const { data, error } = await query.order("display_order").order("created_at");
+          if (error) throw error;
+          return (data ?? []) as CategoryBanner[];
+        }, 25_000);
+        if (active) {
+          setBanners(rows);
+          setIndex(0);
+          setImageFailed(false);
+        }
+      } catch {
+        // Keep the last successful banners visible if a refresh fails.
       }
     };
     void refresh();
     const channel = supabase.channel("home-category-panorama-web")
-      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh(true))
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
   }, [placement]);
