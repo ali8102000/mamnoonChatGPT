@@ -493,6 +493,19 @@ BEGIN
   v_updated := replace(v_updated,
     ''' د.ع. لديك 60 ثانية لقبول الطلب.'',',
     ''' د.ع. الفريق المؤكد '' || COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0)::text || ''، والمتبقي '' || GREATEST(r.workers_count - COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), 0)::text || ''. لديك 60 ثانية لقبول الطلب.'',');
+  -- Scale each provider's response window with the requested team size.
+  v_updated := replace(v_updated,
+    'now(), now() + interval ''60 seconds''',
+    'now(), now() + make_interval(secs => 60 * GREATEST(COALESCE(r.workers_count, 1), 1))');
+  v_updated := replace(v_updated,
+    'expires_at = now() + interval ''60 seconds''',
+    'expires_at = now() + make_interval(secs => 60 * GREATEST(COALESCE(r.workers_count, 1), 1))');
+  v_updated := replace(v_updated,
+    '''expires_in_seconds'', 60',
+    '''expires_in_seconds'', 60 * GREATEST(COALESCE(r.workers_count, 1), 1)');
+  v_updated := replace(v_updated,
+    ''' لديك 60 ثانية لقبول الطلب.''',
+    ''' لديك '' || (60 * GREATEST(COALESCE(r.workers_count, 1), 1))::text || '' ثانية لقبول الطلب.''');
   -- Exclude every member of an accepted service team from future dispatch rounds.
   IF position('SELECT 1 FROM public.service_request_providers srp_active' IN v_updated) = 0 THEN
     v_updated := replace(
