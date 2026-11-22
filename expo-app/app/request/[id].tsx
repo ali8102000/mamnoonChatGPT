@@ -1336,6 +1336,8 @@ export default function RequestDetail() {
     cancelled: "ملغي",
   };
   const quickReplies = isCustomer ? QUICK_REPLIES_CUSTOMER : QUICK_REPLIES_PROVIDER;
+  const acceptedPeopleCount = serviceProviders.reduce((sum, member) => sum + Number(member.team_size || 1), 0);
+  const remainingPeopleCount = Math.max(0, Number(request.workers_count || 1) - acceptedPeopleCount);
   const ratingReasonOptions = isProvider
     ? ["محترم وحسن التعامل", "ملتزم بالموعد", "متعاون وواضح", "قدّم معلومات دقيقة", "احترم وقتي", "التزم بالاتفاق", "تأخر دون إشعار", "صعّب التواصل", "غيّر الاتفاق دون تنسيق", "تعامل غير لائق"]
     : request?.type === "taxi"
@@ -1480,7 +1482,7 @@ export default function RequestDetail() {
             </View>
           )}
           {request.workers_count != null && request.type === "service" && (
-            <Text style={styles.infoRow}>عدد العاملين: {request.workers_count}</Text>
+            <Text style={styles.infoRow}>العدد المطلوب: {request.workers_count} · تم تأكيد: {acceptedPeopleCount} · المتبقي: {remainingPeopleCount}</Text>
           )}
           {request.work_hours != null && (
             <Text style={styles.infoRow}>الساعات المتوقعة: {request.work_hours}</Text>
@@ -1501,17 +1503,34 @@ export default function RequestDetail() {
             {request.type === "service" && request.services?.name_ar && <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900" }}>{request.services.name_ar}</Text>}
             <Text style={{ color: palette.ink, fontSize: 18, fontWeight: "900" }}>طلبك وصل إلى ممنون</Text>
             <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", lineHeight: 20 }}>
-              {request.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار عند وصولها." : "نبحث عن أقرب سائق أو فني متاح ومؤهل. أول شخص يقبل الطلب يحصل عليه."}
+              {request.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار عند وصولها." : request.type === "service" ? "نستقبل موافقات الفنيين إلى أن يكتمل العدد المطلوب أو تختار الاكتفاء بالفريق المتوفر." : "نبحث عن أقرب سائق أو فني متاح ومؤهل. أول شخص يقبل الطلب يحصل عليه."}
             </Text>
             {(() => {
               const start = Date.parse(request.searching_started_at || request.created_at || new Date().toISOString());
-              const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
+              const totalSeconds = 360 * (request.type === "service" ? Math.max(1, Number(request.workers_count) || 1) : 1);
+              const remaining = Math.max(0, totalSeconds - Math.floor((dispatchClock - start) / 1000));
               return <View style={{ width: 104, height: 104, borderRadius: 52, borderWidth: 7, borderColor: remaining <= 10 && remaining > 0 ? palette.danger : palette.gold, alignItems: "center", justifyContent: "center", marginTop: 8, backgroundColor: remaining <= 10 && remaining > 0 ? palette.dangerSoft : palette.surface, opacity: remaining <= 10 && remaining > 0 ? 0.78 + (dispatchClock % 2) * 0.22 : 1 }}>
                 <Text style={{ color: palette.ink, fontSize: 23, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{String(Math.floor(remaining / 60)).padStart(2, "0")}:{String(remaining % 60).padStart(2, "0")}</Text>
                 <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "800" }}>وقت البحث</Text>
               </View>;
             })()}
-            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
+            {request.type === "service" && <Text style={{ color: palette.brand, fontSize: 13, fontWeight: "900", textAlign: "center" }}>الفريق المؤكد: {acceptedPeopleCount} من {request.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</Text>}
+            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : request.type === "service" ? "نواصل البحث بدورات متكررة إلى أن يكتمل الفريق أو تختار الاكتفاء بالعدد المتوفر." : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
+            {request.type === "service" && acceptedPeopleCount > 0 && (
+              <TouchableOpacity
+                onPress={async () => {
+                  const { error } = await (supabase as any).rpc("stop_service_request_acceptance", { _request_id: id });
+                  if (error) Alert.alert("تعذر إيقاف البحث", error.message);
+                  else {
+                    Alert.alert("تم الاكتفاء بالعدد", "أوقفنا استقبال فنيين إضافيين.");
+                    await loadRequest();
+                  }
+                }}
+                style={{ width: "100%", borderRadius: 14, padding: 13, backgroundColor: palette.success, marginTop: 6 }}
+              >
+                <Text style={{ color: "#FFFFFF", fontWeight: "900", textAlign: "center" }}>اكتفيت بالعدد المتوفر ({acceptedPeopleCount})</Text>
+              </TouchableOpacity>
+            )}
             {urgencyAllowed && Number(request.customer_price ?? request.price_estimate ?? 0) > 0 && <View style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
               <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>⚡ وضع الاستعجال</Text>
               <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>نسبة الزيادة الأساسية من الإدارة: {urgencyAdminPercent}٪. اختر ×2 أو ×3 لرفع الأجر وتشجيع المزوّدين على قبول الطلب.</Text>
