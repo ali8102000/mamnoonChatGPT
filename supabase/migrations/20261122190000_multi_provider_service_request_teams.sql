@@ -409,6 +409,8 @@ DO $migration$
 DECLARE
   v_definition text;
   v_updated text;
+  v_stage_start integer;
+  v_ring_start integer;
   v_old_stop text := 'OR r.provider_id IS NOT NULL OR r.service_id IS NULL';
   v_new_stop text := 'OR r.service_id IS NULL OR COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0) >= GREATEST(COALESCE(r.workers_count, 1), 1)';
 BEGIN
@@ -426,17 +428,13 @@ BEGIN
   -- Do not terminate a multi-person request merely because one search cycle elapsed.
   -- Repeat the configured rings until the requested headcount is reached or the
   -- customer explicitly chooses "اكتفيت بالعدد".
-  DECLARE
-    v_stage_start integer;
-    v_ring_start integer;
-  BEGIN
-    v_stage_start := position('IF q.stage >= (6 * GREATEST(COALESCE(r.workers_count, 1), 1)) THEN' IN v_updated);
-    v_ring_start := position('-- Three non-overlapping rings across the existing 55 km provider radius,' IN v_updated);
-    IF v_stage_start = 0 OR v_ring_start <= v_stage_start THEN
-      RAISE EXCEPTION 'Unable to locate service dispatch stage guard';
-    END IF;
-    v_updated := substr(v_updated, 1, v_stage_start - 1)
-      || 'IF q.stage >= (6 * GREATEST(COALESCE(r.workers_count, 1), 1)) THEN
+  v_stage_start := position('IF q.stage >= (6 * GREATEST(COALESCE(r.workers_count, 1), 1)) THEN' IN v_updated);
+  v_ring_start := position('-- Three non-overlapping rings across the existing 55 km provider radius,' IN v_updated);
+  IF v_stage_start = 0 OR v_ring_start <= v_stage_start THEN
+    RAISE EXCEPTION 'Unable to locate service dispatch stage guard';
+  END IF;
+  v_updated := substr(v_updated, 1, v_stage_start - 1)
+    || 'IF q.stage >= (6 * GREATEST(COALESCE(r.workers_count, 1), 1)) THEN
     UPDATE public.service_dispatch_queue
     SET stage = 0, next_at = now() + interval ''60 seconds''
     WHERE request_id = _request_id;
@@ -444,8 +442,7 @@ BEGIN
   END IF;
 
   '
-      || substr(v_updated, v_ring_start);
-  END;
+    || substr(v_updated, v_ring_start);
   v_updated := replace(v_updated,
     '''workers_count'', r.workers_count,',
     '''workers_count'', r.workers_count, ''accepted_people_count'', COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), ''remaining_people_count'', GREATEST(r.workers_count - COALESCE((SELECT sum(srp.team_size) FROM public.service_request_providers srp WHERE srp.request_id = r.id), 0), 0),');
