@@ -284,7 +284,7 @@ export default function RequestDetail() {
   const isActive = request?.status === "in_progress" || request?.status === "accepted";
   const acceptedMapMode = Boolean(
     request && (isProvider || isCustomer) && isActive &&
-    (request.type === "taxi" || request.type === "service") &&
+    (request.type === "taxi" || request.type === "service")
   );
   const providerLiveLocation = isCustomer ? otherLocation : myLocation;
   const driverLocationFresh = Boolean(providerLiveLocation?.updatedAt && Number.isFinite(Date.parse(providerLiveLocation.updatedAt)) && freshnessClock - Date.parse(providerLiveLocation.updatedAt) < 25000);
@@ -851,6 +851,9 @@ export default function RequestDetail() {
     if (!isActive || !providerLiveLocation || !driverLocationFresh) {
       roadRouteSequenceRef.current += 1;
       setRoadRoutePoints([]);
+      setRoadTrafficSegments([]);
+      setNextRouteInstruction(null);
+      setLiveRouteSource(null);
       return;
     }
     // The provider always routes to the saved work/pickup point for a service.
