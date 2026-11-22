@@ -23,10 +23,10 @@ export function ProviderMissions(){
  useEffect(()=>{
   void load();
   const timer=setInterval(()=>void load(),30000);
-  const channel=supabase.channel("native-provider-missions")
-   .on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications"},()=>void load())
-   .subscribe();
-  return()=>{clearInterval(timer);void supabase.removeChannel(channel);};
+  // Android can remount this screen while the previous named Realtime channel
+  // is still subscribed. A second .on() then throws before the home screen renders.
+  // The 30-second refresh is sufficient for mission cards and avoids that race.
+  return()=>{clearInterval(timer);};
  },[load]);
  return (
   <View style={styles.wrap}>
