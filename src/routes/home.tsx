@@ -620,6 +620,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   const [largeOfferPrices, setLargeOfferPrices] = useState<Record<string, string>>({});
   const [largeOfferMessages, setLargeOfferMessages] = useState<Record<string, string>>({});
   const [offerBusy, setOfferBusy] = useState<string | null>(null);
+  const [teamSize, setTeamSize] = useState("1");
   const [popupRequest, setPopupRequest] = useState<any | null>(null);
   const popupShownRef = useRef<string | null>(null);
   const table = type === "taxi" ? "driver_profiles" : "worker_profiles";
@@ -813,7 +814,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       const requestIds: string[] = [...new Set<string>(offerRows.map((offer: any) => String(offer.request_id)))];
       let query = supabase
         .from("service_requests")
-        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km, urgency_multiplier, service_urgency_enabled, large_vehicle_urgency_enabled, taxi_urgency_enabled, taxi_urgency_percent")
+        .select("id, pickup_text, dest_text, notes, created_at, service_id, type, price_estimate, customer_payable, customer_price, pricing_mode, work_hours, work_description, attachment_path, vehicle_category, vehicle_type, distance_km, workers_count, urgency_multiplier, service_urgency_enabled, large_vehicle_urgency_enabled, taxi_urgency_enabled, taxi_urgency_percent")
         .in("id", requestIds)
         .in("status", ["pending", "searching"])
         .eq("type", type);
@@ -923,9 +924,17 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   async function accept(id: string) {
     playClick("pop");
     try {
+      if (type === "service" && session?.user.id) {
+        const selectedTeamSize = Math.max(1, Math.min(10, Number(teamSize) || 1));
+        const { error: teamError } = await (supabase as any)
+          .from("worker_profiles")
+          .update({ team_size: selectedTeamSize })
+          .eq("user_id", session.user.id);
+        if (teamError) throw teamError;
+      }
       await acceptFn({ data: { requestId: id } });
       setPopupRequest(null);
-      toast.success("تم قبول الطلب");
+      toast.success("تم قبول الطلب وإرسال عدد أفراد فريقك");
       navigate({ to: `/request/$id`, params: { id } });
     } catch (e: any) {
       toast.error(e.message ?? "تعذّر قبول الطلب");
@@ -946,6 +955,20 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
             {popupRequest.my_offer?.distance_km != null && <div className="mt-2 text-xs font-bold text-muted-foreground">المسافة إليك: {Number(popupRequest.my_offer.distance_km).toFixed(1)} كم</div>}
             {(popupRequest.customer_price ?? popupRequest.customer_payable ?? popupRequest.price_estimate) != null && <div className="mt-2 text-sm font-black text-primary">السعر: {Number(popupRequest.customer_price ?? popupRequest.customer_payable ?? popupRequest.price_estimate).toLocaleString("ar-IQ")} د.ع</div>}
             {popupRequest.work_description && <div className="mt-2 text-xs text-muted-foreground">🛠️ {popupRequest.work_description}</div>}
+            {type === "service" && (
+              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                <div className="text-xs font-black text-foreground">كم شخص يجي وياك؟</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">العدد يشمل الخبير نفسه، حتى نحسب الفريق بدقة.</div>
+                <select value={teamSize} onChange={(event) => setTeamSize(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm font-bold text-foreground">
+                  <option value="1">أنا وحدي · شخص واحد</option>
+                  <option value="2">أنا + عامل · شخصان</option>
+                  <option value="3">أنا + عاملان · 3 أشخاص</option>
+                  <option value="4">أنا + 3 عمال · 4 أشخاص</option>
+                  <option value="5">أنا + 4 عمال · 5 أشخاص</option>
+                </select>
+                <div className="mt-2 text-[11px] font-bold text-primary">المطلوب من الزبون: {popupRequest.workers_count ?? 1} أشخاص</div>
+              </div>
+            )}
             {popupRequest.attachment_path && (
               <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
                 <div className="mb-2 text-sm font-black text-primary">صورة الزبون المرفقة بالطلب</div>
