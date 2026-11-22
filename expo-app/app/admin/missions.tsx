@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { Stack } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { palette, radius, space } from "@/styles/theme";
+import { palette, radius } from "@/styles/theme";
 import { IRAQ_GOVERNORATES } from "@/lib/governorates";
 
 type ProviderType="driver"|"large_driver"|"worker";
