@@ -63,7 +63,7 @@ export function ActiveCustomerRequestBanner() {
     void load();
     if (!user) return;
     const channel = supabase
-      .channel(`customer-active-request-${user.id}`)
+      .channel(`customer-active-request:${user.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {
