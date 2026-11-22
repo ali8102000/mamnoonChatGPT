@@ -13,10 +13,12 @@ import {
   RefreshControl,
   Alert,
   Image,
+  Vibration,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import * as Location from "expo-location";
+import * as Haptics from "expo-haptics";
 import { startProviderPresenceBackgroundLocation, stopProviderPresenceBackgroundLocation } from "@/lib/background-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
@@ -65,6 +67,7 @@ export default function HomeScreen() {
   }, []);
 
   const [available, setAvailable] = useState(false);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState("pending");
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
@@ -249,34 +252,41 @@ export default function HomeScreen() {
   }, [selectedRole, available, verified, user, loadIncoming]);
 
   async function toggleAvailable() {
-    if (!user || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) return;
+    if (!user || availabilitySaving || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) return;
     if (!verified) {
-      Alert.alert(
-        "الحساب بانتظار التوثيق",
-        "لن تستقبل طلبات حتى تراجع الإدارة بياناتك وتفعّل حسابك.",
-      );
+      Alert.alert("الحساب بانتظار التوثيق", "لن تستقبل طلبات حتى تراجع الإدارة بياناتك وتفعّل حسابك.");
       return;
     }
-    const next = !available;
-    if (next) {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== "granted") {
-        Alert.alert("إذن الموقع مطلوب", "اسمح بمشاركة موقعك قبل استقبال الطلبات.");
-        return;
+    const previous = available;
+    const next = !previous;
+    setAvailabilitySaving(true);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+    Vibration.vibrate(35);
+    try {
+      if (next) {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== "granted") {
+          Alert.alert("إذن الموقع مطلوب", "اسمح بمشاركة موقعك قبل استقبال الطلبات.");
+          return;
+        }
       }
+      // Optimistic UI: reflect the tap immediately while the database confirms it.
+      setAvailable(next);
+      const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
+      const { error } = await supabase.from(table).update({ available: next }).eq("user_id", user.id);
+      if (error) throw error;
+      if (!next) {
+        await stopProviderPresenceBackgroundLocation().catch((stopError) => {
+          console.warn("[Mamnoon] could not stop provider background location:", stopError);
+        });
+      }
+      void Haptics.notificationAsync(next ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+    } catch (error) {
+      setAvailable(previous);
+      Alert.alert("تعذر تحديث التوفر", error instanceof Error ? error.message : "حاول مرة ثانية.");
+    } finally {
+      setAvailabilitySaving(false);
     }
-    const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
-    const { error } = await supabase.from(table).update({ available: next }).eq("user_id", user.id);
-    if (error) {
-      Alert.alert("تعذر تحديث التوفر", error.message);
-      return;
-    }
-    if (!next) {
-      await stopProviderPresenceBackgroundLocation().catch((stopError) => {
-        console.warn("[Mamnoon] could not stop provider background location:", stopError);
-      });
-    }
-    setAvailable(next);
   }
 
   const onRefresh = async () => {
@@ -964,13 +974,14 @@ function ProviderHome({
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
+             accessibilityState={{ disabled: availabilitySaving }}
             accessibilityState={{ disabled: !verified }}
             disabled={!verified}
             onPress={toggleAvailable}
             activeOpacity={0.86}
             style={[styles.availPowerButton, available ? styles.availPowerButtonActive : styles.availPowerButtonClosed]}
           >
-            <Text style={styles.availPowerButtonText}>{available ? "مفتوح" : "مغلق"}</Text>
+            <Text style={styles.availPowerButtonText}>{availabilitySaving ? "..." : available ? "مفتوح" : "مغلق"}</Text>
           </TouchableOpacity>
           <Text style={styles.availHint}>{available ? "أنت الآن تستقبل الطلبات" : "فعّل التوفر حتى تظهر لك الطلبات"}</Text>
         </View>
