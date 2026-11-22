@@ -187,6 +187,41 @@ CREATE POLICY "Receiver marks read"
     )
   );
 
+-- Permit only the customer-side "accept current partial team" transition through the existing immutable-request guard.
+DO $staffing_guard$
+DECLARE
+  v_definition text;
+  v_begin integer;
+  v_patch text := $guard$
+  IF current_setting('mamnoon.allow_service_staffing_close', true) = 'true'
+     AND auth.uid() = OLD.customer_id
+     AND OLD.customer_id = NEW.customer_id
+     AND OLD.type::text = 'service'
+     AND OLD.status IN ('pending', 'searching')
+     AND NEW.status = 'accepted'
+     AND NEW.provider_id IS NOT DISTINCT FROM OLD.provider_id
+     AND (to_jsonb(NEW) - ARRAY['status', 'accepted_at', 'updated_at'])
+         IS NOT DISTINCT FROM
+         (to_jsonb(OLD) - ARRAY['status', 'accepted_at', 'updated_at']) THEN
+    RETURN NEW;
+  END IF;
+
+$guard$;
+BEGIN
+  SELECT pg_get_functiondef('public.guard_customer_request_update()'::regprocedure)
+  INTO v_definition;
+  v_begin := position('BEGIN' IN v_definition);
+  IF v_begin = 0 THEN
+    RAISE EXCEPTION 'Unable to locate customer request guard body';
+  END IF;
+  IF position('mamnoon.allow_service_staffing_close' IN v_definition) = 0 THEN
+    v_definition := substr(v_definition, 1, v_begin + length('BEGIN') - 1)
+      || chr(10) || v_patch || substr(v_definition, v_begin + length('BEGIN'));
+    EXECUTE v_definition;
+  END IF;
+END
+$staffing_guard$;
+
 CREATE OR REPLACE FUNCTION public.accept_service_request(_request_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -427,11 +462,11 @@ BEGIN
   WHERE request_id = _request_id;
   IF v_people < 1 THEN RAISE EXCEPTION 'no_provider_accepted_yet'; END IF;
 
-  PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
+  PERFORM set_config('mamnoon.allow_service_staffing_close', 'true', true);
   UPDATE public.service_requests
   SET status = 'accepted', accepted_at = now()
   WHERE id = _request_id;
-  PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
+  PERFORM set_config('mamnoon.allow_service_staffing_close', 'false', true);
 
   DELETE FROM public.service_dispatch_queue WHERE request_id = _request_id;
   UPDATE public.request_offers
