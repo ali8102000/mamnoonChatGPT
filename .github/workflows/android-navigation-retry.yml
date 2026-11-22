@@ -1,0 +1,56 @@
+name: Mamnoon Android navigation retry (existing APK)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: mamnoon-android-navigation-retry
+  cancel-in-progress: true
+
+jobs:
+  navigation-smoke:
+    name: Retry only Android navigation smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout the PR branch test script
+        uses: actions/checkout@v5
+        with:
+          ref: fix/native-crash-hardening-20261122
+
+      - name: Download the APK from the previous failed run (no rebuild)
+        uses: actions/download-artifact@v4
+        with:
+          name: mamnoon-android-standalone-preview-apk
+          path: artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 44975263506
+
+      - name: Confirm the existing APK is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s artifacts/app-release.apk
+          ls -lh artifacts/app-release.apk
+
+      - name: Install existing APK and retry navigation smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 4096 -cores 4
+          script: |
+            adb install -r artifacts/app-release.apk
+            adb shell am force-stop com.mamnoon.app || true
+            adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p com.mamnoon.app
+            sleep 25
+            adb shell pidof com.mamnoon.app >/dev/null || (adb logcat -d -t 2000; echo "Mamnoon process exited before navigation smoke test."; exit 1)
+            bash expo-app/scripts/android-navigation-smoke.sh
