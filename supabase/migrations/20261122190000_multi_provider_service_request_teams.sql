@@ -241,6 +241,12 @@ BEGIN
       SELECT 1 FROM public.service_requests active
       WHERE active.provider_id = auth.uid()
         AND active.status IN ('accepted', 'in_progress')
+    ) OR EXISTS (
+      SELECT 1
+      FROM public.service_request_providers srp
+      JOIN public.service_requests active_service ON active_service.id = srp.request_id
+      WHERE srp.provider_id = auth.uid()
+        AND active_service.status IN ('pending', 'searching', 'accepted', 'in_progress')
     ) THEN RAISE EXCEPTION 'لديك طلب نشط بالفعل'; END IF;
 
     PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
