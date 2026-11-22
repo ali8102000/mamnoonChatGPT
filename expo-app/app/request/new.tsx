@@ -1212,7 +1212,9 @@ export default function NewRequest() {
             governorateKey: effectivePickupGovernorateKey,
             pickupGovernorateKey: effectivePickupGovernorateKey,
             destinationGovernorateKey: destinationGovernorateKey ?? undefined,
-            vehicleCategory: vehicleCat, urgencyEnabled, notes,
+            vehicleCategory: vehicleCat, urgencyEnabled,
+            expectedPriceEstimate: serverTaxiFares[vehicleCat as Exclude<VehicleCategory, "large">] ?? serverTaxiFare,
+            notes,
           },
         });
         if (taxiError) throw taxiError;
