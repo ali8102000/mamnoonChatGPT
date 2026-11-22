@@ -90,6 +90,7 @@ CREATE POLICY "Service request providers see own membership"
     OR public.has_provider_ops_access((SELECT auth.uid()))
   );
 
+GRANT SELECT ON public.service_request_providers TO authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.service_request_providers FROM anon, authenticated;
 
 DROP POLICY IF EXISTS "Accepted service providers see request" ON public.service_requests;
