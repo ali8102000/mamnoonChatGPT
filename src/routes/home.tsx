@@ -960,11 +960,11 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
                 <div className="text-xs font-black text-foreground">كم شخص يجي وياك؟</div>
                 <div className="mt-1 text-[11px] text-muted-foreground">العدد يشمل الخبير نفسه، حتى نحسب الفريق بدقة.</div>
                 <select value={teamSize} onChange={(event) => setTeamSize(event.target.value)} className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm font-bold text-foreground">
-                  <option value="1">أنا وحدي · شخص واحد</option>
-                  <option value="2">أنا + عامل · شخصان</option>
-                  <option value="3">أنا + عاملان · 3 أشخاص</option>
-                  <option value="4">أنا + 3 عمال · 4 أشخاص</option>
-                  <option value="5">أنا + 4 عمال · 5 أشخاص</option>
+                  {Array.from({ length: Math.min(5, Math.max(1, Number(popupRequest.workers_count) || 1)) }, (_, index) => index + 1).map((count) => (
+                    <option key={count} value={String(count)}>
+                      {count === 1 ? "أنا وحدي · شخص واحد" : `أنا + ${count - 1} ${count === 2 ? "عامل" : "عمال"} · ${count} أشخاص`}
+                    </option>
+                  ))}
                 </select>
                 <div className="mt-2 text-[11px] font-bold text-primary">المطلوب من الزبون: {popupRequest.workers_count ?? 1} أشخاص</div>
               </div>
