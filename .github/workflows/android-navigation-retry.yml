@@ -1,6 +1,11 @@
 name: Mamnoon Android navigation retry (existing APK)
 
 on:
+  push:
+    branches:
+      - fix/native-crash-hardening-20261122
+    paths:
+      - .github/workflows/android-navigation-retry.yml
   workflow_dispatch:
 
 permissions:
