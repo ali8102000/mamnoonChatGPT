@@ -513,7 +513,7 @@ export function LiveTrackMap({
             <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-amber-300 bg-white">
               {serviceType === "taxi" && vehicleCategory !== "large"
                 ? <img src={"/vehicle-icons/" + (["economy", "premium", "luxury"].includes(vehicleCategory || "") ? vehicleCategory : "economy") + ".svg"} alt="السيارة" className="h-8 w-8 object-contain" />
-                : <img src={serviceIcon(serviceType === "taxi" ? (vehicleType === "kia_cargo" ? "cargo_handling" : "goods_transport") : serviceSlug || "general")} alt="نوع الطلب" className="h-9 w-9 rounded-full object-cover" />}
+                : <img src={serviceType === "taxi" ? (vehicleType === "kia_cargo" ? "/images/kia-cargo.svg" : "/images/kia-passenger.svg") : serviceIcon(serviceSlug || "general")} alt="نوع الطلب" className="h-9 w-9 rounded-full object-cover" />}
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-xs font-black text-slate-900">{serviceType === "taxi" ? (vehicleCategory === "large" ? vehicleType === "kia_passenger" ? "كيا ركاب" : "كيا حمل" : vehicleCategory === "luxury" ? "سيارة فاخرة" : vehicleCategory === "premium" ? "سيارة متميزة" : "سيارة اقتصادية") : serviceName || "طلب خدمة"}</div>
