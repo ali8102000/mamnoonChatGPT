@@ -8,7 +8,7 @@ type Mission = {
 };
 const money=(n:number)=>new Intl.NumberFormat("ar-IQ").format(Number(n)||0)+" د.ع";
 const scopeText=(s:string)=>s==="inside_governorate"?"داخل المحافظة فقط":s==="outside_governorate"?"خارج المحافظة فقط":"داخل وخارج المحافظة";
-const statusText=(s:string)=>s==="eligible"?"اكتملت المهمة — بانتظار مراجعة الإدارة":s==="approved"?"تم اعتماد المكافأة وإيداعها":s==="rejected"?"لم تعتمد الإدارة المكافأة":"مستمرة";
+const statusText=(s:string,endsAt:string)=>s==="eligible"?"اكتملت المهمة — بانتظار مراجعة الإدارة":s==="approved"?"تم اعتماد المكافأة وإيداعها":s==="rejected"?"لم تعتمد الإدارة المكافأة":new Date(endsAt).getTime()<=Date.now()?"انتهت المهلة":"مستمرة";
 
 export default function ProviderMissions(){
  const [items,setItems]=useState<Mission[]>([]);
@@ -33,7 +33,7 @@ export default function ProviderMissions(){
   {items.map(m=>{
    const progress=Math.min(100,Math.round(m.progress_count/Math.max(1,m.target_count)*100));
    return <article key={m.mission_id} className="glass rounded-2xl border border-border p-4 space-y-2">
-    <div className="flex items-start justify-between gap-2"><h4 className="font-black">{m.title}</h4><span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold">{statusText(m.reward_status)}</span></div>
+    <div className="flex items-start justify-between gap-2"><h4 className="font-black">{m.title}</h4><span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold">{statusText(m.reward_status,m.ends_at)}</span></div>
     {m.description&&<p className="text-xs leading-5 text-muted-foreground">{m.description}</p>}
     <div className="flex justify-between text-xs font-bold"><span>التقدم: {m.progress_count} / {m.target_count}</span><span>{progress}%</span></div>
     <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{width:(progress+"%") as any}}/></div>
