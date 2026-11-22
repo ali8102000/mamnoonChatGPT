@@ -137,7 +137,7 @@ export function MapPicker({
         const center = initialValueRef.current ?? getGovernorate(governorateKeyRef.current) ?? DEFAULT_CENTER;
         const map = new g.maps.Map(containerRef.current, {
           center,
-          zoom: 15,
+          zoom: 16,
           minZoom: 5,
           maxZoom: 20,
           disableDefaultUI: true,
@@ -305,7 +305,7 @@ export function MapPicker({
           suppressIdleRef.current = true;
           if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(c);
           else mapRef.current.panTo(c);
-          mapRef.current.setZoom(16);
+          mapRef.current.setZoom(17);
         }
         report(c);
         reverseFallback(c);
@@ -420,7 +420,7 @@ export function MapPicker({
     if (mapRef.current) {
       if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(place.coords);
       else mapRef.current.panTo(place.coords);
-      mapRef.current.setZoom(16);
+      mapRef.current.setZoom(17);
     }
     report(place.coords, addr);
     onSelectPlaceRef.current?.(place.coords, addr);
@@ -536,10 +536,9 @@ export function MapPicker({
         {!loading && !error && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center z-[5]">
             <div className="flex flex-col items-center -translate-y-5">
-              <div className="relative grid h-11 w-11 rotate-45 place-items-center rounded-[55%_55%_55%_8%] border-2 border-white shadow-xl ring-2 ring-black/10 animate-in zoom-in-50 duration-200" style={{ background: accent }}>
-                <div className="h-4 w-4 -rotate-45 rounded-full border-[3px] border-white bg-transparent" />
+              <div className="relative grid h-9 w-9 rotate-45 place-items-center rounded-[55%_55%_55%_8%] border-[2.5px] border-white shadow-lg ring-1 ring-black/10 animate-bounce" style={{ background: accent }}>
+                <div className="h-3 w-3 -rotate-45 rounded-full border-[2.5px] border-white bg-transparent" />
               </div>
-              <div className="h-2 w-4 rounded-full bg-black/35 -mt-0.5 shadow" />
             </div>
           </div>
         )}
