@@ -729,8 +729,10 @@ BEGIN
       WHERE request_id = _request_id;
     END IF;
     INSERT INTO public.notifications(user_id, type, title, body, link, data)
-    VALUES (r.customer_id, 'provider_released', 'اعتذر أحد الفنيين',
-      'اعتذر أحد أفراد الفريق. نواصل البحث عن العدد المتبقي.',
+    VALUES (r.customer_id, 'provider_released', 'تغيّر عدد أفراد الفريق',
+      CASE WHEN v_people >= greatest(r.workers_count, 1)
+        THEN 'اعتذر أحد الفنيين، لكن العدد المطلوب ما زال متوفراً.'
+        ELSE 'اعتذر أحد أفراد الفريق. نواصل البحث عن العدد المتبقي.' END,
       '/request/' || _request_id,
       jsonb_build_object('request_id', _request_id, 'accepted_people_count', v_people,
         'workers_count', r.workers_count,
