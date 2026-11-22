@@ -49,7 +49,7 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth, plac
           const { data, error } = await query.order("display_order").order("created_at");
           if (error) throw error;
           return (data ?? []) as CategoryBanner[];
-        }, 30_000);
+        }, 25_000);
         if (active) { setBanners(rows); setIndex(0); setImageFailed(false); }
       } catch {
         // Keep the last successful banners visible if a refresh fails.
