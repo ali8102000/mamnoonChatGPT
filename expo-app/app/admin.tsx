@@ -18,6 +18,7 @@ const GROUPS: NavGroup[] = [
     { title: "السائقون والفنيون", description: "الحسابات والتوثيق والتوفر", route: "/admin/providers", icon: "🧑‍🔧" },
     { title: "الخريطة المباشرة", description: "مواقع الطلبات ومقدمي الخدمة", route: "/admin/live-map", icon: "🗺️" },
     { title: "نطاقات التوزيع", description: "حدود وصول الطلبات", route: "/admin/dispatch-zones", icon: "📍" },
+    { title: "المهمات والمكافآت", description: "إنشاء المهمات ومتابعة الإنجاز واعتماد مكافآت المحافظ", route: "/admin/missions", icon: "🎯" },
     { title: "رتب السائقين", description: "معايير الأداء والتقييم", route: "/admin/driver-tiers", icon: "🏅" },
   ]},
   { title: "المستخدمون وخدمة العملاء", description: "الحسابات والتواصل والبلاغات", icon: "👥", items: [
