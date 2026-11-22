@@ -313,6 +313,7 @@ begin
   if p_decision not in ('approve','reject') then raise exception 'invalid_mission_reward_decision'; end if;
   if coalesce(cardinality(p_participant_ids),0)<1 or cardinality(p_participant_ids)>500 then raise exception 'invalid_mission_reward_selection'; end if;
   if p_note is not null and length(p_note)>500 then raise exception 'mission_decision_note_too_long'; end if;
+  if p_decision='reject' and nullif(btrim(coalesce(p_note,'')),'') is null then raise exception 'mission_rejection_reason_required'; end if;
   for v_id in select distinct unnest(p_participant_ids) loop
     select * into v_p from public.provider_mission_participants where id=v_id for update;
     if not found or v_p.reward_status not in ('eligible','approved','rejected') then raise exception 'mission_reward_not_ready:%',v_id; end if;
