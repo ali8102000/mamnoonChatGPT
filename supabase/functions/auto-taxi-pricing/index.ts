@@ -78,8 +78,9 @@ function straightLineDistanceKm(from: Point, to: Point) {
   const dLng = radians(to.lng - from.lng);
   const lat1 = radians(from.lat);
   const lat2 = radians(to.lat);
-  const a = Math.sin(dLat / 2) ** 2 +
+  const rawA = Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  const a = Math.max(0, Math.min(1, rawA));
   return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
