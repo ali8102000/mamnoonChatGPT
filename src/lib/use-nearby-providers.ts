@@ -60,14 +60,21 @@ export function useNearbyProviders(opts: {
           },
         });
         if (cancelled) return;
-        setPins(
-          (rows as ServerPin[]).map((r) => ({
-            pin_id: String(r.pin_id),
-            lat: Number(r.lat),
-            lng: Number(r.lng),
-            heading: r.heading == null ? null : Number(r.heading),
-          })),
-        );
+        const nextPins = (rows as ServerPin[]).map((r) => ({
+          pin_id: String(r.pin_id),
+          lat: Number(r.lat),
+          lng: Number(r.lng),
+          heading: r.heading == null ? null : Number(r.heading),
+        }));
+        setPins((current) => {
+          if (current.length !== nextPins.length) return nextPins;
+          const unchanged = current.every((pin, index) => {
+            const next = nextPins[index];
+            return pin.pin_id === next.pin_id && pin.lat === next.lat &&
+              pin.lng === next.lng && pin.heading === next.heading;
+          });
+          return unchanged ? current : nextPins;
+        });
       } catch {
         // ignore — pins are non-critical
       } finally {
