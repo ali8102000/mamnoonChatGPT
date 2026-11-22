@@ -372,7 +372,7 @@ as $function$
 declare
   v_provider uuid;v_provider_type text;v_providers uuid[];v_m public.provider_missions%rowtype;
   v_participant public.provider_mission_participants%rowtype;v_origin text;v_destination text;v_home text;
-  v_duration numeric;v_new_count integer;
+  v_duration numeric;v_new_count integer;v_provider_name text;
 begin
   if new.status::text<>'completed' or old.status::text='completed' then return new; end if;
   if new.completed_at is null then return new; end if;
@@ -397,7 +397,7 @@ begin
   end if;
 
   foreach v_provider in array v_providers loop
-    select governorate_key into v_home from public.profiles where id=v_provider;
+    select governorate_key,full_name into v_home,v_provider_name from public.profiles where id=v_provider;
     for v_m in
       select m.* from public.provider_missions m
       join public.provider_mission_participants p on p.mission_id=m.id and p.provider_id=v_provider
@@ -433,7 +433,7 @@ begin
       if v_new_count>=v_m.target_count then
         insert into public.notifications(user_id,type,title,body,link,data)
         select ur.user_id,'mission_reward_pending','مكافأة مهمة بانتظار المراجعة',
-          'أكمل أحد المستخدمين مهمة «'||v_m.title||'» وأصبحت المكافأة بانتظار قرار الإدارة.',
+          coalesce(v_provider_name,'أحد المستخدمين')||' أكمل مهمة «'||v_m.title||'» وأصبحت المكافأة بانتظار قرار الإدارة.',
           '/admin',jsonb_build_object('mission_id',v_m.id,'participant_id',v_participant.id,'provider_id',v_provider)
         from public.user_roles ur where ur.role::text in ('super_admin','admin');
       end if;
