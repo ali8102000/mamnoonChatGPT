@@ -48,7 +48,7 @@ function summarizeProviderEarnings(rows: WalletTransaction[]): EarningsSummary {
 
 export default function ProfileScreen() {
   const { user, profile, roles, activeRole, signOut, refresh } = useAuth();
-  const isProvider = activeRole !== "customer" && (roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver"));
+  const isProvider = activeRole === "worker" || activeRole === "driver" || activeRole === "large_driver";
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [accountWallet, setAccountWallet] = useState<AccountWallet | null>(null);
   const [accountWalletTransactions, setAccountWalletTransactions] = useState<any[]>([]);
