@@ -130,7 +130,7 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
       if(!response.ok) throw new Error("Google traffic route HTTP "+response.status);
       const result=await response.json() as any;
       const selected=(result.routes??[]).find((r:any)=>Number.isFinite(r.distanceMeters)&&
-        r.distanceMeters>0&&typeof r.duration==="string"&&/^\\d+(\\.\\d+)?s$/.test(r.duration)&&
+        r.distanceMeters>0&&typeof r.duration==="string"&&/^\d+(\.\d+)?s$/.test(r.duration)&&
         typeof r.polyline?.encodedPolyline==="string");
       if(!selected) throw new Error("Google traffic route geometry unavailable");
       const points=decodeGooglePolyline(selected.polyline.encodedPolyline).filter(validPoint);
