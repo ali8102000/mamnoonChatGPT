@@ -67,13 +67,7 @@ export default function HomeScreen() {
   const [verified, setVerified] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState("pending");
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
-  const [dispatchClock, setDispatchClock] = useState(Date.now());
   const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const greeting = (() => {
     const hour = new Date().getHours();
