@@ -47,7 +47,7 @@ function MessagesPage() {
       if (!teamActiveError) activeTeamIds = (teamActiveRows ?? []).map((request) => request.id);
       else console.warn("[messages] Active team chats unavailable:", teamActiveError.message);
     }
-    const activeIds = [...new Set([
+    const activeIds: string[] = [...new Set<string>([
       ...(activeRequests ?? []).map((request) => request.id),
       ...activeTeamIds,
     ])];
