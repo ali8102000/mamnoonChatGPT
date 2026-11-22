@@ -65,7 +65,7 @@ BEGIN
       AND is_intercity = p_is_intercity
       AND governorate_key = 'all';
   END IF;
-  IF NOT FOUND OR v_economy.base_fare < 0 OR v_economy.per_km_rate <= 0 OR v_economy.per_min_rate < 0 THEN
+  IF NOT FOUND OR v_economy.base_fare < 0 OR v_economy.per_km_rate < 0 OR v_economy.per_min_rate < 0 THEN
     RAISE EXCEPTION 'economy_tariff_unavailable_or_invalid';
   END IF;
 
