@@ -61,6 +61,141 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, data });
     };
 
+    if (body.action === "provider_payables_search") {
+      await requirePermission("finance.read");
+      const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
+      if (query.length < 2) return json({ error: "query_too_short" }, 400);
+      const safe = query.replace(/[,%()]/g, " ");
+      const { data: profiles, error: profileError } = await admin.from("profiles")
+        .select("id,full_name,phone,email,governorate_key")
+        .or("phone.ilike.%" + safe + "%,full_name.ilike.%" + safe + "%")
+        .order("created_at", { ascending: false }).limit(30);
+      if (profileError) return json({ error: "provider_search_failed" }, 500);
+      const ids = (profiles ?? []).map((profile: any) => profile.id);
+      if (!ids.length) return json({ providers: [] });
+      const { data: roleRows, error: roleError } = await admin.from("user_roles")
+        .select("user_id,role").in("user_id", ids).in("role", ["driver", "worker", "large_driver"]);
+      if (roleError) return json({ error: "provider_roles_load_failed" }, 500);
+      const roleMap = new Map<string, string[]>();
+      for (const row of roleRows ?? []) {
+        const current = roleMap.get(row.user_id) ?? [];
+        current.push(String(row.role));
+        roleMap.set(row.user_id, current);
+      }
+      return json({
+        providers: (profiles ?? []).filter((profile: any) => roleMap.has(profile.id))
+          .map((profile: any) => ({ ...profile, roles: roleMap.get(profile.id) ?? [] })),
+      });
+    }
+
+    if (body.action === "provider_payables_detail") {
+      await requirePermission("finance.read");
+      if (!uuid(body.provider_id)) return json({ error: "invalid_provider_id" }, 400);
+      const { data: profile, error: profileError } = await admin.from("profiles")
+        .select("id,full_name,phone,email,governorate_key")
+        .eq("id", body.provider_id).maybeSingle();
+      if (profileError || !profile) return json({ error: "provider_not_found" }, 404);
+      const { data: roleRows, error: roleError } = await admin.from("user_roles")
+        .select("role").eq("user_id", body.provider_id)
+        .in("role", ["driver", "worker", "large_driver"]);
+      if (roleError || !roleRows?.length) return json({ error: "provider_account_required" }, 400);
+
+      const { data: assignment } = await caller.from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id)
+        .eq("active", true).maybeSingle();
+      const permissionScopeType = profile.governorate_key ? "governorate" : "global";
+      const permissionScopeGovernorate = profile.governorate_key ?? null;
+      const [financePermission, adminAccess] = await Promise.all([
+        caller.rpc("admin_has_permission", {
+          p_permission_key: "finance.wallet.adjust",
+          p_scope_type: permissionScopeType,
+          p_scope_governorate: permissionScopeGovernorate,
+        }),
+        caller.rpc("has_admin_access", { p_user_id: auth.user.id }),
+      ]);
+      const canSettle = adminAccess.data === true || (!financePermission.error && financePermission.data === true);
+      const { data: requests, error: requestsError } = await admin.from("service_requests")
+        .select("id,type,status,commission,customer_price,price_estimate,customer_payable,completed_at,created_at,governorate_key")
+        .eq("provider_id", body.provider_id).eq("status", "completed").eq("payment_method", "zaincash")
+        .order("completed_at", { ascending: false }).limit(500);
+      if (requestsError) return json({ error: "provider_payable_requests_load_failed" }, 500);
+
+      const requestIds = (requests ?? []).map((request: any) => request.id);
+      let payments: any[] = [];
+      if (requestIds.length) {
+        const { data, error } = await admin.from("payment_transactions")
+          .select("id,request_id,amount,paid_at,gateway_transaction_id")
+          .eq("purpose", "service_request").eq("status", "paid")
+          .in("request_id", requestIds).order("paid_at", { ascending: false });
+        if (error) return json({ error: "provider_payments_load_failed" }, 500);
+        payments = data ?? [];
+      }
+      const paymentsByRequest = new Map<string, any[]>();
+      for (const payment of payments) {
+        const current = paymentsByRequest.get(payment.request_id) ?? [];
+        current.push(payment);
+        paymentsByRequest.set(payment.request_id, current);
+      }
+      const requestItems = (requests ?? []).map((request: any) => {
+        const requestPayments = paymentsByRequest.get(request.id) ?? [];
+        const gross = requestPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount ?? 0), 0);
+        const commission = Math.min(gross, Math.max(0, Math.round(Number(request.commission ?? 0))));
+        return {
+          request_id: request.id,
+          request_type: request.type,
+          completed_at: request.completed_at ?? request.created_at,
+          gross_paid_iqd: gross,
+          commission_iqd: commission,
+          payable_iqd: Math.max(0, gross - commission),
+          payments: requestPayments,
+        };
+      }).filter((item: any) => item.gross_paid_iqd > 0);
+      const { data: settlements, error: settlementsError } = await admin.from("mamnoon_provider_cash_settlements")
+        .select("id,amount_iqd,note,created_at,created_by,idempotency_key")
+        .eq("provider_id", body.provider_id).order("created_at", { ascending: false }).limit(500);
+      if (settlementsError) return json({ error: "provider_settlements_load_failed" }, 500);
+      const total = (key: string) => requestItems.reduce((sum: number, item: any) => sum + Number(item[key] ?? 0), 0);
+      const grossTotal = total("gross_paid_iqd");
+      const commissionTotal = total("commission_iqd");
+      const payableTotal = total("payable_iqd");
+      const settledTotal = (settlements ?? []).reduce((sum: number, item: any) => sum + Number(item.amount_iqd ?? 0), 0);
+      return json({
+        provider: { ...profile, roles: roleRows.map((row: any) => String(row.role)) },
+        can_settle: canSettle,
+        summary: {
+          gross_paid_iqd: grossTotal,
+          commission_iqd: commissionTotal,
+          payable_iqd: payableTotal,
+          settled_iqd: settledTotal,
+          outstanding_iqd: Math.max(0, payableTotal - settledTotal),
+        },
+        requests: requestItems,
+        settlements: settlements ?? [],
+      });
+    }
+
+    if (body.action === "record_provider_cash_settlement") {
+      if (!uuid(body.provider_id) || !Number.isSafeInteger(body.amount_iqd) ||
+          body.amount_iqd <= 0 || body.amount_iqd > 1000000000 ||
+          typeof body.note !== "string" || body.note.trim().length < 2 || body.note.length > 500 ||
+          typeof body.idempotency_key !== "string" || !uuid(body.idempotency_key)) {
+        return json({ error: "invalid_request" }, 400);
+      }
+      const { data: targetProfile, error: targetProfileError } = await admin.from("profiles")
+        .select("governorate_key").eq("id", body.provider_id).maybeSingle();
+      if (targetProfileError || !targetProfile) return json({ error: "provider_not_found" }, 404);
+      const governorate = targetProfile.governorate_key ?? null;
+      await requirePermission("finance.wallet.adjust", governorate ? "governorate" : "global", governorate);
+      const { data, error } = await caller.rpc("admin_record_provider_cash_settlement", {
+        p_provider_id: body.provider_id,
+        p_amount_iqd: body.amount_iqd,
+        p_note: body.note.trim(),
+        p_idempotency_key: body.idempotency_key,
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, data });
+    }
+
     if (body.action === "search_users") {
       const { data: assignment } = await caller.from("staff_assignments")
         .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
