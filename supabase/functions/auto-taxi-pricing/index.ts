@@ -263,12 +263,26 @@ Deno.serve(async (req) => {
   const urgencyPercent=urgencyEnabled
     ? Math.max(0,Math.min(100,Number(globalControls?.urgency_max_percent)||0)) : 0;
   const economyRaw=Number(economySettings.base_fare)+routed.distanceKm*Number(economySettings.per_km_rate)+routed.durationMin*Number(economySettings.per_min_rate);
-  const effectiveRows=(["economy","premium","luxury"] as Category[]).map((serviceType)=>effectiveSettings(serviceType)).filter(Boolean);
+  const effectiveRows=(["economy","premium","luxury"] as Category[]).map((serviceType)=>effectiveSettings(serviceType));
+  if(effectiveRows.some((row:any)=>!row)) {
+    console.error("[auto-taxi-pricing] one or more category tariffs are missing",fromGovernorate,isIntercity);
+    return json({error:"تعريفة إحدى فئات السيارات غير مكتملة لهذه المحافظة. لم نعتمد سعراً تقديرياً.",code:"PRICING_SETTINGS_INCOMPLETE"},503);
+  }
+  const tariffNumbers=[Number(economySettings.base_fare),Number(economySettings.per_km_rate),Number(economySettings.per_min_rate),...effectiveRows.map((row:any)=>Number(row.min_fare))];
+  if(tariffNumbers.some((value)=>!Number.isFinite(value)||value<0)||Number(economySettings.per_km_rate)<=0) {
+    console.error("[auto-taxi-pricing] invalid admin tariff values",fromGovernorate,isIntercity);
+    return json({error:"تعرفة المسافة أو الحد الأدنى غير صالح. أوقفنا التسعير للحماية.",code:"INVALID_PRICING_SETTINGS"},503);
+  }
+  if(!Number.isFinite(economyRaw)||economyRaw<0) {
+    return json({error:"تعذّر التحقق من أساس حساب السعر.",code:"INVALID_PRICING_BASE"},503);
+  }
   const categoryPrices=Object.fromEntries(effectiveRows.map((row:any)=>{
     // The quote returns all three category prices in one request. Apply the
-    // same customer-selected urgency setting to every displayed category so
-    // changing the vehicle card does not require another route/pricing call.
-    return [row.service_type,fare(row.service_type as Category,economyRaw,{...row,is_intercity:isIntercity},tripType,extraMinutes,peakPercent,urgencyPercent)];
+    // same customer-selected urgency setting to every displayed category.
+    return [row.service_type,calculateServerTaxiFare({
+      category:row.service_type as Category,economyRaw,minFare:Number(row.min_fare),
+      tripType,extraMinutes,peakPercent,urgencyPercent,
+    })];
   })) as Record<Category,number>;
   const priceEstimate=categoryPrices[category];
   if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,urgencyEnabled:urgencyPercent>0,urgencyAllowed:Boolean(globalControls?.urgency_enabled && Number(globalControls?.urgency_max_percent)>0),urgencyPercent,governorateKey:fromGovernorate,fromGovernorateKey:fromGovernorate,toGovernorateKey:toGovernorate,isIntercity});
