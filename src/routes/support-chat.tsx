@@ -2,7 +2,8 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Send, Loader2, ArrowRight, ShieldCheck, Bell, Volume2, VolumeX } from "lucide-react";
+import { MessageCircle, Loader2, ArrowRight, Bell, Volume2, VolumeX } from "lucide-react";
+import { MamnoonChatThread } from "@/components/mamnoon-chat-thread";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/support-chat")({
@@ -27,12 +28,7 @@ function SupportChatPage() {
   const [loadError, setLoadError] = useState("");
   const [unansweredOnly, setUnansweredOnly] = useState(false);
   const [muted, setMuted] = useState(() => typeof window !== "undefined" && window.localStorage.getItem("mamnoon-support-muted") === "1");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const notifiedHandoffsRef = useRef(new Set<string>());
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, selected?.id]);
 
   const loadConversations = useCallback(async () => {
     if (!uid) return;
@@ -207,17 +203,27 @@ function SupportChatPage() {
         <section className="glass rounded-2xl min-h-[70vh] flex flex-col overflow-hidden">
           <div className="p-4 border-b border-border flex items-center justify-between gap-3"><div className="flex items-center gap-3 min-w-0"><div className="h-11 w-11 rounded-full bg-muted overflow-hidden shrink-0 grid place-items-center">{selected?.profile?.avatar_url ? <img src={selected.profile.avatar_url} alt="" className="h-full w-full object-cover" /> : <MessageCircle className="text-primary" />}</div><div className="min-w-0"><div className="font-black truncate">{isStaff ? selected?.profile?.full_name || "اختر محادثة" : "فريق دعم ممنون"}</div>{isStaff && <div className="text-xs text-muted-foreground" dir="ltr">{selected?.profile?.phone || ""}</div>}</div></div>{isStaff && <div className="flex items-center gap-1"><button title={muted ? "تشغيل الصوت" : "كتم الصوت"} onClick={() => { const next = !muted; setMuted(next); window.localStorage.setItem("mamnoon-support-muted", next ? "1" : "0"); }} className="rounded-xl border border-border p-2">{muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}</button><button title="السماح بالإشعارات" onClick={() => { if ("Notification" in window) void Notification.requestPermission(); }} className="rounded-xl border border-border p-2"><Bell className="h-4 w-4" /></button></div>}</div>
           {loadError && <div role="alert" className="mx-3 mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{loadError} — حدّث الصفحة وحاول مرة ثانية</div>}
-          <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-            {messages.length === 0 ? <div className="text-center text-sm text-muted-foreground py-12">أهلاً بك، اكتب رسالتك وسيقوم فريق ممنون بالرد عليك.</div> : messages.map((m) => { const isCompanyMessage = m.is_ai === true || (isStaff ? m.sender_id === uid : m.sender_id !== uid); return <div key={m.id} className={"max-w-[85%] rounded-2xl px-3 py-2 text-sm border shadow-sm " + (isCompanyMessage ? "ml-auto border-[#B98A24] bg-gradient-to-br from-[#F8E7A1] via-[#E5BD50] to-[#C99A2E] text-[#2C2108] shadow-[#C99A2E]/20" : "mr-auto border-primary/20 bg-primary text-primary-foreground")}>
-              {isCompanyMessage && <div className="flex items-center gap-1 text-[10px] font-black mb-1.5 text-[#5B4210]"><ShieldCheck className="h-3 w-3" /> {m.is_ai === true ? "مساعد ممنون الذكي" : "شركة ممنون"} {!m.is_ai && <span className="rounded-full bg-[#6D5015] text-[#FFF4C2] px-1.5 py-0.5 text-[9px]">موثّقة</span>}</div>}
-              <p className="whitespace-pre-wrap break-words">{m.body}</p><div className={"text-[10px] mt-1 " + (isCompanyMessage ? "text-[#5B4210]/75" : "opacity-70")}>{new Date(m.created_at).toLocaleString("ar-IQ")}</div>
-            </div>; })}
-            <div ref={messagesEndRef} />
-          </div>
-          {selected?.status === "open" && <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="p-3 border-t border-border flex gap-2">
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} placeholder="اكتب رسالتك..." className="flex-1 min-w-0 rounded-xl bg-card border border-border px-3 py-3 text-sm outline-none" />
-            <button disabled={!draft.trim() || busy} className="rounded-xl bg-primary text-primary-foreground px-4 disabled:opacity-50"><Send className="h-4 w-4" /></button>
-          </form>}
+          <MamnoonChatThread
+            messages={messages.map((m) => {
+              const isCompanyMessage = m.is_ai === true || (isStaff ? m.sender_id === uid : m.sender_id !== uid);
+              return {
+                id: m.id,
+                senderId: isCompanyMessage ? (uid ?? "mamnoon-company") : `external:${m.sender_id}`,
+                body: m.body,
+                createdAt: m.created_at,
+                isBot: m.is_ai === true,
+                senderLabel: m.is_ai === true ? "مساعد ممنون الذكي" : isCompanyMessage ? "شركة ممنون · موثّقة" : "المستخدم",
+              };
+            })}
+            currentUserId={uid ?? ""}
+            draft={draft}
+            onDraftChange={setDraft}
+            onSend={() => void send()}
+            busy={busy}
+            placeholder="اكتب رسالتك..."
+            emptyText="أهلاً بك، اكتب رسالتك وسيقوم فريق ممنون بالرد عليك."
+            readOnly={selected?.status !== "open"}
+          />
         </section>
       </div>
     </div>
