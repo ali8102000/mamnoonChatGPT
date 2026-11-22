@@ -121,6 +121,7 @@ function RequestDetail() {
     : null;
   const myRole: "customer" | "provider" =
     req && myUserId === req.customer_id ? "customer" : "provider";
+  const isServiceTeamMember = serviceProviders.some((member) => member.provider_id === myUserId);
   useEffect(() => { setOtherAvatarFailed(false); }, [other?.avatar_url]);
   useEffect(() => {
     const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
@@ -578,6 +579,12 @@ function RequestDetail() {
           </div>
         )}
 
+        {myRole === "provider" && isServiceTeamMember && req.type === "service" && req.status === "searching" && (
+          <div className="mt-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-right">
+            <div className="text-sm font-black text-emerald-700 dark:text-emerald-300">تم تسجيلك ضمن فريق الطلب</div>
+            <div className="mt-1 text-xs text-muted-foreground">الفريق المؤكد: {acceptedPeopleCount} من {req.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</div>
+          </div>
+        )}
         {req.type === "service" && (
           <div className="glass rounded-2xl p-3 flex items-center gap-3" dir="rtl">
             <img src={serviceIcon(req.services?.slug ?? "")} alt={req.services?.name_ar ?? "الخدمة"} className="h-16 w-16 rounded-xl object-cover border border-border" />
