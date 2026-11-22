@@ -1,8 +1,9 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Headphones, Plus, MessageSquare, Send, Crown } from "lucide-react";
+import { Loader2, Headphones, Plus, MessageSquare, Crown } from "lucide-react";
+import { MamnoonChatThread } from "@/components/mamnoon-chat-thread";
 import { toast } from "@/lib/toast";
 
 export const Route = createFileRoute("/support")({
@@ -53,16 +54,7 @@ function SupportCenter() {
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [adminViewAll, setAdminViewAll] = useState(false);
 
-  const supportScrollRef = useRef<HTMLDivElement>(null);
   const userId = session?.user.id;
-
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      const el = supportScrollRef.current;
-      if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [messages.length, selected?.id]);
 
   const loadTickets = useCallback(async () => {
     setLoadingTickets(true);
@@ -261,58 +253,24 @@ function SupportCenter() {
             </div>
           </div>
 
-          <div
-            ref={supportScrollRef}
-            className="space-y-3 mb-4 max-h-[400px] overflow-y-auto px-1 py-2"
-          >
-            {messages.length === 0 ? (
-              <div className="text-center py-8 text-xs text-muted-foreground">
-                لا توجد ردود بعد. اكتب ردك وسيتواصل معك فريق الإدارة فوراً.
-              </div>
-            ) : (
-              messages.map((m) => {
-                const isMe = m.sender_id === session.user.id;
-                return (
-                  <div
-                    key={m.id}
-                    className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`rounded-2xl px-4 py-3 max-w-[85%] text-xs shadow-sm leading-relaxed ${
-                        isMe
-                          ? "bg-primary text-primary-foreground rounded-br-sm"
-                          : m.is_staff
-                            ? "bg-amber-500/15 border-2 border-amber-500/40 text-foreground rounded-bl-sm"
-                            : "glass text-foreground rounded-bl-sm"
-                      }`}
-                    >
-                      <div>{m.message}</div>
-                      <div className="text-[9px] opacity-75 mt-1 flex items-center justify-between gap-3">
-                        <span>{new Date(m.created_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })}</span>
-                        {m.is_staff && <span className="font-bold text-amber-700">👑 إدارة ممنون</span>}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            <input
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendReply()}
+          <div className="mb-4 h-[min(52vh,460px)] overflow-hidden rounded-2xl border border-border bg-background flex flex-col">
+            <MamnoonChatThread
+              messages={messages.map((m) => ({
+                id: m.id,
+                senderId: m.sender_id === session.user.id ? session.user.id : `external:${m.sender_id}`,
+                body: m.message,
+                createdAt: m.created_at,
+                senderLabel: m.is_staff ? "إدارة ممنون" : "المستخدم",
+              }))}
+              currentUserId={session.user.id}
+              draft={reply}
+              onDraftChange={setReply}
+              onSend={() => void sendReply()}
+              busy={busy}
               placeholder={isSuperAdmin ? "اكتب رد الإدارة على المستخدم..." : "اكتب ردك للدعم..."}
-              className="flex-1 glass rounded-2xl px-4 py-3 text-xs outline-none border border-border shadow-sm font-medium"
+              emptyText="لا توجد ردود بعد. اكتب رسالتك وسيتواصل معك فريق الإدارة."
+              readOnly={selected.status !== "open"}
             />
-            <button
-              onClick={sendReply}
-              disabled={busy || !reply.trim()}
-              className="px-5 rounded-2xl bg-primary text-primary-foreground font-black text-xs btn-press disabled:opacity-50 flex items-center justify-center gap-1 shadow-md"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </button>
           </div>
         </div>
       ) : (
