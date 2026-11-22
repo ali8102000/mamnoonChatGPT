@@ -27,12 +27,8 @@ create table if not exists public.regional_dispatch_zone_settings (
 -- Preserve the current global admin values as the fallback for every governorate.
 insert into public.regional_dispatch_zone_settings
   (governorate_key,dispatch_type,ring1_min_km,ring1_max_km,ring2_min_km,ring2_max_km,ring3_min_km,ring3_max_km)
-select g.governorate_key,s.dispatch_type,s.ring1_min_km,s.ring1_max_km,s.ring2_min_km,s.ring2_max_km,s.ring3_min_km,s.ring3_max_km
-from (values
- ('all'),('baghdad'),('basra'),('nineveh'),('erbil'),('sulaymaniyah'),('duhok'),('kirkuk'),
- ('najaf'),('karbala'),('babil'),('anbar'),('diyala'),('saladin'),('wasit'),('dhiqar'),('maysan'),('muthanna'),('qadisiyah')
-) g(governorate_key)
-cross join public.dispatch_zone_settings s
+select 'all',s.dispatch_type,s.ring1_min_km,s.ring1_max_km,s.ring2_min_km,s.ring2_max_km,s.ring3_min_km,s.ring3_max_km
+from public.dispatch_zone_settings s
 on conflict (governorate_key,dispatch_type) do nothing;
 
 alter table public.regional_dispatch_zone_settings enable row level security;
@@ -176,7 +172,7 @@ begin
   left join public.service_dispatch_queue sq on sq.request_id=r.id
   left join public.taxi_dispatch_queue tq on tq.request_id=r.id
   where o.request_id=r.id and o.status='pending'
-    and lower(coalesce(r.governorate_key,'all'))=new.governorate_key
+    and (new.governorate_key='all' or lower(coalesce(r.governorate_key,'all'))=new.governorate_key)
     and (
       (r.type::text='service' and sq.request_id is not null
         and o.distance_km > (select x.max_km from public.get_regional_dispatch_ring('technician',greatest(sq.stage-1,0),r.governorate_key) x))
