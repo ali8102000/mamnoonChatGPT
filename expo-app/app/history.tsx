@@ -54,7 +54,26 @@ export default function HistoryScreen() {
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
-      const rows = (data || []) as HistoryRequest[];
+      const { data: memberships, error: membershipError } = await (supabase as any)
+        .from("service_request_providers")
+        .select("request_id")
+        .eq("provider_id", user.id);
+      let teamRows: any[] = [];
+      if (!membershipError && memberships?.length) {
+        const teamIds = [...new Set<string>(memberships.map((row: any) => String(row.request_id)))];
+        const { data: rows, error: teamError } = await supabase
+          .from("service_requests")
+          .select("id,type,status,created_at,price_estimate")
+          .in("id", teamIds);
+        if (!teamError) teamRows = rows ?? [];
+        else console.warn("[history] Team request history failed:", teamError.message);
+      }
+      if (membershipError) console.warn("[history] Team membership history unavailable:", membershipError.message);
+      const merged = new Map<string, any>();
+      [...(data ?? []), ...teamRows].forEach((row) => merged.set(row.id, row));
+      const rows = [...merged.values()]
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+        .slice(0, 100) as HistoryRequest[];
       setRequests(rows);
       setUsingCachedData(false);
       try {
