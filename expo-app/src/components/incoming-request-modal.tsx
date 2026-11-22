@@ -32,7 +32,6 @@ import service_cleaning from "../../assets/services/cleaning.jpg";
 import service_wood_carpentry from "../../assets/services/wood_carpentry.jpg";
 import service_blacksmith from "../../assets/services/blacksmith.jpg";
 import service_general from "../../assets/services/general.jpg";
-import type { AppRole } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
 import { getNotificationChannelId, loadNotificationPreferences } from "@/lib/notification-sound";
 
@@ -90,8 +89,10 @@ function roundPriceToNearest250(value: number) {
 }
 
 export function IncomingRequestModal() {
-  const { user, roles } = useAuth();
-  const canReceive = roles.some((role: AppRole) => role === "driver" || role === "large_driver" || role === "worker");
+  const { user, activeRole } = useAuth();
+  // Only the currently selected provider role may receive provider offers.
+  // A linked provider role must stay dormant while the user is in customer mode.
+  const canReceive = activeRole === "driver" || activeRole === "large_driver" || activeRole === "worker";
   const [offer, setOffer] = useState<Offer | null>(null);
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [visible, setVisible] = useState(false);
@@ -191,19 +192,9 @@ export function IncomingRequestModal() {
   useEffect(() => {
     void loadOffer();
     if (!user || !canReceive) return;
-    const channel = supabase
-      .channel(`incoming-offers-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "request_offers",
-          filter: `provider_id=eq.${user.id}`,
-        },
-        () => void loadOffer(),
-      )
-      .subscribe();
+    // The 3-second native refresh already keeps offers current. Avoid a
+    // Realtime channel here because this modal lives above every tab and can
+    // outlive role changes on Android.
     const appStateSubscription = AppState.addEventListener("change", (state) => {
       if (state === "active") void loadOffer();
     });
@@ -211,7 +202,6 @@ export function IncomingRequestModal() {
     return () => {
       clearInterval(timer);
       appStateSubscription.remove();
-      supabase.removeChannel(channel);
     };
   }, [user, canReceive, loadOffer]);
 

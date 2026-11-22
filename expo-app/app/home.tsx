@@ -132,27 +132,14 @@ export default function HomeScreen() {
   }, [selectedRole, user]);
 
   useEffect(() => {
+    // Native Android fallback: do not attach postgres_changes listeners here.
+    // Some Android lifecycle/remount paths can retain a subscribed channel and
+    // Supabase rejects callbacks added to that channel after subscribe().
+    // Short polling keeps provider offers fresh without risking a screen crash.
     void loadIncoming();
-    const channel = supabase.channel("incoming-requests")
-      .on("postgres_changes", { event: "*", schema: "public", table: "service_requests" }, () => {
-        void loadIncoming();
-      });
-    if (user?.id) {
-      channel.on("postgres_changes", {
-        event: "*", schema: "public", table: "request_offers", filter: `provider_id=eq.${user.id}`,
-      }, () => {
-        void loadIncoming();
-      });
-    }
-    channel.subscribe();
-    // Dispatch expands its search radius in 60-second waves. Polling keeps
-    // later waves visible if Realtime is temporarily disconnected.
-    const refreshTimer = setInterval(() => { void loadIncoming(); }, 3000);
-    return () => {
-      clearInterval(refreshTimer);
-      supabase.removeChannel(channel);
-    };
-  }, [loadIncoming, user?.id]);
+    const refreshTimer = setInterval(() => { void loadIncoming(); }, 5_000);
+    return () => clearInterval(refreshTimer);
+  }, [loadIncoming]);
 
   useEffect(() => {
     if (!user || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) {
@@ -483,10 +470,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
     void load();
-    const channel = supabase.channel("home-top-banner-native")
-      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void load())
-      .subscribe();
-    return () => { active = false; void supabase.removeChannel(channel); };
+    // Native Android fallback: avoid Realtime channel lifecycle races while
+    // keeping campaign/ad banner updates fresh.
+    const refreshTimer = setInterval(() => { void load(); }, 30_000);
+    return () => { active = false; clearInterval(refreshTimer); };
   }, []);
 
   useEffect(() => {

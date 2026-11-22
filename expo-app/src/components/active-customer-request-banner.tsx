@@ -17,12 +17,12 @@ type ActiveRequest = {
 };
 
 export function ActiveCustomerRequestBanner() {
-  const { user, roles } = useAuth();
+  const { user, activeRole } = useAuth();
   const [request, setRequest] = useState<ActiveRequest | null>(null);
   const [providerMoving, setProviderMoving] = useState(false);
 
   const load = useCallback(async () => {
-    if (!user || !roles.includes("customer")) {
+    if (!user || activeRole !== "customer") {
       setRequest(null);
       return;
     }
@@ -57,30 +57,21 @@ export function ActiveCustomerRequestBanner() {
         setProviderMoving(false);
       }
     }
-  }, [user, roles]);
+  }, [user, activeRole]);
 
   useEffect(() => {
-    void load();
-    if (!user) return;
-    const channel = supabase
-      .channel(`customer-active-request-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "service_requests",
-          filter: `customer_id=eq.${user.id}`,
-        },
-        () => void load(),
-      )
-      .subscribe();
-    const timer = setInterval(() => void load(), 10000);
+    let active = true;
+    const refresh = () => { if (active) void load(); };
+    refresh();
+    if (!user?.id) return () => { active = false; };
+    // Android-safe refresh: avoid screen-owned Realtime channels during tab
+    // remounts and role changes; the banner remains current through polling.
+    const timer = setInterval(refresh, 10_000);
     return () => {
+      active = false;
       clearInterval(timer);
-      supabase.removeChannel(channel);
     };
-  }, [user, load]);
+  }, [user?.id, load]);
 
   if (!request) return null;
   const status = request.status === "accepted"

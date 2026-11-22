@@ -57,13 +57,10 @@ export function RegionalServiceBanner() {
       });
     };
     void load();
-    // RealtimeClient reuses channels by topic. A unique topic prevents remounts from
-    // receiving an already-subscribed channel before this postgres_changes handler is added.
-    const channel = supabase.channel(`regional-service-controls-mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls" }, () => { void load(); });
-    channel.subscribe();
+    // This banner is mounted at the app root and survives tab/role changes.
+    // Polling avoids a long-lived Realtime channel across Android remounts.
     const timer = setInterval(() => void load(), 30000);
-    return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
+    return () => { active = false; clearInterval(timer); };
   }, [isAdmin, loading]);
   const text = row?.message_text || (row && !row.services_enabled ? "الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون." : "");
   useEffect(() => {

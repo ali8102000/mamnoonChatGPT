@@ -36,8 +36,10 @@ export function ServiceIconPanorama({ imageUrl, imageScale = 1, imageFit, imageS
       setVisuals(next);
     };
     void load();
-    const channel = supabase.channel("service-artwork-visuals-native").on("postgres_changes", { event: "*", schema: "public", table: "app_ui_elements" }, () => void load()).subscribe();
-    return () => { active = false; void supabase.removeChannel(channel); };
+    // Artwork configuration changes infrequently; polling avoids a persistent
+    // channel on the home tab and keeps the native view safe during remounts.
+    const refreshTimer = setInterval(() => { void load(); }, 30_000);
+    return () => { active = false; clearInterval(refreshTimer); };
   }, []);
 
   useEffect(() => {

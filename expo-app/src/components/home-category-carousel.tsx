@@ -47,10 +47,11 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth, plac
       if (active && !error) { setBanners(data ?? []); setIndex(0); setImageFailed(false); }
     };
     void refresh();
-    const channel = supabase.channel("home-category-panorama-native")
-      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void refresh())
-      .subscribe();
-    return () => { active = false; void supabase.removeChannel(channel); };
+    // Native Android: use bounded polling instead of Realtime callbacks.
+    // This avoids channel lifecycle/remount races while keeping admin banner
+    // changes visible without changing the web implementation.
+    const refreshTimer = setInterval(() => { void refresh(); }, 30_000);
+    return () => { active = false; clearInterval(refreshTimer); };
   }, [placement]);
 
   const slides = useMemo(() => banners.length ? banners.map((item) => ({

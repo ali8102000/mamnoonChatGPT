@@ -48,7 +48,7 @@ function summarizeProviderEarnings(rows: WalletTransaction[]): EarningsSummary {
 
 export default function ProfileScreen() {
   const { user, profile, roles, activeRole, signOut, refresh } = useAuth();
-  const isProvider = activeRole !== "customer" && (roles.includes("worker") || roles.includes("driver") || roles.includes("large_driver"));
+  const isProvider = activeRole === "worker" || activeRole === "driver" || activeRole === "large_driver";
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [accountWallet, setAccountWallet] = useState<AccountWallet | null>(null);
   const [accountWalletTransactions, setAccountWalletTransactions] = useState<any[]>([]);
@@ -112,11 +112,10 @@ export default function ProfileScreen() {
     };
     void loadAccountWallet();
     if (!user?.id) return () => { active = false; };
-    const channel = supabase.channel(`account-wallet-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "account_wallets", filter: `user_id=eq.${user.id}` }, () => { void loadAccountWallet(); })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "account_wallet_transactions", filter: `user_id=eq.${user.id}` }, () => { void loadAccountWallet(); })
-      .subscribe();
-    return () => { active = false; void supabase.removeChannel(channel); };
+    // Native Android fallback: refresh wallet data periodically rather than
+    // registering Realtime callbacks that can race during tab remounts.
+    const refreshTimer = setInterval(() => { void loadAccountWallet(); }, 15_000);
+    return () => { active = false; clearInterval(refreshTimer); };
   }, [user?.id]);
 
   useEffect(() => {

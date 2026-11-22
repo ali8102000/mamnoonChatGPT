@@ -45,7 +45,7 @@ export default function HistoryScreen() {
       setUsingCachedData(false);
       return;
     }
-    const cacheKey = `mamnoon-history-v1:${user.id}`;
+    const cacheKey = `mamnoon-history-v1_${user.id}`;
     try {
       const { data, error } = await supabase
         .from("service_requests")

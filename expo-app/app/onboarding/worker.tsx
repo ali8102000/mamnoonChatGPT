@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { safeNavigate } from "@/lib/safe-navigation";
 import { Button } from "@/components/ui";
 import { getServiceImage } from "@/lib/service-visuals";
 import { palette, radius } from "@/styles/theme";
@@ -23,7 +24,7 @@ type PickedImage = { uri: string; mimeType?: string | null; fileName?: string | 
 type PhotoKind = "face" | "id-front" | "id-back";
 
 export default function WorkerOnboarding() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, setActiveRole } = useAuth();
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [services, setServices] = useState<WorkerService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
@@ -328,8 +329,8 @@ export default function WorkerOnboarding() {
                 return;
               }
               await refresh();
-              await (await import("expo-secure-store")).setItemAsync("mamnoon_active_role", "worker");
-              router.replace("/home");
+              await setActiveRole("worker");
+              safeNavigate("/home", "replace");
             }} />
             <Button title="تواصل مع الدعم" onPress={() => router.push("/support-chat")} />
           </>

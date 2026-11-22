@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { Session, User } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
+import { cleanupSessionAndListeners } from "./session-cleanup";
 
 export type AppRole =
   | "customer"
@@ -157,8 +158,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("جلسة الدخول غير موجودة. سجّل الدخول من جديد.");
     }
 
-    // Invalidate an in-flight restore immediately, then serialize writes.
+    // Invalidate any pending role restore immediately, before asynchronous
+    // cleanup. Otherwise a slow Android cleanup can let an older profile
+    // restore briefly overwrite the customer's newly selected role.
     const revision = ++roleRevision.current;
+
+    // Detach role-scoped listeners and stop provider presence before switching.
+    await cleanupSessionAndListeners();
+    if (roleRevision.current !== revision || lastUserId.current !== uid) return;
+
+    // Serialize SecureStore writes so rapid taps cannot persist roles out of order.
     const write = roleWriteQueue.current
       .catch(() => undefined)
       .then(() => withStartupTimeout(SecureStore.setItemAsync(rolePreferenceKey(uid), role), 8000, "active_role_write_timeout"));
@@ -319,6 +328,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    const pendingProfileTimers = new Set<ReturnType<typeof setTimeout>>();
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       authRevision.current += 1;
       setSession(nextSession);
@@ -328,7 +339,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextUserId) {
         if (previousId && previousId !== nextUserId) void clearCachedAuthProfile(previousId);
         lastUserId.current = nextUserId;
-        setTimeout(() => { void loadProfile(nextUserId); }, 0);
+        const timer = setTimeout(() => {
+          pendingProfileTimers.delete(timer);
+          if (active) void loadProfile(nextUserId);
+        }, 0);
+        pendingProfileTimers.add(timer);
       } else {
         lastUserId.current = null;
         setProfile(null);
@@ -338,7 +353,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    let active = true;
     const initialAuthRevision = authRevision.current;
     withStartupTimeout(supabase.auth.getSession(), 12000, "auth_session_restore_timeout")
       .then(async ({ data, error }) => {
@@ -362,11 +376,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       active = false;
+      pendingProfileTimers.forEach((timer) => clearTimeout(timer));
+      pendingProfileTimers.clear();
       sub.subscription.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
+    await cleanupSessionAndListeners();
     await supabase.auth.signOut({ scope: "local" });
   };
 

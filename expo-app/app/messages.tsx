@@ -28,7 +28,7 @@ export default function MessagesScreen() {
       setLoading(false);
       return;
     }
-    const cacheKey = `mamnoon-chats-v1:${user.id}`;
+    const cacheKey = `mamnoon-chats-v1_${user.id}`;
     try {
       const { data: activeRequests, error: activeError } = await supabase
         .from("service_requests")
@@ -88,7 +88,7 @@ export default function MessagesScreen() {
   useEffect(() => {
     loadChats();
     const sub = supabase
-      .channel("chats-list")
+      .channel(`chats-list:${user?.id ?? "guest"}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "chats" }, () => loadChats())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "service_requests" }, () => loadChats())
       .subscribe();
