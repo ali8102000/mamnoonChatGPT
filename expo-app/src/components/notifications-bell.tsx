@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
@@ -23,6 +23,7 @@ export function NotificationsBell() {
   const [featured, setFeatured] = useState<NotificationRow | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(isNotificationSoundEnabled());
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
+  const knownNotificationIds = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,23 +68,11 @@ export function NotificationsBell() {
     ]);
     if (!error) {
       const merged=[...(pendingGrant??[]),...(data??[])].filter((item:NotificationRow,i:number,all:NotificationRow[])=>all.findIndex(x=>x.id===item.id)===i).filter((item:NotificationRow)=>isImportantNotificationType(item.type));
-      setItems(merged);
-      setFeatured(current=>current&&!current.read_at?current:merged.find((item:NotificationRow)=>!item.read_at&&(item.type==="subscription_granted"||item.type==="company_announcement"))??null);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    void load();
-    const refresh = setInterval(() => { setNow(Date.now()); void load(); }, 60_000);
-    const appState = AppState.addEventListener("change", (state) => { if (state === "active") { setNow(Date.now()); void load(); } });
-    const channel = supabase.channel(`native-notifications:${user.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: "user_id=eq." + user.id }, (payload: any) => {
-        const item = payload.new as NotificationRow;
-        if ((Date.now() - new Date(item.created_at).getTime() <= 24 * 60 * 60 * 1000 || item.type === "subscription_granted") && isImportantNotificationType(item.type)) setItems((current) => [item, ...current.filter((row) => row.id !== item.id)]);
-        if (item.type === "subscription_granted" || item.type === "company_announcement") setFeatured(item);
-        // Request offers already receive a dedicated Expo push; other in-app events get a local audible alert.
-        if (isImportantNotificationType(item.type)) {
+      // Detect newly arrived notifications during polling. The first fetch only
+      // seeds the cache so old notifications never generate duplicate alerts.
+      if (knownNotificationIds.current) {
+        const fresh = merged.filter((item: NotificationRow) => !knownNotificationIds.current?.has(item.id));
+        fresh.forEach((item: NotificationRow) => {
           void Notifications.scheduleNotificationAsync({
             content: {
               title: item.title,
@@ -97,10 +86,28 @@ export function NotificationsBell() {
               seconds: 1,
               channelId: getNotificationChannelId(),
             },
-          }).catch((error) => console.warn("[notifications] local sound alert failed:", error));
-        }
-      }).subscribe();
-    return () => { clearInterval(refresh); appState.remove(); supabase.removeChannel(channel); };
+          }).catch((scheduleError) => console.warn("[notifications] local sound alert failed:", scheduleError));
+        });
+      }
+      knownNotificationIds.current = new Set(merged.map((item: NotificationRow) => item.id));
+      setItems(merged);
+      setFeatured(current=>current&&!current.read_at?current:merged.find((item:NotificationRow)=>!item.read_at&&(item.type==="subscription_granted"||item.type==="company_announcement"))??null);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      knownNotificationIds.current = null;
+      return;
+    }
+    void load();
+    // Poll on native Android to avoid Realtime callbacks racing with tab
+    // unmounts and role switches. New rows still trigger local sound alerts.
+    const refresh = setInterval(() => { setNow(Date.now()); void load(); }, 20_000);
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") { setNow(Date.now()); void load(); }
+    });
+    return () => { clearInterval(refresh); appState.remove(); };
   }, [user?.id, load]);
 
   const visible = items.filter((item) => now - new Date(item.created_at).getTime() <= 24 * 60 * 60 * 1000);
