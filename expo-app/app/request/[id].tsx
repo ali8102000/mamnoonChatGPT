@@ -423,6 +423,8 @@ export default function RequestDetail() {
       return;
     }
     setRequest(data as RequestRecord | null);
+    // Render the core request before optional offers, attachments and payment status finish loading.
+    setLoading(false);
     if (data?.type === "service") {
       setServiceProviders([]);
       const { data: members, error: membersError } = await (supabase as any)
