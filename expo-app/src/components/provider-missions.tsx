@@ -10,7 +10,7 @@ type Mission = {
 };
 const money=(n:number)=>new Intl.NumberFormat("ar-IQ").format(Number(n)||0)+" د.ع";
 const scopeText=(s:string)=>s==="inside_governorate"?"داخل المحافظة فقط":s==="outside_governorate"?"خارج المحافظة فقط":"داخل وخارج المحافظة";
-const statusText=(s:string)=>s==="eligible"?"مكتملة — بانتظار مراجعة الإدارة":s==="approved"?"تم اعتماد المكافأة وإيداعها":s==="rejected"?"لم تعتمد الإدارة المكافأة":"مستمرة";
+const statusText=(s:string,endsAt:string)=>s==="eligible"?"مكتملة — بانتظار مراجعة الإدارة":s==="approved"?"تم اعتماد المكافأة وإيداعها":s==="rejected"?"لم تعتمد الإدارة المكافأة":new Date(endsAt).getTime()<=Date.now()?"انتهت المهلة":"مستمرة";
 
 export function ProviderMissions(){
  const [items,setItems]=useState<Mission[]>([]);
