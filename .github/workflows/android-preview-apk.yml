@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mamnoon-android-preview-${github.event.pull_request.number || github.ref}
+  group: mamnoon-android-preview-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
         run: bun install
       - name: Generate standalone Android release APK
         env:
-          EXPO_TOKEN: ${secrets.EXPO_TOKEN}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           APP_ENV: production
           EAS_PROJECT_ID: a6c763c4-3a5c-4725-b370-81967e3c0aab
         run: |
