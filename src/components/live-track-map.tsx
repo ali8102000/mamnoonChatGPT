@@ -103,7 +103,7 @@ export function LiveTrackMap({
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [atPickup, setAtPickup] = useState(false);
   const [routeMode, setRouteMode] = useState<"road" | "direct" | "waiting">("waiting");
-  const [routeProvider, setRouteProvider] = useState<"google" | "osrm" | "none">("none");
+  const [routeProvider, setRouteProvider] = useState<"google" | "google_standard" | "osrm" | "none">("none");
   const [nextInstruction, setNextInstruction] = useState<string | null>(null);
   useEffect(() => {
     setIsFullscreen(fullscreen);
@@ -243,8 +243,9 @@ export function LiveTrackMap({
           ? serviceIcon(vehicleType === "kia_cargo" ? "cargo_handling" : "goods_transport")
           : luxuryCarImage
         : serviceIcon(serviceSlug || "general");
+      const markerImageHref = markerImage.startsWith("http") || markerImage.startsWith("data:") ? markerImage : window.location.origin + (markerImage.startsWith("/") ? markerImage : "/" + markerImage);
       const markerRotation = serviceType === "taxi" ? heading : 0;
-      const markerSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><defs><clipPath id="requestPhotoClip"><circle cx="22" cy="22" r="16"/></clipPath><filter id="requestPhotoShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".28"/></filter></defs><circle cx="22" cy="22" r="20" fill="#fff" stroke="#D6A43B" stroke-width="2" filter="url(#requestPhotoShadow)"/><image href="' + markerImage + '" x="6" y="6" width="32" height="32" preserveAspectRatio="xMidYMid slice" clip-path="url(#requestPhotoClip)" transform="rotate(' + markerRotation + ' 22 22)"/></svg>';
+      const markerSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><defs><clipPath id="requestPhotoClip"><circle cx="22" cy="22" r="16"/></clipPath><filter id="requestPhotoShadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".28"/></filter></defs><circle cx="22" cy="22" r="20" fill="#fff" stroke="#D6A43B" stroke-width="2" filter="url(#requestPhotoShadow)"/><image href="' + markerImageHref + '" x="6" y="6" width="32" height="32" preserveAspectRatio="xMidYMid slice" clip-path="url(#requestPhotoClip)" transform="rotate(' + markerRotation + ' 22 22)"/></svg>';
       const carIcon = { url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(markerSvg), scaledSize: new g.maps.Size(42, 42), anchor: new g.maps.Point(21, 21) };
       if (!driverMarkerRef.current) {
         driverMarkerRef.current = new g.maps.Marker({ position: activeDriverCoord, map, icon: carIcon, title: serviceType === "taxi" ? (vehicleCategory === "large" ? (vehicleType === "kia_passenger" ? "كيا ركاب" : "كيا حمل") : "سيارة الكابتن") : driverName, zIndex: 20, optimized: false });
@@ -346,7 +347,7 @@ export function LiveTrackMap({
             }));
           });
           setRouteMode("road");
-          setRouteProvider(route.routeSource === "google_routes_traffic" ? "google" : "osrm");
+          setRouteProvider(route.routeSource === "google_routes_traffic" ? "google" : route.routeSource?.startsWith("google") ? "google_standard" : "osrm");
           setNextInstruction(route.routeSteps?.[0]?.instruction ?? null);
           if (typeof route.distanceKm === "number") setDistanceKm(route.distanceKm);
           if (typeof route.durationMin === "number") setEtaMinutes(Math.max(1, Math.round(route.durationMin)));
@@ -460,7 +461,7 @@ export function LiveTrackMap({
               </div>
             )}
             {nextInstruction && <div className="mt-1 max-w-[260px] truncate text-[10px] font-bold text-emerald-700">التالي: {nextInstruction}</div>}
-            {routeProvider === "google" && <div className="mt-0.5 text-[9px] font-bold text-emerald-700">مسار وحركة مرور مباشرة</div>}
+            {routeProvider === "google" && <div className="mt-0.5 text-[9px] font-bold text-emerald-700">مسار وحركة مرور مباشرة</div>}{routeProvider === "google_standard" && <div className="mt-0.5 text-[9px] font-bold text-muted-foreground">مسار شوارع Google</div>}
           </div>
         </div>}
 
