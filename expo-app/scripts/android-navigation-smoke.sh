@@ -84,7 +84,7 @@ has_text() {
   python3 - "$UI" "$1" <<'PY'
 import sys, xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()
-needle = sys.argv[1]
+needle = sys.argv[2]
 for node in root.iter("node"):
     value = " ".join(filter(None, (node.attrib.get("text", ""), node.attrib.get("content-desc", "")))).lower()
     if needle.lower() in value:
