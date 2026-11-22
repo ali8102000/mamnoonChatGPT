@@ -402,6 +402,7 @@ export default function RequestDetail() {
     }
     setRequest(data as RequestRecord | null);
     if (data?.type === "service") {
+      setServiceProviders([]);
       const { data: members, error: membersError } = await (supabase as any)
         .from("service_request_providers")
         .select("provider_id,team_size,accepted_at")
