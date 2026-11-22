@@ -101,7 +101,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
   SELECT auth.uid() IS NOT NULL AND (
     EXISTS (
       SELECT 1
@@ -130,7 +130,7 @@ AS $
         AND sr.type::text = 'service'
     )
   );
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.can_view_service_request_profile(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.can_view_service_request_profile(uuid) TO authenticated;
