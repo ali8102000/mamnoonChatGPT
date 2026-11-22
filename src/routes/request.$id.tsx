@@ -516,14 +516,16 @@ function RequestDetail() {
   }
 
   const statusLabel =
-    {
-      pending: "بانتظار القبول",
-      searching: "جاري البحث",
-      accepted: "تم القبول",
-      in_progress: "قيد التنفيذ",
-      completed: "مكتمل",
-      cancelled: "ملغي",
-    }[req.status as string] ?? req.status;
+    req.type === "service" && req.status === "accepted" && remainingPeopleCount > 0
+      ? "اكتفى الزبون بالعدد المتوفر"
+      : ({
+          pending: "بانتظار القبول",
+          searching: "جاري البحث",
+          accepted: "تم القبول",
+          in_progress: "قيد التنفيذ",
+          completed: "مكتمل",
+          cancelled: "ملغي",
+        }[req.status as string] ?? req.status);
 
   return (
     <div className="min-h-screen flex flex-col">
