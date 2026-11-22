@@ -95,6 +95,56 @@ $$;
 REVOKE ALL ON FUNCTION public.is_service_request(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_service_request(uuid) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.can_view_service_request_profile(_profile_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $
+  SELECT auth.uid() IS NOT NULL AND (
+    EXISTS (
+      SELECT 1
+      FROM public.service_request_providers mine
+      JOIN public.service_request_providers target
+        ON target.request_id = mine.request_id
+      JOIN public.service_requests sr ON sr.id = mine.request_id
+      WHERE mine.provider_id = auth.uid()
+        AND target.provider_id = _profile_id
+        AND sr.type::text = 'service'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.service_requests sr
+      JOIN public.service_request_providers target ON target.request_id = sr.id
+      WHERE sr.customer_id = auth.uid()
+        AND target.provider_id = _profile_id
+        AND sr.type::text = 'service'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.service_request_providers mine
+      JOIN public.service_requests sr ON sr.id = mine.request_id
+      WHERE mine.provider_id = auth.uid()
+        AND sr.customer_id = _profile_id
+        AND sr.type::text = 'service'
+    )
+  );
+$;
+
+REVOKE ALL ON FUNCTION public.can_view_service_request_profile(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.can_view_service_request_profile(uuid) TO authenticated;
+
+DROP POLICY IF EXISTS "Service request team members view profiles" ON public.profiles;
+CREATE POLICY "Service request team members view profiles"
+  ON public.profiles FOR SELECT TO authenticated
+  USING (public.can_view_service_request_profile(id));
+
+DROP POLICY IF EXISTS "Service request team members view worker profiles" ON public.worker_profiles;
+CREATE POLICY "Service request team members view worker profiles"
+  ON public.worker_profiles FOR SELECT TO authenticated
+  USING (public.can_view_service_request_profile(user_id));
+
 DROP POLICY IF EXISTS "Service request providers see own membership" ON public.service_request_providers;
 CREATE POLICY "Service request providers see own membership"
   ON public.service_request_providers FOR SELECT TO authenticated
