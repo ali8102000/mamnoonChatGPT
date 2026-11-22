@@ -88,6 +88,7 @@ CREATE POLICY "Service request providers see own membership"
         AND sr.customer_id = (SELECT auth.uid())
     )
     OR public.has_provider_ops_access((SELECT auth.uid()))
+    OR public.has_offer(request_id, (SELECT auth.uid()))
   );
 
 GRANT SELECT ON public.service_request_providers TO authenticated;
