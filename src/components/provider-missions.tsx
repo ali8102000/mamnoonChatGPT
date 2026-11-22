@@ -36,7 +36,7 @@ export default function ProviderMissions(){
     <div className="flex items-start justify-between gap-2"><h4 className="font-black">{m.title}</h4><span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold">{statusText(m.reward_status)}</span></div>
     {m.description&&<p className="text-xs leading-5 text-muted-foreground">{m.description}</p>}
     <div className="flex justify-between text-xs font-bold"><span>التقدم: {m.progress_count} / {m.target_count}</span><span>{progress}%</span></div>
-    <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{width:progress+"%"}}/></div>
+    <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{width:(progress+"%") as any}}/></div>
     <div className="grid grid-cols-2 gap-2 text-xs"><div className="rounded-xl bg-background/70 p-2"><span className="text-muted-foreground">المكافأة</span><div className="mt-1 font-black text-emerald-600">{money(m.reward_amount_iqd)}</div></div><div className="rounded-xl bg-background/70 p-2"><span className="text-muted-foreground">شرط المكان</span><div className="mt-1 font-bold">{scopeText(m.location_scope)}</div></div></div>
     <div className="text-[11px] text-muted-foreground">تنتهي: {new Date(m.ends_at).toLocaleString("ar-IQ")}{m.max_job_duration_hours? " · أقصى مدة للعمل الواحد: "+m.max_job_duration_hours+" ساعة":""}</div>
    </article>;
