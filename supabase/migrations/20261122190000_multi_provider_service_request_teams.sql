@@ -469,7 +469,8 @@ BEGIN
   IF v_is_first THEN
     INSERT INTO public.chats(request_id, customer_id, provider_id)
     VALUES (_request_id, v_customer, auth.uid())
-    ON CONFLICT (request_id) DO NOTHING;
+    ON CONFLICT (request_id)
+    DO UPDATE SET provider_id = EXCLUDED.provider_id, updated_at = now();
   END IF;
 
   UPDATE public.request_offers
