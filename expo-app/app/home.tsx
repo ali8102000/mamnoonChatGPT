@@ -351,6 +351,7 @@ export default function HomeScreen() {
         ) : (
           <ProviderHome
             available={available}
+            availabilitySaving={availabilitySaving}
             verified={verified}
             verificationStatus={verificationStatus}
             companyName={companyName}
@@ -947,6 +948,7 @@ function IncomingRequestList({ incoming }: { incoming: IncomingRequest[] }) {
 
 function ProviderHome({
   available,
+  availabilitySaving,
   verified,
   verificationStatus,
   companyName,
@@ -954,6 +956,7 @@ function ProviderHome({
   incoming,
 }: {
   available: boolean;
+  availabilitySaving: boolean;
   verified: boolean;
   verificationStatus: string;
   companyName: string;
