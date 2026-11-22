@@ -126,14 +126,17 @@ export default function HomeScreen() {
   }, [selectedRole, user]);
 
   useEffect(() => {
-    // Native Android fallback: do not attach postgres_changes listeners here.
-    // Some Android lifecycle/remount paths can retain a subscribed channel and
-    // Supabase rejects callbacks added to that channel after subscribe().
-    // Short polling keeps provider offers fresh without risking a screen crash.
+    const isProvider = selectedRole === "driver" || selectedRole === "large_driver" || selectedRole === "worker";
+    if (!user || !isProvider) {
+      setIncoming((current) => current.length ? [] : current);
+      return;
+    }
+    // Native Android fallback: poll only on provider dashboards. Customer
+    // home screens do not need an offer timer or repeated empty-state updates.
     void loadIncoming();
     const refreshTimer = setInterval(() => { void loadIncoming(); }, 5_000);
     return () => clearInterval(refreshTimer);
-  }, [loadIncoming]);
+  }, [loadIncoming, selectedRole, user]);
 
   useEffect(() => {
     if (!user || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) {
