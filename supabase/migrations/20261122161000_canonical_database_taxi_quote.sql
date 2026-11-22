@@ -238,6 +238,12 @@ BEGIN
     RAISE EXCEPTION 'تعذّر اعتماد السعر النهائي للرحلة';
   END IF;
 
+  -- If the admin tariff changed after the quote was shown, reject this insert.
+  -- Never silently save a different fare from the one the customer confirmed.
+  IF NEW.price_estimate IS NULL OR NEW.price_estimate IS DISTINCT FROM v_final_price THEN
+    RAISE EXCEPTION 'تغيّرت تعرفة الإدارة بعد عرض السعر. أعد احتساب السعر قبل إرسال الطلب.';
+  END IF;
+
   NEW.price_estimate := v_final_price;
   NEW.taxi_peak_percent := COALESCE((v_quote->>'peakPercent')::numeric,0);
   NEW.taxi_urgency_percent := COALESCE((v_quote->>'urgencyPercent')::numeric,0);
