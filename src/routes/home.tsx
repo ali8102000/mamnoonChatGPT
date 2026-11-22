@@ -615,6 +615,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   const navigate = useNavigate();
   const acceptFn = useServerFn(acceptServiceRequest);
   const [available, setAvailable] = useState(false);
+  const [verified, setVerified] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [stats, setStats] = useState({ jobs: 0 });
   const [largeOfferPrices, setLargeOfferPrices] = useState<Record<string, string>>({});
@@ -768,7 +769,9 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
-          setAvailable(data.available);
+          const isApproved = String(data.status ?? "") === "approved";
+          setVerified(isApproved);
+          setAvailable(Boolean(data.available) && isApproved);
           const d: any = data;
           setStats({ jobs: d.completed_jobs ?? d.completed_rides ?? 0 });
         }
