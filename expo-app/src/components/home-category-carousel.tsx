@@ -3,6 +3,7 @@ import { Animated, Dimensions, PanResponder, Pressable, Text, View } from "react
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { getOrLoadDiscoverData } from "@/lib/discover-cache";
 
 type Category = "restaurant" | "hotel" | "store";
 type CategoryBanner = {
@@ -39,12 +40,20 @@ export function HomeCategoryCarousel({ height = 360, width: requestedWidth, plac
   useEffect(() => {
     let active = true;
     const refresh = async () => {
-      let query = (supabase as any).from("home_carousel_banners")
-        .select("id,image_url,target_category,banner_type,target_campaign_id,display_order,is_active,scroll_speed,motion_direction,motion_style,banner_title,banner_description")
-        .eq("is_active", true).eq("display_location", placement);
-      if (placement === "top_panorama") query = query.eq("banner_type", "category");
-      const { data, error } = await query.order("display_order").order("created_at");
-      if (active && !error) { setBanners(data ?? []); setIndex(0); setImageFailed(false); }
+      try {
+        const rows = await getOrLoadDiscoverData<CategoryBanner[]>("home-carousel:" + placement, async () => {
+          let query = (supabase as any).from("home_carousel_banners")
+            .select("id,image_url,target_category,banner_type,target_campaign_id,display_order,is_active,scroll_speed,motion_direction,motion_style,banner_title,banner_description")
+            .eq("is_active", true).eq("display_location", placement);
+          if (placement === "top_panorama") query = query.eq("banner_type", "category");
+          const { data, error } = await query.order("display_order").order("created_at");
+          if (error) throw error;
+          return (data ?? []) as CategoryBanner[];
+        }, 30_000);
+        if (active) { setBanners(rows); setIndex(0); setImageFailed(false); }
+      } catch {
+        // Keep the last successful banners visible if a refresh fails.
+      }
     };
     void refresh();
     // Native Android: use bounded polling instead of Realtime callbacks.
