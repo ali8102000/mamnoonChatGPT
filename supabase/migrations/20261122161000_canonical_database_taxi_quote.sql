@@ -11,6 +11,7 @@ CREATE OR REPLACE FUNCTION public.calculate_taxi_quote_internal(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
+STABLE
 SECURITY DEFINER
 SET search_path TO ''
 AS $function$
