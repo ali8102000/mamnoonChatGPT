@@ -845,7 +845,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         };
       });
       setRequests(mappedRequests);
-      setPopupRequest((current) => current
+      setPopupRequest((current: any) => current
         ? mappedRequests.find((request: any) => request.id === current.id) ?? current
         : current);
       const popupKey = mappedRequests[0] ? `${mappedRequests[0].id}:${mappedRequests[0].my_offer?.sent_at ?? ""}` : null;
