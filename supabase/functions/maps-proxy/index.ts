@@ -106,8 +106,59 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
   }
   if(cacheReadError) console.warn("[route] cache read unavailable",cacheReadError.code||"unknown");
 
-  let routed:{distanceKm:number;durationMin:number;routeSource:string;routePoints?:Point[]}|null=null;
-  if(osrmBase) {
+  let routed:{distanceKm:number;durationMin:number;routeSource:string;routePoints?:Point[];routeSteps?:{instruction:string;distanceMeters:number;durationSeconds:number;maneuver?:string}[];trafficSegments?:{startIndex:number;endIndex:number;speed:string}[];staticDurationMin?:number}|null=null;
+
+  // Live tracking requests use Google's traffic-aware road geometry first.
+  // Fare estimation keeps the existing OSRM/standard Google path below.
+  const googleKey=Deno.env.get("GOOGLE_MAPS_API_KEY");
+  if(includeGeometry&&googleKey) {
+    try {
+      const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","X-Goog-Api-Key":googleKey,
+          "X-Goog-FieldMask":"routes.distanceMeters,routes.duration,routes.staticDuration,routes.polyline.encodedPolyline,routes.travelAdvisory.speedReadingIntervals,routes.legs.steps.navigationInstruction.instructions,routes.legs.steps.navigationInstruction.maneuver,routes.legs.steps.distanceMeters,routes.legs.steps.staticDuration"},
+        body:JSON.stringify({
+          origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
+          destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
+          travelMode:"DRIVE",routingPreference:"TRAFFIC_AWARE_OPTIMAL",
+          departureTime:new Date().toISOString(),polylineQuality:"HIGH_QUALITY",
+          polylineEncoding:"ENCODED_POLYLINE",extraComputations:["TRAFFIC_ON_POLYLINE"],
+          languageCode:"ar",units:"METRIC",computeAlternativeRoutes:false
+        }),
+        signal:AbortSignal.timeout(12000)
+      });
+      if(!response.ok) throw new Error("Google traffic route HTTP "+response.status);
+      const result=await response.json() as any;
+      const selected=(result.routes??[]).find((r:any)=>Number.isFinite(r.distanceMeters)&&
+        r.distanceMeters>0&&typeof r.duration==="string"&&/^\\d+(\\.\\d+)?s$/.test(r.duration)&&
+        typeof r.polyline?.encodedPolyline==="string");
+      if(!selected) throw new Error("Google traffic route geometry unavailable");
+      const points=decodeGooglePolyline(selected.polyline.encodedPolyline).filter(validPoint);
+      if(points.length<2) throw new Error("Google traffic route returned invalid geometry");
+      const steps=(selected.legs??[]).flatMap((leg:any)=>(leg.steps??[]).flatMap((step:any)=>{
+        const instruction=String(step.navigationInstruction?.instructions??"").trim();
+        const distanceMeters=Number(step.distanceMeters??0);
+        const durationSeconds=parseFloat(String(step.staticDuration??"0s"));
+        return instruction?[{instruction,distanceMeters:Number.isFinite(distanceMeters)?distanceMeters:0,
+          durationSeconds:Number.isFinite(durationSeconds)?durationSeconds:0,
+          ...(step.navigationInstruction?.maneuver?{maneuver:String(step.navigationInstruction.maneuver)}:{})}]:[];
+      }));
+      const intervals=(selected.travelAdvisory?.speedReadingIntervals??[]).flatMap((item:any)=>{
+        const startIndex=Number(item.startPolylinePointIndex??0);
+        const endIndex=Number(item.endPolylinePointIndex??0);
+        return Number.isInteger(startIndex)&&Number.isInteger(endIndex)&&endIndex>startIndex&&endIndex<points.length
+          ?[{startIndex,endIndex,speed:String(item.speed??"NORMAL")}]:[];
+      });
+      routed={distanceKm:Number(selected.distanceMeters)/1000,durationMin:parseFloat(selected.duration)/60,
+        staticDurationMin:parseFloat(String(selected.staticDuration??selected.duration))/60,
+        routeSource:"google_routes_traffic",routePoints:points,routeSteps:steps,trafficSegments:intervals};
+    } catch(error) {
+      console.warn("[route] Google traffic-aware route unavailable; falling back to road routing",
+        error instanceof Error?error.message:"unknown");
+    }
+  }
+
+  if(!routed&&osrmBase) {
     try {
       const url=new URL(osrmBase+"/route/v1/driving/"+from.lng+","+from.lat+";"+to.lng+","+to.lat);
       url.searchParams.set("overview",includeGeometry?"full":"false");
@@ -129,7 +180,7 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
   }
 
   if(!routed) {
-    const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
+    const key=googleKey;
     if(!key) throw new Error("تعذّر حساب مسافة الطريق الفعلية حالياً. أعد المحاولة لاحقاً.");
     const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
       method:"POST",
