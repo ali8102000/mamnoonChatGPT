@@ -764,30 +764,40 @@ export default function NewRequest() {
     userPannedMapRef.current = false;
     if (regionChangeTimerRef.current) clearTimeout(regionChangeTimerRef.current);
     regionChangeTimerRef.current = setTimeout(() => {
-      const coords = { latitude: nextRegion.latitude, longitude: nextRegion.longitude };
-      // Commit the pin immediately. The authoritative auto-taxi-pricing quote
-      // validates the exact Iraq governorate boundaries in parallel; a separate
-      // validation request here used to add a full network round-trip before pricing.
-      setDestinationConfirmed(false);
-      const geocodeRequest = ++reverseGeocodeRequestRef.current;
-      if (mapMode === "pickup") {
-        setPickupCoords(coords);
-        setPickupGovernorateKey(null);
-        setPickup("موقع محدد على الخريطة");
-      } else {
-        setDestinationCoords(coords);
-        setDestinationGovernorateKey(null);
-        setDestination("وجهة محددة على الخريطة");
-      }
-      // Reverse geocoding is decorative metadata and must never block fare calculation.
-      void Location.reverseGeocodeAsync(coords).then((parts) => {
-        if (geocodeRequest !== reverseGeocodeRequestRef.current) return;
-        const address = formatAddress(parts);
-        if (!address) return;
-        if (mapMode === "pickup") setPickup(address);
-        else setDestination(address);
-      }).catch(() => {});
-    }, 80);
+      void (async () => {
+        // The visible pin is offset by the top controls and bottom sheet. Ask
+        // MapView for the coordinate under that exact screen pixel instead of
+        // assuming the camera's geographic centre is directly under the pin.
+        let coords = { latitude: nextRegion.latitude, longitude: nextRegion.longitude };
+        try {
+          const pinY = 158 + Math.max(0, window.height - 158 - taxiSheetHeight) / 2;
+          const exact = await mapRef.current?.coordinateForPoint({ x: window.width / 2, y: pinY });
+          if (exact && Number.isFinite(exact.latitude) && Number.isFinite(exact.longitude)) {
+            coords = { latitude: exact.latitude, longitude: exact.longitude };
+          }
+        } catch {
+          // Fall back to the settled map centre on providers that lack this API.
+        }
+        setDestinationConfirmed(false);
+        const geocodeRequest = ++reverseGeocodeRequestRef.current;
+        if (mapMode === "pickup") {
+          setPickupCoords(coords);
+          setPickupGovernorateKey(null);
+          setPickup("موقع محدد على الخريطة");
+        } else {
+          setDestinationCoords(coords);
+          setDestinationGovernorateKey(null);
+          setDestination("وجهة محددة على الخريطة");
+        }
+        void Location.reverseGeocodeAsync(coords).then((parts) => {
+          if (geocodeRequest !== reverseGeocodeRequestRef.current) return;
+          const address = formatAddress(parts);
+          if (!address) return;
+          if (mapMode === "pickup") setPickup(address);
+          else setDestination(address);
+        }).catch(() => {});
+      })();
+    }, 100);
   }
 
   function chooseGovernorate(key: string) {
