@@ -585,6 +585,8 @@ export default function NewRequest() {
           );
           return unchanged ? current : next;
         });
+      } catch {
+        // Keep the last known provider markers when a transient network error occurs.
       } finally {
         inFlight = false;
       }
