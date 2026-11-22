@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import ProviderMissions from "@/components/provider-missions";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
 import {
@@ -1043,6 +1044,8 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
           </button>
         </div>
       </div>
+
+      <ProviderMissions />
 
       <div className="glass rounded-2xl p-4 animate-pop-in" style={{ animationDelay: "0.05s" }}>
         <div className="text-xs text-muted-foreground">الطلبات المكتملة</div>
