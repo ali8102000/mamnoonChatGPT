@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Stack, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -58,11 +58,12 @@ export default function AdminScreen() {
   const [stats, setStats] = useState<Stats>({ users: 0, requests: 0, drivers: 0, workers: 0, active: 0 });
   const [statsError, setStatsError] = useState("");
   const [statsLoading, setStatsLoading] = useState(true);
+  const initialLoadDone = useRef(false);
   const [expanded, setExpanded] = useState<string | null>("العمليات والطلبات");
 
   const load = useCallback(async () => {
-    if (!user?.id) { router.replace("/auth"); setLoading(false); return; }
-    setLoading(!authorized);
+    if (!user?.id) { router.replace("/auth"); initialLoadDone.current = true; setLoading(false); return; }
+    setLoading(!initialLoadDone.current);
     setStatsLoading(true);
     setStatsError("");
     try {
@@ -83,6 +84,7 @@ export default function AdminScreen() {
       }
       setAuthorized(true);
       // Render the management workspace as soon as access is confirmed; metrics load separately.
+      initialLoadDone.current = true;
       setLoading(false);
       const [users, requests, drivers, workers, active] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
@@ -100,7 +102,7 @@ export default function AdminScreen() {
       setLoading(false);
       setStatsLoading(false);
     }
-  }, [user?.id, authorized]);
+  }, [user?.id]);
 
   useEffect(() => { if (!authLoading) void load(); }, [authLoading, load]);
   const refresh = useCallback(async () => {
