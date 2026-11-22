@@ -172,6 +172,7 @@ export default function MamnoonChatThread({
           {quickReplies.map(reply => (
             <TouchableOpacity
               key={reply}
+              activeOpacity={0.72}
               style={styles.quickReply}
               disabled={busy}
               onPress={() => onSend(reply)}
@@ -248,9 +249,9 @@ const styles = StyleSheet.create({
   mineTime: { color: "rgba(255,255,255,0.72)" },
   status: { color: "rgba(255,255,255,0.72)", fontSize: 10, fontWeight: "900" },
   statusRead: { color: "#8DD7FF" },
-  quickReplies: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
-  quickReply: { borderRadius: radius.pill, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, paddingHorizontal: 12, paddingVertical: 8 },
-  quickReplyText: { color: palette.ink, fontSize: 10, fontWeight: "800" },
+  quickReplies: { paddingHorizontal: 10, paddingVertical: 4, gap: 5, alignItems: "center" },
+  quickReply: { minHeight: 25, borderRadius: 8, borderWidth: 1, borderColor: "#D8E2F0", backgroundColor: "#F5F8FC", paddingHorizontal: 8, paddingVertical: 4, justifyContent: "center" },
+  quickReplyText: { color: "#52657D", fontSize: 9, fontWeight: "700" },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 11, paddingTop: 9, paddingBottom: 11, borderTopWidth: 1, borderTopColor: palette.line, backgroundColor: palette.surface },
   inputShell: { flex: 1, minHeight: 44, maxHeight: 118, borderWidth: 1, borderColor: palette.line, borderRadius: 22, backgroundColor: palette.canvas, paddingHorizontal: 13, paddingVertical: 5, justifyContent: "center" },
   input: { minHeight: 32, maxHeight: 96, paddingVertical: 5, color: palette.ink, fontSize: 13, textAlignVertical: "center" },
