@@ -347,7 +347,7 @@ BEGIN
     SELECT 1 FROM public.service_requests active_request
     WHERE active_request.provider_id = auth.uid()
       AND active_request.id <> _request_id
-      AND active_request.type::text = 'taxi'
+      AND active_request.type::text IN ('taxi', 'service')
       AND active_request.status IN ('accepted', 'in_progress')
   ) THEN
     RAISE EXCEPTION 'لديك طلب نشط بالفعل';
