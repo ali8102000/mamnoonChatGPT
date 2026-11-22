@@ -14,8 +14,8 @@ type NavGroup = { title: string; description: string; icon: string; items: NavIt
 
 const GROUPS: NavGroup[] = [
   { title: "العمليات والطلبات", description: "إدارة الرحلات والخدمات ومقدمي الخدمة", icon: "🚕", items: [
-    { title: "الطلبات", description: "متابعة الطلبات وحالاتها", route: "/admin/requests", icon: "📋" },
-    { title: "السائقون والفنيون", description: "الحسابات والتوثيق والتوفر", route: "/admin/providers", icon: "🧑‍🔧" },
+    { title: "الطلبات", description: "طلبات التكسي والفنيين والسيارات الكبيرة ومراجعة الحالات", route: "/admin/requests", icon: "📋" },
+    { title: "مقدمو الخدمة", description: "تكسي اقتصادي ومتميز وفاخر، سيارات كبيرة كيا حمل وركاب وباص، والفنيون مع التوثيق والتوفر", route: "/admin/providers", icon: "🧑‍🔧" },
     { title: "الخريطة المباشرة", description: "مواقع الطلبات ومقدمي الخدمة", route: "/admin/live-map", icon: "🗺️" },
     { title: "نطاقات التوزيع", description: "حدود وصول الطلبات", route: "/admin/dispatch-zones", icon: "📍" },
     { title: "المهمات والمكافآت", description: "إنشاء المهمات ومتابعة الإنجاز واعتماد مكافآت المحافظ", route: "/admin/missions", icon: "🎯" },
@@ -35,6 +35,7 @@ const GROUPS: NavGroup[] = [
   { title: "المحتوى وهوية الشركة", description: "الشعار والبانرات ومحتوى التطبيق", icon: "🎨", items: [
     { title: "مركز التحكم الشامل", description: "تحكم بمقاسات الشبكة ومعاينة الواجهة ونشر إعداداتها", route: "/admin/control-center", icon: "🧩" },
     { title: "مركز الصور والتصميم", description: "كل صور التطبيق والبانرات والشعارات والفئات في مكان واحد", route: "/admin/image-studio", icon: "🎨" },
+    { title: "إعدادات الشركة والهوية", description: "اسم ممنون ورسالة الترحيب والشعار والهوية الرسمية", route: "/admin/company", icon: "🏛️" },
     { title: "الإشعارات", description: "إرسال تنبيهات للمستخدمين", route: "/admin/notifications", icon: "🔔" },
   ]},
   { title: "الموظفون والحوكمة", description: "التعيين والترقية والتنزيل والصلاحيات", icon: "🧑‍💼", items: [
