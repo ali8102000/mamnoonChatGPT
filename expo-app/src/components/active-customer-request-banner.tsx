@@ -17,12 +17,12 @@ type ActiveRequest = {
 };
 
 export function ActiveCustomerRequestBanner() {
-  const { user, roles } = useAuth();
+  const { user, activeRole } = useAuth();
   const [request, setRequest] = useState<ActiveRequest | null>(null);
   const [providerMoving, setProviderMoving] = useState(false);
 
   const load = useCallback(async () => {
-    if (!user || !roles.includes("customer")) {
+    if (!user || activeRole !== "customer") {
       setRequest(null);
       return;
     }
@@ -57,7 +57,7 @@ export function ActiveCustomerRequestBanner() {
         setProviderMoving(false);
       }
     }
-  }, [user, roles]);
+  }, [user, activeRole]);
 
   useEffect(() => {
     let active = true;
