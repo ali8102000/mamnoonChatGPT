@@ -118,6 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const roleRevision = useRef(0);
   // Serialize SecureStore writes so an older switch cannot finish after a newer one.
   const roleWriteQueue = useRef<Promise<void>>(Promise.resolve());
+  // Share one in-flight profile bootstrap between auth events and explicit refresh calls.
+  const profileLoadInFlight = useRef(new Map<string, Promise<void>>());
 
   async function restoreActiveRole(uid: string, availableRoles: AppRole[]) {
     const revisionAtStart = roleRevision.current;
@@ -175,12 +177,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await write;
 
     // If a newer role was requested while this write was pending, its queued
-    // write will become the persisted value and only it may update the UI.
-    if (roleRevision.current !== revision || lastUserId.current !== uid) return;
-    setActiveRoleState(role);
-  }
+    // write will become the   function loadProfile(uid: string): Promise<void> {
+    const existing = profileLoadInFlight.current.get(uid);
+    if (existing) return existing;
 
-  async function loadProfile(uid: string) {
+    const operation = (async () => {
     let cached: CachedAuthProfile | null = null;
     try {
       cached = await withStartupTimeout(readCachedAuthProfile(uid), 5000, "local_account_cache_timeout");
@@ -275,6 +276,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles(fallbackRoles);
       await withStartupTimeout(restoreActiveRole(uid, fallbackRoles), 5000, "active_role_fallback_timeout").catch((roleError) => {
         console.warn("[startup] Could not restore the active role; using customer fallback:", roleError);
+        if (lastUserId.current === uid) setActiveRoleState("customer");
+      });
+    }
+    })();
+    profileLoadInFlight.current.set(uid, operation);
+    const clearInFlight = () => {
+      if (profileLoadInFlight.current.get(uid) === operation) {
+        profileLoadInFlight.current.delete(uid);
+      }
+    };
+    void operation.then(clearInFlight, clearInFlight);
+    return operation;
+  }uld not restore the active role; using customer fallback:", roleError);
         if (lastUserId.current === uid) setActiveRoleState("customer");
       });
     }
