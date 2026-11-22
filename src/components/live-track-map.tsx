@@ -507,7 +507,7 @@ export function LiveTrackMap({
       </div>
 
       {isFullscreen && (
-        <div className="absolute bottom-16 inset-x-3 z-10 pointer-events-none">
+        <div className="absolute bottom-20 inset-x-3 z-10 pointer-events-none">
           <div className="mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-white/70 bg-white/95 p-3 shadow-xl backdrop-blur-md pointer-events-auto" dir="rtl">
             <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-amber-300 bg-white">
               {serviceType === "taxi" && vehicleCategory !== "large"
