@@ -252,11 +252,12 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // A fresh query cache is authoritative for this query. Return it immediately;
   // otherwise enrich partial local results from Photon instead of only searching
   // externally when the local database is completely empty.
-  if(cacheFresh && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
+  if(cacheFresh && initialSuggestions.length>0 && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
     return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
   }
 
   let fetchedRows:any[]=[];
+  let photonLookupSucceeded=false;
   if(initialSuggestions.length<LIMIT) {
     const url=new URL("https://photon.komoot.io/api/");
     url.searchParams.set("q",q);
@@ -268,8 +269,9 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
     url.searchParams.set("zoom","16");
     try {
       const response=await fetch(url,{headers:{Accept:"application/geo+json","User-Agent":"Mamnoon/1.0"},
-        signal:AbortSignal.timeout(1200)});
+        signal:AbortSignal.timeout(4500)});
       if(response.ok) {
+        photonLookupSucceeded=true;
         const features=(await response.json() as any).features??[];
         fetchedRows=features.flatMap((feature:any)=>{
           const c=feature.geometry?.coordinates,p=feature.properties??{};
@@ -296,12 +298,16 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
           suggestionsPersisted=!error;
           if(error) console.error("[maps-proxy] suggestions upsert failed",error.code);
         }
-        const {error:cacheError}=await admin.from("map_place_search_cache").upsert({
-          governorate_key:key,normalized_query:normalized(q),
-          expires_at:new Date(Date.now()+(suggestionsPersisted&&fetchedRows.length?7*86400000:300000)).toISOString(),
-          updated_at:new Date().toISOString()
-        },{onConflict:"governorate_key,normalized_query"});
-        if(cacheError) console.warn("[maps-proxy] search cache write failed",cacheError.code);
+        // Cache only completed Photon lookups. A timeout must not become a
+        // five-minute empty-result cache for an entire governorate.
+        if(photonLookupSucceeded) {
+          const {error:cacheError}=await admin.from("map_place_search_cache").upsert({
+            governorate_key:key,normalized_query:normalized(q),
+            expires_at:new Date(Date.now()+(suggestionsPersisted&&fetchedRows.length?7*86400000:60000)).toISOString(),
+            updated_at:new Date().toISOString()
+          },{onConflict:"governorate_key,normalized_query"});
+          if(cacheError) console.warn("[maps-proxy] search cache write failed",cacheError.code);
+        }
       }
     } catch(error) {
       console.warn("[maps-proxy] Photon unavailable",error instanceof Error?error.message:"unknown");
