@@ -37,6 +37,8 @@ import service_cleaning from "../../assets/services/cleaning.jpg";
 import service_wood_carpentry from "../../assets/services/wood_carpentry.jpg";
 import service_blacksmith from "../../assets/services/blacksmith.jpg";
 import service_general from "../../assets/services/general.jpg";
+import service_goods_transport from "../../assets/services/goods_transport.jpg";
+import service_cargo_handling from "../../assets/services/cargo_handling.jpg";
 import { palette, radius } from "@/styles/theme";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { showContactOptions } from "@/lib/contact-actions";
@@ -113,7 +115,7 @@ type ChatMessage = {
 };
 
 
-function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; heading?: number | null }) {
+function TaxiCarMarker({ coordinate, heading, imageSource }: { coordinate: Coordinates; heading?: number | null; imageSource?: any }) {
   const animatedCoordinate = useRef(new AnimatedRegion(coordinate)).current;
   const lastCoordinateRef = useRef(coordinate);
   const rotation = useSharedValue(Number.isFinite(heading) ? Number(heading) : 0);
@@ -165,7 +167,7 @@ function TaxiCarMarker({ coordinate, heading }: { coordinate: Coordinates; headi
       tracksViewChanges
     >
       <Animated.View style={[styles.luxuryCarMarker, animatedStyle]}>
-        <Image source={{ uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />
+        <Image source={imageSource ?? { uri: "https://raw.githubusercontent.com/ali8102000/mamnoonChatGPT/main/src/assets/car-luxury.png" }} style={styles.luxuryCarPhoto} resizeMode="contain" />
       </Animated.View>
     </Marker.Animated>
   );
@@ -177,6 +179,16 @@ function LocationTargetMarker({ coordinate, title }: { coordinate: Coordinates; 
     <Marker coordinate={coordinate} title={title} anchor={{ x: 0.5, y: 1 }}>
       <View style={styles.endpointPin}>
         <View style={styles.endpointPinCore}><View style={styles.endpointPinDot} /></View>
+      </View>
+    </Marker>
+  );
+}
+
+function ServicePhotoMarker({ coordinate, imageSource, title }: { coordinate: Coordinates; imageSource: any; title: string }) {
+  return (
+    <Marker coordinate={coordinate} title={title} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+      <View style={styles.requestPhotoMarker}>
+        <Image source={imageSource} style={styles.requestPhotoMarkerImage} resizeMode="cover" />
       </View>
     </Marker>
   );
@@ -223,6 +235,9 @@ export default function RequestDetail() {
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
   const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
   const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
+  const [roadTrafficSegments, setRoadTrafficSegments] = useState<{ startIndex: number; endIndex: number; speed: string }[]>([]);
+  const [nextRouteInstruction, setNextRouteInstruction] = useState<string | null>(null);
+  const [liveRouteSource, setLiveRouteSource] = useState<string | null>(null);
   const acceptedMapRef = useRef<MapView | null>(null);
   const acceptedMapFitKeyRef = useRef<string | null>(null);
   const roadRouteSequenceRef = useRef(0);
@@ -270,7 +285,6 @@ export default function RequestDetail() {
   const acceptedMapMode = Boolean(
     request && (isProvider || isCustomer) && isActive &&
     (request.type === "taxi" || request.type === "service") &&
-    (request.pickup_lat != null && request.pickup_lng != null || myLocation || otherLocation),
   );
   const providerLiveLocation = isCustomer ? otherLocation : myLocation;
   const driverLocationFresh = Boolean(providerLiveLocation?.updatedAt && Number.isFinite(Date.parse(providerLiveLocation.updatedAt)) && freshnessClock - Date.parse(providerLiveLocation.updatedAt) < 25000);
@@ -867,7 +881,7 @@ export default function RequestDetail() {
         )
       : Number.POSITIVE_INFINITY;
     if (previousRouteRequest && previousRouteRequest.routeKey === routeKey &&
-        movedMeters < 25 && Date.now() - previousRouteRequest.requestedAt < 12000) return;
+        movedMeters < 15 && Date.now() - previousRouteRequest.requestedAt < 8000) return;
 
     const sequence = ++roadRouteSequenceRef.current;
     const timeout = setTimeout(() => {
@@ -877,7 +891,12 @@ export default function RequestDetail() {
         longitude: origin.longitude,
         requestedAt: Date.now(),
       };
-      void callMamnoonMapsApi<{ routePoints?: { lat: number; lng: number }[] }>({
+      void callMamnoonMapsApi<{
+        routePoints?: { lat: number; lng: number }[];
+        routeSteps?: { instruction: string; distanceMeters: number }[];
+        trafficSegments?: { startIndex: number; endIndex: number; speed: string }[];
+        routeSource?: string;
+      }>({
         action: "route",
         from: { lat: origin.latitude, lng: origin.longitude },
         to: { lat: destination.latitude, lng: destination.longitude },
@@ -889,9 +908,18 @@ export default function RequestDetail() {
           Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180,
         );
         setRoadRoutePoints(points.length > 1 ? points.map((point) => ({ latitude: point.lat, longitude: point.lng })) : []);
+        setRoadTrafficSegments((route.trafficSegments ?? []).filter((segment) =>
+          Number.isInteger(segment.startIndex) && Number.isInteger(segment.endIndex) &&
+          segment.startIndex >= 0 && segment.endIndex > segment.startIndex && segment.endIndex <= points.length,
+        ));
+        setNextRouteInstruction(route.routeSteps?.[0]?.instruction ?? null);
+        setLiveRouteSource(route.routeSource ?? null);
       }).catch((error) => {
         if (sequence === roadRouteSequenceRef.current) {
           setRoadRoutePoints([]);
+          setRoadTrafficSegments([]);
+          setNextRouteInstruction(null);
+          setLiveRouteSource(null);
           console.warn("[Mamnoon] road route unavailable:", error instanceof Error ? error.message : "unknown");
         }
       });
@@ -1388,7 +1416,15 @@ export default function RequestDetail() {
             rotateEnabled
           >
             {roadRoutePoints.length > 1 && (
-              <Polyline coordinates={roadRoutePoints} strokeColor="#2563EB" strokeWidth={6} />
+              <>
+                <Polyline coordinates={roadRoutePoints} strokeColor="#2563EB" strokeWidth={5} />
+                {roadTrafficSegments.map((segment, index) => {
+                  const segmentPoints = roadRoutePoints.slice(segment.startIndex, segment.endIndex);
+                  if (segmentPoints.length < 2) return null;
+                  const trafficColor = segment.speed === "TRAFFIC_JAM" ? "#DC2626" : segment.speed === "SLOW" ? "#F59E0B" : "#16A34A";
+                  return <Polyline key={index} coordinates={segmentPoints} strokeColor={trafficColor} strokeWidth={6} />;
+                })}
+              </>
             )}
             {providerRoutePoints.length > 1 && (
               <Polyline coordinates={providerRoutePoints} strokeColor="#D6A43B" strokeWidth={5} geodesic />
@@ -1402,7 +1438,13 @@ export default function RequestDetail() {
                   <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
                 )}
                 {(isProvider ? myLocation : otherLocation) && (
-                  <TaxiCarMarker coordinate={(isProvider ? myLocation : otherLocation)!} heading={(isProvider ? myLocation : otherLocation)?.heading} />
+                  <TaxiCarMarker
+                    coordinate={(isProvider ? myLocation : otherLocation)!}
+                    heading={(isProvider ? myLocation : otherLocation)?.heading}
+                    imageSource={request.vehicle_category === "large"
+                      ? SERVICE_IMAGES[request.vehicle_type === "kia_cargo" ? "cargo_handling" : "goods_transport"]
+                      : undefined}
+                  />
                 )}
                 {(isProvider ? otherLocation : myLocation) && (
                   <LocationTargetMarker coordinate={(isProvider ? otherLocation : myLocation)!} title={isProvider ? "موقع الزبون" : "موقعك"} />
@@ -1416,8 +1458,19 @@ export default function RequestDetail() {
                 {request.dest_lat != null && request.dest_lng != null && (
                   <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
                 )}
-                {myLocation && <LocationTargetMarker coordinate={myLocation} title={isProvider ? "موقعي كفني" : "موقعي"} />}
-                {otherLocation && <LocationTargetMarker coordinate={otherLocation} title={isProvider ? "موقع الزبون" : "موقع مقدم الخدمة"} />}
+                {(isProvider ? myLocation : otherLocation) && (
+                  <ServicePhotoMarker
+                    coordinate={(isProvider ? myLocation : otherLocation)!}
+                    imageSource={SERVICE_IMAGES[request.services?.slug ?? ""] ?? service_general}
+                    title={request.services?.name_ar || "مقدم الخدمة"}
+                  />
+                )}
+                {(isProvider ? otherLocation : myLocation) && (
+                  <LocationTargetMarker
+                    coordinate={(isProvider ? otherLocation : myLocation)!}
+                    title={isProvider ? "موقع الزبون" : "موقعك"}
+                  />
+                )}
               </>
             )}
           </MapView>
@@ -1453,6 +1506,8 @@ export default function RequestDetail() {
                     ? "الموقع يتحدث مباشرة"
                     : "بانتظار تحديث الموقع"}
             </Text>
+            {nextRouteInstruction && <Text style={styles.mapLiveBadgeText} numberOfLines={1}>التالي: {nextRouteInstruction}</Text>}
+            {liveRouteSource === "google_routes_traffic" && <Text style={styles.mapTrafficLabel}>المسار وحركة المرور المباشرة من Google</Text>}
           </View>
         )}
         {otherProfile && !["completed", "cancelled"].includes(request.status) && (
@@ -1906,8 +1961,11 @@ const styles = StyleSheet.create({
   destinationPin: { width: 34, height: 42, alignItems: "center", justifyContent: "flex-start", paddingTop: 5, borderRadius: 18, borderBottomLeftRadius: 4, transform: [{ rotate: "-45deg" }], borderWidth: 2.5, borderColor: "#FFFFFF", elevation: 10, shadowColor: "#9F1239", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 3 }, overflow: "hidden" },
   destinationPinCore: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   destinationPinDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#C62828" },
-  luxuryCarPhoto: { width: 54, height: 36 },
-  luxuryCarMarker: { width: 48, height: 30, borderRadius: 13, backgroundColor: "#B88A24", borderWidth: 2, borderColor: "#172033", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 7 },
+  luxuryCarPhoto: { width: 32, height: 24, borderRadius: 12 },
+  requestPhotoMarker: { width: 38, height: 38, borderRadius: 19, overflow: "hidden", borderWidth: 3, borderColor: "#FFFFFF", backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 9, shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
+  requestPhotoMarkerImage: { width: 32, height: 32, borderRadius: 16 },
+  mapTrafficLabel: { color: "#0F766E", fontSize: 9, fontWeight: "900" },
+  luxuryCarMarker: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#FFFFFF", borderWidth: 3, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 7 },
   luxuryCarRoof: { position: "absolute", top: 3, width: 25, height: 12, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: "#24364A" },
   luxuryCarWindows: { position: "absolute", top: 5, width: 21, height: 7, borderRadius: 4, backgroundColor: "#9CC6D8" },
   luxuryCarFront: { position: "absolute", right: 2, width: 4, height: 8, borderRadius: 3, backgroundColor: "#F8E7A0" },
