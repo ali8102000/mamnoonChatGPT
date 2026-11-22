@@ -65,6 +65,24 @@ $function$;
 REVOKE ALL ON FUNCTION public.resume_service_request_staffing(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.resume_service_request_staffing(uuid) TO authenticated;
 
+-- Keep the existing customer-update guard compatible with the explicit staffing-close RPC.
+-- Only the pause marker may additionally change during the already-authorized close transition.
+DO $staffing_close_guard$
+DECLARE
+  v_definition text;
+  v_old text := "ARRAY['status', 'accepted_at', 'updated_at']";
+  v_new text := "ARRAY['status', 'accepted_at', 'updated_at', 'staffing_search_paused_at']";
+BEGIN
+  SELECT pg_get_functiondef('public.guard_customer_request_update()'::regprocedure)
+  INTO v_definition;
+  IF position(v_old IN v_definition) = 0 THEN
+    RAISE EXCEPTION 'Unexpected customer request guard; refusing staffing-close patch';
+  END IF;
+  v_definition := replace(v_definition, v_old, v_new);
+  EXECUTE v_definition;
+END
+$staffing_close_guard$;
+
 -- Mark an explicit customer confirmation as a final staffing decision.
 CREATE OR REPLACE FUNCTION public.stop_service_request_acceptance(_request_id uuid)
 RETURNS boolean
