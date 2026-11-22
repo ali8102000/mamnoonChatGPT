@@ -1091,12 +1091,23 @@ export default function RequestDetail() {
       }
     };
     if (request?.type === "service") {
-      const maxTeamSize = Math.min(3, Math.max(1, remainingPeopleCount || Number(request.workers_count) || 1));
-      const teamChoices = [1, 2, 3].filter((size) => size <= maxTeamSize).map((size) => ({
-        text: size === 1 ? "أنا وحدي · 1" : size === 2 ? "أنا + عامل · 2" : "أنا + عاملين · 3",
+      const maxTeamSize = Math.min(5, Math.max(1, remainingPeopleCount || Number(request.workers_count) || 1));
+      const teamChoices = (sizes: number[]) => sizes.filter((size) => size <= maxTeamSize).map((size) => ({
+        text: size === 1 ? "أنا وحدي · 1" : size === 2 ? "أنا + عامل · 2" : `أنا + ${size - 1} عمال · ${size}`,
         onPress: () => void acceptWithTeam(size),
       }));
-      Alert.alert("كم شخص يجي وياك؟", "اختَر العدد الكلي ويّاك (الخبير محسوب ضمن العدد).", teamChoices);
+      const prompt = "اختَر العدد الكلي ويّاك (الخبير محسوب ضمن العدد).";
+      if (maxTeamSize <= 3) {
+        Alert.alert("كم شخص يجي وياك؟", prompt, teamChoices([1, 2, 3]));
+      } else {
+        Alert.alert("كم شخص يجي وياك؟", prompt, [
+          ...teamChoices([1, 2]).slice(0, 2),
+          {
+            text: "خيارات أكثر",
+            onPress: () => Alert.alert("اختَر عدد أفراد الفريق", prompt, teamChoices([3, 4, 5])),
+          },
+        ]);
+      }
       return;
     }
     await acceptWithTeam(1);
