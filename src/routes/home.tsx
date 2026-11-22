@@ -884,6 +884,10 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
 
   async function toggleAvail() {
     playClick("toggle");
+    if (!verified) {
+      toast.error("حسابك بانتظار التوثيق؛ لن تستقبل طلبات حتى تعتمد الإدارة حسابك.");
+      return;
+    }
     const next = !available;
 
     // Never advertise a provider as available before a fresh location is stored.
@@ -1024,6 +1028,8 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         <div className="text-sm font-black text-foreground">حالة استقبال العمل</div>
         <button
           onClick={toggleAvail}
+          disabled={!verified}
+          aria-disabled={!verified}
           aria-label={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
           className={`h-36 w-36 rounded-full grid place-items-center border-[5px] btn-press transition-all duration-300 font-black text-2xl tracking-wide ${
             available
