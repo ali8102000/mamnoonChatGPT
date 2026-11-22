@@ -716,6 +716,7 @@ function RequestDetail() {
               vehicleCategory={req.vehicle_category}
               vehicleType={req.vehicle_type}
               serviceSlug={req.services?.slug}
+              serviceName={req.services?.name_ar}
               height={req.type === "taxi" ? 390 : 280}
               showStatusOverlay
               fullscreen={mapOpen}
