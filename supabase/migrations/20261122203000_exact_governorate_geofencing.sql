@@ -1,7 +1,7 @@
 -- Use exact governorate polygons from the project's geoBoundaries GB Open dataset (CC BY 4.0).
 create table if not exists public.governorate_boundaries (
   governorate_key text primary key,
-  boundary geometry(Geometry,4326) not null,
+  boundary extensions.geometry(Geometry,4326) not null,
   updated_at timestamptz not null default now()
 );
 insert into public.governorate_boundaries(governorate_key,boundary)
