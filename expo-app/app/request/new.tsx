@@ -1574,7 +1574,7 @@ export default function NewRequest() {
                         </TouchableOpacity>
                       ))}
                     </View>
-                    <TextInput style={styles.taxiSearchInputFull} value={customerPrice} onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))} placeholder="أو اكتب أي سعر بالدينار" placeholderTextColor={palette.muted} keyboardType="numeric" />
+                    <View style={styles.largeVehiclePriceHighlight}><Text style={styles.largeVehiclePriceLabel}>اكتب السعر المقترح حتى ينتبه له أصحاب السيارات</Text><TextInput style={styles.taxiSearchInputFull} value={customerPrice} onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))} placeholder="اكتب السعر بالدينار هنا" placeholderTextColor={palette.muted} keyboardType="numeric" /></View>
                     <Text style={styles.taxiHintText}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب.</Text>
                     <TouchableOpacity onPress={() => setUrgencyEnabled((value) => !value)} style={{ marginTop: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: urgencyEnabled ? palette.brand : palette.line, backgroundColor: urgencyEnabled ? palette.brandSoft : palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                       <View style={{ flex: 1 }}>
@@ -2373,6 +2373,8 @@ const styles = StyleSheet.create({
   extraTimeScale: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   extraTimeValue: { color: palette.ink, fontSize: 12, fontWeight: "900" },
   goldLockedText: { color: palette.gold, fontSize: 12, fontWeight: "800", marginTop: 10 },
+  largeVehiclePriceHighlight: { borderWidth: 2, borderColor: "#E8B84B", backgroundColor: "#FFF9E9", borderRadius: 14, padding: 9, gap: 6 },
+  largeVehiclePriceLabel: { color: "#8A5A00", fontSize: 10, fontWeight: "900", textAlign: "right" },
   priceBox: { backgroundColor: palette.brandSoft, borderRadius: radius.lg, padding: 18, alignItems: "center", marginTop: 20, borderWidth: 1, borderColor: palette.line },
   priceLabel: { fontSize: 13, color: palette.muted, fontWeight: "700" },
   priceValue: { fontSize: 25, fontWeight: "900", color: palette.brand, marginTop: 4 },
