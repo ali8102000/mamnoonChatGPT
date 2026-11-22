@@ -541,10 +541,30 @@ BEGIN
   END IF;
   v_updated := substr(v_updated, 1, v_stage_start - 1)
     || 'IF q.stage >= (6 * GREATEST(COALESCE(r.workers_count, 1), 1)) THEN
-    UPDATE public.service_dispatch_queue
-    SET stage = 0, next_at = now() + interval ''60 seconds''
-    WHERE request_id = _request_id;
-    RETURN 0;
+    IF GREATEST(COALESCE(r.workers_count, 1), 1) > 1 THEN
+      UPDATE public.service_dispatch_queue
+      SET stage = 0, next_at = now() + interval ''60 seconds''
+      WHERE request_id = _request_id;
+      RETURN 0;
+    ELSE
+      DELETE FROM public.service_dispatch_queue WHERE request_id = _request_id;
+      UPDATE public.service_requests
+      SET status = ''cancelled'',
+          cancellation_reason = ''dispatch_no_provider'',
+          cancelled_by = NULL
+      WHERE id = _request_id;
+      UPDATE public.request_offers
+      SET status = ''cancelled'', responded_at = now()
+      WHERE request_id = _request_id AND status = ''pending'';
+      INSERT INTO public.notifications(user_id, type, title, body, link, data)
+      VALUES (
+        r.customer_id, ''request_cancelled'', ''عذراً، لم نعثر على فني متاح'',
+        ''بحثنا لدى الفنيين القريبين ثم وسّعنا نطاق البحث وأعدنا المحاولة، لكن لم يقبل أحد الطلب. تگدر تعيد المحاولة بنفس التفاصيل أو ترفع الأجر المقترح.'',
+        ''/request/'' || r.id,
+        jsonb_build_object(''request_id'', r.id, ''service_id'', r.service_id, ''reason'', ''dispatch_no_provider'', ''max_radius_km'', 55)
+      );
+      RETURN 0;
+    END IF;
   END IF;
 
   '
