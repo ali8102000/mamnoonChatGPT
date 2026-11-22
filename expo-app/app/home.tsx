@@ -133,7 +133,9 @@ export default function HomeScreen() {
 
   useEffect(() => {
     void loadIncoming();
-    const channel = supabase.channel("incoming-requests")
+    // A unique topic prevents a remounted home screen from reusing a channel that is still subscribed.
+    const channelTopic = `incoming-requests:${user?.id ?? "guest"}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const channel = supabase.channel(channelTopic)
       .on("postgres_changes", { event: "*", schema: "public", table: "service_requests" }, () => {
         void loadIncoming();
       });
@@ -483,7 +485,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
     void load();
-    const channel = supabase.channel("home-top-banner-native")
+    // Keep each mounted banner listener isolated across quick tab changes/remounts.
+    const channel = supabase.channel(`home-top-banner-native:${Date.now()}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void load())
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
