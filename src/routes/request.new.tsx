@@ -643,7 +643,13 @@ function NewRequest() {
         const { data: secureTaxi, error: secureTaxiError } = await supabase.functions.invoke("auto-taxi-pricing", {
           body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? undefined, urgencyEnabled, expectedPriceEstimate: priceEstimate, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
         });
-        if (secureTaxiError) throw secureTaxiError;
+        if (secureTaxiError) {
+          if ((secureTaxiError as any).context?.status === 409) {
+            setRouteRetry((value) => value + 1);
+            throw new Error("تغيّر سعر الإدارة بعد آخر عرض. حدّثت الحساب؛ راجع السعر الجديد ثم أرسل الطلب مرة ثانية.");
+          }
+          throw secureTaxiError;
+        }
         if (!secureTaxi?.requestId) throw new Error(secureTaxi?.error || "تعذّر إنشاء طلب التاكسي.");
         data = { id: secureTaxi.requestId, coupon_discount: secureTaxi.couponDiscount ?? 0, customer_payable: secureTaxi.customerPayable };
       } else {
