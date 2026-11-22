@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { palette, radius, space } from "@/styles/theme";
 import * as Location from "expo-location";
-import { getOrLoadDiscoverData } from "../../../src/lib/discover-cache";
+import { getOrLoadDiscoverData } from "@/lib/discover-cache";
 
 type PartnerType = "hotel" | "restaurant" | "store" | "mall";
 type Coordinates = { latitude: number; longitude: number };
