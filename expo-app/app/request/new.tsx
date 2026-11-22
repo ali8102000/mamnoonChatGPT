@@ -1687,7 +1687,7 @@ export default function NewRequest() {
                 />
                 <TouchableOpacity
                   style={[styles.taxiPrimaryButton, {
-                    backgroundColor: uiVisuals.request_primary_cta?.background_color || undefined,
+                    backgroundColor: isLargeVehicle ? "#1677F2" : uiVisuals.request_primary_cta?.background_color || undefined,
                     borderRadius: Number(uiVisuals.request_primary_cta?.border_radius_px) || undefined,
                     padding: Number(uiVisuals.request_primary_cta?.card_padding_px) || undefined,
                     transform: [{ scale: Math.max(.6, Math.min(1.6, Number(uiVisuals.request_primary_cta?.element_scale) || 1)) }],
@@ -1702,7 +1702,7 @@ export default function NewRequest() {
                   disabled={busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))}
                   onPress={() => void submit()}
                 >
-                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: uiVisuals.request_primary_cta?.title_color || undefined }]}>{"اطلب الآن"}</Text>}
+                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: isLargeVehicle ? palette.white : uiVisuals.request_primary_cta?.title_color || undefined }]}>{"اطلب الآن"}</Text>}
                 </TouchableOpacity>
               </>
             )}
