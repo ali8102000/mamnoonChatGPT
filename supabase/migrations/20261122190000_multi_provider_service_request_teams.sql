@@ -702,6 +702,8 @@ BEGIN
      AND public.is_service_request_provider(_request_id, auth.uid()) THEN
     DELETE FROM public.service_request_providers
     WHERE request_id = _request_id AND provider_id = auth.uid();
+    DELETE FROM public.request_offers
+    WHERE request_id = _request_id AND provider_id = auth.uid();
     SELECT COALESCE(sum(team_size), 0)::integer INTO v_people
     FROM public.service_request_providers WHERE request_id = _request_id;
     SELECT provider_id INTO v_lead
