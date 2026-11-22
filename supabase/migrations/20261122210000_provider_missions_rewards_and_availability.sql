@@ -371,8 +371,8 @@ set search_path=public
 as $function$
 declare
   v_provider uuid;v_provider_type text;v_providers uuid[];v_m public.provider_missions%rowtype;
-  v_participant public.provider_mission_participants%rowtype;v_origin text;v_destination text;
-  v_duration numeric;v_new_count integer;v_admin_count integer;
+  v_participant public.provider_mission_participants%rowtype;v_origin text;v_destination text;v_home text;
+  v_duration numeric;v_new_count integer;
 begin
   if new.status::text<>'completed' or old.status::text='completed' then return new; end if;
   if new.completed_at is null then return new; end if;
@@ -397,6 +397,7 @@ begin
   end if;
 
   foreach v_provider in array v_providers loop
+    select governorate_key into v_home from public.profiles where id=v_provider;
     for v_m in
       select m.* from public.provider_missions m
       join public.provider_mission_participants p on p.mission_id=m.id and p.provider_id=v_provider
@@ -407,8 +408,8 @@ begin
           select 1 from public.profiles pr where pr.id=v_provider and pr.governorate_key=any(m.target_governorates)))
         and (m.max_job_duration_hours is null or v_duration<=m.max_job_duration_hours)
         and (m.location_scope='any'
-          or (m.location_scope='inside_governorate' and v_origin is not null and v_origin=v_destination)
-          or (m.location_scope='outside_governorate' and v_origin is not null and v_destination is not null and v_origin<>v_destination))
+          or (m.location_scope='inside_governorate' and v_home is not null and v_origin=v_home and (v_destination is null or v_destination=v_home))
+          or (m.location_scope='outside_governorate' and v_home is not null and (v_origin is distinct from v_home or (v_destination is not null and v_destination<>v_home))))
     loop
       select * into v_participant from public.provider_mission_participants
       where mission_id=v_m.id and provider_id=v_provider for update;
