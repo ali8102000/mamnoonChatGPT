@@ -77,7 +77,7 @@ export function NotificationsBell() {
     void load();
     const refresh = setInterval(() => { setNow(Date.now()); void load(); }, 60_000);
     const appState = AppState.addEventListener("change", (state) => { if (state === "active") { setNow(Date.now()); void load(); } });
-    const channel = supabase.channel("native-notifications-" + user.id)
+    const channel = supabase.channel(`native-notifications:${user.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: "user_id=eq." + user.id }, (payload: any) => {
         const item = payload.new as NotificationRow;
         if ((Date.now() - new Date(item.created_at).getTime() <= 24 * 60 * 60 * 1000 || item.type === "subscription_granted") && isImportantNotificationType(item.type)) setItems((current) => [item, ...current.filter((row) => row.id !== item.id)]);
