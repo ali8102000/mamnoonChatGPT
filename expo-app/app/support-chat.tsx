@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
 import { getNotificationChannelId, isNotificationSoundEnabled, isNotificationVibrationEnabled, loadNotificationPreferences } from "@/lib/notification-sound";
-import MamnoonChatThread from "../../components/MamnoonChatThread";
+import MamnoonChatThread from "../components/MamnoonChatThread";
 
 export default function SupportChatScreen() {
   const { user } = useAuth();
