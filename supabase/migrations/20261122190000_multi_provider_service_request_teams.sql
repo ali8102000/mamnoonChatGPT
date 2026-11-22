@@ -588,6 +588,14 @@ BEGIN
   v_updated := replace(v_updated,
     '''. لديك 60 ثانية لقبول الطلب.'',',
     '''. لديك '' || (60 * GREATEST(COALESCE(r.workers_count, 1), 1))::text || '' ثانية لقبول الطلب.'',');
+  IF position('accepted_people_count' IN v_updated) = 0
+     OR position('remaining_people_count' IN v_updated) = 0
+     OR position('''expires_in_seconds'', 60' IN v_updated) > 0
+     OR position('expires_at = now() + interval ''60 seconds''' IN v_updated) > 0
+     OR position('now(), now() + interval ''60 seconds''' IN v_updated) > 0
+     OR position('''. لديك 60 ثانية لقبول الطلب.''' IN v_updated) > 0 THEN
+    RAISE EXCEPTION 'Service dispatch staffing/timer patch was incomplete; refusing migration';
+  END IF;
   -- Exclude every member of an accepted service team from future dispatch rounds.
   IF position('SELECT 1 FROM public.service_request_providers srp_active' IN v_updated) = 0 THEN
     v_updated := replace(
