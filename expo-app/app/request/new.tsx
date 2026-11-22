@@ -2082,14 +2082,17 @@ export default function NewRequest() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <TextInput
-                style={styles.input}
-                value={customerPrice}
-                onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
-                placeholder="أجر الفني الواحد بالدينار"
-                placeholderTextColor="#94a3b8"
-                keyboardType="numeric"
-              />
+              <View style={styles.largeVehiclePriceHighlight}>
+                <Text style={styles.largeVehiclePriceLabel}>حدد أجرة الفني بوضوح حتى يشوفها الزبون</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: "#E8B84B", backgroundColor: "#FFFDF5" }]}
+                  value={customerPrice}
+                  onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
+                  placeholder="اكتب أجر الفني الواحد بالدينار"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="numeric"
+                />
+              </View>
               {Number(customerPrice) > 0 && (
                 <View style={{ padding: 12, borderRadius: 14, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand }}>
                   <Text style={{ color: palette.ink, textAlign: "right", fontSize: 12, fontWeight: "800" }}>المبلغ الإجمالي للطلب</Text>
