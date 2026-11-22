@@ -443,7 +443,7 @@ function NewRequest() {
     const t = setTimeout(async () => {
       try {
         const { data, error } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, pickupGovernorateKey: govKey, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupLat, lng: pickupLng }, to: { lat: destLat, lng: destLng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, pickupGovernorateKey: govKey, destinationGovernorateKey: destinationGovernorateKey ?? undefined, urgencyEnabled },
         });
         if (error) throw error;
         if (stale) return;
@@ -641,7 +641,7 @@ function NewRequest() {
       let error: any;
       if (type === "taxi" && vehicle !== "large") {
         const { data: secureTaxi, error: secureTaxiError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? govKey, urgencyEnabled, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
+          body: { action: "create", from: { lat: pickupCoords!.lat, lng: pickupCoords!.lng }, to: { lat: destCoords!.lat, lng: destCoords!.lng }, vehicleCategory, tripType, extraMinutes, isIntercity: interCity, destinationGovernorateKey: destinationGovernorateKey ?? undefined, urgencyEnabled, couponCode: couponCode.trim() || undefined, pickupText: pickupLabel, destinationText: destLabel, governorateKey: govKey ?? governorateOf(pickupCoords!).key, notes },
         });
         if (secureTaxiError) throw secureTaxiError;
         if (!secureTaxi?.requestId) throw new Error(secureTaxi?.error || "تعذّر إنشاء طلب التاكسي.");
