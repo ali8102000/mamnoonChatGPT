@@ -132,29 +132,14 @@ export default function HomeScreen() {
   }, [selectedRole, user]);
 
   useEffect(() => {
+    // Native Android fallback: do not attach postgres_changes listeners here.
+    // Some Android lifecycle/remount paths can retain a subscribed channel and
+    // Supabase rejects callbacks added to that channel after subscribe().
+    // Short polling keeps provider offers fresh without risking a screen crash.
     void loadIncoming();
-    // A unique topic prevents a remounted home screen from reusing a channel that is still subscribed.
-    const channelTopic = `incoming-requests:${user?.id ?? "guest"}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-    const channel = supabase.channel(channelTopic)
-      .on("postgres_changes", { event: "*", schema: "public", table: "service_requests" }, () => {
-        void loadIncoming();
-      });
-    if (user?.id) {
-      channel.on("postgres_changes", {
-        event: "*", schema: "public", table: "request_offers", filter: `provider_id=eq.${user.id}`,
-      }, () => {
-        void loadIncoming();
-      });
-    }
-    channel.subscribe();
-    // Dispatch expands its search radius in 60-second waves. Polling keeps
-    // later waves visible if Realtime is temporarily disconnected.
-    const refreshTimer = setInterval(() => { void loadIncoming(); }, 60_000);
-    return () => {
-      clearInterval(refreshTimer);
-      supabase.removeChannel(channel);
-    };
-  }, [loadIncoming, user?.id]);
+    const refreshTimer = setInterval(() => { void loadIncoming(); }, 5_000);
+    return () => clearInterval(refreshTimer);
+  }, [loadIncoming]);
 
   useEffect(() => {
     if (!user || (selectedRole !== "driver" && selectedRole !== "large_driver" && selectedRole !== "worker")) {
