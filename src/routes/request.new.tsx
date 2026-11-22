@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGoBack } from "@/components/back-button";
 import luxuryCar from "@/assets/car-luxury.png";
 import { serviceIcon } from "@/lib/service-visuals";
@@ -177,6 +177,7 @@ function NewRequest() {
   const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destLabel, setDestLabel] = useState("");
   const [mapStep, setMapStep] = useState<"pickup" | "dest">("pickup");
+  const backFromDestinationRef = useRef(false);
   const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
   const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
   const [favoriteName, setFavoriteName] = useState("");
@@ -256,12 +257,14 @@ function NewRequest() {
   const gov = getGovernorate(govKey);
   function handleTaxiMapBack() {
     if (mapStep === "dest") {
+      backFromDestinationRef.current = true;
       setMapStep("pickup");
       setDestConfirmed(false);
       setShowFareDetails(false);
       return;
     }
-    if (pickupCoords) {
+    if (backFromDestinationRef.current) {
+      backFromDestinationRef.current = false;
       setPickupCoords(null); setPickupLabel("");
       setDestCoords(null); setDestLabel("");
       setDestinationGovernorateKey(null); setDestConfirmed(false);
@@ -534,6 +537,7 @@ function NewRequest() {
       setDestConfirmed(true);
       return;
     }
+    backFromDestinationRef.current = false;
     setMapStep("dest");
     setDestConfirmed(false);
     setInterCity(false);
