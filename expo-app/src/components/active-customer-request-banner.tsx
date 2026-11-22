@@ -60,27 +60,18 @@ export function ActiveCustomerRequestBanner() {
   }, [user, roles]);
 
   useEffect(() => {
-    void load();
-    if (!user) return;
-    const channel = supabase
-      .channel(`customer-active-request:${user.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "service_requests",
-          filter: `customer_id=eq.${user.id}`,
-        },
-        () => void load(),
-      )
-      .subscribe();
-    const timer = setInterval(() => void load(), 10000);
+    let active = true;
+    const refresh = () => { if (active) void load(); };
+    refresh();
+    if (!user?.id) return () => { active = false; };
+    // Android-safe refresh: avoid screen-owned Realtime channels during tab
+    // remounts and role changes; the banner remains current through polling.
+    const timer = setInterval(refresh, 10_000);
     return () => {
+      active = false;
       clearInterval(timer);
-      supabase.removeChannel(channel);
     };
-  }, [user, load]);
+  }, [user?.id, load]);
 
   if (!request) return null;
   const status = request.status === "accepted"
