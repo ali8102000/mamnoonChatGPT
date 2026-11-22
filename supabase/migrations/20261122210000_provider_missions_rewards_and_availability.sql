@@ -305,7 +305,7 @@ set search_path=public
 as $function$
 declare
   v_id uuid;v_p public.provider_mission_participants%rowtype;v_m public.provider_missions%rowtype;
-  v_balance bigint;v_tx_id uuid;v_count integer:=0;v_gov text;
+  v_balance numeric;v_count integer:=0;
 begin
   if auth.uid() is null then raise exception 'unauthorized'; end if;
   if p_decision not in ('approve','reject') then raise exception 'invalid_mission_reward_decision'; end if;
@@ -324,24 +324,17 @@ begin
       if p_decision='approve' then continue; else raise exception 'approved_reward_cannot_be_rejected'; end if;
     end if;
     if p_decision='approve' then
-      insert into public.account_wallets(user_id) values(v_p.provider_id) on conflict(user_id) do nothing;
-      select balance_iqd into v_balance from public.account_wallets where user_id=v_p.provider_id for update;
-      insert into public.account_wallet_transactions(
-        user_id,transaction_type,amount_iqd,balance_after_iqd,status,provider,idempotency_key,description,metadata
-      ) values(
-        v_p.provider_id,'adjustment',v_m.reward_amount_iqd,v_balance+v_m.reward_amount_iqd,'completed',
-        'mamnoon_mission','mission:'||v_m.id::text||':'||v_p.provider_id::text,
-        'مكافأة مهمة: '||v_m.title,
-        jsonb_build_object('mission_id',v_m.id,'participant_id',v_p.id,'approved_by',auth.uid())
-      ) on conflict(idempotency_key) do nothing returning id into v_tx_id;
-      if v_tx_id is not null then
-        update public.account_wallets set balance_iqd=balance_iqd+v_m.reward_amount_iqd,updated_at=now()
-        where user_id=v_p.provider_id;
-      else
-        if not exists(select 1 from public.account_wallet_transactions where idempotency_key='mission:'||v_m.id::text||':'||v_p.provider_id::text and status='completed') then
-          raise exception 'mission_reward_ledger_conflict';
-        end if;
-      end if;
+      -- The provider wallet shown in the app is driver_wallets; update it
+      -- and append the same earning ledger row used by completed rides/jobs.
+      insert into public.driver_wallets(user_id,balance,total_earned,total_commission)
+      values(v_p.provider_id,v_m.reward_amount_iqd,v_m.reward_amount_iqd,0)
+      on conflict(user_id) do update set
+        balance=public.driver_wallets.balance+excluded.balance,
+        total_earned=public.driver_wallets.total_earned+excluded.total_earned,
+        updated_at=now()
+      returning balance into v_balance;
+      insert into public.transactions(user_id,type,amount,balance_after,note)
+      values(v_p.provider_id,'earning',v_m.reward_amount_iqd,v_balance,'مكافأة مهمة: '||v_m.title);
       update public.provider_mission_participants set reward_status='approved',decided_at=now(),
         decided_by=auth.uid(),decision_note=nullif(btrim(coalesce(p_note,'')),''),updated_at=now()
       where id=v_p.id;
