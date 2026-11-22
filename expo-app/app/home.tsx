@@ -974,9 +974,8 @@ function ProviderHome({
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
-             accessibilityState={{ disabled: availabilitySaving }}
-            accessibilityState={{ disabled: !verified }}
-            disabled={!verified}
+             accessibilityState={{ disabled: !verified || availabilitySaving }}
+            disabled={!verified || availabilitySaving}
             onPress={toggleAvailable}
             activeOpacity={0.86}
             style={[styles.availPowerButton, available ? styles.availPowerButtonActive : styles.availPowerButtonClosed]}
