@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mamnoon-android-preview-${{ github.event.pull_request.number || github.ref }}
+  group: mamnoon-android-preview-${github.event.pull_request.number || github.ref}
   cancel-in-progress: true
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
         run: bun install
       - name: Generate standalone Android release APK
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: ${secrets.EXPO_TOKEN}
           APP_ENV: production
           EAS_PROJECT_ID: a6c763c4-3a5c-4725-b370-81967e3c0aab
         run: |
@@ -72,8 +72,8 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
           "$BUILD_TOOLS/zipalign" -c -v 4 "$APK"
           BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
-          printf '%s\\n' "$BADGING"
-          grep -Eq "^package: name='com\\.mamnoon\\.app'([ ,]|$)" <<< "$BADGING"
+          printf '%s\n' "$BADGING"
+          grep -Eq "^package: name='com\.mamnoon\.app'([ ,]|$)" <<< "$BADGING"
           grep -Fq "sdkVersion:'24'" <<< "$BADGING"
           grep -Fq "targetSdkVersion:'35'" <<< "$BADGING"
           grep -Eq "^application-label(:[a-z]{2,3})?:'.+'" <<< "$BADGING"
@@ -86,6 +86,22 @@ jobs:
           path: expo-app/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 7
+
+  android-emulator-smoke:
+    name: Install, launch, and inspect navigation on Android 15
+    needs: build-preview-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Download the already-built APK
+        uses: actions/download-artifact@v4
+        with:
+          name: mamnoon-android-standalone-preview-apk
+          path: artifacts
+      - name: Confirm APK exists
+        run: test -s artifacts/app-release.apk
       - name: Install, launch, and inspect startup on Android 15 emulator
         uses: reactivecircus/android-emulator-runner@v2
         env:
@@ -94,14 +110,16 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_2
-          disable-animations: true
+          disable-animations: false
           emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 4096 -cores 4
           script: |
-            adb install -r expo-app/android/app/build/outputs/apk/release/app-release.apk
+            set -euo pipefail
+            adb install -r artifacts/app-release.apk
+            adb shell am force-stop com.mamnoon.app || true
             adb shell monkey -p com.mamnoon.app 1
             sleep 30
-            adb shell pidof com.mamnoon.app >/dev/null || (adb logcat -d -t 1000; echo "Mamnoon process exited during startup."; exit 1)
+            adb shell pidof com.mamnoon.app >/dev/null || (adb logcat -d -t 2000; echo "Mamnoon process exited during startup."; exit 1)
             adb logcat -d -t 3000 > /tmp/mamnoon-startup-log.txt
             ! grep -E -i "app-boundary.*Unhandled render error|Unhandled render error.*app-boundary" /tmp/mamnoon-startup-log.txt || (echo "Mamnoon displayed its root React error boundary during startup."; exit 1)
-            echo "App process remained alive and no root React error-boundary event was logged."
             bash expo-app/scripts/android-navigation-smoke.sh
