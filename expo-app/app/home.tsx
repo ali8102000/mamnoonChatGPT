@@ -470,11 +470,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
       if (active && !error) { setTopBanners(data ?? []); setTopBannerIndex(0); }
     };
     void load();
-    // Keep each mounted banner listener isolated across quick tab changes/remounts.
-    const channel = supabase.channel(`home-top-banner-native:${Date.now()}:${Math.random().toString(36).slice(2)}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "home_carousel_banners" }, () => void load())
-      .subscribe();
-    return () => { active = false; void supabase.removeChannel(channel); };
+    // Native Android fallback: avoid Realtime channel lifecycle races while
+    // keeping campaign/ad banner updates fresh.
+    const refreshTimer = setInterval(() => { void load(); }, 30_000);
+    return () => { active = false; clearInterval(refreshTimer); };
   }, []);
 
   useEffect(() => {
