@@ -70,8 +70,8 @@ GRANT EXECUTE ON FUNCTION public.resume_service_request_staffing(uuid) TO authen
 DO $staffing_close_guard$
 DECLARE
   v_definition text;
-  v_old text := "ARRAY['status', 'accepted_at', 'updated_at']";
-  v_new text := "ARRAY['status', 'accepted_at', 'updated_at', 'staffing_search_paused_at']";
+  v_old text := 'ARRAY[''status'', ''accepted_at'', ''updated_at'']';
+  v_new text := 'ARRAY[''status'', ''accepted_at'', ''updated_at'', ''staffing_search_paused_at'']';
 BEGIN
   SELECT pg_get_functiondef('public.guard_customer_request_update()'::regprocedure)
   INTO v_definition;
