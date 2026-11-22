@@ -1177,13 +1177,7 @@ function NewRequest() {
                     </button>
                   ))}
                 </div>
-                <input
-                  inputMode="numeric"
-                  value={customerPrice}
-                  onChange={(e) => setCustomerPrice(e.target.value.replace(/[^0-9]/g, ""))}
-                  placeholder="أو اكتب أي سعر بالدينار"
-                  className="w-full bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 border border-orange-200 rounded-xl px-4 py-3 text-sm font-bold outline-none"
-                />
+                <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-2.5 shadow-sm dark:border-amber-700 dark:bg-amber-950/30"><p className="mb-1.5 text-right text-[11px] font-black text-amber-800 dark:text-amber-200">اكتب السعر المقترح حتى ينتبه له أصحاب السيارات</p><input inputMode="numeric" value={customerPrice} onChange={(e) => setCustomerPrice(e.target.value.replace(/[^0-9]/g, ""))} placeholder="اكتب السعر بالدينار هنا" className="w-full rounded-lg border border-amber-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-300 dark:border-amber-700 dark:bg-black dark:text-slate-100" /></div>
                 <label className="flex items-center justify-between gap-3 rounded-xl border border-orange-300/60 bg-white/70 dark:bg-black/40 p-3">
                   <span className="text-right"><span className="block text-sm font-black">⚡ وضع الاستعجال</span><span className="block text-[11px] text-muted-foreground">يظهر طلب السيارة للمزودين كطلب مستعجل</span></span>
                   <input type="checkbox" checked={urgencyEnabled} onChange={(e) => setUrgencyEnabled(e.target.checked)} className="h-5 w-5 accent-orange-500" />
@@ -1270,9 +1264,9 @@ function NewRequest() {
               type="button"
               disabled={busy || !pickupCoords || (vehicle !== "large" && (!destCoords || routeKm === null || !!routeError))}
               onClick={() => void submit()}
-              className="w-full py-4 rounded-2xl border-2 border-amber-300 ring-2 ring-amber-500/20 bg-primary text-primary-foreground font-black text-base shadow-xl btn-press disabled:opacity-50 flex items-center justify-center gap-2"
+              className={`w-full py-4 rounded-2xl border-2 ring-2 font-black text-base shadow-xl btn-press disabled:opacity-50 flex items-center justify-center gap-2 ${vehicle === "large" ? "border-blue-300 ring-blue-500/20 bg-blue-600 text-white hover:bg-blue-700" : "border-amber-300 ring-amber-500/20 bg-primary text-primary-foreground"}`}
               style={{
-                backgroundColor: uiVisuals.request_primary_cta?.background_color || undefined,
+                backgroundColor: vehicle === "large" ? "#1677F2" : uiVisuals.request_primary_cta?.background_color || undefined,
                 color: uiVisuals.request_primary_cta?.title_color || undefined,
                 borderRadius: Number(uiVisuals.request_primary_cta?.border_radius_px) || undefined,
                 padding: Number(uiVisuals.request_primary_cta?.card_padding_px) || undefined,
@@ -1495,17 +1489,7 @@ function NewRequest() {
         )}
         {pricingMode !== "negotiable" && (
           <>
-            <input
-              inputMode="numeric"
-              value={customerPrice}
-              onChange={(e) => setCustomerPrice(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder={
-                pricingMode === "hourly"
-                  ? "الأجر لكل ساعة ولكل فني"
-                  : "الأجر لكل فني بالدينار"
-              }
-              className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:border-ring"
-            />
+            <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-2.5 shadow-sm dark:border-amber-700 dark:bg-amber-950/30"><p className="mb-1.5 text-right text-[11px] font-black text-amber-800 dark:text-amber-200">حدد أجرة الفني بوضوح حتى يشوفها الزبون</p><input inputMode="numeric" value={customerPrice} onChange={(e) => setCustomerPrice(e.target.value.replace(/[^0-9]/g, ""))} placeholder={pricingMode === "hourly" ? "الأجر لكل ساعة ولكل فني" : "اكتب أجرة كل فني بالدينار"} className="w-full rounded-lg border border-amber-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:ring-2 focus:ring-amber-300 dark:border-amber-700 dark:bg-black dark:text-slate-100" /></div>
             <div className="flex flex-wrap gap-2">
               {[15000, 25000, 30000, 50000].map((v) => (
                 <button

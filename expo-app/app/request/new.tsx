@@ -201,7 +201,6 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
-  const backFromDestinationRef = useRef(false);
   const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
   const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
   const [favoriteName, setFavoriteName] = useState("");
@@ -244,7 +243,7 @@ export default function NewRequest() {
     setMapMode("destination"); setDestinationConfirmed(false);
     setRouteKm(null); setRouteError(null); setShowFavoriteNameInput(false);
     setPlaceQuery(""); setPlaceSuggestions([]); setPlaceSearchError(null);
-    moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+    moveMap({ ...coords, latitudeDelta: 0.0035, longitudeDelta: 0.0035 });
   }
 
   async function deleteFavoritePlace(id: string) {
@@ -334,7 +333,7 @@ export default function NewRequest() {
       return false;
     });
     return () => subscription.remove();
-  }, [selectedService, mapMode, pickupCoords, pickupGovernorateKey]);
+  }, [selectedService, mapMode, pickupCoords, pickupGovernorateKey, destinationConfirmed]);
 
   useEffect(() => {
     const requestedType = type || "taxi";
@@ -437,25 +436,9 @@ export default function NewRequest() {
 
   function handleTaxiBack() {
     if (mapMode === "destination") {
-      // First back returns to pickup editing without destroying either saved point.
-      backFromDestinationRef.current = true;
-      setMapMode("pickup");
-      setDestinationConfirmed(false);
-      return;
-    }
-    if (backFromDestinationRef.current) {
-      // Only the second back after leaving destination explicitly resets pickup.
-      backFromDestinationRef.current = false;
-      setPickupCoords(null);
-      setPickup("");
-      setPickupGovernorateKey(null);
-      setDestinationCoords(null);
-      setDestination("");
-      setDestinationGovernorateKey(null);
-      setDestinationConfirmed(false);
-      setRouteKm(null);
-      setRouteDurationMin(null);
-      setRouteError(null);
+      // Back from car/fare details returns to destination selection.
+      // Keep the confirmed pickup; the pickup tab remains available for explicit edits.
+      if (destinationConfirmed) setDestinationConfirmed(false);
       return;
     }
     router.back();
@@ -671,7 +654,7 @@ export default function NewRequest() {
         // One authoritative quote call calculates route, governorates and all category prices.
         // Avoid four extra detect/validate network round-trips before pricing.
         const { data: route, error: quoteError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: "economy", tripType, extraMinutes, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: vehicleCat, tripType, extraMinutes, urgencyEnabled },
         });
         if (quoteError) throw quoteError;
         if (!active) return;
@@ -720,7 +703,7 @@ export default function NewRequest() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, mapMode, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
+  }, [pickupCoords, destinationCoords, mapMode, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
   const placeSearchCacheRef = useRef(new Map<string, Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }>>());
   useEffect(() => {
@@ -994,7 +977,8 @@ export default function NewRequest() {
         setDestinationGovernorateKey(item.governorateKey ?? activeGovernorateKey ?? null);
         setDestination(label);
       }
-      moveMap({ ...coords, latitudeDelta: 0.0045, longitudeDelta: 0.0045 });
+      const destinationZoom = mapMode === "destination" ? 0.0035 : 0.0045;
+      moveMap({ ...coords, latitudeDelta: destinationZoom, longitudeDelta: destinationZoom });
       setPlaceQuery("");
       setPlaceSuggestions([]);
 
@@ -1039,12 +1023,13 @@ export default function NewRequest() {
         setDestinationConfirmed(true);
         return;
       }
-      backFromDestinationRef.current = false;
       setMapMode("destination");
       setDestinationConfirmed(false);
       setDestinationCoords(null);
       setDestination("");
       setDestinationGovernorateKey(governorateKey);
+      // Keep the selected pickup, but zoom in closer for precise destination picking.
+      moveMap({ ...pickupCoords, latitudeDelta: 0.0035, longitudeDelta: 0.0035 });
       outsideGovernoratePromptShownRef.current = false;
       setRouteKm(null);
       setRouteDurationMin(null);
@@ -1589,7 +1574,7 @@ export default function NewRequest() {
                         </TouchableOpacity>
                       ))}
                     </View>
-                    <TextInput style={styles.taxiSearchInputFull} value={customerPrice} onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))} placeholder="أو اكتب أي سعر بالدينار" placeholderTextColor={palette.muted} keyboardType="numeric" />
+                    <View style={styles.largeVehiclePriceHighlight}><Text style={styles.largeVehiclePriceLabel}>اكتب السعر المقترح حتى ينتبه له أصحاب السيارات</Text><TextInput style={styles.taxiSearchInputFull} value={customerPrice} onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))} placeholder="اكتب السعر بالدينار هنا" placeholderTextColor={palette.muted} keyboardType="numeric" /></View>
                     <Text style={styles.taxiHintText}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب.</Text>
                     <TouchableOpacity onPress={() => setUrgencyEnabled((value) => !value)} style={{ marginTop: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: urgencyEnabled ? palette.brand : palette.line, backgroundColor: urgencyEnabled ? palette.brandSoft : palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                       <View style={{ flex: 1 }}>
@@ -1702,7 +1687,7 @@ export default function NewRequest() {
                 />
                 <TouchableOpacity
                   style={[styles.taxiPrimaryButton, {
-                    backgroundColor: uiVisuals.request_primary_cta?.background_color || undefined,
+                    backgroundColor: isLargeVehicle ? "#1677F2" : uiVisuals.request_primary_cta?.background_color || undefined,
                     borderRadius: Number(uiVisuals.request_primary_cta?.border_radius_px) || undefined,
                     padding: Number(uiVisuals.request_primary_cta?.card_padding_px) || undefined,
                     transform: [{ scale: Math.max(.6, Math.min(1.6, Number(uiVisuals.request_primary_cta?.element_scale) || 1)) }],
@@ -1717,7 +1702,7 @@ export default function NewRequest() {
                   disabled={busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))}
                   onPress={() => void submit()}
                 >
-                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: uiVisuals.request_primary_cta?.title_color || undefined }]}>{"اطلب الآن"}</Text>}
+                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: isLargeVehicle ? palette.white : uiVisuals.request_primary_cta?.title_color || undefined }]}>{"اطلب الآن"}</Text>}
                 </TouchableOpacity>
               </>
             )}
@@ -2097,14 +2082,17 @@ export default function NewRequest() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <TextInput
-                style={styles.input}
-                value={customerPrice}
-                onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
-                placeholder="أجر الفني الواحد بالدينار"
-                placeholderTextColor="#94a3b8"
-                keyboardType="numeric"
-              />
+              <View style={styles.largeVehiclePriceHighlight}>
+                <Text style={styles.largeVehiclePriceLabel}>حدد أجرة الفني بوضوح حتى يشوفها الزبون</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: "#E8B84B", backgroundColor: "#FFFDF5" }]}
+                  value={customerPrice}
+                  onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
+                  placeholder="اكتب أجر الفني الواحد بالدينار"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="numeric"
+                />
+              </View>
               {Number(customerPrice) > 0 && (
                 <View style={{ padding: 12, borderRadius: 14, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand }}>
                   <Text style={{ color: palette.ink, textAlign: "right", fontSize: 12, fontWeight: "800" }}>المبلغ الإجمالي للطلب</Text>
@@ -2388,6 +2376,8 @@ const styles = StyleSheet.create({
   extraTimeScale: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   extraTimeValue: { color: palette.ink, fontSize: 12, fontWeight: "900" },
   goldLockedText: { color: palette.gold, fontSize: 12, fontWeight: "800", marginTop: 10 },
+  largeVehiclePriceHighlight: { borderWidth: 2, borderColor: "#E8B84B", backgroundColor: "#FFF9E9", borderRadius: 14, padding: 9, gap: 6 },
+  largeVehiclePriceLabel: { color: "#8A5A00", fontSize: 10, fontWeight: "900", textAlign: "right" },
   priceBox: { backgroundColor: palette.brandSoft, borderRadius: radius.lg, padding: 18, alignItems: "center", marginTop: 20, borderWidth: 1, borderColor: palette.line },
   priceLabel: { fontSize: 13, color: palette.muted, fontWeight: "700" },
   priceValue: { fontSize: 25, fontWeight: "900", color: palette.brand, marginTop: 4 },
