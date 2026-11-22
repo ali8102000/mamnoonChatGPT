@@ -36,9 +36,20 @@ function MessagesPage() {
       .select("request_id")
       .eq("provider_id", userId);
     if (membershipError) console.warn("[messages] Team chat memberships unavailable:", membershipError.message);
+    const teamIds = [...new Set((memberships ?? []).map((row: any) => String(row.request_id)))];
+    let activeTeamIds: string[] = [];
+    if (teamIds.length) {
+      const { data: teamActiveRows, error: teamActiveError } = await supabase
+        .from("service_requests")
+        .select("id")
+        .in("id", teamIds)
+        .in("status", ["pending", "searching", "accepted", "in_progress"]);
+      if (!teamActiveError) activeTeamIds = (teamActiveRows ?? []).map((request) => request.id);
+      else console.warn("[messages] Active team chats unavailable:", teamActiveError.message);
+    }
     const activeIds = [...new Set([
       ...(activeRequests ?? []).map((request) => request.id),
-      ...(memberships ?? []).map((row: any) => row.request_id),
+      ...activeTeamIds,
     ])];
     if (activeIds.length === 0) { setChats([]); return; }
     const { data } = await supabase
