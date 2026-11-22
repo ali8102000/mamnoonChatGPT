@@ -192,7 +192,7 @@ export function IncomingRequestModal() {
     void loadOffer();
     if (!user || !canReceive) return;
     const channel = supabase
-      .channel(`incoming-offers-${user.id}`)
+      .channel(`incoming-offers:${user.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {
