@@ -172,6 +172,7 @@ begin
     )
   on conflict(mission_id,provider_id) do nothing;
   get diagnostics v_count=row_count;
+  if v_count=0 then raise exception 'no_eligible_providers_for_mission'; end if;
 
   insert into public.notifications(user_id,type,title,body,link,data)
   select mp.provider_id,'mission_assigned','مهمة جديدة من إدارة ممنون',
