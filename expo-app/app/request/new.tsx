@@ -201,7 +201,6 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
-  const backFromDestinationRef = useRef(false);
   const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
   const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
   const [favoriteName, setFavoriteName] = useState("");
@@ -244,7 +243,7 @@ export default function NewRequest() {
     setMapMode("destination"); setDestinationConfirmed(false);
     setRouteKm(null); setRouteError(null); setShowFavoriteNameInput(false);
     setPlaceQuery(""); setPlaceSuggestions([]); setPlaceSearchError(null);
-    moveMap({ ...coords, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+    moveMap({ ...coords, latitudeDelta: 0.0035, longitudeDelta: 0.0035 });
   }
 
   async function deleteFavoritePlace(id: string) {
@@ -437,25 +436,9 @@ export default function NewRequest() {
 
   function handleTaxiBack() {
     if (mapMode === "destination") {
-      // First back returns to pickup editing without destroying either saved point.
-      backFromDestinationRef.current = true;
-      setMapMode("pickup");
-      setDestinationConfirmed(false);
-      return;
-    }
-    if (backFromDestinationRef.current) {
-      // Only the second back after leaving destination explicitly resets pickup.
-      backFromDestinationRef.current = false;
-      setPickupCoords(null);
-      setPickup("");
-      setPickupGovernorateKey(null);
-      setDestinationCoords(null);
-      setDestination("");
-      setDestinationGovernorateKey(null);
-      setDestinationConfirmed(false);
-      setRouteKm(null);
-      setRouteDurationMin(null);
-      setRouteError(null);
+      // Back from car/fare details returns to destination selection.
+      // Keep the confirmed pickup; the pickup tab remains available for explicit edits.
+      if (destinationConfirmed) setDestinationConfirmed(false);
       return;
     }
     router.back();
@@ -671,7 +654,7 @@ export default function NewRequest() {
         // One authoritative quote call calculates route, governorates and all category prices.
         // Avoid four extra detect/validate network round-trips before pricing.
         const { data: route, error: quoteError } = await supabase.functions.invoke("auto-taxi-pricing", {
-          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: "economy", tripType, extraMinutes, urgencyEnabled },
+          body: { action: "quote", from: { lat: pickupCoords.latitude, lng: pickupCoords.longitude }, to: { lat: destinationCoords.latitude, lng: destinationCoords.longitude }, vehicleCategory: vehicleCat, tripType, extraMinutes, urgencyEnabled },
         });
         if (quoteError) throw quoteError;
         if (!active) return;
@@ -720,7 +703,7 @@ export default function NewRequest() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pickupCoords, destinationCoords, mapMode, isTaxi, isLargeVehicle, tripType, extraMinutes, urgencyEnabled, routeRetry]);
+  }, [pickupCoords, destinationCoords, mapMode, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
   const placeSearchCacheRef = useRef(new Map<string, Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }>>());
   useEffect(() => {
@@ -994,7 +977,8 @@ export default function NewRequest() {
         setDestinationGovernorateKey(item.governorateKey ?? activeGovernorateKey ?? null);
         setDestination(label);
       }
-      moveMap({ ...coords, latitudeDelta: 0.0045, longitudeDelta: 0.0045 });
+      const destinationZoom = mapMode === "destination" ? 0.0035 : 0.0045;
+      moveMap({ ...coords, latitudeDelta: destinationZoom, longitudeDelta: destinationZoom });
       setPlaceQuery("");
       setPlaceSuggestions([]);
 
@@ -1039,12 +1023,13 @@ export default function NewRequest() {
         setDestinationConfirmed(true);
         return;
       }
-      backFromDestinationRef.current = false;
       setMapMode("destination");
       setDestinationConfirmed(false);
       setDestinationCoords(null);
       setDestination("");
       setDestinationGovernorateKey(governorateKey);
+      // Keep the selected pickup, but zoom in closer for precise destination picking.
+      moveMap({ ...pickupCoords, latitudeDelta: 0.0035, longitudeDelta: 0.0035 });
       outsideGovernoratePromptShownRef.current = false;
       setRouteKm(null);
       setRouteDurationMin(null);
