@@ -372,14 +372,13 @@ as $function$
 declare
   v_provider uuid;v_provider_type text;v_providers uuid[];v_m public.provider_missions%rowtype;
   v_participant public.provider_mission_participants%rowtype;v_origin text;v_destination text;v_home text;
-  v_duration numeric;v_new_count integer;v_provider_name text;
+  v_duration numeric;v_new_count integer;v_provider_name text;v_completed_at timestamptz;
 begin
   if new.status::text<>'completed' or old.status::text='completed' then return new; end if;
-  if new.completed_at is null then return new; end if;
-
+  v_completed_at:=coalesce(new.completed_at,new.updated_at,now());
   v_origin:=public.infer_governorate_key(new.pickup_lat,new.pickup_lng);
   v_destination:=public.infer_governorate_key(new.dest_lat,new.dest_lng);
-  v_duration:=extract(epoch from (new.completed_at-coalesce(new.started_at,new.provider_arrived_at,new.created_at)))/3600.0;
+  v_duration:=greatest(0,extract(epoch from (v_completed_at-coalesce(new.started_at,new.provider_arrived_at,new.created_at)))/3600.0);
 
   if new.type::text='taxi' then
     v_providers:=case when new.provider_id is null then '{}'::uuid[] else array[new.provider_id] end;
@@ -401,7 +400,7 @@ begin
     for v_m in
       select m.* from public.provider_missions m
       join public.provider_mission_participants p on p.mission_id=m.id and p.provider_id=v_provider
-      where m.status='active' and m.starts_at<=new.completed_at and m.ends_at>=new.completed_at
+      where m.status='active' and m.starts_at<=v_completed_at and m.ends_at>=v_completed_at
         and m.provider_type=v_provider_type
         and (m.service_slug is null or exists(select 1 from public.services s where s.id=new.service_id and s.slug=m.service_slug))
         and (cardinality(m.target_governorates)=0 or exists(
@@ -418,8 +417,8 @@ begin
         mission_id,participant_id,provider_id,request_id,customer_id,request_created_at,
         request_completed_at,duration_minutes,origin_governorate,destination_governorate
       ) values(
-        v_m.id,v_participant.id,v_provider,new.id,new.customer_id,new.created_at,new.completed_at,
-        greatest(0,round(extract(epoch from(new.completed_at-coalesce(new.started_at,new.provider_arrived_at,new.created_at)))/60)::integer),v_origin,v_destination
+        v_m.id,v_participant.id,v_provider,new.id,new.customer_id,new.created_at,v_completed_at,
+        greatest(0,round(extract(epoch from(v_completed_at-coalesce(new.started_at,new.provider_arrived_at,new.created_at)))/60)::integer),v_origin,v_destination
       ) on conflict(mission_id,provider_id,request_id) do nothing;
       get diagnostics v_new_count=row_count;
       if v_new_count=0 then continue; end if;
