@@ -68,7 +68,8 @@ open_route "home"
 # A fresh emulator has no SecureStore governorate or authenticated session.
 # Detect those intentional startup gates explicitly instead of misreporting a
 # missing bottom tab as a navigation regression.
-if ! python3 - "$UI" <<'PY'
+set +e
+python3 - "$UI" <<'PY'
 import sys, xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()
 labels = []
@@ -87,12 +88,12 @@ if any(term in all_text for term in gate_terms):
 if "الطلبات" not in labels and not any("الطلبات" in item for item in labels):
     raise SystemExit(1)
 PY
-then
-  gate_status=$?
-  if [ "$gate_status" -eq 2 ]; then
-    echo "BLOCKED: emulator is at governorate/login gate; provide a test session before navigation can be verified."
-    exit 2
-  fi
+gate_status=$?
+set -e
+if [ "$gate_status" -eq 2 ]; then
+  echo "BLOCKED: emulator is at governorate/login gate; provide a test session before navigation can be verified."
+  exit 2
+elif [ "$gate_status" -ne 0 ]; then
   echo "FAIL: bottom navigation is absent and no known startup gate was detected."
   exit 1
 fi
