@@ -179,6 +179,7 @@ function RequestDetail() {
       }
       setReq(r);
       if (r.type === "service") {
+        setServiceProviders([]);
         const { data: acceptedProviders, error: acceptedProvidersError } = await (supabase as any)
           .from("service_request_providers")
           .select("provider_id,team_size,accepted_at")
