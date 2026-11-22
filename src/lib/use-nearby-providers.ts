@@ -31,7 +31,6 @@ export function useNearbyProviders(opts: {
   const [pins, setPins] = useState<ProviderPin[]>([]);
   const timerRef = useRef<any>(null);
   const debounceRef = useRef<any>(null);
-  const inflightRef = useRef(false);
   const findPinsFn = useServerFn(findNearbyProviderPins);
   const centerLat = center?.lat;
   const centerLng = center?.lng;
@@ -43,10 +42,11 @@ export function useNearbyProviders(opts: {
     }
 
     let cancelled = false;
+    let inFlight = false;
 
     const fetchPins = async () => {
-      if (inflightRef.current) return;
-      inflightRef.current = true;
+      if (inFlight) return;
+      inFlight = true;
       try {
         const rows = await findPinsFn({
           data: {
@@ -71,7 +71,7 @@ export function useNearbyProviders(opts: {
       } catch {
         // ignore — pins are non-critical
       } finally {
-        inflightRef.current = false;
+        inFlight = false;
       }
     };
 
