@@ -115,7 +115,7 @@ export function MamnoonChatThread({
           </div>
         )}
       </div>
-      {quickReplies.length > 0 && <div className="flex gap-2 overflow-x-auto border-t border-border/60 px-3 py-2">{quickReplies.map((reply) => <button key={reply} type="button" disabled={busy} onClick={() => { onDraftChange(reply); }} className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[10px] font-bold text-foreground disabled:opacity-50">{reply}</button>)}</div>}
+      {quickReplies.length > 0 && <div className="flex min-h-8 items-center gap-1.5 overflow-x-auto border-t border-border/50 px-2 py-1.5">{quickReplies.map((reply) => <button key={reply} type="button" disabled={busy} onClick={() => { onDraftChange(reply); }} className="shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[9px] font-semibold leading-4 text-slate-600 transition duration-150 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">{reply}</button>)}</div>}
       {footer}
       {!readOnly && <form onSubmit={(event) => { event.preventDefault(); if (!busy && draft.trim()) onSend(); }} className="flex shrink-0 items-end gap-2 border-t border-border bg-card p-3 pb-[max(env(safe-area-inset-bottom),12px)]">
         <textarea value={draft} onChange={(event) => onDraftChange(event.target.value)} rows={1} maxLength={4000} placeholder={placeholder} className="max-h-28 min-h-11 flex-1 resize-y rounded-2xl border border-border bg-background px-4 py-3 text-right text-sm outline-none focus:border-primary" />
