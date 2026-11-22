@@ -127,7 +127,7 @@ AS $function$
         )
       )
     )
-  ORDER BY pp.location <-> o.point ASC, pp.updated_at DESC
+  ORDER BY pp.location OPERATOR(extensions.<->) o.point ASC, pp.updated_at DESC
   LIMIT least(greatest(coalesce(_limit, 30), 1), 30);
 $function$;
 
