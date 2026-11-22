@@ -70,17 +70,40 @@ function decodeGooglePolyline(encoded:string):Point[] {
   }
   return points;
 }
+// Reject provider/cache distances that are physically implausible for the
+// submitted endpoints. This is a guardrail, not a replacement for road routing.
+function straightLineDistanceKm(from: Point, to: Point) {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const dLat = radians(to.lat - from.lat);
+  const dLng = radians(to.lng - from.lng);
+  const lat1 = radians(from.lat);
+  const lat2 = radians(to.lat);
+  const rawA = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  const a = Math.max(0, Math.min(1, rawA));
+  return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function plausibleRoadDistance(from: Point, to: Point, distanceKm: number) {
+  const directKm = straightLineDistanceKm(from, to);
+  if (!Number.isFinite(directKm) || directKm <= 0 ||
+      !Number.isFinite(distanceKm) || distanceKm <= 0) return false;
+  const maximumPlausibleKm = Math.max(directKm * 4, directKm + 8, 3);
+  return distanceKm >= directKm * 0.95 && distanceKm <= maximumPlausibleKm;
+}
+
 async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
   const osrmBase=Deno.env.get("OSRM_ROUTING_URL")?.trim().replace(/\/+$/,"")||"";
   const cacheScope=osrmBase?new URL(osrmBase).host:"google-routes";
-  const cacheInput=["mamnoon-driving-route-v1",cacheScope,from.lat.toFixed(6),from.lng.toFixed(6),to.lat.toFixed(6),to.lng.toFixed(6)].join("|");
+  const cacheInput=["mamnoon-driving-route-v2",cacheScope,from.lat.toFixed(6),from.lng.toFixed(6),to.lat.toFixed(6),to.lng.toFixed(6)].join("|");
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(cacheInput));
   const routeKey=Array.from(new Uint8Array(digest)).map((b)=>b.toString(16).padStart(2,"0")).join("");
   const now=new Date().toISOString();
   const {data:cached,error:cacheReadError}=await admin.from("route_distance_cache")
     .select("distance_meters,duration_seconds,route_source")
     .eq("route_key",routeKey).gt("expires_at",now).maybeSingle();
-  if(!includeGeometry&&!cacheReadError&&cached&&Number(cached.distance_meters)>0&&Number(cached.duration_seconds)>0) {
+  if(!includeGeometry&&!cacheReadError&&cached&&Number(cached.distance_meters)>0&&Number(cached.duration_seconds)>0&&
+     plausibleRoadDistance(from,to,Number(cached.distance_meters)/1000)) {
     return {distanceKm:Number(cached.distance_meters)/1000,durationMin:Number(cached.duration_seconds)/60,
       routeSource:String(cached.route_source),cacheHit:true};
   }
@@ -100,7 +123,11 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
       const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distance)&&r.distance>0&&Number.isFinite(r.duration)&&r.duration>0);
       if(result.code!=="Ok"||!routes.length) throw new Error("OSRM returned no valid driving route");
       const selected=routes.reduce((a:any,b:any)=>b.distance<a.distance?b:a);
-      routed={distanceKm:selected.distance/1000,durationMin:selected.duration/60,routeSource:"osrm",
+      const candidateDistanceKm = selected.distance / 1000;
+      if (!plausibleRoadDistance(from,to,candidateDistanceKm)) {
+        throw new Error("OSRM route distance is inconsistent with the selected endpoints");
+      }
+      routed={distanceKm:candidateDistanceKm,durationMin:selected.duration/60,routeSource:"osrm",
         ...(includeGeometry&&Array.isArray(selected.geometry?.coordinates)?{routePoints:selected.geometry.coordinates.map((p:number[])=>({lat:Number(p[1]),lng:Number(p[0])})).filter((p:Point)=>validPoint(p))}:{})};
       if(includeGeometry&&(routed.routePoints?.length??0)<2) routed=null;
     } catch(error) {
@@ -129,7 +156,11 @@ async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
       typeof r.duration==="string"&&/^\d+(\.\d+)?s$/.test(r.duration)&&parseFloat(r.duration)>0);
     if(!routes.length) throw new Error("لم يتم العثور على طريق سيارة صالح بين النقطتين.");
     const selected=routes.reduce((a:any,b:any)=>b.distanceMeters<a.distanceMeters?b:a);
-    routed={distanceKm:selected.distanceMeters/1000,durationMin:parseFloat(selected.duration)/60,routeSource:"google_routes",
+    const candidateDistanceKm = selected.distanceMeters / 1000;
+    if (!plausibleRoadDistance(from,to,candidateDistanceKm)) {
+      throw new Error("Google Routes distance is inconsistent with the selected endpoints");
+    }
+    routed={distanceKm:candidateDistanceKm,durationMin:parseFloat(selected.duration)/60,routeSource:"google_routes",
       ...(includeGeometry&&typeof selected.polyline?.encodedPolyline==="string"?{routePoints:decodeGooglePolyline(selected.polyline.encodedPolyline)}:{})};
   }
 

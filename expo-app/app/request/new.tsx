@@ -1574,7 +1574,7 @@ export default function NewRequest() {
                         </TouchableOpacity>
                       ))}
                     </View>
-                    <TextInput style={styles.taxiSearchInputFull} value={customerPrice} onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))} placeholder="أو اكتب أي سعر بالدينار" placeholderTextColor={palette.muted} keyboardType="numeric" />
+                    <View style={styles.largeVehiclePriceHighlight}><Text style={styles.largeVehiclePriceLabel}>اكتب السعر المقترح حتى ينتبه له أصحاب السيارات</Text><TextInput style={styles.taxiSearchInputFull} value={customerPrice} onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))} placeholder="اكتب السعر بالدينار هنا" placeholderTextColor={palette.muted} keyboardType="numeric" /></View>
                     <Text style={styles.taxiHintText}>ماكو تسعير بالكيلومتر؛ أصحاب السيارات يرسلون عروضهم وتختار الأنسب.</Text>
                     <TouchableOpacity onPress={() => setUrgencyEnabled((value) => !value)} style={{ marginTop: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: urgencyEnabled ? palette.brand : palette.line, backgroundColor: urgencyEnabled ? palette.brandSoft : palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                       <View style={{ flex: 1 }}>
@@ -1687,7 +1687,7 @@ export default function NewRequest() {
                 />
                 <TouchableOpacity
                   style={[styles.taxiPrimaryButton, {
-                    backgroundColor: uiVisuals.request_primary_cta?.background_color || undefined,
+                    backgroundColor: isLargeVehicle ? "#1677F2" : uiVisuals.request_primary_cta?.background_color || undefined,
                     borderRadius: Number(uiVisuals.request_primary_cta?.border_radius_px) || undefined,
                     padding: Number(uiVisuals.request_primary_cta?.card_padding_px) || undefined,
                     transform: [{ scale: Math.max(.6, Math.min(1.6, Number(uiVisuals.request_primary_cta?.element_scale) || 1)) }],
@@ -1702,7 +1702,7 @@ export default function NewRequest() {
                   disabled={busy || (!isLargeVehicle && (routeKm === null || routeLoading || !!routeError))}
                   onPress={() => void submit()}
                 >
-                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: uiVisuals.request_primary_cta?.title_color || undefined }]}>{"اطلب الآن"}</Text>}
+                  {busy ? <ActivityIndicator color={palette.white} /> : <Text style={[styles.taxiPrimaryButtonText, { color: isLargeVehicle ? palette.white : uiVisuals.request_primary_cta?.title_color || undefined }]}>{"اطلب الآن"}</Text>}
                 </TouchableOpacity>
               </>
             )}
@@ -2082,14 +2082,17 @@ export default function NewRequest() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <TextInput
-                style={styles.input}
-                value={customerPrice}
-                onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
-                placeholder="أجر الفني الواحد بالدينار"
-                placeholderTextColor="#94a3b8"
-                keyboardType="numeric"
-              />
+              <View style={styles.largeVehiclePriceHighlight}>
+                <Text style={styles.largeVehiclePriceLabel}>حدد أجرة الفني بوضوح حتى يشوفها الزبون</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: "#E8B84B", backgroundColor: "#FFFDF5" }]}
+                  value={customerPrice}
+                  onChangeText={(value) => setCustomerPrice(value.replace(/[^0-9]/g, ""))}
+                  placeholder="اكتب أجر الفني الواحد بالدينار"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="numeric"
+                />
+              </View>
               {Number(customerPrice) > 0 && (
                 <View style={{ padding: 12, borderRadius: 14, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand }}>
                   <Text style={{ color: palette.ink, textAlign: "right", fontSize: 12, fontWeight: "800" }}>المبلغ الإجمالي للطلب</Text>
@@ -2373,6 +2376,8 @@ const styles = StyleSheet.create({
   extraTimeScale: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   extraTimeValue: { color: palette.ink, fontSize: 12, fontWeight: "900" },
   goldLockedText: { color: palette.gold, fontSize: 12, fontWeight: "800", marginTop: 10 },
+  largeVehiclePriceHighlight: { borderWidth: 2, borderColor: "#E8B84B", backgroundColor: "#FFF9E9", borderRadius: 14, padding: 9, gap: 6 },
+  largeVehiclePriceLabel: { color: "#8A5A00", fontSize: 10, fontWeight: "900", textAlign: "right" },
   priceBox: { backgroundColor: palette.brandSoft, borderRadius: radius.lg, padding: 18, alignItems: "center", marginTop: 20, borderWidth: 1, borderColor: palette.line },
   priceLabel: { fontSize: 13, color: palette.muted, fontWeight: "700" },
   priceValue: { fontSize: 25, fontWeight: "900", color: palette.brand, marginTop: 4 },
