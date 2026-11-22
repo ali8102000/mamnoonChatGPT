@@ -46,6 +46,7 @@ export interface LiveTrackMapProps {
   vehicleCategory?: string;
   vehicleType?: string;
   serviceSlug?: string;
+  serviceName?: string;
   meColor?: string;
   otherColor?: string;
   height?: number;
@@ -69,6 +70,7 @@ export function LiveTrackMap({
   vehicleCategory,
   vehicleType,
   serviceSlug,
+  serviceName,
   meColor = "#0284c7",
   otherColor = "#16a34a",
   height = 280,
@@ -503,6 +505,23 @@ export function LiveTrackMap({
           </Button>
         </div>
       </div>
+
+      {isFullscreen && (
+        <div className="absolute bottom-16 inset-x-3 z-10 pointer-events-none">
+          <div className="mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-white/70 bg-white/95 p-3 shadow-xl backdrop-blur-md pointer-events-auto" dir="rtl">
+            <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-amber-300 bg-white">
+              {serviceType === "taxi" && vehicleCategory !== "large"
+                ? <img src={"/vehicle-icons/" + (["economy", "premium", "luxury"].includes(vehicleCategory || "") ? vehicleCategory : "economy") + ".svg"} alt="السيارة" className="h-8 w-8 object-contain" />
+                : <img src={serviceIcon(serviceType === "taxi" ? (vehicleType === "kia_cargo" ? "cargo_handling" : "goods_transport") : serviceSlug || "general")} alt="نوع الطلب" className="h-9 w-9 rounded-full object-cover" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-black text-slate-900">{serviceType === "taxi" ? (vehicleCategory === "large" ? vehicleType === "kia_passenger" ? "كيا ركاب" : "كيا حمل" : vehicleCategory === "luxury" ? "سيارة فاخرة" : vehicleCategory === "premium" ? "سيارة متميزة" : "سيارة اقتصادية") : serviceName || "طلب خدمة"}</div>
+              <div className="truncate text-[10px] font-semibold text-slate-500">{driverName} · {status === "in_progress" ? "قيد التنفيذ" : "مقدم الخدمة بالطريق"}</div>
+            </div>
+            {driverPhone && <div className="shrink-0 text-[10px] font-bold text-slate-600" dir="ltr">{driverPhone}</div>}
+          </div>
+        </div>
+      )}
 
       <div className="absolute bottom-3 inset-x-3 z-10 flex items-center justify-between pointer-events-none">
         {serviceType !== "taxi" && <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-lg border border-border/40 pointer-events-auto flex items-center gap-3 text-[11px] font-bold">
