@@ -70,6 +70,7 @@ function RequestDetail() {
   const [other, setOther] = useState<any>(null);
   const [otherAvatarFailed, setOtherAvatarFailed] = useState(false);
   const [largeOffers, setLargeOffers] = useState<any[]>([]);
+  const [serviceProviders, setServiceProviders] = useState<any[]>([]);
   const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
   const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
   const [chat, setChat] = useState<any>(null);
@@ -109,6 +110,8 @@ function RequestDetail() {
   const runStartRide = useServerFn(startRide);
   const runCompleteRide = useServerFn(completeRide);
 
+  const acceptedPeopleCount = serviceProviders.reduce((sum, member) => sum + Number(member.team_size || 1), 0);
+  const remainingPeopleCount = Math.max(0, Number(req?.workers_count || 1) - acceptedPeopleCount);
   const myUserId = session?.user.id ?? null;
   const sessionUser = session?.user;
   const otherUserId = req
@@ -137,7 +140,8 @@ function RequestDetail() {
   useEffect(() => {
     if (!req || myRole !== "customer" || !["pending","searching"].includes(req.status)) return;
     const start = Date.parse(req.searching_started_at || req.created_at || new Date().toISOString());
-    const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
+    const totalSeconds = 360 * (req.type === "service" ? Math.max(1, Number(req.workers_count) || 1) : 1);
+    const remaining = Math.max(0, totalSeconds - Math.floor((dispatchClock - start) / 1000));
     if (remaining <= 10 && remaining > 0 && countdownAlertedRef.current !== req.id && soundEnabled) {
       countdownAlertedRef.current = req.id;
       playMessageSound(true);
@@ -173,6 +177,16 @@ function RequestDetail() {
         return;
       }
       setReq(r);
+      if (r.type === "service") {
+        const { data: acceptedProviders, error: acceptedProvidersError } = await (supabase as any)
+          .from("service_request_providers")
+          .select("provider_id,team_size,accepted_at")
+          .eq("request_id", id)
+          .order("accepted_at", { ascending: true });
+        if (!acceptedProvidersError) setServiceProviders(acceptedProviders ?? []);
+      } else {
+        setServiceProviders([]);
+      }
       if (r.attachment_path) {
         const { data: signedAttachment, error: attachmentError } = await supabase.storage
           .from("request-attachments")
@@ -565,7 +579,8 @@ function RequestDetail() {
             <div className="min-w-0 flex-1">
               <div className="text-[10px] text-muted-foreground">الخدمة المطلوبة</div>
               <div className="font-black text-base">{req.services?.name_ar ?? "خدمة منزلية"}</div>
-              <div className="text-[11px] text-muted-foreground">{req.level_required === "khabir" ? "خبير" : "فني"} · عدد الفريق {req.workers_count ?? 1}</div>
+              <div className="text-[11px] text-muted-foreground">{req.level_required === "khabir" ? "خبير" : "فني"} · العدد المطلوب {req.workers_count ?? 1}</div>
+              <div className="mt-1 text-[11px] font-bold text-primary">تم تأكيد {acceptedPeopleCount} · المتبقي {remainingPeopleCount}</div>
             </div>
           </div>
         )}
@@ -906,15 +921,17 @@ function RequestDetail() {
               {req.type === "service" && req.services?.name_ar && <div className="mb-1 text-sm font-black">{req.services.name_ar}</div>}
               <div className="text-lg font-black text-foreground">طلبك وصل إلى ممنون</div>
               <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                {req.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار أول ما توصل." : "نبحث عن أقرب مزوّد متاح ومؤهل. أول شخص يقبل الطلب راح يتواصل وياك مباشرة."}
+                {req.vehicle_category === "large" ? "نبحث عن أصحاب السيارات المناسبة، وستظهر لك عروض الأسعار أول ما توصل." : req.type === "service" ? "نستقبل موافقات الفنيين إلى أن يكتمل عدد الفريق المطلوب أو تختار الاكتفاء بالعدد المتوفر." : "نبحث عن أقرب مزوّد متاح ومؤهل. أول شخص يقبل الطلب راح يتواصل وياك مباشرة."}
               </p>
+              {req.type === "service" && <div className="mt-3 rounded-xl bg-background/80 p-3 text-sm font-black text-right">الفريق المؤكد: {acceptedPeopleCount} من {req.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</div>}
               {(
                 (() => {
                   const start = Date.parse(req.searching_started_at || req.created_at || new Date().toISOString());
-                  const remaining = Math.max(0, 360 - Math.floor((dispatchClock - start) / 1000));
+                  const totalSeconds = 360 * (req.type === "service" ? Math.max(1, Number(req.workers_count) || 1) : 1);
+                  const remaining = Math.max(0, totalSeconds - Math.floor((dispatchClock - start) / 1000));
                   const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
                   const ss = String(remaining % 60).padStart(2, "0");
-                  const progress = Math.max(0, Math.min(100, remaining / 360 * 100));
+                  const progress = Math.max(0, Math.min(100, remaining / totalSeconds * 100));
                   return <div className="mt-5 flex flex-col items-center gap-2">
                     <div className={`grid h-28 w-28 place-items-center rounded-full ${remaining > 0 && remaining <= 10 ? "animate-pulse" : ""}`} style={{ background: `conic-gradient(${remaining > 0 && remaining <= 10 ? "hsl(var(--destructive))" : "hsl(var(--primary))"} ${progress}%, hsl(var(--muted)) ${progress}% 100%)` }}>
                       <div className="grid h-24 w-24 place-items-center rounded-full bg-background">
@@ -953,7 +970,22 @@ function RequestDetail() {
                 </div>
               )}
 
-              <button onClick={() => setShowCancel(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
+              {req.type === "service" && acceptedPeopleCount > 0 && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const { error } = await (supabase as any).rpc("stop_service_request_acceptance", { _request_id: id });
+                      if (error) throw error;
+                      toast.success("تم الاكتفاء بالفريق الحالي وإيقاف استقبال فنيين إضافيين");
+                      await loadAll();
+                    } catch (error: any) {
+                      toast.error(error?.message ?? "تعذّر إيقاف استقبال الفنيين");
+                    }
+                  }}
+                  className="mt-4 min-h-12 w-full rounded-2xl bg-emerald-600 text-white font-black"
+                >اكتفيت بالعدد المتوفر ({acceptedPeopleCount})</button>
+              )}
+              <button onClick={() => setShowCancel(true)} className="mt-2 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
             </>
           ) : (
             <>
