@@ -69,9 +69,9 @@ export default function AdminDispatchZones() {
         const selected = candidates.find(Boolean);
         const defaults = DEFAULTS.find((r) => r.dispatch_type === type)!;
         return {
+          ...(selected ?? defaults),
           governorate_key: governorate,
           category_key: category,
-          ...(selected ?? defaults),
           inherited: !candidates[0],
         } as Row;
       });
