@@ -44,7 +44,7 @@ export function ProviderMissions(){
        <Text style={styles.status}>{statusText(m.reward_status)}</Text>
        {!!m.description&&<Text style={styles.description}>{m.description}</Text>}
        <View style={styles.progressHeader}><Text style={styles.progressText}>الإنجاز {m.progress_count} من {m.target_count}</Text><Text style={styles.progressText}>{progress}%</Text></View>
-       <View style={styles.track}><View style={[styles.fill,{width:progress+"%"}]}/></View>
+       <View style={styles.track}><View style={[styles.fill,{width:(progress+"%") as any}]}/></View>
        <View style={styles.metaRow}><View style={styles.meta}><Text style={styles.metaLabel}>المكافأة</Text><Text style={styles.reward}>{money(m.reward_amount_iqd)}</Text></View><View style={styles.meta}><Text style={styles.metaLabel}>المكان</Text><Text style={styles.metaValue}>{scopeText(m.location_scope)}</Text></View></View>
        <Text style={styles.deadline}>تنتهي: {new Date(m.ends_at).toLocaleString("ar-IQ")}</Text>
        {m.max_job_duration_hours!=null&&<Text style={styles.deadline}>الحد الأقصى للعمل الواحد: {m.max_job_duration_hours} ساعة</Text>}
