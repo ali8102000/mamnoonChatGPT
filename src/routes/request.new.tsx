@@ -254,6 +254,23 @@ function NewRequest() {
     return () => window.removeEventListener("storage", restoreGovernorate);
   }, []);
   const gov = getGovernorate(govKey);
+  function handleTaxiMapBack() {
+    if (mapStep === "dest") {
+      setMapStep("pickup");
+      setDestConfirmed(false);
+      setShowFareDetails(false);
+      return;
+    }
+    if (pickupCoords) {
+      setPickupCoords(null); setPickupLabel("");
+      setDestCoords(null); setDestLabel("");
+      setDestinationGovernorateKey(null); setDestConfirmed(false);
+      setRouteKm(null); setRouteError(null); setShowFareDetails(false);
+      return;
+    }
+    goBack();
+  }
+
   function chooseGov(key: string) {
     localStorage.setItem(GOV_STORAGE_KEY, key);
     setGovKey(key);
@@ -887,7 +904,7 @@ function NewRequest() {
             <MapPicker
               key={`${gov.key}-${mapStep}-${mapStep === "dest" ? destinationGovernorateKey ?? gov.key : gov.key}`}
               value={mapStep === "pickup" ? pickupCoords : destCoords}
-              accent={mapStep === "pickup" ? "#0284c7" : "#e11d48"}
+              accent={mapStep === "pickup" ? "#1687F8" : "#16A34A"}
               nearby={mapStep === "pickup" ? nearby : undefined}
               nearbyKind="car"
               autoLocateOnMount={mapStep === "pickup"}
@@ -950,17 +967,7 @@ function NewRequest() {
           <div className="flex items-center gap-2 pointer-events-auto">
             <button
               type="button"
-              onClick={() => {
-                if (mapStep === "dest") {
-                  setMapStep("pickup");
-                  setDestConfirmed(false);
-                  setDestCoords(null);
-                  setDestLabel("");
-                  setRouteKm(null);
-                  setRouteError(null);
-                  setShowFareDetails(false);
-                } else goBack();
-              }}
+              onClick={handleTaxiMapBack}
               className="h-11 w-11 rounded-2xl bg-white/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md shadow-lg border border-border/40 grid place-items-center btn-press text-foreground shrink-0"
               aria-label="رجوع"
             >
@@ -1004,11 +1011,11 @@ function NewRequest() {
                 }}
                 className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 btn-press ${
                   mapStep === "dest"
-                    ? "bg-rose-600 text-white shadow-md scale-[1.02]"
+                    ? "bg-green-600 text-white shadow-md scale-[1.02]"
                     : "text-muted-foreground hover:bg-slate-100"
                 }`}
               >
-                <span className="h-2 w-2 rounded-full bg-rose-300" />
+                <span className="h-2 w-2 rounded-full bg-green-300" />
                 <span>٢. الوجهة</span>
                 {destCoords && <CheckCircle2 className="h-3 w-3" />}
               </button>)}
@@ -1056,7 +1063,7 @@ function NewRequest() {
           <div className="mt-auto relative z-30 p-4 pb-6">
             <div className="bg-white/95 dark:bg-black/95 dark:text-slate-100 dark:border-slate-700 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-border/50 max-w-md mx-auto space-y-3">
               <div className="flex items-center gap-2.5">
-                <MapPin className="h-5 w-5 text-rose-600 shrink-0" />
+                <MapPin className="h-5 w-5 text-green-600 shrink-0" />
                 <div className="text-sm font-black text-foreground truncate">
                   {destLabel || "حرّك الخريطة إلى وجهتك"}
                 </div>
