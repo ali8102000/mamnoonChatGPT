@@ -341,7 +341,6 @@ export default function HomeScreen() {
             companyName={companyName}
             toggleAvailable={toggleAvailable}
             incoming={incoming}
-            dispatchClock={dispatchClock}
           />
         )}
       </ScrollView>
@@ -876,7 +875,6 @@ function ProviderHome({
   companyName,
   toggleAvailable,
   incoming,
-  dispatchClock,
 }: {
   available: boolean;
   verified: boolean;
@@ -884,8 +882,13 @@ function ProviderHome({
   companyName: string;
   toggleAvailable: () => void;
   incoming: IncomingRequest[];
-  dispatchClock: number;
 }) {
+  const [dispatchClock, setDispatchClock] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setDispatchClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
       <View
