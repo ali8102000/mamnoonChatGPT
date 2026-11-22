@@ -146,7 +146,7 @@ function RequestDetail() {
       countdownAlertedRef.current = req.id;
       playMessageSound(true);
     }
-  }, [req?.id, req?.status, req?.searching_started_at, req?.created_at, dispatchClock, myRole, soundEnabled]);
+  }, [req?.id, req?.status, req?.searching_started_at, req?.created_at, req?.type, req?.workers_count, dispatchClock, myRole, soundEnabled]);
   useEffect(() => {
     if (!req || myRole !== "customer" || req.status !== "accepted" || lastAcceptedAlertRef.current === req.id) return;
     lastAcceptedAlertRef.current = req.id;
@@ -323,6 +323,11 @@ function RequestDetail() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "request_offers", filter: `request_id=eq.${id}` },
+        () => loadAll(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_request_providers", filter: `request_id=eq.${id}` },
         () => loadAll(),
       )
       .subscribe();
@@ -939,7 +944,7 @@ function RequestDetail() {
                         <div className="text-[10px] font-bold text-muted-foreground">وقت البحث</div>
                       </div>
                     </div>
-                    <div className="text-xs font-bold text-muted-foreground">{req.vehicle_category === "large" ? (remaining === 0 ? "انتهت جولات البحث، والعروض التي وصلت تبقى متاحة لاختيارك." : "نعرض الطلب على أصحاب السيارات ضمن ثلاثة نطاقات، ثم نعيد المحاولة مرة ثانية.") : "نجرب ثلاث نطاقات قريبة ثم نعيد المحاولة مرة ثانية"}</div>
+                    <div className="text-xs font-bold text-muted-foreground">{req.vehicle_category === "large" ? (remaining === 0 ? "انتهت جولات البحث، والعروض التي وصلت تبقى متاحة لاختيارك." : "نعرض الطلب على أصحاب السيارات ضمن ثلاثة نطاقات، ثم نعيد المحاولة مرة ثانية.") : req.type === "service" ? (remaining === 0 ? "انتهت الدورة الأولى، لكن البحث مستمر إلى أن يكتمل العدد أو تختار الاكتفاء." : "نبحث ضمن نطاقات متدرجة ونكرر البحث حسب عدد أفراد الفريق المطلوب.") : "نجرب ثلاث نطاقات قريبة ثم نعيد المحاولة مرة ثانية"}</div>
                   </div>;
                 })()
               )}
