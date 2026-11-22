@@ -7,7 +7,6 @@ import { MobileShell } from "@/components/mobile-shell";
 import {
   Car,
   Wrench,
-  Power,
   Bell,
   Sun,
   Moon,
