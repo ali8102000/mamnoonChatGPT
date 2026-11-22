@@ -158,11 +158,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("جلسة الدخول غير موجودة. سجّل الدخول من جديد.");
     }
 
-    // Detach role-scoped listeners and background presence before switching.
-    await cleanupSessionAndListeners();
-
-    // Invalidate an in-flight restore immediately, then serialize writes.
+    // Invalidate any pending role restore immediately, before asynchronous
+    // cleanup. Otherwise a slow Android cleanup can let an older profile
+    // restore briefly overwrite the customer's newly selected role.
     const revision = ++roleRevision.current;
+
+    // Detach role-scoped listeners and stop provider presence before switching.
+    await cleanupSessionAndListeners();
+    if (roleRevision.current !== revision || lastUserId.current !== uid) return;
+
+    // Serialize SecureStore writes so rapid taps cannot persist roles out of order.
     const write = roleWriteQueue.current
       .catch(() => undefined)
       .then(() => withStartupTimeout(SecureStore.setItemAsync(rolePreferenceKey(uid), role), 8000, "active_role_write_timeout"));
