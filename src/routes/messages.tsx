@@ -36,7 +36,7 @@ function MessagesPage() {
       .select("request_id")
       .eq("provider_id", userId);
     if (membershipError) console.warn("[messages] Team chat memberships unavailable:", membershipError.message);
-    const teamIds = [...new Set((memberships ?? []).map((row: any) => String(row.request_id)))];
+    const teamIds: string[] = [...new Set<string>((memberships ?? []).map((row: any) => String(row.request_id)))];
     let activeTeamIds: string[] = [];
     if (teamIds.length) {
       const { data: teamActiveRows, error: teamActiveError } = await supabase
