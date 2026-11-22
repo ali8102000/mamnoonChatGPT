@@ -65,6 +65,38 @@ PY
 adb logcat -c
 open_route "home"
 
+# A fresh emulator has no SecureStore governorate or authenticated session.
+# Detect those intentional startup gates explicitly instead of misreporting a
+# missing bottom tab as a navigation regression.
+if ! python3 - "$UI" <<'PY'
+import sys, xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+labels = []
+for node in root.iter("node"):
+    value = " ".join(filter(None, (
+        node.attrib.get("text", ""),
+        node.attrib.get("content-desc", ""),
+    )))
+    if value.strip():
+        labels.append(value.strip())
+all_text = " ".join(labels).lower()
+print("Visible UI labels:", " | ".join(labels[:30]))
+gate_terms = ("المحافظة", "اختر المحافظة", "تسجيل الدخول", "رقم الهاتف", "دخول", "governorate", "sign in", "log in")
+if any(term in all_text for term in gate_terms):
+    raise SystemExit(2)
+if "الطلبات" not in labels and not any("الطلبات" in item for item in labels):
+    raise SystemExit(1)
+PY
+then
+  gate_status=$?
+  if [ "$gate_status" -eq 2 ]; then
+    echo "BLOCKED: emulator is at governorate/login gate; provide a test session before navigation can be verified."
+    exit 2
+  fi
+  echo "FAIL: bottom navigation is absent and no known startup gate was detected."
+  exit 1
+fi
+
 # Exercise the real bottom-tab controls repeatedly, not just route deep links.
 for cycle in 1 2 3; do
   echo "Navigation cycle $cycle"
