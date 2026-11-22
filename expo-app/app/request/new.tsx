@@ -201,6 +201,7 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
+  const backFromDestinationRef = useRef(false);
   const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
   const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
   const [favoriteName, setFavoriteName] = useState("");
@@ -435,12 +436,14 @@ export default function NewRequest() {
   function handleTaxiBack() {
     if (mapMode === "destination") {
       // First back returns to pickup editing without destroying either saved point.
+      backFromDestinationRef.current = true;
       setMapMode("pickup");
       setDestinationConfirmed(false);
       return;
     }
-    if (pickupCoords) {
-      // A second back is the explicit reset of the pickup point.
+    if (backFromDestinationRef.current) {
+      // Only the second back after leaving destination explicitly resets pickup.
+      backFromDestinationRef.current = false;
       setPickupCoords(null);
       setPickup("");
       setPickupGovernorateKey(null);
@@ -971,6 +974,7 @@ export default function NewRequest() {
         setDestinationConfirmed(true);
         return;
       }
+      backFromDestinationRef.current = false;
       setMapMode("destination");
       setDestinationConfirmed(false);
       setDestinationCoords(null);
