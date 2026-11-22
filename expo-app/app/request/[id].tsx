@@ -1094,8 +1094,7 @@ export default function RequestDetail() {
         { text: "أنا وحدي · 1", onPress: () => void acceptWithTeam(1) },
         { text: "أنا + عامل · 2", onPress: () => void acceptWithTeam(2) },
         { text: "أنا + عاملين · 3", onPress: () => void acceptWithTeam(3) },
-        { text: "أنا + 3 عمال · 4", onPress: () => void acceptWithTeam(4) },
-        { text: "إلغاء", style: "cancel" },
+
       ]);
       return;
     }
@@ -1497,6 +1496,12 @@ export default function RequestDetail() {
             <Text style={styles.infoPrice}>الأجر قابل للتفاوض</Text>
           )}
         </View>
+        {isProvider && request.type === "service" && request.status === "searching" && (
+          <View style={{ marginTop: 12, borderRadius: 16, padding: 13, backgroundColor: palette.successSoft ?? "#E8F7EF", borderWidth: 1, borderColor: palette.success }}>
+            <Text style={{ color: palette.ink, fontWeight: "900", textAlign: "right" }}>تم تسجيلك ضمن فريق الطلب</Text>
+            <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 4 }}>الفريق المؤكد: {acceptedPeopleCount} من {request.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</Text>
+          </View>
+        )}
         {isCustomer && ["pending", "searching"].includes(request.status) && (
           <View style={{ marginTop: 14, borderRadius: 22, padding: 18, backgroundColor: palette.brandSoft, borderWidth: 1, borderColor: palette.brand + "35", alignItems: "center", gap: 8 }}>
             {request.type === "taxi" ? <Text style={{ fontSize: 28 }}>🚕</Text> : request.services?.slug && SERVICE_IMAGES[request.services.slug] ? <Image source={SERVICE_IMAGES[request.services.slug]} style={{ width: 76, height: 76, borderRadius: 18 }} resizeMode="cover" /> : <Text style={{ fontSize: 28 }}>🛠️</Text>}
