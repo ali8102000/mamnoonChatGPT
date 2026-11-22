@@ -67,14 +67,14 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
-AS $$
-  SELECT EXISTS (
+AS $
+  SELECT _user_id = auth.uid() AND EXISTS (
     SELECT 1
     FROM public.service_request_providers srp
     WHERE srp.request_id = _request_id
       AND srp.provider_id = _user_id
   );
-$$;
+$;
 
 REVOKE ALL ON FUNCTION public.is_service_request_provider(uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_service_request_provider(uuid, uuid) TO authenticated;
