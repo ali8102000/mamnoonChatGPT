@@ -432,7 +432,7 @@ begin
       update public.provider_mission_participants p
       set progress_count=(select count(*) from public.provider_mission_completions c where c.participant_id=p.id),
           reward_status=case when (select count(*) from public.provider_mission_completions c where c.participant_id=p.id)>=v_m.target_count then 'eligible' else 'in_progress' end,
-          eligible_at=case when (select count(*) from public.provider_mission_completions c where c.participant_id=p.id)>=v.target_count then coalesce(p.eligible_at,now()) else p.eligible_at end,
+          eligible_at=case when (select count(*) from public.provider_mission_completions c where c.participant_id=p.id)>=v_m.target_count then coalesce(p.eligible_at,now()) else p.eligible_at end,
           updated_at=now()
       where p.id=v_participant.id
       returning progress_count into v_new_count;
