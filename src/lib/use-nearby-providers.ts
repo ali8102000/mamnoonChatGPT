@@ -33,9 +33,11 @@ export function useNearbyProviders(opts: {
   const debounceRef = useRef<any>(null);
   const inflightRef = useRef(false);
   const findPinsFn = useServerFn(findNearbyProviderPins);
+  const centerLat = center?.lat;
+  const centerLng = center?.lng;
 
   useEffect(() => {
-    if (!enabled || !center) {
+    if (!enabled || centerLat == null || centerLng == null) {
       setPins([]);
       return;
     }
@@ -48,8 +50,8 @@ export function useNearbyProviders(opts: {
       try {
         const rows = await findPinsFn({
           data: {
-            lat: center.lat,
-            lng: center.lng,
+            lat: centerLat,
+            lng: centerLng,
             type,
             category,
             serviceId,
@@ -95,7 +97,7 @@ export function useNearbyProviders(opts: {
       clearTimeout(debounceRef.current);
       supabase.removeChannel(ch);
     };
-  }, [center, center?.lat, center?.lng, findPinsFn, type, category, serviceId, radiusKm, enabled, intervalMs]);
+  }, [centerLat, centerLng, findPinsFn, type, category, serviceId, radiusKm, enabled, intervalMs]);
 
   return pins;
 }
