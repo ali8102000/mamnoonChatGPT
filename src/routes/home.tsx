@@ -1021,28 +1021,20 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
           </div>
         </div>
       )}
-      <div
-        className={`relative rounded-3xl p-5 overflow-hidden animate-pop-in shadow-card ${
-          available ? "bg-gradient-to-br from-emerald-500 to-teal-400 text-white" : "glass"
-        }`}
-      >
-        {available && <div className="absolute inset-0 shine opacity-30 mix-blend-overlay" />}
-        <div className="relative flex items-center justify-between">
-          <div>
-            <div className={`text-xs ${available ? "text-white/80" : "text-muted-foreground"}`}>
-              حالة التوفر
-            </div>
-            <div className="font-black text-lg mt-0.5">{available ? "متاح للعمل" : "غير متاح"}</div>
-          </div>
-          <button
-            onClick={toggleAvail}
-            className={`h-14 w-14 rounded-2xl grid place-items-center btn-press transition ${
-              available ? "bg-white/25 backdrop-blur" : "bg-surface-2"
-            }`}
-          >
-            <Power className={`h-6 w-6 ${available ? "text-white" : "text-muted-foreground"}`} />
-          </button>
-        </div>
+      <div className="relative min-h-[260px] rounded-3xl p-5 overflow-hidden animate-pop-in shadow-card glass flex flex-col items-center justify-center gap-4">
+        <div className="text-sm font-black text-foreground">حالة استقبال العمل</div>
+        <button
+          onClick={toggleAvail}
+          aria-label={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
+          className={`h-36 w-36 rounded-full grid place-items-center border-[5px] btn-press transition-all duration-300 font-black text-2xl tracking-wide ${
+            available
+              ? "bg-emerald-600 border-emerald-200 text-white shadow-[0_0_12px_rgba(16,185,129,0.55),0_0_32px_rgba(16,185,129,0.32)]"
+              : "bg-red-600 border-red-200 text-white shadow-[0_0_12px_rgba(239,68,68,0.5),0_0_30px_rgba(239,68,68,0.28)]"
+          }`}
+        >
+          {available ? "مفتوح" : "مغلق"}
+        </button>
+        <div className="text-xs font-semibold text-muted-foreground">{available ? "أنت تستقبل الطلبات الآن" : "اضغط على الدائرة لتفعيل استقبال الطلبات"}</div>
       </div>
 
       <ProviderMissions />
