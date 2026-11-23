@@ -805,14 +805,33 @@ Deno.serve(async (req: Request) => {
       let query = admin.from("user_reports")
         // The moderation screen needs report text and the reported account ID;
         // do not expose either participant's phone number in this read payload.
-        .select("id,reported_id,reason,details,status,created_at")
+        .select("id,reporter_id,reported_id,request_id,reason,details,status,resolution_note,resolved_by,resolved_at,created_at")
         .order("created_at", { ascending: false })
         .limit(limit);
       if (status !== "all") query = query.eq("status", status);
       if (scopedUserIds) query = query.in("reported_id", scopedUserIds);
       const { data: reports, error } = await query;
       if (error) return json({ error: "reports_load_failed" }, 500);
-      return json({ reports: reports ?? [] });
+      const reportRows = reports ?? [];
+      const relatedUserIds = [...new Set(reportRows.flatMap((report: any) => [report.reporter_id, report.reported_id]).filter(isUuid))];
+      const relatedRequestIds = [...new Set(reportRows.map((report: any) => report.request_id).filter(isUuid))];
+      const [relatedProfiles, relatedRequests] = await Promise.all([
+        relatedUserIds.length
+          ? admin.from("profiles").select("id,full_name,avatar_url").in("id", relatedUserIds)
+          : Promise.resolve({ data: [], error: null }),
+        relatedRequestIds.length
+          ? admin.from("service_requests").select("id,request_code,type,status").in("id", relatedRequestIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (relatedProfiles.error || relatedRequests.error) return json({ error: "reports_related_data_load_failed" }, 500);
+      const profilesById = new Map((relatedProfiles.data ?? []).map((profile: any) => [profile.id, profile]));
+      const requestsById = new Map((relatedRequests.data ?? []).map((request: any) => [request.id, request]));
+      return json({ reports: reportRows.map((report: any) => ({
+        ...report,
+        reporter: profilesById.get(report.reporter_id) ?? null,
+        reported: profilesById.get(report.reported_id) ?? null,
+        request: requestsById.get(report.request_id) ?? null,
+      })) });
     }
 
     if (body.action === "monitoring") {
