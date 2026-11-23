@@ -550,7 +550,10 @@ Deno.serve(async (req: Request) => {
       if (requestError) return json({ error: "request_detail_load_failed" }, 500);
       if (!request) return json({ error: "request_not_found_or_out_of_scope" }, 404);
 
-      const participantIds = [...new Set([request.customer_id, request.provider_id].filter(isUuid))];
+      const { data: teamMemberships, error: teamError } = await admin.from("service_request_providers")
+        .select("provider_id,team_size,accepted_at").eq("request_id", request.id).order("accepted_at", { ascending: true });
+      if (teamError) return json({ error: "request_team_load_failed" }, 500);
+      const participantIds = [...new Set([request.customer_id, request.provider_id, ...(teamMemberships ?? []).map((member: any) => member.provider_id)].filter(isUuid))];
       const [profilesResult, routeResult, reportsResult, ratingsResult, offersResult] = await Promise.all([
         participantIds.length
           ? admin.from("profiles").select("id,full_name,phone,email,avatar_url,governorate_key").in("id", participantIds)
@@ -584,6 +587,10 @@ Deno.serve(async (req: Request) => {
         request: { ...request, attachment_url: attachmentUrl },
         customer: profileById.get(request.customer_id) ?? null,
         provider: profileById.get(request.provider_id) ?? null,
+        team_members: (teamMemberships ?? []).map((member: any) => ({
+          ...member,
+          profile: profileById.get(member.provider_id) ?? null,
+        })),
         route_points: routeResult.data ?? [],
         reports: reports.map((report: any) => ({ ...report, reporter: reporterById.get(report.reporter_id) ?? null })),
         ratings: ratingsResult.data ?? [],
