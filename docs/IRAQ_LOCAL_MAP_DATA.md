@@ -52,6 +52,6 @@ A new GitHub Actions workflow, `.github/workflows/refresh-iraq-osm-places.yml`, 
 - Stops if the extract unexpectedly yields fewer than 5,000 named places.
 - Does not import relation geometries yet; large multipolygon POIs and some area features require a later dedicated area-processing pass.
 
-Required GitHub Actions secrets: `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The scheduled workflow must not be enabled on production until its first run has succeeded and the resulting per-governorate counts have been reviewed. The workflow installs `osmium` directly and intentionally does not use pip cache because this repository has no Python dependency lockfile.
+Required GitHub Actions secret: `SUPABASE_SERVICE_ROLE_KEY`. The public project URL is configured in the workflow. The scheduled workflow must not be enabled on production until its first run has succeeded and the resulting per-governorate counts have been reviewed. The workflow installs `osmium` directly and intentionally does not use pip cache because this repository has no Python dependency lockfile.
 
 OpenStreetMap data is available under ODbL 1.0. Keep visible attribution to © OpenStreetMap contributors and comply with ODbL share-alike requirements for derived databases. Source: https://download.geofabrik.de/asia/iraq/index.html
