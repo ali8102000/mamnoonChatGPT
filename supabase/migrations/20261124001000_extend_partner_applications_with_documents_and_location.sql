@@ -10,9 +10,8 @@ alter table public.partner_applications
 alter table public.partner_applications
   drop constraint if exists partner_applications_business_pin_pair,
   add constraint partner_applications_business_pin_pair check (
-    (business_latitude is null and business_longitude is null)
-    or
-    (business_latitude between -90 and 90 and business_longitude between -180 and 180)
+    ((business_latitude is null) = (business_longitude is null))
+    and (business_latitude is null or (business_latitude between -90 and 90 and business_longitude between -180 and 180))
   );
 
 alter table public.partner_business_profiles
@@ -22,9 +21,8 @@ alter table public.partner_business_profiles
 alter table public.partner_business_profiles
   drop constraint if exists partner_business_profiles_location_pair,
   add constraint partner_business_profiles_location_pair check (
-    (latitude is null and longitude is null)
-    or
-    (latitude between -90 and 90 and longitude between -180 and 180)
+    ((latitude is null) = (longitude is null))
+    and (latitude is null or (latitude between -90 and 90 and longitude between -180 and 180))
   );
 
 create or replace function public.sync_partner_business_profile()
