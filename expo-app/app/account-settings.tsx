@@ -112,26 +112,43 @@ export default function AccountSettingsScreen() {
     setPartnerApplications(data ?? []);
   }
 
+  async function pickPartnerDoc(key: "license" | "idFront" | "idBack") {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, quality: 0.85 });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    if (asset.fileSize && asset.fileSize > 8 * 1024 * 1024) { Alert.alert("حجم الملف كبير", "الحد الأعلى لكل مستند 8 ميغابايت"); return; }
+    setPartnerDocs(old => ({ ...old, [key]: asset }));
+  }
   async function submitPartnerApplication() {
     if (!user?.id) return;
-    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4) {
-      Alert.alert("بيانات ناقصة", "كمّل اسم المنشأة واسم المسؤول والهاتف والمدينة والعنوان.");
-      return;
+    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4 || partnerLicenseNumber.trim().length < 2) {
+      Alert.alert("بيانات ناقصة", "كمّل اسم المنشأة واسم المسؤول والهاتف ورقم الإجازة والمدينة والعنوان."); return;
     }
+    if (!partnerDocs.license || !partnerDocs.idFront || !partnerDocs.idBack) { Alert.alert("المستندات مطلوبة", "ارفع إجازة العمل وصورتي هوية الوجهين."); return; }
     setPartnerBusy(true);
     try {
+      const uploadPartnerDoc = async (asset: ImagePicker.ImagePickerAsset, key: string) => {
+        const extension = (asset.fileName?.split(".").pop() || asset.mimeType?.split("/")[1] || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = user.id + "/partner-applications/" + key + "-" + Date.now() + "." + extension;
+        const bytes = await fetch(asset.uri).then(response => response.arrayBuffer());
+        const { data, error } = await supabase.storage.from("provider-verification").upload(path, bytes, { contentType: asset.mimeType || "image/jpeg", upsert: false });
+        if (error) throw error; return data.path;
+      };
+      const [license_document_path, id_front_path, id_back_path] = await Promise.all([uploadPartnerDoc(partnerDocs.license, "license"), uploadPartnerDoc(partnerDocs.idFront, "id-front"), uploadPartnerDoc(partnerDocs.idBack, "id-back")]);
       const { error } = await (supabase as any).from("partner_applications").insert({
         user_id: user.id, partner_type: partnerType, business_name: partnerName.trim(),
         contact_name: partnerContact.trim(), phone: partnerPhone.trim(),
         email: partnerEmail.trim() || null, governorate_key: partnerGovernorate,
         city: partnerCity.trim(), address: partnerAddress.trim(),
         description: partnerDescription.trim() || null,
-        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null
+        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null,
+        license_number: partnerLicenseNumber.trim(), license_document_path, id_front_path, id_back_path,
+        business_latitude: partnerLat, business_longitude: partnerLng
       });
       if (error) throw error;
       Alert.alert("تم إرسال الطلب", "وصل طلب الشراكة إلى إدارة ممنون وبانتظار المراجعة.");
       setPartnerFormOpen(false);
-      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription("");
+      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription(""); setPartnerLicenseNumber(""); setPartnerDocs({license:null,idFront:null,idBack:null});
       await loadPartnerApplications();
     } catch (error) {
       Alert.alert("تعذر إرسال الطلب", error instanceof Error ? error.message : "حاول مرة ثانية.");
