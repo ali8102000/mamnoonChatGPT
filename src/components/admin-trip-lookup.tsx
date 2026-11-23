@@ -41,6 +41,10 @@ export default function AdminTripLookup() {
           <div>تاريخ الطلب: {req.created_at ? new Date(req.created_at).toLocaleString("ar-IQ") : "—"}</div>
           <div>تاريخ البدء: {req.started_at ? new Date(req.started_at).toLocaleString("ar-IQ") : "—"}</div>
           <div>تاريخ الاكتمال: {req.completed_at ? new Date(req.completed_at).toLocaleString("ar-IQ") : "—"}</div>
+          {req.status === "cancelled" && <>
+            <div>ألغى الرحلة: <b>{req.cancelled_by ? (req.cancelled_by === req.customer_id ? "الزبون" : "السائق / مقدم الخدمة") : "النظام"}</b></div>
+            <div className="sm:col-span-2">سبب الإلغاء: <b>{req.cancellation_reason || "غير مسجل"}</b></div>
+          </>}
           <div>طريقة الدفع: {req.payment_method || "—"}</div>
           <div>الانطلاق: {req.pickup_text || "—"}</div>
           <div>الوجهة: {req.dest_text || "—"}</div>
