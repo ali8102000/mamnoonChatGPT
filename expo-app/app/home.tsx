@@ -981,7 +981,7 @@ function ProviderHome({
           >
             <Text style={styles.availPowerButtonText}>{availabilitySaving ? "جارٍ التحديث" : available ? "متاح الآن" : "متوقف"}</Text>
           </TouchableOpacity>
-          <Text style={styles.availHint}>{available ? "أنت ظاهر الآن لمستحقي الطلبات القريبين" : "اضغط للتفعيل وابدأ باستقبال الطلبات"}</Text>
+          <Text style={styles.availHint}>{availabilitySaving ? "نزامن حالتك وموقعك..." : available ? "أنت ظاهر الآن لمستحقي الطلبات القريبين" : "اضغط للتفعيل وابدأ باستقبال الطلبات"}</Text>
         </View>
       </View>
       <ProviderMissions />
