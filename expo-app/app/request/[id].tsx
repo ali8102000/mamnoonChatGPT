@@ -898,6 +898,7 @@ export default function RequestDetail() {
     const previousRouteRequest = lastRoadRouteRequestRef.current;
     if (previousRouteRequest && previousRouteRequest.routeKey !== routeKey) {
       // Clear the previous trip leg before calculating a route to a new target.
+      acceptedMapFitKeyRef.current = null;
       hasValidRoadRouteRef.current = false;
       setRoadRoutePoints([]);
       setRoadTrafficSegments([]);
@@ -985,9 +986,6 @@ export default function RequestDetail() {
     if (!acceptedMapMode || !request || !acceptedMapRef.current) return;
     const fitKey = `${request.id}:${request.status}`;
     const singlePointFitKey = `${fitKey}:single`;
-    const roadFitKey = `${fitKey}:road`;
-    if (acceptedMapFitKeyRef.current === roadFitKey) return;
-    if (acceptedMapFitKeyRef.current === fitKey && roadRoutePoints.length <= 1) return;
     const target = request.type === "taxi" && request.status === "in_progress" &&
       request.dest_lat != null && request.dest_lng != null
       ? { latitude: Number(request.dest_lat), longitude: Number(request.dest_lng) }
@@ -995,6 +993,9 @@ export default function RequestDetail() {
         ? { latitude: Number(request.pickup_lat), longitude: Number(request.pickup_lng) }
         : isCustomer ? myLocation : otherLocation;
     const origin = isCustomer ? otherLocation : myLocation;
+    const roadFitKey = `${fitKey}:road:${target?.latitude ?? "none"}:${target?.longitude ?? "none"}`;
+    if (acceptedMapFitKeyRef.current === roadFitKey) return;
+    if (acceptedMapFitKeyRef.current === fitKey && roadRoutePoints.length <= 1) return;
     if (roadRoutePoints.length > 1) {
       acceptedMapRef.current.fitToCoordinates(roadRoutePoints, {
         edgePadding: { top: 150, right: 52, bottom: 330, left: 52 },
