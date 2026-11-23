@@ -68,7 +68,7 @@ export default function AuthScreen() {
           if (metadataError) throw metadataError;
         }
         await refresh();
-        router.replace(accountType === "partner" ? "/account-settings" : "/home");
+        router.replace(accountType === "partner" ? "/account-settings?partner=1" : "/home");
       } else {
         const id = identifier.trim();
         if (!id) throw new Error("أدخل رقم الهاتف أو البريد الإلكتروني");
