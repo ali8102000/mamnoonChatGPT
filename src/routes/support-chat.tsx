@@ -191,7 +191,7 @@ function SupportChatPage() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-5">
         <a href={isStaff ? "/admin" : "/messages"} className="h-10 w-10 rounded-xl bg-card border border-border grid place-items-center"><ArrowRight className="h-5 w-5" /></a>
-        <div><h1 className="text-2xl font-black">{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</h1><p className="text-xs text-muted-foreground">{customerServiceOnly ? "الرد على استفسارات ورسائل الزبائن فقط" : isStaff ? "استقبال رسائل الفنيين والسائقين والرد عليهم" : "تواصل مباشرة مع فريق شركة ممنون"}</p></div>
+        <div><h1 className="text-2xl font-black">{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</h1>{!!selected?.subject && <p className="text-xs font-bold text-primary mt-1">{selected.subject}</p>}<p className="text-xs text-muted-foreground">{customerServiceOnly ? "الرد على استفسارات ورسائل الزبائن فقط" : isStaff ? "استقبال رسائل الفنيين والسائقين والرد عليهم" : "تواصل مباشرة مع فريق شركة ممنون"}</p></div>
       </div>
       {isStaff && !customerServiceOnly && <div className="glass rounded-2xl p-3 mb-3">
         <div className="font-bold text-sm mb-2">ابدأ محادثة مع فني أو سائق</div>
