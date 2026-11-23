@@ -98,6 +98,7 @@ export function LiveTrackMap({
   const arrivedNotifiedRef = useRef(false);
   const lastDirectionsRequestRef = useRef<{ origin: Coords; destination: Coords; requestedAt: number; signature: string } | null>(null);
   const directionsSequenceRef = useRef(0);
+  const hasValidRoadRouteRef = useRef(false);
 
   const [isFullscreen, setIsFullscreen] = useState(fullscreen);
   const [mapReady, setMapReady] = useState(false);
@@ -167,6 +168,7 @@ export function LiveTrackMap({
       readyRef.current = false;
       didInitialFitRef.current = false;
       directionsSequenceRef.current += 1;
+      hasValidRoadRouteRef.current = false;
       if (pickupMarkerRef.current) pickupMarkerRef.current.setMap(null);
       if (destMarkerRef.current) destMarkerRef.current.setMap(null);
       if (markerRefForCleanup.current) markerRefForCleanup.current.setMap(null);
@@ -211,7 +213,7 @@ export function LiveTrackMap({
     }
 
     // Taxi screens use a clean map; service requests retain their pickup and destination pins.
-    if (serviceType !== "taxi") {
+    if (effectivePickup || destCoords) {
       if (effectivePickup) {
         if (pickupMarkerRef.current) pickupMarkerRef.current.setPosition(effectivePickup);
         else pickupMarkerRef.current = new g.maps.Marker({ position: effectivePickup, map, title: "نقطة الانطلاق", zIndex: 10 });
@@ -307,6 +309,17 @@ export function LiveTrackMap({
 
       const signature = status + ":" + targetPoint.lat.toFixed(5) + ":" + targetPoint.lng.toFixed(5);
       const previous = lastDirectionsRequestRef.current;
+      if (previous && previous.signature !== signature) {
+        // Do not keep a route to the pickup after the taxi trip switches to
+        // its destination, or retain a route from a previous service target.
+        hasValidRoadRouteRef.current = false;
+        routeLineRef.current?.setPath([]);
+        trafficLinesRef.current.forEach((line) => line.setMap(null));
+        trafficLinesRef.current = [];
+        setNextInstruction(null);
+        setDistanceKm(null);
+        setEtaMinutes(null);
+      }
       const moved = !previous ||
         haversineKm(previous.origin, activeDriverCoord) >= 0.015 ||
         haversineKm(previous.destination, targetPoint) >= 0.02 ||
@@ -334,6 +347,7 @@ export function LiveTrackMap({
           );
           if (points.length < 2) throw new Error("لم يصل مسار شوارع صالح");
           routeLineRef.current?.setPath(points.map((point) => ({ lat: point.lat, lng: point.lng })));
+          hasValidRoadRouteRef.current = true;
           trafficLinesRef.current.forEach((line) => line.setMap(null));
           trafficLinesRef.current = [];
           (route.trafficSegments ?? []).forEach((segment) => {
@@ -357,14 +371,20 @@ export function LiveTrackMap({
           if (typeof route.durationMin === "number") setEtaMinutes(Math.max(1, Math.round(route.durationMin)));
         }).catch((error) => {
           if (sequence !== directionsSequenceRef.current || !readyRef.current) return;
-          routeLineRef.current?.setPath([]);
-          trafficLinesRef.current.forEach((line) => line.setMap(null));
-          trafficLinesRef.current = [];
-          setRouteMode("direct");
-          setRouteProvider("none");
-          setNextInstruction(null);
-          setDistanceKm(null);
-          setEtaMinutes(null);
+          // Keep the last confirmed road geometry visible during a temporary
+          // routing outage. Never replace it with a straight-line approximation.
+          if (!hasValidRoadRouteRef.current) {
+            routeLineRef.current?.setPath([]);
+            trafficLinesRef.current.forEach((line) => line.setMap(null));
+            trafficLinesRef.current = [];
+            setRouteMode("waiting");
+            setRouteProvider("none");
+            setNextInstruction(null);
+            setDistanceKm(null);
+            setEtaMinutes(null);
+          } else {
+            setRouteMode("road");
+          }
           console.warn("[live-map] road route unavailable:", error);
         });
       }
@@ -461,7 +481,7 @@ export function LiveTrackMap({
                 {distanceKm < 1
                   ? `${Math.round(distanceKm * 1000)} متر`
                   : `${distanceKm.toFixed(1)} كم`}
-                <span className="mr-2 text-[10px]">{routeMode === "road" ? "· مسار الشوارع" : routeMode === "waiting" ? "· جارٍ حساب الطريق" : "· تقدير مباشر"}</span>
+                <span className="mr-2 text-[10px]">{routeMode === "road" ? "· مسار طرق مؤكد" : "· جارٍ التحقق من مسار الشوارع"}</span>
               </div>
             )}
             {nextInstruction && <div className="mt-1 max-w-[260px] truncate text-[10px] font-bold text-emerald-700">التالي: {nextInstruction}</div>}

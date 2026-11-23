@@ -217,16 +217,23 @@ export function MapPicker({
   }, [value]);
 
   useEffect(() => {
-    if (!nearby?.length || !mapRef.current) return;
+    if (!mapRef.current) return;
     const g = (window as any).google;
     if (!g) return;
 
-    nearby.forEach((pin) => {
+    const currentIds = new Set((nearby ?? []).map((pin) => pin.pin_id));
+    nearbyMarkersRef.current.forEach((entry, id) => {
+      if (!currentIds.has(id)) {
+        entry.marker.setMap(null);
+        if (entry.anim) cancelAnimationFrame(entry.anim.raf ?? 0);
+        nearbyMarkersRef.current.delete(id);
+      }
+    });
+
+    (nearby ?? []).forEach((pin) => {
       const existing = nearbyMarkersRef.current.get(pin.pin_id);
       if (existing) {
-        if (existing.anim) {
-          cancelAnimationFrame(existing.anim.raf ?? 0);
-        }
+        if (existing.anim) cancelAnimationFrame(existing.anim.raf ?? 0);
         const from = existing.marker.getPosition?.();
         const fromCoords: Coords = from
           ? { lat: from.lat(), lng: from.lng() }
@@ -243,16 +250,11 @@ export function MapPicker({
           const elapsed = Date.now() - existing.anim.startedAt;
           const t = Math.min(1, elapsed / 1000);
           const easeT = 1 - Math.pow(1 - t, 3);
-          const lat =
-            existing.anim.from.lat + (existing.anim.to.lat - existing.anim.from.lat) * easeT;
-          const lng =
-            existing.anim.from.lng + (existing.anim.to.lng - existing.anim.from.lng) * easeT;
+          const lat = existing.anim.from.lat + (existing.anim.to.lat - existing.anim.from.lat) * easeT;
+          const lng = existing.anim.from.lng + (existing.anim.to.lng - existing.anim.from.lng) * easeT;
           existing.marker.setPosition({ lat, lng });
-          if (t < 1) {
-            existing.anim.raf = requestAnimationFrame(animate);
-          } else {
-            existing.anim = null;
-          }
+          if (t < 1) existing.anim.raf = requestAnimationFrame(animate);
+          else existing.anim = null;
         };
         existing.anim.raf = requestAnimationFrame(animate);
       } else {
@@ -264,21 +266,13 @@ export function MapPicker({
           strokeColor: "#fff",
           strokeWeight: 2,
         };
-        const m = new g.maps.Marker({
+        const marker = new g.maps.Marker({
           position: { lat: pin.lat, lng: pin.lng },
           map: mapRef.current,
           icon,
+          title: nearbyKind === "worker" ? "فني متاح" : "سائق متاح",
         });
-        nearbyMarkersRef.current.set(pin.pin_id, { marker: m, anim: null });
-      }
-    });
-
-    const currentIds = new Set(nearby.map((p) => p.pin_id));
-    nearbyMarkersRef.current.forEach((entry, id) => {
-      if (!currentIds.has(id)) {
-        entry.marker.setMap(null);
-        if (entry.anim) cancelAnimationFrame(entry.anim.raf ?? 0);
-        nearbyMarkersRef.current.delete(id);
+        nearbyMarkersRef.current.set(pin.pin_id, { marker, anim: null });
       }
     });
   }, [nearby, nearbyKind]);

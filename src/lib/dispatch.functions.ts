@@ -140,6 +140,8 @@ export type ProviderPin = {
   lat: number;
   lng: number;
   heading: number | null;
+  updated_at: string;
+  accuracy_m: number | null;
 };
 
 export const findNearbyProviderPins = async ({ data }: { data: {
