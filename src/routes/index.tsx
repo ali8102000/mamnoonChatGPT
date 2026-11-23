@@ -25,7 +25,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { loading, session, roles, profile } = useAuth();
   const { ready, completed } = useWelcomePreferences();
-  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
   const [splashFinished, setSplashFinished] = useState(false);
   const [governorate, setGovernorate] = useState<string | null>(null);
   const [governorateReady, setGovernorateReady] = useState(false);
@@ -71,7 +71,7 @@ function Index() {
             {logoUrl ? <img src={logoUrl} alt={`شعار ${companyName}`} className="h-full w-full object-contain p-2" /> : <span className="text-5xl font-black text-[#17324D]">م</span>}
           </div>
           <div className="text-3xl font-black tracking-wide text-[#17324D]">أهلاً بك في {companyName}</div>
-          {welcomeVisualUrl && <img src={welcomeVisualUrl} alt="صورة ترحيب ممنون" className="mt-4 max-h-48 w-full max-w-sm rounded-3xl object-cover shadow-xl" />}
+          {welcomeVisualUrl && <img src={welcomeVisualUrl} alt="صورة ترحيب ممنون" className={`mt-4 max-h-48 w-full max-w-sm rounded-3xl object-cover shadow-xl ${welcomeVisualAnimated ? "animate-pulse" : ""}`} />}
           <div className="mt-2 w-full max-w-md whitespace-pre-wrap break-words px-2 text-center text-base font-bold leading-8 text-[#526477]">{welcomeMessage}</div>
           {loading || !ready ? <Loader2 className="mt-5 h-5 w-5 animate-spin text-amber-600" /> : <div className="mt-5 h-5" />}
         </div>
