@@ -30,7 +30,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const { refresh } = useAuth();
-  const { companyName, logoUrl, welcomeMessage } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeMediaUrl } = useCompanyBranding();
 
   async function onSubmit() {
     if (password.length < 6) {
@@ -129,6 +129,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandTop}>
+            {welcomeMediaUrl ? <Image source={{ uri: welcomeMediaUrl }} style={styles.companyWelcomeMedia} resizeMode="contain" /> : null}
             {logoUrl ? (
               <Image source={{ uri: logoUrl }} style={styles.companyLogo} resizeMode="contain" />
             ) : (
@@ -336,6 +337,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   brandLetter: { color: palette.white, fontSize: 34, fontWeight: "900" },
+  companyWelcomeMedia: { width: "100%", maxWidth: 320, height: 150, marginBottom: 10 },
   brandName: { color: palette.ink, fontSize: 36, fontWeight: "900", marginTop: 12, letterSpacing: -0.5 },
   brandCaption: { color: palette.muted, fontSize: 13, fontWeight: "600", marginTop: 7 },
   modeSwitch: {
