@@ -48,6 +48,27 @@ function AccountSettingsPage() {
     void loadPartnerApplications();
   }, [session?.user.id]);
 
+  useEffect(() => {
+    if (!partnerFormOpen || !partnerMapRef.current) return;
+    const key = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+    if (!key) return;
+    let active = true;
+    const initialize = () => {
+      if (!active || !partnerMapRef.current || !window.google?.maps) return;
+      const center = { lat: partnerLat, lng: partnerLng };
+      const map = new window.google.maps.Map(partnerMapRef.current, { center, zoom: 16, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: "greedy" });
+      const marker = new window.google.maps.Marker({ position: center, map, draggable: true, title: partnerName || "موقع المنشأة" });
+      map.addListener("click", (event: google.maps.MapMouseEvent) => { if (!event.latLng) return; const point = { lat: event.latLng.lat(), lng: event.latLng.lng() }; marker.setPosition(point); setPartnerLat(point.lat); setPartnerLng(point.lng); });
+      marker.addListener("dragend", () => { const point = marker.getPosition(); if (point) { setPartnerLat(point.lat()); setPartnerLng(point.lng()); } });
+    };
+    if (window.google?.maps) initialize();
+    else {
+      const existing = document.getElementById("mamnoon-partner-map") as HTMLScriptElement | null;
+      if (existing) existing.addEventListener("load", initialize, { once: true });
+      else { const script = document.createElement("script"); script.id = "mamnoon-partner-map"; script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key) + "&v=weekly"; script.async = true; script.defer = true; script.onload = initialize; document.head.appendChild(script); }
+    }
+    return () => { active = false; };
+  }, [partnerFormOpen]);
   async function loadPartnerApplications() {
     if (!session?.user.id) return;
     const { data, error } = await (supabase as any).from("partner_applications")
