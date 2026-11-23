@@ -1,6 +1,9 @@
 name: Validate Iraq OSM importer
 
 on:
+  push:
+    branches:
+      - feat/iraq-import-safety-checks
   pull_request:
     branches:
       - main
