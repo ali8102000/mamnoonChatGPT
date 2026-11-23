@@ -98,7 +98,6 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "provider_payables_detail") {
-      await requirePermission("finance.read");
       if (!uuid(body.provider_id)) return json({ error: "invalid_provider_id" }, 400);
       const { data: assignment, error: assignmentError } = await caller.from("staff_assignments")
         .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
