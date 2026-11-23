@@ -526,7 +526,7 @@ export function MapPicker({
                   </button>
                 ))}
                 <div className="px-3 py-2 text-[10px] text-muted-foreground text-center border-t border-border/40">
-                  بيانات الأماكن © OpenStreetMap · {suggestions.length} اقتراح
+                  بيانات الأماكن © OpenStreetMap contributors · {suggestions.length} اقتراح
                 </div>
               </div>
             )}
