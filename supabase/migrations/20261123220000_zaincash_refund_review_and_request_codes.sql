@@ -56,6 +56,45 @@ REVOKE ALL ON FUNCTION public.assign_mamnoon_request_code() FROM PUBLIC, anon, a
 COMMENT ON COLUMN public.service_requests.request_code IS
   'Stable, unique, user-facing Mamnoon order code. Immutable after creation.';
 
+CREATE OR REPLACE FUNCTION public.enrich_request_notification_code()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_request_id uuid;
+  v_request_code text;
+BEGIN
+  IF coalesce(NEW.data, '{}'::jsonb) ? 'request_id' THEN
+    BEGIN
+      v_request_id := (NEW.data ->> 'request_id')::uuid;
+    EXCEPTION WHEN invalid_text_representation THEN
+      RETURN NEW;
+    END;
+
+    SELECT request_code INTO v_request_code
+    FROM public.service_requests
+    WHERE id = v_request_id;
+
+    IF v_request_code IS NOT NULL THEN
+      NEW.data := coalesce(NEW.data, '{}'::jsonb) || jsonb_build_object('request_code', v_request_code);
+      IF position(v_request_code in coalesce(NEW.body,'')) = 0 THEN
+        NEW.body := left(coalesce(NEW.body,'') || ' · رقم الطلب ' || v_request_code, 500);
+      END IF;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS enrich_request_notification_code ON public.notifications;
+CREATE TRIGGER enrich_request_notification_code
+BEFORE INSERT ON public.notifications
+FOR EACH ROW EXECUTE FUNCTION public.enrich_request_notification_code();
+REVOKE ALL ON FUNCTION public.enrich_request_notification_code() FROM PUBLIC, anon, authenticated;
+
+
 CREATE TABLE IF NOT EXISTS public.support_conversation_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id uuid NOT NULL REFERENCES public.support_conversations(id) ON DELETE CASCADE,
