@@ -23,6 +23,16 @@ with check (
         (request.customer_id = (select auth.uid()) and request.provider_id = user_reports.reported_id)
         or
         (request.provider_id = (select auth.uid()) and request.customer_id = user_reports.reported_id)
+        or
+        (
+          request.customer_id = user_reports.reported_id
+          and exists (
+            select 1
+            from public.service_request_providers as team_member
+            where team_member.request_id = request.id
+              and team_member.provider_id = (select auth.uid())
+          )
+        )
       )
   )
 );
