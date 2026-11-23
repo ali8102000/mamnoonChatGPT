@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.taxi_pricing_auto_controls (
 );
 ALTER TABLE public.taxi_pricing_auto_controls ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.taxi_pricing_auto_controls TO authenticated;
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.taxi_pricing_auto_controls TO service_role;
 REVOKE INSERT,UPDATE,DELETE ON public.taxi_pricing_auto_controls FROM anon,authenticated;
 DROP POLICY IF EXISTS "Authenticated users read automatic taxi pricing state" ON public.taxi_pricing_auto_controls;
 CREATE POLICY "Authenticated users read automatic taxi pricing state"
