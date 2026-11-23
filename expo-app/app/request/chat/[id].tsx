@@ -62,7 +62,7 @@ export default function RequestChatScreen() {
       setLoading(true);
       const { data: req, error: requestError } = await supabase
         .from("service_requests")
-        .select("id, customer_id, provider_id, status, type")
+        .select("id, request_code, customer_id, provider_id, status, type")
         .eq("id", id)
         .maybeSingle();
       if (!active) return;
@@ -156,7 +156,7 @@ export default function RequestChatScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.name} numberOfLines={1}>{otherProfile?.full_name || "المستخدم"}</Text>
-            <Text style={styles.subtitle}>{request.type === "taxi" ? "محادثة الرحلة" : "محادثة الخدمة"}</Text>
+            <Text style={styles.subtitle}>{request.type === "taxi" ? "محادثة الرحلة" : "محادثة الخدمة"} · رقم الطلب {request.request_code || request.id.slice(0, 8).toUpperCase()}</Text>
           </View>
         </View>
         {otherProfile?.phone ? (
