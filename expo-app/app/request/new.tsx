@@ -1109,9 +1109,11 @@ export default function NewRequest() {
 
   async function submit(skipActiveRequestPrompt = false) {
     if (!user) {
-    if (isTaxi && isLargeVehicle && !vehicleType) { Alert.alert("نوع المركبة", "اختار نوع السيارة المطلوبة قبل إرسال الطلب."); return; }
-
       Alert.alert("تسجيل الدخول مطلوب", "سجّل الدخول قبل إرسال الطلب.");
+      return;
+    }
+    if (isTaxi && isLargeVehicle && !vehicleType) {
+      Alert.alert("نوع المركبة", "اختار نوع السيارة المطلوبة قبل إرسال الطلب.");
       return;
     }
     if (!pickupCoords) {
