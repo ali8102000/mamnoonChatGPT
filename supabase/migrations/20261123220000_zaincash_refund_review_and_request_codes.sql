@@ -1,6 +1,20 @@
 -- Request identity, ZainCash cancellation review, and request-linked support.
 -- This migration is committed to the PR only. It is NOT applied to production.
 
+UPDATE public.admin_permission_catalog
+SET label_ar = 'اعتماد وتسجيل الاسترداد',
+    description = 'اعتماد قرار الاسترداد وتسجيل إعادة المبلغ يدوياً بعد التحقق؛ لا ينفذ تحويل تلقائي',
+    risk_level = 'critical',
+    active = true
+WHERE permission_key = 'finance.refund';
+
+UPDATE public.admin_permission_catalog
+SET label_ar = 'عرض طلبات الإلغاء والاسترداد',
+    description = 'عرض بيانات الزبون والدفع وطلبات الاسترداد ضمن النطاق الإداري المصرح',
+    risk_level = 'sensitive',
+    active = true
+WHERE permission_key = 'finance.refund.read';
+
 CREATE SEQUENCE IF NOT EXISTS public.mamnoon_request_code_seq;
 
 ALTER TABLE public.service_requests
