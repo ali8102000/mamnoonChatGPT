@@ -137,7 +137,7 @@ export function MapPicker({
         const center = initialValueRef.current ?? getGovernorate(governorateKeyRef.current) ?? DEFAULT_CENTER;
         const map = new g.maps.Map(containerRef.current, {
           center,
-          zoom: 16,
+          zoom: 17,
           minZoom: 5,
           maxZoom: 20,
           disableDefaultUI: true,
