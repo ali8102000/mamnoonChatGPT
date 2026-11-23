@@ -2335,6 +2335,7 @@ function WalletSection() {
     providerId: string; amount: number; note: string; idempotencyKey: string;
   } | null>(null);
   const [refundCases, setRefundCases] = useState<any[]>([]);
+  const [canDecideRefunds, setCanDecideRefunds] = useState(false);
   const [refundNotes, setRefundNotes] = useState<Record<string, string>>({});
   const [refundReferences, setRefundReferences] = useState<Record<string, string>>({});
   const [refundFilter, setRefundFilter] = useState("pending_review");
@@ -2361,6 +2362,7 @@ function WalletSection() {
         throw new Error(refundResult.data?.error || refundResult.error?.message || "تعذر تحميل طلبات الاسترداد");
       }
       setRefundCases(refundResult.data?.cases ?? []);
+      setCanDecideRefunds(refundResult.data?.can_decide === true);
     } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
     }
@@ -2658,7 +2660,7 @@ function WalletSection() {
                 <div className="rounded-lg bg-muted/50 p-2 text-xs"><b>سبب الإلغاء: </b>{row.cancellation_reason || "لم يُذكر سبب"}</div>
                 {row.decision_note && <div className="rounded-lg bg-muted/50 p-2 text-xs"><b>ملاحظة القرار: </b>{row.decision_note}</div>}
                 {row.refund_reference && <div className="text-xs text-emerald-700"><b>مرجع الاسترداد:</b> <span dir="ltr">{row.refund_reference}</span></div>}
-                {row.status === "pending_review" && (
+                {row.status === "pending_review" && canDecideRefunds && (
                   <div className="space-y-2 border-t border-border pt-2">
                     <textarea value={refundNotes[row.id] ?? ""} onChange={(event) => setRefundNotes((current) => ({ ...current, [row.id]: event.target.value }))} maxLength={500} placeholder="ملاحظة المراجعة أو سبب الرفض (إلزامي عند الرفض)" className="w-full rounded-lg border border-border bg-background p-2 text-xs min-h-16" />
                     <div className="flex gap-2">
@@ -2667,13 +2669,14 @@ function WalletSection() {
                     </div>
                   </div>
                 )}
-                {row.status === "approved" && (
+                {row.status === "approved" && canDecideRefunds && (
                   <div className="space-y-2 border-t border-border pt-2">
                     <p className="text-[11px] text-muted-foreground">بعد ما ترجع المبلغ للزبون يدوياً عبر زين كاش، أدخل رقم المرجع هنا لتوثيق الاسترداد. لا تضغط قبل إتمام التحويل فعلياً.</p>
                     <input value={refundReferences[row.id] ?? ""} onChange={(event) => setRefundReferences((current) => ({ ...current, [row.id]: event.target.value }))} maxLength={120} placeholder="رقم مرجع عملية الاسترداد" className="w-full rounded-lg border border-border bg-background p-2.5 text-xs" />
                     <button disabled={refundBusyId === row.id} onClick={() => void markRefundCasePaid(row.id)} className="w-full rounded-lg bg-primary text-primary-foreground px-3 py-2.5 text-xs font-black disabled:opacity-50">تأكيد أن المبلغ أُعيد فعلياً</button>
                   </div>
                 )}
+                {row.status !== "refunded" && !canDecideRefunds && <p className="text-[10px] text-muted-foreground">يمكنك الاطلاع على الطلب، لكن لا تملك صلاحية اعتماد أو تسجيل الاسترداد.</p>}
                 {row.events?.length > 0 && <div className="text-[10px] text-muted-foreground border-t border-border pt-2">سجل الإجراءات: {row.events.map((event: any) => event.event_type === "opened" ? "فتح الطلب" : event.event_type === "approved" ? "موافقة" : event.event_type === "rejected" ? "رفض" : "استرداد فعلي").join(" ← ")}</div>}
               </article>
             ))}
