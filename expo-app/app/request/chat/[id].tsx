@@ -62,7 +62,7 @@ export default function RequestChatScreen() {
       setLoading(true);
       const { data: req, error: requestError } = await supabase
         .from("service_requests")
-        .select("id, request_code, customer_id, provider_id, status, type")
+        .select("id, customer_id, provider_id, status, type")
         .eq("id", id)
         .maybeSingle();
       if (!active) return;
@@ -70,7 +70,8 @@ export default function RequestChatScreen() {
         setLoading(false);
         return;
       }
-      setRequest(req);
+      const { data: requestCodeRow } = await supabase.from("service_requests").select("request_code").eq("id", id).maybeSingle();
+      setRequest({ ...req, request_code: (requestCodeRow as any)?.request_code ?? null });
       if (["completed", "cancelled"].includes(req.status)) {
         setLoading(false);
         return;
