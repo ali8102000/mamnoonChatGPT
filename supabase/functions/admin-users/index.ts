@@ -537,58 +537,6 @@ Deno.serve(async (req: Request) => {
       return json({ requests: requests ?? [] });
     }
 
-    if (body.action === "list_partner_applications") {
-      await requireAdmin();
-      const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(300, body.limit)) : 100;
-      const status = ["pending", "approved", "rejected", "all"].includes(body.status) ? body.status : "pending";
-      let query = admin.from("partner_verifications").select("*").order("created_at", { ascending: false }).limit(limit);
-      if (status !== "all") query = query.eq("status", status);
-      const { data: applications, error } = await query;
-      if (error) return json({ error: "partner_applications_load_failed" }, 500);
-      const userIds = [...new Set((applications ?? []).map((row: any) => row.user_id).filter(isUuid))];
-      const { data: profiles, error: profilesError } = userIds.length
-        ? await admin.from("profiles").select("id,full_name,phone,email,avatar_url").in("id", userIds)
-        : { data: [], error: null };
-      if (profilesError) return json({ error: "partner_profiles_load_failed" }, 500);
-      const profileById = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
-      const signDocument = async (path: string | null) => {
-        if (!path) return null;
-        const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 300);
-        if (error) return null;
-        return data.signedUrl;
-      };
-      const result = await Promise.all((applications ?? []).map(async (application: any) => ({
-        ...application,
-        profile: profileById.get(application.user_id) ?? null,
-        documents: {
-          license: await signDocument(application.license_document_path),
-          id_front: await signDocument(application.id_front_path),
-          id_back: await signDocument(application.id_back_path),
-          additional: await Promise.all((application.additional_document_paths ?? []).map((path: string) => signDocument(path))),
-        },
-      })));
-      return json({ applications: result });
-    }
-
-    if (body.action === "review_partner_application") {
-      await requireAdmin();
-      if (!isUuid(body.application_id) || !["approved", "rejected"].includes(body.status) ||
-          (body.review_notes !== undefined && (typeof body.review_notes !== "string" || body.review_notes.length > 1000)) ||
-          (body.status === "rejected" && (!String(body.review_notes ?? "").trim()))) {
-        return json({ error: "invalid_partner_review" }, 400);
-      }
-      const { data, error } = await admin.from("partner_verifications").update({
-        status: body.status,
-        review_notes: String(body.review_notes ?? "").trim() || null,
-        reviewed_by: auth.user.id,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }).eq("id", body.application_id).eq("status", "pending").select("id,status,review_notes,reviewed_at").maybeSingle();
-      if (error) return json({ error: "partner_review_failed" }, 500);
-      if (!data) return json({ error: "partner_application_not_pending" }, 409);
-      return json({ application: data });
-    }
-
     if (body.action === "request_detail") {
       const { scopeType, scopeGovernorate } = await getStaffScope();
       await requireScopedReadPermission("orders.read", "has_provider_ops_access", scopeType, scopeGovernorate);
