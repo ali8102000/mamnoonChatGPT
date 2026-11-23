@@ -485,10 +485,10 @@ export function LiveTrackMap({
               type="button"
               onClick={onOpenNavigation}
               className="h-10 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg flex items-center justify-center gap-1 btn-press border border-emerald-500 text-[10px] font-black"
-              title="ملاحة"
-              aria-label="ملاحة"
+              title="تحديد المسار"
+              aria-label="تحديد المسار"
             >
-              <span>ملاحة</span>
+              <span>تحديد المسار</span>
             </Button>
           )}
           <Button
