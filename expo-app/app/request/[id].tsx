@@ -428,7 +428,7 @@ export default function RequestDetail() {
       const { data: codeRow } = await (supabase as any).from("service_requests").select("request_code").eq("id", id).maybeSingle();
       requestCode = (codeRow as any)?.request_code ?? null;
     }
-    setRequest(data ? ({ ...data, request_code: requestCode } as RequestRecord) : null);
+    setRequest(data ? ({ ...data, request_code: requestCode } as unknown as RequestRecord) : null);
     // Render the core request before optional offers, attachments and payment status finish loading.
     setLoading(false);
     if (data?.type === "service") {
