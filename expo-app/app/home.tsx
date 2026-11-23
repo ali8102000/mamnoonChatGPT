@@ -19,7 +19,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
-import { startProviderPresenceBackgroundLocation, stopProviderPresenceBackgroundLocation } from "@/lib/background-location";
+import { getFreshProviderLocation, startProviderPresenceBackgroundLocation, stopProviderPresenceBackgroundLocation } from "@/lib/background-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
 import { Image as ExpoImage } from "expo-image";
@@ -173,10 +173,15 @@ export default function HomeScreen() {
     const userId = user.id;
     let mounted = true;
     let loadedIncoming = false;
+    let presenceFailureHandled = false;
     let subscription: Location.LocationSubscription | null = null;
+    const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
 
     async function publishPresence(location: Location.LocationObject) {
       if (!mounted || !user) return;
+      const accuracy = location.coords.accuracy;
+      // Keep the last good server position instead of replacing it with a weak GPS fix.
+      if (!Number.isFinite(accuracy) || Number(accuracy) > 100) return;
       const { error } = await supabase.from("provider_presence").upsert(
         {
           user_id: userId,
@@ -184,61 +189,80 @@ export default function HomeScreen() {
           lng: location.coords.longitude,
           heading:
             location.coords.heading != null &&
+            Number.isFinite(location.coords.heading) &&
             location.coords.heading >= 0 &&
             location.coords.heading <= 360
               ? location.coords.heading
               : null,
+          accuracy_m: accuracy,
+          updated_at: new Date(location.timestamp).toISOString(),
         },
         { onConflict: "user_id" },
       );
-      if (error && mounted) {
-        Alert.alert("تعذر مشاركة الموقع", "تم إيقاف التوفر حتى لا تستقبل طلبات دون موقع صحيح.");
-        const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
-        await supabase.from(table).update({ available: false }).eq("user_id", userId);
-        setAvailable(false);
-      } else if (mounted && !loadedIncoming) {
+      if (error) throw error;
+      if (mounted && !loadedIncoming) {
         loadedIncoming = true;
         void loadIncoming();
       }
     }
 
+    async function failPresence(presenceError: unknown) {
+      if (!mounted || presenceFailureHandled) return;
+      presenceFailureHandled = true;
+      console.warn("[Mamnoon provider presence] startup/update failed:", presenceError);
+      await stopProviderPresenceBackgroundLocation().catch(() => undefined);
+      await supabase.from(table).update({ available: false }).eq("user_id", userId);
+      if (!mounted) return;
+      const code = presenceError instanceof Error ? presenceError.message : "";
+      const message =
+        code === "foreground_location_denied"
+          ? "اسمح لممنون باستخدام موقعك أثناء استعمال التطبيق حتى تستقبل الطلبات."
+          : code === "location_services_disabled"
+            ? "خدمات الموقع مطفّية. شغّل GPS من إعدادات الهاتف وحاول مرة ثانية."
+            : code === "location_fix_unavailable"
+              ? "ما حصلنا إشارة موقع كافية. اطلع لمكان مفتوح وخلي GPS شغال ثم حاول مرة ثانية."
+              : "تعذر حفظ موقعك أو تشغيل تحديثاته. تحقق من الإنترنت وأذونات الموقع وحاول مرة ثانية.";
+      Alert.alert("مشاركة الموقع مطلوبة", message);
+      setAvailable(false);
+    }
+
     async function startPresence() {
+      // Require one fresh, usable fix before the provider is considered online.
+      const first = await getFreshProviderLocation();
+      await publishPresence(first);
+      if (!mounted) return;
+
+      // Background tracking is an enhancement. A denied background permission
+      // must not prevent foreground availability while Mamnoon remains open.
       const backgroundTrackingEnabled = await startProviderPresenceBackgroundLocation({
         userId,
         role: selectedRole as "driver" | "large_driver" | "worker",
+      }).catch((error) => {
+        console.warn("[Mamnoon] background presence unavailable; keeping foreground tracking:", error);
+        return false;
       });
-      const first = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      await publishPresence(first);
-      if (!mounted) return;
-      subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 15000, distanceInterval: 20 },
-        (location) => {
-          void publishPresence(location);
-        },
-      );
+
+      try {
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, timeInterval: 15000, distanceInterval: 20 },
+          (location) => {
+            void publishPresence(location).catch((error) => void failPresence(error));
+          },
+        );
+      } catch (watchError) {
+        if (!backgroundTrackingEnabled) throw watchError;
+        console.warn("[Mamnoon] foreground watcher unavailable; background task remains active:", watchError);
+      }
+
       if (!backgroundTrackingEnabled && mounted) {
         Alert.alert(
           "الاستقبال يعمل والتطبيق مفتوح",
-          "حتى تستمر باستقبال الطلبات عند تصغير ممنون، فعّل إذن الموقع في الخلفية من إعدادات التطبيق. تگدر حالياً تستقبل الطلبات ما دام التطبيق مفتوحاً.",
+          "موقعك يتحدث ما دام ممنون مفتوحاً. للسماح باستمرار الاستقبال بعد تصغير التطبيق، فعّل إذن الموقع في الخلفية من إعدادات الهاتف.",
         );
       }
     }
 
-    void startPresence().catch(async (presenceError) => {
-      if (!user) return;
-      await stopProviderPresenceBackgroundLocation().catch(() => undefined);
-      const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
-      await supabase.from(table).update({ available: false }).eq("user_id", userId);
-      if (mounted) {
-        const message = presenceError instanceof Error && presenceError.message === "background_location_denied"
-          ? "اسمح لممنون بالوصول إلى الموقع دائماً حتى تستقبل الطلبات عند تصغير التطبيق."
-          : "تعذر تشغيل مشاركة الموقع؛ تحقق من GPS وأذونات الموقع وحاول مرة أخرى.";
-        Alert.alert("مشاركة الموقع مطلوبة", message);
-        setAvailable(false);
-      }
-    });
+    void startPresence().catch((presenceError) => void failPresence(presenceError));
 
     return () => {
       mounted = false;
@@ -254,6 +278,7 @@ export default function HomeScreen() {
     }
     const previous = available;
     const next = !previous;
+    const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
     setAvailabilitySaving(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
     Vibration.vibrate(35);
@@ -261,15 +286,35 @@ export default function HomeScreen() {
       if (next) {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
-          Alert.alert("إذن الموقع مطلوب", "اسمح بمشاركة موقعك قبل استقبال الطلبات.");
+          Alert.alert("إذن الموقع مطلوب", "اسمح لممنون باستخدام موقعك أثناء استعمال التطبيق قبل استقبال الطلبات.");
           return;
         }
+        const location = await getFreshProviderLocation();
+        const accuracy = location.coords.accuracy;
+        const { error: presenceError } = await supabase.from("provider_presence").upsert(
+          {
+            user_id: user.id,
+            lat: location.coords.latitude,
+            lng: location.coords.longitude,
+            heading:
+              location.coords.heading != null &&
+              Number.isFinite(location.coords.heading) &&
+              location.coords.heading >= 0 &&
+              location.coords.heading <= 360
+                ? location.coords.heading
+                : null,
+            accuracy_m: accuracy,
+            updated_at: new Date(location.timestamp).toISOString(),
+          },
+          { onConflict: "user_id" },
+        );
+        if (presenceError) throw presenceError;
       }
-      // Optimistic UI: reflect the tap immediately while the database confirms it.
-      setAvailable(next);
-      const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
+
+      // Do not show the provider as available until a fresh location is saved successfully.
       const { error } = await supabase.from(table).update({ available: next }).eq("user_id", user.id);
       if (error) throw error;
+      setAvailable(next);
       if (!next) {
         await stopProviderPresenceBackgroundLocation().catch((stopError) => {
           console.warn("[Mamnoon] could not stop provider background location:", stopError);
@@ -278,7 +323,18 @@ export default function HomeScreen() {
       void Haptics.notificationAsync(next ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
     } catch (error) {
       setAvailable(previous);
-      Alert.alert("تعذر تحديث التوفر", error instanceof Error ? error.message : "حاول مرة ثانية.");
+      const code = error instanceof Error ? error.message : "";
+      const message =
+        code === "foreground_location_denied"
+          ? "اسمح لممنون باستخدام موقعك أثناء استعمال التطبيق."
+          : code === "location_services_disabled"
+            ? "شغّل GPS وخدمات الموقع من إعدادات الهاتف ثم حاول مرة ثانية."
+            : code === "location_fix_unavailable"
+              ? "إشارة GPS ضعيفة حالياً. اطلع لمكان مفتوح وحاول مرة ثانية."
+              : error instanceof Error && error.message
+                ? error.message
+                : "تعذر تحديث الحالة. تحقق من الإنترنت وحاول مرة ثانية.";
+      Alert.alert("تعذر تشغيل استقبال الطلبات", message);
     } finally {
       setAvailabilitySaving(false);
     }
