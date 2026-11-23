@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { router } from "expo-router";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from "react-native";
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
@@ -12,6 +12,11 @@ type HistoryRequest = {
   status: string;
   created_at: string;
   price_estimate: number | null;
+  request_code?: string | null;
+  pickup_text?: string | null;
+  dest_text?: string | null;
+  attachment_url?: string | null;
+  person_avatar_url?: string | null;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -35,7 +40,7 @@ export default function HistoryScreen() {
   const { user } = useAuth();
   const [requests, setRequests] = useState<HistoryRequest[]>([]);
   const [tab, setTab] = useState<"all" | "active" | "done">("all");
-  const [showAllRequests, setShowAllRequests] = useState(false);
+  const [showAllRequests, setShowAllRequests] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [usingCachedData, setUsingCachedData] = useState(false);
 
@@ -49,7 +54,7 @@ export default function HistoryScreen() {
     try {
       const { data, error } = await supabase
         .from("service_requests")
-        .select("id,type,status,created_at,price_estimate")
+        .select("id,type,status,created_at,price_estimate,request_code,pickup_text,dest_text,attachment_path,customer_id,provider_id")
         .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -63,7 +68,7 @@ export default function HistoryScreen() {
         const teamIds = [...new Set<string>(memberships.map((row: any) => String(row.request_id)))];
         const { data: rows, error: teamError } = await supabase
           .from("service_requests")
-          .select("id,type,status,created_at,price_estimate")
+          .select("id,type,status,created_at,price_estimate,request_code,pickup_text,dest_text,attachment_path,customer_id,provider_id")
           .in("id", teamIds);
         if (!teamError) teamRows = rows ?? [];
         else console.warn("[history] Team request history failed:", teamError.message);
@@ -71,13 +76,30 @@ export default function HistoryScreen() {
       if (membershipError) console.warn("[history] Team membership history unavailable:", membershipError.message);
       const merged = new Map<string, any>();
       [...(data ?? []), ...teamRows].forEach((row) => merged.set(row.id, row));
-      const rows = [...merged.values()]
+      const baseRows = [...merged.values()]
         .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
-        .slice(0, 100) as HistoryRequest[];
+        .slice(0, 500);
+      const otherIds = [...new Set<string>(baseRows.map((row: any) =>
+        String(row.customer_id === user.id ? row.provider_id : row.customer_id || ""),
+      ).filter(Boolean))];
+      const { data: profiles } = otherIds.length
+        ? await supabase.from("profiles").select("id,avatar_url").in("id", otherIds)
+        : { data: [] };
+      const avatarById = new Map((profiles ?? []).map((profile: any) => [profile.id, profile.avatar_url]));
+      const rows = await Promise.all(baseRows.map(async (row: any) => {
+        let attachment_url: string | null = null;
+        if (row.attachment_path) {
+          const { data: signed } = await supabase.storage.from("request-attachments")
+            .createSignedUrl(row.attachment_path, 60 * 30);
+          attachment_url = signed?.signedUrl ?? null;
+        }
+        const otherId = row.customer_id === user.id ? row.provider_id : row.customer_id;
+        return { ...row, attachment_url, person_avatar_url: otherId ? avatarById.get(otherId) ?? null : null };
+      })) as HistoryRequest[];
       setRequests(rows);
       setUsingCachedData(false);
       try {
-        await SecureStore.setItemAsync(cacheKey, JSON.stringify(rows));
+        await SecureStore.setItemAsync(cacheKey, JSON.stringify(rows.map(({ attachment_url, ...row }) => row)));
       } catch (cacheError) {
         console.warn("[offline] Could not save request history:", cacheError);
       }
@@ -102,9 +124,7 @@ export default function HistoryScreen() {
     : tab === "done"
       ? requests.filter((request) => ["completed", "cancelled"].includes(request.status))
       : requests;
-  const visibleRequests = showAllRequests
-    ? tabRequests
-    : tabRequests.filter((request) => new Date(request.created_at).getTime() >= Date.now() - 60 * 60 * 1000);
+  const visibleRequests = tabRequests;
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -114,7 +134,8 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>السجل</Text>
+      <Text style={styles.title}>سجل الرحلات والخدمات</Text>
+      <Text style={styles.subtitle}>كل طلباتك السابقة والمنتهية محفوظة هنا</Text>
       {usingCachedData && (
         <View style={styles.offlineNotice}>
           <Text style={styles.offlineNoticeText}>تعرض بيانات محفوظة من آخر اتصال، وقد لا تكون محدثة.</Text>
@@ -164,13 +185,20 @@ export default function HistoryScreen() {
               }}
               activeOpacity={0.85}
             >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardType}>
-                  {req.type === "taxi" ? "🚕 سيارة" : `🔧 ${req.type}`}
-                </Text>
-                <Text style={styles.cardDate}>
-                  {new Date(req.created_at).toLocaleDateString("ar")}
-                </Text>
+              <View style={styles.cardMedia}>
+                {req.person_avatar_url
+                  ? <Image source={{ uri: req.person_avatar_url }} style={styles.personAvatar} />
+                  : <View style={styles.personAvatarFallback}><Text style={{ color: palette.brand, fontWeight: "900" }}>👤</Text></View>}
+                {req.attachment_url
+                  ? <Image source={{ uri: req.attachment_url }} style={styles.workPhoto} />
+                  : <View style={styles.workPhotoFallback}><Text style={{ color: palette.muted, fontSize: 10 }}>صورة العمل</Text></View>}
+              </View>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={styles.cardType}>{req.type === "taxi" ? "🚕 رحلة تكسي" : `🔧 ${req.type}`}</Text>
+                <Text style={styles.tripCode}>رقم الرحلة: {req.request_code || req.id.slice(0, 8).toUpperCase()}</Text>
+                {!!req.pickup_text && <Text style={styles.cardDate} numberOfLines={1}>من: {req.pickup_text}</Text>}
+                {!!req.dest_text && <Text style={styles.cardDate} numberOfLines={1}>إلى: {req.dest_text}</Text>
+                <Text style={styles.cardDate}>{new Date(req.created_at).toLocaleDateString("ar-IQ")}</Text>
                 {req.price_estimate && (
                   <Text style={styles.cardPrice}>
                     {req.price_estimate.toLocaleString("en")} د.ع
@@ -199,6 +227,7 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.pageCanvas, paddingHorizontal: 20, paddingTop: 52 },
+  subtitle: { color: palette.muted, fontSize: 11, textAlign: "right", marginTop: -12, marginBottom: 14 },
   title: { fontSize: 27, fontWeight: "900", color: palette.ink, marginBottom: 20 },
   offlineNotice: { padding: 11, borderRadius: radius.md, backgroundColor: palette.goldSoft, borderWidth: 1, borderColor: palette.line, marginBottom: 14 },
   offlineNoticeText: { color: palette.ink, fontSize: 11, fontWeight: "700", textAlign: "right" },
@@ -207,7 +236,13 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: palette.brand, borderColor: palette.brand },
   tabText: { fontSize: 12, fontWeight: "800", color: palette.muted },
   tabTextActive: { color: palette.white },
-  card: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.lg, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: palette.line },
+  card: { flexDirection: "row", alignItems: "center", backgroundColor: palette.surface, borderRadius: radius.lg, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: palette.line, gap: 10 },
+  cardMedia: { width: 58, gap: 5, alignItems: "center" },
+  personAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: palette.surfaceSoft },
+  personAvatarFallback: { width: 42, height: 42, borderRadius: 21, backgroundColor: palette.surfaceSoft, alignItems: "center", justifyContent: "center" },
+  workPhoto: { width: 58, height: 48, borderRadius: 8, backgroundColor: palette.surfaceSoft },
+  workPhotoFallback: { width: 58, height: 48, borderRadius: 8, backgroundColor: palette.surfaceSoft, alignItems: "center", justifyContent: "center" },
+  tripCode: { fontSize: 10, color: palette.brand, fontWeight: "900" },
   cardType: { fontSize: 15, fontWeight: "900", color: palette.ink },
   cardDate: { fontSize: 11, color: palette.muted, marginTop: 5 },
   cardPrice: { fontSize: 14, fontWeight: "900", color: palette.brand, marginTop: 5 },
