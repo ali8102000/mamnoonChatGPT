@@ -128,8 +128,8 @@ Deno.serve(async (req: Request) => {
         caller.rpc("has_admin_access", { p_user_id: auth.user.id }),
       ]);
       const canSettle = adminAccess.data === true || (!financePermission.error && financePermission.data === true);
-      const { data: requests, error: requestsError } = await admin.from("service_requests")
-        .select("id,type,status,customer_id,commission,customer_price,price_estimate,customer_payable,completed_at,created_at,governorate_key")
+      const { data: requests, error: requestsError, count: requestCount } = await admin.from("service_requests")
+        .select("id,type,status,customer_id,commission,customer_price,price_estimate,customer_payable,completed_at,created_at,governorate_key", { count: "exact" })
         .eq("provider_id", body.provider_id).eq("status", "completed").eq("payment_method", "zaincash")
         .order("completed_at", { ascending: false }).limit(500);
       if (requestsError) return json({ error: "provider_payable_requests_load_failed" }, 500);
@@ -137,13 +137,14 @@ Deno.serve(async (req: Request) => {
       const requestIds = (requests ?? []).map((request: any) => request.id);
       let payments: any[] = [];
       if (requestIds.length) {
-        const { data, error } = await admin.from("payment_transactions")
-          .select("id,request_id,user_id,provider,currency,amount,paid_at,gateway_transaction_id")
+        const { data, error, count: paymentCount } = await admin.from("payment_transactions")
+          .select("id,request_id,user_id,provider,currency,amount,paid_at,gateway_transaction_id", { count: "exact" })
           .eq("purpose", "service_request").eq("status", "paid")
           .eq("provider", "zaincash").eq("currency", "IQD")
           .in("request_id", requestIds).order("paid_at", { ascending: false });
         if (error) return json({ error: "provider_payments_load_failed" }, 500);
         payments = data ?? [];
+        var providerPaymentCount = paymentCount ?? 0;
       }
       const paymentsByRequest = new Map<string, any[]>();
       for (const payment of payments) {
@@ -167,25 +168,21 @@ Deno.serve(async (req: Request) => {
           payments: requestPayments,
         };
       }).filter((item: any) => item.gross_paid_iqd > 0);
-      const { data: settlements, error: settlementsError } = await admin.from("mamnoon_provider_cash_settlements")
-        .select("id,amount_iqd,note,created_at,created_by,idempotency_key")
+      const { data: settlements, error: settlementsError, count: settlementCount } = await admin.from("mamnoon_provider_cash_settlements")
+        .select("id,amount_iqd,note,created_at,created_by,idempotency_key", { count: "exact" })
         .eq("provider_id", body.provider_id).order("created_at", { ascending: false }).limit(500);
       if (settlementsError) return json({ error: "provider_settlements_load_failed" }, 500);
-      const total = (key: string) => requestItems.reduce((sum: number, item: any) => sum + Number(item[key] ?? 0), 0);
-      const grossTotal = total("gross_paid_iqd");
-      const commissionTotal = total("commission_iqd");
-      const payableTotal = total("payable_iqd");
-      const settledTotal = (settlements ?? []).reduce((sum: number, item: any) => sum + Number(item.amount_iqd ?? 0), 0);
+      const { data: summary, error: summaryError } = await caller.rpc("admin_get_provider_payables_summary", {
+        p_provider_id: body.provider_id,
+      });
+      if (summaryError || !summary) return json({ error: "provider_payable_summary_failed" }, 500);
+      const historyTruncated = (requestCount ?? 0) > 500 ||
+        (settlementCount ?? 0) > 500 || (providerPaymentCount ?? 0) > 1000;
       return json({
         provider: { ...profile, roles: roleRows.map((row: any) => String(row.role)) },
         can_settle: canSettle,
-        summary: {
-          gross_paid_iqd: grossTotal,
-          commission_iqd: commissionTotal,
-          payable_iqd: payableTotal,
-          settled_iqd: settledTotal,
-          outstanding_iqd: Math.max(0, payableTotal - settledTotal),
-        },
+        summary,
+        history_truncated: historyTruncated,
         requests: requestItems,
         settlements: settlements ?? [],
       });
