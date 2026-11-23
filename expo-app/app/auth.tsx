@@ -13,6 +13,7 @@ import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
 import { palette, space } from "@/styles/theme";
+import { Image as ExpoImage } from "expo-image";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 type Mode = "signup" | "login";
