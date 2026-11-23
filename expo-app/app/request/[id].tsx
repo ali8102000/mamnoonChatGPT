@@ -414,7 +414,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "id, request_code, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, provider_arrived_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
+        "id, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, provider_arrived_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
       )
       .eq("id", id)
       .maybeSingle();
@@ -423,7 +423,12 @@ export default function RequestDetail() {
       setLoading(false);
       return;
     }
-    setRequest(data as RequestRecord | null);
+    let requestCode: string | null = null;
+    if (data?.id) {
+      const { data: codeRow } = await supabase.from("service_requests").select("request_code").eq("id", id).maybeSingle();
+      requestCode = (codeRow as any)?.request_code ?? null;
+    }
+    setRequest(data ? ({ ...data, request_code: requestCode } as RequestRecord) : null);
     // Render the core request before optional offers, attachments and payment status finish loading.
     setLoading(false);
     if (data?.type === "service") {
