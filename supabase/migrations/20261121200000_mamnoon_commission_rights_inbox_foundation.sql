@@ -1848,7 +1848,7 @@ $old$, '');
 $old$, $new$
           55)
         from public.driver_profiles dp
-$old$);
+$new$);
   IF position('user_subscriptions' in v_def)>0 OR position('subscription_plans' in v_def)>0 THEN
     RAISE EXCEPTION 'find_nearby_drivers_subscription_retirement_patch_failed';
   END IF;
