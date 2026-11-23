@@ -3123,10 +3123,17 @@ function StaffHierarchySection() {
       setGrants(grantResult.data ?? []);
       setDelegations(delegationResult.data ?? []);
       const { data: partnerRows, error: partnerError } = await (supabase as any).from("partner_applications")
-        .select("id,user_id,partner_type,business_name,contact_name,phone,email,governorate_key,city,address,description,mall_unit_type,status,admin_note,created_at")
+        .select("id,user_id,partner_type,business_name,contact_name,phone,email,governorate_key,city,address,description,mall_unit_type,status,admin_note,created_at,license_number,license_document_path,id_front_path,id_back_path,business_latitude,business_longitude")
         .order("created_at", { ascending: false }).limit(100);
       if (partnerError) console.warn("[partner-applications] admin list unavailable:", partnerError.message);
-      else setPartnerApplications(partnerRows ?? []);
+      else {
+        const enriched = await Promise.all((partnerRows ?? []).map(async (item: any) => {
+          const sign = async (path: string | null) => { if (!path) return null; const { data } = await supabase.storage.from("provider-verification").createSignedUrl(path, 300); return data?.signedUrl ?? null; };
+          const [licenseUrl,idFrontUrl,idBackUrl] = await Promise.all([sign(item.license_document_path),sign(item.id_front_path),sign(item.id_back_path)]);
+          return { ...item, licenseUrl, idFrontUrl, idBackUrl };
+        }));
+        setPartnerApplications(enriched);
+      }
     } catch (e: any) { toast.error(e?.message || "تعذر تحميل الإدارة"); }
     finally { setLoading(false); }
   }, [listStaff]);
@@ -3158,7 +3165,9 @@ function StaffHierarchySection() {
       {partnerApplications.length===0 ? <EmptyState text="لا توجد طلبات شراكة حالياً"/> : <div className="space-y-2">
         {partnerApplications.map((item:any)=><div key={item.id} className="rounded-xl border border-border p-3 space-y-2">
           <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="font-black text-sm">{item.business_name}</div><div className="text-[10px] text-muted-foreground mt-1">{({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]} · {item.city} · {item.governorate_key}</div></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${item.status==="approved"?"bg-emerald-500/10 text-emerald-700":item.status==="suspended"?"bg-slate-500/10 text-slate-700":item.status==="rejected"?"bg-red-500/10 text-red-700":"bg-amber-500/10 text-amber-700"}`}>{item.status==="approved"?"موافق عليه":item.status==="suspended"?"موقوف":item.status==="rejected"?"مرفوض":"قيد المراجعة"}</span></div>
-          <div className="text-xs leading-6 text-muted-foreground">المسؤول: {item.contact_name} · الهاتف: <b dir="ltr">{item.phone}</b>{item.email? " · "+item.email:""}<br/>العنوان: {item.address}</div>
+          <div className="text-xs leading-6 text-muted-foreground">المسؤول: {item.contact_name} · الهاتف: <b dir="ltr">{item.phone}</b>{item.email? " · "+item.email:""}<br/>العنوان: {item.address}</div>          {item.license_number&&<div className="text-xs font-bold">رقم إجازة العمل: {item.license_number}</div>}
+          {item.business_latitude!=null&&item.business_longitude!=null&&<a href={"https://www.google.com/maps?q="+item.business_latitude+","+item.business_longitude} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-xs font-black text-primary"><MapPin className="h-4 w-4"/> فتح دبوس موقع المنشأة بالخريطة</a>}
+          {(item.licenseUrl||item.idFrontUrl||item.idBackUrl)&&<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">{[["إجازة العمل",item.licenseUrl],["الهوية - أمام",item.idFrontUrl],["الهوية - خلف",item.idBackUrl]].map(([label,url])=><div key={String(label)} className="rounded-xl border border-border p-2"><div className="text-[10px] font-black mb-1">{label}</div>{url?<a href={String(url)} target="_blank" rel="noreferrer"><img src={String(url)} alt={String(label)} className="h-36 w-full rounded-lg bg-muted object-contain"/><span className="block text-center text-[10px] text-primary">فتح المستند</span></a>:<div className="grid h-36 place-items-center text-[10px] text-muted-foreground">غير مرفق</div>}</div>)}</div>}
           {item.description&&<p className="text-xs text-muted-foreground">{item.description}</p>}
           {item.status==="pending"&&<div className="flex gap-2"><button disabled={busy} onClick={()=>void runAction(async()=>{const {data:{user}}=await supabase.auth.getUser();const {error}=await (supabase as any).from("partner_applications").update({status:"approved",reviewed_by:user?.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString(),admin_note:null}).eq("id",item.id);if(error)throw error;},"تمت الموافقة وإنشاء ملف الشريك")} className="flex-1 rounded-lg bg-emerald-600 text-white py-2 text-xs font-bold disabled:opacity-50">موافقة وتفعيل</button><button disabled={busy} onClick={()=>void runAction(async()=>{const {data:{user}}=await supabase.auth.getUser();const {error}=await (supabase as any).from("partner_applications").update({status:"rejected",reviewed_by:user?.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString(),admin_note:"يرجى مراجعة البيانات وإعادة التقديم"}).eq("id",item.id);if(error)throw error;},"تم رفض طلب الشراكة")} className="flex-1 rounded-lg bg-red-600 text-white py-2 text-xs font-bold disabled:opacity-50">رفض الطلب</button></div>}
           {item.status==="approved"&&<button disabled={busy} onClick={()=>void runAction(async()=>{const {data:{user}}=await supabase.auth.getUser();const {error}=await (supabase as any).from("partner_applications").update({status:"suspended",reviewed_by:user?.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString(),admin_note:"تم إيقاف الشراكة من الإدارة"}).eq("id",item.id);if(error)throw error;},"تم إيقاف الشريك وإخفاء منشأته")} className="w-full rounded-lg border border-red-500/30 text-red-700 py-2 text-xs font-bold disabled:opacity-50">إيقاف الشريك وإخفاء منشأته</button>}
