@@ -1272,37 +1272,39 @@ export default function RequestDetail() {
   }
 
   async function cancelRequest() {
-    Alert.alert(
-      isProvider ? "الاعتذار عن الطلب" : "إلغاء الطلب",
-      isProvider ? "راح نرجّع الطلب للبحث عن فني آخر." : "هل تريد إلغاء طلبك؟",
-      [
-      { text: "تراجع", style: "cancel" },
-      {
-        text: "إلغاء الطلب",
-        style: "destructive",
-        onPress: async () => {
-          const { error } = await (supabase as any).rpc("cancel_service_request", {
-            _request_id: id,
-            _reason: isCustomer
-              ? "ألغى الزبون الطلب قبل تأكيد وصول مقدم الخدمة"
-              : "اعتذر الفني عن تنفيذ الطلب قبل الوصول",
-          });
-          if (error) {
-            const message = error.message?.includes("provider_already_arrived")
-              ? "الفني أكد وصوله للموقع، لذلك ما عاد الإلغاء متاحاً من التطبيق."
-              : error.message?.includes("service_already_started")
-                ? "بدأ الفني تنفيذ العمل، لذلك ما عاد الإلغاء متاحاً."
-                : error.message?.includes("forbidden")
-                  ? "ما عندك صلاحية لإلغاء هذا الطلب."
-                  : error.message || "حاول مرة ثانية.";
-            Alert.alert("تعذر الإلغاء", message);
-          } else {
-            await loadRequest();
-            router.back();
-          }
-        },
-      },
+    const customerReasons = ["طلبت بالخطأ", "لم أعد بحاجة للخدمة", "تغيير الموعد", "الموقع أو التفاصيل غير صحيحة"];
+    const providerReasons = ["الزبون لا يرد", "عطل بالمركبة أو المعدات", "ظرف طارئ", "الموقع غير صحيح"];
+    const reasons = isCustomer ? customerReasons : providerReasons;
+    const title = isProvider ? "اختر سبب الاعتذار عن الطلب" : "اختر سبب إلغاء الطلب";
+    const submitReason = async (reason: string) => {
+      const { error } = await (supabase as any).rpc("cancel_service_request", { _request_id: id, _reason: reason });
+      if (error) {
+        const message = error.message?.includes("provider_already_arrived")
+          ? "الفني أكد وصوله للموقع، لذلك ما عاد الإلغاء متاحاً من التطبيق."
+          : error.message?.includes("service_already_started")
+            ? "بدأ الفني تنفيذ العمل، لذلك ما عاد الإلغاء متاحاً."
+            : error.message?.includes("forbidden")
+              ? "ما عندك صلاحية لإلغاء هذا الطلب."
+              : error.message?.includes("cancellation_reason_required")
+                ? "لازم تختار سبب الإلغاء أولاً."
+                : error.message || "حاول مرة ثانية.";
+        Alert.alert("تعذر الإلغاء", message);
+      } else {
+        await loadRequest();
+        router.back();
+      }
+    };
+    const showMore = () => Alert.alert(title, "اختر السبب المناسب. لا يمكن إتمام الإلغاء دون اختيار سبب.", [
+      { text: reasons[2], style: "destructive", onPress: () => void submitReason(reasons[2]) },
+      { text: reasons[3], style: "destructive", onPress: () => void submitReason(reasons[3]) },
+      { text: "رجوع", onPress: () => showFirst() },
     ]);
+    const showFirst = () => Alert.alert(title, "اختر السبب المناسب. لا يمكن إتمام الإلغاء دون اختيار سبب.", [
+      { text: reasons[0], style: "destructive", onPress: () => void submitReason(reasons[0]) },
+      { text: reasons[1], style: "destructive", onPress: () => void submitReason(reasons[1]) },
+      { text: "المزيد من الأسباب", onPress: showMore },
+    ]);
+    showFirst();
   }
 
   async function applyRequestUrgency(multiplier: 2 | 3) {
@@ -1329,9 +1331,10 @@ export default function RequestDetail() {
     if (!["in_progress", "completed"].includes(request.status)) { Alert.alert("البلاغات غير متاحة", "تگدر ترسل بلاغ بعد بدء الرحلة أو الخدمة فعلياً."); return; }
     const reportedId = isCustomer ? request.provider_id : request.customer_id;
     if (!reportedId) { Alert.alert("تعذر إرسال البلاغ", "لا يوجد طرف آخر مرتبط بهذا الطلب حتى الآن."); return; }
-    if (!reportReason.trim()) { Alert.alert("تنبيه", "اكتب سبب البلاغ."); return; }
+    if (!reportReason.trim()) { Alert.alert("تنبيه", "اختر تصنيف البلاغ."); return; }
+    if (reportDetails.trim().length < 10) { Alert.alert("تفاصيل البلاغ مطلوبة", "اشرح المشكلة بتفاصيل لا تقل عن 10 أحرف حتى تتمكن الإدارة من مراجعتها."); return; }
     setReportBusy(true);
-    const { error } = await (supabase as any).from("user_reports").insert({ reporter_id: user.id, reported_id: reportedId, request_id: id, reason: reportReason.trim(), details: reportDetails.trim() || null, status: "pending" });
+    const { error } = await (supabase as any).from("user_reports").insert({ reporter_id: user.id, reported_id: reportedId, request_id: id, reason: reportReason.trim(), details: reportDetails.trim(), status: "pending" });
     setReportBusy(false);
     if (error) { Alert.alert("تعذر إرسال البلاغ", error.message); return; }
     setShowReportForm(false); setReportDetails("");
@@ -1900,8 +1903,13 @@ export default function RequestDetail() {
             ) : (
               <View style={{ gap: 10 }}>
                 <Text style={styles.reportTitle}>تفاصيل البلاغ للإدارة</Text>
-                <TextInput value={reportReason} onChangeText={setReportReason} placeholder="سبب البلاغ" placeholderTextColor="#94a3b8" style={styles.reportInput} />
-                <TextInput value={reportDetails} onChangeText={setReportDetails} placeholder="اكتب ملاحظتك: نسيت شيئاً في السيارة أو اشرح المشكلة..." placeholderTextColor="#94a3b8" multiline maxLength={1500} style={[styles.reportInput, { minHeight: 92, textAlignVertical: "top" }]} />
+                <View style={{ gap: 7 }}>
+                  <Text style={{ color: palette.muted, fontSize: 11, fontWeight: "900", textAlign: "right" }}>اختر تصنيف البلاغ</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
+                    {["مشكلة أثناء الرحلة أو الخدمة", "سلوك غير مناسب", "مشكلة في السعر أو الاتفاق", "تأخير أو عدم التزام", "ضرر أو فقدان ممتلكات", "سلامة أو قيادة خطرة", "أخرى"].map((item) => <TouchableOpacity key={item} onPress={() => setReportReason(item)} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: reportReason === item ? palette.brand : palette.line, backgroundColor: reportReason === item ? palette.brandSoft : palette.surface }}><Text style={{ color: reportReason === item ? palette.brand : palette.ink, fontSize: 10, fontWeight: "800" }}>{item}</Text></TouchableOpacity>)}
+                  </View>
+                </View>
+                <TextInput value={reportDetails} onChangeText={setReportDetails} placeholder="اشرح المشكلة بوضوح: ماذا حدث؟ ومتى؟ وأي تفاصيل تساعد الإدارة على التحقق؟" placeholderTextColor="#94a3b8" multiline maxLength={1500} style={[styles.reportInput, { minHeight: 92, textAlignVertical: "top" }]} />
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <TouchableOpacity onPress={() => setShowReportForm(false)} style={[styles.reportAction, { backgroundColor: palette.surfaceSoft }]}><Text style={{ color: palette.ink, fontWeight: "900" }}>إلغاء</Text></TouchableOpacity>
                   <TouchableOpacity disabled={reportBusy} onPress={submitUserReport} style={styles.reportAction}><Text style={{ color: palette.white, fontWeight: "900" }}>{reportBusy ? "جارٍ الإرسال..." : "إرسال البلاغ للإدارة"}</Text></TouchableOpacity>
