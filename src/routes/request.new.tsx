@@ -177,7 +177,7 @@ function NewRequest() {
   const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destLabel, setDestLabel] = useState("");
   const [mapStep, setMapStep] = useState<"pickup" | "dest">("pickup");
-  const backFromDestinationRef = useRef(false);
+  const destinationBackArmedRef = useRef(false);
   const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
   const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
   const [favoriteName, setFavoriteName] = useState("");
@@ -257,20 +257,21 @@ function NewRequest() {
   const gov = getGovernorate(govKey);
   function handleTaxiMapBack() {
     if (mapStep === "dest") {
-      backFromDestinationRef.current = true;
+      // First press stays on destination and opens it for editing.
+      // Second press returns to pickup without clearing either saved location.
+      if (!destinationBackArmedRef.current) {
+        destinationBackArmedRef.current = true;
+        if (destConfirmed) setDestConfirmed(false);
+        setShowFareDetails(false);
+        return;
+      }
+      destinationBackArmedRef.current = false;
       setMapStep("pickup");
       setDestConfirmed(false);
       setShowFareDetails(false);
       return;
     }
-    if (backFromDestinationRef.current) {
-      backFromDestinationRef.current = false;
-      setPickupCoords(null); setPickupLabel("");
-      setDestCoords(null); setDestLabel("");
-      setDestinationGovernorateKey(null); setDestConfirmed(false);
-      setRouteKm(null); setRouteError(null); setShowFareDetails(false);
-      return;
-    }
+    destinationBackArmedRef.current = false;
     goBack();
   }
 
@@ -537,7 +538,7 @@ function NewRequest() {
       setDestConfirmed(true);
       return;
     }
-    backFromDestinationRef.current = false;
+    destinationBackArmedRef.current = false;
     setMapStep("dest");
     setDestConfirmed(false);
     setInterCity(false);
@@ -996,6 +997,7 @@ function NewRequest() {
               <button
                 type="button"
                 onClick={() => {
+                  destinationBackArmedRef.current = false;
                   setMapStep("pickup");
                   setDestConfirmed(false);
                 }}
