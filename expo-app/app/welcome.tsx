@@ -8,7 +8,7 @@ import { useCompanyBranding } from "@/lib/company-branding";
 
 export default function WelcomeScreen() {
   const { session, loading, roles } = useAuth();
-  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, isLoaded: brandingLoaded } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated, isLoaded: brandingLoaded } = useCompanyBranding();
 
   useEffect(() => {
     if (loading || !brandingLoaded) return;
