@@ -1873,6 +1873,7 @@ $new$);
     LEFT JOIN public.subscription_plans sp ON sp.id = us.plan_id
 $old$, '');
   v_def := replace(v_def, 'ORDER BY c.subscription_priority DESC', 'ORDER BY c.provider_priority DESC');
+  v_def := replace(v_def, 'AND public.mamnoon_provider_subscription_active_internal(wp.user_id)', '');
   IF position('user_subscriptions' in v_def)>0 OR position('subscription_plans' in v_def)>0 THEN
     RAISE EXCEPTION 'advance_service_dispatch_subscription_retirement_patch_failed';
   END IF;
