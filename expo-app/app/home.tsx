@@ -22,6 +22,7 @@ import * as Haptics from "expo-haptics";
 import { startProviderPresenceBackgroundLocation, stopProviderPresenceBackgroundLocation } from "@/lib/background-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
+import { Image as ExpoImage } from "expo-image";
 import { useCompanyBranding } from "@/lib/company-branding";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { useThemePreference } from "@/lib/theme-preference";
@@ -322,7 +323,7 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
           </View>
           <Text style={{ color: palette.muted, fontSize: 13, textAlign: "right", marginTop: 6, lineHeight: 22, flexWrap: "wrap", includeFontPadding: false }}>{welcomeMessage}</Text>
-          {welcomeVisualUrl ? <Image source={{ uri: welcomeVisualUrl }} style={{ width: 150, height: 54, marginTop: 6, alignSelf: "flex-end", opacity: welcomeVisualAnimated ? 0.92 : 1 }} resizeMode="contain" /> : null}
+          {welcomeVisualUrl ? <ExpoImage source={{ uri: welcomeVisualUrl }} style={{ width: 150, height: 54, marginTop: 6, alignSelf: "flex-end", opacity: welcomeVisualAnimated ? 0.92 : 1 }} contentFit="contain" autoplay={welcomeVisualAnimated} /> : null}
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
