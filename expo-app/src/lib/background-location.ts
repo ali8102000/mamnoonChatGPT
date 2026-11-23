@@ -201,7 +201,6 @@ export async function getFreshProviderLocation(): Promise<Location.LocationObjec
   const permission = await Location.getForegroundPermissionsAsync();
   if (permission.status !== "granted") throw new Error("foreground_location_denied");
 
-  let bestAccuracy = Number.POSITIVE_INFINITY;
   for (const accuracy of [Location.Accuracy.High, Location.Accuracy.Balanced]) {
     try {
       const location = await withLocationTimeout(
@@ -209,13 +208,12 @@ export async function getFreshProviderLocation(): Promise<Location.LocationObjec
         20000,
       );
       const measuredAccuracy = location.coords.accuracy;
-      if (Number.isFinite(measuredAccuracy)) bestAccuracy = Math.min(bestAccuracy, Number(measuredAccuracy));
       if (Number.isFinite(measuredAccuracy) && Number(measuredAccuracy) <= 100) return location;
     } catch (error) {
       console.warn("[Mamnoon provider GPS] location attempt failed:", error);
     }
   }
-  throw new Error(bestAccuracy < Number.POSITIVE_INFINITY ? "location_fix_unavailable" : "location_fix_unavailable");
+  throw new Error("location_fix_unavailable");
 }
 
 export async function startProviderPresenceBackgroundLocation(
