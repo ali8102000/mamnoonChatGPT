@@ -16,7 +16,7 @@ returns void
 language plpgsql
 security definer
 set search_path=public,pg_temp
-as $$
+as $body$
 declare
   v record;
   v_observed integer;
@@ -169,7 +169,7 @@ begin
     where category_key=v.category_key;
   end loop;
 end;
-$;
+$body$;
 
 revoke all on function public.refresh_category_peak_pricing_monitor() from public,anon,authenticated;
 grant execute on function public.refresh_category_peak_pricing_monitor() to service_role;
