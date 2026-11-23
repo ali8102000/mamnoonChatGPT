@@ -24,7 +24,8 @@ export function useCompanyBranding() {
   useEffect(() => {
     let active = true;
     const apply = (data: any) => {
-      if (!active || !data) return;
+      if (!active) return;
+      if (!data) { setBranding((current) => ({ ...current, isLoaded: true })); return; }
       setBranding({
         companyName: data.company_name || DEFAULT_BRANDING.companyName,
         logoUrl: data.company_logo_url || "",
