@@ -24,6 +24,7 @@ SELECT setval(
 
 CREATE UNIQUE INDEX IF NOT EXISTS service_requests_request_code_uidx
   ON public.service_requests(request_code);
+ALTER TABLE public.service_requests ALTER COLUMN request_code SET NOT NULL;
 
 CREATE OR REPLACE FUNCTION public.assign_mamnoon_request_code()
 RETURNS trigger
@@ -255,6 +256,13 @@ BEGIN
       INSERT INTO public.support_conversation_requests(conversation_id, request_id, linked_by)
       VALUES (v_conversation_id, NEW.id, NEW.customer_id)
       ON CONFLICT (conversation_id, request_id) DO NOTHING;
+      UPDATE public.support_conversations
+      SET subject = CASE
+        WHEN position(NEW.request_code in subject) > 0 THEN subject
+        ELSE left(subject || ' · ' || NEW.request_code, 150)
+      END,
+      updated_at = now()
+      WHERE id = v_conversation_id;
     END IF;
   END IF;
 
