@@ -7,6 +7,20 @@ import { supabase } from "@/lib/supabase";
 const LOCATION_TASK = "mamnoon-active-request-location";
 const CONTEXT_KEY = "mamnoon-active-location-context";
 
+async function withLocationTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("location_timeout")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 type TrackingContext = { requestId: string; userId: string; role: "customer" | "provider" };
 
 TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
@@ -190,10 +204,10 @@ export async function getFreshProviderLocation(): Promise<Location.LocationObjec
   let bestAccuracy = Number.POSITIVE_INFINITY;
   for (const accuracy of [Location.Accuracy.High, Location.Accuracy.Balanced]) {
     try {
-      const location = await Promise.race([
+      const location = await withLocationTimeout(
         Location.getCurrentPositionAsync({ accuracy, mayShowUserSettingsDialog: true }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("location_timeout")), 20000)),
-      ]);
+        20000,
+      );
       const measuredAccuracy = location.coords.accuracy;
       if (Number.isFinite(measuredAccuracy)) bestAccuracy = Math.min(bestAccuracy, Number(measuredAccuracy));
       if (Number.isFinite(measuredAccuracy) && Number(measuredAccuracy) <= 100) return location;
