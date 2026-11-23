@@ -29,4 +29,6 @@ jobs:
         env:
           SUPABASE_URL: https://enteiolvirenbhkyskgb.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PBF_URL: https://geo2day.com/asia/iraq.pbf
+          OSM_ALLOW_UPDATES: "false"
         run: python .github/scripts/import-iraq-osm-places.py
