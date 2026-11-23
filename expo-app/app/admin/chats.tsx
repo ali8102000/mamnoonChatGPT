@@ -252,7 +252,7 @@ export default function AdminChatsScreen() {
             </View>
             <TouchableOpacity onPress={() => selected && toggleFavorite(selected.id)} style={s.headerAction}><Text style={[s.favoriteIcon, selected && favorites.includes(selected.id) && s.favoriteActive]}>★</Text></TouchableOpacity>
           </View>
-          {isBotHandoff(selected!) && <View style={s.botHandoff}><Text style={s.botHandoffText}>محوّلة من البوت · {selected?.subject || "بانتظار متابعة موظف الدعم"}</Text></View>}\n          {selected?.needs_admin_reply && <View style={s.alert}><Text style={s.alertText}>هذه المحادثة تحتاج رد من الإدارة</Text></View>}
+          {!!selected && isBotHandoff(selected) && <View style={s.botHandoff}><Text style={s.botHandoffText}>محوّلة من البوت · {selected?.subject || "بانتظار متابعة موظف الدعم"}</Text></View>}\n          {selected?.needs_admin_reply && <View style={s.alert}><Text style={s.alertText}>هذه المحادثة تحتاج رد من الإدارة</Text></View>}
           {!!selected?.complaints?.length && <View style={s.alert}><Text style={s.alertText}>شكوى مرتبطة بالطلب: {selected.complaints[0].reason}</Text></View>}
           {!!error && <Text style={s.error}>{error}</Text>}
           <MamnoonChatThread
