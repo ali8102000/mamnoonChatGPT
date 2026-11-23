@@ -274,7 +274,7 @@ def rest_upsert(rows: list[dict], base_url: str, service_key: str) -> None:
             "apikey": service_key,
             "Authorization": "Bearer " + service_key,
             "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates,return=minimal",
+            "Prefer": "resolution=ignore-duplicates,return=minimal",
         },
     )
     for attempt in range(MAX_RETRIES):
@@ -325,8 +325,8 @@ def main() -> int:
         rest_upsert(rows[offset:offset + CHUNK_SIZE], base_url, service_key)
         uploaded += len(rows[offset:offset + CHUNK_SIZE])
         if uploaded % 2000 == 0 or uploaded == len(rows):
-            print(f"Upserted {uploaded:,}/{len(rows):,}", flush=True)
-    print("Import complete. Existing records were preserved; no rows were deleted or deactivated.", flush=True)
+            print(f"Processed {uploaded:,}/{len(rows):,} (existing OSM keys are skipped)", flush=True)
+    print("Import complete. New OSM records were added; existing rows were left untouched and no rows were deleted or deactivated.", flush=True)
     return 0
 
 if __name__ == "__main__":

@@ -43,15 +43,15 @@ The maps proxy now exposes a governorate-scoped `nearby` action. It returns up t
 
 ## Nationwide incremental refresh pipeline
 
-A new GitHub Actions workflow, `.github/workflows/refresh-iraq-osm-places.yml`, downloads the current Geofabrik Iraq PBF extract and imports named OSM nodes and ways into the same governorate-scoped catalogue. It runs weekly and can also be started manually. The importer:
+A GitHub Actions workflow, `.github/workflows/refresh-iraq-osm-places.yml`, downloads the latest available Geofabrik Iraq PBF extract and imports named OSM nodes and ways plus addressable buildings into the governorate-scoped catalogue. It runs weekly, can be started manually, and runs after changes to the import pipeline. The importer:
 
 - Uses the repository's 18 ADM1 governorate polygons and assigns every imported point to the polygon that contains it.
-- Indexes Arabic, English, Kurdish and alternate names plus address and feature-category terms.
-- Uses stable OSM element keys (`osm:node:<id>`, `osm:way:<id>`) and upserts in batches, so refreshes update existing OSM rows instead of creating duplicates.
-- Is additive only: it never deletes or deactivates existing records.
-- Stops if the extract unexpectedly yields fewer than 5,000 named places.
+- Indexes Arabic, English, Kurdish and alternate names, normalized Arabic spelling variants, addresses, house numbers and feature-category terms.
+- Uses stable OSM element keys (`osm:node:<id>`, `osm:way:<id>`) and `resolution=ignore-duplicates`; existing rows are skipped while newly mapped OSM objects are added.
+- Is strictly additive: it never rewrites, deletes or deactivates existing records. This avoids unnecessary GIN-index rewrites during the large initial import.
+- Stops if the extract unexpectedly yields fewer than 5,000 records or any governorate has fewer than 500.
 - Does not import relation geometries yet; large multipolygon POIs and some area features require a later dedicated area-processing pass.
 
-Required GitHub Actions secret: `SUPABASE_SERVICE_ROLE_KEY`. The public project URL is configured in the workflow. The scheduled workflow must not be enabled on production until its first run has succeeded and the resulting per-governorate counts have been reviewed. The workflow installs `osmium` directly and intentionally does not use pip cache because this repository has no Python dependency lockfile.
+Required GitHub Actions secret: `SUPABASE_SERVICE_ROLE_KEY`. The public project URL is configured in the workflow. The workflow installs `osmium` directly and intentionally does not use pip cache because this repository has no Python dependency lockfile. The first successful dry run prepared more than 234,000 place/address suggestions across all 18 governorates.
 
 OpenStreetMap data is available under ODbL 1.0. Keep visible attribution to © OpenStreetMap contributors and comply with ODbL share-alike requirements for derived databases. Source: https://download.geofabrik.de/asia/iraq/index.html
