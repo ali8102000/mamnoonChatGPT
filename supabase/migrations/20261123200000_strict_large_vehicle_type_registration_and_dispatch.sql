@@ -54,18 +54,12 @@ DECLARE
   v_updated text;
   v_old_filter text := 'AND (r.vehicle_type IS NULL OR dp.vehicle_type = r.vehicle_type)';
   v_new_filter text := 'AND dp.vehicle_type = r.vehicle_type';
-  v_old_ring text := 'FROM public.get_dispatch_ring(''large_driver'', q.stage)';
-  v_new_ring text := 'FROM public.get_regional_dispatch_ring(''large_driver'', q.stage, r.governorate_key, ''all'')';
 BEGIN
   SELECT pg_get_functiondef('public.advance_taxi_dispatch(uuid)'::regprocedure) INTO v_def;
   IF position(v_old_filter in v_def) = 0 THEN
     RAISE EXCEPTION 'advance_taxi_dispatch vehicle filter anchor missing; refusing unsafe replacement';
   END IF;
-  IF position(v_old_ring in v_def) = 0 THEN
-    RAISE EXCEPTION 'advance_taxi_dispatch regional ring anchor missing; refusing unsafe replacement';
-  END IF;
   v_updated := replace(v_def, v_old_filter, v_new_filter);
-  v_updated := replace(v_updated, v_old_ring, v_new_ring);
   EXECUTE v_updated;
 END
 $migration$;
