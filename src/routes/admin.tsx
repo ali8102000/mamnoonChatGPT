@@ -2562,7 +2562,7 @@ function WalletSection() {
                       {payableDetail.requests.map((request: any) => (
                         <div key={request.request_id} className="rounded-xl bg-background/70 border border-border/60 p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-xs font-black">{request.request_type === "taxi" ? "رحلة تكسي" : "طلب خدمة"} · #{String(request.request_id).slice(0, 8)}</span>
+                            <span className="text-xs font-black">{request.request_type === "taxi" ? "رحلة تكسي" : "طلب خدمة"} · {request.request_code || ("#" + String(request.request_id).slice(0, 8))}</span>
                             <span className="text-[10px] text-muted-foreground">{request.completed_at ? new Date(request.completed_at).toLocaleString("ar-IQ") : "—"}</span>
                           </div>
                           <div className="grid grid-cols-3 gap-2 mt-2 text-[11px]">
