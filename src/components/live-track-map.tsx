@@ -20,6 +20,28 @@ function haversineKm(a: Coords, b: Coords) {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
+function distanceToPathMeters(point: Coords, path: Coords[]) {
+  if (path.length < 2) return Number.POSITIVE_INFINITY;
+  const cosLat = Math.cos(point.lat * Math.PI / 180);
+  const toXY = (p: Coords) => ({
+    x: (p.lng - point.lng) * 111320 * cosLat,
+    y: (p.lat - point.lat) * 110540,
+  });
+  let minimum = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < path.length; i++) {
+    const a = toXY(path[i - 1]);
+    const b = toXY(path[i]);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared > 0
+      ? Math.max(0, Math.min(1, -(a.x * dx + a.y * dy) / lengthSquared))
+      : 0;
+    minimum = Math.min(minimum, Math.hypot(a.x + t * dx, a.y + t * dy));
+  }
+  return minimum;
+}
+
 function bearingDeg(a: Coords, b: Coords) {
   const phi1 = (a.lat * Math.PI) / 180;
   const phi2 = (b.lat * Math.PI) / 180;
@@ -98,6 +120,9 @@ export function LiveTrackMap({
   const arrivedNotifiedRef = useRef(false);
   const lastDirectionsRequestRef = useRef<{ origin: Coords; destination: Coords; requestedAt: number; signature: string } | null>(null);
   const directionsSequenceRef = useRef(0);
+  const lastDeviationPointKeyRef = useRef<string | number | null>(null);
+  const offRouteSamplesRef = useRef(0);
+  const lastOffRouteAlertAtRef = useRef(0);
 
   const [isFullscreen, setIsFullscreen] = useState(fullscreen);
   const [mapReady, setMapReady] = useState(false);
@@ -282,18 +307,39 @@ export function LiveTrackMap({
       }
     }
 
-    // 4. Prefer a real road route from Google Directions. The direct line is only
-    // a fallback when road routing is unavailable.
+    // Check the latest accurate provider breadcrumb against the last confirmed road route.
+    // Two consecutive fixes beyond 100m are required to avoid GPS-noise alerts.
+    const latestProviderFix = routePoints[routePoints.length - 1];
+    const fixKey = latestProviderFix?.id ?? latestProviderFix?.updatedAt ?? null;
+    if (status === "in_progress" && latestProviderFix && fixKey !== null && fixKey !== lastDeviationPointKeyRef.current) {
+      lastDeviationPointKeyRef.current = fixKey;
+      if (Number.isFinite(latestProviderFix.accuracy) && Number(latestProviderFix.accuracy) <= 50 && routeMode === "road") {
+        const confirmedPath = routeLineRef.current?.getPath?.().getArray?.() ?? [];
+        const path = confirmedPath.map((point: any) => ({ lat: point.lat(), lng: point.lng() }));
+        const deviationMeters = distanceToPathMeters(latestProviderFix, path);
+        offRouteSamplesRef.current = deviationMeters > 100 ? offRouteSamplesRef.current + 1 : 0;
+        if (offRouteSamplesRef.current >= 2 && Date.now() - lastOffRouteAlertAtRef.current > 90_000) {
+          lastOffRouteAlertAtRef.current = Date.now();
+          offRouteSamplesRef.current = 0;
+          toast.error("تنبيه: يبدو أن المركبة ابتعدت عن مسار الشوارع. جارٍ إعادة التحقق من الطريق.");
+          lastDirectionsRequestRef.current = null;
+          routeLineRef.current?.setPath([]);
+          trafficLinesRef.current.forEach((line) => line.setMap(null));
+          trafficLinesRef.current = [];
+          setDistanceKm(null);
+          setEtaMinutes(null);
+          setRouteMode("waiting");
+        }
+      } else if (routeMode !== "road") {
+        offRouteSamplesRef.current = 0;
+      }
+    }
+
+    // 4. Only display distances and ETAs returned by a confirmed road route.
     const targetPoint = status === "in_progress" && destCoords ? destCoords : effectivePickup;
     if (activeDriverCoord && targetPoint) {
       const directDistance = haversineKm(activeDriverCoord, targetPoint);
       setAtPickup(status !== "in_progress" && directDistance <= 0.05);
-      const hasRoadRouting = typeof g.maps.DirectionsService === "function";
-      if (!hasRoadRouting || routeMode !== "road") {
-        setDistanceKm(directDistance);
-        setEtaMinutes(Math.max(1, Math.round((directDistance / 28) * 60)));
-      }
-
       if (!routeLineRef.current) {
         routeLineRef.current = new g.maps.Polyline({
           path: [],
@@ -316,6 +362,8 @@ export function LiveTrackMap({
       if (moved) {
         setRouteMode("waiting");
         setRouteProvider("none");
+        setDistanceKm(null);
+        setEtaMinutes(null);
         const sequence = ++directionsSequenceRef.current;
         lastDirectionsRequestRef.current = {
           origin: { lat: activeDriverCoord.lat, lng: activeDriverCoord.lng },
@@ -461,9 +509,11 @@ export function LiveTrackMap({
                 {distanceKm < 1
                   ? `${Math.round(distanceKm * 1000)} متر`
                   : `${distanceKm.toFixed(1)} كم`}
-                <span className="mr-2 text-[10px]">{routeMode === "road" ? "· مسار الشوارع" : routeMode === "waiting" ? "· جارٍ حساب الطريق" : "· تقدير مباشر"}</span>
+                <span className="mr-2 text-[10px]">· مسار الشوارع المؤكد</span>
               </div>
             )}
+            {routeMode === "waiting" && distanceKm == null && <div className="mt-1 text-[10px] font-bold text-amber-700">جارٍ التحقق من طريق الشوارع والوقت الفعلي…</div>}
+            {routeMode === "direct" && <div className="mt-1 text-[10px] font-bold text-rose-700">تعذّر تأكيد الطريق حالياً؛ لن نعرض مسافة أو وقتاً تخمينياً.</div>}
             {nextInstruction && <div className="mt-1 max-w-[260px] truncate text-[10px] font-bold text-emerald-700">التالي: {nextInstruction}</div>}
             {routeProvider === "google" && <div className="mt-0.5 text-[9px] font-bold text-emerald-700">مسار وحركة مرور مباشرة</div>}{routeProvider === "google_standard" && <div className="mt-0.5 text-[9px] font-bold text-muted-foreground">مسار شوارع Google</div>}
           </div>
