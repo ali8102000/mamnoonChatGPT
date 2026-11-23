@@ -116,13 +116,13 @@ export default function AdminInbox() {
   });
 
   return <section dir="rtl" className="flex h-[calc(100dvh-150px)] min-h-[70vh] flex-col overflow-hidden">
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    {!selected && <div className="flex h-14 shrink-0 items-center justify-between gap-3 px-4">
       <div><h2 className="text-xl font-black flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary"/> مركز المراسلات</h2><p className="text-xs text-muted-foreground mt-1">صندوق وارد موحد يشبه واتساب، مع تمييز البوت والدعم المباشر.</p></div>
       <button onClick={() => { void load(); if (selectedId) void loadMessages(selectedId); }} className="rounded-xl border border-border p-2 text-xs font-bold"><RefreshCw className="inline h-4 w-4 ml-1"/> تحديث</button>
     </div>
-    <div className="flex min-h-0 flex-1 flex-col">
+    </div>}\n    <div className="flex min-h-0 flex-1 flex-col">
       {!selected && <aside className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex gap-2 mb-3"><div className="relative flex-1"><Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground"/><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")setRemoteSearch(search.trim());}} placeholder="ابحث بالاسم أو الهاتف..." className="w-full rounded-xl border border-border bg-background py-2.5 pr-9 pl-3 text-xs outline-none"/></div><button onClick={()=>setRemoteSearch(search.trim())} className="rounded-xl bg-primary px-3 text-xs font-bold text-primary-foreground">بحث</button></div>
+        <div className="mx-4 mb-1 flex h-[38px] shrink-0 gap-2"><div className="relative flex-1"><Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground"/><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")setRemoteSearch(search.trim());}} placeholder="ابحث بالاسم أو الهاتف..." className="h-[38px] w-full rounded-full border border-border bg-background py-1.5 pr-9 pl-3 text-sm outline-none"/></div><button onClick={()=>setRemoteSearch(search.trim())} className="rounded-xl bg-primary px-3 text-xs font-bold text-primary-foreground">بحث</button></div>
         <div className="mb-1 flex h-[42px] shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap">{filters.map(f=><button key={f.key} onClick={()=>setFilter(f.key)} className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold ${filter===f.key?"border-primary bg-primary text-primary-foreground":"border-border bg-muted text-muted-foreground"}`}>{f.label}<span className="text-[10px]">{counts[f.key]}</span></button>)}</div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? <p className="text-center text-xs text-muted-foreground p-6">جارٍ تحميل المحادثات...</p> : filtered.length===0 ? <p className="text-center text-xs text-muted-foreground p-6">ماكو محادثات بهذا التصنيف</p> : filtered.map(item=><button key={item.id} onClick={()=>setSelectedId(item.id)} className={`w-full rounded-xl border p-3 text-right transition ${selectedId===item.id?"border-primary bg-primary/5":"border-border bg-card hover:bg-muted/40"}`}>
@@ -159,7 +159,7 @@ export default function AdminInbox() {
             busy={busy}
             placeholder="اكتب رد الإدارة..."
             emptyText="لا توجد رسائل في هذه المحادثة بعد"
-            footer={selected.conversation_type !== "service" ? (
+            footer={null /* actions live in the conversation header only */}\n            /* footer={selected.conversation_type !== "service" ? (
               <div className="flex justify-end gap-2 px-3 pt-2">
                 <button disabled={busy} onClick={() => void runAction("handoff")} className="rounded-lg border border-border px-3 py-2 text-[10px] font-bold"><Headset className="ml-1 inline h-3.5 w-3.5"/> تحويل للدعم</button>
                 <button disabled={busy} onClick={() => void runAction("resolve")} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white"><CheckCircle2 className="ml-1 inline h-3.5 w-3.5"/> إنهاء</button>
