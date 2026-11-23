@@ -146,8 +146,13 @@ BEGIN
   UPDATE public.mamnoon_revenue_ledger
   SET collected_iqd = LEAST(assessed_iqd - waived_iqd, GREATEST(0,v_collected_after)),
       status = CASE
-        WHEN LEAST(assessed_iqd - waived_iqd, GREATEST(0,v_collected_after)) + waived_iqd >= assessed_iqd THEN 'collected'
+        WHEN LEAST(assessed_iqd - waived_iqd, GREATEST(0,v_collected_after)) >= assessed_iqd THEN 'collected'
+        WHEN LEAST(assessed_iqd - waived_iqd, GREATEST(0,v_collected_after)) > 0
+          AND waived_iqd > 0
+          AND LEAST(assessed_iqd - waived_iqd, GREATEST(0,v_collected_after)) + waived_iqd >= assessed_iqd
+          THEN 'partially_waived'
         WHEN LEAST(assessed_iqd - waived_iqd, GREATEST(0,v_collected_after)) > 0 THEN 'partially_collected'
+        WHEN waived_iqd >= assessed_iqd THEN 'waived'
         WHEN waived_iqd > 0 THEN 'partially_waived'
         ELSE 'accrued'
       END,
