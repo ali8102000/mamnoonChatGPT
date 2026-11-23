@@ -174,10 +174,6 @@ $;
 revoke all on function public.refresh_category_peak_pricing_monitor() from public,anon,authenticated;
 grant execute on function public.refresh_category_peak_pricing_monitor() to service_role;
 
-do $$
-begin
-  if not exists (select 1 from cron.job where jobname='mamnoon-category-peak-monitor') then
-    perform cron.schedule('mamnoon-category-peak-monitor','1 minute',
-      'select public.refresh_category_peak_pricing_monitor()');
-  end if;
-end $$;
+select cron.schedule('mamnoon-category-peak-monitor','1 minute',
+  'select public.refresh_category_peak_pricing_monitor()')
+where not exists (select 1 from cron.job where jobname='mamnoon-category-peak-monitor');
