@@ -53,6 +53,18 @@ BEGIN
   FROM public.service_requests
   WHERE id = p_request_id
   FOR UPDATE;
+  -- A successful gateway callback can race with a customer cancellation.
+  -- Keep the paid transaction for refund review, but do not assess provider commission.
+  IF v_request.status::text = 'cancelled'
+     AND v_request.cancelled_by IS NOT DISTINCT FROM v_request.customer_id THEN
+    UPDATE public.service_requests
+    SET payment_method = 'zaincash',
+        commission = 0,
+        updated_at = now()
+    WHERE id = p_request_id;
+    RETURN;
+  END IF;
+
   IF NOT FOUND OR v_request.payment_method IS DISTINCT FROM 'zaincash'
      OR v_request.provider_id IS NULL THEN
     RAISE EXCEPTION 'zaincash_request_provider_not_found';
