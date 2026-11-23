@@ -202,7 +202,7 @@ export default function HistoryScreen() {
                 {!!req.pickup_text && <Text style={styles.cardDate} numberOfLines={1}>من: {req.pickup_text}</Text>}
                 {!!req.dest_text && <Text style={styles.cardDate} numberOfLines={1}>إلى: {req.dest_text}</Text>}
                 <Text style={styles.cardDate}>{new Date(req.created_at).toLocaleDateString("ar-IQ")}</Text>
-                {req.status === "cancelled" && <Text style={styles.cardDate}>ألغاه: {req.cancelled_by ? (req.cancelled_by === req.customer_id ? "الزبون" : "السائق / مقدم الخدمة") : "النظام"} · السبب: {req.cancellation_reason || "غير مسجل"}</Text>}
+                {req.cancelled_by && <Text style={styles.cardDate}>{req.status === "cancelled" ? "ألغى الرحلة" : "آخر اعتذار عن الرحلة"}: {req.cancelled_by === req.customer_id ? "الزبون" : "السائق / مقدم الخدمة"} · السبب: {req.cancellation_reason || "غير مسجل"}</Text>}
                 {req.price_estimate && (
                   <Text style={styles.cardPrice}>
                     {req.price_estimate.toLocaleString("en")} د.ع
