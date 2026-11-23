@@ -8,6 +8,23 @@ SET label_ar = 'اعتماد وتسجيل الاسترداد',
     active = true
 WHERE permission_key = 'finance.refund';
 
+INSERT INTO public.admin_permission_catalog (
+  permission_key, domain, label_ar, description, risk_level, active
+) VALUES (
+  'finance.refund.read',
+  'finance',
+  'عرض طلبات الإلغاء والاسترداد',
+  'عرض بيانات الزبون والدفع وطلبات الاسترداد ضمن النطاق الإداري المصرح',
+  'sensitive',
+  true
+)
+ON CONFLICT (permission_key) DO UPDATE
+SET domain = EXCLUDED.domain,
+    label_ar = EXCLUDED.label_ar,
+    description = EXCLUDED.description,
+    risk_level = EXCLUDED.risk_level,
+    active = EXCLUDED.active;
+
 UPDATE public.admin_permission_catalog
 SET label_ar = 'عرض طلبات الإلغاء والاسترداد',
     description = 'عرض بيانات الزبون والدفع وطلبات الاسترداد ضمن النطاق الإداري المصرح',
