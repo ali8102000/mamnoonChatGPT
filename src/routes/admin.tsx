@@ -96,7 +96,6 @@ import AdminControlCenter from "@/components/admin-control-center";
 import AdminInbox from "@/components/admin-inbox";
 import AdminRights from "@/components/admin-rights";
 import AdminTripLookup from "@/components/admin-trip-lookup";
-import AdminPartnerVerifications from "@/components/admin-partner-verifications";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/admin")({
@@ -138,8 +137,7 @@ type Section =
   | "dispatchZones"
   | "missions"
   | "imageStudio"
-  | "controlCenter"
-  | "partners";
+  | "controlCenter";
 
 const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] = [
   {
@@ -155,7 +153,6 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
     icon: Users,
     roles: ["super_admin", "admin", "support", "moderator", "department_monitoring"],
   },
-  { key: "partners", label: "الشركاء والمنشآت", icon: MapPin, roles: ["super_admin", "admin"] },
   {
     key: "providers",
     label: "السائقون والفنيون",
@@ -217,7 +214,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
 const NAV_GROUPS: { title: string; keys: Section[] }[] = [
   { title: "الرئيسية", keys: ["overview"] },
   { title: "الإحصائيات والمحافظات", keys: ["stats", "regions"] },
-  { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "partners", "requests", "chat", "friends", "reports", "map"] },
+  { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"] },
   { title: "المالية وحقوق ممنون", keys: ["rights", "coupons", "wallet"] },
   { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones", "missions"] },
   { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "controlCenter", "imageStudio"] },
@@ -447,7 +444,6 @@ function AdminPage() {
           {section === "stats" && <StatsSection canViewGovernorates={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "users" && <UsersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "providers" && <ProvidersSection />}
-          {section === "partners" && <AdminPartnerVerifications />}
           {section === "requests" && <RequestsSection />}
           {section === "chat" && <ChatSection />}
           {section === "friends" && <FriendsSection />}
