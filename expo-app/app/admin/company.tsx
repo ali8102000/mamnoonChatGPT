@@ -5,6 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Image as ExpoImage } from "expo-image";
+import { Image as ExpoImage } from "expo-image";
 import { useCompanyBranding } from "@/lib/company-branding";
 import { palette, radius, space } from "@/styles/theme";
 
@@ -129,7 +130,7 @@ export default function CompanySettingsScreen() {
           {logoAsset ? <Image source={{uri:logoAsset.uri}} style={s.logo} resizeMode="contain"/> : logoUrl ? <Image source={{uri:logoUrl}} style={s.logo} resizeMode="contain"/> : <View style={s.fallback}><Text style={s.fallbackText}>م</Text></View>}
           <Text style={s.previewName}>{name || "اسم الشركة"}</Text>
           <Text style={s.muted}>{welcome}</Text>
-          {(welcomeVisualAsset?.uri || welcomeVisualUrl) ? <Image source={{uri:welcomeVisualAsset?.uri || welcomeVisualUrl || undefined}} style={s.welcomeVisual} resizeMode="cover"/> : <View style={s.welcomeVisualEmpty}><Text style={s.muted}>صورة شاشة البداية</Text></View>}
+          {(welcomeVisualAsset?.uri || welcomeVisualUrl) ? <ExpoImage source={{uri:welcomeVisualAsset?.uri || welcomeVisualUrl || undefined}} style={s.welcomeVisual} contentFit="cover" autoplay={welcomeVisualAnimated}/> : <View style={s.welcomeVisualEmpty}><Text style={s.muted}>صورة شاشة البداية</Text></View>}
         </View>
         <Text style={s.label}>اسم الشركة</Text>
         <TextInput value={name} onChangeText={setName} maxLength={80} placeholder="اسم الشركة" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
