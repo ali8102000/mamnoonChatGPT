@@ -119,7 +119,6 @@ export default function AdminInbox() {
     {!selected && <div className="flex h-14 shrink-0 items-center justify-between gap-3 px-4">
       <div><h2 className="text-xl font-black flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary"/> مركز المراسلات</h2><p className="text-xs text-muted-foreground mt-1">صندوق وارد موحد يشبه واتساب، مع تمييز البوت والدعم المباشر.</p></div>
       <button onClick={() => { void load(); if (selectedId) void loadMessages(selectedId); }} className="rounded-xl border border-border p-2 text-xs font-bold"><RefreshCw className="inline h-4 w-4 ml-1"/> تحديث</button>
-    </div>
     </div>}
     <div className="flex min-h-0 flex-1 flex-col">
       {!selected && <aside className="flex min-h-0 flex-1 flex-col overflow-hidden">
