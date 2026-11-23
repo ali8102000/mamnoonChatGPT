@@ -1008,10 +1008,10 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
           disabled={!verified || availabilitySaving}
           aria-disabled={!verified || availabilitySaving}
           aria-label={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
-          className={`h-36 w-36 rounded-full grid place-items-center border-[5px] btn-press transition-all duration-300 font-black text-2xl tracking-wide ${
+          className={`h-36 w-36 rounded-full grid place-items-center border-[5px] btn-press transition-all duration-300 hover:scale-[1.04] active:scale-95 font-black text-xl tracking-wide disabled:opacity-70 disabled:cursor-wait ${
             available
               ? "bg-emerald-600 border-emerald-200 text-white shadow-[0_0_12px_rgba(16,185,129,0.55),0_0_32px_rgba(16,185,129,0.32)]"
-              : "bg-red-600 border-red-200 text-white shadow-[0_0_12px_rgba(239,68,68,0.5),0_0_30px_rgba(239,68,68,0.28)]"
+              : "bg-slate-700 border-slate-300 text-white shadow-[0_0_12px_rgba(100,116,139,0.35),0_0_30px_rgba(100,116,139,0.18)]"
           }`}
         >
           {availabilitySaving ? "جارٍ التحديث" : available ? "متاح الآن" : "متوقف"}
