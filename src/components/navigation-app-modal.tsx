@@ -42,7 +42,7 @@ export function NavigationAppModal({
   const coords = current ? { lat: current.lat, lng: current.lng } : null;
   const label = current?.label || (targetType === "pickup" ? "موقع الانطلاق" : "وجهة الوصول");
 
-  function openApp(app: "google" | "waze" | "native" | "darbuna") {
+  function openApp(app: "google" | "waze") {
     if (!coords) {
       toast.error("إحداثيات الموقع غير متوفرة");
       return;
@@ -65,20 +65,6 @@ export function NavigationAppModal({
         break;
       }
 
-      case "darbuna": {
-        // Darbuna does not expose a verified public deep-link contract.
-        // Try Android's standard geo intent; the device may offer Darbuna if installed.
-        window.location.href = `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(label)})`;
-        toast.success("نحاول فتح الموقع عبر دربونة أو تطبيق الخرائط المتاح 🧭");
-        break;
-      }
-
-      case "native": {
-        const nativeUrl = `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(label)})`;
-        window.location.href = nativeUrl;
-        toast.success("جاري فتح تطبيق الخرائط الافتراضي 🧭");
-        break;
-      }
     }
 
     onClose();
@@ -103,9 +89,9 @@ export function NavigationAppModal({
               <Navigation className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-black">ملاحة</h2>
+              <h2 className="text-base font-black">تحديد المسار</h2>
               <p className="text-[11px] text-muted-foreground">
-                للوصول السريع إلى العميل أو الوجهة
+                اختَر تطبيقاً لفتح الطريق إلى النقطة المحددة
               </p>
             </div>
           </div>
@@ -175,7 +161,7 @@ export function NavigationAppModal({
           <Button
             type="button"
             onClick={() => openApp("google")}
-            className="w-full p-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-border/70 shadow-sm flex items-center gap-3 text-right btn-press transition-all group"
+            className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-white hover:from-blue-100 hover:to-white border border-blue-200 shadow-sm flex items-center gap-3 text-right btn-press transition-all duration-200 hover:-translate-y-0.5 group"
           >
             <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-500 to-sky-600 text-white font-black text-xl grid place-items-center shadow-md shrink-0">
               🗺️
@@ -207,38 +193,6 @@ export function NavigationAppModal({
             <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 opacity-60 group-hover:opacity-100" />
           </Button>
 
-          {/* Darbuna: standard geo intent; availability depends on installed app handlers */}
-          <Button
-            type="button"
-            onClick={() => openApp("darbuna")}
-            className="w-full p-3.5 rounded-2xl bg-white hover:bg-slate-50 border border-border/70 shadow-sm flex items-center gap-3 text-right btn-press transition-all group"
-          >
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-xl grid place-items-center shadow-md shrink-0">🧭</div>
-            <div className="flex-1 min-w-0">
-              <div className="font-black text-sm text-foreground">دربونة (إذا كان مثبتاً ويدعم الموقع)</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">نرسل الموقع بصيغة الخرائط القياسية؛ قد يفتح دربونة أو يعرض تطبيقات الخرائط المتاحة</div>
-            </div>
-            <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 opacity-60 group-hover:opacity-100" />
-          </Button>
-
-          {/* 4. Native / Device Maps */}
-          <Button
-            type="button"
-            onClick={() => openApp("native")}
-            className="w-full p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-border/60 flex items-center gap-3 text-right btn-press transition-all"
-          >
-            <div className="h-10 w-10 rounded-xl bg-slate-200 text-foreground grid place-items-center text-lg shrink-0">
-              🧭
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-xs text-foreground">
-                تطبيق الخرائط الافتراضي للجهاز
-              </div>
-              <div className="text-[10px] text-muted-foreground">
-                فتح عبر التطبيق الافتراضي لهاتفك
-              </div>
-            </div>
-          </Button>
         </div>
       </div>
     </div>
