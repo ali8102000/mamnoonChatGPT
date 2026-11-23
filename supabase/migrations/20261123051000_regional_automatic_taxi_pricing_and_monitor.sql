@@ -57,10 +57,8 @@ DECLARE
   v_increase_cap numeric;
   v_discount_cap numeric;
 BEGIN
-  INSERT INTO public.taxi_pricing_auto_controls(governorate_key)
-  SELECT governorate_key FROM public.governorate_boundaries
-  UNION ALL SELECT 'all'
-  ON CONFLICT (governorate_key) DO NOTHING;
+  -- Only rows explicitly configured by an administrator are updated.
+  -- This preserves global fallback for governorates without local overrides.
 
   FOR v_key IN
     SELECT governorate_key FROM public.governorate_boundaries
