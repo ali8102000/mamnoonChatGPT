@@ -27,7 +27,7 @@ function HistoryPage() {
   const { session, loading } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [tab, setTab] = useState<"all" | "active" | "done">("all");
-  const [showAllRequests, setShowAllRequests] = useState(false);
+  const [showAllRequests, setShowAllRequests] = useState(true);
 
   useEffect(() => {
     if (!session) return;
@@ -35,7 +35,7 @@ function HistoryPage() {
     const loadHistory = async () => {
       const { data: directRows, error: directError } = await supabase
         .from("service_requests")
-        .select("id, type, status, price_estimate, pickup_text, dest_text, created_at")
+        .select("id, request_code, type, status, price_estimate, pickup_text, dest_text, created_at, attachment_path, customer_id, provider_id")
         .or(`customer_id.eq.${session.user.id},provider_id.eq.${session.user.id}`)
         .order("created_at", { ascending: false });
       if (directError) {
@@ -52,7 +52,7 @@ function HistoryPage() {
         const teamIds = [...new Set<string>(memberships.map((row: any) => String(row.request_id)))];
         const { data: rows, error: teamError } = await supabase
           .from("service_requests")
-          .select("id, type, status, price_estimate, pickup_text, dest_text, created_at")
+          .select("id, request_code, type, status, price_estimate, pickup_text, dest_text, created_at, attachment_path, customer_id, provider_id")
           .in("id", teamIds);
         if (!teamError) teamRows = rows ?? [];
         else console.warn("[history] Team request history failed:", teamError.message);
@@ -120,7 +120,9 @@ function HistoryPage() {
                   {r.type === "taxi" ? "🚕" : "🛠️"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm truncate">{r.pickup_text || "—"}</div>
+                  <div className="font-bold text-sm truncate">{r.type === "taxi" ? "رحلة تكسي" : "خدمة منزلية"}</div>
+                  <div className="text-[10px] font-black text-primary">رقم الرحلة: {r.request_code || String(r.id).slice(0, 8).toUpperCase()}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{r.pickup_text || "—"}{r.dest_text ? " ← " + r.dest_text : ""}</div>
                   <div className="text-[11px] text-muted-foreground">
                     {r.status === "pending"
                       ? "بانتظار"
