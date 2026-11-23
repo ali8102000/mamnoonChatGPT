@@ -6,6 +6,7 @@ export type CompanyBranding = {
   logoUrl: string | null;
   welcomeMessage: string;
   welcomeVisualUrl: string | null;
+  welcomeVisualAnimated: boolean;
 };
 
 const DEFAULT_BRANDING: CompanyBranding = {
@@ -13,6 +14,7 @@ const DEFAULT_BRANDING: CompanyBranding = {
   logoUrl: null,
   welcomeMessage: "مشوارك وخدمات بيتك، بمكان واحد.",
   welcomeVisualUrl: null,
+  welcomeVisualAnimated: false,
 };
 
 export function useCompanyBranding() {
@@ -24,7 +26,7 @@ export function useCompanyBranding() {
     }, 6000);
     void (supabase as any)
       .from("company_settings")
-      .select("company_name,company_logo_url,welcome_message,company_welcome_visual_url")
+      .select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated")
       .eq("id", 1)
       .maybeSingle()
       .then(({ data, error }: any) => {
@@ -34,6 +36,7 @@ export function useCompanyBranding() {
           logoUrl: data.company_logo_url || null,
           welcomeMessage: data.welcome_message || DEFAULT_BRANDING.welcomeMessage,
           welcomeVisualUrl: data.company_welcome_visual_url || null,
+          welcomeVisualAnimated: data.company_welcome_visual_animated === true,
         });
       })
       .catch((error: unknown) => console.warn("[company-branding] load failed; keeping defaults", error))
