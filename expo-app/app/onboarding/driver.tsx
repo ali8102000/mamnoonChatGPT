@@ -132,7 +132,8 @@ export default function DriverOnboarding() {
         if (typeof savedYear === "number") setYear(String(savedYear));
         if (typeof savedPlate === "string") setPlate(savedPlate);
         if (typeof savedColor === "string") setColor(savedColor);
-        if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury" || savedCategory === "large") setCategory(savedCategory);
+        if (largeDriverMode) setCategory("large");
+        else if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury" || savedCategory === "large") setCategory(savedCategory);
         const savedVehicleType = saved?.vehicle_type ?? m.vehicleType;
         if (savedVehicleType === "kia_cargo" || savedVehicleType === "kia_passenger" || savedVehicleType === "bus") setVehicleType(savedVehicleType);
         setOriginalVehicle({ make: make ?? (largeDriverMode ? "كيا" : ""), model: model ?? (largeDriverMode ? "كيا حمل" : ""), year: savedYear == null ? "" : String(savedYear), plate: savedPlate ?? "", color: savedColor ?? null, category: savedCategory ?? (largeDriverMode ? "large" : "economy"), vehicleType: savedVehicleType ?? null });
