@@ -7,6 +7,7 @@ export type CompanyBranding = {
   welcomeMessage: string;
   welcomeMediaUrl: string | null;
   welcomeMediaType: "image" | "gif";
+  isLoaded: boolean;
 };
 
 const DEFAULT_BRANDING: CompanyBranding = {
@@ -15,6 +16,7 @@ const DEFAULT_BRANDING: CompanyBranding = {
   welcomeMessage: "مشوارك وخدمات بيتك، بمكان واحد.",
   welcomeMediaUrl: null,
   welcomeMediaType: "image",
+  isLoaded: false,
 };
 
 export function useCompanyBranding() {
@@ -29,13 +31,14 @@ export function useCompanyBranding() {
         welcomeMessage: data.welcome_message || DEFAULT_BRANDING.welcomeMessage,
         welcomeMediaUrl: data.welcome_media_url || null,
         welcomeMediaType: data.welcome_media_type === "gif" ? "gif" : "image",
+        isLoaded: true,
       });
     };
     void (supabase as any).from("company_settings")
       .select("company_name,company_logo_url,welcome_message,welcome_media_url,welcome_media_type")
       .eq("id", 1).maybeSingle()
-      .then(({ data, error }: any) => { if (!error) apply(data); })
-      .catch((error: unknown) => console.warn("[company-branding] load failed", error));
+      .then(({ data, error }: any) => { if (!error) apply(data); else if (active) setBranding((current) => ({ ...current, isLoaded: true })); })
+      .catch((error: unknown) => { console.warn("[company-branding] load failed", error); if (active) setBranding((current) => ({ ...current, isLoaded: true })); });
     const channel = supabase.channel("company-branding-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "company_settings", filter: "id=eq.1" }, (payload: any) => {
         if (payload.eventType === "DELETE") setBranding(DEFAULT_BRANDING);
