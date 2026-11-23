@@ -24,6 +24,7 @@ import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { Image as ExpoImage } from "expo-image";
 import { useCompanyBranding } from "@/lib/company-branding";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { IRAQ_GOVERNORATES, getMobileGovernorate, nearestGovernorateKey } from "@/lib/governorates";
@@ -1521,7 +1522,7 @@ export default function NewRequest() {
 
                 {isLargeVehicle && mapMode === "pickup" && (
                   <View style={styles.taxiLargeTypePanel}>
-                    {companyBranding.welcomeVisualUrl ? <Image source={{ uri: companyBranding.welcomeVisualUrl }} style={{ width: "100%", height: 72, marginBottom: 8, opacity: companyBranding.welcomeVisualAnimated ? 0.92 : 1 }} resizeMode="contain" /> : null}
+                    {companyBranding.welcomeVisualUrl ? <ExpoImage source={{ uri: companyBranding.welcomeVisualUrl }} style={{ width: "100%", height: 72, marginBottom: 8, opacity: companyBranding.welcomeVisualAnimated ? 0.92 : 1 }} contentFit="contain" autoplay={companyBranding.welcomeVisualAnimated} /> : null}
                     <Text style={styles.taxiFieldLabel}>اختر نوع السيارة الكبيرة</Text>
                     <View style={styles.taxiLargeTypeRow}>
                       {([
