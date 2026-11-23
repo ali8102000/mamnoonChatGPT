@@ -450,7 +450,7 @@ function NewRequest() {
         });
         if (error) throw error;
         if (stale) return;
-        if (!Number.isFinite(data?.distanceKm) || data.distanceKm <= 0 || !Number.isFinite(data?.durationMin) || data.durationMin < 0 || !Number.isFinite(data?.priceEstimate)) throw new Error("تعذّر الحصول على تسعير موثوق من الخادم");
+        if (!Number.isFinite(data?.distanceKm) || data.distanceKm <= 0 || !Number.isFinite(data?.durationMin) || data.durationMin <= 0 || !Number.isFinite(data?.priceEstimate)) throw new Error("تعذّر الحصول على تسعير موثوق من الخادم");
         setRouteKm(Number(data.distanceKm));
         setRouteDurationMin(Number(data.durationMin));
         setServerTaxiFare(Number(data.priceEstimate));
@@ -459,7 +459,14 @@ function NewRequest() {
         setServerTaxiFares(data.categoryPrices && typeof data.categoryPrices === "object"
           ? data.categoryPrices
           : { [vehicleCategory]: Number(data.priceEstimate) });
-      } catch (e) { if (!stale) setRouteError(arabicWarning(e)); }
+      } catch (e) {
+        if (!stale) {
+          const warning = arabicWarning(e);
+          setRouteError(e instanceof Error && e.message.includes("سنصل إليك قريباً")
+            ? e.message
+            : "سنصل إليك قريباً. " + warning);
+        }
+      }
     }, 350);
     return () => { stale = true; clearTimeout(t); };
   }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity, destinationGovernorateKey, govKey, urgencyEnabled, routeRetry]);
@@ -755,7 +762,10 @@ function NewRequest() {
       setUrgencyEnabled(false);
       navigate({ to: "/request/$id", params: { id: data.id } });
     } catch (e: any) {
-      toast.error(e.message ?? "تعذّر إرسال الطلب");
+      const message = String(e?.message ?? "");
+      toast.error(message.includes("الخدمة غير متوفرة") || message.includes("سنصل إليك قريباً")
+        ? "سنصل إليك قريباً. الخدمة غير متوفرة حالياً في مدينتك."
+        : message || "تعذّر إرسال الطلب");
     } finally {
       setBusy(false);
     }
