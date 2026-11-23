@@ -721,6 +721,27 @@ export default function NewRequest() {
     };
   }, [pickupCoords, destinationCoords, mapMode, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, urgencyEnabled, routeRetry]);
 
+  useEffect(() => {
+    if (!isTaxi || isLargeVehicle || !pickupGovernorateKey) return;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setRouteRetry((value) => value + 1), 700);
+    };
+    const channel = supabase.channel(`taxi-live-pricing-mobile-${pickupGovernorateKey}-${Date.now()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: `governorate_key=eq.${pickupGovernorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: "governorate_key=eq.all" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pricing_settings", filter: `governorate_key=eq.${pickupGovernorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pricing_settings", filter: "governorate_key=eq.all" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls", filter: `governorate_key=eq.${pickupGovernorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls", filter: "governorate_key=eq.all" }, refresh)
+      .subscribe();
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [isTaxi, isLargeVehicle, pickupGovernorateKey]);
+
   const placeSearchCacheRef = useRef(new Map<string, Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }>>());
   useEffect(() => {
     const query = placeQuery.trim();
