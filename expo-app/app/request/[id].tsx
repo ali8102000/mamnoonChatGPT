@@ -81,6 +81,7 @@ const SERVICE_IMAGES: Record<string, number> = {
 type Coordinates = { latitude: number; longitude: number; heading?: number | null; updatedAt?: string };
 type RequestRecord = {
   id: string;
+  request_code?: string | null;
   urgency_multiplier?: number | null;
   urgency_percent?: number | null;
   provider_id: string | null;
@@ -413,7 +414,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "id, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, provider_arrived_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
+        "id, request_code, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, provider_arrived_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
       )
       .eq("id", id)
       .maybeSingle();
@@ -1499,6 +1500,9 @@ export default function RequestDetail() {
           <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{request.type === "service" && request.status === "accepted" && remainingPeopleCount > 0 ? "اكتفى الزبون بالعدد المتوفر" : statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>{otherLocation && request.pickup_lat != null && request.pickup_lng != null && (() => { const rad = (value: number) => value * Math.PI / 180; const dLat = rad(otherLocation.latitude - request.pickup_lat!); const dLng = rad(otherLocation.longitude - request.pickup_lng!); const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(request.pickup_lat!)) * Math.cos(rad(otherLocation.latitude)) * Math.sin(dLng / 2) ** 2; const meters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return !driverLocationFresh ? "بانتظار تحديث موقع السائق" : meters <= 50 ? "انا في نقطة الانطلاق" : driverEtaMinutes != null && driverEtaMinutes <= 2 ? "دقيقتين واوصل" : driverEtaMinutes != null ? `باقي ${driverEtaMinutes} دقيقة واوصل` : "الكابتن متجه إليك"; })()}</Text>}</View>
           <View style={{ width: 30 }} />
         </View>
+        <View style={{ paddingHorizontal: 16, paddingVertical: 7, backgroundColor: acceptedMapMode ? "rgba(7,21,37,0.88)" : palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line }}>
+          <Text style={{ color: acceptedMapMode ? "#FFFFFF" : palette.ink, fontSize: 11, fontWeight: "900", textAlign: "center" }} dir="ltr">رقم الطلب: {request.request_code || request.id.slice(0, 8).toUpperCase()}</Text>
+        </View>
         <ScrollView
           ref={scrollRef}
           style={[styles.requestScroll, acceptedMapMode && styles.requestScrollOnMap]}
@@ -1649,6 +1653,15 @@ export default function RequestDetail() {
                 </TouchableOpacity>
               </View>
             )}
+          </View>
+        )}
+        {isCustomer && request.status === "cancelled" && request.payment_method === "zaincash" && (
+          <View style={{ marginTop: 14, borderRadius: 18, padding: 16, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold, gap: 8 }}>
+            <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>طلب الاسترداد قيد المراجعة</Text>
+            <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 20, textAlign: "right" }}>تم تسجيل إلغاء الطلب المدفوع بزين كاش. المبلغ لم يُسترد بعد ولن يتم تحويله تلقائياً. ستراجع الإدارة الطلب وتبلغك بالقرار.</Text>
+            <TouchableOpacity onPress={() => router.push({ pathname: "/support-chat", params: { requestId: request.id } })} style={[styles.actionBtn, { backgroundColor: palette.brand }]}>
+              <Text style={styles.actionBtnText}>مراسلة شركة ممنون بخصوص هذا الطلب</Text>
+            </TouchableOpacity>
           </View>
         )}
         {isCustomer && request.status === "cancelled" && request.cancellation_reason === "dispatch_no_provider" && (
