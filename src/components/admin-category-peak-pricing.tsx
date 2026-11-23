@@ -10,6 +10,13 @@ type Row = {
   max_surcharge_percent: number;
   mode: "auto" | "notify" | "off";
   enabled: boolean;
+  auto_calculated_percent?: number;
+  active_providers?: number;
+  observed_providers?: number;
+  pending_requests?: number;
+  demand_per_provider?: number;
+  last_reason?: string | null;
+  last_calculated_at?: string | null;
 };
 const TAXI = [
   ["taxi:economy", "تكسي اقتصادي"],
@@ -95,6 +102,13 @@ export default function AdminCategoryPeakPricing() {
     <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">كل فئة لها حد أدنى وحد أعلى مستقلان. تبقى كل الفئات متوقفة افتراضياً إلى أن تُفعّل بعد اكتمال واختبار محرك الاحتساب.</div>
     {rows.map(row => <div key={row.category_key} className="rounded-xl border border-border p-3 space-y-3">
       <div className="flex items-center justify-between gap-2"><b className="text-sm">{row.category_label_ar}</b><span className="text-[10px] text-muted-foreground">{row.category_key}</span></div>
+      <div className="rounded-lg bg-muted/40 p-3 text-xs space-y-1">
+        <div className="flex justify-between"><span>النسبة التي حسبها ممنون</span><b>{Number(row.auto_calculated_percent ?? 0).toFixed(2)}%</b></div>
+        <div className="flex justify-between"><span>مقدمو الخدمة المتاحون / المرصودون</span><b>{row.active_providers ?? 0} / {row.observed_providers ?? 0}</b></div>
+        <div className="flex justify-between"><span>الطلبات المعلّقة</span><b>{row.pending_requests ?? 0}</b></div>
+        <p className="text-muted-foreground">{row.last_reason ?? "بانتظار أول دورة مراقبة."}</p>
+        <p className="text-[10px] text-muted-foreground">{row.last_calculated_at ? "آخر تحديث: " + new Date(row.last_calculated_at).toLocaleString("ar-IQ") : "لم تُحسب بعد"}</p>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-xs font-bold space-y-1"><span>من (%)</span><input type="number" min="0" max="100" value={row.min_surcharge_percent} onChange={e=>edit(row.category_key,{min_surcharge_percent:Number(e.target.value)})} className="w-full rounded-lg border bg-background p-2.5"/></label>
         <label className="text-xs font-bold space-y-1"><span>إلى (%)</span><input type="number" min="0" max="100" value={row.max_surcharge_percent} onChange={e=>edit(row.category_key,{max_surcharge_percent:Number(e.target.value)})} className="w-full rounded-lg border bg-background p-2.5"/></label>
