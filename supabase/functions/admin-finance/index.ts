@@ -61,6 +61,132 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, data });
     };
 
+    if (body.action === "refund_cases_list") {
+      const { data: assignment, error: assignmentError } = await caller.from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+      if (assignmentError) return json({ error: "finance_scope_load_failed" }, 500);
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+      await requirePermission("finance.read", scopeType, scopeGovernorate);
+
+      const status = ["pending_review", "approved", "rejected", "refunded"].includes(body.status)
+        ? body.status : null;
+      let query = admin.from("mamnoon_zaincash_refund_cases").select("*")
+        .order("created_at", { ascending: false }).limit(150);
+      if (status) query = query.eq("status", status);
+      const { data: cases, error: casesError } = await query;
+      if (casesError) return json({ error: "refund_cases_load_failed" }, 500);
+      const requestIds = [...new Set((cases ?? []).map((row: any) => row.request_id))];
+      const customerIds = [...new Set((cases ?? []).map((row: any) => row.customer_id))];
+      const paymentIds = [...new Set((cases ?? []).map((row: any) => row.payment_id))];
+      const [{ data: requests, error: requestsError }, { data: profiles, error: profilesError }, { data: payments, error: paymentsError }] = await Promise.all([
+        requestIds.length ? admin.from("service_requests").select("id,request_code,type,status,cancellation_reason,governorate_key,customer_id,created_at").in("id", requestIds) : Promise.resolve({ data: [], error: null }),
+        customerIds.length ? admin.from("profiles").select("id,full_name,phone").in("id", customerIds) : Promise.resolve({ data: [], error: null }),
+        paymentIds.length ? admin.from("payment_transactions").select("id,amount,currency,status,gateway_transaction_id,paid_at,provider,metadata").in("id", paymentIds) : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (requestsError || profilesError || paymentsError) return json({ error: "refund_case_details_load_failed" }, 500);
+      const requestMap = new Map((requests ?? []).map((row: any) => [row.id, row]));
+      const profileMap = new Map((profiles ?? []).map((row: any) => [row.id, row]));
+      const paymentMap = new Map((payments ?? []).map((row: any) => [row.id, row]));
+      const caseIds = (cases ?? []).map((row: any) => row.id);
+      const { data: events, error: eventsError } = caseIds.length
+        ? await admin.from("mamnoon_zaincash_refund_events").select("id,refund_case_id,event_type,actor_id,note,reference,amount_iqd,created_at").in("refund_case_id", caseIds).order("created_at", { ascending: true })
+        : { data: [], error: null };
+      if (eventsError) return json({ error: "refund_case_events_load_failed" }, 500);
+      const visibleCases = (cases ?? []).filter((row: any) => {
+        const request = requestMap.get(row.request_id) as any;
+        return scopeType !== "governorate" || !scopeGovernorate || request?.governorate_key === scopeGovernorate;
+      }).map((row: any) => ({
+        ...row,
+        request: requestMap.get(row.request_id) ?? null,
+        customer: profileMap.get(row.customer_id) ?? null,
+        payment: paymentMap.get(row.payment_id) ?? null,
+        events: (events ?? []).filter((event: any) => event.refund_case_id === row.id),
+      }));
+      return json({ cases: visibleCases, can_decide: true });
+    }
+
+    if (body.action === "refund_case_decide") {
+      if (!uuid(body.refund_case_id) || !["approved", "rejected"].includes(body.decision) ||
+          (body.note !== undefined && (typeof body.note !== "string" || body.note.trim().length > 500))) {
+        return json({ error: "invalid_request" }, 400);
+      }
+      const { data: refundCase, error: caseError } = await admin.from("mamnoon_zaincash_refund_cases")
+        .select("id,request_id,customer_id,status,amount_iqd").eq("id", body.refund_case_id).maybeSingle();
+      if (caseError || !refundCase) return json({ error: "refund_case_not_found" }, 404);
+      const { data: request, error: requestError } = await admin.from("service_requests")
+        .select("governorate_key,request_code").eq("id", refundCase.request_id).maybeSingle();
+      if (requestError || !request) return json({ error: "request_not_found" }, 404);
+      const { data: assignment } = await caller.from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+      if (scopeType === "governorate" && scopeGovernorate !== request.governorate_key) {
+        return json({ error: "refund_case_outside_finance_scope" }, 403);
+      }
+      const { data: canRefund, error: refundPermissionError } = await caller.rpc("admin_has_permission", {
+        p_permission_key: "finance.refund",
+        p_scope_type: scopeType,
+        p_scope_governorate: scopeGovernorate,
+      });
+      if (refundPermissionError || canRefund !== true) return json({ error: "permission_required" }, 403);
+      if (refundCase.status !== "pending_review") return json({ error: "refund_case_already_reviewed" }, 409);
+      const note = typeof body.note === "string" ? body.note.trim() : "";
+      const { data: updated, error: updateError } = await admin.from("mamnoon_zaincash_refund_cases")
+        .update({ status: body.decision, decision_note: note || null, decided_by: auth.user.id, decided_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", refundCase.id).eq("status", "pending_review").select("id,status,decided_by,decided_at").maybeSingle();
+      if (updateError || !updated) return json({ error: "refund_case_decision_conflict" }, 409);
+      await admin.from("mamnoon_zaincash_refund_events").insert({
+        refund_case_id: refundCase.id, event_type: body.decision, actor_id: auth.user.id,
+        note: note || (body.decision === "approved" ? "تمت الموافقة المبدئية؛ بانتظار تنفيذ الاسترداد اليدوي." : "تم رفض طلب الاسترداد."),
+        amount_iqd: refundCase.amount_iqd,
+      });
+      await admin.from("notifications").insert({
+        user_id: refundCase.customer_id, type: "zaincash_refund_decision",
+        title: body.decision === "approved" ? "تمت الموافقة على طلب الاسترداد" : "تم رفض طلب الاسترداد",
+        body: body.decision === "approved"
+          ? "تمت الموافقة المبدئية على طلبك. ستصلك رسالة أخرى بعد تسجيل إعادة المبلغ فعلياً."
+          : "تم رفض طلب الاسترداد. السبب: " + (note || "يرجى مراسلة الدعم لمزيد من التفاصيل."),
+        link: "/support-chat?requestId=" + refundCase.request_id,
+        data: { request_id: refundCase.request_id, request_code: request.request_code, refund_case_id: refundCase.id },
+      });
+      return json({ ok: true, case: updated });
+    }
+
+    if (body.action === "refund_case_mark_refunded") {
+      if (!uuid(body.refund_case_id) || typeof body.refund_reference !== "string" ||
+          body.refund_reference.trim().length < 2 || body.refund_reference.trim().length > 120) {
+        return json({ error: "invalid_refund_details" }, 400);
+      }
+      const { data: refundCase, error: caseError } = await admin.from("mamnoon_zaincash_refund_cases")
+        .select("id,request_id,status").eq("id", body.refund_case_id).maybeSingle();
+      if (caseError || !refundCase) return json({ error: "refund_case_not_found" }, 404);
+      const { data: request, error: requestError } = await admin.from("service_requests")
+        .select("governorate_key").eq("id", refundCase.request_id).maybeSingle();
+      if (requestError || !request) return json({ error: "request_not_found" }, 404);
+      const { data: assignment } = await caller.from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+      if (scopeType === "governorate" && scopeGovernorate !== request.governorate_key) {
+        return json({ error: "refund_case_outside_finance_scope" }, 403);
+      }
+      const { data: canRefund, error: refundPermissionError } = await caller.rpc("admin_has_permission", {
+        p_permission_key: "finance.refund",
+        p_scope_type: scopeType,
+        p_scope_governorate: scopeGovernorate,
+      });
+      if (refundPermissionError || canRefund !== true) return json({ error: "permission_required" }, 403);
+      const { data, error } = await admin.rpc("admin_mark_zaincash_refund", {
+        p_refund_case_id: refundCase.id,
+        p_refund_reference: body.refund_reference.trim(),
+        p_actor_id: auth.user.id,
+        p_refunded_at: new Date().toISOString(),
+      });
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true, data });
+    }
+
     if (body.action === "provider_payables_search") {
       const { data: assignment, error: assignmentError } = await caller.from("staff_assignments")
         .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
