@@ -200,6 +200,7 @@ export default function SupportChatScreen() {
   if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
   return <View style={styles.container}>
     <Text style={styles.title}>{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</Text>
+    {!!selected?.subject && <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginBottom: 8 }}>{selected.subject}</Text>}
     {staff && !customerServiceOnly && <View style={styles.startBox}>
       <Text style={styles.startTitle}>ابدأ محادثة مع فني أو سائق</Text>
       <TextInput value={providerSearch} onChangeText={setProviderSearch} placeholder="ابحث بالاسم أو الهاتف" style={styles.searchInput} />
