@@ -16,6 +16,7 @@ export default function CompanySettingsScreen() {
   const [logoAsset, setLogoAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [welcomeVisualUrl, setWelcomeVisualUrl] = useState<string | null>(null);
   const [welcomeVisualAsset, setWelcomeVisualAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [welcomeVisualAnimated, setWelcomeVisualAnimated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [allowed, setAllowed] = useState(false);
@@ -27,7 +28,7 @@ export default function CompanySettingsScreen() {
       try {
         const [{ data: owner, error: permissionError }, { data, error }] = await Promise.all([
           supabase.rpc("is_super_admin", { p_user_id: user.id }),
-          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url").eq("id",1).maybeSingle(),
+          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated").eq("id",1).maybeSingle(),
         ]);
         if (!active) return;
         setAllowed(!permissionError && owner === true);
@@ -36,6 +37,7 @@ export default function CompanySettingsScreen() {
         setLogoUrl(data?.company_logo_url || branding.logoUrl);
         setWelcome(data?.welcome_message || branding.welcomeMessage);
         setWelcomeVisualUrl(data?.company_welcome_visual_url || branding.welcomeVisualUrl);
+        setWelcomeVisualAnimated(data?.company_welcome_visual_animated === true);
       } catch (error: any) {
         if (active) Alert.alert("تعذر تحميل بيانات الشركة", error?.message || "تحقق من الاتصال وحاول مرة ثانية.");
       } finally {
@@ -100,7 +102,7 @@ export default function CompanySettingsScreen() {
       }
       const { error } = await (supabase as any).from("company_settings").upsert({
         id: 1, company_name: companyName, company_logo_url: nextLogoUrl,
-        welcome_message: message, company_welcome_visual_url: nextWelcomeVisualUrl, updated_by: user.id, updated_at: new Date().toISOString(),
+        welcome_message: message, company_welcome_visual_url: nextWelcomeVisualUrl, company_welcome_visual_animated: welcomeVisualAnimated, updated_by: user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
       if (error) throw error;
       setLogoUrl(nextLogoUrl);
@@ -136,6 +138,7 @@ export default function CompanySettingsScreen() {
         <Text style={s.label}>صورة شاشة بداية التطبيق (تقبل GIF متحرك)</Text>
         <TouchableOpacity onPress={()=>void chooseWelcomeVisual()} style={s.pickButton}><Text style={s.pickText}>{welcomeVisualAsset ? "اختيار صورة أخرى" : welcomeVisualUrl ? "تبديل صورة البداية" : "اختيار صورة البداية"}</Text></TouchableOpacity>
         {!!welcomeVisualAsset && <Text style={s.muted}>الصورة الجديدة محددة وجاهزة للحفظ.</Text>}
+        <TouchableOpacity onPress={()=>setWelcomeVisualAnimated(value=>!value)} style={s.animationToggle}><View style={[s.toggleDot,welcomeVisualAnimated&&s.toggleDotOn]}/><Text style={s.pickText}>{welcomeVisualAnimated ? "الحركة التفاعلية مفعّلة" : "تفعيل حركة تفاعلية ناعمة للصورة"}</Text></TouchableOpacity>
         <Text style={s.label}>رسالة الترحيب</Text>
         <TextInput value={welcome} onChangeText={setWelcome} maxLength={180} multiline placeholder="مشوارك وخدمات بيتك، بمكان واحد." placeholderTextColor={palette.muted} style={[s.input,{minHeight:120,textAlignVertical:"top",lineHeight:24}]} textAlign="right"/>
         <TouchableOpacity disabled={saving} onPress={()=>void save()} style={[s.saveButton,saving&&{opacity:0.6}]}><Text style={s.saveText}>{saving?"جاري الحفظ...":"حفظ بيانات الشركة"}</Text></TouchableOpacity>
@@ -153,6 +156,7 @@ const s=StyleSheet.create({
   preview:{alignItems:"center",backgroundColor:palette.canvas,borderRadius:radius.md,padding:16,gap:7},
   logo:{width:96,height:96,borderRadius:22,backgroundColor:"#fff"},fallback:{width:96,height:96,borderRadius:22,backgroundColor:palette.brand,alignItems:"center",justifyContent:"center"},
   fallbackText:{color:palette.white,fontSize:48,fontWeight:"900"},previewName:{color:palette.ink,fontSize:20,fontWeight:"900"},
+  animationToggle:{minHeight:48,borderRadius:radius.md,borderWidth:1,borderColor:palette.line,backgroundColor:palette.canvas,flexDirection:"row",alignItems:"center",justifyContent:"flex-end",gap:10,padding:12},toggleDot:{width:18,height:18,borderRadius:9,borderWidth:2,borderColor:palette.muted},toggleDotOn:{backgroundColor:palette.gold,borderColor:palette.gold},
   welcomeVisual:{width:"100%",height:150,borderRadius:16,backgroundColor:"#050B13"},welcomeVisualEmpty:{width:"100%",height:100,borderRadius:16,backgroundColor:"#050B13",alignItems:"center",justifyContent:"center"},
   input:{minHeight:48,borderWidth:1,borderColor:palette.line,borderRadius:radius.md,paddingHorizontal:13,paddingVertical:10,color:palette.ink,backgroundColor:palette.canvas,fontSize:13},
   pickButton:{minHeight:46,backgroundColor:palette.brandSoft,borderRadius:radius.md,alignItems:"center",justifyContent:"center",padding:12,borderWidth:1,borderColor:palette.brand},
