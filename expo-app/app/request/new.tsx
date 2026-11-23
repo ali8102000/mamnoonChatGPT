@@ -248,7 +248,7 @@ export default function NewRequest() {
     setMapMode("destination"); setDestinationConfirmed(false);
     setRouteKm(null); setRouteError(null); setShowFavoriteNameInput(false);
     setPlaceQuery(""); setPlaceSuggestions([]); setPlaceSearchError(null);
-    moveMap({ ...coords, latitudeDelta: 0.0035, longitudeDelta: 0.0035 });
+    moveMap({ ...coords, latitudeDelta: 0.0025, longitudeDelta: 0.0025 });
   }
 
   async function deleteFavoritePlace(id: string) {
@@ -1106,7 +1106,7 @@ export default function NewRequest() {
       setDestination("");
       setDestinationGovernorateKey(governorateKey);
       // Keep the selected pickup, but zoom in closer for precise destination picking.
-      moveMap({ ...pickupCoords, latitudeDelta: 0.0035, longitudeDelta: 0.0035 });
+      moveMap({ ...pickupCoords, latitudeDelta: 0.0025, longitudeDelta: 0.0025 });
       outsideGovernoratePromptShownRef.current = false;
       setRouteKm(null);
       setRouteDurationMin(null);
@@ -1938,7 +1938,7 @@ export default function NewRequest() {
         </View>
       )}
 
-      <View style={styles.mapContainer}>
+      <View style={[styles.mapContainer, { height: Math.max(480, window.height - 160) }]}>
         <MapView
           ref={mapRef}
           style={styles.map}
@@ -2315,7 +2315,7 @@ const styles = StyleSheet.create({
   governoratePickerButton: { minHeight: 52, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.md, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   governoratePickerLabel: { color: palette.muted, fontSize: 11, fontWeight: "800" },
   governoratePickerValue: { color: palette.ink, fontSize: 14, fontWeight: "900" },
-  placeSearchTop: { borderWidth: 1.5, borderColor: palette.gold, backgroundColor: palette.surface, minHeight: 52, marginTop: 8 },
+  placeSearchTop: { borderWidth: 1.5, borderColor: palette.gold, backgroundColor: palette.surface, minHeight: 42, paddingVertical: 8, marginTop: 5, fontSize: 12 },
   taxiNearbyMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.surface, borderWidth: 2, borderColor: palette.brand, alignItems: "center", justifyContent: "center", elevation: 5 },
   taxiNearbyMarkerText: { fontSize: 19 },
   taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -15, marginTop: -38, zIndex: 4 },
