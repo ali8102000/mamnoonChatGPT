@@ -15,6 +15,7 @@ export const Route = createFileRoute("/support-chat")({
 function SupportChatPage() {
   const { session, loading } = useAuth();
   const uid = session?.user.id;
+  const requestId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("requestId") : null;
   const [isStaff, setIsStaff] = useState(false);
   const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -76,10 +77,17 @@ function SupportChatPage() {
           data = retry.data;
         } else data = created.data;
       }
+      if (requestId && data?.id) {
+        const { error: linkError } = await (supabase as any).from("support_conversation_requests")
+          .insert({ conversation_id: data.id, request_id: requestId, linked_by: uid });
+        if (linkError && linkError.code !== "23505") {
+          console.warn("[support request link] failed:", linkError.message);
+        }
+      }
       setConversations([data]);
       setSelected(data);
     }
-  }, [uid, selected?.id]);
+  }, [uid, selected?.id, requestId]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     const { data, error } = await (supabase as any).from("support_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
