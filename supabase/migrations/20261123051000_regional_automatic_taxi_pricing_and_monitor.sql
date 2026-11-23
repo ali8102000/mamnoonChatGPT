@@ -547,6 +547,10 @@ BEGIN
       MESSAGE='سنصل إليك قريباً. لم نتمكن من تحديد مدينتك بدقة.';
   END IF;
   NEW.governorate_key := v_detected_governorate;
+  IF NEW.governorate_key IS NULL OR length(trim(NEW.governorate_key))=0 THEN
+    RAISE EXCEPTION USING ERRCODE='P0001',
+      MESSAGE='سنصل إليك قريباً. تعذّر تحديد مدينتك بدقة.';
+  END IF;
   IF NOT public.regional_services_enabled(NEW.governorate_key) THEN
     RAISE EXCEPTION USING ERRCODE='P0001',
       MESSAGE='سنصل إليك قريباً. الخدمة غير متوفرة حالياً في مدينتك.';
