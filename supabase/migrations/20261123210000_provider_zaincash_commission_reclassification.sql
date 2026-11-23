@@ -70,6 +70,12 @@ BEGIN
       THEN 'taxi_commission' ELSE 'service_commission' END
   FOR UPDATE;
   IF NOT FOUND THEN
+    -- A zero commission is valid for exempt requests and has no ledger row.
+    -- A positive request commission without its ledger is inconsistent financial data;
+    -- fail the payment finalization transaction instead of silently erasing the fee.
+    IF COALESCE(v_request.commission, 0) > 0 THEN
+      RAISE EXCEPTION 'zaincash_commission_ledger_missing';
+    END IF;
     UPDATE public.service_requests
     SET commission = 0, updated_at = now()
     WHERE id = p_request_id;
