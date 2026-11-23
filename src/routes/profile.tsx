@@ -111,7 +111,7 @@ function ProfilePage() {
   async function submitWalletTopup() {
     const normalized = walletTopupAmount
       .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-      .replace(/[٬,،\\s]/g, "");
+      .replace(/[٬,،\s]/g, "");
     const amountIQD = Number(normalized);
     if (!Number.isSafeInteger(amountIQD) || amountIQD < 5000 || amountIQD > 5000000) {
       toast.error("اكتب مبلغاً صحيحاً من ٥٬٠٠٠ إلى ٥٬٠٠٠٬٠٠٠ دينار.");
