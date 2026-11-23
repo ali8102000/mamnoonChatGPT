@@ -316,10 +316,16 @@ BEGIN
       ON CONFLICT (conversation_id, request_id) DO NOTHING;
       UPDATE public.support_conversations
       SET subject = CASE
-        WHEN position(NEW.request_code in subject) > 0 THEN subject
-        ELSE left(subject || ' · ' || NEW.request_code, 150)
-      END,
-      updated_at = now()
+            WHEN position(NEW.request_code in subject) > 0 THEN subject
+            ELSE left(subject || ' · ' || NEW.request_code, 150)
+          END,
+          needs_admin_reply = true,
+          ai_status = 'waiting_human',
+          ticket_status = 'new',
+          handoff_status = CASE WHEN assigned_staff_id IS NOT NULL THEN 'assigned' ELSE 'waiting_for_admin' END,
+          last_message_source = 'user',
+          last_message_at = now(),
+          updated_at = now()
       WHERE id = v_conversation_id;
     END IF;
   END IF;
