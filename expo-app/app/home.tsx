@@ -22,6 +22,7 @@ import * as Haptics from "expo-haptics";
 import { startProviderPresenceBackgroundLocation, stopProviderPresenceBackgroundLocation } from "@/lib/background-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
+import { useCompanyBranding } from "@/lib/company-branding";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { useThemePreference } from "@/lib/theme-preference";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -57,14 +58,7 @@ export default function HomeScreen() {
     ? activeRole
     : roles.includes("customer") ? "customer" : roles[0] || "customer";
   const { resolved: resolvedTheme, setMode } = useThemePreference();
-  const [companyName, setCompanyName] = useState("شركة ممنون");
-  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
-  const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
-
-  useEffect(() => {
-    (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle()
-      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); setCompanyLogoUrl(data?.company_logo_url ?? null); if (data?.welcome_message) setWelcomeMessage(data.welcome_message); });
-  }, []);
+  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeMediaUrl, welcomeMediaAnimated } = useCompanyBranding();
 
   const [available, setAvailable] = useState(false);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
@@ -306,7 +300,7 @@ export default function HomeScreen() {
             style={{ marginHorizontal: 18, marginBottom: 10, borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "#392707", fontSize: 12, fontWeight: "900", textAlign: "right" }}>إدارة {companyName}</Text>
+              <Text style={{ color: "#392707", fontSize: 12, fontWeight: "900", textAlign: "right", flexShrink: 1 }}>{`إدارة ${companyName}`}</Text>
               <Text style={{ color: "#513B13", fontSize: 10, fontWeight: "700", marginTop: 3, textAlign: "right" }}>اعتماد السائقين والفنيين · حظر الحسابات · توزيع الخصومات · الدعم</Text>
             </View>
             <View style={{ backgroundColor: "rgba(57,39,7,0.12)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginLeft: 12 }}>
@@ -327,7 +321,8 @@ export default function HomeScreen() {
             {companyLogoUrl ? <Image source={{ uri: companyLogoUrl }} style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: "#FFFFFF" }} resizeMode="contain" /> : null}
             <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
           </View>
-          <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>{welcomeMessage}</Text>
+          <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4, lineHeight: 20, flexShrink: 1 }}>{welcomeMessage}</Text>
+          {welcomeMediaUrl ? <Image source={{ uri: welcomeMediaUrl }} style={{ width: 150, height: 54, marginTop: 6, alignSelf: "flex-end", opacity: welcomeMediaAnimated ? 0.92 : 1 }} resizeMode="contain" /> : null}
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
