@@ -19,11 +19,9 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
-import { startProviderPresenceBackgroundLocation, stopProviderPresenceBackgroundLocation } from "@/lib/background-location";
+import { getFreshProviderLocation, startProviderPresenceBackgroundLocation, stopProviderPresenceBackgroundLocation } from "@/lib/background-location";
 import { ActiveCustomerRequestBanner } from "@/components/active-customer-request-banner";
 import { palette, radius, space } from "@/styles/theme";
-import { Image as ExpoImage } from "expo-image";
-import { useCompanyBranding } from "@/lib/company-branding";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { useThemePreference } from "@/lib/theme-preference";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -59,7 +57,14 @@ export default function HomeScreen() {
     ? activeRole
     : roles.includes("customer") ? "customer" : roles[0] || "customer";
   const { resolved: resolvedTheme, setMode } = useThemePreference();
-  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
+  const [companyName, setCompanyName] = useState("شركة ممنون");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  const [welcomeMessage, setWelcomeMessage] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
+
+  useEffect(() => {
+    (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id", 1).maybeSingle()
+      .then(({ data }: any) => { if (data?.company_name) setCompanyName(data.company_name); setCompanyLogoUrl(data?.company_logo_url ?? null); if (data?.welcome_message) setWelcomeMessage(data.welcome_message); });
+  }, []);
 
   const [available, setAvailable] = useState(false);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
@@ -173,10 +178,15 @@ export default function HomeScreen() {
     const userId = user.id;
     let mounted = true;
     let loadedIncoming = false;
+    let presenceFailureHandled = false;
     let subscription: Location.LocationSubscription | null = null;
+    const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
 
     async function publishPresence(location: Location.LocationObject) {
       if (!mounted || !user) return;
+      const accuracy = location.coords.accuracy;
+      // Keep the last good server position instead of replacing it with a weak GPS fix.
+      if (!Number.isFinite(accuracy) || Number(accuracy) > 100) return;
       const { error } = await supabase.from("provider_presence").upsert(
         {
           user_id: userId,
@@ -184,61 +194,80 @@ export default function HomeScreen() {
           lng: location.coords.longitude,
           heading:
             location.coords.heading != null &&
+            Number.isFinite(location.coords.heading) &&
             location.coords.heading >= 0 &&
             location.coords.heading <= 360
               ? location.coords.heading
               : null,
+          accuracy_m: accuracy,
+          updated_at: new Date(location.timestamp).toISOString(),
         },
         { onConflict: "user_id" },
       );
-      if (error && mounted) {
-        Alert.alert("تعذر مشاركة الموقع", "تم إيقاف التوفر حتى لا تستقبل طلبات دون موقع صحيح.");
-        const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
-        await supabase.from(table).update({ available: false }).eq("user_id", userId);
-        setAvailable(false);
-      } else if (mounted && !loadedIncoming) {
+      if (error) throw error;
+      if (mounted && !loadedIncoming) {
         loadedIncoming = true;
         void loadIncoming();
       }
     }
 
+    async function failPresence(presenceError: unknown) {
+      if (!mounted || presenceFailureHandled) return;
+      presenceFailureHandled = true;
+      console.warn("[Mamnoon provider presence] startup/update failed:", presenceError);
+      await stopProviderPresenceBackgroundLocation().catch(() => undefined);
+      await supabase.from(table).update({ available: false }).eq("user_id", userId);
+      if (!mounted) return;
+      const code = presenceError instanceof Error ? presenceError.message : "";
+      const message =
+        code === "foreground_location_denied"
+          ? "اسمح لممنون باستخدام موقعك أثناء استعمال التطبيق حتى تستقبل الطلبات."
+          : code === "location_services_disabled"
+            ? "خدمات الموقع مطفّية. شغّل GPS من إعدادات الهاتف وحاول مرة ثانية."
+            : code === "location_fix_unavailable"
+              ? "ما حصلنا إشارة موقع كافية. اطلع لمكان مفتوح وخلي GPS شغال ثم حاول مرة ثانية."
+              : "تعذر حفظ موقعك أو تشغيل تحديثاته. تحقق من الإنترنت وأذونات الموقع وحاول مرة ثانية.";
+      Alert.alert("مشاركة الموقع مطلوبة", message);
+      setAvailable(false);
+    }
+
     async function startPresence() {
+      // Require one fresh, usable fix before the provider is considered online.
+      const first = await getFreshProviderLocation();
+      await publishPresence(first);
+      if (!mounted) return;
+
+      // Background tracking is an enhancement. A denied background permission
+      // must not prevent foreground availability while Mamnoon remains open.
       const backgroundTrackingEnabled = await startProviderPresenceBackgroundLocation({
         userId,
         role: selectedRole as "driver" | "large_driver" | "worker",
+      }).catch((error) => {
+        console.warn("[Mamnoon] background presence unavailable; keeping foreground tracking:", error);
+        return false;
       });
-      const first = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      await publishPresence(first);
-      if (!mounted) return;
-      subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 15000, distanceInterval: 20 },
-        (location) => {
-          void publishPresence(location);
-        },
-      );
+
+      try {
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, timeInterval: 15000, distanceInterval: 20 },
+          (location) => {
+            void publishPresence(location).catch((error) => void failPresence(error));
+          },
+        );
+      } catch (watchError) {
+        if (!backgroundTrackingEnabled) throw watchError;
+        console.warn("[Mamnoon] foreground watcher unavailable; background task remains active:", watchError);
+      }
+
       if (!backgroundTrackingEnabled && mounted) {
         Alert.alert(
           "الاستقبال يعمل والتطبيق مفتوح",
-          "حتى تستمر باستقبال الطلبات عند تصغير ممنون، فعّل إذن الموقع في الخلفية من إعدادات التطبيق. تگدر حالياً تستقبل الطلبات ما دام التطبيق مفتوحاً.",
+          "موقعك يتحدث ما دام ممنون مفتوحاً. للسماح باستمرار الاستقبال بعد تصغير التطبيق، فعّل إذن الموقع في الخلفية من إعدادات الهاتف.",
         );
       }
     }
 
-    void startPresence().catch(async (presenceError) => {
-      if (!user) return;
-      await stopProviderPresenceBackgroundLocation().catch(() => undefined);
-      const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
-      await supabase.from(table).update({ available: false }).eq("user_id", userId);
-      if (mounted) {
-        const message = presenceError instanceof Error && presenceError.message === "background_location_denied"
-          ? "اسمح لممنون بالوصول إلى الموقع دائماً حتى تستقبل الطلبات عند تصغير التطبيق."
-          : "تعذر تشغيل مشاركة الموقع؛ تحقق من GPS وأذونات الموقع وحاول مرة أخرى.";
-        Alert.alert("مشاركة الموقع مطلوبة", message);
-        setAvailable(false);
-      }
-    });
+    void startPresence().catch((presenceError) => void failPresence(presenceError));
 
     return () => {
       mounted = false;
@@ -254,6 +283,7 @@ export default function HomeScreen() {
     }
     const previous = available;
     const next = !previous;
+    const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
     setAvailabilitySaving(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
     Vibration.vibrate(35);
@@ -261,15 +291,35 @@ export default function HomeScreen() {
       if (next) {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
-          Alert.alert("إذن الموقع مطلوب", "اسمح بمشاركة موقعك قبل استقبال الطلبات.");
+          Alert.alert("إذن الموقع مطلوب", "اسمح لممنون باستخدام موقعك أثناء استعمال التطبيق قبل استقبال الطلبات.");
           return;
         }
+        const location = await getFreshProviderLocation();
+        const accuracy = location.coords.accuracy;
+        const { error: presenceError } = await supabase.from("provider_presence").upsert(
+          {
+            user_id: user.id,
+            lat: location.coords.latitude,
+            lng: location.coords.longitude,
+            heading:
+              location.coords.heading != null &&
+              Number.isFinite(location.coords.heading) &&
+              location.coords.heading >= 0 &&
+              location.coords.heading <= 360
+                ? location.coords.heading
+                : null,
+            accuracy_m: accuracy,
+            updated_at: new Date(location.timestamp).toISOString(),
+          },
+          { onConflict: "user_id" },
+        );
+        if (presenceError) throw presenceError;
       }
-      // Optimistic UI: reflect the tap immediately while the database confirms it.
-      setAvailable(next);
-      const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
+
+      // Do not show the provider as available until a fresh location is saved successfully.
       const { error } = await supabase.from(table).update({ available: next }).eq("user_id", user.id);
       if (error) throw error;
+      setAvailable(next);
       if (!next) {
         await stopProviderPresenceBackgroundLocation().catch((stopError) => {
           console.warn("[Mamnoon] could not stop provider background location:", stopError);
@@ -278,7 +328,18 @@ export default function HomeScreen() {
       void Haptics.notificationAsync(next ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
     } catch (error) {
       setAvailable(previous);
-      Alert.alert("تعذر تحديث التوفر", error instanceof Error ? error.message : "حاول مرة ثانية.");
+      const code = error instanceof Error ? error.message : "";
+      const message =
+        code === "foreground_location_denied"
+          ? "اسمح لممنون باستخدام موقعك أثناء استعمال التطبيق."
+          : code === "location_services_disabled"
+            ? "شغّل GPS وخدمات الموقع من إعدادات الهاتف ثم حاول مرة ثانية."
+            : code === "location_fix_unavailable"
+              ? "إشارة GPS ضعيفة حالياً. اطلع لمكان مفتوح وحاول مرة ثانية."
+              : error instanceof Error && error.message
+                ? error.message
+                : "تعذر تحديث الحالة. تحقق من الإنترنت وحاول مرة ثانية.";
+      Alert.alert("تعذر تشغيل استقبال الطلبات", message);
     } finally {
       setAvailabilitySaving(false);
     }
@@ -301,7 +362,7 @@ export default function HomeScreen() {
             style={{ marginHorizontal: 18, marginBottom: 10, borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "#392707", fontSize: 12, fontWeight: "900", textAlign: "right", flexShrink: 1 }}>{`إدارة ${companyName}`}</Text>
+              <Text style={{ color: "#392707", fontSize: 12, fontWeight: "900", textAlign: "right" }}>إدارة {companyName}</Text>
               <Text style={{ color: "#513B13", fontSize: 10, fontWeight: "700", marginTop: 3, textAlign: "right" }}>اعتماد السائقين والفنيين · حظر الحسابات · توزيع الخصومات · الدعم</Text>
             </View>
             <View style={{ backgroundColor: "rgba(57,39,7,0.12)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginLeft: 12 }}>
@@ -322,8 +383,7 @@ export default function HomeScreen() {
             {companyLogoUrl ? <Image source={{ uri: companyLogoUrl }} style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: "#FFFFFF" }} resizeMode="contain" /> : null}
             <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
           </View>
-          <Text style={{ color: palette.muted, fontSize: 13, textAlign: "right", marginTop: 6, lineHeight: 22, flexWrap: "wrap", includeFontPadding: false }}>{welcomeMessage}</Text>
-          {welcomeVisualUrl ? <ExpoImage source={{ uri: welcomeVisualUrl }} style={{ width: 150, height: 54, marginTop: 6, alignSelf: "flex-end", opacity: welcomeVisualAnimated ? 0.92 : 1 }} contentFit="contain" autoplay={welcomeVisualAnimated} /> : null}
+          <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>{welcomeMessage}</Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
@@ -969,7 +1029,7 @@ function ProviderHome({
         ]}
       >
         <View style={styles.availContent}>
-          <Text style={styles.availEyebrow}>مركز استقبال الطلبات</Text>
+          <Text style={styles.availEyebrow}>حالة استقبال العمل</Text>
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
@@ -979,9 +1039,9 @@ function ProviderHome({
             activeOpacity={0.86}
             style={[styles.availPowerButton, available ? styles.availPowerButtonActive : styles.availPowerButtonClosed]}
           >
-            <Text style={styles.availPowerButtonText}>{availabilitySaving ? "جارٍ التحديث" : available ? "متاح الآن" : "متوقف"}</Text>
+            <Text style={styles.availPowerButtonText}>{availabilitySaving ? "..." : available ? "مفتوح" : "مغلق"}</Text>
           </TouchableOpacity>
-          <Text style={styles.availHint}>{availabilitySaving ? "نزامن حالتك وموقعك..." : available ? "أنت ظاهر الآن لمستحقي الطلبات القريبين" : "اضغط للتفعيل وابدأ باستقبال الطلبات"}</Text>
+          <Text style={styles.availHint}>{available ? "أنت الآن تستقبل الطلبات" : "فعّل التوفر حتى تظهر لك الطلبات"}</Text>
         </View>
       </View>
       <ProviderMissions />
@@ -1019,17 +1079,17 @@ const styles = StyleSheet.create({
   tileIconWrap: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center", marginBottom: 12 },
   tileEmoji: { fontSize: 24, fontWeight: "700" },
   tileLabel: { fontSize: 13, fontWeight: "900", color: palette.ink },
-  availCard: { minHeight: 238, borderRadius: 28, padding: 18, marginBottom: 18, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, shadowColor: "#08101A", shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 7 }, elevation: 5 },
-  availCardActive: { borderColor: "rgba(16,185,129,0.65)", backgroundColor: "#F0FDF8" },
+  availCard: { minHeight: 250, borderRadius: 26, padding: 18, marginBottom: 18, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, shadowColor: "#08101A", shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  availCardActive: { borderColor: "rgba(16,185,129,0.35)" },
   availShine: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.08)" },
   availContent: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   availEyebrow: { color: palette.muted, fontSize: 13, lineHeight: 19, fontWeight: "800", textAlign: "center" },
   availTitle: { fontSize: 18, lineHeight: 25, fontWeight: "900", color: palette.ink, marginTop: 2, textAlign: "center" },
   availPowerButton: { width: 148, height: 148, borderRadius: 74, alignItems: "center", justifyContent: "center", borderWidth: 4 },
   availPowerButtonActive: { backgroundColor: "#059669", borderColor: "#A7F3D0", shadowColor: "#10B981", shadowOpacity: 0.72, shadowRadius: 20, shadowOffset: { width: 0, height: 0 }, elevation: 14 },
-  availPowerButtonClosed: { backgroundColor: "#334155", borderColor: "#CBD5E1", shadowColor: "#64748B", shadowOpacity: 0.34, shadowRadius: 15, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
-  availPowerButtonText: { color: "#FFFFFF", fontSize: 19, fontWeight: "900", letterSpacing: 0.2, textAlign: "center" },
-  availHint: { color: palette.muted, fontSize: 11, fontWeight: "800", textAlign: "center", lineHeight: 18 },
+  availPowerButtonClosed: { backgroundColor: "#DC2626", borderColor: "#FECACA", shadowColor: "#EF4444", shadowOpacity: 0.58, shadowRadius: 18, shadowOffset: { width: 0, height: 0 }, elevation: 12 },
+  availPowerButtonText: { color: "#FFFFFF", fontSize: 25, fontWeight: "900", letterSpacing: 0.5 },
+  availHint: { color: palette.muted, fontSize: 11, fontWeight: "700", textAlign: "center" },
   emptyBox: { alignItems: "center", paddingVertical: 36, backgroundColor: palette.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: palette.line },
   emptyText: { fontSize: 15, fontWeight: "800", color: palette.ink },
   emptySubtext: { fontSize: 12, color: palette.muted, marginTop: 6 },
