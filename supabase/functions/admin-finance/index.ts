@@ -67,17 +67,7 @@ Deno.serve(async (req: Request) => {
       if (assignmentError) return json({ error: "finance_scope_load_failed" }, 500);
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
-      await requirePermission("finance.read", scopeType, scopeGovernorate);
-      const [refundReadPermission, adminAccessForRefundRead] = await Promise.all([
-        caller.rpc("admin_has_permission", {
-          p_permission_key: "finance.refund.read",
-          p_scope_type: scopeType,
-          p_scope_governorate: scopeGovernorate,
-        }),
-        caller.rpc("has_admin_access", { p_user_id: auth.user.id }),
-      ]);
-      const canViewRefunds = refundReadPermission.data === true || adminAccessForRefundRead.data === true;
-      if (!canViewRefunds) return json({ cases: [], can_view: false, can_decide: false });
+      await requirePermission("finance.refund.read", scopeType, scopeGovernorate);
 
       const status = ["pending_review", "approved", "rejected", "refunded"].includes(body.status)
         ? body.status : null;
