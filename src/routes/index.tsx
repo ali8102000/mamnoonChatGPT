@@ -70,7 +70,7 @@ function Index() {
           <div className="grid h-28 w-28 place-items-center overflow-hidden rounded-[28px] bg-white shadow-lg">
             {logoUrl ? <img src={logoUrl} alt={`شعار ${companyName}`} className="h-full w-full object-contain p-2" /> : <span className="text-5xl font-black text-[#17324D]">م</span>}
           </div>
-          <div className="text-3xl font-black tracking-wide text-[#17324D]">أهلاً بك في {companyName}</div>
+          <div className="w-full max-w-md whitespace-pre-wrap break-words px-2 text-center text-3xl leading-tight font-black tracking-wide text-[#17324D]">أهلاً بك في {companyName}</div>
           {welcomeVisualUrl && <img src={welcomeVisualUrl} alt="صورة ترحيب ممنون" className={`mt-4 max-h-48 w-full max-w-sm rounded-3xl object-cover shadow-xl ${welcomeVisualAnimated ? "animate-pulse" : ""}`} />}
           <div className="mt-2 w-full max-w-md whitespace-pre-wrap break-words px-2 text-center text-base font-bold leading-8 text-[#526477]">{welcomeMessage}</div>
           {loading || !ready ? <Loader2 className="mt-5 h-5 w-5 animate-spin text-amber-600" /> : <div className="mt-5 h-5" />}
