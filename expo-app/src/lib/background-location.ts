@@ -147,7 +147,8 @@ TaskManager.defineTask(PROVIDER_PRESENCE_TASK, async ({ data, error }) => {
     const locations = (data as { locations?: Location.LocationObject[] }).locations ?? [];
     for (const location of locations) {
       if (!Number.isFinite(location.coords.accuracy) || Number(location.coords.accuracy) > 100) continue;
-      const { error: writeError } = await supabase.from("provider_presence").upsert({
+      const speed = location.coords.speed;
+      const { error: writeError } = await (supabase as any).from("provider_presence").upsert({
         user_id: context.userId,
         lat: location.coords.latitude,
         lng: location.coords.longitude,
@@ -160,7 +161,7 @@ TaskManager.defineTask(PROVIDER_PRESENCE_TASK, async ({ data, error }) => {
             : null,
         updated_at: new Date(location.timestamp).toISOString(),
         accuracy_m: location.coords.accuracy,
-        speed_mps: Number.isFinite(location.coords.speed) && Number(location.coords.speed) >= 0 ? location.coords.speed : null,
+        speed_mps: typeof speed === "number" && Number.isFinite(speed) && speed >= 0 ? speed : null,
       }, { onConflict: "user_id" });
       if (writeError) console.warn("[Mamnoon provider presence] update failed:", writeError.message);
     }
