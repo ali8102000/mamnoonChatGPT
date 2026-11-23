@@ -18,9 +18,11 @@ export async function loadNotificationPreferences(): Promise<NotificationPrefere
     ]);
     soundEnabled = sound !== "0";
     vibrationEnabled = vibration !== "0";
-  } catch {
-    soundEnabled = true;
-    vibrationEnabled = true;
+  } catch (error) {
+    // Fail closed: if preferences cannot be read, do not emit unexpected sound/vibration.
+    soundEnabled = false;
+    vibrationEnabled = false;
+    console.warn("[notifications] Could not read preferences; using silent mode:", error);
   }
   return { soundEnabled, vibrationEnabled };
 }
@@ -55,8 +57,8 @@ export function isNotificationVibrationEnabled(): boolean {
 }
 
 export function getNotificationChannelId(sound = soundEnabled, vibration = vibrationEnabled): string {
-  if (sound && vibration) return "mamnoon_sound_vibrate";
-  if (sound) return "mamnoon_sound_only";
-  if (vibration) return "mamnoon_vibrate_only";
-  return "mamnoon_silent";
+  if (sound && vibration) return "mamnoon_v2_sound_vibrate";
+  if (sound) return "mamnoon_v2_sound_only";
+  if (vibration) return "mamnoon_v2_vibrate_only";
+  return "mamnoon_v2_silent";
 }
