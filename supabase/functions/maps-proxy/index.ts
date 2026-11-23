@@ -304,8 +304,8 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // A fresh query cache is authoritative for this query. Return it immediately;
   // otherwise enrich partial local results from Photon instead of only searching
   // externally when the local database is completely empty.
-  if(cacheFresh && initialSuggestions.length>0 && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
-    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
+  if(cacheFresh && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
+    return json({suggestions:[],attribution:"بيانات الأماكن © OpenStreetMap",cacheHit:true});
   }
 
   let fetchedRows:any[]=[];
