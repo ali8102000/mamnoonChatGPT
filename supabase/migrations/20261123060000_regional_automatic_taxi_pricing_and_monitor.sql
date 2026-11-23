@@ -4,19 +4,27 @@ ALTER TABLE public.regional_service_controls
   ADD COLUMN IF NOT EXISTS regional_surcharge_percent numeric(6,2) NOT NULL DEFAULT 0
   CHECK (regional_surcharge_percent BETWEEN 0 AND 200);
 
-ALTER TABLE public.taxi_pricing_controls
-  ADD COLUMN IF NOT EXISTS auto_monitor_enabled boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS traffic_surcharge_cap_percent numeric(6,2) NOT NULL DEFAULT 0
-    CHECK (traffic_surcharge_cap_percent BETWEEN 0 AND 200),
-  ADD COLUMN IF NOT EXISTS demand_increase_cap_percent numeric(6,2) NOT NULL DEFAULT 0
-    CHECK (demand_increase_cap_percent BETWEEN 0 AND 100),
-  ADD COLUMN IF NOT EXISTS demand_discount_cap_percent numeric(6,2) NOT NULL DEFAULT 0
-    CHECK (demand_discount_cap_percent BETWEEN 0 AND 50),
-  ADD COLUMN IF NOT EXISTS auto_demand_percent numeric(6,2) NOT NULL DEFAULT 0
-    CHECK (auto_demand_percent BETWEEN -50 AND 100),
-  ADD COLUMN IF NOT EXISTS auto_active_drivers integer NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS auto_pending_requests integer NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS auto_updated_at timestamptz;
+-- Keep automatic monitoring settings separate from manual peak overrides.
+-- This prevents default auto rows from shadowing a governorate's inherited manual peak.
+CREATE TABLE IF NOT EXISTS public.taxi_pricing_auto_controls (
+  governorate_key text PRIMARY KEY CHECK (governorate_key IN
+    ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah')),
+  auto_monitor_enabled boolean NOT NULL DEFAULT false,
+  traffic_surcharge_cap_percent numeric(6,2) NOT NULL DEFAULT 0 CHECK (traffic_surcharge_cap_percent BETWEEN 0 AND 200),
+  demand_increase_cap_percent numeric(6,2) NOT NULL DEFAULT 0 CHECK (demand_increase_cap_percent BETWEEN 0 AND 100),
+  demand_discount_cap_percent numeric(6,2) NOT NULL DEFAULT 0 CHECK (demand_discount_cap_percent BETWEEN 0 AND 50),
+  auto_demand_percent numeric(6,2) NOT NULL DEFAULT 0 CHECK (auto_demand_percent BETWEEN -50 AND 100),
+  auto_active_drivers integer NOT NULL DEFAULT 0,
+  auto_pending_requests integer NOT NULL DEFAULT 0,
+  auto_updated_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.taxi_pricing_auto_controls ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.taxi_pricing_auto_controls TO authenticated;
+REVOKE INSERT,UPDATE,DELETE ON public.taxi_pricing_auto_controls FROM anon,authenticated;
+DROP POLICY IF EXISTS "Authenticated users read automatic taxi pricing state" ON public.taxi_pricing_auto_controls;
+CREATE POLICY "Authenticated users read automatic taxi pricing state"
+  ON public.taxi_pricing_auto_controls FOR SELECT TO authenticated USING (true);
 
 ALTER TABLE public.service_requests
   ADD COLUMN IF NOT EXISTS taxi_auto_percent numeric(6,2) NOT NULL DEFAULT 0
@@ -38,9 +46,9 @@ DECLARE
   v_increase_cap numeric;
   v_discount_cap numeric;
 BEGIN
-  INSERT INTO public.taxi_pricing_controls(governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent)
-  SELECT governorate_key,false,0,false,10 FROM public.governorate_boundaries
-  UNION ALL SELECT 'all',false,0,false,10
+  INSERT INTO public.taxi_pricing_auto_controls(governorate_key)
+  SELECT governorate_key FROM public.governorate_boundaries
+  UNION ALL SELECT 'all'
   ON CONFLICT (governorate_key) DO NOTHING;
 
   FOR v_key IN
@@ -93,7 +101,7 @@ BEGIN
 
     SELECT auto_monitor_enabled,demand_increase_cap_percent,demand_discount_cap_percent
       INTO v_enabled,v_increase_cap,v_discount_cap
-    FROM public.taxi_pricing_controls WHERE governorate_key=v_key;
+    FROM public.taxi_pricing_auto_controls WHERE governorate_key=v_key;
 
     v_ratio := v_drivers::numeric / greatest(v_waiting,1);
     v_raw_percent := CASE
@@ -107,7 +115,7 @@ BEGIN
       ELSE 50
     END;
 
-    UPDATE public.taxi_pricing_controls
+    UPDATE public.taxi_pricing_auto_controls
     SET auto_active_drivers=coalesce(v_drivers,0),
         auto_pending_requests=coalesce(v_waiting,0),
         auto_demand_percent=CASE WHEN COALESCE(v_enabled,false)
@@ -131,14 +139,14 @@ CREATE OR REPLACE FUNCTION public.admin_update_taxi_auto_monitor_settings(
   p_demand_increase_cap numeric,
   p_demand_discount_cap numeric
 )
-RETURNS public.taxi_pricing_controls
+RETURNS public.taxi_pricing_auto_controls
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $admin$
 DECLARE
   v_actor uuid := auth.uid();
-  v_row public.taxi_pricing_controls%ROWTYPE;
+  v_row public.taxi_pricing_auto_controls%ROWTYPE;
 BEGIN
   IF v_actor IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
   IF p_governorate_key NOT IN ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah') THEN
@@ -155,17 +163,16 @@ BEGIN
     RAISE EXCEPTION 'missing_pricing_permission';
   END IF;
 
-  INSERT INTO public.taxi_pricing_controls(
-    governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent,
-    auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent
+  INSERT INTO public.taxi_pricing_auto_controls(
+    governorate_key,auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent
   )
-  VALUES(p_governorate_key,false,0,false,10,p_enabled,p_traffic_cap,p_demand_increase_cap,p_demand_discount_cap)
+  VALUES(p_governorate_key,p_enabled,p_traffic_cap,p_demand_increase_cap,p_demand_discount_cap)
   ON CONFLICT(governorate_key) DO UPDATE SET
     auto_monitor_enabled=excluded.auto_monitor_enabled,
     traffic_surcharge_cap_percent=excluded.traffic_surcharge_cap_percent,
     demand_increase_cap_percent=excluded.demand_increase_cap_percent,
     demand_discount_cap_percent=excluded.demand_discount_cap_percent,
-    auto_demand_percent=CASE WHEN excluded.auto_monitor_enabled THEN taxi_pricing_controls.auto_demand_percent ELSE 0 END,
+    auto_demand_percent=CASE WHEN excluded.auto_monitor_enabled THEN taxi_pricing_auto_controls.auto_demand_percent ELSE 0 END,
     auto_updated_at=now(),
     updated_at=now()
   RETURNING * INTO v_row;
@@ -298,12 +305,12 @@ BEGIN
 
   SELECT COALESCE(auto_monitor_enabled,false)
     INTO v_auto_enabled
-  FROM public.taxi_pricing_controls
+  FROM public.taxi_pricing_auto_controls
   WHERE governorate_key = p_governorate_key;
   IF NOT FOUND THEN
     SELECT COALESCE(auto_monitor_enabled,false)
       INTO v_auto_enabled
-    FROM public.taxi_pricing_controls
+    FROM public.taxi_pricing_auto_controls
     WHERE governorate_key = 'all';
   END IF;
   v_auto_percent := CASE WHEN COALESCE(v_auto_enabled,false)
@@ -515,8 +522,8 @@ $function$;
 DO $realtime$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname='supabase_realtime') THEN
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='taxi_pricing_controls') THEN
-      ALTER PUBLICATION supabase_realtime ADD TABLE public.taxi_pricing_controls;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='taxi_pricing_auto_controls') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.taxi_pricing_auto_controls;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='pricing_settings') THEN
       ALTER PUBLICATION supabase_realtime ADD TABLE public.pricing_settings;
