@@ -100,6 +100,12 @@ Deno.serve(async (req: Request) => {
         ? await admin.from("mamnoon_zaincash_refund_events").select("id,refund_case_id,event_type,actor_id,note,reference,amount_iqd,created_at").in("refund_case_id", caseIds).order("created_at", { ascending: true })
         : { data: [], error: null };
       if (eventsError) return json({ error: "refund_case_events_load_failed" }, 500);
+      const actorIds = [...new Set((events ?? []).map((event: any) => event.actor_id).filter(Boolean))];
+      const { data: actors, error: actorsError } = actorIds.length
+        ? await admin.from("profiles").select("id,full_name,phone").in("id", actorIds)
+        : { data: [], error: null };
+      if (actorsError) return json({ error: "refund_case_actors_load_failed" }, 500);
+      const actorMap = new Map((actors ?? []).map((row: any) => [row.id, row]));
       const visibleCases = (cases ?? []).filter((row: any) => {
         const request = requestMap.get(row.request_id) as any;
         return scopeType !== "governorate" || !scopeGovernorate || request?.governorate_key === scopeGovernorate;
@@ -108,7 +114,7 @@ Deno.serve(async (req: Request) => {
         request: requestMap.get(row.request_id) ?? null,
         customer: profileMap.get(row.customer_id) ?? null,
         payment: paymentMap.get(row.payment_id) ?? null,
-        events: (events ?? []).filter((event: any) => event.refund_case_id === row.id),
+        events: (events ?? []).filter((event: any) => event.refund_case_id === row.id).map((event: any) => ({ ...event, actor: actorMap.get(event.actor_id) ?? null })),
       }));
       const { data: canRefund } = await caller.rpc("admin_has_permission", {
         p_permission_key: "finance.refund",
