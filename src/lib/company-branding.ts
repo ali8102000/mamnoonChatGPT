@@ -5,12 +5,14 @@ export type CompanyBranding = {
   companyName: string;
   logoUrl: string;
   welcomeMessage: string;
+  welcomeVisualUrl: string;
 };
 
 const DEFAULT_BRANDING: CompanyBranding = {
   companyName: "ممنون",
   logoUrl: "",
   welcomeMessage: "مشوارك وخدمات بيتك، بمكان واحد.",
+  welcomeVisualUrl: "",
 };
 
 export function useCompanyBranding() {
@@ -18,7 +20,7 @@ export function useCompanyBranding() {
   useEffect(() => {
     let active = true;
     void (supabase as any).from("company_settings")
-      .select("company_name,company_logo_url,welcome_message")
+      .select("company_name,company_logo_url,welcome_message,company_welcome_visual_url")
       .eq("id", 1).maybeSingle()
       .then(({ data, error }: any) => {
         if (!active || error || !data) return;
@@ -26,6 +28,7 @@ export function useCompanyBranding() {
           companyName: data.company_name || DEFAULT_BRANDING.companyName,
           logoUrl: data.company_logo_url || "",
           welcomeMessage: data.welcome_message || DEFAULT_BRANDING.welcomeMessage,
+          welcomeVisualUrl: data.company_welcome_visual_url || "",
         });
       })
       .catch((error: unknown) => console.warn("[company-branding] load failed", error));
