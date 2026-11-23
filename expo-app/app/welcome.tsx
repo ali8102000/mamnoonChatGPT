@@ -7,17 +7,17 @@ import { useCompanyBranding } from "@/lib/company-branding";
 
 export default function WelcomeScreen() {
   const { session, loading, roles } = useAuth();
-  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, isLoaded: brandingLoaded } = useCompanyBranding();
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !brandingLoaded) return;
     if (session) {
       if (roles.includes("super_admin")) router.replace("/admin/bootstrap");
       else router.replace("/home");
     } else {
       router.replace("/auth");
     }
-  }, [loading, session?.user.id, roles]);
+  }, [loading, brandingLoaded, session?.user.id, roles]);
 
   return (
     <View style={styles.page}>
