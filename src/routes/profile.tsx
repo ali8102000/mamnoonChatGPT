@@ -139,24 +139,22 @@ function ProfilePage() {
     if (!uid) return;
     let active = true;
     async function loadWallets() {
+      const { data: accountWalletData, error: accountWalletError } = await (supabase as any).rpc("get_my_account_wallet");
+      if (!active) return;
+      if (accountWalletError) {
+        console.warn("[wallet] account wallet unavailable:", accountWalletError.message);
+        setWallet(null);
+        setTxs([]);
+      } else {
+        setWallet(accountWalletData?.wallet ?? null);
+        setTxs(Array.isArray(accountWalletData?.transactions) ? accountWalletData.transactions : []);
+      }
       if (activeRole === "customer") {
         setProviderWallet(null);
         setProviderTxs([]);
         setEarnings({ last24h: 0, week: 0, month: 0, year: 0 });
-        const { data, error } = await (supabase as any).rpc("get_my_customer_wallet");
-        if (!active) return;
-        if (error) {
-          console.warn("[wallet] customer wallet unavailable:", error.message);
-          setWallet(null);
-          setTxs([]);
-          return;
-        }
-        setWallet(data?.wallet ?? null);
-        setTxs(Array.isArray(data?.transactions) ? data.transactions : []);
         return;
       }
-      setWallet(null);
-      setTxs([]);
       if (!isProvider) {
         setProviderWallet(null);
         setProviderTxs([]);
@@ -418,6 +416,15 @@ function ProfilePage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+        {isProvider && (
+          <div className="mt-5 space-y-3">
+            <section className="rounded-2xl border border-primary-foreground/10 bg-gradient-to-br from-primary to-primary-glow p-4 text-primary-foreground shadow-card">
+              <div className="flex items-center gap-2 text-sm font-black"><Wallet className="h-4 w-4" /> رصيد المحفظة</div>
+              <div className="mt-2 text-2xl font-black tabular-nums">{Number(wallet?.balance_iqd ?? wallet?.balance ?? 0).toLocaleString("ar-IQ")} <span className="text-xs opacity-80">د.ع</span></div>
+              <button type="button" onClick={() => { setWalletTopupAmount(""); setShowWalletTopup(true); }} className="mt-3 w-full rounded-xl bg-white/15 px-3 py-3 text-xs font-black hover:bg-white/20">شحن المحفظة عبر زين كاش</button>
+            </section>
           </div>
         )}
         {isProvider && (
