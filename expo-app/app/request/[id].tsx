@@ -1662,8 +1662,8 @@ export default function RequestDetail() {
         )}
         {isCustomer && request.status === "cancelled" && request.payment_method === "zaincash" && (
           <View style={{ marginTop: 14, borderRadius: 18, padding: 16, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold, gap: 8 }}>
-            <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>طلب الاسترداد قيد المراجعة</Text>
-            <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 20, textAlign: "right" }}>تم تسجيل إلغاء الطلب المدفوع بزين كاش. المبلغ لم يُسترد بعد ولن يتم تحويله تلقائياً. ستراجع الإدارة الطلب وتبلغك بالقرار.</Text>
+            <Text style={{ color: palette.ink, fontSize: 16, fontWeight: "900", textAlign: "right" }}>متابعة إلغاء واسترداد زين كاش</Text>
+            <Text style={{ color: palette.muted, fontSize: 12, lineHeight: 20, textAlign: "right" }}>تم تسجيل إلغاء الطلب المدفوع بزين كاش. ستصلك إشعارات عند صدور قرار الإدارة أو تسجيل إعادة المبلغ. لم يتم أي تحويل تلقائي.</Text>
             <TouchableOpacity onPress={() => router.push({ pathname: "/support-chat", params: { requestId: request.id } })} style={[styles.actionBtn, { backgroundColor: palette.brand }]}>
               <Text style={styles.actionBtnText}>مراسلة شركة ممنون بخصوص هذا الطلب</Text>
             </TouchableOpacity>
