@@ -35,7 +35,7 @@ function HistoryPage() {
     const loadHistory = async () => {
       const { data: directRows, error: directError } = await supabase
         .from("service_requests")
-        .select("id, request_code, type, status, price_estimate, pickup_text, dest_text, created_at, attachment_path, customer_id, provider_id")
+        .select("id, request_code, type, status, price_estimate, pickup_text, dest_text, created_at, attachment_path, customer_id, provider_id, cancelled_by, cancellation_reason")
         .or(`customer_id.eq.${session.user.id},provider_id.eq.${session.user.id}`)
         .order("created_at", { ascending: false });
       if (directError) {
@@ -52,7 +52,7 @@ function HistoryPage() {
         const teamIds = [...new Set<string>(memberships.map((row: any) => String(row.request_id)))];
         const { data: rows, error: teamError } = await supabase
           .from("service_requests")
-          .select("id, request_code, type, status, price_estimate, pickup_text, dest_text, created_at, attachment_path, customer_id, provider_id")
+          .select("id, request_code, type, status, price_estimate, pickup_text, dest_text, created_at, attachment_path, customer_id, provider_id, cancelled_by, cancellation_reason")
           .in("id", teamIds);
         if (!teamError) teamRows = rows ?? [];
         else console.warn("[history] Team request history failed:", teamError.message);
