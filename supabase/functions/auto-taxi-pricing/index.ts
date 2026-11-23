@@ -223,7 +223,6 @@ Deno.serve(async (req) => {
   const demandPercent=autoMonitorEnabled
     ? Number(activeControls?.auto_demand_percent)||0
     : 0;
-  const demandIncreaseCap=Math.max(0,Number(activeControls?.demand_increase_cap_percent)||0);
   const demandDiscountCap=Math.max(0,Number(activeControls?.demand_discount_cap_percent)||0);
   const autoPercent=autoMonitorEnabled
     ? Math.max(-demandDiscountCap,Math.min(200,demandPercent+trafficPercent))
