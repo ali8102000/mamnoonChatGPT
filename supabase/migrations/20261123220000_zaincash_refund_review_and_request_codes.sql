@@ -276,6 +276,84 @@ AFTER UPDATE OF status ON public.service_requests
 FOR EACH ROW EXECUTE FUNCTION public.open_zaincash_refund_case_on_customer_cancel();
 REVOKE ALL ON FUNCTION public.open_zaincash_refund_case_on_customer_cancel() FROM PUBLIC, anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.admin_decide_zaincash_refund(
+  p_refund_case_id uuid,
+  p_decision text,
+  p_note text,
+  p_actor_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_case public.mamnoon_zaincash_refund_cases%ROWTYPE;
+  v_request_code text;
+  v_note text := left(btrim(coalesce(p_note,'')),500);
+BEGIN
+  IF (auth.jwt() ->> 'role') IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service_role_required';
+  END IF;
+  IF p_refund_case_id IS NULL OR p_actor_id IS NULL
+     OR p_decision NOT IN ('approved','rejected')
+     OR (p_decision = 'rejected' AND length(v_note) < 2) THEN
+    RAISE EXCEPTION 'invalid_refund_decision';
+  END IF;
+
+  SELECT * INTO v_case
+  FROM public.mamnoon_zaincash_refund_cases
+  WHERE id = p_refund_case_id
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'refund_case_not_found'; END IF;
+  IF v_case.status <> 'pending_review' THEN
+    RAISE EXCEPTION 'refund_case_already_reviewed';
+  END IF;
+
+  SELECT request_code INTO v_request_code
+  FROM public.service_requests WHERE id = v_case.request_id;
+
+  UPDATE public.mamnoon_zaincash_refund_cases
+  SET status = p_decision,
+      decision_note = coalesce(nullif(v_note,''), CASE WHEN p_decision='approved'
+        THEN 'تمت الموافقة المبدئية؛ بانتظار تنفيذ الاسترداد اليدوي.'
+        ELSE 'تم رفض طلب الاسترداد.' END),
+      decided_by = p_actor_id,
+      decided_at = now(),
+      updated_at = now()
+  WHERE id = v_case.id;
+
+  INSERT INTO public.mamnoon_zaincash_refund_events(
+    refund_case_id,event_type,actor_id,note,amount_iqd
+  ) VALUES (
+    v_case.id,p_decision,p_actor_id,
+    coalesce(nullif(v_note,''), CASE WHEN p_decision='approved'
+      THEN 'تمت الموافقة المبدئية؛ لم يتم تحويل أي مبلغ بعد.'
+      ELSE 'تم رفض طلب الاسترداد.' END),
+    v_case.amount_iqd
+  );
+
+  INSERT INTO public.notifications(user_id,type,title,body,link,data)
+  VALUES (
+    v_case.customer_id,
+    'zaincash_refund_decision',
+    CASE WHEN p_decision='approved' THEN 'تمت الموافقة على طلب الاسترداد' ELSE 'تم رفض طلب الاسترداد' END,
+    CASE WHEN p_decision='approved'
+      THEN 'تمت الموافقة المبدئية على طلبك. ستصلك رسالة أخرى بعد تسجيل إعادة المبلغ فعلياً.'
+      ELSE 'تم رفض طلب الاسترداد. السبب: ' || coalesce(nullif(v_note,''),'يرجى مراسلة الدعم لمزيد من التفاصيل.') END,
+    '/support-chat?requestId=' || v_case.request_id::text,
+    jsonb_build_object('request_id',v_case.request_id,'request_code',v_request_code,'refund_case_id',v_case.id)
+  );
+
+  RETURN jsonb_build_object('ok',true,'refund_case_id',v_case.id,'status',p_decision);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.admin_decide_zaincash_refund(uuid,text,text,uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_decide_zaincash_refund(uuid,text,text,uuid)
+  TO service_role;
+
 CREATE OR REPLACE FUNCTION public.admin_mark_zaincash_refund(
   p_refund_case_id uuid,
   p_refund_reference text,
