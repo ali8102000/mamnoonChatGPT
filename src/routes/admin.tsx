@@ -1953,6 +1953,7 @@ function ReportsSection() {
               <div className="text-[10px] text-muted-foreground">
                 من: {r.reporter?.full_name ?? "—"} · ضد: {r.reported?.full_name ?? "—"}
               </div>
+              {r.request?.request_code && <div className="mt-2 rounded-lg bg-primary/10 px-3 py-2 text-xs font-black text-primary">رقم الرحلة المرتبطة: {r.request.request_code}</div>}
               {r.status === "pending" && (
                 <div className="flex gap-1.5 mt-2">
                   <button
