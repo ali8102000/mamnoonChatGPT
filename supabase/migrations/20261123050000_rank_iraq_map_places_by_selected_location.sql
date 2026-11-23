@@ -24,44 +24,50 @@ as $function$
     select
       lower(trim(coalesce(p_query, ''))) as q,
       regexp_split_to_array(lower(trim(coalesce(p_query, ''))), E'\\s+') as tokens
-  ),
-  candidates as (
-    select s.*, qd.q, qd.tokens,
-      lower(coalesce(s.name_ar, '') || ' ' || coalesce(s.address, '') || ' ' || coalesce(s.search_terms, '')) as haystack
-    from public.map_place_suggestions s
-    cross join query_data qd
-    where s.governorate_key = p_governorate_key
-      and s.is_active = true
-      and length(qd.q) >= 2
   )
-  select c.id, c.name_ar, c.address, c.latitude, c.longitude
-  from candidates c
-  where c.haystack like '%' || c.q || '%'
-     or (
-       cardinality(c.tokens) > 1
-       and not exists (
-         select 1
-         from unnest(c.tokens) as token(value)
-         where token.value <> ''
-           and c.haystack not like '%' || token.value || '%'
-       )
-     )
+  select s.id, s.name_ar, s.address, s.latitude, s.longitude
+  from public.map_place_suggestions s
+  cross join query_data qd
+  where s.governorate_key = p_governorate_key
+    and s.is_active = true
+    and length(qd.q) >= 2
+    and (
+      lower(coalesce(s.name_ar, '')) like '%' || qd.q || '%'
+      or lower(coalesce(s.address, '')) like '%' || qd.q || '%'
+      or lower(coalesce(s.search_terms, '')) like '%' || qd.q || '%'
+      or (
+        cardinality(qd.tokens) > 1
+        and not exists (
+          select 1
+          from unnest(qd.tokens) as token(value)
+          where token.value <> ''
+            and lower(coalesce(s.name_ar, '')) not like '%' || token.value || '%'
+            and lower(coalesce(s.address, '')) not like '%' || token.value || '%'
+            and lower(coalesce(s.search_terms, '')) not like '%' || token.value || '%'
+        )
+      )
+    )
   order by
     case
-      when lower(c.name_ar) = c.q then 0
-      when lower(c.name_ar) like c.q || '%' then 1
-      when lower(c.name_ar) like '%' || c.q || '%' then 2
-      when c.haystack like c.q || '%' then 3
-      else 4
+      when lower(s.name_ar) = qd.q then 0
+      when lower(s.name_ar) like qd.q || '%' then 1
+      when lower(coalesce(s.search_terms, '')) like qd.q || '%' then 2
+      when lower(coalesce(s.address, '')) like qd.q || '%' then 3
+      when cardinality(qd.tokens) > 1
+        and not exists (
+          select 1 from unnest(qd.tokens) as token(value)
+          where token.value <> '' and lower(coalesce(s.name_ar, '')) not like '%' || token.value || '%'
+        ) then 4
+      else 5
     end,
     case
       when p_center_lat is not null and p_center_lng is not null then
-        power((c.latitude - p_center_lat) * cos(radians(p_center_lat)), 2)
-        + power(c.longitude - p_center_lng, 2)
+        power((s.latitude - p_center_lat) * cos(radians(p_center_lat)), 2)
+        + power(s.longitude - p_center_lng, 2)
       else 0
     end,
-    length(c.name_ar),
-    c.name_ar asc
+    length(s.name_ar),
+    s.name_ar asc
   limit greatest(1, least(coalesce(p_limit, 50), 50));
 $function$;
 
