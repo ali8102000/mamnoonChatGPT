@@ -448,7 +448,7 @@ export default function ProfileScreen() {
           <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 6 }}>اختار مبلغاً أو اكتب المبلغ اللي تريده</Text>
           <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
             {[5000, 10000, 15000, 25000].map((amount) => (
-              <TouchableOpacity key={amount} onPress={() => setWalletTopupAmount(String(amount))} style={{ borderRadius: 12, borderWidth: 1, borderColor: walletTopupAmount === String(amount) ? palette.gold : palette.line, backgroundColor: walletTopupAmount === String(amount) ? palette.goldSoft : palette.background, paddingVertical: 10, paddingHorizontal: 12 }}>
+              <TouchableOpacity key={amount} onPress={() => setWalletTopupAmount(String(amount))} style={{ borderRadius: 12, borderWidth: 1, borderColor: walletTopupAmount === String(amount) ? palette.gold : palette.line, backgroundColor: walletTopupAmount === String(amount) ? palette.goldSoft : palette.pageCanvas, paddingVertical: 10, paddingHorizontal: 12 }}>
                 <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900" }}>{amount.toLocaleString("en")} د.ع</Text>
               </TouchableOpacity>
             ))}
@@ -458,7 +458,7 @@ export default function ProfileScreen() {
           <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 7 }}>الحد الأدنى ٥٬٠٠٠ د.ع والحد الأعلى ٥٬٠٠٠٬٠٠٠ د.ع</Text>
           <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 18 }}>
             <TouchableOpacity onPress={submitWalletTopup} style={{ flex: 1, backgroundColor: palette.brand, borderRadius: 13, padding: 13, alignItems: "center" }}><Text style={{ color: palette.white, fontWeight: "900" }}>متابعة الدفع</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowWalletTopup(false)} style={{ paddingHorizontal: 18, borderRadius: 13, backgroundColor: palette.background, justifyContent: "center" }}><Text style={{ color: palette.ink, fontWeight: "800" }}>إلغاء</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowWalletTopup(false)} style={{ paddingHorizontal: 18, borderRadius: 13, backgroundColor: palette.pageCanvas, justifyContent: "center" }}><Text style={{ color: palette.ink, fontWeight: "800" }}>إلغاء</Text></TouchableOpacity>
           </View>
         </View>
       </View>
