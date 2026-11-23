@@ -136,7 +136,7 @@ Deno.serve(async (req: Request) => {
         .select("governorate_key,request_code").eq("id", refundCase.request_id).maybeSingle();
       if (requestError || !request) return json({ error: "request_not_found" }, 404);
       const { data: assignment } = await caller.from("staff_assignments")
-        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
       if (scopeType === "governorate" && scopeGovernorate !== request.governorate_key) {
@@ -172,7 +172,7 @@ Deno.serve(async (req: Request) => {
         .select("governorate_key").eq("id", refundCase.request_id).maybeSingle();
       if (requestError || !request) return json({ error: "request_not_found" }, 404);
       const { data: assignment } = await caller.from("staff_assignments")
-        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
       if (scopeType === "governorate" && scopeGovernorate !== request.governorate_key) {
@@ -196,7 +196,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "provider_payables_search") {
       const { data: assignment, error: assignmentError } = await caller.from("staff_assignments")
-        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (assignmentError) return json({ error: "finance_scope_load_failed" }, 500);
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
@@ -233,7 +233,7 @@ Deno.serve(async (req: Request) => {
     if (body.action === "provider_payables_detail") {
       if (!uuid(body.provider_id)) return json({ error: "invalid_provider_id" }, 400);
       const { data: assignment, error: assignmentError } = await caller.from("staff_assignments")
-        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (assignmentError) return json({ error: "finance_scope_load_failed" }, 500);
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
@@ -347,7 +347,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "search_users") {
       const { data: assignment } = await caller.from("staff_assignments")
-        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
       await requirePermission("finance.wallet.adjust", scopeType, scopeGovernorate);
