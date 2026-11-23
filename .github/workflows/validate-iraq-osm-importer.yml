@@ -32,3 +32,7 @@ jobs:
           assert module.find_governorate(47.7804, 30.5085) == 'basra'
           print('Importer syntax and 18-governorate point-in-polygon checks passed.')
           PY
+      - name: Parse the current Iraq PBF without writing to production
+        env:
+          DRY_RUN: "true"
+        run: python .github/scripts/import-iraq-osm-places.py
