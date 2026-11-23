@@ -88,7 +88,7 @@ jobs:
           retention-days: 7
 
   android-emulator-smoke:
-    if: github.event_name == 'workflow_dispatch'
+    if: always() && needs.build-preview-apk.result == 'success'
     name: Install, launch, and inspect navigation on Android 15
     needs: build-preview-apk
     runs-on: ubuntu-latest
