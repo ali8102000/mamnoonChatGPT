@@ -36,6 +36,8 @@ AS $function$
 DECLARE
   v_actor uuid := auth.uid();
   v_governorate text;
+  v_scope_type text;
+  v_scope_governorate text;
   v_existing public.mamnoon_provider_cash_settlements%ROWTYPE;
   v_payable_total bigint := 0;
   v_settled_total bigint := 0;
@@ -65,6 +67,18 @@ BEGIN
       AND role::text IN ('driver', 'worker', 'large_driver')
   ) THEN
     RAISE EXCEPTION 'provider_account_required';
+  END IF;
+
+  SELECT scope_type, scope_governorate
+  INTO v_scope_type, v_scope_governorate
+  FROM public.staff_assignments
+  WHERE user_id = v_actor AND active = true
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF v_scope_type = 'governorate'
+     AND v_scope_governorate IS DISTINCT FROM v_governorate THEN
+    RAISE EXCEPTION 'provider_outside_finance_scope';
   END IF;
 
   IF NOT (
