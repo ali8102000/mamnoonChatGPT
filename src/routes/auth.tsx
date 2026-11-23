@@ -113,7 +113,7 @@ function AuthPage() {
           navigate({ to: "/admin/bootstrap" });
         } else {
           toast.success(t("تم إنشاء الحساب", "Account created"));
-          navigate({ to: accountType === "partner" ? "/partner-registration" : "/home" });
+          navigate({ to: accountType === "partner" ? "/account-settings" : "/home" });
         }
       } else {
         const id = identifier.trim();
