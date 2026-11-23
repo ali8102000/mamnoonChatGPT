@@ -1,6 +1,7 @@
 import { Redirect } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { useAuth } from "@/lib/auth-context";
 import { useCompanyBranding } from "@/lib/company-branding";
 import { useEffect, useRef, useState } from "react";
@@ -52,7 +53,7 @@ export default function Index() {
       <View style={styles.center}>
         {logoUrl ? <Image source={{uri:logoUrl}} style={styles.logo} resizeMode="contain" /> : <View style={styles.logoFallback}><Text style={styles.logoLetter}>م</Text></View>}
         <Text style={styles.brand}>أهلاً بك في {companyName}</Text>
-        {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><Image source={{ uri: welcomeVisualUrl }} style={styles.welcomeVisual} resizeMode="cover" /></Animated.View> : null}
+        {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={styles.welcomeVisual} contentFit="cover" autoplay={welcomeVisualAnimated} /></Animated.View> : null}
         <Text style={styles.tagline}>{welcomeMessage}</Text>
         {loading ? <ActivityIndicator size="small" color="#C99A35" style={styles.loader} /> : <View style={styles.loaderSpace} />}
       </View>
