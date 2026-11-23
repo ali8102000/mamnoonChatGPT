@@ -157,13 +157,13 @@ begin
 
   select count(*) into v_total
   from public.service_requests
-  where cancelled_by is not null
-    and cancellation_reason is not null
-    and cancellation_reason <> 'dispatch_no_provider';
+  where cancellation_reason is not null
+    and (cancelled_by is not null or cancellation_reason = 'dispatch_no_provider');
 
   return query
   select
-    coalesce(sr.cancellation_reason, 'بدون سبب') as cancellation_reason,
+    case when sr.cancellation_reason = 'dispatch_no_provider' then 'لم يتوفر مقدم خدمة'
+      else coalesce(sr.cancellation_reason, 'بدون سبب') end as cancellation_reason,
     case
       when sr.cancelled_by is null then 'system'
       when sr.cancelled_by = sr.customer_id then 'customer'
@@ -173,9 +173,8 @@ begin
     case when v_total = 0 then 0::numeric
       else round(count(*)::numeric * 100 / v_total, 2) end as percentage
   from public.service_requests sr
-  where sr.cancelled_by is not null
-    and sr.cancellation_reason is not null
-    and sr.cancellation_reason <> 'dispatch_no_provider'
+  where sr.cancellation_reason is not null
+    and (sr.cancelled_by is not null or sr.cancellation_reason = 'dispatch_no_provider')
   group by 1, 2
   order by count(*) desc, 1;
 end;
