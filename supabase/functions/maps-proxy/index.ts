@@ -275,8 +275,12 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
     ? requestedCenter : {lat:governorate[2],lng:governorate[3]};
 
   const LIMIT=50;
-  const initial=await admin.rpc("search_map_place_suggestions",{
-    p_governorate_key:key,p_query:normalized(q),p_limit:LIMIT
+  const initial=await admin.rpc("search_map_place_suggestions_ranked",{
+    p_governorate_key:key,
+    p_query:normalized(q),
+    p_limit:LIMIT,
+    p_center_lat:searchCenter.lat,
+    p_center_lng:searchCenter.lng
   });
   if(initial.error) throw new Error("تعذّر تحميل اقتراحات الأماكن من قاعدة البيانات.");
 
@@ -402,8 +406,12 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
     }
   }
 
-  const {data,error}=await admin.rpc("search_map_place_suggestions",{
-    p_governorate_key:key,p_query:normalized(q),p_limit:LIMIT
+  const {data,error}=await admin.rpc("search_map_place_suggestions_ranked",{
+    p_governorate_key:key,
+    p_query:normalized(q),
+    p_limit:LIMIT,
+    p_center_lat:searchCenter.lat,
+    p_center_lng:searchCenter.lng
   });
   if(error) throw new Error("تعذّر تحميل اقتراحات الأماكن.");
   const refreshed=mapRows(data);
