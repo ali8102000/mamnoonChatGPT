@@ -70,7 +70,7 @@ BEGIN
       JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
       WHERE pp.updated_at > now()-interval '5 minutes'
         AND pp.accuracy_m IS NOT NULL AND pp.accuracy_m<=100
-        AND dp.status='approved'
+        AND dp.status='approved' AND dp.vehicle_category::text <> 'large'
         AND (dp.suspended_until IS NULL OR dp.suspended_until<=now());
 
       SELECT count(DISTINCT pp.user_id)::integer INTO v_drivers
@@ -78,7 +78,7 @@ BEGIN
       JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
       WHERE pp.updated_at > now()-interval '5 minutes'
         AND pp.accuracy_m IS NOT NULL AND pp.accuracy_m<=100
-        AND dp.available=true AND dp.status='approved'
+        AND dp.available=true AND dp.status='approved' AND dp.vehicle_category::text <> 'large'
         AND (dp.suspended_until IS NULL OR dp.suspended_until<=now())
         AND NOT EXISTS (
           SELECT 1 FROM public.service_requests ar
@@ -87,8 +87,8 @@ BEGIN
 
       SELECT count(*)::integer INTO v_waiting
       FROM public.service_requests sr
-      WHERE sr.type::text='taxi' AND sr.status IN ('pending','searching')
-        AND sr.provider_id IS NULL
+      WHERE sr.type::text='taxi' AND coalesce(sr.vehicle_category::text,'') <> 'large'
+        AND sr.status IN ('pending','searching') AND sr.provider_id IS NULL
         AND sr.created_at>now()-interval '15 minutes'
         AND sr.pickup_lat IS NOT NULL AND sr.pickup_lng IS NOT NULL;
     ELSE
@@ -98,7 +98,7 @@ BEGIN
       JOIN public.governorate_boundaries g ON g.governorate_key=v_key
       WHERE pp.updated_at > now()-interval '5 minutes'
         AND pp.accuracy_m IS NOT NULL AND pp.accuracy_m<=100
-        AND dp.status='approved'
+        AND dp.status='approved' AND dp.vehicle_category::text <> 'large'
         AND (dp.suspended_until IS NULL OR dp.suspended_until<=now())
         AND extensions.st_covers(g.boundary,
           extensions.st_setsrid(extensions.st_makepoint(pp.lng,pp.lat),4326));
@@ -109,7 +109,7 @@ BEGIN
       JOIN public.governorate_boundaries g ON g.governorate_key=v_key
       WHERE pp.updated_at > now()-interval '5 minutes'
         AND pp.accuracy_m IS NOT NULL AND pp.accuracy_m<=100
-        AND dp.available=true AND dp.status='approved'
+        AND dp.available=true AND dp.status='approved' AND dp.vehicle_category::text <> 'large'
         AND (dp.suspended_until IS NULL OR dp.suspended_until<=now())
         AND extensions.st_covers(g.boundary,
           extensions.st_setsrid(extensions.st_makepoint(pp.lng,pp.lat),4326))
@@ -121,8 +121,8 @@ BEGIN
       SELECT count(*)::integer INTO v_waiting
       FROM public.service_requests sr
       JOIN public.governorate_boundaries g ON g.governorate_key=v_key
-      WHERE sr.type::text='taxi' AND sr.status IN ('pending','searching')
-        AND sr.provider_id IS NULL
+      WHERE sr.type::text='taxi' AND coalesce(sr.vehicle_category::text,'') <> 'large'
+        AND sr.status IN ('pending','searching') AND sr.provider_id IS NULL
         AND sr.created_at>now()-interval '15 minutes'
         AND sr.pickup_lat IS NOT NULL AND sr.pickup_lng IS NOT NULL
         AND extensions.st_covers(g.boundary,
