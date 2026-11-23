@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
   if (typeof body.isIntercity === "boolean" && body.isIntercity !== isIntercity) {
     return json({ error: "المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد." }, 400);
   }
-  const {data:controlRows,error:controlError}=await admin.from("taxi_pricing_controls")
+  const {data:controlRows,error:controlError}=await admin.from("taxi_pricing_auto_controls")
     .select("governorate_key,auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent,auto_demand_percent")
     .in("governorate_key",[fromGovernorate,"all"]);
   if(controlError) {
