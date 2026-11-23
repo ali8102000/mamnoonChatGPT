@@ -138,6 +138,7 @@ BEGIN
     v_ratio := v_drivers::numeric / greatest(v_waiting,1);
     v_raw_percent := CASE
       WHEN COALESCE(v_observed,0)=0 THEN 0
+      WHEN COALESCE(v_waiting,0)=0 AND COALESCE(v_drivers,0)>0 THEN -10
       WHEN COALESCE(v_waiting,0)=0 THEN 0
       WHEN v_ratio >= 3 THEN -20
       WHEN v_ratio >= 2 THEN -10
