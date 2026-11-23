@@ -130,27 +130,16 @@ Deno.serve(async (req: Request) => {
         p_scope_governorate: scopeGovernorate,
       });
       if (refundPermissionError || canRefund !== true) return json({ error: "permission_required" }, 403);
-      if (refundCase.status !== "pending_review") return json({ error: "refund_case_already_reviewed" }, 409);
       const note = typeof body.note === "string" ? body.note.trim() : "";
-      const { data: updated, error: updateError } = await admin.from("mamnoon_zaincash_refund_cases")
-        .update({ status: body.decision, decision_note: note || null, decided_by: auth.user.id, decided_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("id", refundCase.id).eq("status", "pending_review").select("id,status,decided_by,decided_at").maybeSingle();
-      if (updateError || !updated) return json({ error: "refund_case_decision_conflict" }, 409);
-      await admin.from("mamnoon_zaincash_refund_events").insert({
-        refund_case_id: refundCase.id, event_type: body.decision, actor_id: auth.user.id,
-        note: note || (body.decision === "approved" ? "تمت الموافقة المبدئية؛ بانتظار تنفيذ الاسترداد اليدوي." : "تم رفض طلب الاسترداد."),
-        amount_iqd: refundCase.amount_iqd,
+      if (body.decision === "rejected" && note.length < 2) return json({ error: "rejection_reason_required" }, 400);
+      const { data: decisionResult, error: decisionError } = await admin.rpc("admin_decide_zaincash_refund", {
+        p_refund_case_id: refundCase.id,
+        p_decision: body.decision,
+        p_note: note,
+        p_actor_id: auth.user.id,
       });
-      await admin.from("notifications").insert({
-        user_id: refundCase.customer_id, type: "zaincash_refund_decision",
-        title: body.decision === "approved" ? "تمت الموافقة على طلب الاسترداد" : "تم رفض طلب الاسترداد",
-        body: body.decision === "approved"
-          ? "تمت الموافقة المبدئية على طلبك. ستصلك رسالة أخرى بعد تسجيل إعادة المبلغ فعلياً."
-          : "تم رفض طلب الاسترداد. السبب: " + (note || "يرجى مراسلة الدعم لمزيد من التفاصيل."),
-        link: "/support-chat?requestId=" + refundCase.request_id,
-        data: { request_id: refundCase.request_id, request_code: request.request_code, refund_case_id: refundCase.id },
-      });
-      return json({ ok: true, case: updated });
+      if (decisionError) return json({ error: decisionError.message }, 409);
+      return json({ ok: true, data: decisionResult });
     }
 
     if (body.action === "refund_case_mark_refunded") {
