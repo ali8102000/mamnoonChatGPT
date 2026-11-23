@@ -269,7 +269,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   const bounds=boundsFor(key);
   if(!governorate||!bounds) return json({error:"اختر المحافظة أولاً حتى تظهر اقتراحاتها فقط."},400);
   const q=input.trim();
-  if(q.length<2) return json({suggestions:[],attribution:"بيانات الأماكن © OpenStreetMap"});
+  if(q.length<2) return json({suggestions:[],attribution:"© OpenStreetMap contributors"});
   // Bias local discovery to the map viewport/current selection, not the governorate centroid.
   const searchCenter=validPoint(requestedCenter)&&isInGovernorate(requestedCenter,key)
     ? requestedCenter : {lat:governorate[2],lng:governorate[3]};
@@ -292,7 +292,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // already contains useful results. External discovery remains the fallback
   // for queries with no local matches, and successful results are cached.
   if(initialSuggestions.length>0) {
-    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap",fastPath:true});
+    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"© OpenStreetMap contributors",fastPath:true});
   }
 
   // Check the external-enrichment cache only after local search misses. This
@@ -305,7 +305,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // otherwise enrich partial local results from Photon instead of only searching
   // externally when the local database is completely empty.
   if(cacheFresh && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
-    return json({suggestions:[],attribution:"بيانات الأماكن © OpenStreetMap",cacheHit:true});
+    return json({suggestions:[],attribution:"© OpenStreetMap contributors",cacheHit:true});
   }
 
   let fetchedRows:any[]=[];
@@ -427,8 +427,8 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   }
   const suggestions=osmSuggestions.slice(0,LIMIT);
   return json({suggestions,attribution:googleSuggestions.length
-    ?"بيانات الأماكن من OpenStreetMap وGoogle Maps"
-    :"بيانات الأماكن © OpenStreetMap"});
+    ?"© OpenStreetMap contributors · Google Maps"
+    :"© OpenStreetMap contributors"});
 }
 
 Deno.serve(async (req:Request)=>{
