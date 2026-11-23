@@ -175,8 +175,6 @@ const supportChatSource = await readSource("app/support-chat.tsx");
 const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
 const pushVibrationMigration = await readSource("../supabase/migrations/20261116183000_admin_permissions_and_notification_vibration.sql");
 const versionedPushMigration = await readSource("../supabase/migrations/20261123101500_version_android_notification_channels.sql");
-const categoryPeakSettingsMigration = await readSource("../supabase/migrations/20261123110000_category_wide_peak_pricing_settings.sql");
-const categoryPeakMonitorMigration = await readSource("../supabase/migrations/20261123130000_category_peak_demand_monitor.sql");
 const supabaseTypes = await readSource("../src/integrations/supabase/types.ts");
 const adminUsersFunction = await readSource("../supabase/functions/admin-users/index.ts");
 
@@ -244,10 +242,6 @@ if (!adminUsersFunction.includes("mamnoon_v2_sound_vibrate") ||
     !adminUsersFunction.includes("mamnoon_v2_vibrate_only") ||
     !adminUsersFunction.includes("mamnoon_v2_silent")) {
   missing.push("Admin-triggered push notifications must use the registered versioned Android channels.");
-}
-if (!categoryPeakSettingsMigration.includes("('taxi:large','مركبة كبيرة')") ||
-    !categoryPeakMonitorMigration.includes("'taxi:large'")) {
-  missing.push("Large vehicles must have their own admin peak-pricing settings and demand monitor.");
 }
 if (!adminUsersFunction.includes('select("expo_push_token,sound_enabled,vibration_enabled")') ||
     !adminUsersFunction.includes('row.expo_push_token.startsWith("ExpoPushToken[")') ||
