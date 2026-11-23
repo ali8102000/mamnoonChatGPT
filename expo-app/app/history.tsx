@@ -71,7 +71,7 @@ export default function HistoryScreen() {
         const teamIds = [...new Set<string>(memberships.map((row: any) => String(row.request_id)))];
         const { data: rows, error: teamError } = await supabase
           .from("service_requests")
-          .select("id,type,status,created_at,price_estimate,request_code,pickup_text,dest_text,attachment_path,customer_id,provider_id")
+          .select("id,type,status,created_at,price_estimate,request_code,pickup_text,dest_text,attachment_path,customer_id,provider_id,cancelled_by,cancellation_reason")
           .in("id", teamIds);
         if (!teamError) teamRows = rows ?? [];
         else console.warn("[history] Team request history failed:", teamError.message);
