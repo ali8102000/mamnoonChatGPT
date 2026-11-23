@@ -38,6 +38,7 @@ export function ProviderPresence() {
         lat: last.coords.latitude,
         lng: last.coords.longitude,
         heading: last.coords.heading ?? null,
+        updated_at: new Date().toISOString(),
         accuracy_m: last.coords.accuracy,
         speed_mps: typeof speed === "number" && Number.isFinite(speed) && speed >= 0 ? speed : null,
       });
