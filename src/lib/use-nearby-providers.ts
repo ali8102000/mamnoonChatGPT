@@ -85,7 +85,13 @@ export function useNearbyProviders(opts: {
           return unchanged ? current : nextPins;
         });
       } catch {
-        // ignore — pins are non-critical
+        // Never leave a provider visible after its last confirmed GPS fix expires.
+        if (!cancelled) {
+          setPins((current) => current.filter((pin) => {
+            const ageMs = Date.now() - Date.parse(pin.updatedAt);
+            return Number.isFinite(ageMs) && ageMs >= -5_000 && ageMs <= 90_000;
+          }));
+        }
       } finally {
         inFlight = false;
       }
