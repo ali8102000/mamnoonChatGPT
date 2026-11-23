@@ -14,7 +14,8 @@ create table if not exists public.service_peak_pricing_policies (
   updated_at timestamptz not null default now(),
   primary key(governorate_key,service_slug),
   constraint service_peak_governorate_valid check (governorate_key in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah')),
-  constraint service_peak_disabled_has_no_rate check (enabled or (admin_fixed_percent=0 and provider_max_percent=0))
+  constraint service_peak_disabled_has_no_rate check (enabled or (admin_fixed_percent=0 and provider_max_percent=0)),
+  constraint service_peak_mode_enabled_valid check (mode <> 'off' or enabled = false)
 );
 
 create table if not exists public.provider_service_peak_choices (
@@ -85,6 +86,13 @@ as $$
 declare v_actor uuid:=auth.uid(); v_policy public.service_peak_pricing_policies%rowtype; v_row public.provider_service_peak_choices%rowtype;
 begin
  if v_actor is null then raise exception 'unauthorized'; end if;
+ if not public.has_role(v_actor,'worker'::public.app_role) then raise exception 'worker_required'; end if;
+ if not exists (
+   select 1 from public.worker_profiles wp
+   join public.worker_services ws on ws.worker_id=wp.user_id
+   join public.services s on s.id=ws.service_id
+   where wp.user_id=v_actor and wp.status='approved' and s.slug=p_service_slug
+ ) then raise exception 'service_not_assigned'; end if;
  if p_percent is null or p_percent<0 or p_percent>100 then raise exception 'invalid_percent'; end if;
  select * into v_policy from public.service_peak_pricing_policies
  where governorate_key=p_governorate_key and service_slug=p_service_slug and enabled=true and mode<>'off'
@@ -99,5 +107,7 @@ begin
 end $$;
 
 grant select on public.service_peak_pricing_policies,public.provider_service_peak_choices to authenticated;
+revoke all on function public.admin_save_service_peak_policy(text,text,text,boolean,numeric,boolean,numeric,numeric,numeric,integer) from public,anon;
+revoke all on function public.set_my_service_peak_percent(text,text,numeric) from public,anon;
 grant execute on function public.admin_save_service_peak_policy(text,text,text,boolean,numeric,boolean,numeric,numeric,numeric,integer) to authenticated;
 grant execute on function public.set_my_service_peak_percent(text,text,numeric) to authenticated;
