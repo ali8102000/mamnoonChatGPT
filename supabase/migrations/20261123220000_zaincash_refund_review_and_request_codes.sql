@@ -18,7 +18,7 @@ WHERE r.id = numbered.id;
 
 SELECT setval(
   'public.mamnoon_request_code_seq',
-  (SELECT count(*) FROM public.service_requests),
+  GREATEST((SELECT count(*) FROM public.service_requests), 1),
   (SELECT count(*) > 0 FROM public.service_requests)
 );
 
