@@ -50,7 +50,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { refresh } = useAuth();
-  const { companyName, logoUrl, welcomeMessage, welcomeMediaUrl } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeMediaUrl, welcomeMediaAnimated } = useCompanyBranding();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -224,7 +224,7 @@ function AuthPage() {
         <Link to="/welcome">{t("اللغة والترحيب", "Language & welcome")}</Link>
       </Button>
       <div className="text-center mb-6 min-w-0">
-        {welcomeMediaUrl && <img src={welcomeMediaUrl} alt={`واجهة ${companyName}`} className="mx-auto mb-4 w-full max-w-[360px] max-h-48 rounded-2xl object-contain" />}
+        {welcomeMediaUrl && <img src={welcomeMediaUrl} alt={`واجهة ${companyName}`} className={`mx-auto mb-4 w-full max-w-[360px] max-h-48 rounded-2xl object-contain transition-transform ${welcomeMediaAnimated ? "animate-pulse hover:scale-[1.02]" : ""}`} />}
         {logoUrl ? (
           <img src={logoUrl} alt={`شعار ${companyName}`} className="mx-auto mb-4 h-20 w-20 rounded-3xl bg-white object-contain p-2 shadow-elegant" />
         ) : (
