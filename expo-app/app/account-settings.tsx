@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import * as ImagePicker from "expo-image-picker";
+import MapView, { Marker, type MapPressEvent } from "react-native-maps";
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
 import { supabase } from "@/lib/supabase";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
@@ -15,6 +17,7 @@ import { safeNavigate } from "@/lib/safe-navigation";
 
 export default function AccountSettingsScreen() {
   const { user, profile, roles, refresh, activeRole, setActiveRole } = useAuth();
+  const routeParams = useLocalSearchParams<{partner?: string}>();
   const { mode, setMode } = useThemePreference();
   const actualEmail = (() => { const candidate = String(user?.email ?? "").trim().toLowerCase(); return candidate && !/^phone\d+@mamnoon\.app$/.test(candidate) ? candidate : ""; })();
   const [email, setEmail] = useState(actualEmail);
@@ -37,6 +40,10 @@ export default function AccountSettingsScreen() {
   const [partnerCity, setPartnerCity] = useState("");
   const [partnerAddress, setPartnerAddress] = useState("");
   const [partnerDescription, setPartnerDescription] = useState("");
+  const [partnerLicenseNumber, setPartnerLicenseNumber] = useState("");
+  const [partnerDocs, setPartnerDocs] = useState<{license:ImagePicker.ImagePickerAsset|null;idFront:ImagePicker.ImagePickerAsset|null;idBack:ImagePicker.ImagePickerAsset|null}>({license:null,idFront:null,idBack:null});
+  const [partnerLat, setPartnerLat] = useState(33.3152);
+  const [partnerLng, setPartnerLng] = useState(44.3661);
   const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [partnerBusy, setPartnerBusy] = useState(false);
   const governorateLabels: Record<string,string> = {baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
@@ -44,6 +51,7 @@ export default function AccountSettingsScreen() {
   const isCompanyAdmin = user?.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
   useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
+  useEffect(() => { if (routeParams.partner === "1") setPartnerFormOpen(true); }, [routeParams.partner]);
   useEffect(() => { if (user?.id) void loadPartnerApplications(); }, [user?.id]);
   useEffect(() => {
     let active = true;
@@ -100,32 +108,49 @@ export default function AccountSettingsScreen() {
   async function loadPartnerApplications() {
     if (!user?.id) return;
     const { data, error } = await (supabase as any).from("partner_applications")
-      .select("id,partner_type,business_name,status,admin_note,created_at")
+      .select("id,partner_type,business_name,status,admin_note,created_at,license_number,business_latitude,business_longitude")
       .eq("user_id", user.id).order("created_at", { ascending: false }).limit(10);
     if (error) { console.warn("[partner-applications] load failed:", error.message); return; }
     setPartnerApplications(data ?? []);
   }
 
+  async function pickPartnerDoc(key: "license" | "idFront" | "idBack") {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, quality: 0.85 });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    if (asset.fileSize && asset.fileSize > 8 * 1024 * 1024) { Alert.alert("حجم الملف كبير", "الحد الأعلى لكل مستند 8 ميغابايت"); return; }
+    setPartnerDocs(old => ({ ...old, [key]: asset }));
+  }
   async function submitPartnerApplication() {
     if (!user?.id) return;
-    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4) {
-      Alert.alert("بيانات ناقصة", "كمّل اسم المنشأة واسم المسؤول والهاتف والمدينة والعنوان.");
-      return;
+    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4 || partnerLicenseNumber.trim().length < 2) {
+      Alert.alert("بيانات ناقصة", "كمّل اسم المنشأة واسم المسؤول والهاتف ورقم الإجازة والمدينة والعنوان."); return;
     }
+    if (!partnerDocs.license || !partnerDocs.idFront || !partnerDocs.idBack) { Alert.alert("المستندات مطلوبة", "ارفع إجازة العمل وصورتي هوية الوجهين."); return; }
     setPartnerBusy(true);
     try {
+      const uploadPartnerDoc = async (asset: ImagePicker.ImagePickerAsset, key: string) => {
+        const extension = (asset.fileName?.split(".").pop() || asset.mimeType?.split("/")[1] || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = user.id + "/partner-applications/" + key + "-" + Date.now() + "." + extension;
+        const bytes = await fetch(asset.uri).then(response => response.arrayBuffer());
+        const { data, error } = await supabase.storage.from("provider-verification").upload(path, bytes, { contentType: asset.mimeType || "image/jpeg", upsert: false });
+        if (error) throw error; return data.path;
+      };
+      const [license_document_path, id_front_path, id_back_path] = await Promise.all([uploadPartnerDoc(partnerDocs.license, "license"), uploadPartnerDoc(partnerDocs.idFront, "id-front"), uploadPartnerDoc(partnerDocs.idBack, "id-back")]);
       const { error } = await (supabase as any).from("partner_applications").insert({
         user_id: user.id, partner_type: partnerType, business_name: partnerName.trim(),
         contact_name: partnerContact.trim(), phone: partnerPhone.trim(),
         email: partnerEmail.trim() || null, governorate_key: partnerGovernorate,
         city: partnerCity.trim(), address: partnerAddress.trim(),
         description: partnerDescription.trim() || null,
-        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null
+        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null,
+        license_number: partnerLicenseNumber.trim(), license_document_path, id_front_path, id_back_path,
+        business_latitude: partnerLat, business_longitude: partnerLng
       });
       if (error) throw error;
       Alert.alert("تم إرسال الطلب", "وصل طلب الشراكة إلى إدارة ممنون وبانتظار المراجعة.");
       setPartnerFormOpen(false);
-      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription("");
+      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription(""); setPartnerLicenseNumber(""); setPartnerDocs({license:null,idFront:null,idBack:null});
       await loadPartnerApplications();
     } catch (error) {
       Alert.alert("تعذر إرسال الطلب", error instanceof Error ? error.message : "حاول مرة ثانية.");
@@ -381,11 +406,19 @@ export default function AccountSettingsScreen() {
           <Text style={styles.partnerLabel}>المحافظة</Text>
           <View style={styles.partnerGovernorates}>{Object.entries(governorateLabels).map(([key,label])=><TouchableOpacity key={key} onPress={()=>setPartnerGovernorate(key)} style={[styles.partnerGovernorateChip,partnerGovernorate===key&&styles.partnerTypeSelected]}><Text style={styles.partnerGovernorateText}>{label}</Text></TouchableOpacity>)}</View>
           <Text style={styles.partnerLabel}>المدينة / القضاء</Text><RealInput value={partnerCity} onChangeText={setPartnerCity} placeholder="مثال: النجف الأشرف" maxLength={80} />
-          <Text style={styles.partnerLabel}>العنوان التفصيلي</Text><RealInput value={partnerAddress} onChangeText={setPartnerAddress} placeholder="الحي والشارع وأقرب نقطة دالة" maxLength={240} />
+          <Text style={styles.partnerLabel}>العنوان التفصيلي</Text><RealInput value={partnerAddress} onChangeText={setPartnerAddress} placeholder="الحي والشارع وأقرب نقطة دالة" maxLength={240} />          <Text style={styles.partnerLabel}>رقم إجازة العمل / الترخيص</Text><RealInput value={partnerLicenseNumber} onChangeText={setPartnerLicenseNumber} placeholder="رقم الإجازة الرسمية" maxLength={100} />
+          <Text style={styles.partnerLabel}>حدد موقع المنشأة بالدبوس</Text>
+          <Text style={styles.note}>اضغط على الخريطة أو حرّك الدبوس إلى موقع الفندق أو المتجر أو المول.</Text>
+          <MapView style={{height:250,borderRadius:14,marginBottom:10}} initialRegion={{latitude:partnerLat,longitude:partnerLng,latitudeDelta:0.035,longitudeDelta:0.035}} onPress={event=>{setPartnerLat(event.nativeEvent.coordinate.latitude);setPartnerLng(event.nativeEvent.coordinate.longitude);}}><Marker coordinate={{latitude:partnerLat,longitude:partnerLng}} draggable onDragEnd={event=>{setPartnerLat(event.nativeEvent.coordinate.latitude);setPartnerLng(event.nativeEvent.coordinate.longitude);}} title={partnerName||"موقع المنشأة"}/></MapView>
+          <Text style={styles.note}>الإحداثيات: {partnerLat.toFixed(6)}, {partnerLng.toFixed(6)}</Text>
+          <Text style={styles.partnerLabel}>المستندات الإلزامية</Text>
+          {([{key:"license",label:"إجازة العمل / رخصة النشاط"},{key:"idFront",label:"هوية صاحب المنشأة - الوجه الأمامي"},{key:"idBack",label:"هوية صاحب المنشأة - الوجه الخلفي"}] as const).map(item=><TouchableOpacity key={item.key} onPress={()=>void pickPartnerDoc(item.key)} style={styles.partnerDocButton}><Text style={styles.partnerDocTitle}>{item.label}</Text><Text style={styles.note}>{partnerDocs[item.key]?.fileName||"اضغط لاختيار صورة واضحة"}</Text></TouchableOpacity>)}
+          <Text style={styles.note}>المستندات سرية ولا تظهر للزبائن، والحد الأعلى 8 ميغابايت لكل صورة.</Text>
           <Text style={styles.partnerLabel}>نبذة عن المنشأة (اختياري)</Text><RealInput value={partnerDescription} onChangeText={setPartnerDescription} placeholder="الخدمات أو المنتجات" />
           <Button title={partnerBusy ? "جارٍ إرسال الطلب..." : "إرسال طلب الشراكة"} onPress={submitPartnerApplication} loading={partnerBusy} />
         </View>}
-        {partnerApplications.length>0 && <View style={{marginTop:12,gap:8}}><Text style={styles.partnerLabel}>طلبات الشراكة السابقة</Text>{partnerApplications.map(item=><View key={item.id} style={styles.partnerApplicationCard}><Text style={styles.partnerApplicationName}>{item.business_name}</Text><Text style={styles.partnerApplicationStatus}>{item.status==="approved"?"تمت الموافقة":item.status==="suspended"?"موقوف من الإدارة":item.status==="rejected"?"مرفوض":"قيد المراجعة"} · {({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]}</Text>{item.admin_note?<Text style={styles.note}>ملاحظة الإدارة: {item.admin_note}</Text>:null}</View>)}</View>}
+        {partnerApplications.length>0 && <View style={{marginTop:12,gap:8}}><Text style={styles.partnerLabel}>طلبات الشراكة السابقة</Text>{partnerApplications.map(item=><View key={item.id} style={styles.partnerApplicationCard}><Text style={styles.partnerApplicationName}>{item.business_name}</Text><Text style={styles.partnerApplicationStatus}>{item.status==="approved"?"تمت الموافقة":item.status==="suspended"?"موقوف من الإدارة":item.status==="rejected"?"مرفوض":"قيد المراجعة"} · {({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]}</Text>
+<Text style={styles.note}>رقم الإجازة: {item.license_number||"قيد المراجعة أو غير مرفق"} · {item.business_latitude!=null&&item.business_longitude!=null?"تم حفظ دبوس الموقع":"لا يوجد دبوس موقع محفوظ"}</Text>{item.admin_note?<Text style={styles.note}>ملاحظة الإدارة: {item.admin_note}</Text>:null}</View>)}</View>}
         {partnerApplications.some(item=>item.status==="approved" && ["store","restaurant"].includes(item.partner_type)) && <TouchableOpacity activeOpacity={0.85} onPress={()=>router.push("/partner/dashboard")} style={styles.partnerJoinButton}><Text style={styles.partnerJoinButtonText}>إعدادات أعمالي</Text></TouchableOpacity>}
       </View>
       <Text style={styles.note}>كل خيارات الانضمام مجمّعة هنا. بعد إكمال بياناتك ومستنداتك تراجع الإدارة طلبك.</Text>
@@ -442,6 +475,8 @@ const styles = StyleSheet.create({
   partnerGovernorates: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   partnerGovernorateChip: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
   partnerGovernorateText: { color: palette.ink, fontSize: 10, fontWeight: "700" },
+  partnerDocButton: { borderWidth:1,borderColor:palette.line,borderRadius:12,padding:12,marginBottom:8,backgroundColor:palette.surface },
+  partnerDocTitle: { color:palette.ink,fontSize:12,fontWeight:"900",textAlign:"right" },
   partnerApplicationCard: { borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, backgroundColor: palette.surface, padding: 12 },
   partnerApplicationName: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
   partnerApplicationStatus: { color: palette.brand, fontSize: 11, fontWeight: "800", textAlign: "right", marginTop: 4 },

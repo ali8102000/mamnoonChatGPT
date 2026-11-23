@@ -28,6 +28,7 @@ export default function AuthScreen() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [referralCode, setReferralCode] = useState(routeParams.ref || "");
+  const [accountType, setAccountType] = useState<"customer" | "partner">("customer");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const { refresh } = useAuth();
@@ -67,7 +68,7 @@ export default function AuthScreen() {
           if (metadataError) throw metadataError;
         }
         await refresh();
-        router.replace("/home");
+        router.replace(accountType === "partner" ? "/account-settings?partner=1" : "/home");
       } else {
         const id = identifier.trim();
         if (!id) throw new Error("أدخل رقم الهاتف أو البريد الإلكتروني");
@@ -232,6 +233,7 @@ export default function AuthScreen() {
               />
             </AuthField>
 
+            {isSignup && <View style={styles.field}><Text style={styles.fieldLabel}>نوع الحساب</Text><View style={{flexDirection:"row",gap:8}}><Pressable onPress={()=>setAccountType("customer")} style={[styles.modeOption,accountType==="customer"&&styles.modeOptionActive,{borderWidth:1,borderColor:palette.line}]}><Text style={[styles.modeText,accountType==="customer"&&styles.modeTextActive]}>حساب زبون</Text></Pressable><Pressable onPress={()=>setAccountType("partner")} style={[styles.modeOption,accountType==="partner"&&styles.modeOptionActive,{borderWidth:1,borderColor:palette.line}]}><Text style={[styles.modeText,accountType==="partner"&&styles.modeTextActive]}>شريك تجاري</Text></Pressable></View>{accountType==="partner"&&<Text style={styles.fieldHint}>بعد إنشاء الحساب تكمل بيانات المنشأة وترفع الإجازة والمستمسكات وتحدد موقعها بالخريطة.</Text>}</View>}
             {!isSignup && (
               <Pressable onPress={() => router.push("/forgot-password")} style={styles.forgotButton}>
                 <Text style={styles.forgotText}>نسيت كلمة المرور؟</Text>

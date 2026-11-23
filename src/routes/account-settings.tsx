@@ -1,11 +1,11 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ArrowLeftRight, UserRound, CarFront, Wrench, Mail, Phone, ShieldCheck, Truck } from "lucide-react";
+import { ArrowRight, ArrowLeftRight, UserRound, CarFront, Wrench, Mail, Phone, ShieldCheck, Truck, MapPin, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/account-settings")({ ssr: false, component: AccountSettingsPage });
 
@@ -29,6 +29,13 @@ function AccountSettingsPage() {
   const [partnerCity, setPartnerCity] = useState("");
   const [partnerAddress, setPartnerAddress] = useState("");
   const [partnerDescription, setPartnerDescription] = useState("");
+  const [partnerLicenseNumber, setPartnerLicenseNumber] = useState("");
+  const [partnerLicenseFile, setPartnerLicenseFile] = useState<File | null>(null);
+  const [partnerIdFrontFile, setPartnerIdFrontFile] = useState<File | null>(null);
+  const [partnerIdBackFile, setPartnerIdBackFile] = useState<File | null>(null);
+  const [partnerLat, setPartnerLat] = useState(33.3152);
+  const [partnerLng, setPartnerLng] = useState(44.3661);
+  const partnerMapRef = useRef<HTMLDivElement>(null);
   const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [partnerBusy, setPartnerBusy] = useState(false);
   const governorateLabels: Record<string,string> = {baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
@@ -36,15 +43,53 @@ function AccountSettingsPage() {
   const isCompanyAdmin = session?.user.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
   useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("partner") === "1") setPartnerFormOpen(true); }, []);
   useEffect(() => {
     if (!session?.user.id) return;
     void loadPartnerApplications();
   }, [session?.user.id]);
 
+  useEffect(() => {
+    if (!partnerFormOpen || !partnerMapRef.current) return;
+    const key = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+    let active = true;
+    const initializeLeaflet = () => {
+      const L = (window as any).L;
+      if (!active || !partnerMapRef.current || !L) return;
+      const center: [number, number] = [partnerLat, partnerLng];
+      const map = L.map(partnerMapRef.current, { scrollWheelZoom: true }).setView(center, 16);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
+      const marker = L.marker(center, { draggable: true }).addTo(map);
+      map.on("click", (event: any) => { marker.setLatLng(event.latlng); setPartnerLat(event.latlng.lat); setPartnerLng(event.latlng.lng); });
+      marker.on("dragend", () => { const point = marker.getLatLng(); setPartnerLat(point.lat); setPartnerLng(point.lng); });
+    };
+    if (!key) {
+      if (!(window as any).L) {
+        if (!document.getElementById("mamnoon-leaflet-css")) { const link = document.createElement("link"); link.id = "mamnoon-leaflet-css"; link.rel = "stylesheet"; link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(link); }
+        const script = document.createElement("script"); script.id = "mamnoon-leaflet-js"; script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; script.onload = initializeLeaflet; document.head.appendChild(script);
+      } else initializeLeaflet();
+      return () => { active = false; };
+    }
+    const initialize = () => {
+      if (!active || !partnerMapRef.current || !window.google?.maps) return;
+      const center = { lat: partnerLat, lng: partnerLng };
+      const map = new window.google.maps.Map(partnerMapRef.current, { center, zoom: 16, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: "greedy" });
+      const marker = new window.google.maps.Marker({ position: center, map, draggable: true, title: partnerName || "موقع المنشأة" });
+      map.addListener("click", (event: google.maps.MapMouseEvent) => { if (!event.latLng) return; const point = { lat: event.latLng.lat(), lng: event.latLng.lng() }; marker.setPosition(point); setPartnerLat(point.lat); setPartnerLng(point.lng); });
+      marker.addListener("dragend", () => { const point = marker.getPosition(); if (point) { setPartnerLat(point.lat()); setPartnerLng(point.lng()); } });
+    };
+    if (window.google?.maps) initialize();
+    else {
+      const existing = document.getElementById("mamnoon-partner-map") as HTMLScriptElement | null;
+      if (existing) existing.addEventListener("load", initialize, { once: true });
+      else { const script = document.createElement("script"); script.id = "mamnoon-partner-map"; script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key) + "&v=weekly"; script.async = true; script.defer = true; script.onload = initialize; document.head.appendChild(script); }
+    }
+    return () => { active = false; };
+  }, [partnerFormOpen]);
   async function loadPartnerApplications() {
     if (!session?.user.id) return;
     const { data, error } = await (supabase as any).from("partner_applications")
-      .select("id,partner_type,business_name,status,admin_note,created_at")
+      .select("id,partner_type,business_name,status,admin_note,created_at,license_number,business_latitude,business_longitude")
       .eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(10);
     if (error) { console.warn("[partner-applications] load failed:", error.message); return; }
     setPartnerApplications(data ?? []);
@@ -53,12 +98,21 @@ function AccountSettingsPage() {
   async function submitPartnerApplication(event: React.FormEvent) {
     event.preventDefault();
     if (!session?.user.id) return;
-    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4) {
-      toast.error("كمّل اسم المنشأة واسم المسؤول والهاتف والمحافظة والمدينة والعنوان");
-      return;
+    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4 || partnerLicenseNumber.trim().length < 2) {
+      toast.error("كمّل اسم المنشأة واسم المسؤول والهاتف ورقم الإجازة والمحافظة والمدينة والعنوان"); return;
     }
+    const docs = [partnerLicenseFile, partnerIdFrontFile, partnerIdBackFile];
+    if (docs.some(file => !file)) { toast.error("إجازة العمل وصورتي هوية الوجهين مطلوبة"); return; }
+    if (docs.some(file => file && (file.size > 8 * 1024 * 1024 || !["image/jpeg","image/png","image/webp"].includes(file.type)))) { toast.error("ارفع صور JPG أو PNG أو WebP وبحجم لا يتجاوز 8 ميغابايت لكل مستند"); return; }
     setPartnerBusy(true);
     try {
+      const uploadPartnerDoc = async (file: File, key: string) => {
+        const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const path = session.user.id + "/partner-applications/" + key + "-" + Date.now() + "-" + Math.random().toString(36).slice(2,8) + "." + extension;
+        const { data, error } = await supabase.storage.from("provider-verification").upload(path, file, { contentType: file.type, upsert: false });
+        if (error) throw error; return data.path;
+      };
+      const [license_document_path, id_front_path, id_back_path] = await Promise.all([uploadPartnerDoc(partnerLicenseFile!, "license"), uploadPartnerDoc(partnerIdFrontFile!, "id-front"), uploadPartnerDoc(partnerIdBackFile!, "id-back")]);
       const { error } = await (supabase as any).from("partner_applications").insert({
         user_id: session.user.id,
         partner_type: partnerType,
@@ -70,12 +124,15 @@ function AccountSettingsPage() {
         city: partnerCity.trim(),
         address: partnerAddress.trim(),
         description: partnerDescription.trim() || null,
-        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null
+        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null,
+        license_number: partnerLicenseNumber.trim(),
+        license_document_path, id_front_path, id_back_path,
+        business_latitude: partnerLat, business_longitude: partnerLng
       });
       if (error) throw error;
       toast.success("وصل طلب الشراكة للإدارة وبانتظار المراجعة");
       setPartnerFormOpen(false);
-      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription("");
+      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription(""); setPartnerLicenseNumber(""); setPartnerLicenseFile(null); setPartnerIdFrontFile(null); setPartnerIdBackFile(null);
       await loadPartnerApplications();
     } catch (error: any) {
       toast.error(error?.message || "تعذر إرسال طلب الشراكة");
@@ -210,7 +267,13 @@ function AccountSettingsPage() {
         <label className="block text-xs font-bold">البريد الإلكتروني (اختياري)<input type="email" value={partnerEmail} onChange={e=>setPartnerEmail(e.target.value)} dir="ltr" className="input-base mt-1 w-full rounded-xl text-left" placeholder="name@example.com" /></label>
         <label className="block text-xs font-bold">المحافظة<select value={partnerGovernorate} onChange={e=>setPartnerGovernorate(e.target.value)} className="input-base mt-1 w-full rounded-xl">{Object.entries(governorateLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
         <label className="block text-xs font-bold">المدينة / القضاء<input required minLength={2} maxLength={80} value={partnerCity} onChange={e=>setPartnerCity(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="مثال: النجف الأشرف" /></label>
-        <label className="block text-xs font-bold">العنوان التفصيلي<input required minLength={4} maxLength={240} value={partnerAddress} onChange={e=>setPartnerAddress(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="الحي والشارع وأقرب نقطة دالة" /></label>
+        <label className="block text-xs font-bold">العنوان التفصيلي<input required minLength={4} maxLength={240} value={partnerAddress} onChange={e=>setPartnerAddress(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="الحي والشارع وأقرب نقطة دالة" /></label>        <label className="block text-xs font-bold">رقم إجازة العمل / الترخيص<input required minLength={2} maxLength={100} value={partnerLicenseNumber} onChange={e=>setPartnerLicenseNumber(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="رقم الإجازة الرسمية" /></label>
+        <div className="space-y-2"><div className="flex items-center gap-2 text-xs font-black"><MapPin className="h-4 w-4"/> دبوس موقع المنشأة</div><p className="text-[10px] text-muted-foreground">اضغط على الخريطة أو اسحب الدبوس إلى موقع الفندق أو المتجر أو المول.</p><div ref={partnerMapRef} className="h-64 w-full rounded-xl border border-border bg-muted"/><p className="text-center text-[10px] text-muted-foreground">الإحداثيات: {partnerLat.toFixed(6)}, {partnerLng.toFixed(6)}</p></div>
+        <div className="space-y-2"><div className="text-xs font-black">المستندات الإلزامية</div>
+          <PartnerDocUpload label="إجازة العمل / رخصة النشاط" file={partnerLicenseFile} onChange={setPartnerLicenseFile}/>
+          <PartnerDocUpload label="هوية صاحب المنشأة - الوجه الأمامي" file={partnerIdFrontFile} onChange={setPartnerIdFrontFile}/>
+          <PartnerDocUpload label="هوية صاحب المنشأة - الوجه الخلفي" file={partnerIdBackFile} onChange={setPartnerIdBackFile}/>
+          <p className="text-[10px] text-muted-foreground">المستندات تحفظ بشكل خاص ولا تظهر للزبائن. الحد الأعلى 8 ميغابايت للصورة.</p></div>
         <label className="block text-xs font-bold">نبذة عن المنشأة (اختياري)<textarea maxLength={1000} value={partnerDescription} onChange={e=>setPartnerDescription(e.target.value)} className="input-base mt-1 min-h-20 w-full rounded-xl" placeholder="الخدمات أو المنتجات التي تقدمها" /></label>
         <button type="submit" disabled={partnerBusy} className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black disabled:opacity-50">{partnerBusy?"جارٍ إرسال الطلب...":"إرسال طلب الشراكة"}</button>
       </form>}
@@ -281,4 +344,8 @@ function AccountSettingsPage() {
       <span>بيانات حسابك محمية، ولا يتغير البريد أو الهاتف إلا بعد إكمال التحقق.</span>
     </div>
   </main>;
+}
+
+function PartnerDocUpload({label,file,onChange}:{label:string;file:File|null;onChange:(file:File|null)=>void}) {
+  return <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border p-3"><span className="min-w-0"><b className="block text-xs">{label}</b><small className="text-muted-foreground">{file?.name||"اختيار صورة واضحة"}</small></span><Upload className="h-4 w-4 shrink-0"/><input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e=>onChange(e.target.files?.[0]||null)}/></label>;
 }

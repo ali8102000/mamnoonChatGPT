@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { MobileShell } from "@/components/mobile-shell";
 import { toast } from "@/lib/toast";
 
-type Business = { id: string; partner_type: string; business_name: string; phone: string; city: string; address: string; description: string | null };
+type Business = { id: string; partner_type: string; business_name: string; phone: string; city: string; address: string; description: string | null; latitude: number | null; longitude: number | null };
 type CatalogItem = { id: string; item_type: string; name: string; description: string | null; price_amount: number; currency: string; quantity_available: number | null; image_urls: string[] };
 type CartLine = { id: string; catalog_item_id: string; quantity: number };
 
@@ -38,7 +38,7 @@ function PublicPartnerDetailsPage() {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     const { data: profile, error: profileError } = await (supabase as any).from("partner_business_profiles")
-      .select("id,partner_type,business_name,phone,city,address,description")
+      .select("id,partner_type,business_name,phone,city,address,description,latitude,longitude")
       .eq("id", id).eq("is_published", true).maybeSingle();
     if (profileError || !profile) { setBusiness(null); setCatalog([]); setError("المنشأة غير متاحة أو تم إيقاف نشرها."); setLoading(false); return; }
     setBusiness(profile as Business);
@@ -124,6 +124,7 @@ function PublicPartnerDetailsPage() {
         <span className="text-xs font-bold opacity-80">{business.partner_type==="hotel"?"فندق":business.partner_type==="restaurant"?"مطعم":business.partner_type==="mall"?"مول":"متجر"}</span>
         <h1 className="text-2xl font-black">{business.business_name}</h1>
         <p className="flex items-center gap-2 text-xs opacity-90"><MapPin className="h-4 w-4"/>{business.city} · {business.address}</p>
+        {business.latitude!=null&&business.longitude!=null&&<a href={"https://www.google.com/maps?q="+business.latitude+","+business.longitude} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-xs font-bold underline underline-offset-4"><MapPin className="h-4 w-4"/> الوصول إلى موقع المنشأة</a>}
         {business.description&&<p className="text-sm leading-7 opacity-90">{business.description}</p>}
         <a href={`tel:${business.phone}`} className="inline-flex w-fit items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-primary"><Phone className="h-4 w-4"/> اتصال بالمنشأة</a>
       </section>

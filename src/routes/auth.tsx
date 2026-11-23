@@ -45,6 +45,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  const [accountType, setAccountType] = useState<"customer" | "partner">("customer");
   useEffect(() => { const code = new URLSearchParams(window.location.search).get("ref"); if (code) setReferralCode(code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10)); }, []);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -112,7 +113,7 @@ function AuthPage() {
           navigate({ to: "/admin/bootstrap" });
         } else {
           toast.success(t("تم إنشاء الحساب", "Account created"));
-          navigate({ to: "/home" });
+          if (accountType === "partner") window.location.assign("/account-settings?partner=1"); else navigate({ to: "/home" });
         }
       } else {
         const id = identifier.trim();
@@ -306,6 +307,7 @@ function AuthPage() {
               <Field label={t("رمز الإحالة (اختياري)", "Referral code (optional)")} icon={<User className="h-5 w-5" />}>
                 <input value={referralCode} onChange={(e) => setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10))} dir="ltr" maxLength={10} placeholder={t("رمز دعوة صديقك", "Friend's referral code")} className="input-base text-left" autoComplete="off" />
               </Field>
+              <div className="space-y-2"><span className="block text-sm font-bold">نوع الحساب</span><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setAccountType("customer")} className="rounded-xl border p-3 text-sm font-bold">حساب زبون</button><button type="button" onClick={() => setAccountType("partner")} className="rounded-xl border p-3 text-sm font-bold">تسجيل شريك تجاري</button></div>{accountType === "partner" && <p className="text-xs text-muted-foreground">بعد إنشاء الحساب تكمل بيانات المنشأة وترفع الإجازة والمستمسكات وتحدد موقعها بالخريطة.</p>}</div>
             </>
           ) : (
             <Field
