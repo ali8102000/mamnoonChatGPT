@@ -103,13 +103,14 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "list") {
       if (isSuperAdmin !== true) return json({ error: "super_admin_required" }, 403);
-      const [policies, overrides, revenue, collections] = await Promise.all([
+      const [policies, overrides, revenue, collections, collectionReversals] = await Promise.all([
         admin.from("mamnoon_commission_policies").select("*").order("created_at", { ascending: false }).limit(100),
         admin.from("mamnoon_user_fee_overrides").select("*").is("revoked_at", null).order("created_at", { ascending: false }).limit(200),
         admin.from("mamnoon_revenue_ledger").select("*").order("created_at", { ascending: false }).limit(200),
         admin.from("mamnoon_revenue_collections").select("id,revenue_ledger_id,payment_id,amount_iqd,provider_reference,created_at").order("created_at", { ascending: false }).limit(300),
+        admin.from("mamnoon_revenue_collection_reversals").select("revenue_collection_id,amount_iqd,reason,created_at").limit(500),
       ]);
-      if (policies.error || overrides.error || revenue.error || collections.error) return json({ error: "rights_data_load_failed" }, 500);
+      if (policies.error || overrides.error || revenue.error || collections.error || collectionReversals.error) return json({ error: "rights_data_load_failed" }, 500);
       const ids = [...new Set((overrides.data ?? []).map((r:any)=>r.user_id).concat((revenue.data ?? []).map((r:any)=>r.user_id)))];
       const { data: profiles } = ids.length ? await admin.from("profiles").select("id,full_name,phone").in("id",ids) : { data: [] };
       const byId = new Map((profiles ?? []).map((p:any)=>[p.id,p]));
@@ -120,7 +121,16 @@ Deno.serve(async (req: Request) => {
         policies: policies.data ?? [],
         overrides: (overrides.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null})),
         revenue: (revenue.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null})),
-        collections: collections.data ?? [],
+        collections: (collections.data ?? []).map((row:any) => {
+          const reversal = (collectionReversals.data ?? []).find((item:any) => item.revenue_collection_id === row.id);
+          return {
+            ...row,
+            reversed_amount_iqd: reversal?.amount_iqd ?? 0,
+            net_amount_iqd: Math.max(0, Number(row.amount_iqd ?? 0) - Number(reversal?.amount_iqd ?? 0)),
+            reversal_reason: reversal?.reason ?? null,
+            reversed_at: reversal?.created_at ?? null,
+          };
+        }),
       });
     }
 
