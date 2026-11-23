@@ -201,6 +201,7 @@ export default function NewRequest() {
   const [pickupCoords, setPickupCoords] = useState<Coordinates | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
   const [mapMode, setMapMode] = useState<"pickup" | "destination">("pickup");
+  const destinationBackArmedRef = useRef(false);
   const [favoritePlaces, setFavoritePlaces] = useState<FavoritePlace[]>([]);
   const [favoritePlacesLoading, setFavoritePlacesLoading] = useState(false);
   const [favoriteName, setFavoriteName] = useState("");
@@ -240,6 +241,7 @@ export default function NewRequest() {
     const coords = { latitude: Number(place.latitude), longitude: Number(place.longitude) };
     setDestinationGovernorateKey(place.governorate_key);
     setDestinationCoords(coords); setDestination(place.address || place.label);
+    destinationBackArmedRef.current = false;
     setMapMode("destination"); setDestinationConfirmed(false);
     setRouteKm(null); setRouteError(null); setShowFavoriteNameInput(false);
     setPlaceQuery(""); setPlaceSuggestions([]); setPlaceSearchError(null);
@@ -436,11 +438,21 @@ export default function NewRequest() {
 
   function handleTaxiBack() {
     if (mapMode === "destination") {
-      // Back from car/fare details returns to destination selection.
-      // Keep the confirmed pickup; the pickup tab remains available for explicit edits.
-      if (destinationConfirmed) setDestinationConfirmed(false);
+      // First back press keeps the user on destination so they can edit it.
+      // A second back press moves to pickup; it never clears the saved pickup.
+      if (!destinationBackArmedRef.current) {
+        destinationBackArmedRef.current = true;
+        if (destinationConfirmed) setDestinationConfirmed(false);
+        return;
+      }
+      destinationBackArmedRef.current = false;
+      setDestinationConfirmed(false);
+      setMapMode("pickup");
+      setPlaceQuery("");
+      setPlaceSuggestions([]);
       return;
     }
+    destinationBackArmedRef.current = false;
     router.back();
   }
 
@@ -1023,6 +1035,7 @@ export default function NewRequest() {
         setDestinationConfirmed(true);
         return;
       }
+      destinationBackArmedRef.current = false;
       setMapMode("destination");
       setDestinationConfirmed(false);
       setDestinationCoords(null);
@@ -1059,6 +1072,7 @@ export default function NewRequest() {
     }
     confirmDestinationPendingRef.current = false;
         setConfirmDestinationPending(false);
+    destinationBackArmedRef.current = false;
     setDestinationConfirmed(true);
   }
 
@@ -1378,7 +1392,7 @@ export default function NewRequest() {
           <View style={styles.taxiStepTabs}>
             <TouchableOpacity
               style={[styles.taxiStepTab, mapMode === "pickup" && styles.taxiStepTabPickup]}
-              onPress={() => { setMapMode("pickup"); setDestinationConfirmed(false); }}
+              onPress={() => { destinationBackArmedRef.current = false; setMapMode("pickup"); setDestinationConfirmed(false); }}
             >
               <Text style={[styles.taxiStepText, mapMode === "pickup" && styles.taxiStepTextActive]}>١. الانطلاق {pickupCoords ? "✓" : ""}</Text>
             </TouchableOpacity>
@@ -1390,6 +1404,7 @@ export default function NewRequest() {
                     Alert.alert("حدد الانطلاق أولاً", "اختَر موقع الانطلاق قبل تحديد الوجهة.");
                     return;
                   }
+                  destinationBackArmedRef.current = false;
                   setMapMode("destination");
                   setDestinationConfirmed(false);
                 }}
