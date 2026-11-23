@@ -80,7 +80,7 @@ def download(url: str, target: Path) -> None:
     import subprocess
     command = [
         "curl", "--fail", "--location", "--show-error",
-        "--retry", "8", "--retry-all-errors", "--retry-delay", "5",
+        "--retry", "8", "--retry-delay", "5",
         "--connect-timeout", "45", "--max-time", "2400",
         "--continue-at", "-", "--user-agent", "Mamnoon-Iraq-Places-Importer/1.0",
         "--output", str(target), url,
