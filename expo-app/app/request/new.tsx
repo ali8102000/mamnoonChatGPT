@@ -248,7 +248,7 @@ export default function NewRequest() {
     setMapMode("destination"); setDestinationConfirmed(false);
     setRouteKm(null); setRouteError(null); setShowFavoriteNameInput(false);
     setPlaceQuery(""); setPlaceSuggestions([]); setPlaceSearchError(null);
-    moveMap({ ...coords, latitudeDelta: 0.0035, longitudeDelta: 0.0035 });
+    moveMap({ ...coords, latitudeDelta: 0.0025, longitudeDelta: 0.0025 });
   }
 
   async function deleteFavoritePlace(id: string) {
@@ -523,10 +523,13 @@ export default function NewRequest() {
           }
           return;
         }
-        const lastKnown = await Location.getLastKnownPositionAsync();
-        const position = lastKnown ?? await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
+          mayShowUserSettingsDialog: true,
         });
+        if (position.coords.accuracy != null && position.coords.accuracy > 50) {
+          throw new Error("GPS accuracy is too low for automatic pickup selection");
+        }
         if (!mounted) return;
         const coords = {
           latitude: position.coords.latitude,
@@ -537,7 +540,7 @@ export default function NewRequest() {
         void callMamnoonMapsApi<{ key: string }>({ action: "detectGovernorate", center: { lat: coords.latitude, lng: coords.longitude } })
           .then((result) => { if (mounted) setPickupGovernorateKey(result.key); })
           .catch(() => {});
-        moveMap({ ...coords, latitudeDelta: 0.007, longitudeDelta: 0.007 });
+        moveMap({ ...coords, latitudeDelta: 0.0025, longitudeDelta: 0.0025 });
         const address = formatAddress(await Location.reverseGeocodeAsync(coords));
         if (address) setPickup(address);
       } catch {
@@ -806,47 +809,75 @@ export default function NewRequest() {
 
   async function locateMe() {
     setLocationLoading(true);
+    const selectedMode = mapMode;
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
         Alert.alert("إذن الموقع مطلوب", "اسمح لممنون باستخدام الموقع أو اختر النقطة يدوياً.");
         return;
       }
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
-        mayShowUserSettingsDialog: true,
-      });
+
+      // Use fresh GPS readings and keep the best fix. Do not use cached points
+      // or silently calculate a fare from a visibly inaccurate location.
+      let bestPosition: Location.LocationObject | null = null;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const candidate = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
+          mayShowUserSettingsDialog: true,
+        });
+        if (!bestPosition || (candidate.coords.accuracy ?? Infinity) < (bestPosition.coords.accuracy ?? Infinity)) {
+          bestPosition = candidate;
+        }
+        if (candidate.coords.accuracy != null && candidate.coords.accuracy <= 35) break;
+      }
+      const accuracy = bestPosition?.coords.accuracy ?? Infinity;
+      if (!bestPosition || accuracy > 50) {
+        throw new Error("إشارة GPS غير دقيقة حالياً (هامش الخطأ نحو " + (Number.isFinite(accuracy) ? Math.round(accuracy) : "غير معروف") + " متر). اطلع لمكان مفتوح وحاول مرة ثانية.");
+      }
+
       const coords = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
+        latitude: bestPosition.coords.latitude,
+        longitude: bestPosition.coords.longitude,
       };
+      const governorateKey = nearestGovernorateKey(coords);
       setDestinationConfirmed(false);
-      moveMap({ ...coords, latitudeDelta: 0.006, longitudeDelta: 0.006 });
-      const geocodeRequest = ++reverseGeocodeRequestRef.current;
-      // Commit the GPS point immediately so the fare quote can start without
-      // waiting for reverse geocoding or a governorate lookup.
-      if (mapMode === "destination") {
+      moveMap({ ...coords, latitudeDelta: 0.002, longitudeDelta: 0.002 });
+
+      // Save the fresh fix as pickup, then advance taxi users to destination selection.
+      if (selectedMode === "destination") {
         setDestinationCoords(coords);
-        setDestinationGovernorateKey(null);
+        setDestinationGovernorateKey(governorateKey);
         setDestination("موقع محدد على الخريطة");
       } else {
         setPickupCoords(coords);
-        setPickupGovernorateKey(null);
+        setPickupGovernorateKey(governorateKey);
         setPickup("موقع محدد على الخريطة");
+        if (isTaxi && !isLargeVehicle) {
+          setDestinationCoords(null);
+          setDestination("");
+          setDestinationGovernorateKey(governorateKey);
+          setMapMode("destination");
+          setRouteKm(null);
+          setRouteDurationMin(null);
+          setRouteError(null);
+          setServerTaxiFare(null);
+          setServerTaxiFares({});
+        }
       }
+
+      const geocodeRequest = ++reverseGeocodeRequestRef.current;
       void Location.reverseGeocodeAsync(coords).then((parts) => {
         if (geocodeRequest !== reverseGeocodeRequestRef.current) return;
         const address = formatAddress(parts);
         if (!address) return;
-        if (mapMode === "destination") setDestination(address);
+        if (selectedMode === "destination") setDestination(address);
         else setPickup(address);
       }).catch(() => {});
-      // The authoritative taxi quote returns both exact governorate keys.
-      // Avoid a separate detection request before calculating the fare.
+
       setPlaceQuery("");
       setPlaceSuggestions([]);
-    } catch {
-      Alert.alert("تعذر تحديد الموقع", "تأكد من تشغيل GPS وحاول مرة أخرى.");
+    } catch (error: any) {
+      Alert.alert("تعذر تثبيت الموقع بدقة", error?.message || "ما حصلنا إشارة GPS دقيقة كفاية. فعّل GPS وحاول من مكان مفتوح.");
     } finally {
       setLocationLoading(false);
     }
@@ -1075,7 +1106,7 @@ export default function NewRequest() {
       setDestination("");
       setDestinationGovernorateKey(governorateKey);
       // Keep the selected pickup, but zoom in closer for precise destination picking.
-      moveMap({ ...pickupCoords, latitudeDelta: 0.0035, longitudeDelta: 0.0035 });
+      moveMap({ ...pickupCoords, latitudeDelta: 0.0025, longitudeDelta: 0.0025 });
       outsideGovernoratePromptShownRef.current = false;
       setRouteKm(null);
       setRouteDurationMin(null);
@@ -1907,7 +1938,7 @@ export default function NewRequest() {
         </View>
       )}
 
-      <View style={styles.mapContainer}>
+      <View style={[styles.mapContainer, { height: Math.max(480, window.height - 160) }]}>
         <MapView
           ref={mapRef}
           style={styles.map}
@@ -2284,7 +2315,7 @@ const styles = StyleSheet.create({
   governoratePickerButton: { minHeight: 52, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.md, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   governoratePickerLabel: { color: palette.muted, fontSize: 11, fontWeight: "800" },
   governoratePickerValue: { color: palette.ink, fontSize: 14, fontWeight: "900" },
-  placeSearchTop: { borderWidth: 1.5, borderColor: palette.gold, backgroundColor: palette.surface, minHeight: 52, marginTop: 8 },
+  placeSearchTop: { borderWidth: 1.5, borderColor: palette.gold, backgroundColor: palette.surface, minHeight: 42, paddingVertical: 8, marginTop: 5, fontSize: 12 },
   taxiNearbyMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.surface, borderWidth: 2, borderColor: palette.brand, alignItems: "center", justifyContent: "center", elevation: 5 },
   taxiNearbyMarkerText: { fontSize: 19 },
   taxiCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -15, marginTop: -38, zIndex: 4 },
@@ -2311,8 +2342,8 @@ const styles = StyleSheet.create({
   taxiSearchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   taxiLocateButton: { minHeight: 48, minWidth: 70, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: palette.gold, alignItems: "center", justifyContent: "center" },
   taxiLocateText: { color: palette.brandDeep, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900" },
-  taxiSearchInput: { flex: 1, minHeight: 48, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 12, color: palette.ink, backgroundColor: palette.canvas, fontSize: 13, fontFamily: "Tajawal_700Bold", fontWeight: "700", textAlign: "right" },
-  taxiSearchInputFull: { minHeight: 48, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 12, color: palette.ink, backgroundColor: palette.surface, fontSize: 13, fontFamily: "Tajawal_700Bold", fontWeight: "700", textAlign: "right" },
+  taxiSearchInput: { flex: 1, minHeight: 42, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 8, color: palette.ink, backgroundColor: palette.canvas, fontSize: 12, fontFamily: "Tajawal_700Bold", fontWeight: "700", textAlign: "right" },
+  taxiSearchInputFull: { minHeight: 42, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 8, color: palette.ink, backgroundColor: palette.surface, fontSize: 12, fontFamily: "Tajawal_700Bold", fontWeight: "700", textAlign: "right" },
   taxiSuggestionList: { marginTop: 4, borderRadius: radius.md, overflow: "hidden", borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
   taxiSuggestionItem: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: palette.line },
   taxiSuggestionTitle: { color: palette.ink, fontSize: 12, fontFamily: "Tajawal_900Black", fontWeight: "900", textAlign: "right" },
@@ -2402,7 +2433,7 @@ const styles = StyleSheet.create({
   mapModeTextActive: { color: palette.white },
   locateButton: { paddingHorizontal: 14, minHeight: 46, borderRadius: radius.md, backgroundColor: palette.gold, minWidth: 62, alignItems: "center", justifyContent: "center" },
   locateButtonText: { color: palette.brandDeep, fontWeight: "900", fontSize: 12 },
-  mapContainer: { height: 280, borderRadius: radius.xl, overflow: "hidden", marginTop: 8, borderWidth: 1, borderColor: palette.line },
+  mapContainer: { height: 560, borderRadius: 0, overflow: "hidden", marginTop: 8, marginHorizontal: -16, borderWidth: 0 },
   map: { flex: 1 },
   mapCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -21, marginTop: -48, zIndex: 5 },
   mapHint: { position: "absolute", bottom: 10, alignSelf: "center", backgroundColor: palette.brandDeep, color: palette.white, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, fontSize: 11, overflow: "hidden" },
