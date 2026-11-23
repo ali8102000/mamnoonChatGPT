@@ -18,8 +18,8 @@ WHERE r.id = numbered.id;
 
 SELECT setval(
   'public.mamnoon_request_code_seq',
-  GREATEST((SELECT count(*) FROM public.service_requests), 1),
-  true
+  (SELECT count(*) FROM public.service_requests),
+  (SELECT count(*) > 0 FROM public.service_requests)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS service_requests_request_code_uidx
@@ -271,6 +271,7 @@ REVOKE ALL ON FUNCTION public.open_zaincash_refund_case_on_customer_cancel() FRO
 CREATE OR REPLACE FUNCTION public.admin_mark_zaincash_refund(
   p_refund_case_id uuid,
   p_refund_reference text,
+  p_actor_id uuid,
   p_refunded_at timestamptz DEFAULT now()
 )
 RETURNS jsonb
@@ -291,6 +292,7 @@ BEGIN
     RAISE EXCEPTION 'service_role_required';
   END IF;
   IF p_refund_case_id IS NULL
+     OR p_actor_id IS NULL
      OR p_refund_reference IS NULL
      OR length(btrim(p_refund_reference)) NOT BETWEEN 2 AND 120 THEN
     RAISE EXCEPTION 'invalid_refund_details';
@@ -314,6 +316,14 @@ BEGIN
     RAISE EXCEPTION 'payment_not_in_paid_state';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM public.payment_transactions other_payment
+    WHERE other_payment.request_id = v_case.request_id
+      AND other_payment.purpose = 'service_request'
+      AND other_payment.provider = 'zaincash'
+      AND other_payment.status = 'paid'
+      AND other_payment.id <> v_payment.id
+  ) THEN
   FOR v_ledger IN
     SELECT *
     FROM public.mamnoon_revenue_ledger
@@ -338,13 +348,18 @@ BEGIN
       v_wallet_transaction_id := NULL;
     END IF;
 
-    INSERT INTO public.mamnoon_refund_commission_reversals(
-      refund_case_id,revenue_ledger_id,provider_id,amount_iqd,wallet_transaction_id
-    ) VALUES (
-      v_case.id,v_ledger.id,v_ledger.user_id,v_ledger.collected_iqd,v_wallet_transaction_id
-    )
-    ON CONFLICT (refund_case_id,revenue_ledger_id) DO NOTHING
-    RETURNING id INTO v_reversal_id;
+    v_reversal_id := NULL;
+    IF v_ledger.collected_iqd > 0 THEN
+      INSERT INTO public.mamnoon_refund_commission_reversals(
+        refund_case_id,revenue_ledger_id,provider_id,amount_iqd,wallet_transaction_id
+      ) VALUES (
+        v_case.id,v_ledger.id,v_ledger.user_id,v_ledger.collected_iqd,v_wallet_transaction_id
+      )
+      ON CONFLICT (refund_case_id,revenue_ledger_id) DO NOTHING
+      RETURNING id INTO v_reversal_id;
+    ELSE
+      v_reversal_id := gen_random_uuid();
+    END IF;
 
     IF v_reversal_id IS NOT NULL THEN
       FOR v_collection IN
@@ -375,6 +390,7 @@ BEGIN
       WHERE id = v_ledger.id;
     END IF;
   END LOOP;
+  END IF;
 
   UPDATE public.payment_transactions
   SET status = 'refunded',
@@ -392,7 +408,7 @@ BEGIN
   SET status = 'refunded',
       refund_reference = btrim(p_refund_reference),
       refunded_amount_iqd = amount_iqd,
-      refunded_by = auth.uid(),
+      refunded_by = p_actor_id,
       refunded_at = coalesce(p_refunded_at,now()),
       updated_at = now()
   WHERE id = v_case.id;
@@ -400,7 +416,7 @@ BEGIN
   INSERT INTO public.mamnoon_zaincash_refund_events(
     refund_case_id,event_type,actor_id,note,reference,amount_iqd
   ) VALUES (
-    v_case.id,'refunded',auth.uid(),'تم تأكيد إعادة المبلغ يدوياً عبر زين كاش',
+    v_case.id,'refunded',p_actor_id,'تم تأكيد إعادة المبلغ يدوياً عبر زين كاش',
     btrim(p_refund_reference),v_case.amount_iqd
   );
 
@@ -416,9 +432,9 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.admin_mark_zaincash_refund(uuid,text,timestamptz)
+REVOKE ALL ON FUNCTION public.admin_mark_zaincash_refund(uuid,text,uuid,timestamptz)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_mark_zaincash_refund(uuid,text,timestamptz)
+GRANT EXECUTE ON FUNCTION public.admin_mark_zaincash_refund(uuid,text,uuid,timestamptz)
   TO service_role;
 
 COMMENT ON TABLE public.mamnoon_zaincash_refund_cases IS
