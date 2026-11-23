@@ -99,7 +99,7 @@ function WelcomePage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeVisualUrl } = useCompanyBranding();
+  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
   const text = copy[language];
   const slide = text.slides[step];
   const Forward = language === "ar" ? ArrowLeft : ArrowRight;
@@ -171,7 +171,7 @@ function WelcomePage() {
           }
           width={1024}
           height={1024}
-          className="mx-auto mt-5 w-full max-w-[340px] aspect-square object-contain rounded-lg"
+          className={`mx-auto mt-5 w-full max-w-[340px] aspect-square object-contain rounded-lg ${welcomeVisualAnimated ? "animate-pulse" : ""}`}
         />
 
         <div className="mx-auto mt-3 grid w-full max-w-[340px] grid-cols-4 gap-2" aria-label="صور الخدمات">
