@@ -1522,7 +1522,6 @@ export default function NewRequest() {
 
                 {isLargeVehicle && mapMode === "pickup" && (
                   <View style={styles.taxiLargeTypePanel}>
-                    {companyBranding.welcomeVisualUrl ? <ExpoImage source={{ uri: companyBranding.welcomeVisualUrl }} style={{ width: "100%", height: 72, marginBottom: 8, opacity: companyBranding.welcomeVisualAnimated ? 0.92 : 1 }} contentFit="contain" autoplay={companyBranding.welcomeVisualAnimated} /> : null}
                     <Text style={styles.taxiFieldLabel}>اختر نوع السيارة الكبيرة</Text>
                     <View style={styles.taxiLargeTypeRow}>
                       {([
@@ -1622,6 +1621,7 @@ export default function NewRequest() {
 
                 {isLargeVehicle && (
                   <View style={styles.taxiLargeTypePanel}>
+                    {companyBranding.welcomeVisualUrl ? <ExpoImage source={{ uri: companyBranding.welcomeVisualUrl }} style={{ width: "100%", height: 72, marginBottom: 8 }} contentFit="contain" autoplay={companyBranding.welcomeVisualAnimated} /> : null}
                     <Text style={styles.taxiFieldLabel}>السعر المقترح (اختياري)</Text>
                     <View style={styles.taxiBudgetRow}>
                       {[15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000].map((amount) => (
@@ -2263,7 +2263,7 @@ export default function NewRequest() {
       )}
       {routeKm !== null && isTaxi && !isLargeVehicle && (
         <View style={styles.priceBox}>
-          {companyBranding.welcomeVisualUrl ? <Image source={{ uri: companyBranding.welcomeVisualUrl }} style={{ width: "100%", height: 72, marginBottom: 8, opacity: companyBranding.welcomeVisualAnimated ? 0.92 : 1 }} resizeMode="contain" /> : null}
+          {companyBranding.welcomeVisualUrl ? <ExpoImage source={{ uri: companyBranding.welcomeVisualUrl }} style={{ width: "100%", height: 72, marginBottom: 8 }} contentFit="contain" autoplay={companyBranding.welcomeVisualAnimated} /> : null}
           <Text style={styles.priceLabel}>مسافة الطريق الفعلية</Text>
           <Text style={styles.priceValue}>{routeKm.toFixed(2)} كم</Text>
           <Text style={[styles.priceLabel, { marginTop: 12 }]}>السعر التقديري حسب الفئة والطلب</Text>
