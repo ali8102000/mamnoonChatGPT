@@ -13,6 +13,7 @@ import { isValidPhone, normalizePhone, phoneToEmail } from "@/lib/phone";
 import { useAuth } from "@/lib/auth-context";
 import { Button, RealInput } from "@/components/ui";
 import { palette, space } from "@/styles/theme";
+import { Image as ExpoImage } from "expo-image";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 type Mode = "signup" | "login";
@@ -30,9 +31,10 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const { refresh } = useAuth();
-  const { companyName, logoUrl, welcomeMessage } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
 
   async function onSubmit() {
+    if (busy) return;
     if (password.length < 6) {
       Alert.alert("تحقق من كلمة المرور", "كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       return;
@@ -129,6 +131,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandTop}>
+            {welcomeVisualUrl ? <ExpoImage source={{ uri: welcomeVisualUrl }} style={styles.companyWelcomeVisual} contentFit="contain" autoplay={welcomeVisualAnimated} /> : null}
             {logoUrl ? (
               <Image source={{ uri: logoUrl }} style={styles.companyLogo} resizeMode="contain" />
             ) : (
@@ -322,6 +325,7 @@ const styles = StyleSheet.create({
   welcomeLink: { alignSelf: "flex-start", paddingVertical: 6, marginBottom: 12 },
   welcomeLinkText: { color: palette.brand, fontSize: 12, fontWeight: "800" },
   brandTop: { alignItems: "center", paddingBottom: 24 },
+  companyWelcomeVisual: { width: "100%", maxWidth: 320, height: 140, marginBottom: 12 },
   companyLogo: { width: 88, height: 88, borderRadius: 24, backgroundColor: "#FFFFFF", marginBottom: 6 },
   brandMark: {
     width: 80,
@@ -336,8 +340,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   brandLetter: { color: palette.white, fontSize: 34, fontWeight: "900" },
-  brandName: { color: palette.ink, fontSize: 36, fontWeight: "900", marginTop: 12, letterSpacing: -0.5 },
-  brandCaption: { color: palette.muted, fontSize: 13, fontWeight: "600", marginTop: 7 },
+  brandName: { color: palette.ink, fontSize: 36, fontWeight: "900", marginTop: 12, letterSpacing: -0.5, width: "100%", maxWidth: 320, textAlign: "center", lineHeight: 44, flexShrink: 1 },
+  brandCaption: { color: palette.muted, fontSize: 13, fontWeight: "600", marginTop: 7, width: "100%", maxWidth: 320, textAlign: "center", lineHeight: 24, flexShrink: 1 },
   modeSwitch: {
     flexDirection: "row",
     backgroundColor: palette.surfaceSoft,

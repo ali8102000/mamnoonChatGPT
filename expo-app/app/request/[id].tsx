@@ -309,46 +309,38 @@ export default function RequestDetail() {
     : null;
   const urgentOfferFlash = activeOfferSeconds !== null && activeOfferSeconds <= 10 && activeOfferSeconds % 2 === 0;
 
-  const openTaxiNavigation = useCallback((app: "google" | "waze" | "darbuna") => {
+  const openTaxiNavigation = useCallback((app: "google" | "waze") => {
     if (!request) return;
     const customerTaxiDestination = request.type === "taxi" && isCustomer &&
       request.dest_lat != null && request.dest_lng != null;
     const targetLat = customerTaxiDestination ? request.dest_lat : request.pickup_lat;
     const targetLng = customerTaxiDestination ? request.dest_lng : request.pickup_lng;
     if (targetLat == null || targetLng == null) {
-      Alert.alert("الملاحة", customerTaxiDestination ? "إحداثيات الوجهة غير متوفرة لهذا الطلب." : "إحداثيات موقع الزبون أو موقع العمل غير متوفرة لهذا الطلب.");
+      Alert.alert("تحديد المسار", customerTaxiDestination ? "إحداثيات الوجهة غير متوفرة لهذا الطلب." : "إحداثيات موقع الزبون أو موقع العمل غير متوفرة لهذا الطلب.");
       return;
     }
     const latitude = Number(targetLat);
     const longitude = Number(targetLng);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
-      Alert.alert("الملاحة", "إحداثيات موقع الزبون غير صحيحة.");
+      Alert.alert("تحديد المسار", "إحداثيات الموقع غير صحيحة.");
       return;
     }
 
     const destination = `${latitude},${longitude}`;
     const url = app === "google"
       ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate`
-      : app === "waze"
-        ? `https://waze.com/ul?ll=${encodeURIComponent(destination)}&navigate=yes`
-        : `geo:${destination}?q=${encodeURIComponent(destination)}`;
+      : `https://waze.com/ul?ll=${encodeURIComponent(destination)}&navigate=yes`;
 
     void Linking.openURL(url).catch((error) => {
       console.warn("[taxi navigation] unable to open navigation app:", error);
-      Alert.alert(
-        "تعذر فتح الملاحة",
-        app === "darbuna"
-          ? "تعذر فتح تطبيق دربونة عبر رابط الخرائط في هذا الجهاز. تأكد من تثبيت دربونة، أو اختره من التطبيقات التي تظهر عند فتح الموقع."
-          : "تعذر فتح تطبيق الملاحة. تأكد من اتصال الجهاز وحاول مرة أخرى.",
-      );
+      Alert.alert("تعذر فتح المسار", "تعذر فتح التطبيق المحدد. تأكد من تثبيته واتصال الإنترنت ثم حاول مرة ثانية.");
     });
   }, [request?.type, request?.pickup_lat, request?.pickup_lng, request?.dest_lat, request?.dest_lng, isCustomer]);
 
   const showTaxiNavigationOptions = useCallback(() => {
-    Alert.alert(request?.type === "service" ? "اذهب إلى موقع العمل" : "اذهب إلى الزبون", "اختَر تطبيق الملاحة", [
-      { text: "Google Maps", onPress: () => openTaxiNavigation("google") },
+    Alert.alert("تحديد المسار", request?.type === "service" ? "اختَر التطبيق لفتح مسار موقع العمل." : "اختَر التطبيق لفتح مسار الزبون أو الوجهة.", [
+      { text: "خرائط Google", onPress: () => openTaxiNavigation("google") },
       { text: "Waze", onPress: () => openTaxiNavigation("waze") },
-      { text: "دربونة", onPress: () => openTaxiNavigation("darbuna") },
       { text: "إلغاء", style: "cancel" },
     ]);
   }, [openTaxiNavigation, request?.type]);
@@ -987,8 +979,8 @@ export default function RequestDetail() {
       // update to perform the full two-point fit exactly once.
       acceptedMapRef.current.animateToRegion({
         ...coordinates[0],
-        latitudeDelta: 0.018,
-        longitudeDelta: 0.018,
+        latitudeDelta: 0.009,
+        longitudeDelta: 0.009,
       }, 450);
       acceptedMapFitKeyRef.current = singlePointFitKey;
     }
@@ -1783,8 +1775,8 @@ export default function RequestDetail() {
                 initialRegion={{
                   latitude: request.pickup_lat ?? (isProvider ? otherLocation?.latitude : myLocation?.latitude) ?? myLocation?.latitude ?? 33.3152,
                   longitude: request.pickup_lng ?? (isProvider ? otherLocation?.longitude : myLocation?.longitude) ?? myLocation?.longitude ?? 44.3661,
-                  latitudeDelta: 0.018,
-                  longitudeDelta: 0.018,
+                  latitudeDelta: 0.009,
+                  longitudeDelta: 0.009,
                 }}
                 showsUserLocation={request.type !== "taxi"}
               >
@@ -1840,9 +1832,9 @@ export default function RequestDetail() {
             (isCustomer && request.type === "taxi" && request.dest_lat != null && request.dest_lng != null)) && (
           <View style={styles.navigationPanel}>
             <Text style={styles.navigationButtonText}>
-              🧭 {isCustomer ? "الملاحة إلى وجهتك" : request.type === "service" ? "الملاحة إلى موقع العمل" : "الملاحة إلى الزبون"}
+              🧭 {isCustomer ? "تحديد المسار إلى وجهتك" : request.type === "service" ? "تحديد المسار إلى موقع العمل" : "تحديد المسار إلى الزبون"}
             </Text>
-            <Text style={styles.navigationButtonHint}>اختَر التطبيق الذي تريد فتحه</Text>
+            <Text style={styles.navigationButtonHint}>افتح المسار مباشرةً في تطبيق موثوق</Text>
             <View style={styles.navigationAppsRow}>
               <TouchableOpacity style={styles.navigationApp} onPress={() => openTaxiNavigation("google")}>
                 <Image source={{ uri: "https://cdn.simpleicons.org/googlemaps/4285F4" }} style={styles.navigationAppIcon} resizeMode="contain" />
@@ -1851,10 +1843,6 @@ export default function RequestDetail() {
               <TouchableOpacity style={styles.navigationApp} onPress={() => openTaxiNavigation("waze")}>
                 <Image source={{ uri: "https://cdn.simpleicons.org/waze/33CCFF" }} style={styles.navigationAppIcon} resizeMode="contain" />
                 <Text style={styles.navigationAppLabel}>Waze</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.navigationApp} onPress={() => openTaxiNavigation("darbuna")}>
-                <View style={styles.darbunaIcon}><Text style={styles.darbunaIconText}>د</Text></View>
-                <Text style={styles.navigationAppLabel}>دربونة</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1978,8 +1966,6 @@ const styles = StyleSheet.create({
   navigationApp: { flex: 1, minHeight: 74, paddingVertical: 8, borderRadius: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", gap: 5 },
   navigationAppIcon: { width: 30, height: 30 },
   navigationAppLabel: { color: palette.ink, fontSize: 10, fontWeight: "900" },
-  darbunaIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: "#E6F4EE", alignItems: "center", justifyContent: "center" },
-  darbunaIconText: { color: "#087443", fontSize: 19, fontWeight: "900" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.pageCanvas },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 52, paddingBottom: 14, backgroundColor: palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line },
   backBtn: { fontSize: 24, color: palette.brand, fontWeight: "900" },

@@ -25,7 +25,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { loading, session, roles, profile } = useAuth();
   const { ready, completed } = useWelcomePreferences();
-  const { companyName, logoUrl, welcomeMessage } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated, isLoaded: brandingLoaded } = useCompanyBranding();
   const [splashFinished, setSplashFinished] = useState(false);
   const [governorate, setGovernorate] = useState<string | null>(null);
   const [governorateReady, setGovernorateReady] = useState(false);
@@ -58,20 +58,21 @@ function Index() {
 
   // Re-show the branded entry screen whenever the web app is opened/reloaded.
   useEffect(() => {
-    if (loading || !ready) return;
+    if (loading || !ready || !brandingLoaded) return;
     const timer = window.setTimeout(() => setSplashFinished(true), 1200);
     return () => window.clearTimeout(timer);
-  }, [loading, ready]);
+  }, [loading, ready, brandingLoaded]);
 
-  if (loading || !ready || !governorateReady || !splashFinished) {
+  if (loading || !ready || !brandingLoaded || !governorateReady || !splashFinished) {
     return (
       <main className="min-h-screen grid place-items-center bg-transparent px-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <div className="grid h-28 w-28 place-items-center overflow-hidden rounded-[28px] bg-white shadow-lg">
             {logoUrl ? <img src={logoUrl} alt={`شعار ${companyName}`} className="h-full w-full object-contain p-2" /> : <span className="text-5xl font-black text-[#17324D]">م</span>}
           </div>
-          <div className="text-3xl font-black tracking-wide text-[#17324D]">أهلاً بك في {companyName}</div>
-          <div className="text-sm font-semibold text-[#758394]">{welcomeMessage}</div>
+          <div className="w-full max-w-md whitespace-pre-wrap break-words px-2 text-center text-3xl leading-tight font-black tracking-wide text-[#17324D]">أهلاً بك في {companyName}</div>
+          {welcomeVisualUrl && <img src={welcomeVisualUrl} alt="صورة ترحيب ممنون" className={`mt-4 max-h-48 w-full max-w-sm rounded-3xl object-cover shadow-xl ${welcomeVisualAnimated ? "animate-pulse" : ""}`} />}
+          <div className="mt-2 w-full max-w-md whitespace-pre-wrap break-words px-2 text-center text-base font-bold leading-8 text-[#526477]">{welcomeMessage}</div>
           {loading || !ready ? <Loader2 className="mt-5 h-5 w-5 animate-spin text-amber-600" /> : <div className="mt-5 h-5" />}
         </div>
       </main>

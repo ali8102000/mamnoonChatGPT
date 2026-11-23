@@ -137,7 +137,7 @@ export function MapPicker({
         const center = initialValueRef.current ?? getGovernorate(governorateKeyRef.current) ?? DEFAULT_CENTER;
         const map = new g.maps.Map(containerRef.current, {
           center,
-          zoom: 16,
+          zoom: 17,
           minZoom: 5,
           maxZoom: 20,
           disableDefaultUI: true,
@@ -283,7 +283,7 @@ export function MapPicker({
     });
   }, [nearby, nearbyKind]);
 
-  function autoLocate() {
+  function autoLocate(advanceToNextStep = false) {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setGeoError("جهازك لا يدعم تحديد الموقع");
       return;
@@ -305,10 +305,11 @@ export function MapPicker({
           suppressIdleRef.current = true;
           if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(c);
           else mapRef.current.panTo(c);
-          mapRef.current.setZoom(17);
+          mapRef.current.setZoom(18);
         }
         report(c);
         reverseFallback(c);
+        if (advanceToNextStep) onSelectPlaceRef.current?.(c);
       })
       .catch((err) => {
         setLocating(false);
@@ -420,7 +421,7 @@ export function MapPicker({
     if (mapRef.current) {
       if (typeof mapRef.current.setCenter === "function") mapRef.current.setCenter(place.coords);
       else mapRef.current.panTo(place.coords);
-      mapRef.current.setZoom(17);
+      mapRef.current.setZoom(18);
     }
     report(place.coords, addr);
     onSelectPlaceRef.current?.(place.coords, addr);
@@ -470,7 +471,7 @@ export function MapPicker({
             className="absolute top-3 left-3 right-3 z-10"
             style={searchTop != null ? { top: searchTop } : undefined}
           >
-            <div className="flex items-center gap-2 bg-white dark:bg-black/95 dark:border dark:border-slate-600 rounded-2xl shadow-lg px-3 py-2">
+            <div className="flex items-center gap-2 bg-white/95 dark:bg-black/95 dark:border dark:border-slate-600 rounded-xl shadow-lg px-2 py-1.5">
               <Search className="h-4 w-4 text-muted-foreground shrink-0" />
               <input
                 ref={inputRef}
@@ -482,7 +483,7 @@ export function MapPicker({
                   setSearchQuery(e.target.value);
                 }}
                 placeholder={placeholder}
-                className="flex-1 bg-transparent outline-none text-sm font-medium min-w-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400"
+                className="flex-1 bg-transparent outline-none text-xs font-medium min-w-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400"
               />
               {searchOpen && (
                 <button
@@ -567,7 +568,7 @@ export function MapPicker({
               {showLocateButton && (
                 <button
                   type="button"
-                  onClick={() => autoLocate()}
+                  onClick={() => autoLocate(true)}
                   disabled={locating}
                   className="mt-2 px-5 py-3 rounded-2xl font-bold text-white shadow-lg flex items-center gap-2 disabled:opacity-70"
                   style={{ background: accent }}
@@ -632,7 +633,7 @@ export function MapPicker({
         {!loading && !error && showLocateButton && (
           <button
             type="button"
-            onClick={() => autoLocate()}
+            onClick={() => autoLocate(true)}
             disabled={locating}
             style={{ bottom: bottomOffset ? `${bottomOffset + 8}px` : undefined }}
             className={`absolute ${isFullScreen ? "left-20" : "right-3"} ${bottomOffset ? "" : full ? "bottom-24" : "bottom-3"} h-11 w-11 rounded-2xl bg-white/95 dark:bg-black/90 dark:border dark:border-slate-600 shadow-xl border border-amber-400/50 grid place-items-center btn-press disabled:opacity-70 z-20`}
@@ -659,7 +660,7 @@ export function MapPicker({
       {!hideOutsideButtons && !isFullScreen && showLocateButton && (
         <button
           type="button"
-          onClick={() => autoLocate()}
+          onClick={() => autoLocate(true)}
           disabled={locating}
           className="mt-3 w-full h-14 rounded-2xl font-black text-base shadow-lg flex items-center justify-center gap-2 btn-press disabled:opacity-80 text-primary-foreground"
           style={{ background: accent }}

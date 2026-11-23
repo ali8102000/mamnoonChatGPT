@@ -61,6 +61,7 @@ export default function ProfileScreen() {
   const [providerWalletOffline, setProviderWalletOffline] = useState(false);
   const [showProviderEarningsDetails, setShowProviderEarningsDetails] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [staffRank, setStaffRank] = useState<string | null>(null);
   const [referralSummary, setReferralSummary] = useState<{referral_code:string;successful_signups:number}|null>(null);
   const isGeneralManager = staffRank === "general_manager";
@@ -276,16 +277,15 @@ export default function ProfileScreen() {
   }
 
   async function handleSignOut() {
-    Alert.alert("تسجيل الخروج", "هل أنت متأكد؟", [
-      { text: "تراجع", style: "cancel" },
-      {
-        text: "خروج",
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/auth");
-        },
-      },
+    if (signingOut) return;
+    Alert.alert("تسجيل الخروج", "هل تريد إنهاء جلستك على هذا الجهاز؟", [
+      { text: "البقاء بالحساب", style: "cancel" },
+      { text: "تسجيل الخروج", style: "destructive", onPress: async () => {
+        setSigningOut(true);
+        try { await signOut(); router.replace("/auth"); }
+        catch (error: any) { Alert.alert("تعذر تسجيل الخروج", error?.message || "تحقق من اتصال الإنترنت وحاول مرة ثانية."); }
+        finally { setSigningOut(false); }
+      } },
     ]);
   }
 
@@ -433,12 +433,13 @@ export default function ProfileScreen() {
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel="تسجيل الخروج"
-        activeOpacity={0.82}
-        style={styles.logoutButton}
+        activeOpacity={0.72}
+        disabled={signingOut}
+        style={[styles.logoutButton, signingOut && { opacity: 0.65 }]}
         onPress={handleSignOut}
       >
-        <Text style={styles.logoutButtonText}>تسجيل الخروج</Text>
-        <Text style={styles.logoutButtonIcon}>↪</Text>
+        <Text style={styles.logoutButtonText}>{signingOut ? "جارٍ تسجيل الخروج..." : "تسجيل الخروج"}</Text>
+        <Text style={styles.logoutButtonIcon}>{signingOut ? "…" : "↪"}</Text>
       </TouchableOpacity>
     </View> : null}
     </View>

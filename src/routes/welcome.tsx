@@ -99,7 +99,7 @@ function WelcomePage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const { companyName, logoUrl: companyLogoUrl, welcomeMessage } = useCompanyBranding();
+  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
   const text = copy[language];
   const slide = text.slides[step];
   const Forward = language === "ar" ? ArrowLeft : ArrowRight;
@@ -161,9 +161,9 @@ function WelcomePage() {
         </div>
 
         <h1 className="mt-7 text-3xl sm:text-4xl leading-tight font-black">{text.greeting}</h1>
-        <p className="mt-3 text-sm sm:text-base text-muted-foreground">{welcomeMessage || text.tagline}</p>
+        <p className="mt-3 w-full max-w-lg whitespace-pre-wrap break-words px-2 text-center text-base font-semibold leading-8 text-muted-foreground">{welcomeMessage || text.tagline}</p>
         <img
-          src={welcomeImage}
+          src={welcomeVisualUrl || welcomeImage}
           alt={
             language === "ar"
               ? "سيارة تاكسي وهاتف لتحديد الموقع وأدوات خدمات منزلية"
@@ -171,7 +171,7 @@ function WelcomePage() {
           }
           width={1024}
           height={1024}
-          className="mx-auto mt-5 w-full max-w-[340px] aspect-square object-contain rounded-lg"
+          className={`mx-auto mt-5 w-full max-w-[340px] aspect-square object-contain rounded-lg ${welcomeVisualAnimated ? "animate-pulse" : ""}`}
         />
 
         <div className="mx-auto mt-3 grid w-full max-w-[340px] grid-cols-4 gap-2" aria-label="صور الخدمات">

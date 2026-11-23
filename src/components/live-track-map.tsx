@@ -144,7 +144,7 @@ export function LiveTrackMap({
           activeDriverCoord ?? { lat: 33.3152, lng: 44.3661 };
         const map = new g.maps.Map(containerRef.current, {
           center: initialCenter,
-          zoom: 15,
+          zoom: 16,
           disableDefaultUI: true,
           gestureHandling: "greedy",
           clickableIcons: false,
@@ -416,7 +416,7 @@ export function LiveTrackMap({
   function centerOnDriver() {
     if (mapRef.current && activeDriverCoord) {
       mapRef.current.panTo(activeDriverCoord);
-      mapRef.current.setZoom(17);
+      mapRef.current.setZoom(18);
     }
   }
 
@@ -485,10 +485,10 @@ export function LiveTrackMap({
               type="button"
               onClick={onOpenNavigation}
               className="h-10 px-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg flex items-center justify-center gap-1 btn-press border border-emerald-500 text-[10px] font-black"
-              title="ملاحة"
-              aria-label="ملاحة"
+              title="تحديد المسار"
+              aria-label="تحديد المسار"
             >
-              <span>ملاحة</span>
+              <span>تحديد المسار</span>
             </Button>
           )}
           <Button

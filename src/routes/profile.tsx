@@ -80,6 +80,7 @@ function ProfilePage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [referralSummary, setReferralSummary] = useState<{referral_code:string;successful_signups:number}|null>(null);
   const [showLogout, setShowLogout] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     const updateLogoutVisibility = () => {
@@ -468,14 +469,18 @@ function ProfilePage() {
         <div className="mx-auto max-w-md pointer-events-auto">
           <button
             type="button"
+            disabled={signingOut}
             onClick={async () => {
-              await signOut();
-              navigate({ to: "/auth" });
+              if (signingOut || !window.confirm("هل تريد إنهاء جلسة ممنون على هذا الجهاز؟")) return;
+              setSigningOut(true);
+              try { await signOut(); navigate({ to: "/auth" }); }
+              catch (error: any) { toast.error(error?.message || "تعذر تسجيل الخروج. حاول مرة ثانية."); }
+              finally { setSigningOut(false); }
             }}
-            className="w-full glass rounded-2xl border border-destructive/30 bg-background/95 p-4 flex items-center gap-3 btn-press text-right text-destructive shadow-xl backdrop-blur-md"
+            className="w-full glass rounded-2xl border border-destructive/30 bg-background/95 p-4 flex items-center gap-3 btn-press text-right text-destructive shadow-xl backdrop-blur-md disabled:opacity-60"
           >
             <LogOut className="h-5 w-5" />
-            <span className="flex-1 font-bold text-sm">تسجيل الخروج</span>
+            <span className="flex-1 font-bold text-sm">{signingOut ? "جارٍ تسجيل الخروج..." : "تسجيل الخروج"}</span>
           </button>
         </div>
       </div>}

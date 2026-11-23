@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useCompanyBranding } from "@/lib/company-branding";
 import ProviderMissions from "@/components/provider-missions";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
@@ -98,7 +99,7 @@ function HomePage() {
                 <Crown className="h-5 w-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2 text-xs font-black text-amber-600 dark:text-amber-400">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 whitespace-normal break-words text-xs font-black text-amber-600 dark:text-amber-400">
                   {companyLogoUrl && <img src={companyLogoUrl} alt="" className="h-7 w-7 rounded-lg object-contain bg-white p-0.5" />}
                   إدارة {companyName}
                 </div>
@@ -136,7 +137,7 @@ function HomePage() {
                 {firstName} <span className="inline-block animate-float">👋</span>
               </div>
             </div>
-            <p className="mt-1 text-xs font-semibold text-muted-foreground">{welcomeMessage}</p>
+            <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm font-semibold leading-7 text-muted-foreground">{welcomeMessage}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -615,6 +616,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   const navigate = useNavigate();
   const acceptFn = useServerFn(acceptServiceRequest);
   const [available, setAvailable] = useState(false);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [verified, setVerified] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [stats, setStats] = useState({ jobs: 0 });
@@ -888,58 +890,28 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   }, [session, type, table, largeDriverMode]);
 
   async function toggleAvail() {
+    if (availabilitySaving) return;
     playClick("toggle");
-    if (!verified) {
-      toast.error("حسابك بانتظار التوثيق؛ لن تستقبل طلبات حتى تعتمد الإدارة حسابك.");
-      return;
-    }
+    if (!verified) { toast.error("حسابك بانتظار التوثيق؛ لن تستقبل طلبات حتى تعتمد الإدارة حسابك."); return; }
     const next = !available;
-
-    // Never advertise a provider as available before a fresh location is stored.
-    if (next) {
-      if (typeof navigator === "undefined" || !navigator.geolocation) {
-        toast.error("متصفحك لا يدعم الموقع؛ استخدم تطبيق ممنون لتفعيل الاستقبال.");
-        return;
-      }
-      try {
+    setAvailabilitySaving(true);
+    try {
+      if (next) {
+        if (typeof navigator === "undefined" || !navigator.geolocation) throw new Error("متصفحك لا يدعم الموقع؛ استخدم تطبيق ممنون لتفعيل الاستقبال.");
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            maximumAge: 10000,
-            timeout: 20000,
-          });
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
         });
-        const { error: presenceError } = await supabase.from("provider_presence").upsert({
-          user_id: session!.user.id,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          heading:
-            position.coords.heading != null &&
-            Number.isFinite(position.coords.heading) &&
-            position.coords.heading >= 0 &&
-            position.coords.heading <= 360
-              ? position.coords.heading
-              : null,
-        }, { onConflict: "user_id" });
+        if (position.coords.accuracy == null || position.coords.accuracy > 50) throw new Error("إشارة الموقع غير دقيقة كفاية. فعّل GPS وجرّب من مكان مفتوح.");
+        const { error: presenceError } = await supabase.from("provider_presence").upsert({ user_id: session!.user.id, lat: position.coords.latitude, lng: position.coords.longitude, heading: position.coords.heading != null && Number.isFinite(position.coords.heading) && position.coords.heading >= 0 && position.coords.heading <= 360 ? position.coords.heading : null }, { onConflict: "user_id" });
         if (presenceError) throw presenceError;
-      } catch (error: any) {
-        toast.error(error?.code === 1
-          ? "اسمح لممنون باستخدام موقعك حتى تستقبل الطلبات."
-          : "تعذّر تحديد موقعك الحالي؛ شغّل GPS وحاول مرة ثانية.");
-        return;
       }
-    }
-
-    const { error } = await supabase
-      .from(table)
-      .update({ available: next })
-      .eq("user_id", session!.user.id);
-    if (error) {
-      toast.error("تعذّر تحديث الحالة");
-      return;
-    }
-    setAvailable(next);
-    if (next) toast.success("تم تفعيل الاستقبال ومشاركة موقعك الحي.");
+      const { error } = await supabase.from(table).update({ available: next }).eq("user_id", session!.user.id);
+      if (error) throw error;
+      setAvailable(next);
+      toast.success(next ? "تم تفعيل استقبال الطلبات ومشاركة موقعك." : "تم إيقاف استقبال الطلبات.");
+    } catch (error: any) {
+      toast.error(error?.code === 1 ? "اسمح لممنون باستخدام موقعك حتى تستقبل الطلبات." : error?.message || "تعذّر تحديث الحالة. حاول مرة ثانية.");
+    } finally { setAvailabilitySaving(false); }
   }
 
   async function sendLargeOffer(id: string) {
@@ -1030,21 +1002,21 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         </div>
       )}
       <div className="relative min-h-[260px] rounded-3xl p-5 overflow-hidden animate-pop-in shadow-card glass flex flex-col items-center justify-center gap-4">
-        <div className="text-sm font-black text-foreground">حالة استقبال العمل</div>
+        <div className="text-sm font-black text-foreground">مركز استقبال الطلبات</div>
         <button
           onClick={toggleAvail}
-          disabled={!verified}
-          aria-disabled={!verified}
+          disabled={!verified || availabilitySaving}
+          aria-disabled={!verified || availabilitySaving}
           aria-label={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
-          className={`h-36 w-36 rounded-full grid place-items-center border-[5px] btn-press transition-all duration-300 font-black text-2xl tracking-wide ${
+          className={`h-36 w-36 rounded-full grid place-items-center border-[5px] btn-press transition-all duration-300 hover:scale-[1.04] active:scale-95 font-black text-xl tracking-wide disabled:opacity-70 disabled:cursor-wait ${
             available
               ? "bg-emerald-600 border-emerald-200 text-white shadow-[0_0_12px_rgba(16,185,129,0.55),0_0_32px_rgba(16,185,129,0.32)]"
-              : "bg-red-600 border-red-200 text-white shadow-[0_0_12px_rgba(239,68,68,0.5),0_0_30px_rgba(239,68,68,0.28)]"
+              : "bg-slate-700 border-slate-300 text-white shadow-[0_0_12px_rgba(100,116,139,0.35),0_0_30px_rgba(100,116,139,0.18)]"
           }`}
         >
-          {available ? "مفتوح" : "مغلق"}
+          {availabilitySaving ? "جارٍ التحديث" : available ? "متاح الآن" : "متوقف"}
         </button>
-        <div className="text-xs font-semibold text-muted-foreground">{available ? "أنت تستقبل الطلبات الآن" : "اضغط على الدائرة لتفعيل استقبال الطلبات"}</div>
+        <div className="text-xs font-semibold text-muted-foreground">{availabilitySaving ? "نزامن حالتك وموقعك..." : available ? "أنت ظاهر الآن للطلبات القريبة المطابقة لاختصاصك" : "اضغط للتفعيل وابدأ باستقبال الطلبات"}</div>
       </div>
 
       <ProviderMissions />

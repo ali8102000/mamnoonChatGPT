@@ -50,10 +50,11 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { refresh } = useAuth();
-  const { companyName, logoUrl, welcomeMessage } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     if (password.length < 6) {
       toast.error(
         t("كلمة المرور يجب أن تكون 6 أحرف على الأقل", "Password must be at least 6 characters"),
@@ -223,7 +224,8 @@ function AuthPage() {
       <Button asChild variant="link" className="self-start mb-3">
         <Link to="/welcome">{t("اللغة والترحيب", "Language & welcome")}</Link>
       </Button>
-      <div className="text-center mb-6">
+      <div className="text-center mb-6 min-w-0">
+        {welcomeVisualUrl && <img src={welcomeVisualUrl} alt={`واجهة ${companyName}`} className={`mx-auto mb-4 w-full max-w-[360px] max-h-48 rounded-2xl object-contain ${welcomeVisualAnimated ? "animate-pulse" : ""}`} />}
         {logoUrl ? (
           <img src={logoUrl} alt={`شعار ${companyName}`} className="mx-auto mb-4 h-20 w-20 rounded-3xl bg-white object-contain p-2 shadow-elegant" />
         ) : (

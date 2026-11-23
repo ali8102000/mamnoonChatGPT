@@ -30,6 +30,7 @@ import {
 import { MapPicker } from "@/components/map-picker";
 import { dispatchRequest } from "@/lib/dispatch.functions";
 import { useNearbyProviders } from "@/lib/use-nearby-providers";
+import { useCompanyBranding } from "@/lib/company-branding";
 import { lookupMapPlace } from "@/lib/maps.functions";
 import {
   taxiFare,
@@ -124,6 +125,7 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
 }
 
 function NewRequest() {
+  const companyBranding = useCompanyBranding();
   const { type, vehicle } = Route.useSearch();
   const { session, loading } = useAuth();
   const navigate = useNavigate();
@@ -160,7 +162,7 @@ function NewRequest() {
   const [uiVisuals, setUiVisuals] = useState<Record<string, any>>({});
   const [urgencyEnabled, setUrgencyEnabled] = useState(false);
   const [urgencyAllowed, setUrgencyAllowed] = useState(false);
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus" | null>(null);
   const [weatherCondition, setWeatherCondition] = useState<WeatherCondition>(() =>
     seasonalWeatherFallback(),
   );
@@ -559,6 +561,7 @@ function NewRequest() {
 
   // Transition from Pickup to Destination step
   function advanceToDestination() {
+    if (type === "taxi" && vehicle === "large" && !vehicleType) { toast.error("اختار نوع السيارة المطلوبة: كيا حمل أو كيا ركاب أو باص."); return; }
     if (!pickupCoords) {
       toast.error("يرجى تحديد موقع الانطلاق أولاً");
       return;
@@ -584,6 +587,8 @@ function NewRequest() {
   // Submit Request
   async function submit(skipActiveRequestPrompt = false) {
     if (!session) return;
+    if (type === "taxi" && vehicle === "large" && !vehicleType) { toast.error("اختار نوع السيارة المطلوبة قبل إرسال الطلب."); return; }
+
     if (!pickupCoords) {
       toast.error("يرجى تحديد موقع الانطلاق");
       return;
@@ -951,7 +956,7 @@ function NewRequest() {
           {govReady && gov && (
             <MapPicker
               key={`${gov.key}-${mapStep}-${mapStep === "dest" ? destinationGovernorateKey ?? gov.key : gov.key}`}
-              value={mapStep === "pickup" ? pickupCoords : destCoords}
+              value={mapStep === "pickup" ? pickupCoords : destCoords ?? pickupCoords}
               accent={mapStep === "pickup" ? "#1687F8" : "#16A34A"}
               nearby={mapStep === "pickup" ? nearby : undefined}
               nearbyKind="car"
@@ -1188,6 +1193,7 @@ function NewRequest() {
         {/* STEP 3: CARS ONLY */}
         {((mapStep === "dest" && destConfirmed) || (vehicle === "large" && mapStep === "pickup" && destConfirmed)) && (
           <div className="mt-auto relative z-30 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 rounded-t-[32px] shadow-2xl border-t border-border/60 max-w-lg mx-auto w-full p-5 space-y-3">
+            {companyBranding.welcomeVisualUrl && <img src={companyBranding.welcomeVisualUrl} alt={`هوية ${companyBranding.companyName}`} className={`mx-auto max-h-24 w-full max-w-[220px] rounded-xl object-contain ${companyBranding.welcomeVisualAnimated ? "animate-pulse" : ""}`} />}
             {vehicle !== "large" && routeKm === null && !routeError && (
               <div
                 className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
