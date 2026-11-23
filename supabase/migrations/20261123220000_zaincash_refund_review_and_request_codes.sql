@@ -276,7 +276,7 @@ BEGIN
     VALUES (v_case_id, 'opened', left(coalesce(NEW.cancellation_reason, 'إلغاء الطلب من الزبون'), 500), v_payment.amount);
 
     UPDATE public.mamnoon_revenue_ledger
-    SET metadata = metadata || jsonb_build_object(
+    SET metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
           'refund_review_pending', true,
           'refund_case_id', v_case_id
         ),
@@ -413,7 +413,7 @@ BEGIN
       AND other_case.status IN ('pending_review','approved')
   ) THEN
     UPDATE public.mamnoon_revenue_ledger
-    SET metadata = metadata || jsonb_build_object(
+    SET metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
           'refund_review_pending', false,
           'refund_review_decision', 'rejected',
           'refund_case_id', v_case.id
@@ -546,7 +546,7 @@ BEGIN
     SET collected_iqd = 0,
         waived_iqd = assessed_iqd,
         status = 'void',
-        metadata = metadata || jsonb_build_object(
+        metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
           'void_reason','full_zaincash_refund',
           'refund_case_id',v_case.id,
           'commission_revenue_voided_iqd',GREATEST(v_ledger.assessed_iqd - v_ledger.waived_iqd,0),
