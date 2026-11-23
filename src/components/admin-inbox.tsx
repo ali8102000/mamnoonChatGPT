@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast";
-import { MessageSquare, Search, RefreshCw, Headset, CheckCircle2, AlertCircle, ArrowRight, Star } from "lucide-react";
+import { MessageSquare, Search, RefreshCw, Headset, CheckCircle2, AlertCircle, ArrowRight, Star, X } from "lucide-react";
 import { MamnoonChatThread } from "@/components/mamnoon-chat-thread";
 
 type Filter = "all" | "unread" | "bot" | "pending" | "favorites";
@@ -36,7 +36,7 @@ export default function AdminInbox() {
   const [error, setError] = useState("");
   const selected = useMemo(() => items.find(item => item.id === selectedId) ?? null, [items, selectedId]);
   useEffect(() => { try { const saved = localStorage.getItem("mamnoon_admin_chat_favorites"); if (saved) setFavorites(JSON.parse(saved)); } catch { /* optional browser storage */ } }, []);
-  const isUnread = (item: Conversation) => !!item.latest_message && !item.latest_message.read_at && item.latest_message.sender_id === item.user_id;
+  const isUnread = (item: Conversation) => item.conversation_type !== "service" && !!item.latest_message && !item.latest_message.read_at && item.latest_message.sender_id === item.user_id;
   const isBot = (item: Conversation) => item.conversation_type === "support" && (item.last_message_source === "bot" || item.latest_message?.is_ai === true || item.handoff_status === "waiting_for_admin");
   const isPending = (item: Conversation) => item.ticket_status === "pending" || item.ticket_status === "new" || item.needs_admin_reply || item.handoff_status === "waiting_for_admin";
   const toggleFavorite = (id: string) => setFavorites(current => { const next = current.includes(id) ? current.filter(value => value !== id) : [...current, id]; try { localStorage.setItem("mamnoon_admin_chat_favorites", JSON.stringify(next)); } catch { /* optional browser storage */ } return next; });
@@ -122,7 +122,7 @@ export default function AdminInbox() {
     </div>}
     <div className="flex min-h-0 flex-1 flex-col">
       {!selected && <aside className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="mx-4 mb-1 flex h-[38px] shrink-0 gap-2"><div className="relative flex-1"><Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground"/><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")setRemoteSearch(search.trim());}} placeholder="ابحث بالاسم أو الهاتف..." className="h-[38px] w-full rounded-full border border-border bg-background py-1.5 pr-9 pl-3 text-sm outline-none"/></div><button onClick={()=>setRemoteSearch(search.trim())} className="rounded-xl bg-primary px-3 text-xs font-bold text-primary-foreground">بحث</button></div>
+        <div className="mx-4 mb-1 flex h-[38px] shrink-0 gap-2"><div className="relative flex-1"><Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground"/><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")setRemoteSearch(search.trim());}} placeholder="ابحث بالاسم أو الهاتف..." className="h-[38px] w-full rounded-full border border-border bg-background py-1.5 pr-9 pl-3 text-sm outline-none"/>{!!search&&<button onClick={()=>{setSearch("");setRemoteSearch("");}} aria-label="مسح البحث" className="absolute left-3 top-2 text-muted-foreground"><X className="h-4 w-4"/></button>}</div><button onClick={()=>setRemoteSearch(search.trim())} className="rounded-xl bg-primary px-3 text-xs font-bold text-primary-foreground">بحث</button></div>
         <div className="mb-1 flex h-[42px] shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap">{filters.map(f=><button key={f.key} onClick={()=>setFilter(f.key)} className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold ${filter===f.key?"border-primary bg-primary text-primary-foreground":"border-border bg-muted text-muted-foreground"}`}>{f.label}<span className="text-[10px]">{counts[f.key]}</span></button>)}</div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? <p className="text-center text-xs text-muted-foreground p-6">جارٍ تحميل المحادثات...</p> : filtered.length===0 ? <p className="text-center text-xs text-muted-foreground p-6">ماكو محادثات بهذا التصنيف</p> : filtered.map(item=><button key={item.id} onClick={()=>setSelectedId(item.id)} className={`w-full rounded-xl border p-3 text-right transition ${selectedId===item.id?"border-primary bg-primary/5":"border-border bg-card hover:bg-muted/40"}`}>
