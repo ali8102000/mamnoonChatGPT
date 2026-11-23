@@ -160,7 +160,7 @@ function NewRequest() {
   const [uiVisuals, setUiVisuals] = useState<Record<string, any>>({});
   const [urgencyEnabled, setUrgencyEnabled] = useState(false);
   const [urgencyAllowed, setUrgencyAllowed] = useState(false);
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus" | null>(null);
   const [weatherCondition, setWeatherCondition] = useState<WeatherCondition>(() =>
     seasonalWeatherFallback(),
   );
@@ -559,6 +559,7 @@ function NewRequest() {
 
   // Transition from Pickup to Destination step
   function advanceToDestination() {
+    if (type === "taxi" && vehicle === "large" && !vehicleType) { toast.error("اختار نوع السيارة المطلوبة: كيا حمل أو كيا ركاب أو باص."); return; }
     if (!pickupCoords) {
       toast.error("يرجى تحديد موقع الانطلاق أولاً");
       return;
