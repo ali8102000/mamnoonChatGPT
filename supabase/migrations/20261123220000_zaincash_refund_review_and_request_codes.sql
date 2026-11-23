@@ -322,7 +322,7 @@ BEGIN
       UPDATE public.support_conversations
       SET subject = CASE
             WHEN position(NEW.request_code in subject) > 0 THEN subject
-            ELSE left(subject || ' · ' || NEW.request_code, 150)
+            ELSE left(subject, greatest(0, 150 - length(' · ' || NEW.request_code))) || ' · ' || NEW.request_code
           END,
           needs_admin_reply = true,
           ai_status = 'waiting_human',
