@@ -57,7 +57,7 @@ export default function HistoryScreen() {
         .select("id,type,status,created_at,price_estimate,request_code,pickup_text,dest_text,attachment_path,customer_id,provider_id")
         .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(1000);
       if (error) throw error;
       const { data: memberships, error: membershipError } = await (supabase as any)
         .from("service_request_providers")
