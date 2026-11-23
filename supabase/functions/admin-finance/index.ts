@@ -136,6 +136,7 @@ Deno.serve(async (req: Request) => {
 
       const requestIds = (requests ?? []).map((request: any) => request.id);
       let payments: any[] = [];
+      let providerPaymentCount = 0;
       if (requestIds.length) {
         const { data, error, count: paymentCount } = await admin.from("payment_transactions")
           .select("id,request_id,user_id,provider,currency,amount,paid_at,gateway_transaction_id", { count: "exact" })
@@ -144,7 +145,7 @@ Deno.serve(async (req: Request) => {
           .in("request_id", requestIds).order("paid_at", { ascending: false });
         if (error) return json({ error: "provider_payments_load_failed" }, 500);
         payments = data ?? [];
-        var providerPaymentCount = paymentCount ?? 0;
+        providerPaymentCount = paymentCount ?? 0;
       }
       const paymentsByRequest = new Map<string, any[]>();
       for (const payment of payments) {
