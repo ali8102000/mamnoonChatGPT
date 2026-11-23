@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Image } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
+import { useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
@@ -10,6 +11,7 @@ import MamnoonChatThread from "../components/MamnoonChatThread";
 
 export default function SupportChatScreen() {
   const { user } = useAuth();
+  const { requestId } = useLocalSearchParams<{ requestId?: string }>();
   const [staff, setStaff] = useState(false);
   const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -81,10 +83,17 @@ export default function SupportChatScreen() {
           data = retry.data;
         } else data = created.data;
       }
+      if (requestId && typeof requestId === "string" && data?.id) {
+        const { error: linkError } = await (supabase as any).from("support_conversation_requests")
+          .insert({ conversation_id: data.id, request_id: requestId, linked_by: user.id });
+        if (linkError && linkError.code !== "23505") {
+          console.warn("[support request link] failed:", linkError.message);
+        }
+      }
       setConversations([data]);
       setSelected(data);
     }
-  }, [user?.id, selected?.id]);
+  }, [user?.id, selected?.id, requestId]);
 
   const loadMessages = useCallback(async (id: string) => {
     const { data, error } = await (supabase as any).from("support_messages").select("*").eq("conversation_id", id).order("created_at", { ascending: true });
