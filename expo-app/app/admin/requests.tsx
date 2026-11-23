@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
 
+type CancellationStat = { cancellation_reason: string; cancelled_by_role: string; cancellation_count: number; percentage: number };
 type RequestRow = {
   id: string; type?: string; status?: string; price_estimate?: number | null;
   created_at?: string; pickup_text?: string | null; dest_text?: string | null;
@@ -31,6 +32,7 @@ export default function AdminRequestsScreen() {
   const [lookupCode, setLookupCode] = useState("");
   const [detail, setDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [cancellationStats, setCancellationStats] = useState<CancellationStat[]>([]);
 
   const invoke = useCallback(async (body: Record<string, unknown>) => {
     const { data, error: invokeError } = await supabase.functions.invoke("admin-users", { body });
@@ -49,8 +51,12 @@ export default function AdminRequestsScreen() {
       }
       setCanManage(roleNames.includes("super_admin") || roleNames.includes("admin"));
       setCanView(true);
-      const result = await invoke({ action: "requests", status: filter, limit: 100 });
+      const [result, statsResult] = await Promise.all([
+        invoke({ action: "requests", status: filter, limit: 100 }),
+        (supabase as any).rpc("admin_cancellation_analytics"),
+      ]);
       setRows(result.requests ?? []);
+      if (!statsResult.error) setCancellationStats(statsResult.data ?? []);
     } catch (e: any) {
       setError(String(e?.message || "تعذر تحميل الطلبات"));
       setRows([]);
@@ -113,6 +119,14 @@ export default function AdminRequestsScreen() {
       <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
         <Text style={s.title}>إدارة الطلبات</Text>
         <Text style={s.muted}>آخر 100 طلب · {rows.length.toLocaleString("ar-IQ")} نتيجة</Text>
+        {cancellationStats.length > 0 && <View style={s.detailCard}>
+          <Text style={s.name}>إحصائيات أسباب الإلغاء</Text>
+          <Text style={s.muted}>إجمالي الإلغاءات المسجلة: {cancellationStats.reduce((sum, item) => sum + Number(item.cancellation_count || 0), 0).toLocaleString("ar-IQ")}</Text>
+          {cancellationStats.map((item, index) => <View key={item.cancelled_by_role + ":" + item.cancellation_reason + ":" + index} style={{ gap: 4 }}>
+            <View style={s.row}><Text style={s.muted}>{Number(item.cancellation_count).toLocaleString("ar-IQ")} · {Number(item.percentage).toLocaleString("ar-IQ")}%</Text><Text style={s.personName}>{item.cancellation_reason} · {item.cancelled_by_role === "customer" ? "الزبون" : item.cancelled_by_role === "provider" ? "مقدم الخدمة" : "النظام"}</Text></View>
+            <View style={{ height: 6, borderRadius: 8, backgroundColor: palette.line, overflow: "hidden" }}><View style={{ width: (Math.max(0, Math.min(100, Number(item.percentage))) + "%") as `${number}%`, height: 6, backgroundColor: palette.brand }}/></View>
+          </View>)}
+        </View>}
         <View style={s.lookupCard}>
           <Text style={s.name}>متابعة رحلة برقمها</Text>
           <TextInput value={lookupCode} onChangeText={setLookupCode} autoCapitalize="characters" placeholder="مثال MN-2026-00000124" placeholderTextColor={palette.muted} style={s.lookupInput}/>
@@ -127,6 +141,10 @@ export default function AdminRequestsScreen() {
           <Info label="تاريخ الإنشاء" value={detail.request?.created_at ? new Date(detail.request.created_at).toLocaleString("ar-IQ") : "—"}/>
           <Info label="بدء التنفيذ" value={detail.request?.started_at ? new Date(detail.request.started_at).toLocaleString("ar-IQ") : "—"}/>
           <Info label="الاكتمال" value={detail.request?.completed_at ? new Date(detail.request.completed_at).toLocaleString("ar-IQ") : "—"}/>
+          {(detail.request?.status === "cancelled" || detail.request?.cancelled_by) && <>
+            <Info label={detail.request?.status === "cancelled" ? "ألغى الرحلة" : "آخر اعتذار عن الرحلة"} value={!detail.request?.cancelled_by ? "النظام" : detail.request?.cancelled_by === detail.request?.customer_id ? "الزبون" : "السائق / مقدم الخدمة"}/>
+            <Info label="سبب الإلغاء" value={detail.request?.cancellation_reason || "غير مسجل"}/>
+          </>}
           <Info label="الانطلاق" value={detail.request?.pickup_text}/>
           <Info label="الوجهة" value={detail.request?.dest_text}/>
           <Info label="وصف العمل" value={detail.request?.work_description || detail.request?.notes}/>
@@ -155,6 +173,15 @@ export default function AdminRequestsScreen() {
           <View style={s.detailSection}>
             <Text style={s.name}>سجل مسار الرحلة ({detail.route_points?.length || 0} نقطة)</Text>
             {(detail.route_points || []).slice(-20).map((point:any,index:number)=><Info key={point.id || index} label={new Date(point.recorded_at).toLocaleString("ar-IQ")} value={point.lat + ", " + point.lng}/>)}
+          </View>
+          <View style={s.detailSection}>
+            <Text style={s.name}>التقييمات المرتبطة ({detail.ratings?.length || 0})</Text>
+            {(detail.ratings || []).map((rating:any) => <View key={rating.id} style={s.reportRow}>
+              <Text style={s.personName}>التقييم العام: {Number(rating.stars || 0)}/5 ★</Text>
+              <Text style={s.muted}>الاحترافية: {rating.professionalism ?? "—"}/5 · الالتزام: {rating.punctuality ?? "—"}/5 · الجودة: {rating.quality ?? "—"}/5</Text>
+              {!!rating.reasons?.length && <Text style={s.muted}>الاختيارات: {rating.reasons.join("، ")}</Text>}
+              {!!rating.comment && <Text style={s.muted}>{rating.comment}</Text>}
+            </View>)}
           </View>
           <View style={s.detailSection}>
             <Text style={s.name}>البلاغات المرتبطة ({detail.reports?.length || 0})</Text>

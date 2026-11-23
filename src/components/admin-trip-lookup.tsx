@@ -41,6 +41,10 @@ export default function AdminTripLookup() {
           <div>تاريخ الطلب: {req.created_at ? new Date(req.created_at).toLocaleString("ar-IQ") : "—"}</div>
           <div>تاريخ البدء: {req.started_at ? new Date(req.started_at).toLocaleString("ar-IQ") : "—"}</div>
           <div>تاريخ الاكتمال: {req.completed_at ? new Date(req.completed_at).toLocaleString("ar-IQ") : "—"}</div>
+          {(req.status === "cancelled" || req.cancelled_by) && <>
+            <div>آخر إجراء: <b>{req.status === "cancelled" ? "إلغاء الرحلة" : "اعتذار مقدم الخدمة وإعادة البحث"}</b> · المنفذ: <b>{!req.cancelled_by ? "النظام" : req.cancelled_by === req.customer_id ? "الزبون" : "السائق / مقدم الخدمة"}</b></div>
+            <div className="sm:col-span-2">سبب الإلغاء: <b>{req.cancellation_reason || "غير مسجل"}</b></div>
+          </>}
           <div>طريقة الدفع: {req.payment_method || "—"}</div>
           <div>الانطلاق: {req.pickup_text || "—"}</div>
           <div>الوجهة: {req.dest_text || "—"}</div>
@@ -57,6 +61,12 @@ export default function AdminTripLookup() {
         {req.attachment_url && <div><b className="mb-2 block text-xs">صورة العمل المرفقة</b><img src={req.attachment_url} alt="صورة العمل" className="max-h-80 w-full rounded-xl bg-background object-contain" /></div>}
         <div className="rounded-xl bg-surface-2 p-3 text-xs font-bold">نقاط مسار الرحلة: {detail.route_points?.length || 0}</div>
         <div className="rounded-xl bg-surface-2 p-3 text-xs font-bold">العروض: {detail.offers?.length || 0} · التقييمات: {detail.ratings?.length || 0} · البلاغات: {detail.reports?.length || 0}</div>
+        {(detail.ratings || []).map((rating: any) => <div key={rating.id} className="rounded-xl border border-border p-3 text-xs space-y-1">
+          <div className="flex items-center justify-between"><b>تقييم الرحلة</b><span className="font-black text-primary">{"★".repeat(Math.max(0, Math.min(5, Number(rating.stars) || 0)))} · {rating.stars}/5</span></div>
+          <div>الاحترافية: {rating.professionalism ?? "—"}/5 · الالتزام: {rating.punctuality ?? "—"}/5 · الجودة: {rating.quality ?? "—"}/5</div>
+          {!!rating.reasons?.length && <div>الاختيارات: {rating.reasons.join("، ")}</div>}
+          {!!rating.comment && <div>{rating.comment}</div>}
+        </div>)}
         {(detail.reports || []).map((report: any) => <div key={report.id} className="rounded-xl border border-border p-3 text-xs">
           <b>{report.reason}</b><div className="mt-1">{report.details || "بدون تفاصيل"}</div><div className="mt-1 text-muted-foreground">{report.status} · {new Date(report.created_at).toLocaleString("ar-IQ")}</div>
         </div>)}

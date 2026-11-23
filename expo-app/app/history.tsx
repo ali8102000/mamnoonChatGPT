@@ -17,6 +17,9 @@ type HistoryRequest = {
   dest_text?: string | null;
   attachment_url?: string | null;
   person_avatar_url?: string | null;
+  cancelled_by?: string | null;
+  cancellation_reason?: string | null;
+  customer_id?: string | null;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -54,7 +57,7 @@ export default function HistoryScreen() {
     try {
       const { data, error } = await supabase
         .from("service_requests")
-        .select("id,type,status,created_at,price_estimate,request_code,pickup_text,dest_text,attachment_path,customer_id,provider_id")
+        .select("id,type,status,created_at,price_estimate,request_code,pickup_text,dest_text,attachment_path,customer_id,provider_id,cancelled_by,cancellation_reason")
         .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -68,7 +71,7 @@ export default function HistoryScreen() {
         const teamIds = [...new Set<string>(memberships.map((row: any) => String(row.request_id)))];
         const { data: rows, error: teamError } = await supabase
           .from("service_requests")
-          .select("id,type,status,created_at,price_estimate,request_code,pickup_text,dest_text,attachment_path,customer_id,provider_id")
+          .select("id,type,status,created_at,price_estimate,request_code,pickup_text,dest_text,attachment_path,customer_id,provider_id,cancelled_by,cancellation_reason")
           .in("id", teamIds);
         if (!teamError) teamRows = rows ?? [];
         else console.warn("[history] Team request history failed:", teamError.message);
@@ -199,6 +202,7 @@ export default function HistoryScreen() {
                 {!!req.pickup_text && <Text style={styles.cardDate} numberOfLines={1}>من: {req.pickup_text}</Text>}
                 {!!req.dest_text && <Text style={styles.cardDate} numberOfLines={1}>إلى: {req.dest_text}</Text>}
                 <Text style={styles.cardDate}>{new Date(req.created_at).toLocaleDateString("ar-IQ")}</Text>
+                {(req.status === "cancelled" || req.cancelled_by) && <Text style={styles.cardDate}>{req.status === "cancelled" ? "ألغى الرحلة" : "آخر اعتذار عن الرحلة"}: {!req.cancelled_by ? "النظام" : req.cancelled_by === req.customer_id ? "الزبون" : "السائق / مقدم الخدمة"} · السبب: {req.cancellation_reason || "غير مسجل"}</Text>}
                 {req.price_estimate && (
                   <Text style={styles.cardPrice}>
                     {req.price_estimate.toLocaleString("en")} د.ع

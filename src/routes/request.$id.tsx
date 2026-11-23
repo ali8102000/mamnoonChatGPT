@@ -85,7 +85,7 @@ function RequestDetail() {
   const [showRating, setShowRating] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
-  const [reportReason, setReportReason] = useState("مشكلة أثناء الطلب");
+  const [reportReason, setReportReason] = useState("مشكلة أثناء الرحلة أو الخدمة");
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
@@ -509,10 +509,11 @@ function RequestDetail() {
   async function submitUserReport() {
     if (!session?.user.id || !otherUserId) { toast.error("ما نكدر نحدد الطرف المراد الإبلاغ عنه"); return; }
     if (!["in_progress", "completed"].includes(req?.status)) { toast.error("البلاغات متاحة بعد بدء الرحلة أو الخدمة فعلياً فقط"); return; }
-    if (!reportReason.trim()) { toast.error("اكتب سبب البلاغ"); return; }
+    if (!reportReason.trim()) { toast.error("اختر تصنيف البلاغ"); return; }
+    if (reportDetails.trim().length < 10) { toast.error("اشرح المشكلة بتفاصيل لا تقل عن 10 أحرف حتى تتمكن الإدارة من مراجعتها"); return; }
     setReportBusy(true);
     try {
-      const { error } = await (supabase as any).from("user_reports").insert({ reporter_id: session.user.id, reported_id: otherUserId, request_id: id, reason: reportReason.trim(), details: reportDetails.trim() || null, status: "pending" });
+      const { error } = await (supabase as any).from("user_reports").insert({ reporter_id: session.user.id, reported_id: otherUserId, request_id: id, reason: reportReason.trim(), details: reportDetails.trim(), status: "pending" });
       if (error) throw error;
       toast.success(`وصل البلاغ إلى إدارة ممنون وربطناه بالرحلة ${req.request_code || String(req.id).slice(0, 8).toUpperCase()}`);
       setShowReportForm(false); setReportDetails("");
@@ -895,9 +896,9 @@ function RequestDetail() {
             <div className="space-y-3">
               <div className="font-black text-sm">تفاصيل البلاغ للإدارة</div>
               <select value={reportReason} onChange={(e) => setReportReason(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm">
-                <option>مشكلة أثناء الطلب</option><option>نسيت شيئاً في السيارة</option><option>سلوك غير مناسب</option><option>مشكلة في السعر أو الاتفاق</option><option>لم يلتزم بوقت الوصول</option><option>أخرى</option>
+                <option>مشكلة أثناء الرحلة أو الخدمة</option><option>سلوك غير مناسب</option><option>مشكلة في السعر أو الاتفاق</option><option>تأخير أو عدم التزام</option><option>ضرر أو فقدان ممتلكات</option><option>سلامة أو قيادة خطرة</option><option>أخرى</option>
               </select>
-              <textarea value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} rows={3} maxLength={1500} placeholder="اكتب ملاحظتك بالتفصيل، مثلاً: نسيت شيئاً في السيارة أو اشرح المشكلة..." className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-primary" />
+              <textarea value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} rows={3} maxLength={1500} placeholder="اشرح المشكلة بوضوح: ماذا حدث؟ ومتى؟ وأي تفاصيل تساعد الإدارة على التحقق..." className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-primary" />
               <div className="flex gap-2"><button type="button" disabled={reportBusy} onClick={() => setShowReportForm(false)} className="flex-1 rounded-xl border border-border py-3 text-xs font-bold">إلغاء</button><button type="button" disabled={reportBusy} onClick={submitUserReport} className="flex-1 rounded-xl bg-primary text-primary-foreground py-3 text-xs font-black">{reportBusy ? "جارٍ الإرسال..." : "إرسال البلاغ للإدارة"}</button></div>
             </div>
           )}
@@ -1103,8 +1104,13 @@ function RequestDetail() {
             : req.type === "taxi"
               ? ["قيادة آمنة", "احترام الخصوصية", "وصل بالموعد", "حسن التعامل", "السيارة نظيفة", "المكيف يعمل", "تواصل واضح", "تأخر دون إشعار", "قيادة غير آمنة", "السيارة غير نظيفة", "تعامل غير لائق", "لم يلتزم بالاتفاق"]
               : ["جودة العمل عالية", "أتقن العمل", "التزم بالموعد", "التزم بالسعر المتفق", "حسن التعامل", "حافظ على المكان", "تواصل واضح", "تأخر دون إشعار", "جودة العمل ضعيفة", "غيّر السعر دون اتفاق", "لم يحافظ على المكان", "تعامل غير لائق"]}
+          criteriaLabels={myRole === "provider"
+            ? ["التعامل والاحترام", "الالتزام بالموعد", "وضوح الطلب والاتفاق"]
+            : req.type === "taxi"
+              ? ["التعامل واحترام الخصوصية", "الالتزام بالوقت", "السلامة ونظافة المركبة"]
+              : ["الاحترافية والتعامل", "الالتزام بالموعد", "جودة تنفيذ العمل"]}
           onClose={() => setShowRating(false)}
-          onSubmit={async (stars, comment, reasons) => {
+          onSubmit={async (stars, comment, reasons, criteria) => {
             const { data, error } = await (supabase as any)
               .from("ratings")
               .insert({
@@ -1112,6 +1118,9 @@ function RequestDetail() {
                 rater_id: session.user.id,
                 ratee_id: other.id,
                 stars,
+                professionalism: criteria.professionalism,
+                punctuality: criteria.punctuality,
+                quality: criteria.quality,
                 reasons,
                 comment: comment || null,
               })
@@ -1160,18 +1169,21 @@ function RequestDetail() {
 function RatingModal({
   target,
   reasons,
+  criteriaLabels,
   onClose,
   onSubmit,
 }: {
   target: any;
   reasons: string[];
+  criteriaLabels: string[];
   onClose: () => void;
-  onSubmit: (stars: number, comment: string, selectedReasons: string[]) => Promise<void>;
+  onSubmit: (stars: number, comment: string, selectedReasons: string[], criteria: { professionalism: number; punctuality: number; quality: number }) => Promise<void>;
 }) {
   const [stars, setStars] = useState(0);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState("");
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
+  const [criteria, setCriteria] = useState({ professionalism: 0, punctuality: 0, quality: 0 });
   const [busy, setBusy] = useState(false);
 
   return (
@@ -1216,6 +1228,17 @@ function RatingModal({
           {stars === 0 ? "لم يتم اختيار التقييم" : ["", "سيء جداً", "سيء", "مقبول", "جيد", "ممتاز"][stars]}
         </div>
 
+        <div className="space-y-3 mb-4">
+          {(["professionalism", "punctuality", "quality"] as const).map((key, index) => (
+            <div key={key} className="flex items-center justify-between gap-3">
+              <span className="text-xs font-black text-muted-foreground">{criteriaLabels[index]}</span>
+              <div className="flex gap-1" dir="ltr">
+                {[1, 2, 3, 4, 5].map((score) => <button key={score} type="button" onClick={() => setCriteria((current) => ({ ...current, [key]: score }))} className={`text-xl ${score <= criteria[key] ? "text-primary" : "text-muted-foreground/40"}`}>★</button>)}
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="mb-3">
           <div className="text-xs font-black text-muted-foreground mb-2">أسباب التقييم (اختياري – تقدر تختار أكثر من سبب)</div>
           <div className="flex flex-wrap gap-2">
@@ -1235,9 +1258,9 @@ function RatingModal({
           placeholder="ملاحظة إضافية (اختياري)..." rows={2}
           className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-ring resize-none" />
 
-        <button disabled={busy || stars === 0} onClick={async () => {
+        <button disabled={busy || stars === 0 || Object.values(criteria).some((value) => value < 1)} onClick={async () => {
           setBusy(true);
-          await onSubmit(stars, comment.trim(), selectedReasons);
+          await onSubmit(stars, comment.trim(), selectedReasons, criteria);
           setBusy(false);
         }} className="mt-4 w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-black btn-press glow-primary disabled:opacity-50">
           {busy ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "إرسال التقييم"}

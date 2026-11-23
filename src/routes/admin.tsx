@@ -96,6 +96,7 @@ import AdminControlCenter from "@/components/admin-control-center";
 import AdminInbox from "@/components/admin-inbox";
 import AdminRights from "@/components/admin-rights";
 import AdminTripLookup from "@/components/admin-trip-lookup";
+import AdminCancellationAnalytics from "@/components/admin-cancellation-analytics";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/admin")({
@@ -1717,6 +1718,7 @@ function RequestsSection() {
     <div>
       <h2 className="text-xl font-black mb-4">إدارة الطلبات</h2>
       <AdminTripLookup />
+      <AdminCancellationAnalytics />
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1 overflow-x-auto">
         {["all", "pending", "searching", "accepted", "in_progress", "completed", "cancelled"].map(
           (s) => (
