@@ -250,6 +250,7 @@ export default function RequestDetail() {
   const acceptedMapRef = useRef<MapView | null>(null);
   const acceptedMapFitKeyRef = useRef<string | null>(null);
   const roadRouteSequenceRef = useRef(0);
+  const hasValidRoadRouteRef = useRef(false);
   const lastRoadRouteRequestRef = useRef<{ routeKey: string; latitude: number; longitude: number; requestedAt: number } | null>(null);
   const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
@@ -301,6 +302,12 @@ export default function RequestDetail() {
   const currentUserId = user?.id;
   useEffect(() => {
     lastRoutePointRef.current = null;
+    lastRoadRouteRequestRef.current = null;
+    hasValidRoadRouteRef.current = false;
+    setRoadRoutePoints([]);
+    setRoadTrafficSegments([]);
+    setNextRouteInstruction(null);
+    setLiveRouteSource(null);
   }, [id, currentUserId]);
   const currentRequestType = request?.type;
   const currentProviderId = request?.provider_id;
@@ -857,14 +864,17 @@ export default function RequestDetail() {
   }, [id, isActive, currentUserId]);
 
   useEffect(() => {
-    if (!isActive || !providerLiveLocation || !driverLocationFresh) {
+    if (!isActive) {
       roadRouteSequenceRef.current += 1;
+      hasValidRoadRouteRef.current = false;
       setRoadRoutePoints([]);
       setRoadTrafficSegments([]);
       setNextRouteInstruction(null);
       setLiveRouteSource(null);
       return;
     }
+    // A short GPS/network gap should not erase the last confirmed road route.
+    if (!providerLiveLocation || !driverLocationFresh) return;
     // The provider always routes to the saved work/pickup point for a service.
     // For taxis, route to the passenger until boarding, then to the trip destination.
     const origin = providerLiveLocation;
@@ -886,6 +896,14 @@ export default function RequestDetail() {
     const routeKey = [id, request?.type, request?.status,
       destination.latitude.toFixed(5), destination.longitude.toFixed(5)].join(":");
     const previousRouteRequest = lastRoadRouteRequestRef.current;
+    if (previousRouteRequest && previousRouteRequest.routeKey !== routeKey) {
+      // Clear the previous trip leg before calculating a route to a new target.
+      hasValidRoadRouteRef.current = false;
+      setRoadRoutePoints([]);
+      setRoadTrafficSegments([]);
+      setNextRouteInstruction(null);
+      setLiveRouteSource(null);
+    }
     const movedMeters = previousRouteRequest
       ? Math.hypot(
           (origin.latitude - previousRouteRequest.latitude) * 111320,
@@ -919,7 +937,13 @@ export default function RequestDetail() {
           Number.isFinite(point.lat) && Number.isFinite(point.lng) &&
           Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180,
         );
-        setRoadRoutePoints(points.length > 1 ? points.map((point) => ({ latitude: point.lat, longitude: point.lng })) : []);
+        const validRoutePoints = points.length > 1 ? points.map((point) => ({ latitude: point.lat, longitude: point.lng })) : [];
+        if (validRoutePoints.length > 1) {
+          hasValidRoadRouteRef.current = true;
+          setRoadRoutePoints(validRoutePoints);
+        } else {
+          throw new Error("لم يصل مسار شوارع صالح");
+        }
         setRoadTrafficSegments((route.trafficSegments ?? []).filter((segment) =>
           Number.isInteger(segment.startIndex) && Number.isInteger(segment.endIndex) &&
           segment.startIndex >= 0 && segment.endIndex > segment.startIndex && segment.endIndex <= points.length,
@@ -928,11 +952,14 @@ export default function RequestDetail() {
         setLiveRouteSource(route.routeSource ?? null);
       }).catch((error) => {
         if (sequence === roadRouteSequenceRef.current) {
-          setRoadRoutePoints([]);
-          setRoadTrafficSegments([]);
-          setNextRouteInstruction(null);
-          setLiveRouteSource(null);
-          console.warn("[Mamnoon] road route unavailable:", error instanceof Error ? error.message : "unknown");
+          // Keep the last verified route visible during temporary routing failures.
+          if (!hasValidRoadRouteRef.current) {
+            setRoadRoutePoints([]);
+            setRoadTrafficSegments([]);
+            setNextRouteInstruction(null);
+            setLiveRouteSource(null);
+          }
+          console.warn("[Mamnoon] road route refresh failed; retaining last valid route:", error instanceof Error ? error.message : "unknown");
         }
       });
     }, 350);
@@ -958,7 +985,9 @@ export default function RequestDetail() {
     if (!acceptedMapMode || !request || !acceptedMapRef.current) return;
     const fitKey = `${request.id}:${request.status}`;
     const singlePointFitKey = `${fitKey}:single`;
-    if (acceptedMapFitKeyRef.current === fitKey) return;
+    const roadFitKey = `${fitKey}:road`;
+    if (acceptedMapFitKeyRef.current === roadFitKey) return;
+    if (acceptedMapFitKeyRef.current === fitKey && roadRoutePoints.length <= 1) return;
     const target = request.type === "taxi" && request.status === "in_progress" &&
       request.dest_lat != null && request.dest_lng != null
       ? { latitude: Number(request.dest_lat), longitude: Number(request.dest_lng) }
@@ -966,24 +995,28 @@ export default function RequestDetail() {
         ? { latitude: Number(request.pickup_lat), longitude: Number(request.pickup_lng) }
         : isCustomer ? myLocation : otherLocation;
     const origin = isCustomer ? otherLocation : myLocation;
-    const coordinates = roadRoutePoints.length > 1
-      ? roadRoutePoints
-      : [origin, target].filter((point): point is Coordinates => point != null);
-    if (coordinates.length > 1) {
-      acceptedMapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 90, right: 44, bottom: 360, left: 44 },
+    if (roadRoutePoints.length > 1) {
+      acceptedMapRef.current.fitToCoordinates(roadRoutePoints, {
+        edgePadding: { top: 150, right: 52, bottom: 330, left: 52 },
         animated: true,
       });
-      acceptedMapFitKeyRef.current = fitKey;
-    } else if (coordinates.length === 1 && acceptedMapFitKeyRef.current !== singlePointFitKey) {
-      // Center provisionally on the known point, but allow a later live-location
-      // update to perform the full two-point fit exactly once.
-      acceptedMapRef.current.animateToRegion({
-        ...coordinates[0],
-        latitudeDelta: 0.009,
-        longitudeDelta: 0.009,
-      }, 450);
-      acceptedMapFitKeyRef.current = singlePointFitKey;
+      acceptedMapFitKeyRef.current = roadFitKey;
+    } else {
+      const coordinates = [origin, target].filter((point): point is Coordinates => point != null);
+      if (coordinates.length > 1 && acceptedMapFitKeyRef.current !== fitKey) {
+        acceptedMapRef.current.fitToCoordinates(coordinates, {
+          edgePadding: { top: 150, right: 52, bottom: 330, left: 52 },
+          animated: false,
+        });
+        acceptedMapFitKeyRef.current = fitKey;
+      } else if (coordinates.length === 1 && acceptedMapFitKeyRef.current !== singlePointFitKey) {
+        acceptedMapRef.current.animateToRegion({
+          ...coordinates[0],
+          latitudeDelta: 0.012,
+          longitudeDelta: 0.012,
+        }, 450);
+        acceptedMapFitKeyRef.current = singlePointFitKey;
+      }
     }
   }, [
     acceptedMapMode,
@@ -1434,6 +1467,7 @@ export default function RequestDetail() {
             }}
             showsUserLocation={request.type !== "taxi"}
             showsCompass
+            showsTraffic
             toolbarEnabled={false}
             scrollEnabled
             zoomEnabled
@@ -1441,7 +1475,8 @@ export default function RequestDetail() {
           >
             {roadRoutePoints.length > 1 && (
               <>
-                <Polyline coordinates={roadRoutePoints} strokeColor="#2563EB" strokeWidth={5} />
+                <Polyline coordinates={roadRoutePoints} strokeColor="#FFFFFF" strokeWidth={11} lineCap="round" lineJoin="round" />
+                <Polyline coordinates={roadRoutePoints} strokeColor="#0B63CE" strokeWidth={6} lineCap="round" lineJoin="round" />
                 {roadTrafficSegments.map((segment, index) => {
                   const segmentPoints = roadRoutePoints.slice(segment.startIndex, segment.endIndex);
                   if (segmentPoints.length < 2) return null;
@@ -1461,7 +1496,7 @@ export default function RequestDetail() {
                 {request.dest_lat != null && request.dest_lng != null && (
                   <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
                 )}
-                {(isProvider ? myLocation : otherLocation) && (
+                {driverLocationFresh && (isProvider ? myLocation : otherLocation) && (
                   <TaxiCarMarker
                     coordinate={(isProvider ? myLocation : otherLocation)!}
                     heading={(isProvider ? myLocation : otherLocation)?.heading}
@@ -1485,7 +1520,7 @@ export default function RequestDetail() {
                 {request.dest_lat != null && request.dest_lng != null && (
                   <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
                 )}
-                {(isProvider ? myLocation : otherLocation) && (
+                {driverLocationFresh && (isProvider ? myLocation : otherLocation) && (
                   <ServicePhotoMarker
                     coordinate={(isProvider ? myLocation : otherLocation)!}
                     imageSource={SERVICE_IMAGES[request.services?.slug ?? ""] ?? service_general}
