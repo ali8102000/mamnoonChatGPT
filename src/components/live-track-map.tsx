@@ -309,6 +309,17 @@ export function LiveTrackMap({
 
       const signature = status + ":" + targetPoint.lat.toFixed(5) + ":" + targetPoint.lng.toFixed(5);
       const previous = lastDirectionsRequestRef.current;
+      if (previous && previous.signature !== signature) {
+        // Do not keep a route to the pickup after the taxi trip switches to
+        // its destination, or retain a route from a previous service target.
+        hasValidRoadRouteRef.current = false;
+        routeLineRef.current?.setPath([]);
+        trafficLinesRef.current.forEach((line) => line.setMap(null));
+        trafficLinesRef.current = [];
+        setNextInstruction(null);
+        setDistanceKm(null);
+        setEtaMinutes(null);
+      }
       const moved = !previous ||
         haversineKm(previous.origin, activeDriverCoord) >= 0.015 ||
         haversineKm(previous.destination, targetPoint) >= 0.02 ||
