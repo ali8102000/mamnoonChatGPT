@@ -21,7 +21,7 @@ import osmium
 ROOT = Path(__file__).resolve().parents[2]
 BOUNDARIES_FILE = ROOT / "src/lib/iraq-governorate-boundaries.json"
 PBF_URL = os.environ.get(
-    "OSM_PBF_URL", "https://download.geofabrik.de/asia/iraq-latest.osm.pbf"
+    "OSM_PBF_URL", "https://geo2day.com/asia/iraq.pbf"
 )
 CHUNK_SIZE = 400
 MAX_RETRIES = 5
@@ -242,16 +242,17 @@ class NamedPlaces(osmium.SimpleHandler):
         lat = sum(p[1] for p in coords) / len(coords)
         self.add("way", way.id, way.tags, lon, lat)
 
-def rest_upsert(rows: list[dict], base_url: str, service_key: str) -> None:
+def rest_upsert(rows: list[dict], base_url: str, service_key: str, allow_updates: bool) -> None:
     endpoint = base_url.rstrip("/") + "/rest/v1/map_place_suggestions?on_conflict=governorate_key%2Csource_key"
     body = json.dumps(rows, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    resolution = "merge-duplicates" if allow_updates else "ignore-duplicates"
     request = urllib.request.Request(
         endpoint, data=body, method="POST",
         headers={
             "apikey": service_key,
             "Authorization": "Bearer " + service_key,
             "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates,return=minimal",
+            "Prefer": f"resolution={resolution},return=minimal",
         },
     )
     for attempt in range(MAX_RETRIES):
@@ -275,7 +276,7 @@ def main() -> int:
         raise RuntimeError("Set the SUPABASE_SERVICE_ROLE_KEY GitHub secret before importing.")
     work = Path(os.environ.get("RUNNER_TEMP", "/tmp"))
     pbf = work / "iraq-latest.osm.pbf"
-    print(f"Downloading current Iraq extract: {PBF_URL}", flush=True)
+    print(f"Downloading Iraq OSM extract: {PBF_URL}", flush=True)
     download(PBF_URL, pbf)
     print(f"Parsing {pbf.stat().st_size:,} bytes with 18 governorate polygons", flush=True)
     handler = NamedPlaces()
@@ -289,9 +290,15 @@ def main() -> int:
     if dry_run:
         print("DRY_RUN enabled: no database writes were made.", flush=True)
         return 0
+    # Geo2day's currently reachable extract is an older snapshot. Add only
+    # missing OSM objects by default so it cannot overwrite newer records
+    # already imported into production. Set OSM_ALLOW_UPDATES=true only when
+    # the configured PBF is confirmed newer than the catalogue.
+    allow_updates = os.environ.get("OSM_ALLOW_UPDATES", "").strip().lower() == "true"
+    print(f"Existing OSM rows will {'be refreshed' if allow_updates else 'be preserved; only missing objects will be added'}.", flush=True)
     uploaded = 0
     for offset in range(0, len(rows), CHUNK_SIZE):
-        rest_upsert(rows[offset:offset + CHUNK_SIZE], base_url, service_key)
+        rest_upsert(rows[offset:offset + CHUNK_SIZE], base_url, service_key, allow_updates)
         uploaded += len(rows[offset:offset + CHUNK_SIZE])
         if uploaded % 4000 == 0 or uploaded == len(rows):
             print(f"Upserted {uploaded:,}/{len(rows):,}", flush=True)
