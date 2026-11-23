@@ -108,7 +108,7 @@ begin
   for v in
     select category_key,min_surcharge_percent,max_surcharge_percent,mode,enabled
     from public.category_peak_pricing_settings
-    where category_key in ('taxi:economy','taxi:premium','taxi:luxury')
+    where category_key in ('taxi:economy','taxi:premium','taxi:luxury','taxi:large')
   loop
     select count(distinct dp.user_id)::integer into v_observed
     from public.driver_profiles dp
