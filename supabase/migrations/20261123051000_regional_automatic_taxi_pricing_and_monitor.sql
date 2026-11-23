@@ -466,6 +466,7 @@ BEGIN
     NEW.taxi_urgency_enabled := false;
     NEW.taxi_urgency_percent := 0;
     NEW.taxi_peak_percent := 0;
+    NEW.taxi_auto_percent := 0;
     RETURN NEW;
   END IF;
 
