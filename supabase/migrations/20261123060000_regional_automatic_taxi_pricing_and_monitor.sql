@@ -98,6 +98,7 @@ BEGIN
       JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
       JOIN public.governorate_boundaries g ON g.governorate_key=v_key
       WHERE pp.updated_at > now()-interval '5 minutes'
+        AND pp.accuracy_m IS NOT NULL AND pp.accuracy_m<=100
         AND dp.status='approved'
         AND (dp.suspended_until IS NULL OR dp.suspended_until<=now())
         AND extensions.st_covers(g.boundary,
@@ -108,6 +109,7 @@ BEGIN
       JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
       JOIN public.governorate_boundaries g ON g.governorate_key=v_key
       WHERE pp.updated_at > now()-interval '5 minutes'
+        AND pp.accuracy_m IS NOT NULL AND pp.accuracy_m<=100
         AND dp.available=true AND dp.status='approved'
         AND (dp.suspended_until IS NULL OR dp.suspended_until<=now())
         AND extensions.st_covers(g.boundary,
