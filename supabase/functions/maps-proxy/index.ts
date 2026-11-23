@@ -287,11 +287,12 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
       text:String(row.name_ar),address:String(row.address||row.name_ar),coords:point,governorateKey:key}];
   });
   const initialSuggestions=mapRows(initial.data);
-  // If the local catalogue already has a rich result set, return it immediately.
-  // For sparse matches, continue to Photon so the user also discovers nearby
-  // Iraqi landmarks that have not yet been imported into Mamnoon's local index.
-  if(initialSuggestions.length>=25) {
-    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
+  // Latency-first path: any verified local match is returned immediately.
+  // Do not make the user wait for Photon when the governorate-scoped catalogue
+  // already contains useful results. External discovery remains the fallback
+  // for queries with no local matches, and successful results are cached.
+  if(initialSuggestions.length>0) {
+    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap",fastPath:true});
   }
 
   // Check the external-enrichment cache only after local search misses. This
@@ -303,8 +304,8 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // A fresh query cache is authoritative for this query. Return it immediately;
   // otherwise enrich partial local results from Photon instead of only searching
   // externally when the local database is completely empty.
-  if(cacheFresh && initialSuggestions.length>0 && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
-    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
+  if(cacheFresh && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
+    return json({suggestions:[],attribution:"بيانات الأماكن © OpenStreetMap",cacheHit:true});
   }
 
   let fetchedRows:any[]=[];
