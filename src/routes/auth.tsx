@@ -50,7 +50,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { refresh } = useAuth();
-  const { companyName, logoUrl, welcomeMessage } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeMediaUrl } = useCompanyBranding();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -223,7 +223,8 @@ function AuthPage() {
       <Button asChild variant="link" className="self-start mb-3">
         <Link to="/welcome">{t("اللغة والترحيب", "Language & welcome")}</Link>
       </Button>
-      <div className="text-center mb-6">
+      <div className="text-center mb-6 min-w-0">
+        {welcomeMediaUrl && <img src={welcomeMediaUrl} alt={`واجهة ${companyName}`} className="mx-auto mb-4 w-full max-w-[360px] max-h-48 rounded-2xl object-contain" />}
         {logoUrl ? (
           <img src={logoUrl} alt={`شعار ${companyName}`} className="mx-auto mb-4 h-20 w-20 rounded-3xl bg-white object-contain p-2 shadow-elegant" />
         ) : (
@@ -231,8 +232,8 @@ function AuthPage() {
             <span className="text-3xl font-black text-primary-foreground">م</span>
           </div>
         )}
-        <h1 className="text-4xl font-black text-gradient">{companyName || t("ممنون", "Mamnoon")}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{welcomeMessage || t("منصة النقل والخدمات", "Rides and home services")}</p>
+        <h1 className="text-4xl font-black text-gradient whitespace-normal break-words">{companyName || t("ممنون", "Mamnoon")}</h1>
+        <p className="mt-2 mx-auto max-w-sm whitespace-normal break-words text-balance text-sm leading-7 text-muted-foreground">{welcomeMessage || t("منصة النقل والخدمات", "Rides and home services")}</p>
       </div>
 
       <div className="flex flex-col">
