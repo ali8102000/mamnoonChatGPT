@@ -159,13 +159,6 @@ export default function AdminInbox() {
             busy={busy}
             placeholder="اكتب رد الإدارة..."
             emptyText="لا توجد رسائل في هذه المحادثة بعد"
-            footer={null /* actions live in the conversation header only */}
-            /* footer={selected.conversation_type !== "service" ? (
-              <div className="flex justify-end gap-2 px-3 pt-2">
-                <button disabled={busy} onClick={() => void runAction("handoff")} className="rounded-lg border border-border px-3 py-2 text-[10px] font-bold"><Headset className="ml-1 inline h-3.5 w-3.5"/> تحويل للدعم</button>
-                <button disabled={busy} onClick={() => void runAction("resolve")} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white"><CheckCircle2 className="ml-1 inline h-3.5 w-3.5"/> إنهاء</button>
-              </div>
-            ) : null}
           />
         </>}
       </main>}
