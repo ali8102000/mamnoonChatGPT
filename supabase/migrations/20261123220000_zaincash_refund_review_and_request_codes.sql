@@ -228,41 +228,47 @@ ALTER TABLE public.mamnoon_refund_commission_reversals ENABLE ROW LEVEL SECURITY
 REVOKE ALL ON public.mamnoon_refund_commission_reversals FROM anon, authenticated;
 GRANT ALL ON public.mamnoon_refund_commission_reversals TO service_role;
 
-CREATE OR REPLACE FUNCTION public.open_zaincash_refund_case_on_customer_cancel()
-RETURNS trigger
+CREATE OR REPLACE FUNCTION public.open_zaincash_refund_cases_for_cancelled_request(p_request_id uuid)
+RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $function$
 DECLARE
+  v_request public.service_requests%ROWTYPE;
   v_payment record;
   v_case_id uuid;
   v_conversation_id uuid;
   v_opened integer := 0;
 BEGIN
-  IF NEW.status::text <> 'cancelled'
-     OR OLD.status::text = 'cancelled'
-     OR NEW.cancelled_by IS DISTINCT FROM NEW.customer_id THEN
-    RETURN NEW;
+  SELECT * INTO v_request
+  FROM public.service_requests
+  WHERE id = p_request_id
+  FOR UPDATE;
+
+  IF NOT FOUND
+     OR v_request.status::text <> 'cancelled'
+     OR v_request.cancelled_by IS DISTINCT FROM v_request.customer_id THEN
+    RETURN 0;
   END IF;
 
   FOR v_payment IN
     SELECT p.id, p.amount, p.user_id
     FROM public.payment_transactions p
-    WHERE p.request_id = NEW.id
+    WHERE p.request_id = v_request.id
       AND p.purpose = 'service_request'
       AND p.provider = 'zaincash'
       AND p.currency = 'IQD'
       AND p.status = 'paid'
-      AND p.user_id = NEW.customer_id
+      AND p.user_id = v_request.customer_id
     ORDER BY p.paid_at, p.created_at
   LOOP
     v_case_id := NULL;
     INSERT INTO public.mamnoon_zaincash_refund_cases(
       payment_id, request_id, customer_id, amount_iqd, cancellation_reason
     ) VALUES (
-      v_payment.id, NEW.id, NEW.customer_id, v_payment.amount,
-      left(coalesce(NEW.cancellation_reason, 'إلغاء الطلب من الزبون'), 500)
+      v_payment.id, v_request.id, v_request.customer_id, v_payment.amount,
+      left(coalesce(v_request.cancellation_reason, 'إلغاء الطلب من الزبون'), 500)
     )
     ON CONFLICT (payment_id) DO NOTHING
     RETURNING id INTO v_case_id;
@@ -273,7 +279,11 @@ BEGIN
 
     v_opened := v_opened + 1;
     INSERT INTO public.mamnoon_zaincash_refund_events(refund_case_id, event_type, note, amount_iqd)
-    VALUES (v_case_id, 'opened', left(coalesce(NEW.cancellation_reason, 'إلغاء الطلب من الزبون'), 500), v_payment.amount);
+    VALUES (
+      v_case_id, 'opened',
+      left(coalesce(v_request.cancellation_reason, 'إلغاء الطلب من الزبون'), 500),
+      v_payment.amount
+    );
 
     UPDATE public.mamnoon_revenue_ledger
     SET metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
@@ -281,27 +291,27 @@ BEGIN
           'refund_case_id', v_case_id
         ),
         updated_at = now()
-    WHERE request_id = NEW.id
+    WHERE request_id = v_request.id
       AND revenue_type IN ('taxi_commission','service_commission','order_commission')
       AND status <> 'void';
 
     INSERT INTO public.notifications(user_id, type, title, body, link, data)
     VALUES (
-      NEW.customer_id,
+      v_request.customer_id,
       'zaincash_refund_review',
       'طلبك قيد مراجعة الاسترداد',
       'استلمنا طلب إلغاء الطلب المدفوع بزين كاش. المبلغ لم يُسترد بعد، وستصلك نتيجة المراجعة.',
-      '/support-chat?requestId=' || NEW.id::text,
-      jsonb_build_object('request_id', NEW.id, 'request_code', NEW.request_code, 'refund_case_id', v_case_id)
+      '/support-chat?requestId=' || v_request.id::text,
+      jsonb_build_object('request_id', v_request.id, 'request_code', v_request.request_code, 'refund_case_id', v_case_id)
     );
 
     INSERT INTO public.notifications(user_id, type, title, body, link, data)
     SELECT DISTINCT eligible.user_id,
       'zaincash_refund_review',
       'طلب إلغاء واسترداد يحتاج مراجعة',
-      'طلب مدفوع بزين كاش أُلغي من الزبون · ' || coalesce(NEW.request_code, NEW.id::text),
+      'طلب مدفوع بزين كاش أُلغي من الزبون · ' || coalesce(v_request.request_code, v_request.id::text),
       '/admin',
-      jsonb_build_object('request_id', NEW.id, 'request_code', NEW.request_code, 'refund_case_id', v_case_id)
+      jsonb_build_object('request_id', v_request.id, 'request_code', v_request.request_code, 'refund_case_id', v_case_id)
     FROM (
       SELECT ur.user_id
       FROM public.user_roles ur
@@ -312,13 +322,12 @@ BEGIN
       WHERE sa.active = true
         AND (sa.department IN ('finance','customer_service') OR sa.rank = 'general_manager')
     ) AS eligible;
-
   END LOOP;
 
   IF v_opened > 0 THEN
     SELECT c.id INTO v_conversation_id
     FROM public.support_conversations c
-    WHERE c.user_id = NEW.customer_id AND c.status = 'open'
+    WHERE c.user_id = v_request.customer_id AND c.status = 'open'
     ORDER BY c.updated_at DESC
     LIMIT 1
     FOR UPDATE;
@@ -326,12 +335,16 @@ BEGIN
     IF v_conversation_id IS NULL THEN
       BEGIN
         INSERT INTO public.support_conversations(user_id, created_by, subject, status)
-        VALUES (NEW.customer_id, NEW.customer_id, 'استفسار إلغاء واسترداد · ' || coalesce(NEW.request_code, NEW.id::text), 'open')
+        VALUES (
+          v_request.customer_id, v_request.customer_id,
+          'استفسار إلغاء واسترداد · ' || coalesce(v_request.request_code, v_request.id::text),
+          'open'
+        )
         RETURNING id INTO v_conversation_id;
       EXCEPTION WHEN unique_violation THEN
         SELECT c.id INTO v_conversation_id
         FROM public.support_conversations c
-        WHERE c.user_id = NEW.customer_id AND c.status = 'open'
+        WHERE c.user_id = v_request.customer_id AND c.status = 'open'
         ORDER BY c.updated_at DESC
         LIMIT 1;
       END;
@@ -339,12 +352,13 @@ BEGIN
 
     IF v_conversation_id IS NOT NULL THEN
       INSERT INTO public.support_conversation_requests(conversation_id, request_id, linked_by)
-      VALUES (v_conversation_id, NEW.id, NEW.customer_id)
+      VALUES (v_conversation_id, v_request.id, v_request.customer_id)
       ON CONFLICT (conversation_id, request_id) DO NOTHING;
+
       UPDATE public.support_conversations
       SET subject = CASE
-            WHEN position(NEW.request_code in subject) > 0 THEN subject
-            ELSE left(subject, greatest(0, 150 - length(' · ' || NEW.request_code))) || ' · ' || NEW.request_code
+            WHEN position(v_request.request_code in subject) > 0 THEN subject
+            ELSE left(subject, greatest(0, 150 - length(' · ' || v_request.request_code))) || ' · ' || v_request.request_code
           END,
           needs_admin_reply = true,
           ai_status = 'waiting_human',
@@ -357,6 +371,22 @@ BEGIN
     END IF;
   END IF;
 
+  RETURN v_opened;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.open_zaincash_refund_case_on_customer_cancel()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  IF NEW.status::text = 'cancelled'
+     AND OLD.status::text <> 'cancelled'
+     AND NEW.cancelled_by IS NOT DISTINCT FROM NEW.customer_id THEN
+    PERFORM public.open_zaincash_refund_cases_for_cancelled_request(NEW.id);
+  END IF;
   RETURN NEW;
 END;
 $function$;
@@ -365,7 +395,33 @@ DROP TRIGGER IF EXISTS open_zaincash_refund_case_on_customer_cancel ON public.se
 CREATE TRIGGER open_zaincash_refund_case_on_customer_cancel
 AFTER UPDATE OF status ON public.service_requests
 FOR EACH ROW EXECUTE FUNCTION public.open_zaincash_refund_case_on_customer_cancel();
+
+CREATE OR REPLACE FUNCTION public.open_zaincash_refund_case_on_late_paid_payment()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  IF NEW.status = 'paid'
+     AND OLD.status IS DISTINCT FROM 'paid'
+     AND NEW.provider = 'zaincash'
+     AND NEW.purpose = 'service_request'
+     AND NEW.request_id IS NOT NULL THEN
+    PERFORM public.open_zaincash_refund_cases_for_cancelled_request(NEW.request_id);
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS open_zaincash_refund_case_on_late_paid_payment ON public.payment_transactions;
+CREATE TRIGGER open_zaincash_refund_case_on_late_paid_payment
+AFTER UPDATE OF status ON public.payment_transactions
+FOR EACH ROW EXECUTE FUNCTION public.open_zaincash_refund_case_on_late_paid_payment();
+
+REVOKE ALL ON FUNCTION public.open_zaincash_refund_cases_for_cancelled_request(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.open_zaincash_refund_case_on_customer_cancel() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.open_zaincash_refund_case_on_late_paid_payment() FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.admin_decide_zaincash_refund(
   p_refund_case_id uuid,
