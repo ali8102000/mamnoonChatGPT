@@ -767,7 +767,7 @@ export default function NewRequest() {
       } finally {
         if (active) setSearchingPlaces(false);
       }
-    }, 70);
+    }, 50);
     return () => {
       active = false;
       clearTimeout(timer);
