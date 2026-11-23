@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, Image } from "react-native";
+import { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, ActivityIndicator, Image, Animated, Easing } from "react-native";
 import { router, Stack } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
 import { palette } from "@/styles/theme";
@@ -7,7 +7,17 @@ import { useCompanyBranding } from "@/lib/company-branding";
 
 export default function WelcomeScreen() {
   const { session, loading, roles } = useAuth();
-  const { companyName, logoUrl, welcomeMessage, welcomeMediaUrl, isLoaded: brandingLoaded } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeMediaUrl, welcomeMediaAnimated, isLoaded: brandingLoaded } = useCompanyBranding();
+  const mediaScale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!welcomeMediaAnimated) { mediaScale.setValue(1); return; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(mediaScale, { toValue: 1.035, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(mediaScale, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [welcomeMediaAnimated, mediaScale]);
 
   useEffect(() => {
     if (loading || !brandingLoaded) return;
@@ -22,7 +32,7 @@ export default function WelcomeScreen() {
   return (
     <View style={styles.page}>
       <Stack.Screen options={{ headerShown: false }} />
-      {welcomeMediaUrl ? <Image source={{ uri: welcomeMediaUrl }} style={styles.heroMedia} resizeMode="contain" /> : logoUrl ? <Image source={{ uri: logoUrl }} style={styles.logo} resizeMode="contain" /> : <View style={styles.mark}><Text style={styles.markText}>م</Text></View>}
+      {welcomeMediaUrl ? <Animated.Image source={{ uri: welcomeMediaUrl }} style={[styles.heroMedia, { transform: [{ scale: mediaScale }] }]} resizeMode="contain" /> : logoUrl ? <Image source={{ uri: logoUrl }} style={styles.logo} resizeMode="contain" /> : <View style={styles.mark}><Text style={styles.markText}>م</Text></View>}
       <Text style={styles.brand}>{companyName}</Text>
       <Text style={styles.title}>أهلاً بك في ممنون</Text>
       <Text style={styles.desc}>{welcomeMessage}</Text>
