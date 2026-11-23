@@ -155,7 +155,7 @@ function HistoryPage() {
                                 ? "ملغي"
                                 : r.status}
                   </div>
-                  {r.status === "cancelled" && <div className="mt-1 text-[10px] leading-5 text-muted-foreground">ألغاه: {r.cancelled_by ? (r.cancelled_by === r.customer_id ? "الزبون" : "السائق / مقدم الخدمة") : "النظام"} · السبب: {r.cancellation_reason || "غير مسجل"}</div>}
+                  {r.cancelled_by && <div className="mt-1 text-[10px] leading-5 text-muted-foreground">{r.status === "cancelled" ? "ألغى الرحلة" : "آخر اعتذار عن الرحلة"}: {r.cancelled_by === r.customer_id ? "الزبون" : "السائق / مقدم الخدمة"} · السبب: {r.cancellation_reason || "غير مسجل"}</div>}
                   </div>
                 {r.price_estimate && (
                   <div className="text-left">
