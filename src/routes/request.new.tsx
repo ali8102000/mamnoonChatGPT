@@ -220,7 +220,8 @@ function NewRequest() {
     setInterCity(outside);
     setDestinationGovernorateKey(place.governorate_key ?? gov?.key ?? null);
     setDestCoords(coords); setDestLabel(place.address || place.label);
-    setMapStep("dest"); setDestConfirmed(true); setRouteError(null);
+    setMapStep("dest"); destinationBackArmedRef.current = false;
+      setDestConfirmed(true); setRouteError(null);
     setShowFavoriteNameInput(false);
   }
 
@@ -317,7 +318,8 @@ function NewRequest() {
         return;
       }
     }
-    setDestConfirmed(true);
+    destinationBackArmedRef.current = false;
+      setDestConfirmed(true);
   }
 
   const [notes, setNotes] = useState("");
@@ -535,6 +537,7 @@ function NewRequest() {
       return;
     }
     if (vehicle === "large") {
+      destinationBackArmedRef.current = false;
       setDestConfirmed(true);
       return;
     }
@@ -940,7 +943,8 @@ function NewRequest() {
                     return;
                   }
                   if (vehicle === "large") {
-                    setDestConfirmed(true);
+                    destinationBackArmedRef.current = false;
+      setDestConfirmed(true);
                   } else {
                     setMapStep("dest");
                     setDestConfirmed(false);
