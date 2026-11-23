@@ -913,7 +913,7 @@ function RequestDetail() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="font-black text-sm truncate">{other?.full_name || "المستخدم"}</div>
-              <div className="text-[10px] text-muted-foreground">المحادثة المباشرة</div>
+              <div className="text-[10px] text-muted-foreground">المحادثة المباشرة · رقم الطلب {req.request_code || String(req.id).slice(0, 8).toUpperCase()}</div>
             </div>
             {other?.phone && <ContactOptions phone={other.phone} label="اتصال / واتساب" className="h-10 rounded-xl bg-primary px-3 grid place-items-center text-xs font-black text-primary-foreground" />}
             <button type="button" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); setSoundEnabledState(next); toast.success(next ? "تم تفعيل صوت الإشعارات" : "تم إيقاف صوت الإشعارات"); }} className="h-10 w-10 rounded-xl border border-border grid place-items-center" title={soundEnabled ? "إيقاف صوت الإشعارات" : "تفعيل صوت الإشعارات"}>{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
