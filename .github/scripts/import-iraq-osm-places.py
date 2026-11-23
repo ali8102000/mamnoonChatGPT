@@ -305,11 +305,18 @@ def main() -> int:
     handler = NamedPlaces()
     handler.apply_file(str(pbf), locations=True, idx="flex_mem")
     rows = list(handler.rows.values())
-    print(f"Prepared {len(rows):,} named places", flush=True)
+    print(f"Prepared {len(rows):,} place/address suggestions", flush=True)
     for key in sorted(handler.counts):
         print(f"  {key}: {handler.counts[key]:,}", flush=True)
     if len(rows) < 5000:
         raise RuntimeError(f"Safety stop: only {len(rows)} rows parsed; refusing a suspiciously small import.")
+    undercovered = {
+        key: handler.counts.get(key, 0)
+        for key in GOVERNORATE_AR
+        if handler.counts.get(key, 0) < 500
+    }
+    if undercovered:
+        raise RuntimeError(f"Safety stop: insufficient coverage in governorates: {undercovered}")
     if dry_run:
         print("DRY_RUN enabled: no database writes were made.", flush=True)
         return 0
