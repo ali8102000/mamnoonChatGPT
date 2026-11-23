@@ -99,7 +99,7 @@ function WelcomePage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeMediaUrl: companyBrandingMediaUrl } = useCompanyBranding();
+  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeMediaUrl: companyBrandingMediaUrl, welcomeMediaAnimated } = useCompanyBranding();
   const text = copy[language];
   const slide = text.slides[step];
   const Forward = language === "ar" ? ArrowLeft : ArrowRight;
@@ -162,7 +162,7 @@ function WelcomePage() {
 
         <h1 className="mt-7 text-3xl sm:text-4xl leading-tight font-black">{text.greeting}</h1>
         <p className="mt-3 mx-auto max-w-xl whitespace-normal break-words text-balance text-sm leading-7 sm:text-base sm:leading-8 text-muted-foreground">{welcomeMessage || text.tagline}</p>
-        {companyBrandingMediaUrl ? <img src={companyBrandingMediaUrl} alt={`هوية ${companyName}`} className="mx-auto mt-5 w-full max-w-[420px] max-h-[280px] object-contain rounded-2xl" /> : <img
+        {companyBrandingMediaUrl ? <img src={companyBrandingMediaUrl} alt={`هوية ${companyName}`} className={`mx-auto mt-5 w-full max-w-[420px] max-h-[280px] object-contain rounded-2xl transition-transform ${welcomeMediaAnimated ? "animate-pulse hover:scale-[1.02]" : ""}`} /> : <img
           src={welcomeImage}
           alt={
             language === "ar"
