@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export type CompanyBranding = {
@@ -20,6 +20,7 @@ const DEFAULT_BRANDING: CompanyBranding = {
 };
 
 export function useCompanyBranding() {
+  const channelInstanceId = useId().replace(/:/g, "");
   const [branding, setBranding] = useState<CompanyBranding>(DEFAULT_BRANDING);
   useEffect(() => {
     let active = true;
@@ -59,7 +60,7 @@ export function useCompanyBranding() {
         if (active) setBranding((current) => ({ ...current, isLoaded: true }));
       })
       .finally(() => clearTimeout(timeout));
-    const channel = supabase.channel("company-branding-live")
+    const channel = supabase.channel(`company-branding-live-${channelInstanceId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "company_settings", filter: "id=eq.1" }, (payload: any) => {
         if (payload.eventType === "DELETE") setBranding({ ...DEFAULT_BRANDING, isLoaded: true });
         else apply(payload.new);
