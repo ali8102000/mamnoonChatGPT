@@ -404,7 +404,14 @@ export default function AccountSettingsScreen() {
           <Text style={styles.partnerLabel}>المحافظة</Text>
           <View style={styles.partnerGovernorates}>{Object.entries(governorateLabels).map(([key,label])=><TouchableOpacity key={key} onPress={()=>setPartnerGovernorate(key)} style={[styles.partnerGovernorateChip,partnerGovernorate===key&&styles.partnerTypeSelected]}><Text style={styles.partnerGovernorateText}>{label}</Text></TouchableOpacity>)}</View>
           <Text style={styles.partnerLabel}>المدينة / القضاء</Text><RealInput value={partnerCity} onChangeText={setPartnerCity} placeholder="مثال: النجف الأشرف" maxLength={80} />
-          <Text style={styles.partnerLabel}>العنوان التفصيلي</Text><RealInput value={partnerAddress} onChangeText={setPartnerAddress} placeholder="الحي والشارع وأقرب نقطة دالة" maxLength={240} />
+          <Text style={styles.partnerLabel}>العنوان التفصيلي</Text><RealInput value={partnerAddress} onChangeText={setPartnerAddress} placeholder="الحي والشارع وأقرب نقطة دالة" maxLength={240} />          <Text style={styles.partnerLabel}>رقم إجازة العمل / الترخيص</Text><RealInput value={partnerLicenseNumber} onChangeText={setPartnerLicenseNumber} placeholder="رقم الإجازة الرسمية" maxLength={100} />
+          <Text style={styles.partnerLabel}>حدد موقع المنشأة بالدبوس</Text>
+          <Text style={styles.note}>اضغط على الخريطة أو حرّك الدبوس إلى موقع الفندق أو المتجر أو المول.</Text>
+          <MapView style={{height:250,borderRadius:14,marginBottom:10}} initialRegion={{latitude:partnerLat,longitude:partnerLng,latitudeDelta:0.035,longitudeDelta:0.035}} onPress={event=>{setPartnerLat(event.nativeEvent.coordinate.latitude);setPartnerLng(event.nativeEvent.coordinate.longitude);}}><Marker coordinate={{latitude:partnerLat,longitude:partnerLng}} draggable onDragEnd={event=>{setPartnerLat(event.nativeEvent.coordinate.latitude);setPartnerLng(event.nativeEvent.coordinate.longitude);}} title={partnerName||"موقع المنشأة"}/></MapView>
+          <Text style={styles.note}>الإحداثيات: {partnerLat.toFixed(6)}, {partnerLng.toFixed(6)}</Text>
+          <Text style={styles.partnerLabel}>المستندات الإلزامية</Text>
+          {([{key:"license",label:"إجازة العمل / رخصة النشاط"},{key:"idFront",label:"هوية صاحب المنشأة - الوجه الأمامي"},{key:"idBack",label:"هوية صاحب المنشأة - الوجه الخلفي"}] as const).map(item=><TouchableOpacity key={item.key} onPress={()=>void pickPartnerDoc(item.key)} style={styles.partnerDocButton}><Text style={styles.partnerDocTitle}>{item.label}</Text><Text style={styles.note}>{partnerDocs[item.key]?.fileName||"اضغط لاختيار صورة واضحة"}</Text></TouchableOpacity>)}
+          <Text style={styles.note}>المستندات سرية ولا تظهر للزبائن، والحد الأعلى 8 ميغابايت لكل صورة.</Text>
           <Text style={styles.partnerLabel}>نبذة عن المنشأة (اختياري)</Text><RealInput value={partnerDescription} onChangeText={setPartnerDescription} placeholder="الخدمات أو المنتجات" />
           <Button title={partnerBusy ? "جارٍ إرسال الطلب..." : "إرسال طلب الشراكة"} onPress={submitPartnerApplication} loading={partnerBusy} />
         </View>}
@@ -465,6 +472,8 @@ const styles = StyleSheet.create({
   partnerGovernorates: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   partnerGovernorateChip: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
   partnerGovernorateText: { color: palette.ink, fontSize: 10, fontWeight: "700" },
+  partnerDocButton: { borderWidth:1,borderColor:palette.line,borderRadius:12,padding:12,marginBottom:8,backgroundColor:palette.surface },
+  partnerDocTitle: { color:palette.ink,fontSize:12,fontWeight:"900",textAlign:"right" },
   partnerApplicationCard: { borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, backgroundColor: palette.surface, padding: 12 },
   partnerApplicationName: { color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right" },
   partnerApplicationStatus: { color: palette.brand, fontSize: 11, fontWeight: "800", textAlign: "right", marginTop: 4 },
