@@ -1830,6 +1830,7 @@ BEGIN
   v_def := pg_get_functiondef('public.find_nearby_drivers(numeric,numeric,text,numeric,integer)'::regprocedure);
   v_def := replace(v_def, 'coalesce(sp.priority_weight, 0) as subscription_priority', '0::integer as provider_priority');
   v_def := replace(v_def, 'order by x.subscription_priority desc', 'order by x.provider_priority desc');
+  v_def := replace(v_def, 'and public.mamnoon_provider_subscription_active_internal(dp.user_id)', '');
   v_def := replace(v_def, $old$
     left join public.user_subscriptions us on us.user_id = dp.user_id
       and us.status = 'active'
