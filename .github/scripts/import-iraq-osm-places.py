@@ -75,18 +75,19 @@ CATEGORY_AR = {
 }
 
 def download(url: str, target: Path) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "Mamnoon-Iraq-Places-Importer/1.0"})
-    with urllib.request.urlopen(request, timeout=120) as response, target.open("wb") as output:
-        total = int(response.headers.get("Content-Length", "0") or 0)
-        copied = 0
-        while True:
-            block = response.read(1024 * 1024)
-            if not block:
-                break
-            output.write(block)
-            copied += len(block)
-            if total and copied % (20 * 1024 * 1024) < 1024 * 1024:
-                print(f"Downloaded {copied // (1024 * 1024)} / {total // (1024 * 1024)} MiB", flush=True)
+    # curl handles Geofabrik's redirect/CDN more reliably than urllib on long transfers.
+    # Retry transient network timeouts and resume partial downloads where supported.
+    import subprocess
+    command = [
+        "curl", "--fail", "--location", "--show-error",
+        "--retry", "8", "--retry-all-errors", "--retry-delay", "5",
+        "--connect-timeout", "45", "--max-time", "2400",
+        "--continue-at", "-", "--user-agent", "Mamnoon-Iraq-Places-Importer/1.0",
+        "--output", str(target), url,
+    ]
+    subprocess.run(command, check=True)
+    if not target.exists() or target.stat().st_size < 1024 * 1024:
+        raise RuntimeError("Downloaded Iraq OSM extract is missing or unexpectedly small.")
 
 def point_in_ring(lon: float, lat: float, ring: list[list[float]]) -> bool:
     inside = False
