@@ -1501,7 +1501,7 @@ export default function RequestDetail() {
           <View style={{ width: 30 }} />
         </View>
         <View style={{ paddingHorizontal: 16, paddingVertical: 7, backgroundColor: acceptedMapMode ? "rgba(7,21,37,0.88)" : palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line }}>
-          <Text style={{ color: acceptedMapMode ? "#FFFFFF" : palette.ink, fontSize: 11, fontWeight: "900", textAlign: "center" }} dir="ltr">رقم الطلب: {request.request_code || request.id.slice(0, 8).toUpperCase()}</Text>
+          <Text style={{ color: acceptedMapMode ? "#FFFFFF" : palette.ink, fontSize: 11, fontWeight: "900", textAlign: "center", writingDirection: "ltr" }}>رقم الطلب: {request.request_code || request.id.slice(0, 8).toUpperCase()}</Text>
         </View>
         <ScrollView
           ref={scrollRef}
