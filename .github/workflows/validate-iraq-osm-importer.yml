@@ -67,3 +67,22 @@ jobs:
           assert any(row['governorate_key'] == 'najaf' and row['name_ar'] == 'شارع تجريبي' for row in rows), rows
           print(f'Offline OSM parser fixture passed: {len(rows)} rows.')
           PY
+
+      - name: Probe alternative public Iraq extract hosts
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import urllib.request
+          urls = [
+              "https://geo2day.com/asia/iraq.pbf",
+              "https://data.bbbike.org/osm/pbf/region/asia/iraq.osm.pbf",
+              "https://download.geofabrik.de/asia/iraq-latest.osm.pbf",
+          ]
+          for url in urls:
+              try:
+                  req = urllib.request.Request(url, headers={"Range": "bytes=0-0", "User-Agent": "Mamnoon-Iraq-Places-Importer/1.0"})
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      print(f"REACHABLE {response.status} {url}")
+              except Exception as exc:
+                  print(f"UNAVAILABLE {url}: {type(exc).__name__}: {exc}")
+          PY
