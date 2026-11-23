@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -20,9 +21,29 @@ import osmium
 
 ROOT = Path(__file__).resolve().parents[2]
 BOUNDARIES_FILE = ROOT / "src/lib/iraq-governorate-boundaries.json"
-PBF_URL = os.environ.get(
-    "OSM_PBF_URL", "https://download.geofabrik.de/asia/iraq/iraq-latest.osm.pbf"
-)
+PBF_INDEX_URL = "https://download.geofabrik.de/asia/iraq/index.html"
+PBF_LATEST_URL = "https://download.geofabrik.de/asia/iraq/iraq-latest.osm.pbf"
+
+def candidate_pbf_urls() -> list[str]:
+    override = os.environ.get("OSM_PBF_URL", "").strip()
+    if override:
+        return [override]
+    urls = [PBF_LATEST_URL]
+    try:
+        request = urllib.request.Request(
+            PBF_INDEX_URL,
+            headers={"User-Agent": "Mamnoon-Iraq-Places-Importer/1.0"},
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            html = response.read().decode("utf-8", errors="replace")
+        dated_files = sorted(set(re.findall(r"iraq-\\d{6}\\.osm\\.pbf", html)), reverse=True)
+        urls.extend(
+            f"https://download.geofabrik.de/asia/iraq/{filename}"
+            for filename in dated_files
+        )
+    except Exception as exc:
+        print(f"Could not read Geofabrik index; trying latest alias only: {exc}", flush=True)
+    return list(dict.fromkeys(urls))
 CHUNK_SIZE = 400
 MAX_RETRIES = 5
 
@@ -74,20 +95,29 @@ CATEGORY_AR = {
     "townhall": "بلدية", "post_office": "بريد",
 }
 
-def download(url: str, target: Path) -> None:
-    # curl handles Geofabrik's redirect/CDN more reliably than urllib on long transfers.
-    # Retry transient network timeouts and resume partial downloads where supported.
+def download(urls: list[str], target: Path) -> None:
+    # Geofabrik's latest alias can briefly point to a dated extract before it is
+    # published on every mirror. Try the alias, then the newest dated files.
     import subprocess
-    command = [
-        "curl", "--fail", "--location", "--show-error",
-        "--retry", "8", "--retry-delay", "5",
-        "--connect-timeout", "45", "--max-time", "2400",
-        "--continue-at", "-", "--user-agent", "Mamnoon-Iraq-Places-Importer/1.0",
-        "--output", str(target), url,
-    ]
-    subprocess.run(command, check=True)
-    if not target.exists() or target.stat().st_size < 1024 * 1024:
-        raise RuntimeError("Downloaded Iraq OSM extract is missing or unexpectedly small.")
+    errors = []
+    for url in urls:
+        print(f"Trying Iraq OSM extract: {url}", flush=True)
+        target.unlink(missing_ok=True)
+        command = [
+            "curl", "--fail", "--location", "--show-error",
+            "--retry", "4", "--retry-delay", "3",
+            "--connect-timeout", "45", "--max-time", "2400",
+            "--user-agent", "Mozilla/5.0 (compatible; Mamnoon-Iraq-Places-Importer/1.0)",
+            "--output", str(target), url,
+        ]
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode == 0 and target.exists() and target.stat().st_size >= 1024 * 1024:
+            print(f"Downloaded {target.stat().st_size:,} bytes from {url}", flush=True)
+            return
+        error = (result.stderr or result.stdout or f"curl exit {result.returncode}").strip()
+        errors.append(f"{url}: {error}")
+        print(f"Extract unavailable; trying next mirror/date: {error}", flush=True)
+    raise RuntimeError("Could not download an Iraq OSM extract. " + " | ".join(errors[-5:]))
 
 def point_in_ring(lon: float, lat: float, ring: list[list[float]]) -> bool:
     inside = False
@@ -248,8 +278,9 @@ def main() -> int:
         raise RuntimeError("Set the SUPABASE_SERVICE_ROLE_KEY GitHub secret before importing.")
     work = Path(os.environ.get("RUNNER_TEMP", "/tmp"))
     pbf = work / "iraq-latest.osm.pbf"
-    print(f"Downloading current Iraq extract: {PBF_URL}", flush=True)
-    download(PBF_URL, pbf)
+    urls = candidate_pbf_urls()
+    print(f"Found {len(urls)} possible Geofabrik extract URLs", flush=True)
+    download(urls, pbf)
     print(f"Parsing {pbf.stat().st_size:,} bytes with 18 governorate polygons", flush=True)
     handler = NamedPlaces()
     handler.apply_file(str(pbf), locations=True, idx="flex_mem")
