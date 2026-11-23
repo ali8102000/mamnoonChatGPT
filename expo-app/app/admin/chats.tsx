@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Stack } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { palette, radius, space } from "@/styles/theme";
+import { palette, space } from "@/styles/theme";
 import MamnoonChatThread from "../../components/MamnoonChatThread";
 
-type Filter = "all" | "needs_reply" | "unread" | "bot" | "human" | "resolved" | "complaints" | "customer" | "technician" | "driver" | "restaurant" | "hotel" | "store";
+type Filter = "all" | "unread" | "bot" | "pending" | "favorites";
 type Conversation = {
-  id: string; user_id: string; subject: string; status: string; created_at: string; updated_at: string; conversation_type?: "support" | "service"; request_id?: string; request_type?: string; request_status?: string;
+  id: string; user_id: string; subject: string; status: string; created_at: string; updated_at: string;
+  conversation_type?: "support" | "service"; request_id?: string; request_type?: string; request_status?: string;
   priority_tier: number; ai_status: string; ticket_status: string; needs_admin_reply: boolean;
   handoff_status: string; assigned_staff_id: string | null; last_message_source: string; last_message_at: string | null;
   profile: { id: string; full_name: string | null; phone: string | null; email: string | null; governorate_key: string | null } | null;
@@ -21,19 +23,16 @@ type Message = {
   is_ai: boolean; ai_reply_to?: string | null; read_at?: string | null;
   sender?: { full_name?: string | null; phone?: string | null } | null;
 };
-
-const filters: { key: Filter; label: string }[] = [
-  { key: "all", label: "الكل" }, { key: "needs_reply", label: "تحتاج رد" },
-  { key: "unread", label: "جديدة" }, { key: "bot", label: "البوت" },
-  { key: "human", label: "الدعم المباشر" }, { key: "resolved", label: "محلولة" }, { key: "complaints", label: "الشكاوى" }, { key: "customer", label: "الزبائن" },
-  { key: "technician", label: "الفنيون" }, { key: "driver", label: "التكسي" },
-  { key: "restaurant", label: "المطاعم" }, { key: "hotel", label: "الفنادق" }, { key: "store", label: "المتاجر" },
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "الكل" }, { key: "unread", label: "غير مقروءة" },
+  { key: "bot", label: "محوّلة من البوت" }, { key: "pending", label: "المعلّقة" },
+  { key: "favorites", label: "المفضلة" },
 ];
-const categoryLabel: Record<string, string> = {
-  customer: "زبون", technician: "فني", driver: "صاحب تكسي",
-  restaurant: "مطعم", hotel: "فندق", store: "متجر",
-};
-const sourceLabel = (source: string) => source === "bot" ? "البوت" : source === "admin" ? "الإدارة" : source === "provider" ? "منفّذ الخدمة" : source === "customer" ? "الزبون" : "المستخدم";
+const categoryLabel: Record<string, string> = { customer: "زبون", technician: "فني", driver: "صاحب تكسي", restaurant: "مطعم", hotel: "فندق", store: "متجر" };
+const sourceLabel = (source: string) => source === "bot" ? "البوت" : source === "admin" ? "الإدارة" : source === "provider" ? "منفّذ الخدمة" : source === "customer" || source === "user" ? "الزبون" : "المستخدم";
+const isUnread = (item: Conversation) => !!item.latest_message && !item.latest_message.read_at && item.latest_message.sender_id !== item.assigned_staff_id;
+const isBotHandoff = (item: Conversation) => item.conversation_type === "support" && (item.last_message_source === "bot" || item.latest_message?.is_ai === true || item.handoff_status === "waiting_for_admin");
+const isPending = (item: Conversation) => item.ticket_status === "pending" || item.ticket_status === "new" || item.status === "pending" || item.needs_admin_reply || item.handoff_status === "waiting_for_admin";
 
 export default function AdminChatsScreen() {
   const { user, loading: authLoading } = useAuth();
@@ -42,6 +41,7 @@ export default function AdminChatsScreen() {
   const [searchInput, setSearchInput] = useState("");
   const [remoteSearch, setRemoteSearch] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -58,38 +58,66 @@ export default function AdminChatsScreen() {
   }, []);
 
   const loadInbox = useCallback(async () => {
-    const result = await invoke({ action: "list", filter, limit: 100, search: remoteSearch });
+    const result = await invoke({ action: "list", filter: "all", limit: 100, search: remoteSearch });
     setConversations(result.conversations ?? []);
-  }, [filter, invoke, remoteSearch]);
+  }, [invoke, remoteSearch]);
 
   const selected = useMemo(() => conversations.find(c => c.id === selectedId) ?? null, [conversations, selectedId]);
+  const visibleConversations = useMemo(() => conversations.filter(item => {
+    if (filter === "unread") return isUnread(item);
+    if (filter === "bot") return isBotHandoff(item);
+    if (filter === "pending") return isPending(item);
+    if (filter === "favorites") return favorites.includes(item.id);
+    return true;
+  }), [conversations, favorites, filter]);
+  const counts = useMemo(() => ({
+    all: conversations.length,
+    unread: conversations.filter(isUnread).length,
+    bot: conversations.filter(isBotHandoff).length,
+    pending: conversations.filter(isPending).length,
+    favorites: conversations.filter(item => favorites.includes(item.id)).length,
+  }), [conversations, favorites]);
 
   const loadMessages = useCallback(async (id: string) => {
-    const result = await invoke({ action: "messages", conversation_id: id, conversation_type: selected?.conversation_type ?? "support" });
+    const conversation = conversations.find(item => item.id === id);
+    const result = await invoke({ action: "messages", conversation_id: id, conversation_type: conversation?.conversation_type ?? "support" });
     setMessages(result.messages ?? []);
-  }, [invoke]);
-
+  }, [conversations, invoke]);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user?.id) { setAllowed(false); setLoading(false); return; }
+    let active = true;
     void (async () => {
       try {
         const [{ data: moderation, error: accessError }, { data: superAdmin }] = await Promise.all([
           supabase.rpc("has_chat_moderation_access", { p_user_id: user.id }),
           supabase.rpc("is_super_admin", { p_user_id: user.id }),
         ]);
-        setAllowed(superAdmin === true || (!accessError && moderation === true));
-      } catch {
-        setAllowed(false);
-      }
+        if (active) setAllowed(superAdmin === true || (!accessError && moderation === true));
+      } catch { if (active) setAllowed(false); }
     })();
+    return () => { active = false; };
   }, [authLoading, user?.id]);
+
+  useEffect(() => {
+    void SecureStore.getItemAsync("mamnoon_admin_chat_favorites")
+      .then(value => { if (value) setFavorites(JSON.parse(value)); })
+      .catch(() => undefined);
+  }, []);
+
+  const toggleFavorite = useCallback((id: string) => {
+    setFavorites(current => {
+      const next = current.includes(id) ? current.filter(value => value !== id) : [...current, id];
+      void SecureStore.setItemAsync("mamnoon_admin_chat_favorites", JSON.stringify(next)).catch(() => undefined);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (allowed !== true) return;
     let active = true;
-    setLoading(true);
+    setLoading(true); setError("");
     void loadInbox().catch(e => { if (active) setError(String(e?.message || "تعذر تحميل المحادثات")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -97,7 +125,9 @@ export default function AdminChatsScreen() {
 
   useEffect(() => {
     if (allowed !== true || !selectedId) { setMessages([]); return; }
-    void loadMessages(selectedId).catch(e => setError(String(e?.message || "تعذر تحميل الرسائل")));
+    let active = true;
+    void loadMessages(selectedId).catch(e => { if (active) setError(String(e?.message || "تعذر تحميل الرسائل")); });
+    return () => { active = false; };
   }, [allowed, selectedId, loadMessages]);
 
   useEffect(() => {
@@ -107,9 +137,7 @@ export default function AdminChatsScreen() {
         void loadInbox().catch(() => undefined);
         if (selectedId) void loadMessages(selectedId).catch(() => undefined);
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_conversations" }, () => {
-        void loadInbox().catch(() => undefined);
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_conversations" }, () => { void loadInbox().catch(() => undefined); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [allowed, selectedId, loadInbox, loadMessages]);
@@ -147,21 +175,31 @@ export default function AdminChatsScreen() {
     ]);
   };
 
+  const closeConversation = () => { setSelectedId(null); setMessages([]); setDraft(""); setError(""); };
   const renderConversation = ({ item }: { item: Conversation }) => {
     const name = item.conversation_type === "service" ? `${item.profile?.full_name || "الزبون"} ↔ ${item.provider_profile?.full_name || "منفّذ الخدمة"}` : item.profile?.full_name || item.profile?.phone || "مستخدم ممنون";
+    const unread = isUnread(item);
     return (
-      <TouchableOpacity onPress={() => setSelectedId(item.id)} style={[s.conversation, selectedId === item.id && s.conversationSelected]}>
-        <View style={s.conversationTop}>
-          <Text style={s.person} numberOfLines={1}>{name}</Text>
-          <Text style={s.time}>{new Date(item.last_message_at || item.updated_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })}</Text>
+      <TouchableOpacity activeOpacity={0.75} onPress={() => { setSelectedId(item.id); setDraft(""); setError(""); }} style={s.conversation}>
+        <View style={s.avatar}><Text style={s.avatarText}>{(name.trim()[0] || "م").toUpperCase()}</Text></View>
+        <View style={s.conversationBody}>
+          <View style={s.conversationTop}>
+            <Text style={s.person} numberOfLines={1}>{name}</Text>
+            <Text style={s.time}>{new Date(item.last_message_at || item.updated_at).toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit" })}</Text>
+          </View>
+          <View style={s.previewRow}>
+            <Text style={s.preview} numberOfLines={1}>{item.latest_message?.body || item.subject || "لا توجد رسائل بعد"}</Text>
+            <View style={s.rowBadges}>
+              {isBotHandoff(item) && <Text style={s.botBadge}>بوت</Text>}
+              {unread && <Text style={s.unreadBadge}>جديد</Text>}
+              {isPending(item) && <Text style={s.pendingDot}>•</Text>}
+            </View>
+          </View>
+          <Text style={s.role} numberOfLines={1}>{item.conversation_type === "service" ? "محادثة طلب خدمة" : categoryLabel[item.account_category] || "مستخدم"}{item.request_id ? ` · طلب ${item.request_id.slice(0,8)}` : ""}</Text>
         </View>
-        <View style={s.badges}>
-          <Text style={s.category}>{item.conversation_type === "service" ? "محادثة طلب" : categoryLabel[item.account_category] || "مستخدم"}</Text>
-          <Text style={s.source}>{sourceLabel(item.last_message_source)}</Text>
-          {item.needs_admin_reply && <Text style={s.replyBadge}>تحتاج رد</Text>}
-          {item.handoff_status === "resolved" && <Text style={s.resolvedBadge}>محلولة</Text>}\n          {!!item.complaints?.length && <Text style={s.replyBadge}>شكوى · {item.complaints.length}</Text>}
-        </View>
-        <Text style={s.preview} numberOfLines={2}>{item.latest_message?.body || item.subject || "لا توجد رسائل بعد"}</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={favorites.includes(item.id) ? "إزالة من المفضلة" : "إضافة للمفضلة"} onPress={() => toggleFavorite(item.id)} style={s.favoriteButton}>
+          <Text style={[s.favoriteIcon, favorites.includes(item.id) && s.favoriteActive]}>{favorites.includes(item.id) ? "★" : "☆"}</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -173,60 +211,57 @@ export default function AdminChatsScreen() {
 
   return (
     <View style={s.page}>
-      <Stack.Screen options={{ title: "مراسلات ممنون" }} />
+      <Stack.Screen options={{ title: "مراسلات ممنون", headerShown: false }} />
       {!selectedId ? (
         <>
           <View style={s.header}>
             <Text style={s.title}>مراسلات ممنون</Text>
-            <Text style={s.muted}>صندوق موحد للزبائن والفنيين والسائقين والشركاء والبوت</Text>
+            <TouchableOpacity onPress={() => void refresh()} style={s.headerAction}><Text style={s.headerActionText}>↻</Text></TouchableOpacity>
           </View>
           <View style={s.searchRow}>
-            <TextInput value={searchInput} onChangeText={setSearchInput} onSubmitEditing={()=>setRemoteSearch(searchInput.trim())} placeholder="ابحث بالاسم أو الهاتف..." placeholderTextColor={palette.muted} style={s.searchInput}/>
-            <TouchableOpacity onPress={()=>setRemoteSearch(searchInput.trim())} style={s.searchButton}><Text style={s.sendText}>بحث</Text></TouchableOpacity>
+            <Text style={s.searchIcon}>⌕</Text>
+            <TextInput value={searchInput} onChangeText={setSearchInput} onSubmitEditing={()=>setRemoteSearch(searchInput.trim())} returnKeyType="search" placeholder="ابحث بالاسم أو الهاتف..." placeholderTextColor={palette.muted} style={s.searchInput}/>
+            {!!searchInput && <TouchableOpacity onPress={()=>{setSearchInput("");setRemoteSearch("");}} style={s.clearSearch}><Text style={s.clearText}>×</Text></TouchableOpacity>}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>
-            {filters.map(f => <TouchableOpacity key={f.key} onPress={() => setFilter(f.key)} style={[s.filter, filter === f.key && s.filterActive]}>
+            {FILTERS.map(f => <TouchableOpacity key={f.key} onPress={() => setFilter(f.key)} style={[s.filter, filter === f.key && s.filterActive]}>
               <Text style={[s.filterText, filter === f.key && s.filterTextActive]}>{f.label}</Text>
+              <Text style={[s.filterCount, filter === f.key && s.filterCountActive]}>{counts[f.key]}</Text>
             </TouchableOpacity>)}
           </ScrollView>
           {!!error && <Text style={s.error}>{error}</Text>}
           <FlatList
-            data={conversations}
+            style={s.listFlex}
+            data={visibleConversations}
             keyExtractor={item => item.id}
             renderItem={renderConversation}
             contentContainerStyle={s.list}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}
             ListEmptyComponent={<Text style={s.empty}>ماكو محادثات بهذا التصنيف حالياً</Text>}
+            keyboardShouldPersistTaps="handled"
           />
         </>
       ) : (
-        <KeyboardAvoidingView style={s.detail} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoidingView style={s.detail} behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <View style={s.detailHeader}>
-            <TouchableOpacity onPress={() => { setSelectedId(null); setMessages([]); setError(""); }} style={s.back}><Text style={s.backText}>رجوع</Text></TouchableOpacity>
+            <TouchableOpacity onPress={closeConversation} style={s.back}><Text style={s.backText}>‹</Text></TouchableOpacity>
+            <View style={s.detailAvatar}><Text style={s.detailAvatarText}>{(selected?.profile?.full_name?.[0] || "م").toUpperCase()}</Text></View>
             <View style={s.detailIdentity}>
-              <Text style={s.person}>{selected?.conversation_type === "service" ? `${selected?.profile?.full_name || "الزبون"} ↔ ${selected?.provider_profile?.full_name || "منفّذ الخدمة"}` : selected?.profile?.full_name || selected?.profile?.phone || "مستخدم ممنون"}</Text>
-              <Text style={s.muted}>{selected?.conversation_type === "service" ? "محادثة طلب خدمة" : categoryLabel[selected?.account_category || ""] || "مستخدم"} · {sourceLabel(selected?.last_message_source || "user")}</Text>
+              <Text style={s.detailName} numberOfLines={1}>{selected?.conversation_type === "service" ? `${selected?.profile?.full_name || "الزبون"} ↔ ${selected?.provider_profile?.full_name || "منفّذ الخدمة"}` : selected?.profile?.full_name || selected?.profile?.phone || "مستخدم ممنون"}</Text>
+              <Text style={s.muted} numberOfLines={1}>{selected?.conversation_type === "service" ? "محادثة طلب خدمة" : categoryLabel[selected?.account_category || ""] || "مستخدم"} · {sourceLabel(selected?.last_message_source || "user")}</Text>
             </View>
+            <TouchableOpacity onPress={() => selected && toggleFavorite(selected.id)} style={s.headerAction}><Text style={[s.favoriteIcon, selected && favorites.includes(selected.id) && s.favoriteActive]}>★</Text></TouchableOpacity>
           </View>
-          {selected?.needs_admin_reply && <View style={s.alert}><Text style={s.alertText}>هذه المحادثة تحتاج رد من الإدارة</Text></View>}\n          {!!selected?.complaints?.length && <View style={s.alert}><Text style={s.alertText}>شكوى مرتبطة بالطلب: {selected.complaints[0].reason}{selected.complaints.length > 1 ? ` · وشكاوى أخرى ${selected.complaints.length - 1}` : ""}</Text></View>}
+          {selected?.needs_admin_reply && <View style={s.alert}><Text style={s.alertText}>هذه المحادثة تحتاج رد من الإدارة</Text></View>}
+          {!!selected?.complaints?.length && <View style={s.alert}><Text style={s.alertText}>شكوى مرتبطة بالطلب: {selected.complaints[0].reason}</Text></View>}
           {!!error && <Text style={s.error}>{error}</Text>}
           <MamnoonChatThread
             messages={messages.map(message => ({
-              id: message.id,
-              senderId: message.sender_id,
-              body: message.body,
-              createdAt: message.created_at,
-              isBot: message.is_ai,
-              senderLabel: message.is_ai ? "مساعد ممنون" : message.sender_id === user?.id ? "الإدارة" : selected?.conversation_type === "service" && message.sender_id === selected.provider_profile?.id ? "منفّذ الخدمة" : selected?.conversation_type === "service" && message.sender_id === selected.profile?.id ? "الزبون" : selected?.conversation_type === "service" ? "الإدارة" : "المستخدم",
+              id: message.id, senderId: message.sender_id, body: message.body, createdAt: message.created_at,
+              isBot: message.is_ai, senderLabel: message.is_ai ? "مساعد ممنون" : message.sender_id === user?.id ? "الإدارة" : selected?.conversation_type === "service" && message.sender_id === selected.provider_profile?.id ? "منفّذ الخدمة" : selected?.conversation_type === "service" && message.sender_id === selected.profile?.id ? "الزبون" : selected?.conversation_type === "service" ? "الإدارة" : "المستخدم",
             }))}
-            currentUserId={user?.id ?? ""}
-            draft={draft}
-            onDraftChange={setDraft}
-            onSend={() => void sendReply()}
-            busy={busy}
-            placeholder="اكتب رد الإدارة..."
-            emptyText="لا توجد رسائل في هذه المحادثة بعد"
-            showQuickReplies={false}
+            currentUserId={user?.id ?? ""} draft={draft} onDraftChange={setDraft} onSend={() => void sendReply()} busy={busy}
+            placeholder="اكتب رسالة..." emptyText="لا توجد رسائل في هذه المحادثة بعد" showQuickReplies={false}
             footer={selected?.conversation_type === "service" ? null : (
               <View style={s.actions}>
                 <TouchableOpacity disabled={busy} onPress={() => changeStatus("handoff")} style={s.secondaryAction}><Text style={s.secondaryText}>تحويل للدعم</Text></TouchableOpacity>
@@ -243,53 +278,55 @@ export default function AdminChatsScreen() {
 const s = StyleSheet.create({
   page:{flex:1,backgroundColor:palette.pageCanvas},
   center:{flex:1,justifyContent:"center",alignItems:"center",backgroundColor:palette.pageCanvas,padding:24,gap:10},
-  header:{paddingHorizontal:space.lg,paddingTop:space.lg,gap:4},
+  header:{height:56,paddingHorizontal:16,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},
   title:{fontSize:21,fontWeight:"900",color:palette.ink,textAlign:"right"},
-  muted:{fontSize:11,color:palette.muted,textAlign:"right",lineHeight:18},
-  searchRow:{flexDirection:"row",gap:8,paddingHorizontal:space.lg,paddingTop:space.md},
-  searchInput:{flex:1,minHeight:40,borderRadius:12,borderWidth:1,borderColor:palette.line,backgroundColor:palette.surface,paddingHorizontal:12,color:palette.ink,textAlign:"right",fontSize:11},
-  searchButton:{paddingHorizontal:16,justifyContent:"center",borderRadius:12,backgroundColor:palette.brand},
-  filters:{paddingHorizontal:space.lg,paddingVertical:space.md,gap:7},
-  filter:{paddingHorizontal:13,paddingVertical:9,borderRadius:30,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line},
+  muted:{fontSize:12,color:palette.muted,textAlign:"right"},
+  headerAction:{width:40,height:40,borderRadius:20,alignItems:"center",justifyContent:"center"},
+  headerActionText:{fontSize:24,color:palette.ink},
+  searchRow:{height:38,marginHorizontal:16,marginTop:4,marginBottom:5,paddingHorizontal:12,borderRadius:19,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,flexDirection:"row",alignItems:"center",gap:8},
+  searchIcon:{fontSize:21,color:palette.muted},
+  searchInput:{flex:1,height:38,padding:0,color:palette.ink,textAlign:"right",fontSize:14},
+  clearSearch:{width:24,height:30,alignItems:"center",justifyContent:"center"},
+  clearText:{fontSize:22,color:palette.muted},
+  filters:{height:42,paddingHorizontal:16,alignItems:"center",gap:8},
+  filter:{height:32,paddingHorizontal:12,borderRadius:16,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,flexDirection:"row",alignItems:"center",gap:5},
   filterActive:{backgroundColor:palette.brand,borderColor:palette.brand},
-  filterText:{fontSize:11,fontWeight:"800",color:palette.ink},
+  filterText:{fontSize:13,color:palette.ink,fontWeight:"600"},
   filterTextActive:{color:palette.white},
-  list:{paddingHorizontal:space.lg,paddingBottom:40,gap:8},
-  conversation:{backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderRadius:radius.lg,padding:13,gap:7},
-  conversationSelected:{borderColor:palette.brand},
-  conversationTop:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",gap:10},
-  person:{fontSize:13,fontWeight:"900",color:palette.ink,textAlign:"right",flexShrink:1},
-  time:{fontSize:9,color:palette.muted},
-  badges:{flexDirection:"row",justifyContent:"flex-end",alignItems:"center",flexWrap:"wrap",gap:6},
-  category:{fontSize:9,fontWeight:"800",color:palette.brand,backgroundColor:palette.brandSoft,paddingHorizontal:8,paddingVertical:4,borderRadius:10},
-  source:{fontSize:9,color:palette.muted,backgroundColor:palette.pageCanvas,paddingHorizontal:8,paddingVertical:4,borderRadius:10},
-  replyBadge:{fontSize:9,fontWeight:"900",color:"#9A3412",backgroundColor:"#FFEDD5",paddingHorizontal:8,paddingVertical:4,borderRadius:10},
-  resolvedBadge:{fontSize:9,fontWeight:"900",color:"#166534",backgroundColor:"#DCFCE7",paddingHorizontal:8,paddingVertical:4,borderRadius:10},
-  preview:{fontSize:11,color:palette.muted,textAlign:"right",lineHeight:18},
+  filterCount:{fontSize:10,color:palette.muted,fontWeight:"800"},
+  filterCountActive:{color:palette.white},
+  listFlex:{flex:1},
+  list:{paddingHorizontal:0,paddingBottom:12},
+  conversation:{height:72,paddingHorizontal:16,flexDirection:"row",alignItems:"center",gap:12,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:palette.line,backgroundColor:palette.pageCanvas},
+  avatar:{width:48,height:48,borderRadius:24,backgroundColor:palette.brandSoft,alignItems:"center",justifyContent:"center"},
+  avatarText:{fontSize:19,fontWeight:"800",color:palette.brand},
+  conversationBody:{flex:1,minWidth:0,justifyContent:"center",gap:5},
+  conversationTop:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",gap:8},
+  person:{fontSize:15.5,fontWeight:"700",color:palette.ink,textAlign:"right",flex:1},
+  time:{fontSize:12,color:palette.muted},
+  previewRow:{flexDirection:"row",alignItems:"center",gap:6},
+  preview:{flex:1,fontSize:13.5,color:palette.muted,textAlign:"right"},
+  rowBadges:{flexDirection:"row",alignItems:"center",gap:5},
+  botBadge:{fontSize:10,fontWeight:"800",color:"#6842B8",backgroundColor:"#EEE9FF",paddingHorizontal:6,paddingVertical:2,borderRadius:8},
+  unreadBadge:{fontSize:10,fontWeight:"800",color:palette.white,backgroundColor:palette.brand,paddingHorizontal:6,paddingVertical:3,borderRadius:10,overflow:"hidden"},
+  pendingDot:{fontSize:18,color:"#D97706",lineHeight:18},
+  role:{fontSize:10,color:palette.muted,textAlign:"right"},
+  favoriteButton:{width:30,height:40,alignItems:"center",justifyContent:"center"},
+  favoriteIcon:{fontSize:21,color:palette.muted},
+  favoriteActive:{color:"#D69E24"},
   empty:{textAlign:"center",color:palette.muted,padding:30},
-  error:{color:palette.danger,fontSize:11,textAlign:"right",paddingHorizontal:space.lg,paddingVertical:8},
+  error:{color:palette.danger,fontSize:11,textAlign:"right",paddingHorizontal:16,paddingVertical:6},
   detail:{flex:1},
-  detailHeader:{flexDirection:"row",alignItems:"center",gap:12,padding:space.lg,borderBottomWidth:1,borderBottomColor:palette.line,backgroundColor:palette.surface},
-  back:{paddingHorizontal:12,paddingVertical:8,borderRadius:12,backgroundColor:palette.brandSoft},
-  backText:{fontSize:11,fontWeight:"900",color:palette.brand},
-  detailIdentity:{flex:1,gap:3},
-  alert:{margin:space.md,padding:11,borderRadius:radius.md,backgroundColor:"#FFEDD5"},
-  alertText:{fontSize:11,fontWeight:"900",color:"#9A3412",textAlign:"right"},
-  messageList:{flex:1},
-  messageContent:{padding:space.md,gap:10},
-  bubble:{maxWidth:"88%",padding:12,borderRadius:16,gap:5},
-  mine:{alignSelf:"flex-end",backgroundColor:palette.brandSoft,borderBottomRightRadius:4},
-  theirs:{alignSelf:"flex-start",backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line,borderBottomLeftRadius:4},
-  bot:{alignSelf:"flex-start",backgroundColor:"#EDE9FE",borderBottomLeftRadius:4},
-  bubbleSource:{fontSize:9,fontWeight:"900",color:palette.brand,textAlign:"right"},
-  bubbleText:{fontSize:12,color:palette.ink,textAlign:"right",lineHeight:20},
-  bubbleTime:{fontSize:8,color:palette.muted,textAlign:"left"},
-  actions:{flexDirection:"row",justifyContent:"flex-end",gap:8,paddingHorizontal:space.md,paddingTop:8},
+  detailHeader:{height:56,flexDirection:"row",alignItems:"center",gap:9,paddingHorizontal:12,borderBottomWidth:1,borderBottomColor:palette.line,backgroundColor:palette.surface},
+  back:{width:40,height:40,alignItems:"center",justifyContent:"center"},
+  backText:{fontSize:32,color:palette.ink},
+  detailAvatar:{width:38,height:38,borderRadius:19,backgroundColor:palette.brandSoft,alignItems:"center",justifyContent:"center"},
+  detailAvatarText:{fontSize:16,fontWeight:"800",color:palette.brand},
+  detailIdentity:{flex:1,minWidth:0,gap:2},
+  detailName:{fontSize:16,fontWeight:"700",color:palette.ink,textAlign:"right"},
+  alert:{paddingHorizontal:12,paddingVertical:8,backgroundColor:"#FFF1D6"},
+  alertText:{fontSize:11,fontWeight:"700",color:"#8A4B08",textAlign:"right"},
+  actions:{flexDirection:"row",justifyContent:"flex-end",gap:8,paddingHorizontal:12,paddingTop:6},
   secondaryAction:{paddingHorizontal:12,paddingVertical:8,borderRadius:12,backgroundColor:palette.surface,borderWidth:1,borderColor:palette.line},
-  secondaryText:{fontSize:10,fontWeight:"800",color:palette.ink},
-  composer:{flexDirection:"row",alignItems:"flex-end",gap:8,padding:space.md,borderTopWidth:1,borderTopColor:palette.line,backgroundColor:palette.surface},
-  input:{flex:1,minHeight:42,maxHeight:110,borderRadius:14,borderWidth:1,borderColor:palette.line,padding:10,color:palette.ink,textAlign:"right",textAlignVertical:"center",fontSize:12},
-  send:{paddingHorizontal:18,paddingVertical:13,borderRadius:14,backgroundColor:palette.brand},
-  sendDisabled:{opacity:0.45},
-  sendText:{fontSize:11,fontWeight:"900",color:palette.white},
+  secondaryText:{fontSize:11,fontWeight:"800",color:palette.ink},
 });
