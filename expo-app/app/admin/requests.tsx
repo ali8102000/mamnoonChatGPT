@@ -9,7 +9,7 @@ import { getAdminStaffRoles } from "@/lib/admin-access";
 type RequestRow = {
   id: string; type?: string; status?: string; price_estimate?: number | null;
   created_at?: string; pickup_text?: string | null; dest_text?: string | null;
-  customer_id?: string | null; provider_id?: string | null;
+  customer_id?: string | null; provider_id?: string | null; request_code?: string | null;
 };
 const FILTERS = [
   ["all", "الكل"], ["pending", "معلّق"], ["searching", "بحث عن مقدم"], ["accepted", "مقبول"],
@@ -28,6 +28,9 @@ export default function AdminRequestsScreen() {
   const [reason, setReason] = useState("");
   const [cancelTarget, setCancelTarget] = useState<RequestRow | null>(null);
   const [error, setError] = useState("");
+  const [lookupCode, setLookupCode] = useState("");
+  const [detail, setDetail] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const invoke = useCallback(async (body: Record<string, unknown>) => {
     const { data, error: invokeError } = await supabase.functions.invoke("admin-users", { body });
@@ -63,6 +66,19 @@ export default function AdminRequestsScreen() {
 
   const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
+  const lookupTrip = async () => {
+    const code = lookupCode.trim();
+    if (!code) { Alert.alert("رقم الرحلة مطلوب", "اكتب رقم الرحلة للبحث عنها."); return; }
+    setDetailLoading(true);
+    setDetail(null);
+    try {
+      const result = await invoke({ action: "request_detail", request_code: code });
+      setDetail(result);
+    } catch (e: any) {
+      Alert.alert("لم نعثر على الرحلة", String(e?.message || "تأكد من رقم الرحلة وصلاحيات حسابك."));
+    } finally { setDetailLoading(false); }
+  };
+
   const cancelRequest = async () => {
     if (!cancelTarget) return;
     setBusyId(cancelTarget.id);
@@ -96,6 +112,55 @@ export default function AdminRequestsScreen() {
       <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
         <Text style={s.title}>إدارة الطلبات</Text>
         <Text style={s.muted}>آخر 100 طلب · {rows.length.toLocaleString("ar-IQ")} نتيجة</Text>
+        <View style={s.lookupCard}>
+          <Text style={s.name}>متابعة رحلة برقمها</Text>
+          <TextInput value={lookupCode} onChangeText={setLookupCode} autoCapitalize="characters" placeholder="مثال MN-2026-00000124" placeholderTextColor={palette.muted} style={s.lookupInput}/>
+          <TouchableOpacity disabled={detailLoading} onPress={() => void lookupTrip()} style={s.primary}>
+            <Text style={s.buttonText}>{detailLoading ? "جارٍ البحث..." : "عرض تفاصيل الرحلة كاملة"}</Text>
+          </TouchableOpacity>
+        </View>
+        {detail && <View style={s.detailCard}>
+          <View style={s.row}><Text style={s.status}>{detail.request?.status || "—"}</Text><Text style={s.name}>الرحلة {detail.request?.request_code || detail.request?.id}</Text></View>
+          <Info label="النوع" value={detail.request?.type}/>
+          <Info label="رقم الرحلة" value={detail.request?.request_code}/>
+          <Info label="تاريخ الإنشاء" value={detail.request?.created_at ? new Date(detail.request.created_at).toLocaleString("ar-IQ") : "—"}/>
+          <Info label="بدء التنفيذ" value={detail.request?.started_at ? new Date(detail.request.started_at).toLocaleString("ar-IQ") : "—"}/>
+          <Info label="الاكتمال" value={detail.request?.completed_at ? new Date(detail.request.completed_at).toLocaleString("ar-IQ") : "—"}/>
+          <Info label="الانطلاق" value={detail.request?.pickup_text}/>
+          <Info label="الوجهة" value={detail.request?.dest_text}/>
+          <Info label="وصف العمل" value={detail.request?.work_description || detail.request?.notes}/>
+          <Info label="السعر" value={detail.request?.price_estimate == null ? "—" : Number(detail.request.price_estimate).toLocaleString("ar-IQ") + " د.ع"}/>
+          <Info label="الدفع" value={detail.request?.payment_method}/>
+          <View style={s.participants}>
+            {detail.customer && <View style={s.person}>
+              {detail.customer.avatar_url ? <Image source={{uri:detail.customer.avatar_url}} style={s.avatar}/> : <View style={s.avatarFallback}><Text>👤</Text></View>}
+              <Text style={s.personName}>{detail.customer.full_name || "الزبون"}</Text>
+              <Text style={s.muted}>{detail.customer.phone || "—"}</Text>
+            </View>}
+            {detail.provider && <View style={s.person}>
+              {detail.provider.avatar_url ? <Image source={{uri:detail.provider.avatar_url}} style={s.avatar}/> : <View style={s.avatarFallback}><Text>🧑‍🔧</Text></View>}
+              <Text style={s.personName}>{detail.provider.full_name || "مقدم الخدمة"}</Text>
+              <Text style={s.muted}>{detail.provider.phone || "—"}</Text>
+            </View>}
+          </View>
+          {detail.request?.attachment_url && <View style={s.detailSection}>
+            <Text style={s.name}>صورة العمل المرفقة</Text>
+            <Image source={{uri:detail.request.attachment_url}} style={s.workImage} resizeMode="contain"/>
+          </View>}
+          <View style={s.detailSection}>
+            <Text style={s.name}>سجل مسار الرحلة ({detail.route_points?.length || 0} نقطة)</Text>
+            {(detail.route_points || []).slice(-20).map((point:any,index:number)=><Info key={point.id || index} label={new Date(point.recorded_at).toLocaleString("ar-IQ")} value={point.lat + ", " + point.lng}/>)}
+          </View>
+          <View style={s.detailSection}>
+            <Text style={s.name}>البلاغات المرتبطة ({detail.reports?.length || 0})</Text>
+            {(detail.reports || []).map((report:any)=><View key={report.id} style={s.reportRow}>
+              <Text style={s.personName}>{report.reason} · {report.status}</Text>
+              <Text style={s.muted}>{report.details || "بدون تفاصيل"}</Text>
+              <Text style={s.muted}>المبلّغ: {report.reporter?.full_name || "—"} · {new Date(report.created_at).toLocaleString("ar-IQ")}</Text>
+            </View>)}
+          </View>
+          <TouchableOpacity onPress={()=>setDetail(null)} style={s.secondary}><Text style={s.secondaryText}>إغلاق التفاصيل</Text></TouchableOpacity>
+        </View>}
         <View style={s.filters}>
           {FILTERS.map(([value, label]) => <TouchableOpacity key={value} onPress={() => setFilter(value)} style={[s.chip, filter === value && s.chipActive]}><Text style={[s.chipText, filter === value && s.chipTextActive]}>{label}</Text></TouchableOpacity>)}
         </View>
@@ -106,7 +171,7 @@ export default function AdminRequestsScreen() {
               <Text style={s.status}>{row.status || "—"}</Text>
               <Text style={s.name}>{row.type === "taxi" ? "طلب تكسي" : row.type === "large_vehicle" ? "مركبة كبيرة" : row.type || "طلب خدمة"}</Text>
             </View>
-            <Text style={s.id}>#{row.id.slice(0, 8)}</Text>
+            <Text style={s.id}>رقم الرحلة: {row.request_code || row.id.slice(0, 8).toUpperCase()}</Text>
             {!!row.pickup_text && <Info label="موقع الانطلاق" value={row.pickup_text}/>}
             {!!row.dest_text && <Info label="الوجهة" value={row.dest_text}/>}
             <Info label="السعر التقديري" value={row.price_estimate == null ? "—" : `${Number(row.price_estimate).toLocaleString("ar-IQ")} د.ع`}/>
@@ -148,6 +213,17 @@ const s = StyleSheet.create({
   chip: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 8 },
   chipActive: { backgroundColor: palette.brand, borderColor: palette.brand },
   chipText: { color: palette.ink, fontSize: 10, fontWeight: "800" }, chipTextActive: { color: palette.white },
+  lookupCard: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 13, gap: 8 },
+  lookupInput: { minHeight: 44, borderWidth: 1, borderColor: palette.line, borderRadius: radius.md, paddingHorizontal: 12, color: palette.ink, textAlign: "right" },
+  detailCard: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.brand, borderRadius: radius.lg, padding: 14, gap: 8 },
+  participants: { flexDirection: "row", gap: 12, justifyContent: "space-around", paddingVertical: 10 },
+  person: { alignItems: "center", flex: 1, gap: 4 },
+  avatar: { width: 54, height: 54, borderRadius: 27 },
+  avatarFallback: { width: 54, height: 54, borderRadius: 27, backgroundColor: palette.surfaceSoft, alignItems: "center", justifyContent: "center" },
+  personName: { color: palette.ink, fontSize: 11, fontWeight: "900", textAlign: "center" },
+  detailSection: { borderTopWidth: 1, borderTopColor: palette.line, paddingTop: 10, gap: 7 },
+  workImage: { width: "100%", height: 180, backgroundColor: palette.surfaceSoft, borderRadius: radius.md },
+  reportRow: { padding: 9, borderRadius: radius.md, backgroundColor: palette.surfaceSoft, gap: 4 },
   card: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 13, gap: 6 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   status: { color: palette.brand, fontSize: 10, fontWeight: "900" }, id: { color: palette.muted, fontSize: 9, textAlign: "right" },
