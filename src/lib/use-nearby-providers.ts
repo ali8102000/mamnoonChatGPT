@@ -8,6 +8,8 @@ export type ProviderPin = {
   lat: number;
   lng: number;
   heading: number | null;
+  updatedAt: string;
+  accuracyM: number | null;
 };
 
 export function useNearbyProviders(opts: {
@@ -65,13 +67,20 @@ export function useNearbyProviders(opts: {
           lat: Number(r.lat),
           lng: Number(r.lng),
           heading: r.heading == null ? null : Number(r.heading),
-        }));
+          updatedAt: String(r.updated_at ?? ""),
+          accuracyM: r.accuracy_m == null ? null : Number(r.accuracy_m),
+        })).filter((pin) => {
+          const ageMs = Date.now() - Date.parse(pin.updatedAt);
+          return Number.isFinite(ageMs) && ageMs >= -5_000 && ageMs <= 90_000 &&
+            (pin.accuracyM == null || (Number.isFinite(pin.accuracyM) && pin.accuracyM <= 100));
+        });
         setPins((current) => {
           if (current.length !== nextPins.length) return nextPins;
           const unchanged = current.every((pin, index) => {
             const next = nextPins[index];
             return pin.pin_id === next.pin_id && pin.lat === next.lat &&
-              pin.lng === next.lng && pin.heading === next.heading;
+              pin.lng === next.lng && pin.heading === next.heading &&
+              pin.updatedAt === next.updatedAt && pin.accuracyM === next.accuracyM;
           });
           return unchanged ? current : nextPins;
         });
