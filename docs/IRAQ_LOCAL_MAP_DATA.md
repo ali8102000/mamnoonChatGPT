@@ -43,7 +43,7 @@ The maps proxy now exposes a governorate-scoped `nearby` action. It returns up t
 
 ## Nationwide incremental refresh pipeline
 
-A new GitHub Actions workflow, `.github/workflows/refresh-iraq-osm-places.yml`, downloads the current Geofabrik Iraq PBF extract and imports named OSM nodes and ways into the same governorate-scoped catalogue. It runs weekly and can also be started manually. The importer:
+A new GitHub Actions workflow, `.github/workflows/refresh-iraq-osm-places.yml`, downloads the reachable Geo2day Iraq PBF mirror and imports named OSM nodes and ways into the same governorate-scoped catalogue. It runs weekly and can also be started manually. The importer:
 
 - Uses the repository's 18 ADM1 governorate polygons and assigns every imported point to the polygon that contains it.
 - Indexes Arabic, English, Kurdish and alternate names plus address and feature-category terms.
@@ -52,6 +52,6 @@ A new GitHub Actions workflow, `.github/workflows/refresh-iraq-osm-places.yml`, 
 - Stops if the extract unexpectedly yields fewer than 5,000 named places.
 - Does not import relation geometries yet; large multipolygon POIs and some area features require a later dedicated area-processing pass.
 
-Required GitHub Actions secret: `SUPABASE_SERVICE_ROLE_KEY`. The public project URL is configured in the workflow. The scheduled workflow must not be enabled on production until its first run has succeeded and the resulting per-governorate counts have been reviewed. The workflow installs `osmium` directly and intentionally does not use pip cache because this repository has no Python dependency lockfile.
+Required GitHub Actions secret: `SUPABASE_SERVICE_ROLE_KEY`. The public project URL is configured in the workflow. The currently reachable Geo2day snapshot reports OSM data through 2026-08-10, so the importer defaults to additive-only (`ignore-duplicates`) mode and will not overwrite newer records already present in production. Set `OSM_ALLOW_UPDATES=true` only after switching to a verified newer extract. The scheduled workflow must not be enabled on production until its first run has succeeded and the resulting per-governorate counts have been reviewed. The workflow installs `osmium` directly and intentionally does not use pip cache because this repository has no Python dependency lockfile.
 
-OpenStreetMap data is available under ODbL 1.0. Keep visible attribution to © OpenStreetMap contributors and comply with ODbL share-alike requirements for derived databases. Source: https://download.geofabrik.de/asia/iraq/index.html
+OpenStreetMap data is available under ODbL 1.0. Keep visible attribution to © OpenStreetMap contributors and comply with ODbL share-alike requirements for derived databases. Source: https://geo2day.com/asia/iraq.html. The more current Geofabrik mirror timed out from GitHub Actions during validation; the importer URL is configurable for a future mirror change.
