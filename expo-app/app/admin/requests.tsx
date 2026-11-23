@@ -124,7 +124,7 @@ export default function AdminRequestsScreen() {
           <Text style={s.muted}>إجمالي الإلغاءات المسجلة: {cancellationStats.reduce((sum, item) => sum + Number(item.cancellation_count || 0), 0).toLocaleString("ar-IQ")}</Text>
           {cancellationStats.map((item, index) => <View key={item.cancelled_by_role + ":" + item.cancellation_reason + ":" + index} style={{ gap: 4 }}>
             <View style={s.row}><Text style={s.muted}>{Number(item.cancellation_count).toLocaleString("ar-IQ")} · {Number(item.percentage).toLocaleString("ar-IQ")}%</Text><Text style={s.personName}>{item.cancellation_reason} · {item.cancelled_by_role === "customer" ? "الزبون" : item.cancelled_by_role === "provider" ? "مقدم الخدمة" : "النظام"}</Text></View>
-            <View style={{ height: 6, borderRadius: 8, backgroundColor: palette.line, overflow: "hidden" }}><View style={{ width: Math.max(0, Math.min(100, Number(item.percentage))) + "%", height: 6, backgroundColor: palette.brand }}/></View>
+            <View style={{ height: 6, borderRadius: 8, backgroundColor: palette.line, overflow: "hidden" }}><View style={{ width: (Math.max(0, Math.min(100, Number(item.percentage))) + "%") as `${number}%`, height: 6, backgroundColor: palette.brand }}/></View>
           </View>)}
         </View>}
         <View style={s.lookupCard}>
