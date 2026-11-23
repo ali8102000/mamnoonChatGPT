@@ -107,13 +107,24 @@ def point_in_polygon(lon: float, lat: float, polygon: list[list[list[float]]]) -
         return False
     return not any(point_in_ring(lon, lat, ring) for ring in polygon[1:])
 
-def build_governorates() -> list[tuple[str, dict]]:
+def build_governorates() -> list[tuple[str, list[tuple[tuple[float, float, float, float], list]]]]:
     data = json.loads(BOUNDARIES_FILE.read_text(encoding="utf-8"))
     result = []
     for feature in data["features"]:
         key = ISO_TO_KEY.get(feature.get("properties", {}).get("shapeISO"))
-        if key:
-            result.append((key, feature["geometry"]))
+        if not key:
+            continue
+        geometry = feature["geometry"]
+        kind, coords = geometry["type"], geometry["coordinates"]
+        polygons = coords if kind == "MultiPolygon" else [coords]
+        indexed = []
+        for polygon in polygons:
+            outer = polygon[0]
+            lons = [point[0] for point in outer]
+            lats = [point[1] for point in outer]
+            bbox = (min(lons), min(lats), max(lons), max(lats))
+            indexed.append((bbox, polygon))
+        result.append((key, indexed))
     if len(result) != 18:
         raise RuntimeError(f"Expected 18 governorate boundaries; found {len(result)}")
     return result
@@ -121,11 +132,12 @@ def build_governorates() -> list[tuple[str, dict]]:
 GOVERNORATES = build_governorates()
 
 def find_governorate(lon: float, lat: float) -> str | None:
-    for key, geometry in GOVERNORATES:
-        kind, coords = geometry["type"], geometry["coordinates"]
-        polygons = coords if kind == "MultiPolygon" else [coords]
-        if any(point_in_polygon(lon, lat, polygon) for polygon in polygons):
-            return key
+    # Bounding-box rejection avoids scanning detailed polygon rings for distant governorates.
+    for key, polygons in GOVERNORATES:
+        for (min_lon, min_lat, max_lon, max_lat), polygon in polygons:
+            if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
+                if point_in_polygon(lon, lat, polygon):
+                    return key
     return None
 
 def choose_name(tags) -> str:
