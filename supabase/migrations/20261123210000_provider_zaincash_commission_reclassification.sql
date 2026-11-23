@@ -167,13 +167,13 @@ BEGIN
         'collection_source','verified_zaincash_service_payment',
         'provider_wallet_commission_refunded_iqd',v_refund_iqd,
         'wallet_topup_collections_reversed_iqd',v_reversed_topup_collections,
-        'provider_payable_commission_iqd',assessed_iqd
+        'provider_payable_commission_iqd',GREATEST(assessed_iqd - waived_iqd, 0)
       ),
       updated_at = now()
   WHERE id = v_ledger.id;
 
   UPDATE public.service_requests
-  SET commission = v_ledger.assessed_iqd, updated_at = now()
+  SET commission = GREATEST(v_ledger.assessed_iqd - v_ledger.waived_iqd, 0), updated_at = now()
   WHERE id = p_request_id;
 END;
 $function$;
