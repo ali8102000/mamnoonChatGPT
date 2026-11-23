@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
@@ -109,6 +109,7 @@ export default function AdminRequestsScreen() {
   return (
     <View style={s.page}>
       <Stack.Screen options={{ title: "إدارة الطلبات" }} />
+      <TouchableOpacity onPress={() => router.push("/admin/partners")} style={{marginHorizontal:16,marginTop:10,backgroundColor:palette.brand,borderRadius:12,padding:12}}><Text style={{color:"#fff",fontWeight:"900",textAlign:"center"}}>اعتماد الشركاء والمنشآت</Text></TouchableOpacity>
       <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>}>
         <Text style={s.title}>إدارة الطلبات</Text>
         <Text style={s.muted}>آخر 100 طلب · {rows.length.toLocaleString("ar-IQ")} نتيجة</Text>
