@@ -68,6 +68,16 @@ Deno.serve(async (req: Request) => {
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
       await requirePermission("finance.read", scopeType, scopeGovernorate);
+      const [refundReadPermission, adminAccessForRefundRead] = await Promise.all([
+        caller.rpc("admin_has_permission", {
+          p_permission_key: "finance.refund.read",
+          p_scope_type: scopeType,
+          p_scope_governorate: scopeGovernorate,
+        }),
+        caller.rpc("has_admin_access", { p_user_id: auth.user.id }),
+      ]);
+      const canViewRefunds = refundReadPermission.data === true || adminAccessForRefundRead.data === true;
+      if (!canViewRefunds) return json({ cases: [], can_view: false, can_decide: false });
 
       const status = ["pending_review", "approved", "rejected", "refunded"].includes(body.status)
         ? body.status : null;
@@ -108,7 +118,7 @@ Deno.serve(async (req: Request) => {
         p_scope_type: scopeType,
         p_scope_governorate: scopeGovernorate,
       });
-      return json({ cases: visibleCases, can_decide: canRefund === true });
+      return json({ cases: visibleCases, can_view: true, can_decide: canRefund === true });
     }
 
     if (body.action === "refund_case_decide") {
