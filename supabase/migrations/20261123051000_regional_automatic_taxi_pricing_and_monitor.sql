@@ -1,7 +1,7 @@
 
 -- Regional pricing markup and automatic monitoring controls.
 ALTER TABLE public.regional_service_controls
-  ADD COLUMN IF NOT EXISTS regional_surcharge_percent numeric(6,2) NOT NULL DEFAULT 0
+  ADD COLUMN IF NOT EXISTS regional_surcharge_percent numeric(6,2)
   CHECK (regional_surcharge_percent BETWEEN 0 AND 200);
 
 -- Keep automatic monitoring settings separate from manual peak overrides.
