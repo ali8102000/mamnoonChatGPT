@@ -116,7 +116,8 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
   const [make, setMake] = useState<string>("Toyota");
   const [modelName, setModelName] = useState<string>("Corolla");
   const [category, setCategory] = useState<VehicleCategory>(largeDriverMode ? "large" : "economy");
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | null>(null);
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus" | null>(null);
+  const [vehicleArtwork, setVehicleArtwork] = useState<Record<string, any>>({});
   const [year, setYear] = useState<string>(String(new Date().getFullYear() - 2));
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("أبيض");
@@ -132,6 +133,20 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
     );
     setCategory(catalogVehicle?.category === "premium" || catalogVehicle?.category === "luxury" ? catalogVehicle.category : "economy");
   }, [make, modelName, vehicleModels, largeDriverMode]);
+
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("app_ui_elements_public")
+      .select("element_key,published_config,title,sort_order")
+      .in("element_key", ["vehicle_kia_cargo", "vehicle_kia_passenger", "vehicle_bus"])
+      .then(({ data, error }: any) => {
+        if (!active || error) return;
+        const next: Record<string, any> = {};
+        for (const item of data ?? []) next[item.element_key] = { ...(item.published_config ?? {}), title: item.title, sort_order: item.sort_order };
+        setVehicleArtwork(next);
+      });
+    return () => { active = false; };
+  }, []);
 
   // Official Identity Verification State
   const [legalName, setLegalName] = useState(profile?.full_name || "");
@@ -188,7 +203,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         if (existing.vehiclePlate) setPlate(existing.vehiclePlate);
         if (existing.vehicleColor) setColor(existing.vehicleColor);
         if (existing.vehicleCategory) setCategory(existing.vehicleCategory as VehicleCategory);
-        if (existing.vehicleType === "kia_cargo" || existing.vehicleType === "kia_passenger") setVehicleType(existing.vehicleType);
+        if (existing.vehicleType === "kia_cargo" || existing.vehicleType === "kia_passenger" || existing.vehicleType === "bus") setVehicleType(existing.vehicleType);
         setOriginalVehicle({ make: existing.vehicleMake ?? "تويوتا", model: existing.vehicleModel ?? "كورولا", year: String(existing.vehicleYear ?? new Date().getFullYear() - 2), plate: existing.vehiclePlate ?? "", color: existing.vehicleColor ?? "أبيض", category: existing.vehicleCategory ?? (largeDriverMode ? "large" : "economy"), vehicleType: existing.vehicleType ?? null });
       }
     }
@@ -443,7 +458,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
       return;
     }
     if (largeDriverMode && !vehicleType) {
-      toast.error("يرجى اختيار كيا حمل أو كيا ركاب");
+      toast.error("يرجى اختيار كيا حمل أو كيا ركاب أو باص");
       setActiveStep("car");
       return;
     }
@@ -746,6 +761,31 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
             <p className="text-[11px] text-muted-foreground leading-5 mt-1">اختار الماركة والموديل أو اكتب اسم السيارة. فئة المركبة تُستخرج من دليل السيارات، ورتبة أدائك تُحسب لاحقاً من الرحلات والتقييمات الفعلية.</p>
             <div className="text-xs font-bold text-primary mt-2">فئة المركبة الحالية: {CATEGORY_META[category].label}</div>
           </div>
+
+          {largeDriverMode && (
+            <div className="space-y-2">
+              <div className="text-sm font-black text-right">حدد نوع مركبتك — هذا يحدد الطلبات التي تصلك</div>
+              <div className="grid grid-cols-3 gap-2" dir="rtl">
+                {([
+                  { key: "kia_cargo", label: "كيا حمل", fallback: "🚚" },
+                  { key: "kia_passenger", label: "كيا ركاب", fallback: "🚐" },
+                  { key: "bus", label: "باص", fallback: "🚌" },
+                ] as const).map((item) => {
+                  const visualKey = item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus";
+                  const visual = vehicleArtwork[visualKey];
+                  return (
+                    <button key={item.key} type="button" onClick={() => setVehicleType(item.key)}
+                      className={`rounded-2xl border p-2.5 min-w-0 flex flex-col items-center gap-2 transition ${vehicleType === item.key ? "border-primary bg-primary/10 ring-2 ring-primary/25" : "border-border bg-card"}`}>
+                      {visual?.image_url ? <img src={visual.image_url} alt={visual.title || item.label} className="object-contain rounded-xl" style={{ width: Number(visual.width_px) || 76, height: Number(visual.height_px) || 56, borderRadius: Number(visual.image_border_radius_px) || 10, objectFit: visual.image_fit === "cover" ? "cover" : "contain" }} /> : <span className="text-4xl" aria-hidden="true">{visual?.icon_name || item.fallback}</span>}
+                      <span className="text-xs font-black text-center">{visual?.title || item.label}</span>
+                      {vehicleType === item.key && <span className="text-[10px] font-black text-primary">تم الاختيار ✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground text-right">تستلم فقط طلبات النوع المطابق لمركبتك وضمن نطاق التوصيل المحدد لمحافظتك.</p>
+            </div>
+          )}
 
           {!largeDriverMode && (
           <>
