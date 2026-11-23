@@ -106,13 +106,21 @@ def point_in_polygon(lon: float, lat: float, polygon: list[list[list[float]]]) -
         return False
     return not any(point_in_ring(lon, lat, ring) for ring in polygon[1:])
 
-def build_governorates() -> list[tuple[str, dict]]:
+def build_governorates() -> list[tuple[str, dict, tuple[float, float, float, float]]]:
     data = json.loads(BOUNDARIES_FILE.read_text(encoding="utf-8"))
     result = []
     for feature in data["features"]:
         key = ISO_TO_KEY.get(feature.get("properties", {}).get("shapeISO"))
-        if key:
-            result.append((key, feature["geometry"]))
+        if not key:
+            continue
+        geometry = feature["geometry"]
+        polygons = geometry["coordinates"] if geometry["type"] == "MultiPolygon" else [geometry["coordinates"]]
+        vertices = [point for polygon in polygons for ring in polygon for point in ring]
+        bounds = (
+            min(point[0] for point in vertices), min(point[1] for point in vertices),
+            max(point[0] for point in vertices), max(point[1] for point in vertices),
+        )
+        result.append((key, geometry, bounds))
     if len(result) != 18:
         raise RuntimeError(f"Expected 18 governorate boundaries; found {len(result)}")
     return result
@@ -120,7 +128,12 @@ def build_governorates() -> list[tuple[str, dict]]:
 GOVERNORATES = build_governorates()
 
 def find_governorate(lon: float, lat: float) -> str | None:
-    for key, geometry in GOVERNORATES:
+    # Cheap bounding-box rejection prevents running point-in-polygon against all
+    # 18 detailed administrative boundaries for every named OSM object.
+    for key, geometry, bounds in GOVERNORATES:
+        min_lon, min_lat, max_lon, max_lat = bounds
+        if lon < min_lon or lon > max_lon or lat < min_lat or lat > max_lat:
+            continue
         kind, coords = geometry["type"], geometry["coordinates"]
         polygons = coords if kind == "MultiPolygon" else [coords]
         if any(point_in_polygon(lon, lat, polygon) for polygon in polygons):
