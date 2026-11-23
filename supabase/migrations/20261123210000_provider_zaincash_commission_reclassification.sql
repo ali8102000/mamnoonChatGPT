@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS public.mamnoon_revenue_collection_reversals (
 ALTER TABLE public.mamnoon_revenue_collection_reversals ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.mamnoon_revenue_collection_reversals FROM anon, authenticated;
 
+CREATE INDEX IF NOT EXISTS mamnoon_revenue_collections_ledger_idx
+  ON public.mamnoon_revenue_collections(revenue_ledger_id);
+CREATE INDEX IF NOT EXISTS mamnoon_revenue_collection_reversals_ledger_idx
+  ON public.mamnoon_revenue_collection_reversals(revenue_ledger_id);
+
 CREATE OR REPLACE FUNCTION public.reclassify_zaincash_provider_commission(
   p_request_id uuid,
   p_payment_id uuid,
