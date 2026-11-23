@@ -24,6 +24,7 @@ import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { useCompanyBranding } from "@/lib/company-branding";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { IRAQ_GOVERNORATES, getMobileGovernorate, nearestGovernorateKey } from "@/lib/governorates";
 import { Button } from "@/components/ui";
@@ -187,6 +188,7 @@ function ActiveRequestConfirmModal({
 }
 
 export default function NewRequest() {
+  const companyBranding = useCompanyBranding();
   const { type, vehicle } = useLocalSearchParams<{ type: string; vehicle?: string }>();
   const { user } = useAuth();
   const window = useWindowDimensions();
@@ -1519,6 +1521,7 @@ export default function NewRequest() {
 
                 {isLargeVehicle && mapMode === "pickup" && (
                   <View style={styles.taxiLargeTypePanel}>
+                    {companyBranding.welcomeVisualUrl ? <Image source={{ uri: companyBranding.welcomeVisualUrl }} style={{ width: "100%", height: 72, marginBottom: 8, opacity: companyBranding.welcomeVisualAnimated ? 0.92 : 1 }} resizeMode="contain" /> : null}
                     <Text style={styles.taxiFieldLabel}>اختر نوع السيارة الكبيرة</Text>
                     <View style={styles.taxiLargeTypeRow}>
                       {([
@@ -2259,6 +2262,7 @@ export default function NewRequest() {
       )}
       {routeKm !== null && isTaxi && !isLargeVehicle && (
         <View style={styles.priceBox}>
+          {companyBranding.welcomeVisualUrl ? <Image source={{ uri: companyBranding.welcomeVisualUrl }} style={{ width: "100%", height: 72, marginBottom: 8, opacity: companyBranding.welcomeVisualAnimated ? 0.92 : 1 }} resizeMode="contain" /> : null}
           <Text style={styles.priceLabel}>مسافة الطريق الفعلية</Text>
           <Text style={styles.priceValue}>{routeKm.toFixed(2)} كم</Text>
           <Text style={[styles.priceLabel, { marginTop: 12 }]}>السعر التقديري حسب الفئة والطلب</Text>
