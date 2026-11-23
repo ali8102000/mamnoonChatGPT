@@ -547,6 +547,7 @@ function RequestDetail() {
                 <CheckCircle2 className="h-3.5 w-3.5 text-success" />
               )}
               {statusLabel}
+              <span className="mr-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary" dir="ltr">رقم الطلب: {req.request_code || String(req.id).slice(0, 8).toUpperCase()}</span>
               {req.type === "taxi" && myRole === "customer" && req.status === "accepted" && (
                 <span className="mr-2 inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black text-emerald-700 dark:text-emerald-300">الكابتن متجه إليك</span>
               )}
@@ -739,6 +740,13 @@ function RequestDetail() {
           {req.notes && <div><span className="text-muted-foreground text-xs">📝 ملاحظة: </span><span>{req.notes}</span></div>}
         </div>}
 
+        {myRole === "customer" && req.status === "cancelled" && req.payment_method === "zaincash" && (
+          <div className="glass rounded-2xl border border-amber-500/30 p-4 space-y-2">
+            <div className="font-black text-sm">طلب الاسترداد قيد المراجعة</div>
+            <p className="text-xs text-muted-foreground">تم تسجيل إلغاء الطلب المدفوع بزين كاش. المبلغ لم يُسترد بعد، ولن يتم تحويله تلقائياً. ستراجع الإدارة الطلب وتبلغك بالقرار.</p>
+            <a href={"/support-chat?requestId=" + encodeURIComponent(req.id)} className="inline-flex rounded-xl bg-primary px-4 py-2.5 text-xs font-black text-primary-foreground">مراسلة شركة ممنون بخصوص هذا الطلب</a>
+          </div>
+        )}
         {myRole === "customer" && ["pending", "searching"].includes(req.status as string) && (
           <button
             onClick={() => setShowCancel(true)}
