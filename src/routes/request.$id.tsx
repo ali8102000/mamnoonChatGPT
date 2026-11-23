@@ -1175,7 +1175,7 @@ function RatingModal({
 }: {
   target: any;
   reasons: string[];
-  criteriaLabels: [string, string, string];
+  criteriaLabels: string[];
   onClose: () => void;
   onSubmit: (stars: number, comment: string, selectedReasons: string[], criteria: { professionalism: number; punctuality: number; quality: number }) => Promise<void>;
 }) {
