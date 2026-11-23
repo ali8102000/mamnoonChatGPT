@@ -25,7 +25,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { loading, session, roles, profile } = useAuth();
   const { ready, completed } = useWelcomePreferences();
-  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated, isLoaded: brandingLoaded } = useCompanyBranding();
   const [splashFinished, setSplashFinished] = useState(false);
   const [governorate, setGovernorate] = useState<string | null>(null);
   const [governorateReady, setGovernorateReady] = useState(false);
@@ -58,12 +58,12 @@ function Index() {
 
   // Re-show the branded entry screen whenever the web app is opened/reloaded.
   useEffect(() => {
-    if (loading || !ready) return;
+    if (loading || !ready || !brandingLoaded) return;
     const timer = window.setTimeout(() => setSplashFinished(true), 1200);
     return () => window.clearTimeout(timer);
-  }, [loading, ready]);
+  }, [loading, ready, brandingLoaded]);
 
-  if (loading || !ready || !governorateReady || !splashFinished) {
+  if (loading || !ready || !brandingLoaded || !governorateReady || !splashFinished) {
     return (
       <main className="min-h-screen grid place-items-center bg-transparent px-6">
         <div className="flex flex-col items-center gap-3 text-center">
