@@ -29,6 +29,7 @@ ALTER TABLE public.service_requests ALTER COLUMN request_code SET NOT NULL;
 CREATE OR REPLACE FUNCTION public.assign_mamnoon_request_code()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = ''
 AS $function$
 BEGIN
@@ -120,7 +121,7 @@ CREATE TABLE IF NOT EXISTS public.mamnoon_zaincash_refund_cases (
     OR (status IN ('approved','rejected') AND decided_by IS NOT NULL AND decided_at IS NOT NULL AND refunded_at IS NULL)
     OR (status = 'refunded' AND decided_by IS NOT NULL AND decided_at IS NOT NULL
         AND refunded_by IS NOT NULL AND refunded_at IS NOT NULL
-        AND refund_reference IS NOT NULL AND refunded_amount_iqd = amount_iqd)
+        AND refund_reference IS NOT NULL AND refunded_amount_iqd IS NOT NULL AND refunded_amount_iqd = amount_iqd)
   )
 );
 CREATE INDEX IF NOT EXISTS mamnoon_zaincash_refund_cases_status_idx
