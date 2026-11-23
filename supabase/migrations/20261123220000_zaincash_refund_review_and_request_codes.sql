@@ -711,6 +711,25 @@ BEGIN
       updated_at = now()
   WHERE id = v_case.id;
 
+  -- If every remaining refund case is resolved but another paid payment was rejected,
+  -- release the revenue hold without voiding commission on the retained payment.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.mamnoon_zaincash_refund_cases other_case
+    WHERE other_case.request_id = v_case.request_id
+      AND other_case.id <> v_case.id
+      AND other_case.status IN ('pending_review','approved')
+  ) THEN
+    UPDATE public.mamnoon_revenue_ledger
+    SET metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+          'refund_review_pending', false,
+          'refund_review_decision', 'all_cases_resolved',
+          'last_refund_case_id', v_case.id
+        ),
+        updated_at = now()
+    WHERE request_id = v_case.request_id
+      AND status <> 'void';
+  END IF;
+
   INSERT INTO public.mamnoon_zaincash_refund_events(
     refund_case_id,event_type,actor_id,note,reference,amount_iqd
   ) VALUES (
