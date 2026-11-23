@@ -74,6 +74,9 @@ export default function AdminCategoryPeakPricing() {
       toast.error("تأكد أن الحد الأدنى لا يتجاوز الأعلى وأن النسب بين 0 و100.");
       return;
     }
+    if (row.category_key.startsWith("service:") && row.enabled) {
+      toast.error("تسعير الخدمات النهائي لم يُربط بعد؛ أبقِ هذه الفئة متوقفة."); return;
+    }
     if (row.mode === "off" && row.enabled) {
       toast.error("لا يمكن تفعيل فئة بوضع الإيقاف.");
       return;
@@ -113,9 +116,10 @@ export default function AdminCategoryPeakPricing() {
         <label className="text-xs font-bold space-y-1"><span>من (%)</span><input type="number" min="0" max="100" value={row.min_surcharge_percent} onChange={e=>edit(row.category_key,{min_surcharge_percent:Number(e.target.value)})} className="w-full rounded-lg border bg-background p-2.5"/></label>
         <label className="text-xs font-bold space-y-1"><span>إلى (%)</span><input type="number" min="0" max="100" value={row.max_surcharge_percent} onChange={e=>edit(row.category_key,{max_surcharge_percent:Number(e.target.value)})} className="w-full rounded-lg border bg-background p-2.5"/></label>
       </div>
+      {row.category_key.startsWith("service:") && <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">توصية الطلب على هذه الخدمة تُحسب للمراقبة فقط حالياً. التفعيل مقفول حتى نربط السعر النهائي للزبون ونثبّته داخل الطلب.</p>}
       <div className="grid grid-cols-2 gap-3">
-        <label className="text-xs font-bold space-y-1"><span>وضع التشغيل</span><select value={row.mode} onChange={e=>edit(row.category_key,{mode:e.target.value as Row["mode"],enabled:e.target.value!=="off"})} className="w-full rounded-lg border bg-background p-2.5"><option value="off">إيقاف</option><option value="auto">تلقائي</option><option value="notify">إخباري</option></select></label>
-        <label className="flex items-center gap-2 text-xs font-bold pt-5"><input type="checkbox" checked={row.enabled && row.mode!=="off"} disabled={row.mode==="off"} onChange={e=>edit(row.category_key,{enabled:e.target.checked})}/> تفعيل الفئة</label>
+        <label className="text-xs font-bold space-y-1"><span>وضع التشغيل</span><select value={row.mode} onChange={e=>edit(row.category_key,{mode:e.target.value as Row["mode"],enabled:e.target.value!=="off"})} className="w-full rounded-lg border bg-background p-2.5"><option value="off">إيقاف</option><option value="auto" disabled={row.category_key.startsWith("service:")}>تلقائي</option><option value="notify" disabled={row.category_key.startsWith("service:")}>إخباري</option></select></label>
+        <label className="flex items-center gap-2 text-xs font-bold pt-5"><input type="checkbox" checked={row.enabled && row.mode!=="off"} disabled={row.mode==="off" || row.category_key.startsWith("service:")} onChange={e=>edit(row.category_key,{enabled:e.target.checked})}/> تفعيل الفئة</label>
       </div>
       <button disabled={saving===row.category_key} onClick={()=>void save(row)} className="w-full rounded-lg bg-primary px-3 py-2.5 text-xs font-black text-primary-foreground disabled:opacity-50"><Save className="ml-1 inline h-4 w-4"/> {saving===row.category_key?"جارٍ الحفظ…":"حفظ حدود هذه الفئة"}</button>
     </div>)}
