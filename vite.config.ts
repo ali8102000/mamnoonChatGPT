@@ -38,7 +38,9 @@ export default defineConfig({
     nitro(),
     viteReact(),
     tailwindcss(),
-    tsConfigPaths(),
+    // The Expo app has its own tsconfig extending expo/tsconfig.base.
+    // The web build must resolve aliases from the root app only.
+    tsConfigPaths({ projects: ["./tsconfig.json"] }),
   ],
   define: {
     "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(publicSupabaseUrl),
