@@ -616,6 +616,7 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   const navigate = useNavigate();
   const acceptFn = useServerFn(acceptServiceRequest);
   const [available, setAvailable] = useState(false);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [verified, setVerified] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [stats, setStats] = useState({ jobs: 0 });
@@ -889,58 +890,28 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
   }, [session, type, table, largeDriverMode]);
 
   async function toggleAvail() {
+    if (availabilitySaving) return;
     playClick("toggle");
-    if (!verified) {
-      toast.error("حسابك بانتظار التوثيق؛ لن تستقبل طلبات حتى تعتمد الإدارة حسابك.");
-      return;
-    }
+    if (!verified) { toast.error("حسابك بانتظار التوثيق؛ لن تستقبل طلبات حتى تعتمد الإدارة حسابك."); return; }
     const next = !available;
-
-    // Never advertise a provider as available before a fresh location is stored.
-    if (next) {
-      if (typeof navigator === "undefined" || !navigator.geolocation) {
-        toast.error("متصفحك لا يدعم الموقع؛ استخدم تطبيق ممنون لتفعيل الاستقبال.");
-        return;
-      }
-      try {
+    setAvailabilitySaving(true);
+    try {
+      if (next) {
+        if (typeof navigator === "undefined" || !navigator.geolocation) throw new Error("متصفحك لا يدعم الموقع؛ استخدم تطبيق ممنون لتفعيل الاستقبال.");
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            maximumAge: 10000,
-            timeout: 20000,
-          });
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
         });
-        const { error: presenceError } = await supabase.from("provider_presence").upsert({
-          user_id: session!.user.id,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          heading:
-            position.coords.heading != null &&
-            Number.isFinite(position.coords.heading) &&
-            position.coords.heading >= 0 &&
-            position.coords.heading <= 360
-              ? position.coords.heading
-              : null,
-        }, { onConflict: "user_id" });
+        if (position.coords.accuracy == null || position.coords.accuracy > 50) throw new Error("إشارة الموقع غير دقيقة كفاية. فعّل GPS وجرّب من مكان مفتوح.");
+        const { error: presenceError } = await supabase.from("provider_presence").upsert({ user_id: session!.user.id, lat: position.coords.latitude, lng: position.coords.longitude, heading: position.coords.heading != null && Number.isFinite(position.coords.heading) && position.coords.heading >= 0 && position.coords.heading <= 360 ? position.coords.heading : null }, { onConflict: "user_id" });
         if (presenceError) throw presenceError;
-      } catch (error: any) {
-        toast.error(error?.code === 1
-          ? "اسمح لممنون باستخدام موقعك حتى تستقبل الطلبات."
-          : "تعذّر تحديد موقعك الحالي؛ شغّل GPS وحاول مرة ثانية.");
-        return;
       }
-    }
-
-    const { error } = await supabase
-      .from(table)
-      .update({ available: next })
-      .eq("user_id", session!.user.id);
-    if (error) {
-      toast.error("تعذّر تحديث الحالة");
-      return;
-    }
-    setAvailable(next);
-    if (next) toast.success("تم تفعيل الاستقبال ومشاركة موقعك الحي.");
+      const { error } = await supabase.from(table).update({ available: next }).eq("user_id", session!.user.id);
+      if (error) throw error;
+      setAvailable(next);
+      toast.success(next ? "تم تفعيل استقبال الطلبات ومشاركة موقعك." : "تم إيقاف استقبال الطلبات.");
+    } catch (error: any) {
+      toast.error(error?.code === 1 ? "اسمح لممنون باستخدام موقعك حتى تستقبل الطلبات." : error?.message || "تعذّر تحديث الحالة. حاول مرة ثانية.");
+    } finally { setAvailabilitySaving(false); }
   }
 
   async function sendLargeOffer(id: string) {
@@ -1031,11 +1002,11 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
         </div>
       )}
       <div className="relative min-h-[260px] rounded-3xl p-5 overflow-hidden animate-pop-in shadow-card glass flex flex-col items-center justify-center gap-4">
-        <div className="text-sm font-black text-foreground">حالة استقبال العمل</div>
+        <div className="text-sm font-black text-foreground">مركز استقبال الطلبات</div>
         <button
           onClick={toggleAvail}
-          disabled={!verified}
-          aria-disabled={!verified}
+          disabled={!verified || availabilitySaving}
+          aria-disabled={!verified || availabilitySaving}
           aria-label={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
           className={`h-36 w-36 rounded-full grid place-items-center border-[5px] btn-press transition-all duration-300 font-black text-2xl tracking-wide ${
             available
@@ -1043,9 +1014,9 @@ function ProviderHome({ type, largeDriverMode = false }: { type: "taxi" | "servi
               : "bg-red-600 border-red-200 text-white shadow-[0_0_12px_rgba(239,68,68,0.5),0_0_30px_rgba(239,68,68,0.28)]"
           }`}
         >
-          {available ? "مفتوح" : "مغلق"}
+          {availabilitySaving ? "جارٍ التحديث" : available ? "متاح الآن" : "متوقف"}
         </button>
-        <div className="text-xs font-semibold text-muted-foreground">{available ? "أنت تستقبل الطلبات الآن" : "اضغط على الدائرة لتفعيل استقبال الطلبات"}</div>
+        <div className="text-xs font-semibold text-muted-foreground">{availabilitySaving ? "نزامن حالتك وموقعك..." : available ? "أنت ظاهر الآن للطلبات القريبة المطابقة لاختصاصك" : "اضغط للتفعيل وابدأ باستقبال الطلبات"}</div>
       </div>
 
       <ProviderMissions />
