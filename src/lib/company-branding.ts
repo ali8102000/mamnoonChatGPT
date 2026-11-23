@@ -6,7 +6,7 @@ export type CompanyBranding = {
   logoUrl: string;
   welcomeMessage: string;
   welcomeMediaUrl: string | null;
-  welcomeMediaType: "image" | "gif";
+  welcomeMediaAnimated: boolean;
   isLoaded: boolean;
 };
 
@@ -15,7 +15,7 @@ const DEFAULT_BRANDING: CompanyBranding = {
   logoUrl: "",
   welcomeMessage: "مشوارك وخدمات بيتك، بمكان واحد.",
   welcomeMediaUrl: null,
-  welcomeMediaType: "image",
+  welcomeMediaAnimated: false,
   isLoaded: false,
 };
 
@@ -30,13 +30,13 @@ export function useCompanyBranding() {
         companyName: data.company_name || DEFAULT_BRANDING.companyName,
         logoUrl: data.company_logo_url || "",
         welcomeMessage: data.welcome_message || DEFAULT_BRANDING.welcomeMessage,
-        welcomeMediaUrl: data.welcome_media_url || null,
-        welcomeMediaType: data.welcome_media_type === "gif" ? "gif" : "image",
+        welcomeMediaUrl: data.company_welcome_visual_url || null,
+        welcomeMediaAnimated: data.company_welcome_visual_animated === true,
         isLoaded: true,
       });
     };
     void (supabase as any).from("company_settings")
-      .select("company_name,company_logo_url,welcome_message,welcome_media_url,welcome_media_type")
+      .select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated")
       .eq("id", 1).maybeSingle()
       .then(({ data, error }: any) => { if (!error) apply(data); else if (active) setBranding((current) => ({ ...current, isLoaded: true })); })
       .catch((error: unknown) => { console.warn("[company-branding] load failed", error); if (active) setBranding((current) => ({ ...current, isLoaded: true })); });
