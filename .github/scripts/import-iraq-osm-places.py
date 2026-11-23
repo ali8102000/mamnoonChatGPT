@@ -136,10 +136,10 @@ def choose_name(tags) -> str:
 
 def category_terms(tags) -> str:
     values = []
-    for key, value in tags:
-        if key in FEATURE_KEYS:
-            values.extend([key, value])
-            values.append(CATEGORY_AR.get(value, ""))
+    for key in FEATURE_KEYS:
+        value = tags.get(key)
+        if value:
+            values.extend([key, value, CATEGORY_AR.get(value, "")])
     return " ".join(v.strip() for v in values if v and v.strip())
 
 def make_row(element_type: str, element_id: int, tags, lon: float, lat: float):
@@ -151,7 +151,6 @@ def make_row(element_type: str, element_id: int, tags, lon: float, lat: float):
     governorate = find_governorate(lon, lat)
     if not governorate:
         return None
-    tag_items = list(tags)
     names = [tags.get(key, "") for key in SEARCH_KEYS]
     address_parts = [
         tags.get("addr:street", ""), tags.get("addr:suburb", ""),
@@ -162,7 +161,7 @@ def make_row(element_type: str, element_id: int, tags, lon: float, lat: float):
     address = "، ".join(dict.fromkeys(x.strip() for x in address_parts if x and x.strip()))
     terms = " ".join(dict.fromkeys(
         [x.strip() for x in names if x and x.strip()]
-        + [category_terms(tag_items), governorate, GOVERNORATE_AR[governorate], "Iraq"]
+        + [category_terms(tags), governorate, GOVERNORATE_AR[governorate], "Iraq"]
     ))
     return {
         "governorate_key": governorate,
