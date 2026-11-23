@@ -400,18 +400,22 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
 DECLARE
-  r record;
+  r public.service_requests%ROWTYPE;
+  v_people integer := 0;
+  v_lead uuid;
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
-  SELECT customer_id, provider_id INTO r
-  FROM public.service_requests WHERE id = _request_id;
+
+  -- Read without locking first. Payment rows must be locked before the request row
+  -- so a late successful gateway callback cannot deadlock against cancellation.
+  SELECT * INTO r FROM public.service_requests WHERE id = _request_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
-  IF r.customer_id <> auth.uid() AND r.provider_id <> auth.uid() THEN
+  IF r.customer_id <> auth.uid()
+     AND r.provider_id IS DISTINCT FROM auth.uid()
+     AND NOT (r.type::text = 'service' AND public.is_service_request_provider(_request_id, auth.uid())) THEN
     RAISE EXCEPTION 'forbidden';
   END IF;
 
-  -- Match the payment-finalization lock order: payment rows first, then the request.
-  -- This prevents a deadlock when a successful ZainCash callback races with cancellation.
   PERFORM 1
   FROM public.payment_transactions
   WHERE request_id = _request_id
@@ -421,30 +425,89 @@ BEGIN
   ORDER BY id
   FOR UPDATE;
 
-  SELECT id, customer_id, provider_id, status, type, provider_arrived_at
-  INTO r FROM public.service_requests WHERE id = _request_id FOR UPDATE;
+  SELECT * INTO r FROM public.service_requests WHERE id = _request_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
-  IF r.customer_id <> auth.uid() AND r.provider_id <> auth.uid() THEN
+  IF r.customer_id <> auth.uid()
+     AND r.provider_id IS DISTINCT FROM auth.uid()
+     AND NOT (r.type::text = 'service' AND public.is_service_request_provider(_request_id, auth.uid())) THEN
     RAISE EXCEPTION 'forbidden';
   END IF;
-  IF r.status IN ('completed','cancelled') THEN RAISE EXCEPTION 'request_finished'; END IF;
+  IF r.status IN ('completed', 'cancelled') THEN RAISE EXCEPTION 'request_finished'; END IF;
   IF r.provider_arrived_at IS NOT NULL THEN RAISE EXCEPTION 'provider_already_arrived'; END IF;
-  IF r.type::text = 'taxi' AND r.status = 'in_progress'
-     AND (r.customer_id = auth.uid() OR r.provider_id = auth.uid()) THEN
-    RAISE EXCEPTION 'taxi_trip_already_started';
-  END IF;
+  IF r.type::text = 'service' AND r.status = 'in_progress' THEN RAISE EXCEPTION 'service_already_started'; END IF;
+  IF r.type::text = 'taxi' AND r.status = 'in_progress' THEN RAISE EXCEPTION 'taxi_trip_already_started'; END IF;
+
   IF r.customer_id = auth.uid() THEN
     UPDATE public.service_requests
-    SET status = 'cancelled', cancelled_by = auth.uid(), cancellation_reason = left(_reason, 500)
+    SET status = 'cancelled', cancelled_by = auth.uid(),
+        cancellation_reason = left(_reason, 500)
     WHERE id = _request_id;
     DELETE FROM public.request_offers WHERE request_id = _request_id;
-    IF r.provider_id IS NOT NULL THEN
-      INSERT INTO public.notifications (user_id, type, title, body, link)
+    INSERT INTO public.notifications(user_id, type, title, body, link)
+    SELECT srp.provider_id, 'request_cancelled', 'أُلغي الطلب',
+      coalesce(left(_reason, 200), 'ألغى الزبون الطلب'), '/request/' || _request_id
+    FROM public.service_request_providers srp WHERE srp.request_id = _request_id;
+    IF r.provider_id IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM public.service_request_providers srp
+         WHERE srp.request_id = _request_id AND srp.provider_id = r.provider_id
+       ) THEN
+      INSERT INTO public.notifications(user_id, type, title, body, link)
       VALUES (r.provider_id, 'request_cancelled', 'أُلغي الطلب',
         coalesce(left(_reason, 200), 'ألغى الزبون الطلب'), '/request/' || _request_id);
     END IF;
     RETURN 'cancelled';
-  ELSIF r.provider_id = auth.uid() THEN
+  END IF;
+
+  IF r.type::text = 'service'
+     AND public.is_service_request_provider(_request_id, auth.uid()) THEN
+    DELETE FROM public.service_request_providers
+    WHERE request_id = _request_id AND provider_id = auth.uid();
+    DELETE FROM public.request_offers
+    WHERE request_id = _request_id AND provider_id = auth.uid();
+    SELECT COALESCE(sum(team_size), 0)::integer INTO v_people
+    FROM public.service_request_providers WHERE request_id = _request_id;
+    SELECT provider_id INTO v_lead
+    FROM public.service_request_providers
+    WHERE request_id = _request_id
+    ORDER BY accepted_at, provider_id LIMIT 1;
+
+    PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
+    UPDATE public.service_requests
+    SET provider_id = v_lead,
+        status = CASE WHEN v_people >= greatest(workers_count, 1)
+                      THEN 'accepted'::public.request_status
+                      ELSE 'searching'::public.request_status END,
+        accepted_at = CASE WHEN v_people >= greatest(workers_count, 1)
+                           THEN accepted_at ELSE NULL END,
+        cancelled_by = auth.uid(),
+        cancellation_reason = left(_reason, 500)
+    WHERE id = _request_id;
+    PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
+
+    IF v_lead IS NOT NULL THEN
+      UPDATE public.chats SET provider_id = v_lead, updated_at = now()
+      WHERE request_id = _request_id;
+    END IF;
+    INSERT INTO public.notifications(user_id, type, title, body, link, data)
+    VALUES (r.customer_id, 'provider_released', 'تغيّر عدد أفراد الفريق',
+      CASE WHEN v_people >= greatest(r.workers_count, 1)
+        THEN 'اعتذر أحد الفنيين، لكن العدد المطلوب ما زال متوفراً.'
+        ELSE 'اعتذر أحد أفراد الفريق. نواصل البحث عن العدد المتبقي.' END,
+      '/request/' || _request_id,
+      jsonb_build_object('request_id', _request_id, 'accepted_people_count', v_people,
+        'workers_count', r.workers_count,
+        'remaining_people_count', greatest(r.workers_count - v_people, 0)));
+    IF v_people < greatest(r.workers_count, 1) THEN
+      INSERT INTO public.service_dispatch_queue(request_id, stage, next_at)
+      VALUES (_request_id, 0, now())
+      ON CONFLICT (request_id) DO UPDATE SET next_at = now();
+      PERFORM public.dispatch_service_request(_request_id);
+    END IF;
+    RETURN 'released';
+  END IF;
+
+  IF r.provider_id = auth.uid() AND r.type::text = 'taxi' THEN
     PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
     UPDATE public.service_requests
     SET status = 'searching', provider_id = NULL, accepted_at = NULL,
@@ -452,11 +515,12 @@ BEGIN
     WHERE id = _request_id;
     PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
     DELETE FROM public.request_offers WHERE request_id = _request_id AND provider_id = auth.uid();
-    INSERT INTO public.notifications (user_id, type, title, body, link)
+    INSERT INTO public.notifications(user_id, type, title, body, link)
     VALUES (r.customer_id, 'provider_released', 'نبحث عن مقدّم خدمة آخر',
-      coalesce(left(_reason, 200), 'اعتذر مقدّم الخدمة'), '/request/' || _request_id);
+      coalesce(left(_reason, 200), 'اعتذر مقدم الخدمة'), '/request/' || _request_id);
     RETURN 'released';
   END IF;
+
   RAISE EXCEPTION 'forbidden';
 END;
 $function$;
@@ -473,47 +537,36 @@ SET search_path TO 'public'
 AS $function$
 DECLARE
   v public.service_requests%ROWTYPE;
+  v_is_service_member boolean := false;
 BEGIN
-  IF auth.uid() IS NULL THEN
-    RAISE EXCEPTION 'unauthorized';
-  END IF;
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
 
-  -- Cancellation uses the payment-first lock order inside cancel_service_request.
-  -- Do not lock the request row before delegating, or a late gateway callback can deadlock.
+  -- Delegate cancellation before taking the request lock; the cancellation function
+  -- locks gateway payment rows first to preserve the shared lock order.
   IF _status = 'cancelled' THEN
     PERFORM public.cancel_service_request(_request_id, _reason);
     RETURN true;
   END IF;
 
-  SELECT *
-  INTO v
-  FROM public.service_requests
-  WHERE id = _request_id
-  FOR UPDATE;
+  SELECT * INTO v FROM public.service_requests WHERE id = _request_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'request_not_found';
-  END IF;
+  v_is_service_member := v.type::text = 'service'
+    AND public.is_service_request_provider(_request_id, auth.uid());
 
-  IF v.provider_id IS DISTINCT FROM auth.uid() THEN
+  IF v.provider_id IS DISTINCT FROM auth.uid() AND NOT v_is_service_member THEN
     RAISE EXCEPTION 'forbidden';
   END IF;
 
   IF _status = 'in_progress' AND v.status = 'accepted' THEN
     IF (
       v.type::text = 'service'
-      OR (
-        v.type::text = 'taxi'
-        AND coalesce(v.vehicle_category::text, '') = 'large'
-      )
+      OR (v.type::text = 'taxi' AND coalesce(v.vehicle_category::text, '') = 'large')
     ) AND v.provider_arrived_at IS NULL THEN
       RAISE EXCEPTION 'provider_not_arrived';
     END IF;
-
     PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
-    UPDATE public.service_requests
-    SET status = 'in_progress',
-        started_at = now()
+    UPDATE public.service_requests SET status = 'in_progress', started_at = now()
     WHERE id = _request_id;
     PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
     RETURN true;
@@ -521,9 +574,7 @@ BEGIN
 
   IF _status = 'completed' AND v.status = 'in_progress' THEN
     PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
-    UPDATE public.service_requests
-    SET status = 'completed',
-        completed_at = now()
+    UPDATE public.service_requests SET status = 'completed', completed_at = now()
     WHERE id = _request_id;
     PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
     RETURN true;

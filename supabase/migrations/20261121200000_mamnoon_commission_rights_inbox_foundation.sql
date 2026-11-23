@@ -1647,6 +1647,9 @@ AS $function$
   SELECT false;
 $function$;
 
+-- Existing legacy signature has defaults; remove it before replacing the retired stub.
+DROP FUNCTION IF EXISTS public.finalize_qicard_subscription_payment(uuid,text,integer,text,text,jsonb);
+
 CREATE OR REPLACE FUNCTION public.finalize_qicard_subscription_payment(
   p_merchant_request_id uuid,p_gateway_payment_id text,p_confirmed_amount integer,
   p_currency text,p_gateway_status text,p_gateway_payload jsonb
