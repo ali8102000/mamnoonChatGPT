@@ -322,7 +322,7 @@ export default function RequestDetail() {
     const latitude = Number(targetLat);
     const longitude = Number(targetLng);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
-      Alert.alert("الملاحة", "إحداثيات موقع الزبون غير صحيحة.");
+      Alert.alert("تحديد المسار", "إحداثيات الموقع غير صحيحة.");
       return;
     }
 
@@ -1966,8 +1966,6 @@ const styles = StyleSheet.create({
   navigationApp: { flex: 1, minHeight: 74, paddingVertical: 8, borderRadius: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", gap: 5 },
   navigationAppIcon: { width: 30, height: 30 },
   navigationAppLabel: { color: palette.ink, fontSize: 10, fontWeight: "900" },
-  darbunaIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: "#E6F4EE", alignItems: "center", justifyContent: "center" },
-  darbunaIconText: { color: "#087443", fontSize: 19, fontWeight: "900" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: palette.pageCanvas },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 52, paddingBottom: 14, backgroundColor: palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line },
   backBtn: { fontSize: 24, color: palette.brand, fontWeight: "900" },
