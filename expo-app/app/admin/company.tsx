@@ -14,6 +14,7 @@ export default function CompanySettingsScreen() {
   const [welcome, setWelcome] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [welcomeMediaUrl, setWelcomeMediaUrl] = useState<string | null>(null);
+  const [welcomeMediaAnimated, setWelcomeMediaAnimated] = useState(false);
   const [mediaAsset, setMediaAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [logoAsset, setLogoAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,14 +28,15 @@ export default function CompanySettingsScreen() {
       try {
         const [{ data: owner, error: permissionError }, { data, error }] = await Promise.all([
           supabase.rpc("is_super_admin", { p_user_id: user.id }),
-          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,welcome_media_url,welcome_media_type").eq("id",1).maybeSingle(),
+          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated").eq("id",1).maybeSingle(),
         ]);
         if (!active) return;
         setAllowed(!permissionError && owner === true);
         if (error) Alert.alert("تعذر تحميل بيانات الشركة", error.message);
         setName(data?.company_name || branding.companyName);
         setLogoUrl(data?.company_logo_url || branding.logoUrl);
-        setWelcomeMediaUrl(data?.welcome_media_url || null);
+        setWelcomeMediaUrl(data?.company_welcome_visual_url || null);
+        setWelcomeMediaAnimated(data?.company_welcome_visual_animated === true);
         setWelcome(data?.welcome_message || branding.welcomeMessage);
       } catch (error: any) {
         if (active) Alert.alert("تعذر تحميل بيانات الشركة", error?.message || "تحقق من الاتصال وحاول مرة ثانية.");
@@ -87,7 +89,7 @@ export default function CompanySettingsScreen() {
         nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
       }
       let nextWelcomeMediaUrl = welcomeMediaUrl;
-      let nextWelcomeMediaType: "image" | "gif" = mediaAsset?.mimeType === "image/gif" || /\\.gif$/i.test(mediaAsset?.fileName || "") ? "gif" : "image";
+      let nextWelcomeMediaAnimated = welcomeMediaAnimated || mediaAsset?.mimeType === "image/gif" || /\.gif$/i.test(mediaAsset?.fileName || "");
       if (mediaAsset) {
         if (!mediaAsset.mimeType?.startsWith("image/") || (mediaAsset.fileSize != null && mediaAsset.fileSize > 12 * 1024 * 1024)) throw new Error("صورة الواجهة يجب أن تكون صورة وحجمها 12 ميغابايت أو أقل.");
         const mediaResponse = await fetch(mediaAsset.uri);
@@ -101,7 +103,7 @@ export default function CompanySettingsScreen() {
       }
       const { error } = await (supabase as any).from("company_settings").upsert({
         id: 1, company_name: companyName, company_logo_url: nextLogoUrl,
-        welcome_message: message, welcome_media_url: nextWelcomeMediaUrl, welcome_media_type: nextWelcomeMediaType, updated_by: user.id, updated_at: new Date().toISOString(),
+        welcome_message: message, company_welcome_visual_url: nextWelcomeMediaUrl, company_welcome_visual_animated: nextWelcomeMediaAnimated, updated_by: user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
       if (error) throw error;
       setLogoUrl(nextLogoUrl);
@@ -137,6 +139,7 @@ export default function CompanySettingsScreen() {
         {(mediaAsset?.uri || welcomeMediaUrl) ? <Image source={{ uri: mediaAsset?.uri || welcomeMediaUrl || undefined }} style={s.welcomeMedia} resizeMode="contain" /> : <View style={[s.welcomeMedia, s.mediaPlaceholder]}><Text style={s.muted}>لا توجد صورة واجهة</Text></View>}
         <TouchableOpacity onPress={()=>void chooseWelcomeMedia()} style={s.pickButton}><Text style={s.pickText}>{mediaAsset ? "اختيار ملف آخر" : welcomeMediaUrl ? "تغيير صورة الواجهة" : "اختيار صورة الواجهة"}</Text></TouchableOpacity>
         <Text style={s.muted}>يدعم JPG وPNG وWEBP وGIF المتحرك حتى 12 ميغابايت. تظهر الصورة في بداية التشغيل وبطاقات الأسعار.</Text>
+        <TouchableOpacity onPress={()=>setWelcomeMediaAnimated((value)=>!value)} style={s.pickButton}><Text style={s.pickText}>{welcomeMediaAnimated ? "الحركة مفعّلة ✓" : "تفعيل الحركة للصورة"}</Text></TouchableOpacity>
         <Text style={s.label}>رسالة الترحيب</Text>
         <TextInput value={welcome} onChangeText={setWelcome} maxLength={180} multiline placeholder="مشوارك وخدمات بيتك، بمكان واحد." placeholderTextColor={palette.muted} style={[s.input,{minHeight:92,textAlignVertical:"top"}]} textAlign="right"/>
         <TouchableOpacity disabled={saving} onPress={()=>void save()} style={[s.saveButton,saving&&{opacity:0.6}]}><Text style={s.saveText}>{saving?"جاري الحفظ...":"حفظ بيانات الشركة"}</Text></TouchableOpacity>
