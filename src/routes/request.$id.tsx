@@ -970,7 +970,7 @@ function RequestDetail() {
                         <div className="text-[10px] font-bold text-muted-foreground">وقت البحث</div>
                       </div>
                     </div>
-                    <div className="text-xs font-bold text-muted-foreground">{req.vehicle_category === "large" ? (remaining === 0 ? "انتهت جولات البحث، والعروض التي وصلت تبقى متاحة لاختيارك." : "نعرض الطلب على أصحاب السيارات ضمن ثلاثة نطاقات، ثم نعيد المحاولة مرة ثانية.") : req.type === "service" ? (Number(req.workers_count || 1) > 1 ? (remaining === 0 ? "انتهت الدورة الأولى، لكن البحث مستمر إلى أن يكتمل العدد أو تختار الاكتفاء." : "نبحث ضمن نطاقات متدرجة ونكرر البحث حسب عدد أفراد الفريق المطلوب.") : (remaining === 0 ? "انتهت مهلة البحث عن الفني." : "نبحث عن فني متاح ومؤهل بالقرب منك.")) : "نجرب ثلاث نطاقات قريبة ثم نعيد المحاولة مرة ثانية"}</div>
+                    <div className="text-xs font-bold text-muted-foreground">{req.vehicle_category === "large" ? (remaining === 0 ? "انتهت جولات البحث، والعروض التي وصلت تبقى متاحة لاختيارك." : "نعرض الطلب على أصحاب السيارات ضمن ثلاثة نطاقات، ثم نعيد المحاولة مرة ثانية.") : req.type === "service" ? (Number(req.workers_count || 1) > 1 ? (req.staffing_search_paused_at ? "انتهت جولة البحث. الفنيون الموافقون محفوظون؛ اختَر تثبيت العدد الحالي أو البحث عن الباقين." : remaining === 0 ? "اكتملت جولة البحث، وننتظر تحديث حالة الطلب." : "نبحث ضمن نطاقات متدرجة عن العدد المطلوب.") : (remaining === 0 ? "انتهت مهلة البحث عن الفني." : "نبحث عن فني متاح ومؤهل بالقرب منك.")) : "نجرب ثلاث نطاقات قريبة ثم نعيد المحاولة مرة ثانية"}</div>
                   </div>;
                 })()
               )}
@@ -1001,20 +1001,54 @@ function RequestDetail() {
                 </div>
               )}
 
-              {req.type === "service" && acceptedPeopleCount > 0 && (
+              {req.type === "service" && acceptedPeopleCount > 0 && !req.staffing_search_paused_at && (
                 <button
                   onClick={async () => {
                     try {
                       const { error } = await (supabase as any).rpc("stop_service_request_acceptance", { _request_id: id });
                       if (error) throw error;
-                      toast.success("تم الاكتفاء بالفريق الحالي وإيقاف استقبال فنيين إضافيين");
+                      toast.success("تم تثبيت الفريق الحالي وإيقاف استقبال فنيين إضافيين");
                       await loadAll();
                     } catch (error: any) {
-                      toast.error(error?.message ?? "تعذّر إيقاف استقبال الفنيين");
+                      toast.error(error?.message ?? "تعذّر تثبيت الفريق الحالي");
                     }
                   }}
                   className="mt-4 min-h-12 w-full rounded-2xl bg-emerald-600 text-white font-black"
-                >اكتفيت بالعدد المتوفر ({acceptedPeopleCount})</button>
+                >تثبيت العدد الحالي ({acceptedPeopleCount})</button>
+              )}
+              {req.type === "service" && req.staffing_search_paused_at && (
+                <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+                  <div className="text-center font-black">انتهت جولة البحث</div>
+                  <div className="mt-2 text-center text-sm text-muted-foreground">الفريق المثبّت: {acceptedPeopleCount} من {req.workers_count || 1} · المتبقي: {remainingPeopleCount}</div>
+                  {acceptedPeopleCount > 0 && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { error } = await (supabase as any).rpc("stop_service_request_acceptance", { _request_id: id });
+                          if (error) throw error;
+                          toast.success("تم تثبيت العدد الحالي");
+                          await loadAll();
+                        } catch (error: any) {
+                          toast.error(error?.message ?? "تعذّر تثبيت العدد الحالي");
+                        }
+                      }}
+                      className="mt-3 min-h-12 w-full rounded-xl bg-emerald-600 text-white font-black"
+                    >تثبيت العدد الحالي ({acceptedPeopleCount})</button>
+                  )}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const { error } = await (supabase as any).rpc("resume_service_request_staffing", { _request_id: id });
+                        if (error) throw error;
+                        toast.success("استأنفنا البحث عن الفنيين المتبقين");
+                        await loadAll();
+                      } catch (error: any) {
+                        toast.error(error?.message ?? "تعذّر استئناف البحث");
+                      }
+                    }}
+                    className="mt-2 min-h-12 w-full rounded-xl bg-primary text-primary-foreground font-black"
+                  >البحث عن الفنيين الباقين ({remainingPeopleCount})</button>
+                </div>
               )}
               <button onClick={() => setShowCancel(true)} className="mt-2 min-h-12 w-full rounded-2xl border border-destructive/20 bg-destructive text-white font-black">إلغاء الطلب</button>
             </>

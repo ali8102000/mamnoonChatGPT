@@ -414,7 +414,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "id, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, provider_arrived_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount",
+        "id, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, provider_arrived_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount, staffing_search_paused_at",
       )
       .eq("id", id)
       .maybeSingle();
@@ -1612,21 +1612,40 @@ export default function RequestDetail() {
               </View>;
             })()}
             {request.type === "service" && <Text style={{ color: palette.brand, fontSize: 13, fontWeight: "900", textAlign: "center" }}>الفريق المؤكد: {acceptedPeopleCount} من {request.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</Text>}
-            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : request.type === "service" ? (Number(request.workers_count || 1) > 1 ? "نواصل البحث بدورات متكررة إلى أن يكتمل الفريق أو تختار الاكتفاء بالعدد المتوفر." : "نبحث عن فني متاح ضمن نطاقات البحث المعتادة.") : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
-            {request.type === "service" && acceptedPeopleCount > 0 && (
+            <Text style={{ color: palette.muted, fontSize: 11, textAlign: "center" }}>{request.vehicle_category === "large" ? "ثلاثة نطاقات بحث، ثم نعيد المحاولة. إذا وصلت عروض تبقى متاحة حتى تختار." : request.type === "service" ? (Number(request.workers_count || 1) > 1 ? "نبحث عن بقية أفراد الفريق، وعند انتهاء الجولة تختار تثبيت الموجودين أو استئناف البحث." : "نبحث عن فني متاح ضمن نطاقات البحث المعتادة.") : "ثلاثة نطاقات بحث، ونعيد المحاولة مرة ثانية قبل إنهاء البحث."}</Text>
+            {request.type === "service" && acceptedPeopleCount > 0 && !(request as any).staffing_search_paused_at && (
               <TouchableOpacity
                 onPress={async () => {
                   const { error } = await (supabase as any).rpc("stop_service_request_acceptance", { _request_id: id });
-                  if (error) Alert.alert("تعذر إيقاف البحث", error.message);
-                  else {
-                    Alert.alert("تم الاكتفاء بالعدد", "أوقفنا استقبال فنيين إضافيين.");
-                    await loadRequest();
-                  }
+                  if (error) Alert.alert("تعذر تثبيت العدد", error.message);
+                  else { Alert.alert("تم تثبيت العدد الحالي"); await loadRequest(); }
                 }}
                 style={{ width: "100%", borderRadius: 14, padding: 13, backgroundColor: palette.success, marginTop: 6 }}
               >
-                <Text style={{ color: "#FFFFFF", fontWeight: "900", textAlign: "center" }}>اكتفيت بالعدد المتوفر ({acceptedPeopleCount})</Text>
+                <Text style={{ color: "#FFFFFF", fontWeight: "900", textAlign: "center" }}>تثبيت العدد الحالي ({acceptedPeopleCount})</Text>
               </TouchableOpacity>
+            )}
+            {request.type === "service" && (request as any).staffing_search_paused_at && (
+              <View style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft, gap: 8 }}>
+                <Text style={{ color: palette.ink, fontWeight: "900", textAlign: "center" }}>انتهت جولة البحث</Text>
+                <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center" }}>الفريق المثبّت: {acceptedPeopleCount} من {request.workers_count ?? 1} · المتبقي: {remainingPeopleCount}</Text>
+                {acceptedPeopleCount > 0 && <TouchableOpacity
+                  onPress={async () => {
+                    const { error } = await (supabase as any).rpc("stop_service_request_acceptance", { _request_id: id });
+                    if (error) Alert.alert("تعذر تثبيت العدد", error.message);
+                    else { Alert.alert("تم تثبيت العدد الحالي"); await loadRequest(); }
+                  }}
+                  style={{ width: "100%", borderRadius: 12, padding: 13, backgroundColor: palette.success }}
+                ><Text style={{ color: "#FFFFFF", fontWeight: "900", textAlign: "center" }}>تثبيت العدد الحالي ({acceptedPeopleCount})</Text></TouchableOpacity>}
+                <TouchableOpacity
+                  onPress={async () => {
+                    const { error } = await (supabase as any).rpc("resume_service_request_staffing", { _request_id: id });
+                    if (error) Alert.alert("تعذر استئناف البحث", error.message);
+                    else { Alert.alert("تم استئناف البحث", `نبحث الآن عن ${remainingPeopleCount} أشخاص إضافيين.`); await loadRequest(); }
+                  }}
+                  style={{ width: "100%", borderRadius: 12, padding: 13, backgroundColor: palette.brand }}
+                ><Text style={{ color: "#FFFFFF", fontWeight: "900", textAlign: "center" }}>البحث عن الفنيين الباقين ({remainingPeopleCount})</Text></TouchableOpacity>
+              </View>
             )}
             {urgencyAllowed && Number(request.customer_price ?? request.price_estimate ?? 0) > 0 && <View style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.gold, backgroundColor: palette.goldSoft }}>
               <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", textAlign: "right" }}>⚡ وضع الاستعجال</Text>

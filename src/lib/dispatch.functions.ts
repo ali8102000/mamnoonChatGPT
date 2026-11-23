@@ -25,6 +25,17 @@ export const acceptServiceRequest = async ({ data }: { data: { requestId: string
   return { ok: true };
 };
 
+/** Customer resumes the paused staffing search for the remaining headcount. */
+export const resumeServiceRequestStaffing = async ({ data }: { data: { requestId: string } }) => {
+  const input = z.object({ requestId: z.string().uuid() }).parse(data);
+  const { data: resumed, error } = await (supabase as any).rpc("resume_service_request_staffing", {
+    _request_id: input.requestId,
+  });
+  if (error) throw new Error(error.message);
+  if (!resumed) throw new Error("تعذّر استئناف البحث عن بقية الفنيين");
+  return { ok: true };
+};
+
 /** Customer ends service staffing once the available headcount is sufficient. */
 export const stopServiceRequestAcceptance = async ({ data }: { data: { requestId: string } }) => {
   const input = z.object({ requestId: z.string().uuid() }).parse(data);
