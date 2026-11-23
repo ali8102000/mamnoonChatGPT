@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useCompanyBranding } from "@/lib/company-branding";
 import ProviderMissions from "@/components/provider-missions";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
@@ -98,7 +99,7 @@ function HomePage() {
                 <Crown className="h-5 w-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2 text-xs font-black text-amber-600 dark:text-amber-400">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 whitespace-normal break-words text-xs font-black text-amber-600 dark:text-amber-400">
                   {companyLogoUrl && <img src={companyLogoUrl} alt="" className="h-7 w-7 rounded-lg object-contain bg-white p-0.5" />}
                   إدارة {companyName}
                 </div>
