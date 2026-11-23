@@ -65,10 +65,15 @@ AS $function$
 DECLARE
   v_request_id uuid;
   v_request_code text;
+  v_request_id_text text;
 BEGIN
-  IF coalesce(NEW.data, '{}'::jsonb) ? 'request_id' THEN
+  v_request_id_text := coalesce(NEW.data ->> 'request_id', '');
+  IF v_request_id_text = '' AND NEW.link ~ '^/request/[0-9a-fA-F-]{36}($|[?])' THEN
+    v_request_id_text := split_part(split_part(NEW.link, '/request/', 2), '?', 1);
+  END IF;
+  IF v_request_id_text <> '' THEN
     BEGIN
-      v_request_id := (NEW.data ->> 'request_id')::uuid;
+      v_request_id := v_request_id_text::uuid;
     EXCEPTION WHEN invalid_text_representation THEN
       RETURN NEW;
     END;
@@ -78,7 +83,10 @@ BEGIN
     WHERE id = v_request_id;
 
     IF v_request_code IS NOT NULL THEN
-      NEW.data := coalesce(NEW.data, '{}'::jsonb) || jsonb_build_object('request_code', v_request_code);
+      NEW.data := coalesce(NEW.data, '{}'::jsonb) || jsonb_build_object(
+        'request_id', v_request_id,
+        'request_code', v_request_code
+      );
       IF position(v_request_code in coalesce(NEW.body,'')) = 0 THEN
         NEW.body := left(coalesce(NEW.body,'') || ' · رقم الطلب ' || v_request_code, 500);
       END IF;
