@@ -39,6 +39,7 @@ begin
     join public.worker_services ws on ws.worker_id=wp.user_id and ws.service_id=v.service_id
     join public.provider_presence pp on pp.user_id=wp.user_id
     where wp.status='approved'
+      and public.has_role(wp.user_id,'worker'::public.app_role)
       and (wp.suspended_until is null or wp.suspended_until<=now())
       and pp.updated_at>now()-interval '5 minutes'
       and pp.accuracy_m is not null and pp.accuracy_m<=100;
@@ -49,6 +50,7 @@ begin
     join public.worker_services ws on ws.worker_id=wp.user_id and ws.service_id=v.service_id
     join public.provider_presence pp on pp.user_id=wp.user_id
     where wp.status='approved' and wp.available=true
+      and public.has_role(wp.user_id,'worker'::public.app_role)
       and (wp.suspended_until is null or wp.suspended_until<=now())
       and pp.updated_at>now()-interval '5 minutes'
       and pp.accuracy_m is not null and pp.accuracy_m<=100
@@ -115,6 +117,9 @@ begin
     join public.provider_presence pp on pp.user_id=dp.user_id
     where dp.vehicle_category::text=split_part(v.category_key,':',2)
       and dp.status='approved'
+      and public.has_role(dp.user_id,
+        case when split_part(v.category_key,':',2)='large' then 'large_driver'::public.app_role
+             else 'driver'::public.app_role end)
       and (dp.suspended_until is null or dp.suspended_until<=now())
       and pp.updated_at>now()-interval '5 minutes'
       and pp.accuracy_m is not null and pp.accuracy_m<=100;
@@ -123,7 +128,10 @@ begin
     from public.driver_profiles dp
     join public.provider_presence pp on pp.user_id=dp.user_id
     where dp.vehicle_category::text=split_part(v.category_key,':',2)
-      and dp.status='approved' and dp.available=true
+      and dp.status='approved'
+      and public.has_role(dp.user_id,
+        case when split_part(v.category_key,':',2)='large' then 'large_driver'::public.app_role
+             else 'driver'::public.app_role end) and dp.available=true
       and (dp.suspended_until is null or dp.suspended_until<=now())
       and pp.updated_at>now()-interval '5 minutes'
       and pp.accuracy_m is not null and pp.accuracy_m<=100
