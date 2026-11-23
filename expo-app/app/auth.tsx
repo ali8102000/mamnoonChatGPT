@@ -34,6 +34,7 @@ export default function AuthScreen() {
   const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
 
   async function onSubmit() {
+    if (busy) return;
     if (password.length < 6) {
       Alert.alert("تحقق من كلمة المرور", "كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       return;
