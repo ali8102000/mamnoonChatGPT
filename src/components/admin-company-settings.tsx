@@ -47,7 +47,7 @@ export default function AdminCompanySettings() {
         if (active) { setMessage("لا توجد صلاحية المدير الأعلى لهذا الحساب."); setLoading(false); }
         return;
       }
-      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,driver_video_max_duration_seconds,service_icon_display_seconds,service_icon_image_size_px").eq("id", 1).maybeSingle();
+      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated,driver_video_max_duration_seconds,service_icon_display_seconds,service_icon_image_size_px").eq("id", 1).maybeSingle();
       if (active) {
         if (error) setMessage("تعذر تحميل اسم الشركة: " + error.message);
         else { setName(data?.company_name ?? "شركة ممنون"); setLogoUrl(data?.company_logo_url ?? ""); setWelcomeMessage(data?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد."); setWelcomeVisualUrl(data?.company_welcome_visual_url ?? ""); setWelcomeVisualAnimated(data?.company_welcome_visual_animated === true); setDriverVideoMaxDurationSeconds(Number.isInteger(data?.driver_video_max_duration_seconds) ? data.driver_video_max_duration_seconds : 10); setServiceIconDisplaySeconds(Number.isInteger(data?.service_icon_display_seconds) ? data.service_icon_display_seconds : 2); setServiceIconImageSizePx(Number.isInteger(data?.service_icon_image_size_px) ? data.service_icon_image_size_px : 40); }
