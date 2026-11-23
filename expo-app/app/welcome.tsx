@@ -4,7 +4,6 @@ import { router, Stack } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
 import { palette } from "@/styles/theme";
 import { Image as ExpoImage } from "expo-image";
-import { Image as ExpoImage } from "expo-image";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 export default function WelcomeScreen() {
