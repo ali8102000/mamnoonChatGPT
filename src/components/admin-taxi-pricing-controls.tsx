@@ -125,9 +125,12 @@ export default function AdminTaxiPricingControls() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
+    const refresh = () => { void load(); };
     const channel = supabase.channel(`taxi-pricing-admin-${governorateKey}-${Date.now()}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls" }, () => { void load(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls" }, () => { void load(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: `governorate_key=eq.${governorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: "governorate_key=eq.all" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls", filter: `governorate_key=eq.${governorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls", filter: "governorate_key=eq.all" }, refresh)
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [governorateKey, load]);
