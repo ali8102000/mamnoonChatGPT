@@ -18,10 +18,10 @@ const isUuid = (value: unknown): value is string =>
   typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 function notificationChannelId(soundEnabled: boolean, vibrationEnabled: boolean) {
-  if (soundEnabled && vibrationEnabled) return "mamnoon_sound_vibrate";
-  if (soundEnabled) return "mamnoon_sound_only";
-  if (vibrationEnabled) return "mamnoon_vibrate_only";
-  return "mamnoon_silent";
+  if (soundEnabled && vibrationEnabled) return "mamnoon_v2_sound_vibrate";
+  if (soundEnabled) return "mamnoon_v2_sound_only";
+  if (vibrationEnabled) return "mamnoon_v2_vibrate_only";
+  return "mamnoon_v2_silent";
 }
 
 function searchTerms(raw: string) {
