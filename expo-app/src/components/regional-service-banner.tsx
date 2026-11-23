@@ -75,7 +75,7 @@ export function RegionalServiceBanner() {
     animation.start();
     return () => animation.stop();
   }, [row?.message_animate, row?.message_enabled, row?.services_enabled, row?.message_text, marqueeWidth, textWidth, translate]);
-  if (loading || isAdmin || !row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled) || !text) return null;
+  if (loading || isAdmin || !row || (row.message_float_enabled === false && row.services_enabled) || (row.services_enabled && !row.message_enabled) || !text) return null;
   const width = Math.max(60, Math.min(100, row.message_width_percent ?? 92));
   const height = Math.max(12, Math.min(60, row.message_height_percent ?? 34));
   const top = Math.max(0, Math.min(160, row.message_top_offset ?? 12));
