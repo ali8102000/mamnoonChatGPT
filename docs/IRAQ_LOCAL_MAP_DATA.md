@@ -39,3 +39,19 @@ Display attribution to **© OpenStreetMap contributors** and comply with the Ope
 ## Nearby landmark lookup
 
 The maps proxy now exposes a governorate-scoped `nearby` action. It returns up to three named nearby places within 1.8 km, prioritizing categorized POIs and excluding the selected point itself. Web and Expo clients request these details only after moving the selected map pin, so landmark lookup does not delay the pin jump.
+
+
+## Nationwide incremental refresh pipeline
+
+A new GitHub Actions workflow, `.github/workflows/refresh-iraq-osm-places.yml`, downloads the current Geofabrik Iraq PBF extract and imports named OSM nodes and ways into the same governorate-scoped catalogue. It runs weekly and can also be started manually. The importer:
+
+- Uses the repository's 18 ADM1 governorate polygons and assigns every imported point to the polygon that contains it.
+- Indexes Arabic, English, Kurdish and alternate names plus address and feature-category terms.
+- Uses stable OSM element keys (`osm:node:<id>`, `osm:way:<id>`) and upserts in batches, so refreshes update existing OSM rows instead of creating duplicates.
+- Is additive only: it never deletes or deactivates existing records.
+- Stops if the extract unexpectedly yields fewer than 5,000 named places.
+- Does not import relation geometries yet; large multipolygon POIs and some area features require a later dedicated area-processing pass.
+
+Required GitHub Actions secrets: `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The scheduled workflow must not be enabled on production until its first run has succeeded and the resulting per-governorate counts have been reviewed.
+
+OpenStreetMap data is available under ODbL 1.0. Keep visible attribution to © OpenStreetMap contributors and comply with ODbL share-alike requirements for derived databases. Source: https://download.geofabrik.de/asia/iraq/index.html
