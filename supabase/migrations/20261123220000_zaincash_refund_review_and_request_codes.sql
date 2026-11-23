@@ -284,7 +284,7 @@ BEGIN
       '/admin',
       jsonb_build_object('request_id', NEW.id, 'request_code', NEW.request_code, 'refund_case_id', v_case_id)
     FROM public.user_roles ur
-    WHERE ur.role::text IN ('super_admin','admin','finance');
+    WHERE ur.role::text IN ('super_admin','admin','finance','support');
 
   END LOOP;
 
