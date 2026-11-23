@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   logo: { width: 112, height: 112, marginBottom: 14, borderRadius: 24, backgroundColor: "#FFFFFF" },
   logoFallback: { width: 112, height: 112, marginBottom: 14, borderRadius: 28, backgroundColor: "#17324D", alignItems: "center", justifyContent: "center" },
   logoLetter: { color: "#FFFFFF", fontSize: 58, fontWeight: "900" },
-  brand: { color: "#17324D", fontSize: 27, fontWeight: "900", letterSpacing: 0.1, textAlign: "center" },
+  brand: { color: "#17324D", fontSize: 27, fontWeight: "900", letterSpacing: 0.1, textAlign: "center", width: "100%", maxWidth: 340, lineHeight: 38, flexShrink: 1 },
   welcomeVisual: { width: "100%", maxWidth: 340, height: 150, borderRadius: 22, marginTop: 14, backgroundColor: "#050B13" },
   tagline: { color: "#526477", fontSize: 15, fontWeight: "700", marginTop: 12, width: "100%", maxWidth: 340, textAlign: "center", lineHeight: 27, flexWrap: "wrap", includeFontPadding: false },
   loader: { marginTop: 26 },
