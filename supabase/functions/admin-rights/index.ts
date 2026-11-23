@@ -114,6 +114,12 @@ Deno.serve(async (req: Request) => {
       const ids = [...new Set((overrides.data ?? []).map((r:any)=>r.user_id).concat((revenue.data ?? []).map((r:any)=>r.user_id)))];
       const { data: profiles } = ids.length ? await admin.from("profiles").select("id,full_name,phone").in("id",ids) : { data: [] };
       const byId = new Map((profiles ?? []).map((p:any)=>[p.id,p]));
+      const collectionPaymentIds = [...new Set((collections.data ?? []).map((row:any)=>row.payment_id).filter(Boolean))];
+      const { data: collectionPayments, error: collectionPaymentsError } = collectionPaymentIds.length
+        ? await admin.from("payment_transactions").select("id,purpose,provider,status").in("id",collectionPaymentIds)
+        : { data: [], error: null };
+      if (collectionPaymentsError) return json({ error: "rights_collection_payment_load_failed" }, 500);
+      const collectionPaymentById = new Map((collectionPayments ?? []).map((row:any)=>[row.id,row]));
       const requestIds = [...new Set((revenue.data ?? []).map((row:any)=>row.request_id).filter(Boolean))];
       const { data: requests, error: requestsError } = requestIds.length
         ? await admin.from("service_requests").select("id,request_code").in("id",requestIds)
@@ -137,6 +143,8 @@ Deno.serve(async (req: Request) => {
             reversal_reason: reversal?.reason ?? null,
             reversed_at: reversal?.created_at ?? null,
             refund_review_pending: ledger?.metadata?.refund_review_pending === true,
+            payment_purpose: collectionPaymentById.get(row.payment_id)?.purpose ?? null,
+            payment_provider: collectionPaymentById.get(row.payment_id)?.provider ?? null,
           };
         }),
       });
