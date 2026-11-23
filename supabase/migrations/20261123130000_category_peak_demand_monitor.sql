@@ -56,19 +56,19 @@ begin
       and pp.accuracy_m is not null and pp.accuracy_m<=100
       and not exists (
         select 1 from public.service_requests active
-        where active.provider_id=wp.user_id and active.status in ('accepted','in_progress')
+        where active.provider_id=wp.user_id and lower(active.status::text) in ('accepted','in_progress')
       )
       and not exists (
         select 1 from public.service_request_providers srp
         join public.service_requests active_team on active_team.id=srp.request_id
         where srp.provider_id=wp.user_id
-          and active_team.status in ('pending','searching','accepted','in_progress')
+          and lower(active_team.status::text) in ('pending','searching','accepted','in_progress')
       );
 
     select count(*)::integer into v_pending
     from public.service_requests sr
     where sr.type::text='service' and sr.service_id=v.service_id
-      and sr.status::text in ('pending','searching')
+      and lower(sr.status::text) in ('pending','searching')
       and sr.created_at>now()-interval '20 minutes';
 
     v_ratio := coalesce(v_pending,0)::numeric / greatest(coalesce(v_active,0),1);
@@ -137,14 +137,14 @@ begin
       and pp.accuracy_m is not null and pp.accuracy_m<=100
       and not exists (
         select 1 from public.service_requests active
-        where active.provider_id=dp.user_id and active.status in ('accepted','in_progress')
+        where active.provider_id=dp.user_id and lower(active.status::text) in ('accepted','in_progress')
       );
 
     select count(*)::integer into v_pending
     from public.service_requests sr
     where sr.type::text='taxi'
       and sr.vehicle_category::text=split_part(v.category_key,':',2)
-      and sr.status::text in ('pending','searching')
+      and lower(sr.status::text) in ('pending','searching')
       and sr.created_at>now()-interval '20 minutes';
 
     v_ratio := coalesce(v_pending,0)::numeric / greatest(coalesce(v_active,0),1);
