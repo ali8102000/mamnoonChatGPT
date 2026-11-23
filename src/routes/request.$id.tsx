@@ -1104,8 +1104,13 @@ function RequestDetail() {
             : req.type === "taxi"
               ? ["قيادة آمنة", "احترام الخصوصية", "وصل بالموعد", "حسن التعامل", "السيارة نظيفة", "المكيف يعمل", "تواصل واضح", "تأخر دون إشعار", "قيادة غير آمنة", "السيارة غير نظيفة", "تعامل غير لائق", "لم يلتزم بالاتفاق"]
               : ["جودة العمل عالية", "أتقن العمل", "التزم بالموعد", "التزم بالسعر المتفق", "حسن التعامل", "حافظ على المكان", "تواصل واضح", "تأخر دون إشعار", "جودة العمل ضعيفة", "غيّر السعر دون اتفاق", "لم يحافظ على المكان", "تعامل غير لائق"]}
+          criteriaLabels={myRole === "provider"
+            ? ["التعامل والاحترام", "الالتزام بالموعد", "وضوح الطلب والاتفاق"]
+            : req.type === "taxi"
+              ? ["التعامل واحترام الخصوصية", "الالتزام بالوقت", "السلامة ونظافة المركبة"]
+              : ["الاحترافية والتعامل", "الالتزام بالموعد", "جودة تنفيذ العمل"]}
           onClose={() => setShowRating(false)}
-          onSubmit={async (stars, comment, reasons) => {
+          onSubmit={async (stars, comment, reasons, criteria) => {
             const { data, error } = await (supabase as any)
               .from("ratings")
               .insert({
@@ -1113,6 +1118,9 @@ function RequestDetail() {
                 rater_id: session.user.id,
                 ratee_id: other.id,
                 stars,
+                professionalism: criteria.professionalism,
+                punctuality: criteria.punctuality,
+                quality: criteria.quality,
                 reasons,
                 comment: comment || null,
               })
@@ -1161,18 +1169,21 @@ function RequestDetail() {
 function RatingModal({
   target,
   reasons,
+  criteriaLabels,
   onClose,
   onSubmit,
 }: {
   target: any;
   reasons: string[];
+  criteriaLabels: [string, string, string];
   onClose: () => void;
-  onSubmit: (stars: number, comment: string, selectedReasons: string[]) => Promise<void>;
+  onSubmit: (stars: number, comment: string, selectedReasons: string[], criteria: { professionalism: number; punctuality: number; quality: number }) => Promise<void>;
 }) {
   const [stars, setStars] = useState(0);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState("");
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
+  const [criteria, setCriteria] = useState({ professionalism: 0, punctuality: 0, quality: 0 });
   const [busy, setBusy] = useState(false);
 
   return (
@@ -1217,6 +1228,17 @@ function RatingModal({
           {stars === 0 ? "لم يتم اختيار التقييم" : ["", "سيء جداً", "سيء", "مقبول", "جيد", "ممتاز"][stars]}
         </div>
 
+        <div className="space-y-3 mb-4">
+          {(["professionalism", "punctuality", "quality"] as const).map((key, index) => (
+            <div key={key} className="flex items-center justify-between gap-3">
+              <span className="text-xs font-black text-muted-foreground">{criteriaLabels[index]}</span>
+              <div className="flex gap-1" dir="ltr">
+                {[1, 2, 3, 4, 5].map((score) => <button key={score} type="button" onClick={() => setCriteria((current) => ({ ...current, [key]: score }))} className={`text-xl ${score <= criteria[key] ? "text-primary" : "text-muted-foreground/40"}`}>★</button>)}
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="mb-3">
           <div className="text-xs font-black text-muted-foreground mb-2">أسباب التقييم (اختياري – تقدر تختار أكثر من سبب)</div>
           <div className="flex flex-wrap gap-2">
@@ -1236,9 +1258,9 @@ function RatingModal({
           placeholder="ملاحظة إضافية (اختياري)..." rows={2}
           className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-ring resize-none" />
 
-        <button disabled={busy || stars === 0} onClick={async () => {
+        <button disabled={busy || stars === 0 || Object.values(criteria).some((value) => value < 1)} onClick={async () => {
           setBusy(true);
-          await onSubmit(stars, comment.trim(), selectedReasons);
+          await onSubmit(stars, comment.trim(), selectedReasons, criteria);
           setBusy(false);
         }} className="mt-4 w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-black btn-press glow-primary disabled:opacity-50">
           {busy ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "إرسال التقييم"}
