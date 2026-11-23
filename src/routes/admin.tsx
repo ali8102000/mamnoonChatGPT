@@ -2335,6 +2335,7 @@ function WalletSection() {
     providerId: string; amount: number; note: string; idempotencyKey: string;
   } | null>(null);
   const [refundCases, setRefundCases] = useState<any[]>([]);
+  const [canViewRefunds, setCanViewRefunds] = useState(false);
   const [canDecideRefunds, setCanDecideRefunds] = useState(false);
   const [refundNotes, setRefundNotes] = useState<Record<string, string>>({});
   const [refundReferences, setRefundReferences] = useState<Record<string, string>>({});
@@ -2362,6 +2363,7 @@ function WalletSection() {
         throw new Error(refundResult.data?.error || refundResult.error?.message || "تعذر تحميل طلبات الاسترداد");
       }
       setRefundCases(refundResult.data?.cases ?? []);
+      setCanViewRefunds(refundResult.data?.can_view === true);
       setCanDecideRefunds(refundResult.data?.can_decide === true);
     } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
@@ -2617,6 +2619,7 @@ function WalletSection() {
         )}
       </section>
 
+      {canViewRefunds && (
       <section className="glass rounded-2xl border border-amber-500/25 p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -2684,6 +2687,8 @@ function WalletSection() {
           </div>
         )}
       </section>
+
+      )}
 
       <section>
         <h2 className="text-xl font-black mb-4">إدارة المحفظة</h2>
