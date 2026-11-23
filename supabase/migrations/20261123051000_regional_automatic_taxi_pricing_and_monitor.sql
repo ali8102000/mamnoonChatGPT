@@ -133,6 +133,8 @@ BEGIN
       INTO v_enabled,v_increase_cap,v_discount_cap
     FROM public.taxi_pricing_auto_controls WHERE governorate_key=v_key;
 
+    IF NOT COALESCE(v_enabled,false) THEN CONTINUE; END IF;
+
     v_ratio := v_drivers::numeric / greatest(v_waiting,1);
     v_raw_percent := CASE
       WHEN COALESCE(v_observed,0)=0 THEN 0
