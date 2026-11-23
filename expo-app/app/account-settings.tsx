@@ -3,7 +3,7 @@ import * as ImagePicker from "expo-image-picker";
 import MapView, { Marker, type MapPressEvent } from "react-native-maps";
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
 import { supabase } from "@/lib/supabase";
 import { normalizePhone, isValidPhone } from "@/lib/phone";
@@ -17,6 +17,7 @@ import { safeNavigate } from "@/lib/safe-navigation";
 
 export default function AccountSettingsScreen() {
   const { user, profile, roles, refresh, activeRole, setActiveRole } = useAuth();
+  const routeParams = useLocalSearchParams<{partner?: string}>();
   const { mode, setMode } = useThemePreference();
   const actualEmail = (() => { const candidate = String(user?.email ?? "").trim().toLowerCase(); return candidate && !/^phone\d+@mamnoon\.app$/.test(candidate) ? candidate : ""; })();
   const [email, setEmail] = useState(actualEmail);
@@ -50,6 +51,7 @@ export default function AccountSettingsScreen() {
   const isCompanyAdmin = user?.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
   useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
+  useEffect(() => { if (routeParams.partner === "1") setPartnerFormOpen(true); }, [routeParams.partner]);
   useEffect(() => { if (user?.id) void loadPartnerApplications(); }, [user?.id]);
   useEffect(() => {
     let active = true;
