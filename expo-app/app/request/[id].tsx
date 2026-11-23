@@ -78,7 +78,29 @@ const SERVICE_IMAGES: Record<string, number> = {
   general: service_general,
 }
 
-type Coordinates = { latitude: number; longitude: number; heading?: number | null; updatedAt?: string };
+type Coordinates = { latitude: number; longitude: number; heading?: number | null; updatedAt?: string; id?: number; accuracy?: number; recordedAt?: string };
+
+function distanceToPolylineMeters(point: Coordinates, path: Coordinates[]) {
+  if (path.length < 2) return Number.POSITIVE_INFINITY;
+  const cosLat = Math.cos(point.latitude * Math.PI / 180);
+  const toXY = (p: Coordinates) => ({
+    x: (p.longitude - point.longitude) * 111320 * cosLat,
+    y: (p.latitude - point.latitude) * 110540,
+  });
+  let minimum = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < path.length; i++) {
+    const a = toXY(path[i - 1]);
+    const b = toXY(path[i]);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared > 0
+      ? Math.max(0, Math.min(1, -(a.x * dx + a.y * dy) / lengthSquared))
+      : 0;
+    minimum = Math.min(minimum, Math.hypot(a.x + t * dx, a.y + t * dy));
+  }
+  return minimum;
+}
 type RequestRecord = {
   id: string;
   request_code?: string | null;
@@ -244,6 +266,7 @@ export default function RequestDetail() {
   const [otherLocation, setOtherLocation] = useState<Coordinates | null>(null);
   const [providerRoutePoints, setProviderRoutePoints] = useState<Coordinates[]>([]);
   const [roadRoutePoints, setRoadRoutePoints] = useState<Coordinates[]>([]);
+  const [routeDeviationRefresh, setRouteDeviationRefresh] = useState(0);
   const [roadTrafficSegments, setRoadTrafficSegments] = useState<{ startIndex: number; endIndex: number; speed: string }[]>([]);
   const [nextRouteInstruction, setNextRouteInstruction] = useState<string | null>(null);
   const [liveRouteSource, setLiveRouteSource] = useState<string | null>(null);
@@ -251,6 +274,9 @@ export default function RequestDetail() {
   const acceptedMapFitKeyRef = useRef<string | null>(null);
   const roadRouteSequenceRef = useRef(0);
   const lastRoadRouteRequestRef = useRef<{ routeKey: string; latitude: number; longitude: number; requestedAt: number } | null>(null);
+  const lastDeviationPointIdRef = useRef<number | null>(null);
+  const offRouteSamplesRef = useRef(0);
+  const lastOffRouteAlertAtRef = useRef(0);
   const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
   const [freshnessClock, setFreshnessClock] = useState(Date.now());
@@ -816,7 +842,7 @@ export default function RequestDetail() {
     let stillCurrent = true;
     supabase
       .from("trip_location_points")
-      .select("lat,lng,recorded_at")
+      .select("id,lat,lng,accuracy_m,recorded_at")
       .eq("request_id", id)
       .eq("role", "provider")
       .order("recorded_at", { ascending: true })
@@ -828,8 +854,11 @@ export default function RequestDetail() {
         }
         if (stillCurrent && data) {
           setProviderRoutePoints(data.map((point) => ({
+            id: point.id,
             latitude: point.lat,
             longitude: point.lng,
+            accuracy: point.accuracy_m,
+            recordedAt: point.recorded_at,
           })));
         }
       });
@@ -845,12 +874,12 @@ export default function RequestDetail() {
           filter: `request_id=eq.${id}`,
         },
         (payload) => {
-          const point = payload.new as { role?: string; lat?: number; lng?: number };
+          const point = payload.new as { id?: number; role?: string; lat?: number; lng?: number; accuracy_m?: number | null; recorded_at?: string };
           if (stillCurrent && point.role === "provider" &&
               typeof point.lat === "number" && typeof point.lng === "number") {
             setProviderRoutePoints((previous) => [
               ...previous,
-              { latitude: point.lat!, longitude: point.lng! },
+              { id: point.id, latitude: point.lat!, longitude: point.lng!, accuracy: point.accuracy_m ?? undefined, recordedAt: point.recorded_at },
             ].slice(-1200));
           }
         },
@@ -960,7 +989,37 @@ export default function RequestDetail() {
     otherLocation?.latitude,
     otherLocation?.longitude,
     driverLocationFresh,
+    routeDeviationRefresh,
   ]);
+  useEffect(() => {
+    if (!isActive || roadRoutePoints.length < 2 || providerRoutePoints.length === 0) {
+      offRouteSamplesRef.current = 0;
+      return;
+    }
+    const latest = providerRoutePoints[providerRoutePoints.length - 1];
+    if (latest.id == null || latest.id === lastDeviationPointIdRef.current) return;
+    lastDeviationPointIdRef.current = latest.id;
+    if (!Number.isFinite(latest.accuracy) || Number(latest.accuracy) > 50 ||
+        !latest.recordedAt || Date.now() - Date.parse(latest.recordedAt) > 30_000) return;
+
+    const deviationMeters = distanceToPolylineMeters(latest, roadRoutePoints);
+    offRouteSamplesRef.current = deviationMeters > 100 ? offRouteSamplesRef.current + 1 : 0;
+    if (offRouteSamplesRef.current >= 2 && Date.now() - lastOffRouteAlertAtRef.current > 90_000) {
+      lastOffRouteAlertAtRef.current = Date.now();
+      offRouteSamplesRef.current = 0;
+      Alert.alert(
+        "تنبيه المسار",
+        "إشارة GPS تشير إلى الابتعاد عن مسار الشوارع بأكثر من 100 متر. يعيد ممنون التحقق من الطريق الآن.",
+      );
+      lastRoadRouteRequestRef.current = null;
+      setRoadRoutePoints([]);
+      setRoadTrafficSegments([]);
+      setNextRouteInstruction(null);
+      setLiveRouteSource(null);
+      setRouteDeviationRefresh((value) => value + 1);
+    }
+  }, [isActive, providerRoutePoints, roadRoutePoints]);
+
   useEffect(() => {
     if (!acceptedMapMode || !request || !acceptedMapRef.current) return;
     const fitKey = `${request.id}:${request.status}`;
