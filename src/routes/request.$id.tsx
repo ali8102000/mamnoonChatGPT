@@ -742,8 +742,8 @@ function RequestDetail() {
 
         {myRole === "customer" && req.status === "cancelled" && req.payment_method === "zaincash" && (
           <div className="glass rounded-2xl border border-amber-500/30 p-4 space-y-2">
-            <div className="font-black text-sm">طلب الاسترداد قيد المراجعة</div>
-            <p className="text-xs text-muted-foreground">تم تسجيل إلغاء الطلب المدفوع بزين كاش. المبلغ لم يُسترد بعد، ولن يتم تحويله تلقائياً. ستراجع الإدارة الطلب وتبلغك بالقرار.</p>
+            <div className="font-black text-sm">متابعة إلغاء واسترداد زين كاش</div>
+            <p className="text-xs text-muted-foreground">تم تسجيل إلغاء الطلب المدفوع بزين كاش. ستصلك إشعارات عند صدور قرار الإدارة أو تسجيل إعادة المبلغ. لم يتم أي تحويل تلقائي.</p>
             <a href={"/support-chat?requestId=" + encodeURIComponent(req.id)} className="inline-flex rounded-xl bg-primary px-4 py-2.5 text-xs font-black text-primary-foreground">مراسلة شركة ممنون بخصوص هذا الطلب</a>
           </div>
         )}
