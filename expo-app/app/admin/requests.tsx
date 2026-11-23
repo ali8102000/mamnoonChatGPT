@@ -175,6 +175,15 @@ export default function AdminRequestsScreen() {
             {(detail.route_points || []).slice(-20).map((point:any,index:number)=><Info key={point.id || index} label={new Date(point.recorded_at).toLocaleString("ar-IQ")} value={point.lat + ", " + point.lng}/>)}
           </View>
           <View style={s.detailSection}>
+            <Text style={s.name}>التقييمات المرتبطة ({detail.ratings?.length || 0})</Text>
+            {(detail.ratings || []).map((rating:any) => <View key={rating.id} style={s.reportRow}>
+              <Text style={s.personName}>التقييم العام: {Number(rating.stars || 0)}/5 ★</Text>
+              <Text style={s.muted}>الاحترافية: {rating.professionalism ?? "—"}/5 · الالتزام: {rating.punctuality ?? "—"}/5 · الجودة: {rating.quality ?? "—"}/5</Text>
+              {!!rating.reasons?.length && <Text style={s.muted}>الاختيارات: {rating.reasons.join("، ")}</Text>}
+              {!!rating.comment && <Text style={s.muted}>{rating.comment}</Text>}
+            </View>)}
+          </View>
+          <View style={s.detailSection}>
             <Text style={s.name}>البلاغات المرتبطة ({detail.reports?.length || 0})</Text>
             {(detail.reports || []).map((report:any)=><View key={report.id} style={s.reportRow}>
               <Text style={s.personName}>{report.reason} · {report.status}</Text>
