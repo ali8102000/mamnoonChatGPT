@@ -23,7 +23,7 @@ RETURNS TABLE(
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $function$
   WITH origin AS (
     SELECT extensions.st_setsrid(
