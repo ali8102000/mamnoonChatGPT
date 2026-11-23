@@ -9,7 +9,7 @@ import { Tajawal_500Medium } from "@expo-google-fonts/tajawal/500Medium";
 import { Tajawal_700Bold } from "@expo-google-fonts/tajawal/700Bold";
 import { Tajawal_800ExtraBold } from "@expo-google-fonts/tajawal/800ExtraBold";
 import { Tajawal_900Black } from "@expo-google-fonts/tajawal/900Black";
-import { Alert, I18nManager, LogBox, Platform } from "react-native";
+import { Alert, AppState, I18nManager, LogBox, Platform } from "react-native";
 import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
@@ -65,7 +65,10 @@ function PushNotificationSetup() {
     if (!user) return;
     const userId = user.id;
     let active = true;
+    let registering = false;
     async function registerPushToken() {
+      if (registering || !active) return;
+      registering = true;
       try {
         if (Platform.OS === "android") {
           await configureAndroidNotificationChannels();
@@ -110,6 +113,7 @@ function PushNotificationSetup() {
         }
         if (saveResult.error) console.warn("[notifications] Could not save push token:", saveResult.error.message);
       } catch (error) { console.warn("[notifications] Push registration unavailable:", error); }
+      finally { registering = false; }
     }
     async function openRequestFromResponse(response: Notifications.NotificationResponse | null) {
       if (!response) return;
@@ -141,9 +145,15 @@ function PushNotificationSetup() {
       .then((response) => { if (active) return openRequestFromResponse(response); })
       .catch((error) => console.warn("[notifications] Could not read notification response:", error));
     void registerPushToken();
+    // Refresh the Expo token and sync per-device preferences whenever Android
+    // returns to foreground (tokens can rotate while the app is not running).
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void registerPushToken();
+    });
     return () => {
       active = false;
       responseSubscription?.remove();
+      appStateSubscription.remove();
     };
   }, [user?.id]);
   return null;
