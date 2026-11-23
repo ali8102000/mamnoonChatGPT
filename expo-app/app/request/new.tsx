@@ -698,7 +698,8 @@ export default function NewRequest() {
         if (confirmDestinationPendingRef.current) {
           confirmDestinationPendingRef.current = false;
         setConfirmDestinationPending(false);
-          setDestinationConfirmed(true);
+          destinationBackArmedRef.current = false;
+        setDestinationConfirmed(true);
         }
       } catch (error) {
         if (!active) return;
@@ -1032,6 +1033,7 @@ export default function NewRequest() {
       const governorateKey = await resolveGovernorate(pickupCoords);
       setPickupGovernorateKey(governorateKey);
       if (isLargeVehicle) {
+        destinationBackArmedRef.current = false;
         setDestinationConfirmed(true);
         return;
       }
@@ -1073,7 +1075,8 @@ export default function NewRequest() {
     confirmDestinationPendingRef.current = false;
         setConfirmDestinationPending(false);
     destinationBackArmedRef.current = false;
-    setDestinationConfirmed(true);
+    destinationBackArmedRef.current = false;
+        setDestinationConfirmed(true);
   }
 
   async function submit(skipActiveRequestPrompt = false) {
@@ -1812,7 +1815,7 @@ export default function NewRequest() {
       <View style={styles.mapModeRow}>
         <TouchableOpacity
           style={[styles.mapModeButton, mapMode === "pickup" && styles.mapModeButtonActive]}
-          onPress={() => { setMapMode("pickup"); setPlaceQuery(""); setPlaceSuggestions([]); }}
+          onPress={() => { destinationBackArmedRef.current = false; setMapMode("pickup"); setPlaceQuery(""); setPlaceSuggestions([]); }}
         >
           <Text style={[styles.mapModeText, mapMode === "pickup" && styles.mapModeTextActive]}>
             نقطة الانطلاق
@@ -1821,7 +1824,7 @@ export default function NewRequest() {
         {isTaxi && !isLargeVehicle && (
           <TouchableOpacity
             style={[styles.mapModeButton, mapMode === "destination" && styles.mapModeButtonActive]}
-            onPress={() => { setMapMode("destination"); setPlaceQuery(""); setPlaceSuggestions([]); }}
+            onPress={() => { destinationBackArmedRef.current = false; setMapMode("destination"); setPlaceQuery(""); setPlaceSuggestions([]); }}
           >
             <Text
               style={[styles.mapModeText, mapMode === "destination" && styles.mapModeTextActive]}
