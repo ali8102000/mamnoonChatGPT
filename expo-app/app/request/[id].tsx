@@ -425,7 +425,7 @@ export default function RequestDetail() {
     }
     let requestCode: string | null = null;
     if (data?.id) {
-      const { data: codeRow } = await supabase.from("service_requests").select("request_code").eq("id", id).maybeSingle();
+      const { data: codeRow } = await (supabase as any).from("service_requests").select("request_code").eq("id", id).maybeSingle();
       requestCode = (codeRow as any)?.request_code ?? null;
     }
     setRequest(data ? ({ ...data, request_code: requestCode } as RequestRecord) : null);
