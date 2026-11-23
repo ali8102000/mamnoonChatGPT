@@ -296,14 +296,22 @@ BEGIN
     );
 
     INSERT INTO public.notifications(user_id, type, title, body, link, data)
-    SELECT DISTINCT ur.user_id,
+    SELECT DISTINCT eligible.user_id,
       'zaincash_refund_review',
       'طلب إلغاء واسترداد يحتاج مراجعة',
       'طلب مدفوع بزين كاش أُلغي من الزبون · ' || coalesce(NEW.request_code, NEW.id::text),
       '/admin',
       jsonb_build_object('request_id', NEW.id, 'request_code', NEW.request_code, 'refund_case_id', v_case_id)
-    FROM public.user_roles ur
-    WHERE ur.role::text IN ('super_admin','admin','finance','support');
+    FROM (
+      SELECT ur.user_id
+      FROM public.user_roles ur
+      WHERE ur.role::text IN ('super_admin','admin','finance','support')
+      UNION
+      SELECT sa.user_id
+      FROM public.staff_assignments sa
+      WHERE sa.active = true
+        AND (sa.department IN ('finance','customer_service') OR sa.rank = 'general_manager')
+    ) AS eligible;
 
   END LOOP;
 
