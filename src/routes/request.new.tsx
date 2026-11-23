@@ -480,6 +480,9 @@ function NewRequest() {
     };
     const channel = supabase.channel(`taxi-live-pricing-${govKey}-${Date.now()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: `governorate_key=eq.${govKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls", filter: `governorate_key=eq.${govKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls", filter: "governorate_key=eq.all" }, refresh)
+
       .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: "governorate_key=eq.all" }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "pricing_settings", filter: `governorate_key=eq.${govKey}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "pricing_settings", filter: "governorate_key=eq.all" }, refresh)
