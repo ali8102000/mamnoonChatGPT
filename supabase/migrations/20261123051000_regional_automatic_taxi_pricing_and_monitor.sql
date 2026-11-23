@@ -326,11 +326,11 @@ BEGIN
   v_peak_percent := CASE WHEN COALESCE(v_peak_enabled,false)
     THEN greatest(0,least(200,COALESCE(v_peak_percent,0))) ELSE 0 END;
 
-  SELECT COALESCE(regional_surcharge_percent,0)
+  SELECT regional_surcharge_percent
     INTO v_regional_percent
   FROM public.regional_service_controls
   WHERE governorate_key = p_governorate_key;
-  IF NOT FOUND THEN
+  IF NOT FOUND OR v_regional_percent IS NULL THEN
     SELECT COALESCE(regional_surcharge_percent,0)
       INTO v_regional_percent
     FROM public.regional_service_controls
