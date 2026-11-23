@@ -28,6 +28,7 @@ export function ProviderPresence() {
 
     async function send(force = false) {
       if (stopped || !last) return;
+      if (!Number.isFinite(last.coords.accuracy) || last.coords.accuracy > 100) return;
       if (!force && Date.now() - lastSent < SEND_EVERY_MS) return;
       if (!(await isAvailable())) return;
       lastSent = Date.now();
@@ -36,6 +37,8 @@ export function ProviderPresence() {
         lat: last.coords.latitude,
         lng: last.coords.longitude,
         heading: last.coords.heading ?? null,
+        accuracy_m: last.coords.accuracy,
+        speed_mps: Number.isFinite(last.coords.speed) && last.coords.speed >= 0 ? last.coords.speed : null,
       });
     }
 
