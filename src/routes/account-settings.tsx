@@ -1,11 +1,11 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ArrowLeftRight, UserRound, CarFront, Wrench, Mail, Phone, ShieldCheck, Truck } from "lucide-react";
+import { ArrowRight, ArrowLeftRight, UserRound, CarFront, Wrench, Mail, Phone, ShieldCheck, Truck, MapPin, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/account-settings")({ ssr: false, component: AccountSettingsPage });
 
@@ -29,6 +29,13 @@ function AccountSettingsPage() {
   const [partnerCity, setPartnerCity] = useState("");
   const [partnerAddress, setPartnerAddress] = useState("");
   const [partnerDescription, setPartnerDescription] = useState("");
+  const [partnerLicenseNumber, setPartnerLicenseNumber] = useState("");
+  const [partnerLicenseFile, setPartnerLicenseFile] = useState<File | null>(null);
+  const [partnerIdFrontFile, setPartnerIdFrontFile] = useState<File | null>(null);
+  const [partnerIdBackFile, setPartnerIdBackFile] = useState<File | null>(null);
+  const [partnerLat, setPartnerLat] = useState(33.3152);
+  const [partnerLng, setPartnerLng] = useState(44.3661);
+  const partnerMapRef = useRef<HTMLDivElement>(null);
   const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [partnerBusy, setPartnerBusy] = useState(false);
   const governorateLabels: Record<string,string> = {baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
@@ -44,7 +51,7 @@ function AccountSettingsPage() {
   async function loadPartnerApplications() {
     if (!session?.user.id) return;
     const { data, error } = await (supabase as any).from("partner_applications")
-      .select("id,partner_type,business_name,status,admin_note,created_at")
+      .select("id,partner_type,business_name,status,admin_note,created_at,license_number,business_latitude,business_longitude")
       .eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(10);
     if (error) { console.warn("[partner-applications] load failed:", error.message); return; }
     setPartnerApplications(data ?? []);
