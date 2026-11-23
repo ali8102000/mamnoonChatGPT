@@ -103,8 +103,73 @@ begin
         last_calculated_at=now()
     where category_key=v.category_key;
   end loop;
+
+  -- Taxi demand is monitored separately for each supported vehicle class.
+  for v in
+    select category_key,min_surcharge_percent,max_surcharge_percent,mode,enabled
+    from public.category_peak_pricing_settings
+    where category_key in ('taxi:economy','taxi:premium','taxi:luxury')
+  loop
+    select count(distinct dp.user_id)::integer into v_observed
+    from public.driver_profiles dp
+    join public.provider_presence pp on pp.user_id=dp.user_id
+    where dp.vehicle_category::text=split_part(v.category_key,':',2)
+      and dp.status='approved'
+      and (dp.suspended_until is null or dp.suspended_until<=now())
+      and pp.updated_at>now()-interval '5 minutes'
+      and pp.accuracy_m is not null and pp.accuracy_m<=100;
+
+    select count(distinct dp.user_id)::integer into v_active
+    from public.driver_profiles dp
+    join public.provider_presence pp on pp.user_id=dp.user_id
+    where dp.vehicle_category::text=split_part(v.category_key,':',2)
+      and dp.status='approved' and dp.available=true
+      and (dp.suspended_until is null or dp.suspended_until<=now())
+      and pp.updated_at>now()-interval '5 minutes'
+      and pp.accuracy_m is not null and pp.accuracy_m<=100
+      and not exists (
+        select 1 from public.service_requests active
+        where active.provider_id=dp.user_id and active.status in ('accepted','in_progress')
+      );
+
+    select count(*)::integer into v_pending
+    from public.service_requests sr
+    where sr.type::text='taxi'
+      and sr.vehicle_category::text=split_part(v.category_key,':',2)
+      and sr.status::text in ('pending','searching')
+      and sr.created_at>now()-interval '20 minutes';
+
+    v_ratio := coalesce(v_pending,0)::numeric / greatest(coalesce(v_active,0),1);
+    v_span := greatest(0,v.max_surcharge_percent-v.min_surcharge_percent);
+    v_percent := 0;
+    v_reason := 'الطلب ضمن الطاقة المتاحة؛ لا توجد زيادة حالياً';
+    if not coalesce(v.enabled,false) or v.mode<>'auto' then
+      v_reason := 'الفئة غير مفعّلة على الوضع التلقائي من الإدارة';
+    elsif coalesce(v_observed,0)=0 then
+      v_reason := 'بيانات GPS غير متوفرة أو قديمة؛ أُوقفت الزيادة للحماية';
+    elsif coalesce(v_pending,0)=0 or v_ratio<0.5 then
+      v_reason := 'عدد السائقين المتاحين كافٍ مقارنة بالطلبات';
+    elsif v_ratio<1 then
+      v_percent := v.min_surcharge_percent;
+      v_reason := 'ضغط طلب محدود؛ تطبيق الحد الأدنى المسموح';
+    elsif v_ratio<2 then
+      v_percent := v.min_surcharge_percent+(v_span*(v_ratio-1));
+      v_reason := 'الطلب أعلى من التوفر؛ زيادة متدرجة حسب الضغط';
+    else
+      v_percent := v.max_surcharge_percent;
+      v_reason := 'ضغط طلب مرتفع؛ الوصول إلى الحد الأعلى المسموح';
+    end if;
+    update public.category_peak_pricing_settings
+    set auto_calculated_percent=round(greatest(0,least(max_surcharge_percent,v_percent)),2),
+        active_providers=coalesce(v_active,0),
+        observed_providers=coalesce(v_observed,0),
+        pending_requests=coalesce(v_pending,0),
+        demand_per_provider=round(v_ratio,3),
+        last_reason=v_reason,last_calculated_at=now()
+    where category_key=v.category_key;
+  end loop;
 end;
-$$;
+$;
 
 revoke all on function public.refresh_category_peak_pricing_monitor() from public,anon,authenticated;
 grant execute on function public.refresh_category_peak_pricing_monitor() to service_role;
