@@ -106,6 +106,13 @@ export default function AdminTaxiPricingControls() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
+    const channel = supabase.channel(`taxi-pricing-admin-${governorateKey}-${Date.now()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls" }, () => { void load(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [governorateKey, load]);
+
+  useEffect(() => {
     setRegional(rows.find((row) => row.governorate_key === governorateKey) ?? { ...DEFAULT, governorate_key: governorateKey });
   }, [rows, governorateKey]);
 
