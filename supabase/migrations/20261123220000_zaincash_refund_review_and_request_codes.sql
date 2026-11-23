@@ -141,6 +141,11 @@ CREATE POLICY "Customer or staff link own support requests"
           (c.user_id = (SELECT auth.uid()) AND r.customer_id = (SELECT auth.uid()))
           OR (public.has_staff_role((SELECT auth.uid())))
         )
+        AND (
+          linked_by IS NULL
+          OR linked_by = (SELECT auth.uid())
+          OR public.has_staff_role((SELECT auth.uid()))
+        )
     )
   );
 
