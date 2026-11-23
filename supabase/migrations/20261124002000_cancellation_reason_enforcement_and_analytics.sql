@@ -156,7 +156,7 @@ begin
 
   select count(*) into v_total
   from public.service_requests
-  where status = 'cancelled'
+  where cancelled_by is not null
     and cancellation_reason is not null
     and cancellation_reason <> 'dispatch_no_provider';
 
@@ -172,7 +172,7 @@ begin
     case when v_total = 0 then 0::numeric
       else round(count(*)::numeric * 100 / v_total, 2) end as percentage
   from public.service_requests sr
-  where sr.status = 'cancelled'
+  where sr.cancelled_by is not null
     and sr.cancellation_reason is not null
     and sr.cancellation_reason <> 'dispatch_no_provider'
   group by 1, 2
