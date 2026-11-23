@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
   const categoryPeakMinimum=Math.max(0,Number(categoryPeak.min_surcharge_percent)||0);
   const categoryPeakMaximum=Math.max(categoryPeakMinimum,Number(categoryPeak.max_surcharge_percent)||0);
   const calculatedCategoryPercent=Number(categoryPeak.auto_calculated_percent);
-  const autoPercent=categoryPeakEnabled&&peakDataFresh&&Number.isFinite(calculatedCategoryPercent)
+  const autoPercent=categoryPeakEnabled&&peakDataFresh&&Number.isFinite(calculatedCategoryPercent)&&calculatedCategoryPercent>0
     ? Math.max(categoryPeakMinimum,Math.min(categoryPeakMaximum,calculatedCategoryPercent))
     : 0;
   const routed = {
