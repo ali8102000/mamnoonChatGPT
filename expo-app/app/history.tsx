@@ -197,7 +197,7 @@ export default function HistoryScreen() {
                 <Text style={styles.cardType}>{req.type === "taxi" ? "🚕 رحلة تكسي" : `🔧 ${req.type}`}</Text>
                 <Text style={styles.tripCode}>رقم الرحلة: {req.request_code || req.id.slice(0, 8).toUpperCase()}</Text>
                 {!!req.pickup_text && <Text style={styles.cardDate} numberOfLines={1}>من: {req.pickup_text}</Text>}
-                {!!req.dest_text && <Text style={styles.cardDate} numberOfLines={1}>إلى: {req.dest_text}</Text>
+                {!!req.dest_text && <Text style={styles.cardDate} numberOfLines={1}>إلى: {req.dest_text}</Text>}
                 <Text style={styles.cardDate}>{new Date(req.created_at).toLocaleDateString("ar-IQ")}</Text>
                 {req.price_estimate && (
                   <Text style={styles.cardPrice}>
