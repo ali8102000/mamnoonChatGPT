@@ -987,8 +987,8 @@ export default function RequestDetail() {
       // update to perform the full two-point fit exactly once.
       acceptedMapRef.current.animateToRegion({
         ...coordinates[0],
-        latitudeDelta: 0.018,
-        longitudeDelta: 0.018,
+        latitudeDelta: 0.009,
+        longitudeDelta: 0.009,
       }, 450);
       acceptedMapFitKeyRef.current = singlePointFitKey;
     }
@@ -1783,8 +1783,8 @@ export default function RequestDetail() {
                 initialRegion={{
                   latitude: request.pickup_lat ?? (isProvider ? otherLocation?.latitude : myLocation?.latitude) ?? myLocation?.latitude ?? 33.3152,
                   longitude: request.pickup_lng ?? (isProvider ? otherLocation?.longitude : myLocation?.longitude) ?? myLocation?.longitude ?? 44.3661,
-                  latitudeDelta: 0.018,
-                  longitudeDelta: 0.018,
+                  latitudeDelta: 0.009,
+                  longitudeDelta: 0.009,
                 }}
                 showsUserLocation={request.type !== "taxi"}
               >
