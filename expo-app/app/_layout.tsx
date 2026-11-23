@@ -36,7 +36,7 @@ Notifications.setNotificationHandler({
       return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: preferences.soundEnabled, shouldSetBadge: true };
     } catch (error) {
       console.warn("[notifications] Preference load failed; using defaults:", error);
-      return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: true };
+      return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: true };
     }
   },
 });
@@ -45,10 +45,10 @@ async function configureAndroidNotificationChannels() {
   if (Platform.OS !== "android") return;
   const common = { importance: Notifications.AndroidImportance.MAX, lightColor: "#D4AF37", enableLights: true };
   const results = await Promise.allSettled([
-    Notifications.setNotificationChannelAsync("mamnoon_sound_vibrate", { ...common, name: "ممنون - صوت واهتزاز", sound: "default", enableVibrate: true, vibrationPattern: [0, 250, 180, 250, 180, 350] }),
-    Notifications.setNotificationChannelAsync("mamnoon_sound_only", { ...common, name: "ممنون - صوت فقط", sound: "default", enableVibrate: false, vibrationPattern: [] }),
-    Notifications.setNotificationChannelAsync("mamnoon_vibrate_only", { ...common, name: "ممنون - اهتزاز فقط", sound: null, enableVibrate: true, vibrationPattern: [0, 250, 180, 250, 180, 350] }),
-    Notifications.setNotificationChannelAsync("mamnoon_silent", { ...common, name: "ممنون - صامت", sound: null, enableVibrate: false, vibrationPattern: [] }),
+    Notifications.setNotificationChannelAsync("mamnoon_v2_sound_vibrate", { ...common, name: "ممنون - صوت واهتزاز", sound: "default", enableVibrate: true, vibrationPattern: [0, 250, 180, 250, 180, 350] }),
+    Notifications.setNotificationChannelAsync("mamnoon_v2_sound_only", { ...common, name: "ممنون - صوت فقط", sound: "default", enableVibrate: false, vibrationPattern: [] }),
+    Notifications.setNotificationChannelAsync("mamnoon_v2_vibrate_only", { ...common, name: "ممنون - اهتزاز فقط", sound: null, enableVibrate: true, vibrationPattern: [0, 250, 180, 250, 180, 350] }),
+    Notifications.setNotificationChannelAsync("mamnoon_v2_silent", { ...common, name: "ممنون - صامت", sound: null, enableVibrate: false, vibrationPattern: [] }),
   ]);
   results.forEach((result, index) => {
     if (result.status === "rejected") console.warn("[notifications] Channel setup failed:", index, result.reason);
@@ -70,8 +70,6 @@ function PushNotificationSetup() {
         if (Platform.OS === "android") {
           await configureAndroidNotificationChannels();
           await Notifications.setNotificationCategoryAsync("incoming_request", [{ identifier: "accept", buttonTitle: "موافقة", options: { opensAppToForeground: true } }]);
-          await Notifications.setNotificationChannelAsync("default", { name: "إشعارات ممنون", importance: Notifications.AndroidImportance.MAX, vibrationPattern: [0, 250, 250, 250], lightColor: "#D4AF37", sound: "default" });
-          await Notifications.setNotificationChannelAsync("silent", { name: "إشعارات ممنون الصامتة", importance: Notifications.AndroidImportance.MAX, vibrationPattern: [], enableVibrate: false, enableLights: false, sound: null });
         }
         const current = await Notifications.getPermissionsAsync();
         const permission = current.granted ? current : await Notifications.requestPermissionsAsync();
