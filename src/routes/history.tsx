@@ -60,7 +60,23 @@ function HistoryPage() {
       if (membershipError) console.warn("[history] Team membership history unavailable:", membershipError.message);
       const merged = new Map<string, any>();
       [...(directRows ?? []), ...teamRows].forEach((row) => merged.set(row.id, row));
-      const rows = [...merged.values()].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+      const baseRows = [...merged.values()].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+      const otherIds = [...new Set<string>(baseRows.map((row: any) =>
+        String(row.customer_id === session.user.id ? row.provider_id : row.customer_id || ""),
+      ).filter(Boolean))];
+      const { data: profiles } = otherIds.length
+        ? await supabase.from("profiles").select("id,avatar_url").in("id", otherIds)
+        : { data: [] };
+      const avatarById = new Map((profiles ?? []).map((profile: any) => [profile.id, profile.avatar_url]));
+      const rows = await Promise.all(baseRows.map(async (row: any) => {
+        let workPhotoUrl: string | null = null;
+        if (row.attachment_path) {
+          const { data: signed } = await supabase.storage.from("request-attachments").createSignedUrl(row.attachment_path, 1800);
+          workPhotoUrl = signed?.signedUrl ?? null;
+        }
+        const otherId = row.customer_id === session.user.id ? row.provider_id : row.customer_id;
+        return { ...row, workPhotoUrl, personAvatarUrl: otherId ? avatarById.get(otherId) ?? null : null };
+      }));
       if (active) setItems(rows);
     };
     void loadHistory();
@@ -116,8 +132,9 @@ function HistoryPage() {
                 params={{ id: r.id }}
                 className="glass rounded-2xl p-4 flex items-center gap-3 btn-press"
               >
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-lg">
-                  {r.type === "taxi" ? "🚕" : "🛠️"}
+                <div className="flex w-14 shrink-0 flex-col items-center gap-1">
+                  {r.personAvatarUrl ? <img src={r.personAvatarUrl} alt="صورة الشخص" className="h-9 w-9 rounded-full object-cover" /> : <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10">👤</div>}
+                  {r.workPhotoUrl ? <img src={r.workPhotoUrl} alt="صورة العمل" className="h-10 w-14 rounded-lg object-cover" /> : <div className="grid h-10 w-14 place-items-center rounded-lg bg-surface-2 text-[9px] text-muted-foreground">صورة العمل</div>}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm truncate">{r.type === "taxi" ? "رحلة تكسي" : "خدمة منزلية"}</div>
