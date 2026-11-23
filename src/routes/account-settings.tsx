@@ -51,8 +51,24 @@ function AccountSettingsPage() {
   useEffect(() => {
     if (!partnerFormOpen || !partnerMapRef.current) return;
     const key = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-    if (!key) return;
     let active = true;
+    const initializeLeaflet = () => {
+      const L = (window as any).L;
+      if (!active || !partnerMapRef.current || !L) return;
+      const center: [number, number] = [partnerLat, partnerLng];
+      const map = L.map(partnerMapRef.current, { scrollWheelZoom: true }).setView(center, 16);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
+      const marker = L.marker(center, { draggable: true }).addTo(map);
+      map.on("click", (event: any) => { marker.setLatLng(event.latlng); setPartnerLat(event.latlng.lat); setPartnerLng(event.latlng.lng); });
+      marker.on("dragend", () => { const point = marker.getLatLng(); setPartnerLat(point.lat); setPartnerLng(point.lng); });
+    };
+    if (!key) {
+      if (!(window as any).L) {
+        if (!document.getElementById("mamnoon-leaflet-css")) { const link = document.createElement("link"); link.id = "mamnoon-leaflet-css"; link.rel = "stylesheet"; link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(link); }
+        const script = document.createElement("script"); script.id = "mamnoon-leaflet-js"; script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; script.onload = initializeLeaflet; document.head.appendChild(script);
+      } else initializeLeaflet();
+      return () => { active = false; };
+    }
     const initialize = () => {
       if (!active || !partnerMapRef.current || !window.google?.maps) return;
       const center = { lat: partnerLat, lng: partnerLng };
