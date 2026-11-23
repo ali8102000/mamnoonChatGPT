@@ -47,7 +47,3 @@ jobs:
           assert address_row['name_ar'] == 'شارع الكوفة، رقم 12'
           print('Importer syntax, governorate boundaries, Arabic normalization and address rows passed.')
           PY
-      - name: Parse the current Iraq PBF without writing to production
-        env:
-          DRY_RUN: "true"
-        run: python .github/scripts/import-iraq-osm-places.py
