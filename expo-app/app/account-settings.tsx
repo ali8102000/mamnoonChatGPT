@@ -106,7 +106,7 @@ export default function AccountSettingsScreen() {
   async function loadPartnerApplications() {
     if (!user?.id) return;
     const { data, error } = await (supabase as any).from("partner_applications")
-      .select("id,partner_type,business_name,status,admin_note,created_at")
+      .select("id,partner_type,business_name,status,admin_note,created_at,license_number,business_latitude,business_longitude")
       .eq("user_id", user.id).order("created_at", { ascending: false }).limit(10);
     if (error) { console.warn("[partner-applications] load failed:", error.message); return; }
     setPartnerApplications(data ?? []);
@@ -415,7 +415,8 @@ export default function AccountSettingsScreen() {
           <Text style={styles.partnerLabel}>نبذة عن المنشأة (اختياري)</Text><RealInput value={partnerDescription} onChangeText={setPartnerDescription} placeholder="الخدمات أو المنتجات" />
           <Button title={partnerBusy ? "جارٍ إرسال الطلب..." : "إرسال طلب الشراكة"} onPress={submitPartnerApplication} loading={partnerBusy} />
         </View>}
-        {partnerApplications.length>0 && <View style={{marginTop:12,gap:8}}><Text style={styles.partnerLabel}>طلبات الشراكة السابقة</Text>{partnerApplications.map(item=><View key={item.id} style={styles.partnerApplicationCard}><Text style={styles.partnerApplicationName}>{item.business_name}</Text><Text style={styles.partnerApplicationStatus}>{item.status==="approved"?"تمت الموافقة":item.status==="suspended"?"موقوف من الإدارة":item.status==="rejected"?"مرفوض":"قيد المراجعة"} · {({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]}</Text>{item.admin_note?<Text style={styles.note}>ملاحظة الإدارة: {item.admin_note}</Text>:null}</View>)}</View>}
+        {partnerApplications.length>0 && <View style={{marginTop:12,gap:8}}><Text style={styles.partnerLabel}>طلبات الشراكة السابقة</Text>{partnerApplications.map(item=><View key={item.id} style={styles.partnerApplicationCard}><Text style={styles.partnerApplicationName}>{item.business_name}</Text><Text style={styles.partnerApplicationStatus}>{item.status==="approved"?"تمت الموافقة":item.status==="suspended"?"موقوف من الإدارة":item.status==="rejected"?"مرفوض":"قيد المراجعة"} · {({hotel:"فندق",restaurant:"مطعم",store:"محل",mall:"مول"} as Record<string,string>)[item.partner_type]}</Text>
+<Text style={styles.note}>رقم الإجازة: {item.license_number||"قيد المراجعة أو غير مرفق"} · {item.business_latitude!=null&&item.business_longitude!=null?"تم حفظ دبوس الموقع":"لا يوجد دبوس موقع محفوظ"}</Text>{item.admin_note?<Text style={styles.note}>ملاحظة الإدارة: {item.admin_note}</Text>:null}</View>)}</View>}
         {partnerApplications.some(item=>item.status==="approved" && ["store","restaurant"].includes(item.partner_type)) && <TouchableOpacity activeOpacity={0.85} onPress={()=>router.push("/partner/dashboard")} style={styles.partnerJoinButton}><Text style={styles.partnerJoinButtonText}>إعدادات أعمالي</Text></TouchableOpacity>}
       </View>
       <Text style={styles.note}>كل خيارات الانضمام مجمّعة هنا. بعد إكمال بياناتك ومستنداتك تراجع الإدارة طلبك.</Text>
