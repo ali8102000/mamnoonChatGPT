@@ -40,6 +40,7 @@ const DEFAULT: TaxiControl = {
 
 export default function AdminTaxiPricingControls() {
   const [rows, setRows] = useState<TaxiControl[]>([]);
+  const [autoRows, setAutoRows] = useState<TaxiControl[]>([]);
   const [tariffs, setTariffs] = useState<TaxiTariff[]>([]);
   const [canTariff, setCanTariff] = useState(false);
   const [canGlobalPeak, setCanGlobalPeak] = useState(false);
@@ -53,18 +54,34 @@ export default function AdminTaxiPricingControls() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from("taxi_pricing_controls")
-      .select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent,auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent,auto_demand_percent,auto_active_drivers,auto_pending_requests,auto_updated_at")
-      .order("governorate_key");
-    if (error) {
-      toast.error("تعذّر تحميل إعدادات تسعير التاكسي: " + error.message);
+    const [manualResult, autoResult] = await Promise.all([
+      (supabase as any).from("taxi_pricing_controls")
+        .select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent")
+        .order("governorate_key"),
+      (supabase as any).from("taxi_pricing_auto_controls")
+        .select("governorate_key,auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent,auto_demand_percent,auto_active_drivers,auto_pending_requests,auto_updated_at")
+        .order("governorate_key"),
+    ]);
+    if (manualResult.error || autoResult.error) {
+      toast.error("تعذّر تحميل إعدادات تسعير التاكسي: " + (manualResult.error?.message || autoResult.error?.message));
       setRows([]);
+      setAutoRows([]);
     } else {
-      const list = (data ?? []) as TaxiControl[];
+      const list = (manualResult.data ?? []) as TaxiControl[];
+      const automatic = (autoResult.data ?? []) as TaxiControl[];
       setRows(list);
-      setGlobal(list.find((row) => row.governorate_key === "all") ?? DEFAULT);
-      setRegional(list.find((row) => row.governorate_key === governorateKey) ?? { ...DEFAULT, governorate_key: governorateKey });
+      setAutoRows(automatic);
+      setGlobal({
+        ...DEFAULT,
+        ...(list.find((row) => row.governorate_key === "all") ?? {}),
+        ...(automatic.find((row) => row.governorate_key === "all") ?? {}),
+      });
+      setRegional({
+        ...DEFAULT,
+        ...(list.find((row) => row.governorate_key === governorateKey) ?? {}),
+        ...(automatic.find((row) => row.governorate_key === governorateKey) ?? {}),
+        governorate_key: governorateKey,
+      });
     }
     const scopeType = governorateKey === "all" ? "global" : "governorate";
     const scopeGovernorate = governorateKey === "all" ? null : governorateKey;
@@ -108,13 +125,19 @@ export default function AdminTaxiPricingControls() {
   useEffect(() => {
     const channel = supabase.channel(`taxi-pricing-admin-${governorateKey}-${Date.now()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls" }, () => { void load(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls" }, () => { void load(); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [governorateKey, load]);
 
   useEffect(() => {
-    setRegional(rows.find((row) => row.governorate_key === governorateKey) ?? { ...DEFAULT, governorate_key: governorateKey });
-  }, [rows, governorateKey]);
+    setRegional({
+      ...DEFAULT,
+      ...(rows.find((row) => row.governorate_key === governorateKey) ?? {}),
+      ...(autoRows.find((row) => row.governorate_key === governorateKey) ?? {}),
+      governorate_key: governorateKey,
+    });
+  }, [rows, autoRows, governorateKey]);
 
   async function saveGlobal() {
     if (!Number.isFinite(global.urgency_max_percent) || global.urgency_max_percent < 0 || global.urgency_max_percent > 100) {
