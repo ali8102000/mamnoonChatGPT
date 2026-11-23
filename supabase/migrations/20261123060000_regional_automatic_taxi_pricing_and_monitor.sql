@@ -39,7 +39,8 @@ DECLARE
   v_discount_cap numeric;
 BEGIN
   INSERT INTO public.taxi_pricing_controls(governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent)
-  VALUES ('all',false,0,false,10)
+  SELECT governorate_key,false,0,false,10 FROM public.governorate_boundaries
+  UNION ALL SELECT 'all',false,0,false,10
   ON CONFLICT (governorate_key) DO NOTHING;
 
   FOR v_key IN
@@ -96,6 +97,7 @@ BEGIN
 
     v_ratio := v_drivers::numeric / greatest(v_waiting,1);
     v_raw_percent := CASE
+      WHEN COALESCE(v_waiting,0)=0 THEN 0
       WHEN v_ratio >= 3 THEN -20
       WHEN v_ratio >= 2 THEN -10
       WHEN v_ratio >= 1.25 THEN 0
@@ -196,7 +198,7 @@ CREATE OR REPLACE FUNCTION public.calculate_taxi_quote_internal(
   p_trip_type text,
   p_extra_minutes integer,
   p_urgency_enabled boolean DEFAULT false,
-  p_auto_percent numeric DEFAULT 0
+  p_auto_percent numeric
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -477,6 +479,35 @@ BEGIN
   NEW.commission := 0;
   NEW.status := 'searching';
   NEW.searching_started_at := now();
+  RETURN NEW;
+END;
+$function$;
+
+-- Use the exact same server-side gate while returning the requested customer-facing notice.
+CREATE OR REPLACE FUNCTION public.guard_regional_service_request()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_detected_governorate text;
+BEGIN
+  IF public.is_platform_admin(auth.uid()) THEN RETURN NEW; END IF;
+  IF NEW.pickup_lat IS NULL OR NEW.pickup_lng IS NULL THEN
+    RAISE EXCEPTION USING ERRCODE='P0001',
+      MESSAGE='سنصل إليك قريباً. حدّد موقعك حتى نتحقق من توفر الخدمة في مدينتك.';
+  END IF;
+  v_detected_governorate := public.infer_governorate_key(NEW.pickup_lat,NEW.pickup_lng);
+  IF v_detected_governorate IS NULL THEN
+    RAISE EXCEPTION USING ERRCODE='P0001',
+      MESSAGE='سنصل إليك قريباً. لم نتمكن من تحديد مدينتك بدقة.';
+  END IF;
+  NEW.governorate_key := v_detected_governorate;
+  IF NOT public.regional_services_enabled(NEW.governorate_key) THEN
+    RAISE EXCEPTION USING ERRCODE='P0001',
+      MESSAGE='سنصل إليك قريباً. الخدمة غير متوفرة حالياً في مدينتك.';
+  END IF;
   RETURN NEW;
 END;
 $function$;
