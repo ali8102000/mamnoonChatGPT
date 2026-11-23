@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
-import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
-import { getNotificationChannelId, isNotificationSoundEnabled, isNotificationVibrationEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
+import { isNotificationSoundEnabled, isNotificationVibrationEnabled, loadNotificationPreferences, setNotificationPreferences } from "@/lib/notification-sound";
 
 const IMPORTANT_NOTIFICATION_TYPES = /^(support_message|provider_approved|provider_rejected|provider_suspended|coupon_received|coupon_redeemed|announcement|company_announcement|admin_alert|security_alert|account_verified|verification_approved|subscription_expiring|subscription_expired|subscription_granted|subscription_admin_updated|subscription_extended|urgent_request|mission_assigned|mission_reward_pending|mission_reward_approved|mission_reward_rejected)$/i;
 
@@ -68,29 +67,9 @@ export function NotificationsBell() {
     ]);
     if (!error) {
       const merged=[...(pendingGrant??[]),...(data??[])].filter((item:NotificationRow,i:number,all:NotificationRow[])=>all.findIndex(x=>x.id===item.id)===i).filter((item:NotificationRow)=>isImportantNotificationType(item.type));
-      // Detect newly arrived notifications during polling. The first fetch only
-      // seeds the cache so old notifications never generate duplicate alerts.
-      if (knownNotificationIds.current) {
-        const fresh = merged.filter((item: NotificationRow) => !knownNotificationIds.current?.has(item.id));
-        fresh.forEach((item: NotificationRow) => {
-          void Notifications.scheduleNotificationAsync({
-            content: {
-              title: item.title,
-              body: item.body ?? undefined,
-              sound: isNotificationSoundEnabled() ? "default" : false,
-              vibrate: isNotificationVibrationEnabled() ? [0, 250, 180, 250, 180, 350] : [],
-              data: { url: item.link ?? "/home" },
-            },
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-              seconds: 1,
-              channelId: getNotificationChannelId(),
-            },
-          }).catch((scheduleError) => console.warn("[notifications] local sound alert failed:", scheduleError));
-        });
-      }
-      knownNotificationIds.current = new Set(merged.map((item: NotificationRow) => item.id));
-      setItems(merged);
+      // Remote push is delivered by the server outbox while the app is backgrounded.
+      // Do not synthesize a second local alert from polling; it caused duplicate sounds.
+            setItems(merged);
       setFeatured(current=>current&&!current.read_at?current:merged.find((item:NotificationRow)=>!item.read_at&&(item.type==="subscription_granted"||item.type==="company_announcement"))??null);
     }
   }, [user?.id]);
@@ -103,8 +82,15 @@ export function NotificationsBell() {
     void load();
     // Poll on native Android to avoid Realtime callbacks racing with tab
     // unmounts and role switches. New rows still trigger local sound alerts.
-    const refresh = setInterval(() => { setNow(Date.now()); void load(); }, 20_000);
+    let currentState = AppState.currentState;
+    const refresh = setInterval(() => {
+      if (currentState === "active") {
+        setNow(Date.now());
+        void load();
+      }
+    }, 20_000);
     const appState = AppState.addEventListener("change", (state) => {
+      currentState = state;
       if (state === "active") { setNow(Date.now()); void load(); }
     });
     return () => { clearInterval(refresh); appState.remove(); };
