@@ -92,91 +92,43 @@ function plausibleRoadDistance(from: Point, to: Point, distanceKm: number) {
   return distanceKm >= directKm * 0.95 && distanceKm <= maximumPlausibleKm;
 }
 
-async function route(from:Point,to:Point,admin:any,includeGeometry=false) {
-  const osrmBase=Deno.env.get("OSRM_ROUTING_URL")?.trim().replace(/\/+$/,"")||"";
-  const cacheScope=osrmBase?new URL(osrmBase).host:"google-routes";
-  const cacheInput=["mamnoon-driving-route-v2",cacheScope,from.lat.toFixed(6),from.lng.toFixed(6),to.lat.toFixed(6),to.lng.toFixed(6)].join("|");
-  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(cacheInput));
-  const routeKey=Array.from(new Uint8Array(digest)).map((b)=>b.toString(16).padStart(2,"0")).join("");
-  const now=new Date().toISOString();
-  const {data:cached,error:cacheReadError}=await admin.from("route_distance_cache")
-    .select("distance_meters,duration_seconds,route_source")
-    .eq("route_key",routeKey).gt("expires_at",now).maybeSingle();
-  if(!includeGeometry&&!cacheReadError&&cached&&Number(cached.distance_meters)>0&&Number(cached.duration_seconds)>0&&
-     plausibleRoadDistance(from,to,Number(cached.distance_meters)/1000)) {
-    return {distanceKm:Number(cached.distance_meters)/1000,durationMin:Number(cached.duration_seconds)/60,
-      routeSource:String(cached.route_source),cacheHit:true};
+async function route(from:Point,to:Point,admin:any) {
+  const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
+  if(!key) throw new Error("سنصل إليك قريباً. خدمة التحقق من الطريق والازدحام غير متاحة حالياً.");
+  // Do not use the 24-hour distance cache for a fare quote: it cannot prove
+  // that the road is still open or reflect current traffic.
+  const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
+      "X-Goog-FieldMask":"routes.distanceMeters,routes.duration,routes.staticDuration"},
+    body:JSON.stringify({
+      origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
+      destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
+      travelMode:"DRIVE",routingPreference:"TRAFFIC_AWARE_OPTIMAL",
+      departureTime:new Date().toISOString(),computeAlternativeRoutes:false,
+      languageCode:"ar",units:"METRIC"
+    }),
+    signal:AbortSignal.timeout(12000)
+  });
+  if(!response.ok) throw new Error("سنصل إليك قريباً. تعذّر التحقق من حالة الطريق والازدحام حالياً.");
+  const result=await response.json() as any;
+  const selected=(result.routes??[]).find((r:any)=>
+    Number.isFinite(r.distanceMeters)&&r.distanceMeters>0&&
+    typeof r.duration==="string"&&/^\\d+(\\.\\d+)?s$/.test(r.duration)&&parseFloat(r.duration)>0&&
+    typeof r.staticDuration==="string"&&/^\\d+(\\.\\d+)?s$/.test(r.staticDuration)&&parseFloat(r.staticDuration)>0);
+  if(!selected) throw new Error("سنصل إليك قريباً. لم نعثر على طريق سيارة صالح ومؤكد بين الموقعين.");
+  const distanceKm=Number(selected.distanceMeters)/1000;
+  const durationMin=parseFloat(selected.duration)/60;
+  const staticDurationMin=parseFloat(selected.staticDuration)/60;
+  if(!plausibleRoadDistance(from,to,distanceKm)||!Number.isFinite(durationMin)||durationMin<=0||
+     !Number.isFinite(staticDurationMin)||staticDurationMin<=0) {
+    throw new Error("سنصل إليك قريباً. بيانات الطريق أو المسافة غير متطابقة، لذلك لم نعرض سعراً.");
   }
-  if(cacheReadError) console.warn("[route] cache read unavailable",cacheReadError.code||"unknown");
-
-  let routed:{distanceKm:number;durationMin:number;routeSource:string;routePoints?:Point[]}|null=null;
-  if(osrmBase) {
-    try {
-      const url=new URL(osrmBase+"/route/v1/driving/"+from.lng+","+from.lat+";"+to.lng+","+to.lat);
-      url.searchParams.set("overview",includeGeometry?"full":"false");
-      url.searchParams.set("geometries","geojson");
-      url.searchParams.set("alternatives","false");
-      url.searchParams.set("steps","false");
-      const response=await fetch(url,{headers:{Accept:"application/json"},signal:AbortSignal.timeout(5000)});
-      if(!response.ok) throw new Error("OSRM HTTP "+response.status);
-      const result=await response.json() as any;
-      const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distance)&&r.distance>0&&Number.isFinite(r.duration)&&r.duration>0);
-      if(result.code!=="Ok"||!routes.length) throw new Error("OSRM returned no valid driving route");
-      const selected=routes.reduce((a:any,b:any)=>b.distance<a.distance?b:a);
-      const candidateDistanceKm = selected.distance / 1000;
-      if (!plausibleRoadDistance(from,to,candidateDistanceKm)) {
-        throw new Error("OSRM route distance is inconsistent with the selected endpoints");
-      }
-      routed={distanceKm:candidateDistanceKm,durationMin:selected.duration/60,routeSource:"osrm",
-        ...(includeGeometry&&Array.isArray(selected.geometry?.coordinates)?{routePoints:selected.geometry.coordinates.map((p:number[])=>({lat:Number(p[1]),lng:Number(p[0])})).filter((p:Point)=>validPoint(p))}:{})};
-      if(includeGeometry&&(routed.routePoints?.length??0)<2) routed=null;
-    } catch(error) {
-      console.warn("[route] configured OSRM unavailable; trying Google Routes",error instanceof Error?error.message:"unknown");
-    }
-  }
-
-  if(!routed) {
-    const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
-    if(!key) throw new Error("تعذّر حساب مسافة الطريق الفعلية حالياً. أعد المحاولة لاحقاً.");
-    const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
-        "X-Goog-FieldMask":includeGeometry?"routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline":"routes.distanceMeters,routes.duration"},
-      body:JSON.stringify({
-        origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
-        destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
-        travelMode:"DRIVE",routingPreference:"TRAFFIC_UNAWARE",computeAlternativeRoutes:false,
-        languageCode:"ar",units:"METRIC"
-      }),
-      signal:AbortSignal.timeout(9000)
-    });
-    if(!response.ok) throw new Error("تعذّر حساب مسافة الطريق الفعلية من خدمة الخرائط. أعد المحاولة.");
-    const result=await response.json() as any;
-    const routes=(result.routes??[]).filter((r:any)=>Number.isFinite(r.distanceMeters)&&r.distanceMeters>0&&
-      typeof r.duration==="string"&&/^\d+(\.\d+)?s$/.test(r.duration)&&parseFloat(r.duration)>0);
-    if(!routes.length) throw new Error("لم يتم العثور على طريق سيارة صالح بين النقطتين.");
-    const selected=routes.reduce((a:any,b:any)=>b.distanceMeters<a.distanceMeters?b:a);
-    const candidateDistanceKm = selected.distanceMeters / 1000;
-    if (!plausibleRoadDistance(from,to,candidateDistanceKm)) {
-      throw new Error("Google Routes distance is inconsistent with the selected endpoints");
-    }
-    routed={distanceKm:candidateDistanceKm,durationMin:parseFloat(selected.duration)/60,routeSource:"google_routes",
-      ...(includeGeometry&&typeof selected.polyline?.encodedPolyline==="string"?{routePoints:decodeGooglePolyline(selected.polyline.encodedPolyline)}:{})};
-  }
-
-  if(!Number.isFinite(routed.distanceKm)||routed.distanceKm<=0||
-     !Number.isFinite(routed.durationMin)||routed.durationMin<=0) {
-    throw new Error("خدمة الطرق أعادت مسافة أو مدة غير صالحة. أعد المحاولة.");
-  }
-  if(includeGeometry&&(routed.routePoints?.length??0)<2) {
-    throw new Error("تعذّر الحصول على شكل الطريق من خدمة الخرائط. أعد المحاولة.");
-  }
-  const {error:cacheWriteError}=await admin.from("route_distance_cache").upsert({
-    route_key:routeKey,distance_meters:routed.distanceKm*1000,duration_seconds:routed.durationMin*60,
-    route_source:routed.routeSource,expires_at:new Date(Date.now()+24*60*60*1000).toISOString()
-  },{onConflict:"route_key"});
-  if(cacheWriteError) console.warn("[route] cache write unavailable",cacheWriteError.code||"unknown");
-  return {...routed,cacheHit:false};
+  return {
+    distanceKm,durationMin,staticDurationMin,
+    trafficRatio:durationMin/staticDurationMin,
+    routeSource:"google_routes_traffic",cacheHit:false
+  };
 }
 
 Deno.serve(async (req) => {
@@ -251,6 +203,31 @@ Deno.serve(async (req) => {
   if (typeof body.isIntercity === "boolean" && body.isIntercity !== isIntercity) {
     return json({ error: "المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد." }, 400);
   }
+  const {data:controlRows,error:controlError}=await admin.from("taxi_pricing_controls")
+    .select("governorate_key,auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent,auto_demand_percent")
+    .in("governorate_key",[fromGovernorate,"all"]);
+  if(controlError) {
+    console.error("[auto-taxi-pricing] automatic pricing controls unavailable",controlError.code||"unknown");
+    return json({error:"سنصل إليك قريباً. تعذّر التحقق من إعدادات التسعير الآلي حالياً.",code:"AUTO_PRICING_CONTROLS_UNAVAILABLE"},503);
+  }
+  const activeControls=(controlRows??[]).find((row:any)=>row.governorate_key===fromGovernorate)
+    ??(controlRows??[]).find((row:any)=>row.governorate_key==="all");
+  const autoMonitorEnabled=activeControls?.auto_monitor_enabled===true;
+  const trafficRatio=Number(routeData.trafficRatio);
+  if(!Number.isFinite(trafficRatio)||trafficRatio<=0) {
+    return json({error:"سنصل إليك قريباً. لم نستطع التحقق من زمن الطريق الحالي.",code:"TRAFFIC_VERIFICATION_FAILED"},503);
+  }
+  const trafficPercent=autoMonitorEnabled
+    ? Math.min(Math.max(0,Number(activeControls?.traffic_surcharge_cap_percent)||0),Math.max(0,(trafficRatio-1)*100))
+    : 0;
+  const demandPercent=autoMonitorEnabled
+    ? Number(activeControls?.auto_demand_percent)||0
+    : 0;
+  const demandIncreaseCap=Math.max(0,Number(activeControls?.demand_increase_cap_percent)||0);
+  const demandDiscountCap=Math.max(0,Number(activeControls?.demand_discount_cap_percent)||0);
+  const autoPercent=autoMonitorEnabled
+    ? Math.max(-demandDiscountCap,Math.min(demandIncreaseCap+Math.max(0,Number(activeControls?.traffic_surcharge_cap_percent)||0),demandPercent+trafficPercent))
+    : 0;
   const routed = {
     distanceKm: Number(routeData.distanceKm),
     durationMin: Number(routeData.durationMin),
@@ -267,6 +244,7 @@ Deno.serve(async (req) => {
     p_trip_type:tripType,
     p_extra_minutes:extraMinutes,
     p_urgency_enabled:body.urgencyEnabled===true,
+    p_auto_percent:autoPercent,
   });
   if(quoteError||!quoteData) {
     console.error("[auto-taxi-pricing] canonical Supabase quote failed",quoteError?.code||"no_quote");
@@ -276,9 +254,13 @@ Deno.serve(async (req) => {
   const minFares=quoteData.minFares as Record<Category,number>;
   const economyRaw=Number(quoteData.economyRaw);
   const peakPercent=Number(quoteData.peakPercent);
+  const regionalPercent=Number(quoteData.regionalPercent);
+  const quotedAutoPercent=Number(quoteData.autoPercent);
   const urgencyPercent=Number(quoteData.urgencyPercent);
   if(!categoryPrices||!minFares||!Number.isFinite(economyRaw)||economyRaw<0||
      !Number.isFinite(peakPercent)||peakPercent<0||peakPercent>200||
+     !Number.isFinite(regionalPercent)||regionalPercent<0||regionalPercent>200||
+     !Number.isFinite(quotedAutoPercent)||quotedAutoPercent < -50 || quotedAutoPercent > 200||
      !Number.isFinite(urgencyPercent)||urgencyPercent<0||urgencyPercent>100||
      !Number.isSafeInteger(Number(categoryPrices.economy))||
      !Number.isSafeInteger(Number(categoryPrices.premium))||
@@ -294,7 +276,7 @@ Deno.serve(async (req) => {
       return json({error:"الحد الأدنى لتعرفة إحدى الفئات غير صالح.",code:"INVALID_CATEGORY_MINIMUM"},503);
     }
     const expected=calculateServerTaxiFare({
-      category:fareCategory,economyRaw,minFare:minimum,tripType,extraMinutes,peakPercent,urgencyPercent,
+      category:fareCategory,economyRaw,minFare:minimum,tripType,extraMinutes,peakPercent,regionalPercent,autoPercent:quotedAutoPercent,urgencyPercent,
     });
     if(expected!==Number(categoryPrices[fareCategory])) {
       console.error("[auto-taxi-pricing] database/edge fare parity mismatch",fareCategory);
@@ -304,7 +286,7 @@ Deno.serve(async (req) => {
   const priceEstimate=Number(categoryPrices[category]);
   const urgencyAllowed=Boolean(quoteData.urgencyAllowed);
   const urgencyIsEnabled=Boolean(quoteData.urgencyEnabled);
-  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,urgencyEnabled:urgencyIsEnabled,urgencyAllowed,urgencyPercent,governorateKey:fromGovernorate,fromGovernorateKey:fromGovernorate,toGovernorateKey:toGovernorate,isIntercity});
+  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,regionalPercent,autoPercent:quotedAutoPercent,trafficPercent,demandPercent,trafficRatio,urgencyEnabled:urgencyIsEnabled,urgencyAllowed,urgencyPercent,governorateKey:fromGovernorate,fromGovernorateKey:fromGovernorate,toGovernorateKey:toGovernorate,isIntercity});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
   const expectedPrice=Number(body.expectedPriceEstimate);
   if(!Number.isSafeInteger(expectedPrice)||expectedPrice!==priceEstimate) {
@@ -328,6 +310,7 @@ Deno.serve(async (req) => {
     notes:typeof body.notes==="string"?body.notes.slice(0,2000):null,
     distance_km:routed.distanceKm,duration_min:routed.durationMin,
     price_estimate:priceEstimate,is_intercity:isIntercity,trip_type:tripType,extra_minutes:extraMinutes,
+    taxi_auto_percent:quotedAutoPercent,
     taxi_urgency_enabled:urgencyPercent>0,taxi_urgency_percent:urgencyPercent,taxi_peak_percent:peakPercent
   };
   const {data:created,error:createError}=await admin.from("service_requests").insert(insert).select("id,coupon_discount,customer_payable,price_estimate,distance_km,duration_min").single();
@@ -339,5 +322,5 @@ Deno.serve(async (req) => {
     if(applyError) couponWarning="تم إنشاء الطلب، لكن تعذّر تطبيق الكوبون. يمكنك متابعة الطلب دون الخصم.";
     else couponResult=applied;
   }
-  return json({requestId:created.id,distanceKm:Number(created.distance_km),durationMin:Number(created.duration_min),priceEstimate:Number(created.price_estimate),couponDiscount:Number(couponResult?.discount||0),customerPayable:couponResult?.payable??created.customer_payable??null,couponWarning,routeSource:routed.routeSource});
+  return json({requestId:created.id,distanceKm:Number(created.distance_km),durationMin:Number(created.duration_min),priceEstimate:Number(created.price_estimate),autoPercent:quotedAutoPercent,trafficPercent,demandPercent,routeSource:routed.routeSource,couponDiscount:Number(couponResult?.discount||0),customerPayable:couponResult?.payable??created.customer_payable??null,couponWarning,routeSource:routed.routeSource});
 });
