@@ -174,14 +174,15 @@ const incomingRequestModal = await readSource("src/components/incoming-request-m
 const supportChatSource = await readSource("app/support-chat.tsx");
 const pushSoundMigration = await readSource("../supabase/migrations/20261116065631_notification_sound_preferences.sql");
 const pushVibrationMigration = await readSource("../supabase/migrations/20261116183000_admin_permissions_and_notification_vibration.sql");
+const versionedPushMigration = await readSource("../supabase/migrations/20261123101500_version_android_notification_channels.sql");
 const supabaseTypes = await readSource("../src/integrations/supabase/types.ts");
 const adminUsersFunction = await readSource("../supabase/functions/admin-users/index.ts");
 
 for (const channelId of [
-  "mamnoon_sound_vibrate",
-  "mamnoon_sound_only",
-  "mamnoon_vibrate_only",
-  "mamnoon_silent",
+  "mamnoon_v2_sound_vibrate",
+  "mamnoon_v2_sound_only",
+  "mamnoon_v2_vibrate_only",
+  "mamnoon_v2_silent",
 ]) {
   if (!notificationLayout.includes(`setNotificationChannelAsync("${channelId}"`)) {
     missing.push(`Android must register notification channel: ${channelId}.`);
@@ -202,10 +203,12 @@ if (!notificationBell.includes("<Switch") ||
     !notificationBell.includes("اهتزاز الإشعارات")) {
   missing.push("Native notification center must expose independent sound and vibration controls.");
 }
-if (!notificationBell.includes("getNotificationChannelId()") ||
-    !notificationBell.includes('sound: isNotificationSoundEnabled() ? "default" : false') ||
-    !notificationBell.includes("isNotificationVibrationEnabled()")) {
-  missing.push("Foreground notifications must honor the selected sound and vibration channel.");
+if (notificationBell.includes("Notifications.scheduleNotificationAsync") ||
+    notificationBell.includes("getNotificationChannelId()")) {
+  missing.push("Notification polling must not create duplicate local alerts; server push outbox is the delivery path.");
+}
+if (!notificationLayout.includes("shouldPlaySound: preferences.soundEnabled")) {
+  missing.push("Foreground notification presentation must honor the saved sound preference.");
 }
 if (!incomingRequestModal.includes("getNotificationChannelId(preferences.soundEnabled, preferences.vibrationEnabled)") ||
     !incomingRequestModal.includes("sound: preferences.soundEnabled ? \"default\" : false")) {
@@ -226,6 +229,19 @@ if (!/add column if not exists vibration_enabled/i.test(pushVibrationMigration) 
     !pushVibrationMigration.includes("mamnoon_sound_only") ||
     !pushVibrationMigration.includes("mamnoon_sound_vibrate")) {
   missing.push("Push delivery SQL must honor independent sound and vibration preferences.");
+}
+if (!versionedPushMigration.includes("vibration_enabled") ||
+    !versionedPushMigration.includes("mamnoon_v2_sound_vibrate") ||
+    !versionedPushMigration.includes("mamnoon_v2_sound_only") ||
+    !versionedPushMigration.includes("mamnoon_v2_vibrate_only") ||
+    !versionedPushMigration.includes("mamnoon_v2_silent")) {
+  missing.push("Versioned Android push migration must route all four sound/vibration combinations.");
+}
+if (!adminUsersFunction.includes("mamnoon_v2_sound_vibrate") ||
+    !adminUsersFunction.includes("mamnoon_v2_sound_only") ||
+    !adminUsersFunction.includes("mamnoon_v2_vibrate_only") ||
+    !adminUsersFunction.includes("mamnoon_v2_silent")) {
+  missing.push("Admin-triggered push notifications must use the registered versioned Android channels.");
 }
 if (!adminUsersFunction.includes('select("expo_push_token,sound_enabled,vibration_enabled")') ||
     !adminUsersFunction.includes('row.expo_push_token.startsWith("ExpoPushToken[")') ||
