@@ -1,0 +1,38 @@
+name: Validate Iraq OSM importer
+
+on:
+  push:
+    branches:
+      - feat/iraq-osm-national-place-import
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install parser
+        run: python -m pip install osmium
+      - name: Compile importer and validate governorate boundaries
+        run: |
+          python -m py_compile .github/scripts/import-iraq-osm-places.py
+          python - <<'PY'
+          import importlib.util
+          spec = importlib.util.spec_from_file_location('iraq_importer', '.github/scripts/import-iraq-osm-places.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          assert len(module.GOVERNORATES) == 18, len(module.GOVERNORATES)
+          assert module.find_governorate(44.3462, 32.0259) == 'najaf'
+          assert module.find_governorate(44.0249, 32.6160) == 'karbala'
+          assert module.find_governorate(47.7804, 30.5085) == 'basra'
+          print('Importer syntax and 18-governorate point-in-polygon checks passed.')
+          PY
+      - name: Parse the current Iraq PBF without writing to production
+        env:
+          DRY_RUN: "true"
+        run: python .github/scripts/import-iraq-osm-places.py
