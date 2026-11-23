@@ -18,6 +18,7 @@ type TaxiControl = {
   demand_discount_cap_percent: number;
   auto_demand_percent: number;
   auto_active_drivers: number;
+  auto_gps_observed: number;
   auto_pending_requests: number;
   auto_updated_at?: string | null;
 };
@@ -34,6 +35,7 @@ const DEFAULT: TaxiControl = {
   demand_discount_cap_percent: 0,
   auto_demand_percent: 0,
   auto_active_drivers: 0,
+  auto_gps_observed: 0,
   auto_pending_requests: 0,
   auto_updated_at: null,
 };
@@ -59,7 +61,7 @@ export default function AdminTaxiPricingControls() {
         .select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent")
         .order("governorate_key"),
       (supabase as any).from("taxi_pricing_auto_controls")
-        .select("governorate_key,auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent,auto_demand_percent,auto_active_drivers,auto_pending_requests,auto_updated_at")
+        .select("governorate_key,auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent,auto_demand_percent,auto_active_drivers,auto_gps_observed,auto_pending_requests,auto_updated_at")
         .order("governorate_key"),
     ]);
     if (manualResult.error || autoResult.error) {
@@ -299,11 +301,13 @@ export default function AdminTaxiPricingControls() {
               }} />
           </label>)}
         </div>
-        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
           <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">السائقون المتاحون</div><b>{(governorateKey === "all" ? global : regional).auto_active_drivers}</b></div>
+          <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">إشارات GPS الحديثة</div><b>{(governorateKey === "all" ? global : regional).auto_gps_observed}</b></div>
           <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">الطلبات المنتظرة</div><b>{(governorateKey === "all" ? global : regional).auto_pending_requests}</b></div>
           <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">تعديل الطلب الحالي</div><b>{Number((governorateKey === "all" ? global : regional).auto_demand_percent).toFixed(0)}%</b></div>
         </div>
+        <p className="text-[11px] text-muted-foreground">إذا انقطعت إشارات GPS الحديثة، يوقف النظام تعديل السعر حسب العرض والطلب بدلاً من افتراض عدم وجود سائقين.</p>
         <p className="text-[11px] text-muted-foreground">آخر تحديث: {(governorateKey === "all" ? global : regional).auto_updated_at ? new Date((governorateKey === "all" ? global : regional).auto_updated_at!).toLocaleString("ar-IQ") : "بانتظار أول دورة مراقبة"}.</p>
         <button type="button" disabled={saving} onClick={() => void saveAutoMonitor()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4" /> حفظ إعداد المراقبة</button>
       </div>}
