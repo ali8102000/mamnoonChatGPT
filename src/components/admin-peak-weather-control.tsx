@@ -5,14 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/lib/toast";
 
 type Settings = {
-  governorate_key: string; mode: "auto" | "notify" | "off"; enabled: boolean;
+  governorate_key: string; mode: "auto" | "notify" | "off"; enabled: boolean; weather_monitor_ready?: boolean;
   rain_threshold_mm: number; heat_threshold_c: number; max_surcharge_percent: number;
   min_pending_requests: number; max_active_drivers: number;
   weather_max_age_minutes: number; gps_max_age_minutes: number; cooldown_minutes: number;
   last_decision?: string | null; last_reason?: string | null; last_checked_at?: string | null;
 };
 const DEFAULT: Settings = {
-  governorate_key: "all", mode: "off", enabled: false, rain_threshold_mm: 1,
+  governorate_key: "all", mode: "off", enabled: false, weather_monitor_ready: false, rain_threshold_mm: 1,
   heat_threshold_c: 42, max_surcharge_percent: 15, min_pending_requests: 5,
   max_active_drivers: 20, weather_max_age_minutes: 15, gps_max_age_minutes: 3,
   cooldown_minutes: 20, last_decision: null, last_reason: null, last_checked_at: null,
@@ -48,6 +48,9 @@ export default function AdminPeakWeatherControl() {
   async function save() {
     if (settings.mode === "off" && settings.enabled) {
       toast.error("وضع الإيقاف لا يمكن أن يكون مفعّلاً."); return;
+    }
+    if (settings.enabled && !settings.weather_monitor_ready) {
+      toast.error("مراقب الطقس لم يُنشر ويُختبر بعد؛ أبقِ الوضع متوقفاً."); return;
     }
     setSaving(true);
     const { error } = await (supabase as any).rpc("admin_save_taxi_peak_weather_settings", {
@@ -85,16 +88,17 @@ export default function AdminPeakWeatherControl() {
       </label>
       <div className="rounded-xl border border-border p-3 space-y-3">
         <div className="font-black flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> وضع التشغيل</div>
+        {!settings.weather_monitor_ready && <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">مراقب الطقس لم يُنشر ويُختبر بعد؛ التفعيل التلقائي والإخباري مقفولان حالياً حتى لا تُفعّل زيادة غير مراقبة.</p>}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {([{value:"auto",label:"تلقائي",desc:"يفعّل ويوقف حسب الشروط"},{value:"notify",label:"إخباري",desc:"يرسل توصية للأدمن فقط"},{value:"off",label:"إيقاف",desc:"يعطّل الأتمتة"}] as const).map(option =>
-            <button key={option.value} type="button" onClick={() => setSettings(v => ({...v,mode:option.value,enabled:option.value!=="off"}))}
-              className={`rounded-xl border p-3 text-right ${settings.mode===option.value ? "border-primary bg-primary/5" : "border-border"}`}>
+            <button key={option.value} type="button" disabled={option.value!=="off" && !settings.weather_monitor_ready} onClick={() => setSettings(v => ({...v,mode:option.value,enabled:option.value!=="off"}))}
+              className={`rounded-xl border p-3 text-right disabled:cursor-not-allowed disabled:opacity-40 ${settings.mode===option.value ? "border-primary bg-primary/5" : "border-border"}`}>
               <b className="block text-sm">{option.label}</b><span className="text-[11px] text-muted-foreground">{option.desc}</span>
             </button>)}
         </div>
         <label className="flex items-center justify-between gap-3 text-sm font-bold">
           <span>السماح بتشغيل هذا الوضع على النطاق المحدد</span>
-          <input type="checkbox" checked={settings.enabled && settings.mode!=="off"} disabled={settings.mode==="off"}
+          <input type="checkbox" checked={settings.enabled && settings.mode!=="off"} disabled={settings.mode==="off" || !settings.weather_monitor_ready}
             onChange={e=>setSettings(v=>({...v,enabled:e.target.checked}))} className="h-5 w-5 accent-primary"/>
         </label>
       </div>
@@ -120,7 +124,7 @@ export default function AdminPeakWeatherControl() {
         <p className="text-[11px] text-muted-foreground">آخر فحص: {settings.last_checked_at ? new Date(settings.last_checked_at).toLocaleString("ar-IQ") : "لم يبدأ بعد"}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={saving} onClick={() => void save()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4"/> حفظ إعدادات الذروة</button>
+        <button type="button" disabled={saving || (settings.enabled && !settings.weather_monitor_ready)} onClick={() => void save()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4"/> حفظ إعدادات الذروة</button>
         <button type="button" onClick={() => void load()} className="rounded-xl border border-border px-4 py-2.5 text-sm font-bold"><RefreshCw className="ml-2 inline h-4 w-4"/> تحديث الحالة</button>
       </div>
       <div className="space-y-2"><b className="text-sm">سجل آخر القرارات</b>
