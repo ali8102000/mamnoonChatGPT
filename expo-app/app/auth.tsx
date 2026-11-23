@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-  View, Text, StyleSheet, ScrollView, Alert, Pressable, Image,
+  View, Text, StyleSheet, ScrollView, Alert, Pressable, Image, Animated, Easing,
   KeyboardAvoidingView, Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,7 +30,17 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const { refresh } = useAuth();
-  const { companyName, logoUrl, welcomeMessage, welcomeMediaUrl } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeMediaUrl, welcomeMediaAnimated } = useCompanyBranding();
+  const welcomeMediaScale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!welcomeMediaAnimated) { welcomeMediaScale.setValue(1); return; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(welcomeMediaScale, { toValue: 1.025, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(welcomeMediaScale, { toValue: 1, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [welcomeMediaAnimated, welcomeMediaScale]);
 
   async function onSubmit() {
     if (password.length < 6) {
@@ -129,7 +139,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandTop}>
-            {welcomeMediaUrl ? <Image source={{ uri: welcomeMediaUrl }} style={styles.companyWelcomeMedia} resizeMode="contain" /> : null}
+            {welcomeMediaUrl ? <Animated.Image source={{ uri: welcomeMediaUrl }} style={[styles.companyWelcomeMedia, { transform: [{ scale: welcomeMediaScale }] }]} resizeMode="contain" /> : null}
             {logoUrl ? (
               <Image source={{ uri: logoUrl }} style={styles.companyLogo} resizeMode="contain" />
             ) : (
