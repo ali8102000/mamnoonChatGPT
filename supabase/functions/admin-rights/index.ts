@@ -129,12 +129,14 @@ Deno.serve(async (req: Request) => {
         revenue: (revenue.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null,request_code:requestCodeById.get(r.request_id) ?? null})),
         collections: (collections.data ?? []).map((row:any) => {
           const reversal = (collectionReversals.data ?? []).find((item:any) => item.revenue_collection_id === row.id);
+          const ledger = (revenue.data ?? []).find((item:any) => item.id === row.revenue_ledger_id);
           return {
             ...row,
             reversed_amount_iqd: reversal?.amount_iqd ?? 0,
             net_amount_iqd: Math.max(0, Number(row.amount_iqd ?? 0) - Number(reversal?.amount_iqd ?? 0)),
             reversal_reason: reversal?.reason ?? null,
             reversed_at: reversal?.created_at ?? null,
+            refund_review_pending: ledger?.metadata?.refund_review_pending === true,
           };
         }),
       });
