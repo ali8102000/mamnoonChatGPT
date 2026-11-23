@@ -103,7 +103,12 @@ Deno.serve(async (req: Request) => {
         payment: paymentMap.get(row.payment_id) ?? null,
         events: (events ?? []).filter((event: any) => event.refund_case_id === row.id),
       }));
-      return json({ cases: visibleCases, can_decide: true });
+      const { data: canRefund } = await caller.rpc("admin_has_permission", {
+        p_permission_key: "finance.refund",
+        p_scope_type: scopeType,
+        p_scope_governorate: scopeGovernorate,
+      });
+      return json({ cases: visibleCases, can_decide: canRefund === true });
     }
 
     if (body.action === "refund_case_decide") {
