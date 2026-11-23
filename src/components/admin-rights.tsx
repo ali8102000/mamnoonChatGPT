@@ -214,7 +214,7 @@ export default function AdminRights() {
               <div><span className="block text-muted-foreground">المبلغ</span><b>{Number(row.amount_iqd||0).toLocaleString("ar-IQ")} د.ع</b></div>
               <div><span className="block text-muted-foreground">مرجع الدفع</span><b dir="ltr" className="break-all">{row.payment?.gateway_transaction_id||"—"}</b></div>
               <div><span className="block text-muted-foreground">تاريخ الإلغاء</span><b>{new Date(row.created_at).toLocaleString("ar-IQ")}</b></div>
-              <div><span className="block text-muted-foreground">حالة الدفع</span><b>{row.payment?.status||"—"}</b></div>
+              <div><span className="block text-muted-foreground">بوابة الدفع</span><b>{row.payment?.provider||"—"} · {row.payment?.currency||"IQD"}</b></div><div><span className="block text-muted-foreground">تاريخ الدفع</span><b>{row.payment?.paid_at?new Date(row.payment.paid_at).toLocaleString("ar-IQ"):"—"}</b></div><div><span className="block text-muted-foreground">حالة الدفع</span><b>{row.payment?.status||"—"}</b></div>
             </div>
             <p className="rounded-lg bg-muted p-2 text-[10px]"><b>سبب الإلغاء: </b>{row.cancellation_reason||"لم يُذكر سبب"}</p>
             {row.decision_note&&<p className="rounded-lg bg-muted p-2 text-[10px]"><b>ملاحظة القرار: </b>{row.decision_note}</p>}
