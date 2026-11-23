@@ -177,6 +177,16 @@ def choose_name(tags) -> str:
             return value.strip()[:240]
     return ""
 
+def normalize_search_term(value: str) -> str:
+    value = re.sub(r"[\u064B-\u065F\u0670]", "", value)
+    value = value.replace("ـ", "")
+    value = value.translate(str.maketrans({
+        "إ": "ا", "أ": "ا", "آ": "ا", "ٱ": "ا",
+        "ؤ": "و", "ئ": "ي", "ى": "ي", "ة": "ه",
+    }))
+    return re.sub(r"\s+", " ", value).strip().lower()
+
+
 def category_terms(tags) -> str:
     values = []
     for key in FEATURE_KEYS:
@@ -209,9 +219,12 @@ def make_row(element_type: str, element_id: int, tags, lon: float, lat: float):
         GOVERNORATE_AR[governorate], "العراق",
     ]
     address = "، ".join(dict.fromkeys(x.strip() for x in address_parts if x and x.strip()))
+    raw_terms = [
+        x.strip() for x in names if x and x.strip()
+    ] + [category_terms(tags), governorate, GOVERNORATE_AR[governorate], "Iraq"]
+    normalized_terms = [normalize_search_term(value) for value in raw_terms if value]
     terms = " ".join(dict.fromkeys(
-        [x.strip() for x in names if x and x.strip()]
-        + [category_terms(tags), governorate, GOVERNORATE_AR[governorate], "Iraq"]
+        [value for value in raw_terms + normalized_terms if value]
     ))
     return {
         "governorate_key": governorate,
