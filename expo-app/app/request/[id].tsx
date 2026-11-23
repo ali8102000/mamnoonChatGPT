@@ -259,6 +259,7 @@ export default function RequestDetail() {
   const [newMsg, setNewMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
+  const [ratingCriteria, setRatingCriteria] = useState({ professionalism: 0, punctuality: 0, quality: 0 });
   const [ratingReasons, setRatingReasons] = useState<string[]>([]);
   const [ratingComment, setRatingComment] = useState("");
   const [showRating, setShowRating] = useState(false);
@@ -1343,6 +1344,7 @@ export default function RequestDetail() {
 
   async function submitRating() {
     if (rating === 0 || !user) return;
+    if (Object.values(ratingCriteria).some((value) => value < 1)) { Alert.alert("أكمل التقييم", "قيّم التعامل والالتزام والجودة كلٌّ على حدة."); return; }
     const otherId = isCustomer ? request?.provider_id : request?.customer_id;
     if (!otherId) return;
     const { error } = await (supabase as any).from("ratings").insert({
@@ -1350,6 +1352,9 @@ export default function RequestDetail() {
       rater_id: user.id,
       ratee_id: otherId,
       stars: rating,
+      professionalism: ratingCriteria.professionalism,
+      punctuality: ratingCriteria.punctuality,
+      quality: ratingCriteria.quality,
       reasons: ratingReasons,
       comment: ratingComment.trim() || null,
     });
@@ -1391,6 +1396,11 @@ export default function RequestDetail() {
   const quickReplies = isCustomer ? QUICK_REPLIES_CUSTOMER : QUICK_REPLIES_PROVIDER;
   const acceptedPeopleCount = serviceProviders.reduce((sum, member) => sum + Number(member.team_size || 1), 0);
   const remainingPeopleCount = Math.max(0, Number(request.workers_count || 1) - acceptedPeopleCount);
+  const ratingCriteriaOptions = isProvider
+    ? [{ key: "professionalism" as const, label: "التعامل والاحترام" }, { key: "punctuality" as const, label: "الالتزام بالموعد" }, { key: "quality" as const, label: "وضوح الطلب والالتزام بالاتفاق" }]
+    : request?.type === "taxi"
+      ? [{ key: "professionalism" as const, label: "التعامل واحترام الخصوصية" }, { key: "punctuality" as const, label: "الالتزام بالوقت" }, { key: "quality" as const, label: "السلامة ونظافة المركبة" }]
+      : [{ key: "professionalism" as const, label: "الاحترافية والتعامل" }, { key: "punctuality" as const, label: "الالتزام بالموعد" }, { key: "quality" as const, label: "جودة تنفيذ العمل" }];
   const ratingReasonOptions = isProvider
     ? ["محترم وحسن التعامل", "ملتزم بالموعد", "متعاون وواضح", "قدّم معلومات دقيقة", "احترم وقتي", "التزم بالاتفاق", "تأخر دون إشعار", "صعّب التواصل", "غيّر الاتفاق دون تنسيق", "تعامل غير لائق"]
     : request?.type === "taxi"
@@ -1933,6 +1943,14 @@ export default function RequestDetail() {
                     <Text style={[styles.star, s <= rating && styles.starActive]}>★</Text>
                   </TouchableOpacity>
                 ))}
+              </View>
+              <View style={{ width: "100%", gap: 10, marginBottom: 14 }}>
+                {ratingCriteriaOptions.map((criterion) => <View key={criterion.key} style={{ gap: 4 }}>
+                  <Text style={{ color: palette.ink, fontSize: 11, fontWeight: "900", textAlign: "right" }}>{criterion.label}</Text>
+                  <View style={styles.starsRow}>
+                    {[1, 2, 3, 4, 5].map((score) => <TouchableOpacity key={score} onPress={() => setRatingCriteria((current) => ({ ...current, [criterion.key]: score }))}><Text style={[styles.star, score <= ratingCriteria[criterion.key] && styles.starActive]}>★</Text></TouchableOpacity>)}
+                  </View>
+                </View>)}
               </View>
               <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right", alignSelf: "stretch", marginBottom: 8 }}>أسباب التقييم (اختياري – تقدر تختار أكثر من سبب)</Text>
               <View style={{ width: "100%", flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
