@@ -269,7 +269,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   const bounds=boundsFor(key);
   if(!governorate||!bounds) return json({error:"اختر المحافظة أولاً حتى تظهر اقتراحاتها فقط."},400);
   const q=input.trim();
-  if(q.length<2) return json({suggestions:[],attribution:"بيانات الأماكن © OpenStreetMap"});
+  if(q.length<2) return json({suggestions:[],attribution:"© OpenStreetMap contributors"});
   // Bias local discovery to the map viewport/current selection, not the governorate centroid.
   const searchCenter=validPoint(requestedCenter)&&isInGovernorate(requestedCenter,key)
     ? requestedCenter : {lat:governorate[2],lng:governorate[3]};
@@ -291,7 +291,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // For sparse matches, continue to Photon so the user also discovers nearby
   // Iraqi landmarks that have not yet been imported into Mamnoon's local index.
   if(initialSuggestions.length>=25) {
-    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
+    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"© OpenStreetMap contributors"});
   }
 
   // Check the external-enrichment cache only after local search misses. This
@@ -304,7 +304,7 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   // otherwise enrich partial local results from Photon instead of only searching
   // externally when the local database is completely empty.
   if(cacheFresh && initialSuggestions.length>0 && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
-    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap"});
+    return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"© OpenStreetMap contributors"});
   }
 
   let fetchedRows:any[]=[];
@@ -426,8 +426,8 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
   }
   const suggestions=osmSuggestions.slice(0,LIMIT);
   return json({suggestions,attribution:googleSuggestions.length
-    ?"بيانات الأماكن من OpenStreetMap وGoogle Maps"
-    :"بيانات الأماكن © OpenStreetMap"});
+    ?"© OpenStreetMap contributors · Google Maps"
+    :"© OpenStreetMap contributors"});
 }
 
 Deno.serve(async (req:Request)=>{
