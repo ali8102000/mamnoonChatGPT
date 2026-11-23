@@ -494,28 +494,15 @@ BEGIN
       AND status <> 'void'
     FOR UPDATE
   LOOP
-    IF v_ledger.collected_iqd > 0 THEN
-      v_wallet_result := public.apply_account_wallet_transaction(
-        v_ledger.user_id,
-        'refund',
-        v_ledger.collected_iqd,
-        'mamnoon-refund-commission:' || v_case.id::text || ':' || v_ledger.id::text,
-        NULL,
-        NULL,
-        'إرجاع عمولة الطلب بعد اعتماد استرداد زين كاش',
-        jsonb_build_object('refund_case_id',v_case.id,'request_id',v_case.request_id,'revenue_ledger_id',v_ledger.id)
-      );
-      v_wallet_transaction_id := (v_wallet_result ->> 'transaction_id')::uuid;
-    ELSE
-      v_wallet_transaction_id := NULL;
-    END IF;
-
+    v_wallet_transaction_id := NULL;
     v_reversal_id := NULL;
-    IF v_ledger.collected_iqd > 0 THEN
+    IF v_ledger.assessed_iqd > v_ledger.waived_iqd THEN
       INSERT INTO public.mamnoon_refund_commission_reversals(
         refund_case_id,revenue_ledger_id,provider_id,amount_iqd,wallet_transaction_id
       ) VALUES (
-        v_case.id,v_ledger.id,v_ledger.user_id,v_ledger.collected_iqd,v_wallet_transaction_id
+        v_case.id,v_ledger.id,v_ledger.user_id,
+        v_ledger.assessed_iqd - v_ledger.waived_iqd,
+        NULL
       )
       ON CONFLICT (refund_case_id,revenue_ledger_id) DO NOTHING
       RETURNING id INTO v_reversal_id;
@@ -546,7 +533,7 @@ BEGIN
           metadata = metadata || jsonb_build_object(
             'void_reason','full_zaincash_refund',
             'refund_case_id',v_case.id,
-            'commission_returned_to_provider_iqd',v_ledger.collected_iqd,
+            'commission_revenue_voided_iqd',GREATEST(v_ledger.assessed_iqd - v_ledger.waived_iqd,0),
             'refund_review_pending',false
           ),
           updated_at = now()
