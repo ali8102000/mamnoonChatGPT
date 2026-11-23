@@ -528,13 +528,67 @@ Deno.serve(async (req: Request) => {
       const status = typeof body.status === "string" ? body.status.slice(0, 40) : "all";
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
       let requestQuery = admin.from("service_requests")
-        .select("id,type,status,price_estimate,created_at,pickup_text,dest_text,customer_id,provider_id")
+        .select("id,request_code,type,status,price_estimate,created_at,completed_at,started_at,accepted_at,provider_arrived_at,pickup_text,dest_text,pickup_lat,pickup_lng,dest_lat,dest_lng,customer_id,provider_id,attachment_path,work_description,notes,distance_km,duration_min,commission,payment_method,customer_price,customer_payable,vehicle_category,vehicle_type,workers_count,work_hours,cancellation_reason,cancelled_by,admin_notes,governorate_key")
         .order("created_at", { ascending: false }).limit(limit);
       if (scopeType === "governorate" && scopeGovernorate) requestQuery = requestQuery.eq("governorate_key", scopeGovernorate);
       if (status !== "all") requestQuery = requestQuery.eq("status", status);
       const { data: requests, error } = await requestQuery;
       if (error) return json({ error: "requests_load_failed" }, 500);
       return json({ requests: requests ?? [] });
+    }
+
+    if (body.action === "request_detail") {
+      const { scopeType, scopeGovernorate } = await getStaffScope();
+      await requireScopedReadPermission("orders.read", "has_provider_ops_access", scopeType, scopeGovernorate);
+      const lookup = typeof body.request_code === "string" ? body.request_code.trim().toUpperCase().slice(0, 80) : "";
+      if (!lookup) return json({ error: "request_code_required" }, 400);
+      let query = admin.from("service_requests").select("*");
+      if (/^[0-9A-F]{8}-[0-9A-F-]{27}$/i.test(lookup)) query = query.eq("id", lookup);
+      else query = query.eq("request_code", lookup);
+      if (scopeType === "governorate" && scopeGovernorate) query = query.eq("governorate_key", scopeGovernorate);
+      const { data: request, error: requestError } = await query.maybeSingle();
+      if (requestError) return json({ error: "request_detail_load_failed" }, 500);
+      if (!request) return json({ error: "request_not_found_or_out_of_scope" }, 404);
+
+      const participantIds = [...new Set([request.customer_id, request.provider_id].filter(isUuid))];
+      const [profilesResult, routeResult, reportsResult, ratingsResult, offersResult] = await Promise.all([
+        participantIds.length
+          ? admin.from("profiles").select("id,full_name,phone,email,avatar_url,governorate_key").in("id", participantIds)
+          : Promise.resolve({ data: [], error: null }),
+        admin.from("trip_location_points").select("id,role,lat,lng,heading,accuracy_m,recorded_at")
+          .eq("request_id", request.id).order("recorded_at", { ascending: true }).limit(2000),
+        admin.from("user_reports").select("id,reporter_id,reported_id,reason,details,status,resolution_note,resolved_by,resolved_at,created_at")
+          .eq("request_id", request.id).order("created_at", { ascending: false }).limit(100),
+        admin.from("ratings").select("id,rater_id,ratee_id,stars,professionalism,punctuality,quality,comment,reasons,created_at")
+          .eq("request_id", request.id).limit(20),
+        admin.from("request_offers").select("id,provider_id,status,distance_km,sent_at,responded_at,proposed_price,offer_message")
+          .eq("request_id", request.id).order("sent_at", { ascending: true }).limit(100),
+      ]);
+      const failed = [profilesResult, routeResult, reportsResult, ratingsResult, offersResult].find((result: any) => result.error);
+      if (failed?.error) return json({ error: "request_related_data_load_failed" }, 500);
+      const signRequestPhoto = async (path: string | null) => {
+        if (!path) return null;
+        const { data, error } = await admin.storage.from("request-attachments").createSignedUrl(path, 600);
+        return error ? null : data?.signedUrl ?? null;
+      };
+      const attachmentUrl = await signRequestPhoto(request.attachment_path);
+      const profileById = new Map((profilesResult.data ?? []).map((profile: any) => [profile.id, profile]));
+      const reports = reportsResult.data ?? [];
+      const reporterIds = [...new Set(reports.map((report: any) => report.reporter_id).filter(isUuid))];
+      const { data: reporters, error: reportersError } = reporterIds.length
+        ? await admin.from("profiles").select("id,full_name,phone,avatar_url").in("id", reporterIds)
+        : { data: [], error: null };
+      if (reportersError) return json({ error: "request_reporters_load_failed" }, 500);
+      const reporterById = new Map((reporters ?? []).map((profile: any) => [profile.id, profile]));
+      return json({
+        request: { ...request, attachment_url: attachmentUrl },
+        customer: profileById.get(request.customer_id) ?? null,
+        provider: profileById.get(request.provider_id) ?? null,
+        route_points: routeResult.data ?? [],
+        reports: reports.map((report: any) => ({ ...report, reporter: reporterById.get(report.reporter_id) ?? null })),
+        ratings: ratingsResult.data ?? [],
+        offers: offersResult.data ?? [],
+      });
     }
 
     if (body.action === "set_provider_status") {
