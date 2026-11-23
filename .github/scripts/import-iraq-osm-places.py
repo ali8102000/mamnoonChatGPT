@@ -34,12 +34,12 @@ def candidate_pbf_urls() -> list[str]:
             PBF_INDEX_URL,
             headers={"User-Agent": "Mamnoon-Iraq-Places-Importer/1.0"},
         )
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(request, timeout=15) as response:
             html = response.read().decode("utf-8", errors="replace")
         dated_files = sorted(set(re.findall(r"iraq-\d{6}\.osm\.pbf", html)), reverse=True)
         urls.extend(
             f"https://download.geofabrik.de/asia/iraq/{filename}"
-            for filename in dated_files
+            for filename in dated_files[:8]
         )
     except Exception as exc:
         print(f"Could not read Geofabrik index; trying latest alias only: {exc}", flush=True)
@@ -105,8 +105,8 @@ def download(urls: list[str], target: Path) -> None:
         target.unlink(missing_ok=True)
         command = [
             "curl", "--fail", "--location", "--show-error",
-            "--retry", "4", "--retry-delay", "3",
-            "--connect-timeout", "45", "--max-time", "2400",
+            "--retry", "3", "--retry-delay", "2",
+            "--connect-timeout", "15", "--max-time", "900",
             "--user-agent", "Mozilla/5.0 (compatible; Mamnoon-Iraq-Places-Importer/1.0)",
             "--output", str(target), url,
         ]
