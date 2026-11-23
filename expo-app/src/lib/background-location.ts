@@ -1,6 +1,7 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { supabase } from "@/lib/supabase";
 
 const LOCATION_TASK = "mamnoon-active-request-location";
@@ -170,37 +171,77 @@ TaskManager.defineTask(PROVIDER_PRESENCE_TASK, async ({ data, error }) => {
   }
 });
 
+/**
+ * Obtain a fresh foreground location suitable for provider dispatch.
+ * Android first offers the system high-accuracy/network-provider prompt when
+ * location services are disabled, then retries with a less restrictive mode.
+ */
+export async function getFreshProviderLocation(): Promise<Location.LocationObject> {
+  let servicesEnabled = await Location.hasServicesEnabledAsync();
+  if (!servicesEnabled && Platform.OS === "android") {
+    await Location.enableNetworkProviderAsync().catch(() => undefined);
+    servicesEnabled = await Location.hasServicesEnabledAsync();
+  }
+  if (!servicesEnabled) throw new Error("location_services_disabled");
+
+  const permission = await Location.getForegroundPermissionsAsync();
+  if (permission.status !== "granted") throw new Error("foreground_location_denied");
+
+  let bestAccuracy = Number.POSITIVE_INFINITY;
+  for (const accuracy of [Location.Accuracy.High, Location.Accuracy.Balanced]) {
+    try {
+      const location = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy, mayShowUserSettingsDialog: true }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("location_timeout")), 20000)),
+      ]);
+      const measuredAccuracy = location.coords.accuracy;
+      if (Number.isFinite(measuredAccuracy)) bestAccuracy = Math.min(bestAccuracy, Number(measuredAccuracy));
+      if (Number.isFinite(measuredAccuracy) && Number(measuredAccuracy) <= 100) return location;
+    } catch (error) {
+      console.warn("[Mamnoon provider GPS] location attempt failed:", error);
+    }
+  }
+  throw new Error(bestAccuracy < Number.POSITIVE_INFINITY ? "location_fix_unavailable" : "location_fix_unavailable");
+}
+
 export async function startProviderPresenceBackgroundLocation(
   context: ProviderPresenceContext,
 ) {
-  const foreground = await Location.requestForegroundPermissionsAsync();
+  const foreground = await Location.getForegroundPermissionsAsync();
   if (foreground.status !== "granted") throw new Error("foreground_location_denied");
-  const background = await Location.requestBackgroundPermissionsAsync();
-  if (background.status !== "granted") {
-    // Foreground presence is still valid while the app is open. Do not block
-    // provider availability solely because Android background access was denied.
+
+  try {
+    const background = await Location.requestBackgroundPermissionsAsync();
+    if (background.status !== "granted") {
+      await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK).catch(() => undefined);
+      await SecureStore.deleteItemAsync(PROVIDER_CONTEXT_KEY);
+      return false;
+    }
+
+    await SecureStore.setItemAsync(PROVIDER_CONTEXT_KEY, JSON.stringify(context));
+    if (await Location.hasStartedLocationUpdatesAsync(PROVIDER_PRESENCE_TASK)) {
+      await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK);
+    }
+    await Location.startLocationUpdatesAsync(PROVIDER_PRESENCE_TASK, {
+      accuracy: Location.Accuracy.Balanced,
+      timeInterval: 30_000,
+      distanceInterval: 25,
+      pausesUpdatesAutomatically: false,
+      showsBackgroundLocationIndicator: true,
+      foregroundService: {
+        notificationTitle: "ممنون يستقبل الطلبات",
+        notificationBody: "موقعك يتحدث حتى تصلك طلبات قريبة أثناء استخدام تطبيقات أخرى.",
+        notificationColor: "#D4AF37",
+      },
+    });
+    return true;
+  } catch (error) {
+    console.warn("[Mamnoon provider presence] background permission/service unavailable:", error);
     await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK).catch(() => undefined);
-    await SecureStore.deleteItemAsync(PROVIDER_CONTEXT_KEY);
+    await SecureStore.deleteItemAsync(PROVIDER_CONTEXT_KEY).catch(() => undefined);
+    // Keep foreground location sharing active; background access is optional.
     return false;
   }
-
-  await SecureStore.setItemAsync(PROVIDER_CONTEXT_KEY, JSON.stringify(context));
-  if (await Location.hasStartedLocationUpdatesAsync(PROVIDER_PRESENCE_TASK)) {
-    await Location.stopLocationUpdatesAsync(PROVIDER_PRESENCE_TASK);
-  }
-  await Location.startLocationUpdatesAsync(PROVIDER_PRESENCE_TASK, {
-    accuracy: Location.Accuracy.Balanced,
-    timeInterval: 30_000,
-    distanceInterval: 25,
-    pausesUpdatesAutomatically: false,
-    showsBackgroundLocationIndicator: true,
-    foregroundService: {
-      notificationTitle: "ممنون يستقبل الطلبات",
-      notificationBody: "موقعك يتحدث حتى تصلك طلبات قريبة أثناء استخدام تطبيقات أخرى.",
-      notificationColor: "#D4AF37",
-    },
-  });
-  return true;
 }
 
 export async function stopProviderPresenceBackgroundLocation() {
