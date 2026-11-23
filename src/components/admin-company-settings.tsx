@@ -12,9 +12,19 @@ export default function AdminCompanySettings() {
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
+  const [welcomeVisualUrl, setWelcomeVisualUrl] = useState("");
+  const [welcomeVisualFile, setWelcomeVisualFile] = useState<File | null>(null);
+  const [welcomeVisualPreview, setWelcomeVisualPreview] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!welcomeVisualFile) { setWelcomeVisualPreview(""); return; }
+    const previewUrl = URL.createObjectURL(welcomeVisualFile);
+    setWelcomeVisualPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [welcomeVisualFile]);
 
   useEffect(() => {
     if (!logoFile) { setLogoPreview(""); return; }
@@ -36,10 +46,10 @@ export default function AdminCompanySettings() {
         if (active) { setMessage("لا توجد صلاحية المدير الأعلى لهذا الحساب."); setLoading(false); }
         return;
       }
-      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,driver_video_max_duration_seconds,service_icon_display_seconds,service_icon_image_size_px").eq("id", 1).maybeSingle();
+      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,driver_video_max_duration_seconds,service_icon_display_seconds,service_icon_image_size_px").eq("id", 1).maybeSingle();
       if (active) {
         if (error) setMessage("تعذر تحميل اسم الشركة: " + error.message);
-        else { setName(data?.company_name ?? "شركة ممنون"); setLogoUrl(data?.company_logo_url ?? ""); setWelcomeMessage(data?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد."); setDriverVideoMaxDurationSeconds(Number.isInteger(data?.driver_video_max_duration_seconds) ? data.driver_video_max_duration_seconds : 10); setServiceIconDisplaySeconds(Number.isInteger(data?.service_icon_display_seconds) ? data.service_icon_display_seconds : 2); setServiceIconImageSizePx(Number.isInteger(data?.service_icon_image_size_px) ? data.service_icon_image_size_px : 40); }
+        else { setName(data?.company_name ?? "شركة ممنون"); setLogoUrl(data?.company_logo_url ?? ""); setWelcomeMessage(data?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد."); setWelcomeVisualUrl(data?.company_welcome_visual_url ?? ""); setDriverVideoMaxDurationSeconds(Number.isInteger(data?.driver_video_max_duration_seconds) ? data.driver_video_max_duration_seconds : 10); setServiceIconDisplaySeconds(Number.isInteger(data?.service_icon_display_seconds) ? data.service_icon_display_seconds : 2); setServiceIconImageSizePx(Number.isInteger(data?.service_icon_image_size_px) ? data.service_icon_image_size_px : 40); }
         setLoading(false);
       }
     })();
@@ -67,15 +77,23 @@ export default function AdminCompanySettings() {
       if (uploaded.error) { setMessage("تعذر رفع الشعار: " + uploaded.error.message); setSaving(false); return; }
       nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
     }
-    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, company_logo_url: nextLogoUrl || null, welcome_message: welcome, driver_video_max_duration_seconds: driverVideoMaxDurationSeconds, service_icon_display_seconds: serviceIconDisplaySeconds, service_icon_image_size_px: serviceIconImageSizePx, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
-    if (!error) { setLogoUrl(nextLogoUrl); setLogoFile(null); }
+    let nextWelcomeVisualUrl = welcomeVisualUrl;
+    if (welcomeVisualFile) {
+      if (!welcomeVisualFile.type.startsWith("image/") || welcomeVisualFile.size > 12 * 1024 * 1024) { setMessage("الصورة الرئيسية لازم تكون صورة وحجمها أقل من 12 ميغابايت."); setSaving(false); return; }
+      const visualPath = `company-branding/welcome-${Date.now()}-${welcomeVisualFile.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+      const visualUpload = await supabase.storage.from("app-visuals").upload(visualPath, welcomeVisualFile, { upsert: false, contentType: welcomeVisualFile.type });
+      if (visualUpload.error) { setMessage("تعذر رفع الصورة الرئيسية: " + visualUpload.error.message); setSaving(false); return; }
+      nextWelcomeVisualUrl = supabase.storage.from("app-visuals").getPublicUrl(visualPath).data.publicUrl;
+    }
+    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, company_logo_url: nextLogoUrl || null, welcome_message: welcome, company_welcome_visual_url: nextWelcomeVisualUrl || null, driver_video_max_duration_seconds: driverVideoMaxDurationSeconds, service_icon_display_seconds: serviceIconDisplaySeconds, service_icon_image_size_px: serviceIconImageSizePx, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    if (!error) { setLogoUrl(nextLogoUrl); setLogoFile(null); setWelcomeVisualUrl(nextWelcomeVisualUrl); setWelcomeVisualFile(null); }
     setMessage(error ? "فشل الحفظ: " + error.message : "تم حفظ إعدادات هوية ممنون ورسالة الترحيب.");
     setSaving(false);
   };
 
   if (loading) return <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> جاري تحميل إعدادات الشركة...</div>;
   return <section className="max-w-2xl">
-    <div className="flex items-center gap-3 mb-5"><Building2 className="h-6 w-6 text-primary" /><div><h2 className="text-xl font-black">إعدادات شركة ممنون</h2><p className="text-sm text-muted-foreground">إدارة اسم الشركة وشعار التطبيق ورسالة الترحيب</p></div></div>
+    <div className="flex items-center gap-3 mb-5"><Building2 className="h-6 w-6 text-primary" /><div><h2 className="text-xl font-black">إعدادات شركة ممنون</h2><p className="text-sm text-muted-foreground">إدارة اسم الشركة وشعار التطبيق ورسالة الترحيب والصورة الرئيسية</p></div></div>
     <div className="glass rounded-2xl p-5 space-y-4">
       <label className="block text-sm font-bold" htmlFor="company-name">اسم الشركة</label>
       <input id="company-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" placeholder="مثلاً: شركة ممنون" />
@@ -91,6 +109,11 @@ export default function AdminCompanySettings() {
         </div>
       </div>
       {logoFile && <p className="text-xs text-muted-foreground">الصورة المختارة: {logoFile.name}</p>}
+      <label className="block text-sm font-bold" htmlFor="company-welcome-visual">الصورة الرئيسية لشاشة بداية التطبيق ومناطق الهوية</label>
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border p-3">
+        {(welcomeVisualPreview || welcomeVisualUrl) ? <img src={welcomeVisualPreview || welcomeVisualUrl} alt="معاينة الصورة الرئيسية" className="h-28 w-44 rounded-xl bg-slate-950 object-cover" /> : <div className="grid h-28 w-44 place-items-center rounded-xl bg-slate-950 text-xs font-bold text-white">معاينة الصورة</div>}
+        <div className="flex flex-col gap-2"><label htmlFor="company-welcome-visual" className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">اختيار أو تبديل الصورة</label><input id="company-welcome-visual" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => setWelcomeVisualFile(e.target.files?.[0] ?? null)} className="sr-only" /><span className="text-[11px] text-muted-foreground">PNG أو JPG أو WEBP أو GIF متحرك · الحد الأعلى 12 ميغابايت</span></div>
+      </div>
       <label className="block text-sm font-bold" htmlFor="driver-video-max-duration">الحد الأعلى لمدة فيديو توثيق السيارة (ثانية)</label>
       <div className="flex items-center gap-3">
         <input id="driver-video-max-duration" type="number" min={1} max={60} step={1} value={driverVideoMaxDurationSeconds} onChange={(e) => setDriverVideoMaxDurationSeconds(Number(e.target.value))} className="w-28 rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" />
@@ -107,7 +130,7 @@ export default function AdminCompanySettings() {
         <span className="text-xs text-muted-foreground">من 24 إلى 64 بكسل. الافتراضي 40 بكسل، ويتحدث على الويب والأندرويد بعد الحفظ.</span>
       </div>
       <label className="block text-sm font-bold" htmlFor="company-welcome">رسالة الترحيب الظاهرة بالتطبيق</label>
-      <textarea id="company-welcome" value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} maxLength={180} rows={3} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" placeholder="مشوارك وخدمات بيتك، بمكان واحد." />
+      <textarea id="company-welcome" value={welcomeMessage} onChange={(e) => setWelcomeMessage(e.target.value)} maxLength={180} rows={4} className="w-full min-h-28 whitespace-pre-wrap break-words leading-7 rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" placeholder="مشوارك وخدمات بيتك، بمكان واحد." />
       <button type="button" onClick={save} disabled={saving || !name.trim()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 font-bold text-primary-foreground disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} حفظ إعدادات الشركة</button>
       {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
     </div>
