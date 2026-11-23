@@ -339,8 +339,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   brandLetter: { color: palette.white, fontSize: 34, fontWeight: "900" },
-  brandName: { color: palette.ink, fontSize: 36, fontWeight: "900", marginTop: 12, letterSpacing: -0.5 },
-  brandCaption: { color: palette.muted, fontSize: 13, fontWeight: "600", marginTop: 7 },
+  brandName: { color: palette.ink, fontSize: 36, fontWeight: "900", marginTop: 12, letterSpacing: -0.5, width: "100%", maxWidth: 320, textAlign: "center", lineHeight: 44, flexShrink: 1 },
+  brandCaption: { color: palette.muted, fontSize: 13, fontWeight: "600", marginTop: 7, width: "100%", maxWidth: 320, textAlign: "center", lineHeight: 24, flexShrink: 1 },
   modeSwitch: {
     flexDirection: "row",
     backgroundColor: palette.surfaceSoft,
