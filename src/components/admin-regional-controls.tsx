@@ -149,6 +149,10 @@ export default function RegionalControlsSection() {
       toast.error("اكتب نص الرسالة قبل تفعيلها.");
       return;
     }
+    if (!Number.isFinite(settings.regional_surcharge_percent) || settings.regional_surcharge_percent < 0 || settings.regional_surcharge_percent > 200) {
+      toast.error("نسبة زيادة أجرة التكسي لازم تكون بين 0 و200 بالمئة.");
+      return;
+    }
     setSaving(true);
     const payload = targetKeys.map((governorate_key) => ({
       governorate_key,
