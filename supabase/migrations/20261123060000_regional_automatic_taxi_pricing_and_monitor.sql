@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.taxi_pricing_auto_controls (
   demand_discount_cap_percent numeric(6,2) NOT NULL DEFAULT 0 CHECK (demand_discount_cap_percent BETWEEN 0 AND 50),
   auto_demand_percent numeric(6,2) NOT NULL DEFAULT 0 CHECK (auto_demand_percent BETWEEN -50 AND 100),
   auto_active_drivers integer NOT NULL DEFAULT 0,
+  auto_gps_observed integer NOT NULL DEFAULT 0,
   auto_pending_requests integer NOT NULL DEFAULT 0,
   auto_updated_at timestamptz,
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -39,6 +40,7 @@ AS $monitor$
 DECLARE
   v_key text;
   v_drivers integer;
+  v_observed integer;
   v_waiting integer;
   v_ratio numeric;
   v_raw_percent numeric;
@@ -56,6 +58,13 @@ BEGIN
     UNION ALL SELECT 'all'
   LOOP
     IF v_key = 'all' THEN
+      SELECT count(DISTINCT pp.user_id)::integer INTO v_observed
+      FROM public.provider_presence pp
+      JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
+      WHERE pp.updated_at > now()-interval '5 minutes'
+        AND dp.status='approved'
+        AND (dp.suspended_until IS NULL OR dp.suspended_until<=now());
+
       SELECT count(DISTINCT pp.user_id)::integer INTO v_drivers
       FROM public.provider_presence pp
       JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
@@ -74,6 +83,16 @@ BEGIN
         AND sr.created_at>now()-interval '15 minutes'
         AND sr.pickup_lat IS NOT NULL AND sr.pickup_lng IS NOT NULL;
     ELSE
+      SELECT count(DISTINCT pp.user_id)::integer INTO v_observed
+      FROM public.provider_presence pp
+      JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
+      JOIN public.governorate_boundaries g ON g.governorate_key=v_key
+      WHERE pp.updated_at > now()-interval '5 minutes'
+        AND dp.status='approved'
+        AND (dp.suspended_until IS NULL OR dp.suspended_until<=now())
+        AND extensions.st_covers(g.boundary,
+          extensions.st_setsrid(extensions.st_makepoint(pp.lng,pp.lat),4326));
+
       SELECT count(DISTINCT pp.user_id)::integer INTO v_drivers
       FROM public.provider_presence pp
       JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
@@ -105,6 +124,7 @@ BEGIN
 
     v_ratio := v_drivers::numeric / greatest(v_waiting,1);
     v_raw_percent := CASE
+      WHEN COALESCE(v_observed,0)=0 THEN 0
       WHEN COALESCE(v_waiting,0)=0 THEN 0
       WHEN v_ratio >= 3 THEN -20
       WHEN v_ratio >= 2 THEN -10
@@ -117,6 +137,7 @@ BEGIN
 
     UPDATE public.taxi_pricing_auto_controls
     SET auto_active_drivers=coalesce(v_drivers,0),
+        auto_gps_observed=coalesce(v_observed,0),
         auto_pending_requests=coalesce(v_waiting,0),
         auto_demand_percent=CASE WHEN COALESCE(v_enabled,false)
           THEN greatest(-least(coalesce(v_discount_cap,0),50),
