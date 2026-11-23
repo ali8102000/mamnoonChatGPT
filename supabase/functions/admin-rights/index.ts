@@ -114,13 +114,19 @@ Deno.serve(async (req: Request) => {
       const ids = [...new Set((overrides.data ?? []).map((r:any)=>r.user_id).concat((revenue.data ?? []).map((r:any)=>r.user_id)))];
       const { data: profiles } = ids.length ? await admin.from("profiles").select("id,full_name,phone").in("id",ids) : { data: [] };
       const byId = new Map((profiles ?? []).map((p:any)=>[p.id,p]));
+      const requestIds = [...new Set((revenue.data ?? []).map((row:any)=>row.request_id).filter(Boolean))];
+      const { data: requests, error: requestsError } = requestIds.length
+        ? await admin.from("service_requests").select("id,request_code").in("id",requestIds)
+        : { data: [], error: null };
+      if (requestsError) return json({ error: "rights_request_codes_load_failed" }, 500);
+      const requestCodeById = new Map((requests ?? []).map((row:any)=>[row.id,row.request_code]));
       const { data: summary, error: summaryError } = await caller.rpc("admin_get_revenue_summary");
       if (summaryError) return json({ error: "revenue_summary_load_failed" }, 500);
       return json({
         summary: summary ?? {},
         policies: policies.data ?? [],
         overrides: (overrides.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null})),
-        revenue: (revenue.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null})),
+        revenue: (revenue.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null,request_code:requestCodeById.get(r.request_id) ?? null})),
         collections: (collections.data ?? []).map((row:any) => {
           const reversal = (collectionReversals.data ?? []).find((item:any) => item.revenue_collection_id === row.id);
           return {
