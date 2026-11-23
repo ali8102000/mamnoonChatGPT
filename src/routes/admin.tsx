@@ -2334,13 +2334,6 @@ function WalletSection() {
   const [pendingSettlement, setPendingSettlement] = useState<{
     providerId: string; amount: number; note: string; idempotencyKey: string;
   } | null>(null);
-  const [refundCases, setRefundCases] = useState<any[]>([]);
-  const [canViewRefunds, setCanViewRefunds] = useState(false);
-  const [canDecideRefunds, setCanDecideRefunds] = useState(false);
-  const [refundNotes, setRefundNotes] = useState<Record<string, string>>({});
-  const [refundReferences, setRefundReferences] = useState<Record<string, string>>({});
-  const [refundFilter, setRefundFilter] = useState("pending_review");
-  const [refundBusyId, setRefundBusyId] = useState<string | null>(null);
 
   const listTx = adminListTransactions;
   const adjustWallet = adminAdjustWallet;
@@ -2354,17 +2347,7 @@ function WalletSection() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [txRows, refundResult] = await Promise.all([
-        listTx({ data: {} }),
-        supabase.functions.invoke("admin-finance", { body: { action: "refund_cases_list" } }),
-      ]);
-      setTransactions(txRows);
-      if (refundResult.error || refundResult.data?.error) {
-        throw new Error(refundResult.data?.error || refundResult.error?.message || "تعذر تحميل طلبات الاسترداد");
-      }
-      setRefundCases(refundResult.data?.cases ?? []);
-      setCanViewRefunds(refundResult.data?.can_view === true);
-      setCanDecideRefunds(refundResult.data?.can_decide === true);
+      setTransactions(await listTx({ data: {} }));
     } catch (e: any) { toast.error(e?.message || "تعذّر تنفيذ العملية الإدارية"); } finally {
       setLoading(false);
     }
@@ -2439,44 +2422,6 @@ function WalletSection() {
       setSettlementBusy(false);
     }
   }
-  async function decideRefundCase(refundCaseId: string, decision: "approved" | "rejected") {
-    if (refundBusyId) return;
-    const note = (refundNotes[refundCaseId] ?? "").trim();
-    if (decision === "rejected" && note.length < 2) {
-      toast.error("اكتب سبب رفض طلب الاسترداد حتى يظهر للزبون");
-      return;
-    }
-    setRefundBusyId(refundCaseId);
-    try {
-      await invokePayables({ action: "refund_case_decide", refund_case_id: refundCaseId, decision, note });
-      toast.success(decision === "approved" ? "تمت الموافقة المبدئية؛ لم يتم تحويل أي مبلغ بعد" : "تم رفض طلب الاسترداد وتوثيق السبب");
-      await load();
-    } catch (e: any) {
-      toast.error(e?.message || "تعذر حفظ قرار الاسترداد");
-    } finally {
-      setRefundBusyId(null);
-    }
-  }
-  async function markRefundCasePaid(refundCaseId: string) {
-    if (refundBusyId) return;
-    const reference = (refundReferences[refundCaseId] ?? "").trim();
-    if (reference.length < 2) {
-      toast.error("أدخل رقم مرجع عملية الاسترداد بعد إرجاع المبلغ فعلياً");
-      return;
-    }
-    setRefundBusyId(refundCaseId);
-    try {
-      await invokePayables({ action: "refund_case_mark_refunded", refund_case_id: refundCaseId, refund_reference: reference });
-      toast.success("تم تسجيل الاسترداد الفعلي وتحديث القيد المالي");
-      setRefundReferences((current) => ({ ...current, [refundCaseId]: "" }));
-      await load();
-    } catch (e: any) {
-      toast.error(e?.message || "تعذر تسجيل الاسترداد الفعلي");
-    } finally {
-      setRefundBusyId(null);
-    }
-  }
-
   async function handleAdjust(userId: string, amount: number, type: string, note: string) {
     if (adjustBusy) return;
     setAdjustBusy(true);
@@ -2618,77 +2563,6 @@ function WalletSection() {
           </div>
         )}
       </section>
-
-      {canViewRefunds && (
-      <section className="glass rounded-2xl border border-amber-500/25 p-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-black">طلبات إلغاء واسترداد زين كاش</h2>
-            <p className="text-xs text-muted-foreground mt-1">المبالغ هنا معلّقة للمراجعة وليست إيراداً نهائياً. لا يتم أي تحويل تلقائي.</p>
-          </div>
-          <button onClick={() => void load()} className="rounded-lg border border-border px-3 py-2 text-xs font-bold">تحديث القائمة</button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {[
-            ["pending_review","بانتظار المراجعة"],
-            ["approved","موافق عليه"],
-            ["rejected","مرفوض"],
-            ["refunded","مسترد فعلياً"],
-            ["all","الكل"],
-          ].map(([value,label]) => (
-            <button key={value} onClick={() => setRefundFilter(value)}
-              className={"rounded-full px-3 py-2 text-xs font-bold border " + (refundFilter === value ? "bg-primary text-primary-foreground border-primary" : "border-border bg-background/60")}>
-              {label}
-            </button>
-          ))}
-        </div>
-        {loading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : (
-          <div className="space-y-3">
-            {refundCases.filter((row) => refundFilter === "all" || row.status === refundFilter).map((row) => (
-              <article key={row.id} className="rounded-xl border border-border bg-background/70 p-3 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="font-black text-sm">{row.request?.request_code || ("#" + String(row.request_id).slice(0,8))} · {row.request?.type === "taxi" ? "رحلة تكسي" : "طلب خدمة"}</div>
-                  <span className={"rounded-full px-2.5 py-1 text-[10px] font-black " + (row.status === "pending_review" ? "bg-amber-500/15 text-amber-700" : row.status === "approved" ? "bg-sky-500/15 text-sky-700" : row.status === "rejected" ? "bg-red-500/15 text-red-700" : "bg-emerald-500/15 text-emerald-700")}>
-                    {row.status === "pending_review" ? "بانتظار المراجعة" : row.status === "approved" ? "موافقة مبدئية" : row.status === "rejected" ? "مرفوض" : "تم الاسترداد"}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                  <div><span className="block text-muted-foreground">الزبون</span><b>{row.customer?.full_name || "—"}</b></div>
-                  <div><span className="block text-muted-foreground">الهاتف</span><b dir="ltr">{row.customer?.phone || "—"}</b></div>
-                  <div><span className="block text-muted-foreground">المبلغ</span><b>{money(row.amount_iqd)}</b></div>
-                  <div><span className="block text-muted-foreground">رقم عملية زين كاش</span><b dir="ltr" className="break-all">{row.payment?.gateway_transaction_id || "—"}</b></div>
-                  <div><span className="block text-muted-foreground">تاريخ الإلغاء</span><b>{new Date(row.created_at).toLocaleString("ar-IQ")}</b></div>
-                  <div><span className="block text-muted-foreground">حالة الدفع</span><b>{row.payment?.status === "paid" ? "مدفوع" : row.payment?.status || "—"}</b></div>
-                </div>
-                <div className="rounded-lg bg-muted/50 p-2 text-xs"><b>سبب الإلغاء: </b>{row.cancellation_reason || "لم يُذكر سبب"}</div>
-                {row.decision_note && <div className="rounded-lg bg-muted/50 p-2 text-xs"><b>ملاحظة القرار: </b>{row.decision_note}</div>}
-                {row.refund_reference && <div className="text-xs text-emerald-700"><b>مرجع الاسترداد:</b> <span dir="ltr">{row.refund_reference}</span></div>}
-                {row.status === "pending_review" && canDecideRefunds && (
-                  <div className="space-y-2 border-t border-border pt-2">
-                    <textarea value={refundNotes[row.id] ?? ""} onChange={(event) => setRefundNotes((current) => ({ ...current, [row.id]: event.target.value }))} maxLength={500} placeholder="ملاحظة المراجعة أو سبب الرفض (إلزامي عند الرفض)" className="w-full rounded-lg border border-border bg-background p-2 text-xs min-h-16" />
-                    <div className="flex gap-2">
-                      <button disabled={refundBusyId === row.id} onClick={() => void decideRefundCase(row.id,"approved")} className="flex-1 rounded-lg bg-emerald-600 text-white px-3 py-2.5 text-xs font-black disabled:opacity-50">موافقة مبدئية</button>
-                      <button disabled={refundBusyId === row.id} onClick={() => void decideRefundCase(row.id,"rejected")} className="flex-1 rounded-lg bg-red-600 text-white px-3 py-2.5 text-xs font-black disabled:opacity-50">رفض الطلب</button>
-                    </div>
-                  </div>
-                )}
-                {row.status === "approved" && canDecideRefunds && (
-                  <div className="space-y-2 border-t border-border pt-2">
-                    <p className="text-[11px] text-muted-foreground">بعد ما ترجع المبلغ للزبون يدوياً عبر زين كاش، أدخل رقم المرجع هنا لتوثيق الاسترداد. لا تضغط قبل إتمام التحويل فعلياً.</p>
-                    <input value={refundReferences[row.id] ?? ""} onChange={(event) => setRefundReferences((current) => ({ ...current, [row.id]: event.target.value }))} maxLength={120} placeholder="رقم مرجع عملية الاسترداد" className="w-full rounded-lg border border-border bg-background p-2.5 text-xs" />
-                    <button disabled={refundBusyId === row.id} onClick={() => void markRefundCasePaid(row.id)} className="w-full rounded-lg bg-primary text-primary-foreground px-3 py-2.5 text-xs font-black disabled:opacity-50">تأكيد أن المبلغ أُعيد فعلياً</button>
-                  </div>
-                )}
-                {row.status !== "refunded" && !canDecideRefunds && <p className="text-[10px] text-muted-foreground">يمكنك الاطلاع على الطلب، لكن لا تملك صلاحية اعتماد أو تسجيل الاسترداد.</p>}
-                {row.events?.length > 0 && <div className="text-[10px] text-muted-foreground border-t border-border pt-2">سجل الإجراءات: {row.events.map((event: any) => event.event_type === "opened" ? "فتح الطلب" : event.event_type === "approved" ? "موافقة" : event.event_type === "rejected" ? "رفض" : "استرداد فعلي").join(" ← ")}</div>}
-              </article>
-            ))}
-            {refundCases.filter((row) => refundFilter === "all" || row.status === refundFilter).length === 0 && <EmptyState text="ماكو طلبات استرداد بهذا التصنيف حالياً." />}
-          </div>
-        )}
-      </section>
-
-      )}
 
       <section>
         <h2 className="text-xl font-black mb-4">إدارة المحفظة</h2>
