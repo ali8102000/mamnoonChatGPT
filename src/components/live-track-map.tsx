@@ -371,6 +371,8 @@ export function LiveTrackMap({
             setNextInstruction(null);
             setDistanceKm(null);
             setEtaMinutes(null);
+          } else {
+            setRouteMode("road");
           }
           console.warn("[live-map] road route unavailable:", error);
         });
