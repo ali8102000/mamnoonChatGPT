@@ -1326,7 +1326,7 @@ export default function RequestDetail() {
 
   async function submitUserReport() {
     if (!user?.id || !request) return;
-    if (request.status !== "in_progress") { Alert.alert("البلاغات غير متاحة", "تگدر ترسل بلاغ بعد بدء الرحلة أو الخدمة فعلياً."); return; }
+    if (!["in_progress", "completed"].includes(request.status)) { Alert.alert("البلاغات غير متاحة", "تگدر ترسل بلاغ بعد بدء الرحلة أو الخدمة فعلياً."); return; }
     const reportedId = isCustomer ? request.provider_id : request.customer_id;
     if (!reportedId) { Alert.alert("تعذر إرسال البلاغ", "لا يوجد طرف آخر مرتبط بهذا الطلب حتى الآن."); return; }
     if (!reportReason.trim()) { Alert.alert("تنبيه", "اكتب سبب البلاغ."); return; }
@@ -1335,7 +1335,7 @@ export default function RequestDetail() {
     setReportBusy(false);
     if (error) { Alert.alert("تعذر إرسال البلاغ", error.message); return; }
     setShowReportForm(false); setReportDetails("");
-    Alert.alert("تم استلام البلاغ", "وصل بلاغك إلى إدارة ممنون وسيظهر ضمن البلاغات الواردة للمراجعة.");
+    Alert.alert("تم استلام البلاغ", `تم ربط البلاغ بالرحلة ${request.request_code || request.id.slice(0, 8).toUpperCase()} وإرساله إلى إدارة ممنون للمراجعة.`);
   }
 
   async function submitRating() {
@@ -1890,7 +1890,7 @@ export default function RequestDetail() {
             )}
         </View>
 
-        {request.status === "in_progress" && (isCustomer ? !!request.provider_id : !!request.customer_id) && (
+        {["in_progress", "completed"].includes(request.status) && (isCustomer ? !!request.provider_id : !!request.customer_id) && (
           <View style={styles.reportCard}>
             {!showReportForm ? (
               <TouchableOpacity onPress={() => setShowReportForm(true)} style={styles.reportButton}>

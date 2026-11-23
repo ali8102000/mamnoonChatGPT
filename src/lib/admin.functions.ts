@@ -297,6 +297,17 @@ export const adminListRequests = createClientFn({ method: "GET" })
   });
 
 
+export const adminGetRequestDetail = createClientFn({ method: "GET" })
+  .inputValidator((d) => z.object({ request_code: z.string().trim().min(1).max(80) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "request_detail", request_code: data.request_code },
+    });
+    if (error || result?.error) throw new Error(result?.error || "فشل تحميل تفاصيل الرحلة");
+    return result;
+  });
+
+
 export const adminCancelRequest = createClientFn({ method: "POST" })
   .inputValidator((d) => z.object({
     request_id: z.string().uuid(), reason: z.string().max(500).optional(),

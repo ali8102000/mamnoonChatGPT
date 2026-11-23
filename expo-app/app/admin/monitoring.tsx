@@ -10,7 +10,7 @@ import { palette, radius, space } from "@/styles/theme";
 import { getAdminStaffRoles } from "@/lib/admin-access";
 
 type Tab = "live" | "reports" | "blocks" | "support";
-type Report = { id: string; reason?: string; details?: string | null; reported_id?: string | null; created_at: string; status?: string };
+type Report = { id: string; reason?: string; details?: string | null; reported_id?: string | null; created_at: string; status?: string; request?: { request_code?: string; type?: string; status?: string } | null };
 type Block = { id: string; user_id: string; reason?: string | null; blocked_at?: string; expires_at?: string | null; profiles?: { full_name?: string | null } | null };
 type Ticket = { id: string; subject?: string; description?: string; category?: string; created_at?: string; status?: string };
 
@@ -187,6 +187,7 @@ export default function MonitoringScreen() {
             <View style={s.row}><Text style={s.cardTitle}>{report.reason || "بلاغ بدون تصنيف"}</Text><Text style={s.date}>{new Date(report.created_at).toLocaleDateString("ar-IQ")}</Text></View>
             {!!report.details && <Text style={s.muted}>{report.details}</Text>}
             <Text style={s.muted}>رقم البلاغ: {report.id.slice(0, 8)}</Text>
+            {!!report.request?.request_code && <Text style={s.reportTripCode}>رقم الرحلة المرتبطة: {report.request.request_code}</Text>}
             <View style={s.actions}>
               {canResolveReports && <TouchableOpacity disabled={busyId === report.id} onPress={() => resolveReport(report)} style={s.success}><Text style={s.actionText}>حل البلاغ</Text></TouchableOpacity>}
               {canManage && canResolveReports && <TouchableOpacity disabled={busyId === report.id} onPress={() => blockReportedUser(report)} style={s.danger}><Text style={s.actionText}>حظر المستخدم</Text></TouchableOpacity>}
@@ -235,6 +236,7 @@ const s = StyleSheet.create({
   stat: { width: "48%", flexGrow: 1, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 15, gap: 5 },
   statValue: { fontSize: 24, fontWeight: "900", color: palette.brand, textAlign: "right" },
   statLabel: { fontSize: 10, color: palette.muted, textAlign: "right", fontWeight: "800" },
+  reportTripCode: { color: palette.brand, fontSize: 11, fontWeight: "900", textAlign: "right" },
   card: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 13, gap: 7 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   cardTitle: { fontSize: 12, fontWeight: "900", color: palette.ink, textAlign: "right", flexShrink: 1 },

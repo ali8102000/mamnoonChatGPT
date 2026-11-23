@@ -508,13 +508,13 @@ function RequestDetail() {
 
   async function submitUserReport() {
     if (!session?.user.id || !otherUserId) { toast.error("ما نكدر نحدد الطرف المراد الإبلاغ عنه"); return; }
-    if (req?.status !== "in_progress") { toast.error("البلاغات متاحة بعد بدء الرحلة أو الخدمة فعلياً فقط"); return; }
+    if (!["in_progress", "completed"].includes(req?.status)) { toast.error("البلاغات متاحة بعد بدء الرحلة أو الخدمة فعلياً فقط"); return; }
     if (!reportReason.trim()) { toast.error("اكتب سبب البلاغ"); return; }
     setReportBusy(true);
     try {
       const { error } = await (supabase as any).from("user_reports").insert({ reporter_id: session.user.id, reported_id: otherUserId, request_id: id, reason: reportReason.trim(), details: reportDetails.trim() || null, status: "pending" });
       if (error) throw error;
-      toast.success("وصل البلاغ إلى إدارة ممنون وسيظهر ضمن البلاغات الواردة");
+      toast.success(`وصل البلاغ إلى إدارة ممنون وربطناه بالرحلة ${req.request_code || String(req.id).slice(0, 8).toUpperCase()}`);
       setShowReportForm(false); setReportDetails("");
     } catch (error: any) { toast.error(error?.message ?? "تعذر إرسال البلاغ"); }
     finally { setReportBusy(false); }
@@ -885,7 +885,7 @@ function RequestDetail() {
           ))}
       </div>
 
-      {req.status === "in_progress" && otherUserId && (
+      {["in_progress", "completed"].includes(req.status) && otherUserId && (
         <div className="mx-5 mb-4 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
           {!showReportForm ? (
             <button type="button" onClick={() => setShowReportForm(true)} className="w-full flex items-center justify-between text-sm font-black text-amber-800 dark:text-amber-300">

@@ -95,6 +95,7 @@ import AdminImageStudio from "@/components/admin-image-studio";
 import AdminControlCenter from "@/components/admin-control-center";
 import AdminInbox from "@/components/admin-inbox";
 import AdminRights from "@/components/admin-rights";
+import AdminTripLookup from "@/components/admin-trip-lookup";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 export const Route = createFileRoute("/admin")({
@@ -1715,6 +1716,7 @@ function RequestsSection() {
   return (
     <div>
       <h2 className="text-xl font-black mb-4">إدارة الطلبات</h2>
+      <AdminTripLookup />
       <div className="flex gap-1 mb-4 glass rounded-2xl p-1 overflow-x-auto">
         {["all", "pending", "searching", "accepted", "in_progress", "completed", "cancelled"].map(
           (s) => (
@@ -1953,6 +1955,7 @@ function ReportsSection() {
               <div className="text-[10px] text-muted-foreground">
                 من: {r.reporter?.full_name ?? "—"} · ضد: {r.reported?.full_name ?? "—"}
               </div>
+              {r.request?.request_code && <div className="mt-2 rounded-lg bg-primary/10 px-3 py-2 text-xs font-black text-primary">رقم الرحلة المرتبطة: {r.request.request_code}</div>}
               {r.status === "pending" && (
                 <div className="flex gap-1.5 mt-2">
                   <button
