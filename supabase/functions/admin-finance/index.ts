@@ -129,7 +129,7 @@ Deno.serve(async (req: Request) => {
       ]);
       const canSettle = adminAccess.data === true || (!financePermission.error && financePermission.data === true);
       const { data: requests, error: requestsError } = await admin.from("service_requests")
-        .select("id,type,status,commission,customer_price,price_estimate,customer_payable,completed_at,created_at,governorate_key")
+        .select("id,type,status,customer_id,commission,customer_price,price_estimate,customer_payable,completed_at,created_at,governorate_key")
         .eq("provider_id", body.provider_id).eq("status", "completed").eq("payment_method", "zaincash")
         .order("completed_at", { ascending: false }).limit(500);
       if (requestsError) return json({ error: "provider_payable_requests_load_failed" }, 500);
@@ -138,8 +138,9 @@ Deno.serve(async (req: Request) => {
       let payments: any[] = [];
       if (requestIds.length) {
         const { data, error } = await admin.from("payment_transactions")
-          .select("id,request_id,amount,paid_at,gateway_transaction_id")
+          .select("id,request_id,user_id,provider,currency,amount,paid_at,gateway_transaction_id")
           .eq("purpose", "service_request").eq("status", "paid")
+          .eq("provider", "zaincash").eq("currency", "IQD")
           .in("request_id", requestIds).order("paid_at", { ascending: false });
         if (error) return json({ error: "provider_payments_load_failed" }, 500);
         payments = data ?? [];
@@ -151,7 +152,9 @@ Deno.serve(async (req: Request) => {
         paymentsByRequest.set(payment.request_id, current);
       }
       const requestItems = (requests ?? []).map((request: any) => {
-        const requestPayments = paymentsByRequest.get(request.id) ?? [];
+        const requestPayments = (paymentsByRequest.get(request.id) ?? []).filter((payment: any) =>
+          payment.user_id === request.customer_id && payment.provider === "zaincash" && payment.currency === "IQD"
+        );
         const gross = requestPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount ?? 0), 0);
         const commission = Math.min(gross, Math.max(0, Math.round(Number(request.commission ?? 0))));
         return {
