@@ -7,6 +7,7 @@ export type CompanyBranding = {
   welcomeMessage: string;
   welcomeVisualUrl: string | null;
   welcomeVisualAnimated: boolean;
+  isLoaded: boolean;
 };
 
 const DEFAULT_BRANDING: CompanyBranding = {
@@ -15,6 +16,7 @@ const DEFAULT_BRANDING: CompanyBranding = {
   welcomeMessage: "مشوارك وخدمات بيتك، بمكان واحد.",
   welcomeVisualUrl: null,
   welcomeVisualAnimated: false,
+  isLoaded: false,
 };
 
 export function useCompanyBranding() {
@@ -29,18 +31,13 @@ export function useCompanyBranding() {
       .select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated")
       .eq("id", 1)
       .maybeSingle()
-      .then(({ data, error }: any) => {
-        if (!active || error || !data) return;
-        setBranding({
-          companyName: data.company_name || DEFAULT_BRANDING.companyName,
-          logoUrl: data.company_logo_url || null,
-          welcomeMessage: data.welcome_message || DEFAULT_BRANDING.welcomeMessage,
-          welcomeVisualUrl: data.company_welcome_visual_url || null,
-          welcomeVisualAnimated: data.company_welcome_visual_animated === true,
-        });
-      })
-      .catch((error: unknown) => console.warn("[company-branding] load failed; keeping defaults", error))
-      .finally(() => clearTimeout(timeout));
+      .then(({ data, error }: any) => { if (error) { if (active) setBranding((current) => ({ ...current, isLoaded: true })); } else apply(data); })
+      .catch((error: unknown) => { console.warn("[company-branding] load failed", error); if (active) setBranding((current) => ({ ...current, isLoaded: true })); });
+    const channel = supabase.channel("company-branding-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "company_settings", filter: "id=eq.1" }, (payload: any) => {
+        if (payload.eventType === "DELETE") setBranding({ ...DEFAULT_BRANDING, isLoaded: true });
+        else apply(payload.new);
+      }).subscribe();
     return () => { active = false; clearTimeout(timeout); };
   }, []);
   return branding;
