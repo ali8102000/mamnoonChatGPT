@@ -378,7 +378,7 @@ export function MapPicker({
           setGeoError(arabicWarning(e));
         }
       }
-    }, 100);
+    }, 50);
     return () => {
       stale = true;
       clearTimeout(timer);
