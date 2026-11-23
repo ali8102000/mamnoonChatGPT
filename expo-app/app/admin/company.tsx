@@ -13,6 +13,8 @@ export default function CompanySettingsScreen() {
   const [name, setName] = useState("ممنون");
   const [welcome, setWelcome] = useState("مشوارك وخدمات بيتك، بمكان واحد.");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [welcomeMediaUrl, setWelcomeMediaUrl] = useState<string | null>(null);
+  const [mediaAsset, setMediaAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [logoAsset, setLogoAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,13 +27,14 @@ export default function CompanySettingsScreen() {
       try {
         const [{ data: owner, error: permissionError }, { data, error }] = await Promise.all([
           supabase.rpc("is_super_admin", { p_user_id: user.id }),
-          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message").eq("id",1).maybeSingle(),
+          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,welcome_media_url,welcome_media_type").eq("id",1).maybeSingle(),
         ]);
         if (!active) return;
         setAllowed(!permissionError && owner === true);
         if (error) Alert.alert("تعذر تحميل بيانات الشركة", error.message);
         setName(data?.company_name || branding.companyName);
         setLogoUrl(data?.company_logo_url || branding.logoUrl);
+        setWelcomeMediaUrl(data?.welcome_media_url || null);
         setWelcome(data?.welcome_message || branding.welcomeMessage);
       } catch (error: any) {
         if (active) Alert.alert("تعذر تحميل بيانات الشركة", error?.message || "تحقق من الاتصال وحاول مرة ثانية.");
@@ -52,6 +55,13 @@ export default function CompanySettingsScreen() {
       quality: 0.9,
     });
     if (!result.canceled && result.assets[0]) setLogoAsset(result.assets[0]);
+  }
+
+  async function chooseWelcomeMedia() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { Alert.alert("إذن الصور مطلوب", "اسمح للتطبيق بالوصول إلى الصور حتى تختار صورة الواجهة."); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 1 });
+    if (!result.canceled && result.assets[0]) setMediaAsset(result.assets[0]);
   }
 
   async function save() {
@@ -76,13 +86,28 @@ export default function CompanySettingsScreen() {
         if (uploadError) throw uploadError;
         nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
       }
+      let nextWelcomeMediaUrl = welcomeMediaUrl;
+      let nextWelcomeMediaType: "image" | "gif" = mediaAsset?.mimeType === "image/gif" || /\\.gif$/i.test(mediaAsset?.fileName || "") ? "gif" : "image";
+      if (mediaAsset) {
+        if (!mediaAsset.mimeType?.startsWith("image/") || (mediaAsset.fileSize != null && mediaAsset.fileSize > 12 * 1024 * 1024)) throw new Error("صورة الواجهة يجب أن تكون صورة وحجمها 12 ميغابايت أو أقل.");
+        const mediaResponse = await fetch(mediaAsset.uri);
+        if (!mediaResponse.ok) throw new Error("تعذر قراءة صورة الواجهة المختارة.");
+        const mediaBytes = await mediaResponse.arrayBuffer();
+        const mediaExt = (mediaAsset.fileName?.split(".").pop() || (mediaAsset.mimeType === "image/gif" ? "gif" : "jpg")).replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
+        const mediaPath = `company-branding/welcome-${Date.now()}.${mediaExt}`;
+        const { error: mediaUploadError } = await supabase.storage.from("app-visuals").upload(mediaPath, mediaBytes, { upsert: false, contentType: mediaAsset.mimeType || "image/jpeg" });
+        if (mediaUploadError) throw mediaUploadError;
+        nextWelcomeMediaUrl = supabase.storage.from("app-visuals").getPublicUrl(mediaPath).data.publicUrl;
+      }
       const { error } = await (supabase as any).from("company_settings").upsert({
         id: 1, company_name: companyName, company_logo_url: nextLogoUrl,
-        welcome_message: message, updated_by: user.id, updated_at: new Date().toISOString(),
+        welcome_message: message, welcome_media_url: nextWelcomeMediaUrl, welcome_media_type: nextWelcomeMediaType, updated_by: user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
       if (error) throw error;
       setLogoUrl(nextLogoUrl);
       setLogoAsset(null);
+      setWelcomeMediaUrl(nextWelcomeMediaUrl);
+      setMediaAsset(null);
       Alert.alert("تم الحفظ", "تحدثت هوية الشركة وستظهر في شاشة الترحيب وتسجيل الدخول.");
     } catch (error: any) {
       Alert.alert("تعذر الحفظ", error?.message || "حدث خطأ أثناء حفظ بيانات الشركة.");
@@ -108,6 +133,10 @@ export default function CompanySettingsScreen() {
         <Text style={s.label}>شعار الشركة</Text>
         <TouchableOpacity onPress={()=>void chooseLogo()} style={s.pickButton}><Text style={s.pickText}>{logoAsset ? "اختيار صورة أخرى" : logoUrl ? "تغيير صورة الشعار" : "اختيار صورة الشعار"}</Text></TouchableOpacity>
         {!!logoAsset && <Text style={s.muted}>الصورة الجديدة محددة وجاهزة للحفظ.</Text>}
+        <Text style={s.label}>صورة واجهة التطبيق عند الفتح وبطاقات الأسعار</Text>
+        {(mediaAsset?.uri || welcomeMediaUrl) ? <Image source={{ uri: mediaAsset?.uri || welcomeMediaUrl || undefined }} style={s.welcomeMedia} resizeMode="contain" /> : <View style={[s.welcomeMedia, s.mediaPlaceholder]}><Text style={s.muted}>لا توجد صورة واجهة</Text></View>}
+        <TouchableOpacity onPress={()=>void chooseWelcomeMedia()} style={s.pickButton}><Text style={s.pickText}>{mediaAsset ? "اختيار ملف آخر" : welcomeMediaUrl ? "تغيير صورة الواجهة" : "اختيار صورة الواجهة"}</Text></TouchableOpacity>
+        <Text style={s.muted}>يدعم JPG وPNG وWEBP وGIF المتحرك حتى 12 ميغابايت. تظهر الصورة في بداية التشغيل وبطاقات الأسعار.</Text>
         <Text style={s.label}>رسالة الترحيب</Text>
         <TextInput value={welcome} onChangeText={setWelcome} maxLength={180} multiline placeholder="مشوارك وخدمات بيتك، بمكان واحد." placeholderTextColor={palette.muted} style={[s.input,{minHeight:92,textAlignVertical:"top"}]} textAlign="right"/>
         <TouchableOpacity disabled={saving} onPress={()=>void save()} style={[s.saveButton,saving&&{opacity:0.6}]}><Text style={s.saveText}>{saving?"جاري الحفظ...":"حفظ بيانات الشركة"}</Text></TouchableOpacity>
@@ -123,7 +152,8 @@ const s=StyleSheet.create({
   title:{color:palette.ink,fontSize:20,fontWeight:"900",textAlign:"right"},label:{color:palette.ink,fontSize:12,fontWeight:"900",textAlign:"right"},
   muted:{color:palette.muted,fontSize:11,lineHeight:19,textAlign:"right"},
   preview:{alignItems:"center",backgroundColor:palette.canvas,borderRadius:radius.md,padding:16,gap:7},
-  logo:{width:96,height:96,borderRadius:22,backgroundColor:"#fff"},fallback:{width:96,height:96,borderRadius:22,backgroundColor:palette.brand,alignItems:"center",justifyContent:"center"},
+  logo:{width:96,height:96,borderRadius:22,backgroundColor:"#fff"},
+  welcomeMedia:{width:"100%",height:190,borderRadius:16,backgroundColor:palette.canvas},mediaPlaceholder:{alignItems:"center",justifyContent:"center",borderWidth:1,borderStyle:"dashed",borderColor:palette.line},fallback:{width:96,height:96,borderRadius:22,backgroundColor:palette.brand,alignItems:"center",justifyContent:"center"},
   fallbackText:{color:palette.white,fontSize:48,fontWeight:"900"},previewName:{color:palette.ink,fontSize:20,fontWeight:"900"},
   input:{minHeight:48,borderWidth:1,borderColor:palette.line,borderRadius:radius.md,paddingHorizontal:13,paddingVertical:10,color:palette.ink,backgroundColor:palette.canvas,fontSize:13},
   pickButton:{minHeight:46,backgroundColor:palette.brandSoft,borderRadius:radius.md,alignItems:"center",justifyContent:"center",padding:12,borderWidth:1,borderColor:palette.brand},
