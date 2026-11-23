@@ -209,6 +209,16 @@ BEGIN
     INSERT INTO public.mamnoon_zaincash_refund_events(refund_case_id, event_type, note, amount_iqd)
     VALUES (v_case_id, 'opened', left(coalesce(NEW.cancellation_reason, 'إلغاء الطلب من الزبون'), 500), v_payment.amount);
 
+    UPDATE public.mamnoon_revenue_ledger
+    SET metadata = metadata || jsonb_build_object(
+          'refund_review_pending', true,
+          'refund_case_id', v_case_id
+        ),
+        updated_at = now()
+    WHERE request_id = NEW.id
+      AND revenue_type IN ('taxi_commission','service_commission','order_commission')
+      AND status <> 'void';
+
     INSERT INTO public.notifications(user_id, type, title, body, link, data)
     VALUES (
       NEW.customer_id,
@@ -323,6 +333,24 @@ BEGIN
       decided_at = now(),
       updated_at = now()
   WHERE id = v_case.id;
+
+  IF p_decision = 'rejected' AND NOT EXISTS (
+    SELECT 1 FROM public.mamnoon_zaincash_refund_cases other_case
+    WHERE other_case.request_id = v_case.request_id
+      AND other_case.id <> v_case.id
+      AND other_case.status IN ('pending_review','approved')
+  ) THEN
+    UPDATE public.mamnoon_revenue_ledger
+    SET metadata = metadata || jsonb_build_object(
+          'refund_review_pending', false,
+          'refund_review_decision', 'rejected',
+          'refund_case_id', v_case.id
+        ),
+        updated_at = now()
+    WHERE request_id = v_case.request_id
+      AND revenue_type IN ('taxi_commission','service_commission','order_commission')
+      AND status <> 'void';
+  END IF;
 
   INSERT INTO public.mamnoon_zaincash_refund_events(
     refund_case_id,event_type,actor_id,note,amount_iqd
@@ -471,7 +499,8 @@ BEGIN
           metadata = metadata || jsonb_build_object(
             'void_reason','full_zaincash_refund',
             'refund_case_id',v_case.id,
-            'commission_returned_to_provider_iqd',v_ledger.collected_iqd
+            'commission_returned_to_provider_iqd',v_ledger.collected_iqd,
+            'refund_review_pending',false
           ),
           updated_at = now()
       WHERE id = v_ledger.id;
@@ -523,6 +552,47 @@ REVOKE ALL ON FUNCTION public.admin_mark_zaincash_refund(uuid,text,uuid,timestam
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_mark_zaincash_refund(uuid,text,uuid,timestamptz)
   TO service_role;
+
+CREATE OR REPLACE FUNCTION public.admin_get_revenue_summary()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_summary jsonb;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_super_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'super_admin_required';
+  END IF;
+
+  SELECT jsonb_build_object(
+    'assessed_iqd',COALESCE(SUM(assessed_iqd),0),
+    'collected_iqd',COALESCE(SUM(collected_iqd),0),
+    'waived_iqd',COALESCE(SUM(waived_iqd),0),
+    'outstanding_iqd',COALESCE(SUM(assessed_iqd-collected_iqd-waived_iqd),0),
+    'entry_count',COUNT(*)
+  ) INTO v_summary
+  FROM public.mamnoon_revenue_ledger
+  WHERE status <> 'void'
+    AND NOT (metadata @> '{"refund_review_pending": true}'::jsonb);
+
+  RETURN v_summary || jsonb_build_object(
+    'zaincash_debt_collected_iqd',
+    (
+      SELECT COALESCE(SUM(rc.amount_iqd),0)
+      FROM public.mamnoon_revenue_collections rc
+      WHERE NOT EXISTS (
+        SELECT 1 FROM public.mamnoon_revenue_collection_reversals reversal
+        WHERE reversal.revenue_collection_id = rc.id
+      )
+    )
+  );
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.admin_get_revenue_summary() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_get_revenue_summary() TO authenticated;
+
 
 COMMENT ON TABLE public.mamnoon_zaincash_refund_cases IS
   'Manual review queue for customer-cancelled paid ZainCash requests. No gateway refund is initiated automatically.';
