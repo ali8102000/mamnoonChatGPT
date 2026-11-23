@@ -144,7 +144,7 @@ export function LiveTrackMap({
           activeDriverCoord ?? { lat: 33.3152, lng: 44.3661 };
         const map = new g.maps.Map(containerRef.current, {
           center: initialCenter,
-          zoom: 15,
+          zoom: 16,
           disableDefaultUI: true,
           gestureHandling: "greedy",
           clickableIcons: false,
@@ -416,7 +416,7 @@ export function LiveTrackMap({
   function centerOnDriver() {
     if (mapRef.current && activeDriverCoord) {
       mapRef.current.panTo(activeDriverCoord);
-      mapRef.current.setZoom(17);
+      mapRef.current.setZoom(18);
     }
   }
 
