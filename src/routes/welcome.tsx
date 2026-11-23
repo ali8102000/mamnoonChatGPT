@@ -99,7 +99,7 @@ function WelcomePage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const { companyName, logoUrl: companyLogoUrl, welcomeMessage } = useCompanyBranding();
+  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeMediaUrl: companyBrandingMediaUrl } = useCompanyBranding();
   const text = copy[language];
   const slide = text.slides[step];
   const Forward = language === "ar" ? ArrowLeft : ArrowRight;
@@ -120,9 +120,9 @@ function WelcomePage() {
       className="min-h-dvh bg-surface text-foreground flex flex-col"
     >
       <header className="mx-auto w-full max-w-3xl flex items-center justify-between px-6 pt-6 sm:pt-8">
-        <span className="flex items-center gap-2 text-2xl font-black text-primary">
+        <span className="flex min-w-0 flex-wrap items-center gap-2 text-2xl font-black text-primary whitespace-normal break-words">
           {companyLogoUrl ? <img src={companyLogoUrl} alt={`شعار ${companyName}`} className="h-11 w-11 rounded-xl bg-white object-contain p-1 shadow-sm" /> : <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-xl font-black text-primary-foreground">م</span>}
-          {companyName}
+          <span className="min-w-0 whitespace-normal break-words">{companyName}</span>
           <span className="text-accent">.</span>
         </span>
         <Button variant="ghost" onClick={() => finish()} className="text-muted-foreground">
@@ -161,8 +161,8 @@ function WelcomePage() {
         </div>
 
         <h1 className="mt-7 text-3xl sm:text-4xl leading-tight font-black">{text.greeting}</h1>
-        <p className="mt-3 text-sm sm:text-base text-muted-foreground">{welcomeMessage || text.tagline}</p>
-        <img
+        <p className="mt-3 mx-auto max-w-xl whitespace-normal break-words text-balance text-sm leading-7 sm:text-base sm:leading-8 text-muted-foreground">{welcomeMessage || text.tagline}</p>
+        {companyBrandingMediaUrl ? <img src={companyBrandingMediaUrl} alt={`هوية ${companyName}`} className="mx-auto mt-5 w-full max-w-[420px] max-h-[280px] object-contain rounded-2xl" /> : <img
           src={welcomeImage}
           alt={
             language === "ar"
@@ -172,7 +172,7 @@ function WelcomePage() {
           width={1024}
           height={1024}
           className="mx-auto mt-5 w-full max-w-[340px] aspect-square object-contain rounded-lg"
-        />
+        />}
 
         <div className="mx-auto mt-3 grid w-full max-w-[340px] grid-cols-4 gap-2" aria-label="صور الخدمات">
           {(["build", "chef", "electric_setup"] as const).map((slug) => (
