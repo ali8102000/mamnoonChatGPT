@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
   }
   if (!Number.isFinite(Number(routeData.distanceKm)) || Number(routeData.distanceKm) <= 0 ||
       !Number.isFinite(Number(routeData.durationMin)) || Number(routeData.durationMin) <= 0) {
-    return json({ error: "أعادت خدمة الخرائط بيانات مسار غير صالحة", code: "ROUTE_VALIDATION_FAILED" }, 503);
+    return json({ error: "سنصل إليك قريباً. بيانات الطريق أو المسافة غير صالحة، لذلك لم نعرض سعراً.", code: "ROUTE_VALIDATION_FAILED" }, 503);
   }
   if ((suppliedPickupKey && suppliedPickupKey !== fromGovernorate) ||
       (suppliedDestinationKey && suppliedDestinationKey !== toGovernorate)) {
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
   });
   if(quoteError||!quoteData) {
     console.error("[auto-taxi-pricing] canonical Supabase quote failed",quoteError?.code||"no_quote");
-    return json({error:"تعذّر التحقق من تعرفة الإدارة حالياً. لم ننشئ سعراً تخمينياً.",code:"CANONICAL_PRICING_FAILED"},503);
+    return json({error:"سنصل إليك قريباً. تعذّر التحقق من السعر المعتمد من الإدارة.",code:"CANONICAL_PRICING_FAILED"},503);
   }
   const categoryPrices=quoteData.categoryPrices as Record<Category,number>;
   const minFares=quoteData.minFares as Record<Category,number>;
@@ -266,21 +266,21 @@ Deno.serve(async (req) => {
      !Number.isSafeInteger(Number(categoryPrices.premium))||
      !Number.isSafeInteger(Number(categoryPrices.luxury))) {
     console.error("[auto-taxi-pricing] canonical quote returned invalid fields");
-    return json({error:"أعاد نظام التسعير بيانات غير مكتملة. أوقفنا الطلب للحماية.",code:"INVALID_CANONICAL_QUOTE"},503);
+    return json({error:"سنصل إليك قريباً. بيانات السعر غير مكتملة، لذلك أوقفنا الطلب للحماية.",code:"INVALID_CANONICAL_QUOTE"},503);
   }
   // Independent parity check: if edge and database arithmetic ever diverge,
   // reject the quote rather than show a price that could differ on insert.
   for(const fareCategory of ["economy","premium","luxury"] as Category[]) {
     const minimum=Number(minFares[fareCategory]);
     if(!Number.isFinite(minimum)||minimum<0) {
-      return json({error:"الحد الأدنى لتعرفة إحدى الفئات غير صالح.",code:"INVALID_CATEGORY_MINIMUM"},503);
+      return json({error:"سنصل إليك قريباً. تعذّر التحقق من الحد الأدنى للأجرة.",code:"INVALID_CATEGORY_MINIMUM"},503);
     }
     const expected=calculateServerTaxiFare({
       category:fareCategory,economyRaw,minFare:minimum,tripType,extraMinutes,peakPercent,regionalPercent,autoPercent:quotedAutoPercent,urgencyPercent,
     });
     if(expected!==Number(categoryPrices[fareCategory])) {
       console.error("[auto-taxi-pricing] database/edge fare parity mismatch",fareCategory);
-      return json({error:"اكتشفنا اختلافاً في التحقق من السعر. أوقفنا التسعير حتى لا يظهر مبلغ خاطئ.",code:"FARE_PARITY_MISMATCH"},503);
+      return json({error:"سنصل إليك قريباً. تعذّر مطابقة السعر النهائي، لذلك لم نعرض مبلغاً غير مؤكد.",code:"FARE_PARITY_MISMATCH"},503);
     }
   }
   const priceEstimate=Number(categoryPrices[category]);
@@ -314,7 +314,7 @@ Deno.serve(async (req) => {
     taxi_urgency_enabled:urgencyPercent>0,taxi_urgency_percent:urgencyPercent,taxi_peak_percent:peakPercent
   };
   const {data:created,error:createError}=await admin.from("service_requests").insert(insert).select("id,coupon_discount,customer_payable,price_estimate,distance_km,duration_min").single();
-  if(createError||!created){console.error("[auto-taxi-pricing] request insert failed:",createError?.code||"unknown");return json({error:"تعذّر إنشاء الطلب. تحقق من البيانات وحاول مرة أخرى."},400);}
+  if(createError||!created){console.error("[auto-taxi-pricing] request insert failed:",createError?.code||"unknown");return json({error:"سنصل إليك قريباً. تعذّر اعتماد الطريق والسعر النهائي، ولم نرسل الطلب."},400);}
   let couponResult:any=null;
   let couponWarning:string|null=null;
   if(couponCode) {
