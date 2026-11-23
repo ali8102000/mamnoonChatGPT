@@ -12,6 +12,15 @@ type TaxiControl = {
   peak_percent: number;
   urgency_enabled: boolean;
   urgency_max_percent: number;
+  auto_monitor_enabled: boolean;
+  traffic_surcharge_cap_percent: number;
+  demand_increase_cap_percent: number;
+  demand_discount_cap_percent: number;
+  auto_demand_percent: number;
+  auto_active_drivers: number;
+  auto_gps_observed: number;
+  auto_pending_requests: number;
+  auto_updated_at?: string | null;
 };
 
 const DEFAULT: TaxiControl = {
@@ -20,10 +29,20 @@ const DEFAULT: TaxiControl = {
   peak_percent: 0,
   urgency_enabled: false,
   urgency_max_percent: 10,
+  auto_monitor_enabled: false,
+  traffic_surcharge_cap_percent: 0,
+  demand_increase_cap_percent: 0,
+  demand_discount_cap_percent: 0,
+  auto_demand_percent: 0,
+  auto_active_drivers: 0,
+  auto_gps_observed: 0,
+  auto_pending_requests: 0,
+  auto_updated_at: null,
 };
 
 export default function AdminTaxiPricingControls() {
   const [rows, setRows] = useState<TaxiControl[]>([]);
+  const [autoRows, setAutoRows] = useState<TaxiControl[]>([]);
   const [tariffs, setTariffs] = useState<TaxiTariff[]>([]);
   const [canTariff, setCanTariff] = useState(false);
   const [canGlobalPeak, setCanGlobalPeak] = useState(false);
@@ -37,18 +56,35 @@ export default function AdminTaxiPricingControls() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from("taxi_pricing_controls")
-      .select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent")
-      .order("governorate_key");
-    if (error) {
-      toast.error("تعذّر تحميل إعدادات تسعير التاكسي: " + error.message);
+    const [manualResult, autoResult] = await Promise.all([
+      (supabase as any).from("taxi_pricing_controls")
+        .select("governorate_key,peak_enabled,peak_percent,urgency_enabled,urgency_max_percent")
+        .order("governorate_key"),
+      (supabase as any).from("taxi_pricing_auto_controls")
+        .select("governorate_key,auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent,auto_demand_percent,auto_active_drivers,auto_gps_observed,auto_pending_requests,auto_updated_at")
+        .order("governorate_key"),
+    ]);
+    if (manualResult.error || autoResult.error) {
+      toast.error("تعذّر تحميل إعدادات تسعير التاكسي: " + (manualResult.error?.message || autoResult.error?.message));
       setRows([]);
+      setAutoRows([]);
     } else {
-      const list = (data ?? []) as TaxiControl[];
+      const list = (manualResult.data ?? []) as TaxiControl[];
+      const automatic = (autoResult.data ?? []) as TaxiControl[];
       setRows(list);
-      setGlobal(list.find((row) => row.governorate_key === "all") ?? DEFAULT);
-      setRegional(list.find((row) => row.governorate_key === governorateKey) ?? { ...DEFAULT, governorate_key: governorateKey });
+      setAutoRows(automatic);
+      setGlobal({
+        ...DEFAULT,
+        ...(list.find((row) => row.governorate_key === "all") ?? {}),
+        ...(automatic.find((row) => row.governorate_key === "all") ?? {}),
+      });
+      setRegional({
+        ...DEFAULT,
+        ...(list.find((row) => row.governorate_key === governorateKey) ?? {}),
+        ...(automatic.find((row) => row.governorate_key === "all") ?? {}),
+        ...(automatic.find((row) => row.governorate_key === governorateKey) ?? {}),
+        governorate_key: governorateKey,
+      });
     }
     const scopeType = governorateKey === "all" ? "global" : "governorate";
     const scopeGovernorate = governorateKey === "all" ? null : governorateKey;
@@ -90,8 +126,25 @@ export default function AdminTaxiPricingControls() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
-    setRegional(rows.find((row) => row.governorate_key === governorateKey) ?? { ...DEFAULT, governorate_key: governorateKey });
-  }, [rows, governorateKey]);
+    const refresh = () => { void load(); };
+    const channel = supabase.channel(`taxi-pricing-admin-${governorateKey}-${Date.now()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: `governorate_key=eq.${governorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: "governorate_key=eq.all" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls", filter: `governorate_key=eq.${governorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls", filter: "governorate_key=eq.all" }, refresh)
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [governorateKey, load]);
+
+  useEffect(() => {
+    setRegional({
+      ...DEFAULT,
+      ...(rows.find((row) => row.governorate_key === governorateKey) ?? {}),
+      ...(autoRows.find((row) => row.governorate_key === "all") ?? {}),
+      ...(autoRows.find((row) => row.governorate_key === governorateKey) ?? {}),
+      governorate_key: governorateKey,
+    });
+  }, [rows, autoRows, governorateKey]);
 
   async function saveGlobal() {
     if (!Number.isFinite(global.urgency_max_percent) || global.urgency_max_percent < 0 || global.urgency_max_percent > 100) {
@@ -127,6 +180,32 @@ export default function AdminTaxiPricingControls() {
     setSaving(false);
     if (error) { toast.error("تعذّر حفظ ذروة المحافظة: " + error.message); return; }
     toast.success("انحفظت إعدادات الذروة للمحافظة.");
+    await load();
+  }
+
+  async function saveAutoMonitor() {
+    const current = governorateKey === "all" ? global : regional;
+    const values = [
+      current.traffic_surcharge_cap_percent,
+      current.demand_increase_cap_percent,
+      current.demand_discount_cap_percent,
+    ].map(Number);
+    if (values.some((value) => !Number.isFinite(value) || value < 0) ||
+        values[0] > 200 || values[1] > 100 || values[2] > 50) {
+      toast.error("تحقق من الحدود: ازدحام الطريق حتى 200%، زيادة الطلب حتى 100%، التخفيض حتى 50%.");
+      return;
+    }
+    setSaving(true);
+    const { error } = await (supabase as any).rpc("admin_update_taxi_auto_monitor_settings", {
+      p_governorate_key: governorateKey,
+      p_enabled: current.auto_monitor_enabled,
+      p_traffic_cap: values[0],
+      p_demand_increase_cap: values[1],
+      p_demand_discount_cap: values[2],
+    });
+    setSaving(false);
+    if (error) { toast.error("تعذّر حفظ المراقبة التلقائية: " + error.message); return; }
+    toast.success("تم حفظ إعداد المراقبة الدورية التلقائية للأسعار.");
     await load();
   }
 
@@ -201,6 +280,43 @@ export default function AdminTaxiPricingControls() {
         </> : <p className="text-xs text-muted-foreground">اختر محافظة ضمن نطاق صلاحيتك حتى تظهر إعدادات الذروة المتاحة لك.</p>}
         <button type="button" disabled={saving} onClick={() => void load()} className="mr-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50"><RefreshCw className="ml-2 inline h-4 w-4" /> تحديث</button>
       </div>}
+      {(canGlobalPeak || canRegionalPeak) && <div className="rounded-xl border border-border p-3 space-y-3">
+        <div className="flex items-center gap-2 font-black"><RefreshCw className="h-4 w-4 text-sky-600" /> مراقبة دورية تلقائية للأسعار</div>
+        <p className="text-xs text-muted-foreground">تُحدّث قاعدة البيانات أعداد السائقين والطلبات كل دقيقة. ويُقاس ازدحام طريق الرحلة وقت طلب السعر من بيانات Google Traffic الحية. تنتهي زيادة الازدحام تلقائياً عند رجوع زمن الطريق إلى وضعه الطبيعي.</p>
+        <label className="flex items-center justify-between gap-3 text-sm font-bold">
+          <span>تفعيل المراقبة التلقائية لهذه المحافظة</span>
+          <input type="checkbox" checked={(governorateKey === "all" ? global : regional).auto_monitor_enabled}
+            onChange={(e) => {
+              const setter = governorateKey === "all" ? setGlobal : setRegional;
+              setter((v) => ({ ...v, auto_monitor_enabled: e.target.checked }));
+            }} className="h-5 w-5 accent-sky-600" />
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {([
+            ["traffic_surcharge_cap_percent","سقف زيادة الازدحام المروري (%)",200],
+            ["demand_increase_cap_percent","سقف زيادة كثرة الطلبات (%)",100],
+            ["demand_discount_cap_percent","سقف التخفيض عند وفرة السائقين (%)",50],
+          ] as const).map(([key,label,max]) => <label key={key} className="block space-y-1 text-xs font-bold">
+            <span>{label}</span>
+            <input className={inputClass} type="number" min="0" max={max} step="1"
+              value={(governorateKey === "all" ? global : regional)[key]}
+              onChange={(e) => {
+                const setter = governorateKey === "all" ? setGlobal : setRegional;
+                setter((v) => ({ ...v, [key]: Number(e.target.value) }));
+              }} />
+          </label>)}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+          <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">السائقون المتاحون</div><b>{(governorateKey === "all" ? global : regional).auto_active_drivers}</b></div>
+          <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">إشارات GPS الحديثة</div><b>{(governorateKey === "all" ? global : regional).auto_gps_observed}</b></div>
+          <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">الطلبات المنتظرة</div><b>{(governorateKey === "all" ? global : regional).auto_pending_requests}</b></div>
+          <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">تعديل الطلب الحالي</div><b>{Number((governorateKey === "all" ? global : regional).auto_demand_percent).toFixed(0)}%</b></div>
+        </div>
+        <p className="text-[11px] text-muted-foreground">إذا انقطعت إشارات GPS الحديثة، يوقف النظام تعديل السعر حسب العرض والطلب بدلاً من افتراض عدم وجود سائقين.</p>
+        <p className="text-[11px] text-muted-foreground">آخر تحديث: {(governorateKey === "all" ? global : regional).auto_updated_at ? new Date((governorateKey === "all" ? global : regional).auto_updated_at!).toLocaleString("ar-IQ") : "بانتظار أول دورة مراقبة"}.</p>
+        <button type="button" disabled={saving} onClick={() => void saveAutoMonitor()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4" /> حفظ إعداد المراقبة</button>
+      </div>}
+
       {canTariff && <div className="rounded-xl border border-border p-3 space-y-3">
         <div className="font-black">التعرفة الأساسية للتاكسي — {governorateKey === "all" ? "كل العراق" : GOVERNORATES.find((g: any) => g.key === governorateKey)?.name}</div>
         <p className="text-xs text-muted-foreground">تعرفة الاقتصاد هي أساس حساب كل الفئات؛ المتميز والفاخر يطبّق عليهما فرق الفئة المتفق عليه، مع حد أدنى مستقل فقط. عند عدم وجود تعرفة خاصة بالمحافظة، تبدأ من تعرفة كل العراق ويمكن حفظ تعرفة محلية مستقلة. كل حفظ موثق بسجل التدقيق.</p>

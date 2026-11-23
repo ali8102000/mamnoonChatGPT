@@ -28,14 +28,19 @@ export function ProviderPresence() {
 
     async function send(force = false) {
       if (stopped || !last) return;
+      if (!Number.isFinite(last.coords.accuracy) || last.coords.accuracy > 100) return;
       if (!force && Date.now() - lastSent < SEND_EVERY_MS) return;
       if (!(await isAvailable())) return;
       lastSent = Date.now();
-      await supabase.from("provider_presence").upsert({
+      const speed = last.coords.speed;
+      await (supabase as any).from("provider_presence").upsert({
         user_id: uid!,
         lat: last.coords.latitude,
         lng: last.coords.longitude,
         heading: last.coords.heading ?? null,
+        updated_at: new Date().toISOString(),
+        accuracy_m: last.coords.accuracy,
+        speed_mps: typeof speed === "number" && Number.isFinite(speed) && speed >= 0 ? speed : null,
       });
     }
 

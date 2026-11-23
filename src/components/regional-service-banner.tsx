@@ -71,8 +71,8 @@ export function RegionalServiceBanner() {
     const timer = setInterval(() => void load(), 30000);
     return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
   }, [isAdmin, loading]);
-  if (loading || isAdmin || !mounted || !row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled)) return null;
-  const message = row.message_text || (row.services_enabled ? "" : "الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون.");
+  if (loading || isAdmin || !mounted || !row || (row.message_float_enabled === false && row.services_enabled) || (row.services_enabled && !row.message_enabled)) return null;
+  const message = row.message_text || (row.services_enabled ? "" : "سنصل إليك قريباً. الخدمة غير متوفرة حالياً في مدينتك.");
   if (!message) return null;
   const width = Math.max(60, Math.min(100, row.message_width_percent ?? 92));
   const height = Math.max(12, Math.min(60, row.message_height_percent ?? 34));
@@ -91,7 +91,7 @@ export function RegionalServiceBanner() {
       <div className="relative mt-2 overflow-hidden whitespace-nowrap">
         <div className={row.message_animate ? "mamnoon-regional-marquee" : "leading-6 whitespace-normal"} style={{fontSize,lineHeight:1.8}}>{message}</div>
       </div>
-      {!row.services_enabled && <div className="mt-3 rounded-xl border border-amber-500/35 bg-gradient-to-l from-[#211706] to-[#090909] p-3"><div className="flex items-center justify-between text-[10px] font-black text-amber-300"><span>رسالة رفض الطلب</span><span>✓ إدارة ممنون الموثّقة</span></div><p className="mt-2 font-black leading-7 text-amber-100" style={{fontSize}}>{row.rejection_message || "الخدمة متوقفة حالياً في منطقتك بقرار من إدارة ممنون."}</p><div className="mt-2 flex items-center gap-1 text-[10px] text-rose-300"><AlertTriangle className="h-3 w-3" /> إنشاء الطلبات متوقف حالياً في هذه المحافظة.</div></div>}
+      {!row.services_enabled && <div className="mt-3 rounded-xl border border-amber-500/35 bg-gradient-to-l from-[#211706] to-[#090909] p-3"><div className="flex items-center justify-between text-[10px] font-black text-amber-300"><span>رسالة رفض الطلب</span><span>✓ إدارة ممنون الموثّقة</span></div><p className="mt-2 font-black leading-7 text-amber-100" style={{fontSize}}>{ "سنصل إليك قريباً. الخدمة غير متوفرة حالياً في مدينتك." }</p><div className="mt-2 flex items-center gap-1 text-[10px] text-rose-300"><AlertTriangle className="h-3 w-3" /> إنشاء الطلبات متوقف حالياً في هذه المحافظة.</div><a href="/auth" className="mt-3 inline-flex items-center justify-center rounded-xl bg-amber-400 px-4 py-2 text-xs font-black text-black">سجّل معنا بشكل منفصل</a></div>}
       <style>{`@keyframes mamnoon-regional-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } } .mamnoon-regional-marquee { display:inline-block; width:max-content; white-space:nowrap; color:#f6d98a; will-change:transform; animation:mamnoon-regional-scroll 24s ease-in-out infinite alternate; }`}</style>
     </div>
   );

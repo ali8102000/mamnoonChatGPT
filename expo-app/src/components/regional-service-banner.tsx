@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Animated, Easing, Image, ScrollView, Text, View, StyleSheet } from "react-native";
+import { Animated, Easing, Image, ScrollView, Text, View, StyleSheet, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as Location from "expo-location";
 import { callMamnoonMapsApi } from "@/lib/maps-api";
@@ -16,6 +17,7 @@ type Row = {
 
 export function RegionalServiceBanner() {
   const { isAdmin, loading } = useAuth();
+  const router = useRouter();
   const [row, setRow] = useState<Row | null>(null);
   const translate = useState(() => new Animated.Value(0))[0];
   const [marqueeWidth, setMarqueeWidth] = useState(0);
@@ -62,7 +64,7 @@ export function RegionalServiceBanner() {
     const timer = setInterval(() => void load(), 30000);
     return () => { active = false; clearInterval(timer); };
   }, [isAdmin, loading]);
-  const text = row?.message_text || (row && !row.services_enabled ? "الخدمات متوقفة مؤقتاً في محافظتك بقرار من إدارة ممنون." : "");
+  const text = row?.message_text || (row && !row.services_enabled ? "سنصل إليك قريباً. الخدمة غير متوفرة حالياً في مدينتك." : "");
   useEffect(() => {
     if (!row?.message_animate || (!row.message_enabled && row.services_enabled) || marqueeWidth <= 0 || textWidth <= 0) return;
     translate.setValue(0);
@@ -73,7 +75,7 @@ export function RegionalServiceBanner() {
     animation.start();
     return () => animation.stop();
   }, [row?.message_animate, row?.message_enabled, row?.services_enabled, row?.message_text, marqueeWidth, textWidth, translate]);
-  if (loading || isAdmin || !row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled) || !text) return null;
+  if (loading || isAdmin || !row || (row.message_float_enabled === false && row.services_enabled) || (row.services_enabled && !row.message_enabled) || !text) return null;
   const width = Math.max(60, Math.min(100, row.message_width_percent ?? 92));
   const height = Math.max(12, Math.min(60, row.message_height_percent ?? 34));
   const top = Math.max(0, Math.min(160, row.message_top_offset ?? 12));
@@ -89,7 +91,7 @@ export function RegionalServiceBanner() {
           <View style={styles.marquee} onLayout={(event) => setMarqueeWidth(event.nativeEvent.layout.width)}>
             {row.message_animate ? <Animated.Text numberOfLines={1} onLayout={(event) => setTextWidth(event.nativeEvent.layout.width)} style={[styles.message,{fontSize,transform:[{translateX:translate.interpolate({inputRange:[0,1],outputRange:[marqueeWidth,-textWidth]})}]}]}>{text}</Animated.Text> : <Text style={[styles.message,{fontSize,textAlign:"right"}]}>{text}</Text>}
           </View>
-          {!row.services_enabled && <View style={styles.rejectionCard}><View style={styles.rejectionHead}><Text style={styles.rejectionLabel}>رسالة رفض الطلب</Text><Text style={styles.stampText}>✓ إدارة ممنون الموثّقة</Text></View><Text style={[styles.rejectionText,{fontSize}]}>{row.rejection_message || "الخدمة متوقفة حالياً في منطقتك بقرار من إدارة ممنون."}</Text><Text style={styles.closed}>إنشاء الطلبات متوقف حالياً في هذه المحافظة.</Text></View>}
+          {!row.services_enabled && <View style={styles.rejectionCard}><View style={styles.rejectionHead}><Text style={styles.rejectionLabel}>رسالة رفض الطلب</Text><Text style={styles.stampText}>✓ إدارة ممنون الموثّقة</Text></View><Text style={[styles.rejectionText,{fontSize}]}>{"سنصل إليك قريباً. الخدمة غير متوفرة حالياً في مدينتك."}</Text><Text style={styles.closed}>إنشاء الطلبات متوقف حالياً في هذه المحافظة.</Text><Pressable onPress={() => router.push("/auth")} style={{ marginTop: 10, alignSelf: "flex-end", backgroundColor: "#F2D58A", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10 }}><Text style={{ color: "#17120A", fontWeight: "900", fontSize: 12 }}>سجّل معنا بشكل منفصل</Text></Pressable></View>}
         </ScrollView>
       </LinearGradient>
     </View>

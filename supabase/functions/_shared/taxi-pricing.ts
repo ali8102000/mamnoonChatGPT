@@ -25,15 +25,21 @@ export function calculateServerTaxiFare(input: {
   tripType: ServerTripType;
   extraMinutes: number;
   peakPercent: number;
+  regionalPercent?: number;
+  autoPercent?: number;
   urgencyPercent: number;
 }): number {
-  const { category, economyRaw, minFare, tripType, extraMinutes, peakPercent, urgencyPercent } = input;
+  const { category, economyRaw, minFare, tripType, extraMinutes, peakPercent, regionalPercent = 0, autoPercent = 0, urgencyPercent } = input;
   if (!Number.isFinite(economyRaw) || economyRaw < 0) throw new Error("invalid_economy_base");
   if (!Number.isFinite(minFare) || minFare < 0) throw new Error("invalid_minimum_fare");
   if (!Number.isInteger(extraMinutes) || extraMinutes < 0 || extraMinutes > 120 || extraMinutes % 5 !== 0) {
     throw new Error("invalid_extra_minutes");
   }
   if (!Number.isFinite(peakPercent) || peakPercent < 0 || peakPercent > 200) throw new Error("invalid_peak_percent");
+  if (!Number.isFinite(regionalPercent) || regionalPercent < 0 || regionalPercent > 200) throw new Error("invalid_regional_percent");
+  if (!Number.isFinite(autoPercent) || autoPercent < -50 || autoPercent > 200) throw new Error("invalid_auto_percent");
+  const combinedAdjustment = peakPercent + regionalPercent + autoPercent;
+  if (combinedAdjustment < -50 || combinedAdjustment > 600) throw new Error("invalid_combined_adjustment");
   if (!Number.isFinite(urgencyPercent) || urgencyPercent < 0 || urgencyPercent > 100) throw new Error("invalid_urgency_percent");
 
   const tierPercent = category === "economy"
@@ -46,7 +52,7 @@ export function calculateServerTaxiFare(input: {
   const pricingEconomyBase = Math.max(1000, economyRaw);
   let raw = pricingEconomyBase * (1 + tierPercent / 100) * tripMultiplier + extraFare;
   if (tripType === "round_trip") raw = pricingEconomyBase * (1 + tierPercent / 100) * 2 * 0.9 + extraFare;
-  raw *= 1 + peakPercent / 100;
+  raw *= 1 + combinedAdjustment / 100;
   raw *= 1 + urgencyPercent / 100;
   const total = Math.max(1000, minFare, Math.round(raw / 250) * 250);
   if (!Number.isSafeInteger(total) || total < 1000) throw new Error("invalid_calculated_fare");

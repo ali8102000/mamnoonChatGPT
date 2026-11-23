@@ -674,7 +674,7 @@ export default function NewRequest() {
           !Number.isFinite(route.distanceKm) ||
           route.distanceKm <= 0 ||
           !Number.isFinite(route.durationMin) ||
-          route.durationMin < 0 ||
+          route.durationMin <= 0 ||
           !Number.isFinite(route.priceEstimate)
         ) {
           throw new Error("تعذّر التحقق من مسافة الطريق. حرّك نقطة الوجهة أو أعد المحاولة.");
@@ -707,7 +707,10 @@ export default function NewRequest() {
         setRouteDurationMin(null);
         confirmDestinationPendingRef.current = false;
         setConfirmDestinationPending(false);
-        setRouteError(error instanceof Error ? error.message : "تعذّر حساب مسافة الطريق.");
+        const warning = error instanceof Error ? error.message : "تعذّر حساب مسافة الطريق.";
+        setRouteError(warning.includes("سنصل إليك قريباً")
+          ? warning
+          : "سنصل إليك قريباً. " + warning);
       } finally {
         if (active) setRouteLoading(false);
       }
@@ -717,6 +720,30 @@ export default function NewRequest() {
       clearTimeout(timer);
     };
   }, [pickupCoords, destinationCoords, mapMode, isTaxi, isLargeVehicle, vehicleCat, tripType, extraMinutes, urgencyEnabled, routeRetry]);
+
+  useEffect(() => {
+    if (!isTaxi || isLargeVehicle || !pickupGovernorateKey) return;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setRouteRetry((value) => value + 1), 700);
+    };
+    const channel = supabase.channel(`taxi-live-pricing-mobile-${pickupGovernorateKey}-${Date.now()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: `governorate_key=eq.${pickupGovernorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls", filter: `governorate_key=eq.${pickupGovernorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_auto_controls", filter: "governorate_key=eq.all" }, refresh)
+
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: "governorate_key=eq.all" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pricing_settings", filter: `governorate_key=eq.${pickupGovernorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pricing_settings", filter: "governorate_key=eq.all" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls", filter: `governorate_key=eq.${pickupGovernorateKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls", filter: "governorate_key=eq.all" }, refresh)
+      .subscribe();
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [isTaxi, isLargeVehicle, pickupGovernorateKey]);
 
   const placeSearchCacheRef = useRef(new Map<string, Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }>>());
   useEffect(() => {
@@ -1282,7 +1309,9 @@ export default function NewRequest() {
       router.replace({ pathname: "/request/[id]", params: { id: requestId } });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
-      Alert.alert("تعذر إرسال الطلب", message);
+      Alert.alert("تعذر إرسال الطلب", message.includes("الخدمة غير متوفرة") || message.includes("سنصل إليك قريباً")
+        ? "سنصل إليك قريباً. الخدمة غير متوفرة حالياً في مدينتك."
+        : message);
     } finally {
       setBusy(false);
     }
