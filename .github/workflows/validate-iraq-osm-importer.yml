@@ -3,7 +3,7 @@ name: Validate Iraq OSM importer
 on:
   push:
     branches:
-      - feat/iraq-osm-national-place-import
+      - feat/iraq-osm-national-place-import-mainline
 
 permissions:
   contents: read
