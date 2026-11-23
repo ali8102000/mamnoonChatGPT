@@ -21,7 +21,7 @@ ALTER TABLE public.service_requests
 
 CREATE INDEX IF NOT EXISTS driver_profiles_large_vehicle_type_dispatch_idx
   ON public.driver_profiles (vehicle_type, user_id)
-  WHERE vehicle_category::text = 'large'
+  WHERE vehicle_category = 'large'
     AND available = true
     AND status = 'approved';
 
