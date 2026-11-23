@@ -165,7 +165,7 @@ export default function ProfileScreen() {
   function submitWalletTopup() {
     const normalized = walletTopupAmount
       .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-      .replace(/[٬,،\\s]/g, "");
+      .replace(/[٬,،\s]/g, "");
     const amount = Number(normalized);
     if (!Number.isSafeInteger(amount) || amount < 5000 || amount > 5000000) {
       Alert.alert("مبلغ غير صحيح", "اكتب مبلغاً صحيحاً من ٥٬٠٠٠ إلى ٥٬٠٠٠٬٠٠٠ دينار.");
