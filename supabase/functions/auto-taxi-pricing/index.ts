@@ -223,9 +223,24 @@ Deno.serve(async (req) => {
   const demandPercent=autoMonitorEnabled
     ? Number(activeControls?.auto_demand_percent)||0
     : 0;
-  const demandDiscountCap=Math.max(0,Number(activeControls?.demand_discount_cap_percent)||0);
-  const autoPercent=autoMonitorEnabled
-    ? Math.max(-demandDiscountCap,Math.min(200,demandPercent+trafficPercent))
+  const {data:categoryPeak,error:categoryPeakError}=await admin
+    .from("category_peak_pricing_settings")
+    .select("mode,enabled,min_surcharge_percent,max_surcharge_percent,auto_calculated_percent,last_calculated_at,observed_providers")
+    .eq("category_key","taxi:"+category)
+    .maybeSingle();
+  if(categoryPeakError || !categoryPeak) {
+    console.error("[auto-taxi-pricing] category peak settings unavailable",categoryPeakError?.code||"missing_category");
+    return json({error:"إعدادات الذروة لهذه الفئة غير متاحة حالياً؛ لم نضف أي زيادة للسعر.",code:"CATEGORY_PEAK_SETTINGS_UNAVAILABLE"},503);
+  }
+  const peakCalculatedAt=categoryPeak.last_calculated_at?new Date(categoryPeak.last_calculated_at).getTime():0;
+  const peakDataFresh=Number.isFinite(peakCalculatedAt)&&peakCalculatedAt>0&&
+    Date.now()-peakCalculatedAt<=3*60*1000&&Number(categoryPeak.observed_providers)>0;
+  const categoryPeakEnabled=categoryPeak.enabled===true&&categoryPeak.mode==="auto";
+  const categoryPeakMinimum=Math.max(0,Number(categoryPeak.min_surcharge_percent)||0);
+  const categoryPeakMaximum=Math.max(categoryPeakMinimum,Number(categoryPeak.max_surcharge_percent)||0);
+  const calculatedCategoryPercent=Number(categoryPeak.auto_calculated_percent);
+  const autoPercent=categoryPeakEnabled&&peakDataFresh&&Number.isFinite(calculatedCategoryPercent)&&calculatedCategoryPercent>0
+    ? Math.max(categoryPeakMinimum,Math.min(categoryPeakMaximum,calculatedCategoryPercent))
     : 0;
   const routed = {
     distanceKm: Number(routeData.distanceKm),
