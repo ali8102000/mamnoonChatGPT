@@ -71,7 +71,7 @@ export function RegionalServiceBanner() {
     const timer = setInterval(() => void load(), 30000);
     return () => { active = false; clearInterval(timer); void supabase.removeChannel(channel); };
   }, [isAdmin, loading]);
-  if (loading || isAdmin || !mounted || !row || row.message_float_enabled === false || (row.services_enabled && !row.message_enabled)) return null;
+  if (loading || isAdmin || !mounted || !row || (row.message_float_enabled === false && row.services_enabled) || (row.services_enabled && !row.message_enabled)) return null;
   const message = row.message_text || (row.services_enabled ? "" : "سنصل إليك قريباً. الخدمة غير متوفرة حالياً في مدينتك.");
   if (!message) return null;
   const width = Math.max(60, Math.min(100, row.message_width_percent ?? 92));
