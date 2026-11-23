@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import * as ImagePicker from "expo-image-picker";
+import MapView, { Marker, type MapPressEvent } from "react-native-maps";
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -37,6 +39,10 @@ export default function AccountSettingsScreen() {
   const [partnerCity, setPartnerCity] = useState("");
   const [partnerAddress, setPartnerAddress] = useState("");
   const [partnerDescription, setPartnerDescription] = useState("");
+  const [partnerLicenseNumber, setPartnerLicenseNumber] = useState("");
+  const [partnerDocs, setPartnerDocs] = useState<{license:ImagePicker.ImagePickerAsset|null;idFront:ImagePicker.ImagePickerAsset|null;idBack:ImagePicker.ImagePickerAsset|null}>({license:null,idFront:null,idBack:null});
+  const [partnerLat, setPartnerLat] = useState(33.3152);
+  const [partnerLng, setPartnerLng] = useState(44.3661);
   const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [partnerBusy, setPartnerBusy] = useState(false);
   const governorateLabels: Record<string,string> = {baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
