@@ -4,6 +4,7 @@ import { router, Stack } from "expo-router";
 import { useAuth } from "@/lib/auth-context";
 import { palette } from "@/styles/theme";
 import { Image as ExpoImage } from "expo-image";
+import { Image as ExpoImage } from "expo-image";
 import { useCompanyBranding } from "@/lib/company-branding";
 
 export default function WelcomeScreen() {
@@ -26,7 +27,7 @@ export default function WelcomeScreen() {
       {logoUrl ? <Image source={{ uri: logoUrl }} style={styles.logo} resizeMode="contain" /> : <View style={styles.mark}><Text style={styles.markText}>م</Text></View>}
       <Text style={styles.brand}>{companyName}</Text>
       <Text style={styles.title}>أهلاً بك في ممنون</Text>
-      {welcomeVisualUrl ? <Image source={{uri:welcomeVisualUrl}} style={styles.welcomeVisual} resizeMode="cover"/> : null}
+      {welcomeVisualUrl ? <ExpoImage source={{uri:welcomeVisualUrl}} style={styles.welcomeVisual} contentFit="cover" autoplay={welcomeVisualAnimated}/> : null}
       <Text style={styles.desc}>{welcomeMessage}</Text>
       <ActivityIndicator size="small" color={palette.gold} style={styles.loader} />
     </View>
