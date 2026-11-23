@@ -133,7 +133,8 @@ export default function DriverOnboarding() {
         if (typeof savedPlate === "string") setPlate(savedPlate);
         if (typeof savedColor === "string") setColor(savedColor);
         if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury" || savedCategory === "large") setCategory(savedCategory);
-        if (saved?.vehicle_type === "kia_cargo" || saved?.vehicle_type === "kia_passenger" || saved?.vehicle_type === "bus") setVehicleType(saved.vehicle_type);
+        const savedVehicleType = saved?.vehicle_type ?? m.vehicleType;
+        if (savedVehicleType === "kia_cargo" || savedVehicleType === "kia_passenger" || savedVehicleType === "bus") setVehicleType(savedVehicleType);
         setOriginalVehicle({ make: make ?? (largeDriverMode ? "كيا" : ""), model: model ?? (largeDriverMode ? "كيا حمل" : ""), year: savedYear == null ? "" : String(savedYear), plate: savedPlate ?? "", color: savedColor ?? null, category: savedCategory ?? (largeDriverMode ? "large" : "economy"), vehicleType: saved?.vehicle_type ?? "kia_cargo" });
         setCheckingSavedDriver(false);
       }).catch(() => { if (active) setCheckingSavedDriver(false); });
@@ -351,6 +352,10 @@ export default function DriverOnboarding() {
       } finally {
         setBusy(false);
       }
+      return;
+    }
+    if (largeDriverMode && !vehicleType) {
+      Alert.alert("نوع المركبة مطلوب", "اختار كيا حمل أو كيا ركاب أو باص حتى نحدد الطلبات المناسبة لمركبتك.");
       return;
     }
     const vehicleYear = Number(year.trim());
