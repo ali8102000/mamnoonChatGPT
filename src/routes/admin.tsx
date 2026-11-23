@@ -2331,6 +2331,9 @@ function WalletSection() {
   const [settlementAmount, setSettlementAmount] = useState("");
   const [settlementNote, setSettlementNote] = useState("");
   const [settlementBusy, setSettlementBusy] = useState(false);
+  const [pendingSettlement, setPendingSettlement] = useState<{
+    providerId: string; amount: number; note: string; idempotencyKey: string;
+  } | null>(null);
   const listTx = adminListTransactions;
   const adjustWallet = adminAdjustWallet;
   const money = (value: any) => Number(value ?? 0).toLocaleString("ar-IQ") + " د.ع";
@@ -2391,18 +2394,26 @@ function WalletSection() {
       toast.error("تحقق من مبلغ التسوية والملاحظة؛ لا يمكن دفع أكثر من المستحق المتبقي");
       return;
     }
+    const note = settlementNote.trim();
+    const idempotencyKey = pendingSettlement &&
+      pendingSettlement.providerId === selectedProvider.id &&
+      pendingSettlement.amount === amount && pendingSettlement.note === note
+        ? pendingSettlement.idempotencyKey
+        : crypto.randomUUID();
+    setPendingSettlement({ providerId: selectedProvider.id, amount, note, idempotencyKey });
     setSettlementBusy(true);
     try {
       await invokePayables({
         action: "record_provider_cash_settlement",
         provider_id: selectedProvider.id,
         amount_iqd: amount,
-        note: settlementNote.trim(),
-        idempotency_key: crypto.randomUUID(),
+        note,
+        idempotency_key: idempotencyKey,
       });
       toast.success("تم تسجيل التسوية النقدية وتحديث المستحقات");
       setSettlementAmount("");
       setSettlementNote("");
+      setPendingSettlement(null);
       await openProvider(selectedProvider);
     } catch (e: any) {
       toast.error(e?.message || "تعذر تسجيل التسوية النقدية");
