@@ -1,9 +1,19 @@
--- Reclassify acceptance-time provider commissions for verified ZainCash service payments.
--- Wallet payments and cash payments keep their existing, separate commission path.
+-- Preserve the audit trail when an acceptance-time wallet commission was already
+-- collected through a later wallet top-up. Such collection is reversed as part of
+-- the reclassification, then the verified service payment becomes the sole source.
+CREATE TABLE IF NOT EXISTS public.mamnoon_revenue_collection_reversals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  revenue_collection_id uuid NOT NULL REFERENCES public.mamnoon_revenue_collections(id),
+  revenue_ledger_id uuid NOT NULL REFERENCES public.mamnoon_revenue_ledger(id),
+  amount_iqd bigint NOT NULL CHECK (amount_iqd > 0),
+  reason text NOT NULL,
+  idempotency_key text NOT NULL UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT mamnoon_revenue_collection_reversal_once UNIQUE (revenue_collection_id)
+);
+ALTER TABLE public.mamnoon_revenue_collection_reversals ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.mamnoon_revenue_collection_reversals FROM anon, authenticated;
 
--- Electronic customer payments must not leave the acceptance-time commission debit
--- on the provider's internal wallet. Reclassify it against the verified ZainCash
--- receipt, so the provider's payable is gross paid less the commission exactly once.
 CREATE OR REPLACE FUNCTION public.reclassify_zaincash_provider_commission(
   p_request_id uuid,
   p_payment_id uuid,
@@ -20,10 +30,12 @@ DECLARE
   v_ledger public.mamnoon_revenue_ledger%ROWTYPE;
   v_wallet_tx public.account_wallet_transactions%ROWTYPE;
   v_refund_iqd bigint := 0;
+  v_reversed_topup_collections bigint := 0;
   v_collected_before bigint := 0;
   v_due bigint := 0;
   v_take bigint := 0;
   v_collected_after bigint := 0;
+  v_collection record;
 BEGIN
   IF (auth.jwt() ->> 'role') IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'service_role_required';
@@ -64,8 +76,30 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Reverse the original acceptance-time wallet debit once, preserving the
-  -- wallet's full balance history with a separate compensating transaction.
+  -- Reverse any commission debt already collected from a provider's wallet top-up.
+  -- Keep the original collection row and add a separate, auditable reversal row.
+  FOR v_collection IN
+    SELECT rc.id, rc.amount_iqd
+    FROM public.mamnoon_revenue_collections rc
+    JOIN public.payment_transactions pt ON pt.id = rc.payment_id
+    WHERE rc.revenue_ledger_id = v_ledger.id
+      AND pt.purpose = 'wallet_topup'
+  LOOP
+    INSERT INTO public.mamnoon_revenue_collection_reversals(
+      revenue_collection_id,revenue_ledger_id,amount_iqd,reason,idempotency_key
+    ) VALUES (
+      v_collection.id,v_ledger.id,v_collection.amount_iqd,
+      'Reclassified to verified ZainCash service-request commission',
+      'zaincash-commission-collection-reversal:' || v_collection.id::text
+    ) ON CONFLICT (revenue_collection_id) DO NOTHING;
+  END LOOP;
+
+  SELECT COALESCE(SUM(amount_iqd),0)::bigint
+  INTO v_reversed_topup_collections
+  FROM public.mamnoon_revenue_collection_reversals
+  WHERE revenue_ledger_id = v_ledger.id;
+
+  -- Reverse the original acceptance-time wallet debit once, preserving history.
   SELECT * INTO v_wallet_tx
   FROM public.account_wallet_transactions
   WHERE idempotency_key = 'mamnoon-commission:' || p_request_id::text || ':' || v_request.provider_id::text;
@@ -83,10 +117,13 @@ BEGIN
     );
   END IF;
 
-  SELECT COALESCE(SUM(amount_iqd),0)::bigint
+  SELECT COALESCE(SUM(rc.amount_iqd),0)::bigint
+    - COALESCE(SUM(rr.amount_iqd),0)::bigint
   INTO v_collected_before
-  FROM public.mamnoon_revenue_collections
-  WHERE revenue_ledger_id = v_ledger.id;
+  FROM public.mamnoon_revenue_collections rc
+  LEFT JOIN public.mamnoon_revenue_collection_reversals rr
+    ON rr.revenue_collection_id = rc.id
+  WHERE rc.revenue_ledger_id = v_ledger.id;
 
   v_due := GREATEST(0, v_ledger.assessed_iqd - v_ledger.waived_iqd - v_collected_before);
   v_take := LEAST(v_payment.amount::bigint, v_due);
@@ -98,16 +135,19 @@ BEGIN
     ) ON CONFLICT (revenue_ledger_id,payment_id) DO NOTHING;
   END IF;
 
-  SELECT COALESCE(SUM(amount_iqd),0)::bigint
+  SELECT COALESCE(SUM(rc.amount_iqd),0)::bigint
+    - COALESCE(SUM(rr.amount_iqd),0)::bigint
   INTO v_collected_after
-  FROM public.mamnoon_revenue_collections
-  WHERE revenue_ledger_id = v_ledger.id;
+  FROM public.mamnoon_revenue_collections rc
+  LEFT JOIN public.mamnoon_revenue_collection_reversals rr
+    ON rr.revenue_collection_id = rc.id
+  WHERE rc.revenue_ledger_id = v_ledger.id;
 
   UPDATE public.mamnoon_revenue_ledger
-  SET collected_iqd = LEAST(assessed_iqd - waived_iqd, v_collected_after),
+  SET collected_iqd = LEAST(assessed_iqd - waived_iqd, GREATEST(0,v_collected_after)),
       status = CASE
-        WHEN LEAST(assessed_iqd - waived_iqd, v_collected_after) + waived_iqd >= assessed_iqd THEN 'collected'
-        WHEN LEAST(assessed_iqd - waived_iqd, v_collected_after) > 0 THEN 'partially_collected'
+        WHEN LEAST(assessed_iqd - waived_iqd, GREATEST(0,v_collected_after)) + waived_iqd >= assessed_iqd THEN 'collected'
+        WHEN LEAST(assessed_iqd - waived_iqd, GREATEST(0,v_collected_after)) > 0 THEN 'partially_collected'
         WHEN waived_iqd > 0 THEN 'partially_waived'
         ELSE 'accrued'
       END,
@@ -115,6 +155,7 @@ BEGIN
       metadata = metadata || jsonb_build_object(
         'collection_source','verified_zaincash_service_payment',
         'provider_wallet_commission_refunded_iqd',v_refund_iqd,
+        'wallet_topup_collections_reversed_iqd',v_reversed_topup_collections,
         'provider_payable_commission_iqd',assessed_iqd
       ),
       updated_at = now()
