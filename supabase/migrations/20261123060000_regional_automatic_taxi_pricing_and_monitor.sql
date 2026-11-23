@@ -178,7 +178,7 @@ BEGIN
   RETURNING * INTO v_row;
 
   INSERT INTO public.audit_logs(user_id,action,target_type,target_id,details)
-  VALUES(v_actor,'pricing.taxi.auto_monitor.updated','taxi_pricing_controls',p_governorate_key,to_jsonb(v_row));
+  VALUES(v_actor,'pricing.taxi.auto_monitor.updated','taxi_pricing_auto_controls',p_governorate_key,to_jsonb(v_row));
   RETURN v_row;
 END;
 $admin$;
