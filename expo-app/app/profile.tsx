@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking, Share } from "react-native";
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking, Share, Modal, TextInput } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import { supabase } from "@/lib/supabase";
@@ -54,6 +54,8 @@ export default function ProfileScreen() {
   const [accountWalletTransactions, setAccountWalletTransactions] = useState<any[]>([]);
   const [accountWalletOffline, setAccountWalletOffline] = useState(false);
   const [walletTopupLoading, setWalletTopupLoading] = useState(false);
+  const [showWalletTopup, setShowWalletTopup] = useState(false);
+  const [walletTopupAmount, setWalletTopupAmount] = useState("");
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
   const [providerEarnings, setProviderEarnings] = useState<EarningsSummary>({ last24h: 0, week: 0, month: 0, year: 0 });
   const [providerWallet, setProviderWallet] = useState<DriverWallet | null>(null);
@@ -157,11 +159,21 @@ export default function ProfileScreen() {
   }
 
   function chooseWalletTopup() {
-    Alert.alert("شحن محفظة ممنون", "اختار مبلغ الشحن بالدينار العراقي", [
-      { text: "٥٬٠٠٠ د.ع", onPress: () => { void handleWalletTopup(5000); } },
-      { text: "١٠٬٠٠٠ د.ع", onPress: () => { void handleWalletTopup(10000); } },
-      { text: "٢٥٬٠٠٠ د.ع", onPress: () => { void handleWalletTopup(25000); } },
-    ]);
+    setWalletTopupAmount("");
+    setShowWalletTopup(true);
+  }
+
+  function submitWalletTopup() {
+    const normalized = walletTopupAmount
+      .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+      .replace(/[٬,،\s]/g, "");
+    const amount = Number(normalized);
+    if (!Number.isSafeInteger(amount) || amount < 5000 || amount > 5000000) {
+      Alert.alert("مبلغ غير صحيح", "اكتب مبلغاً صحيحاً من ٥٬٠٠٠ إلى ٥٬٠٠٠٬٠٠٠ دينار.");
+      return;
+    }
+    setShowWalletTopup(false);
+    void handleWalletTopup(amount);
   }
 
   useEffect(() => {
@@ -429,6 +441,28 @@ export default function ProfileScreen() {
       )}
       <MyPartnerOrders customerId={user?.id ?? null} />
     </ScrollView>
+    <Modal visible={showWalletTopup} transparent animationType="fade" onRequestClose={() => setShowWalletTopup(false)}>
+      <View style={{ flex: 1, backgroundColor: "rgba(3,12,24,0.68)", justifyContent: "center", padding: 22 }}>
+        <View style={{ backgroundColor: palette.surface, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: palette.line }}>
+          <Text style={{ color: palette.ink, fontSize: 19, fontWeight: "900", textAlign: "right" }}>شحن محفظة ممنون</Text>
+          <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", marginTop: 6 }}>اختار مبلغاً أو اكتب المبلغ اللي تريده</Text>
+          <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+            {[5000, 10000, 15000, 25000].map((amount) => (
+              <TouchableOpacity key={amount} onPress={() => setWalletTopupAmount(String(amount))} style={{ borderRadius: 12, borderWidth: 1, borderColor: walletTopupAmount === String(amount) ? palette.gold : palette.line, backgroundColor: walletTopupAmount === String(amount) ? palette.goldSoft : palette.pageCanvas, paddingVertical: 10, paddingHorizontal: 12 }}>
+                <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900" }}>{amount.toLocaleString("en")} د.ع</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "800", textAlign: "right", marginTop: 18, marginBottom: 7 }}>المبلغ بالدينار العراقي</Text>
+          <TextInput value={walletTopupAmount} onChangeText={setWalletTopupAmount} keyboardType="number-pad" placeholder="اكتب أي مبلغ" placeholderTextColor={palette.muted} textAlign="right" style={{ borderWidth: 1, borderColor: palette.line, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 13, color: palette.ink, fontSize: 18, fontWeight: "800" }} />
+          <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 7 }}>الحد الأدنى ٥٬٠٠٠ د.ع والحد الأعلى ٥٬٠٠٠٬٠٠٠ د.ع</Text>
+          <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 18 }}>
+            <TouchableOpacity onPress={submitWalletTopup} style={{ flex: 1, backgroundColor: palette.brand, borderRadius: 13, padding: 13, alignItems: "center" }}><Text style={{ color: palette.white, fontWeight: "900" }}>متابعة الدفع</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowWalletTopup(false)} style={{ paddingHorizontal: 18, borderRadius: 13, backgroundColor: palette.pageCanvas, justifyContent: "center" }}><Text style={{ color: palette.ink, fontWeight: "800" }}>إلغاء</Text></TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
     {showLogout ? <View pointerEvents="box-none" style={styles.logoutFooter}>
       <TouchableOpacity
         accessibilityRole="button"
