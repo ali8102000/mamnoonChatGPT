@@ -255,7 +255,7 @@ Deno.serve(async (req: Request) => {
       ]);
       const canSettle = adminAccess.data === true || (!financePermission.error && financePermission.data === true);
       const { data: requests, error: requestsError, count: requestCount } = await admin.from("service_requests")
-        .select("id,type,status,customer_id,commission,customer_price,price_estimate,customer_payable,completed_at,created_at,governorate_key", { count: "exact" })
+        .select("id,request_code,type,status,customer_id,commission,customer_price,price_estimate,customer_payable,completed_at,created_at,governorate_key", { count: "exact" })
         .eq("provider_id", body.provider_id).eq("status", "completed").eq("payment_method", "zaincash")
         .order("completed_at", { ascending: false }).limit(500);
       if (requestsError) return json({ error: "provider_payable_requests_load_failed" }, 500);
@@ -287,6 +287,7 @@ Deno.serve(async (req: Request) => {
         const commission = Math.min(gross, Math.max(0, Math.round(Number(request.commission ?? 0))));
         return {
           request_id: request.id,
+          request_code: request.request_code,
           request_type: request.type,
           completed_at: request.completed_at ?? request.created_at,
           gross_paid_iqd: gross,
