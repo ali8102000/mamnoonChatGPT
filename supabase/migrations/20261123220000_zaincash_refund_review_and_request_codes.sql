@@ -445,9 +445,6 @@ DECLARE
   v_case public.mamnoon_zaincash_refund_cases%ROWTYPE;
   v_payment public.payment_transactions%ROWTYPE;
   v_ledger public.mamnoon_revenue_ledger%ROWTYPE;
-  v_wallet_result jsonb;
-  v_wallet_transaction_id uuid;
-  v_reversal_id uuid;
   v_collection record;
 BEGIN
   IF (auth.jwt() ->> 'role') IS DISTINCT FROM 'service_role' THEN
@@ -494,8 +491,6 @@ BEGIN
       AND status <> 'void'
     FOR UPDATE
   LOOP
-    v_wallet_transaction_id := NULL;
-    v_reversal_id := NULL;
     IF v_ledger.assessed_iqd > v_ledger.waived_iqd THEN
       INSERT INTO public.mamnoon_refund_commission_reversals(
         refund_case_id,revenue_ledger_id,provider_id,amount_iqd,wallet_transaction_id
@@ -504,41 +499,36 @@ BEGIN
         v_ledger.assessed_iqd - v_ledger.waived_iqd,
         NULL
       )
-      ON CONFLICT (refund_case_id,revenue_ledger_id) DO NOTHING
-      RETURNING id INTO v_reversal_id;
-    ELSE
-      v_reversal_id := gen_random_uuid();
+      ON CONFLICT (refund_case_id,revenue_ledger_id) DO NOTHING;
     END IF;
 
-    IF v_reversal_id IS NOT NULL THEN
-      FOR v_collection IN
-        SELECT rc.id, rc.amount_iqd
-        FROM public.mamnoon_revenue_collections rc
-        WHERE rc.revenue_ledger_id = v_ledger.id
-      LOOP
-        INSERT INTO public.mamnoon_revenue_collection_reversals(
-          revenue_collection_id,revenue_ledger_id,amount_iqd,reason,idempotency_key
-        ) VALUES (
-          v_collection.id,v_ledger.id,v_collection.amount_iqd,
-          'استرداد كامل لطلب زين كاش',
-          'zaincash-refund:' || v_case.id::text || ':' || v_collection.id::text
-        )
-        ON CONFLICT (revenue_collection_id) DO NOTHING;
-      END LOOP;
+    FOR v_collection IN
+      SELECT rc.id, rc.amount_iqd
+      FROM public.mamnoon_revenue_collections rc
+      WHERE rc.revenue_ledger_id = v_ledger.id
+    LOOP
+      INSERT INTO public.mamnoon_revenue_collection_reversals(
+        revenue_collection_id,revenue_ledger_id,amount_iqd,reason,idempotency_key
+      ) VALUES (
+        v_collection.id,v_ledger.id,v_collection.amount_iqd,
+        'استرداد كامل لطلب زين كاش',
+        'zaincash-refund:' || v_case.id::text || ':' || v_collection.id::text
+      )
+      ON CONFLICT (revenue_collection_id) DO NOTHING;
+    END LOOP;
 
-      UPDATE public.mamnoon_revenue_ledger
-      SET collected_iqd = 0,
-          waived_iqd = assessed_iqd,
-          status = 'void',
-          metadata = metadata || jsonb_build_object(
-            'void_reason','full_zaincash_refund',
-            'refund_case_id',v_case.id,
-            'commission_revenue_voided_iqd',GREATEST(v_ledger.assessed_iqd - v_ledger.waived_iqd,0),
-            'refund_review_pending',false
-          ),
-          updated_at = now()
-      WHERE id = v_ledger.id;
-    END IF;
+    UPDATE public.mamnoon_revenue_ledger
+    SET collected_iqd = 0,
+        waived_iqd = assessed_iqd,
+        status = 'void',
+        metadata = metadata || jsonb_build_object(
+          'void_reason','full_zaincash_refund',
+          'refund_case_id',v_case.id,
+          'commission_revenue_voided_iqd',GREATEST(v_ledger.assessed_iqd - v_ledger.waived_iqd,0),
+          'refund_review_pending',false
+        ),
+        updated_at = now()
+    WHERE id = v_ledger.id;
   END LOOP;
   END IF;
 
