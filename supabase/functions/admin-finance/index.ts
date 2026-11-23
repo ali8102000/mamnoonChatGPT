@@ -62,13 +62,22 @@ Deno.serve(async (req: Request) => {
     };
 
     if (body.action === "provider_payables_search") {
-      await requirePermission("finance.read");
+      const { data: assignment, error: assignmentError } = await caller.from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+      if (assignmentError) return json({ error: "finance_scope_load_failed" }, 500);
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+      await requirePermission("finance.read", scopeType, scopeGovernorate);
       const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
       if (query.length < 2) return json({ error: "query_too_short" }, 400);
       const safe = query.replace(/[,%()]/g, " ");
-      const { data: profiles, error: profileError } = await admin.from("profiles")
+      let profileSearch = admin.from("profiles")
         .select("id,full_name,phone,email,governorate_key")
-        .or("phone.ilike.%" + safe + "%,full_name.ilike.%" + safe + "%")
+        .or("phone.ilike.%" + safe + "%,full_name.ilike.%" + safe + "%");
+      if (scopeType === "governorate" && scopeGovernorate) {
+        profileSearch = profileSearch.eq("governorate_key", scopeGovernorate);
+      }
+      const { data: profiles, error: profileError } = await profileSearch
         .order("created_at", { ascending: false }).limit(30);
       if (profileError) return json({ error: "provider_search_failed" }, 500);
       const ids = (profiles ?? []).map((profile: any) => profile.id);
@@ -91,10 +100,19 @@ Deno.serve(async (req: Request) => {
     if (body.action === "provider_payables_detail") {
       await requirePermission("finance.read");
       if (!uuid(body.provider_id)) return json({ error: "invalid_provider_id" }, 400);
+      const { data: assignment, error: assignmentError } = await caller.from("staff_assignments")
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+      if (assignmentError) return json({ error: "finance_scope_load_failed" }, 500);
+      const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
+      const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
+      await requirePermission("finance.read", scopeType, scopeGovernorate);
       const { data: profile, error: profileError } = await admin.from("profiles")
         .select("id,full_name,phone,email,governorate_key")
         .eq("id", body.provider_id).maybeSingle();
       if (profileError || !profile) return json({ error: "provider_not_found" }, 404);
+      if (scopeType === "governorate" && scopeGovernorate && profile.governorate_key !== scopeGovernorate) {
+        return json({ error: "provider_outside_finance_scope" }, 403);
+      }
       const { data: roleRows, error: roleError } = await admin.from("user_roles")
         .select("role").eq("user_id", body.provider_id)
         .in("role", ["driver", "worker", "large_driver"]);
