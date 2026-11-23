@@ -1537,7 +1537,7 @@ export default function RequestDetail() {
           <View style={{ alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, flex: 1 }}><Text style={styles.headerTitle}>{request.type === "service" && request.status === "accepted" && remainingPeopleCount > 0 ? "اكتفى الزبون بالعدد المتوفر" : statusLabel[request.status] || request.status}</Text>{request.type === "taxi" && isCustomer && request.status === "accepted" && <Text style={styles.acceptedHint}>{otherLocation && request.pickup_lat != null && request.pickup_lng != null && (() => { const rad = (value: number) => value * Math.PI / 180; const dLat = rad(otherLocation.latitude - request.pickup_lat!); const dLng = rad(otherLocation.longitude - request.pickup_lng!); const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(request.pickup_lat!)) * Math.cos(rad(otherLocation.latitude)) * Math.sin(dLng / 2) ** 2; const meters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return !driverLocationFresh ? "بانتظار تحديث موقع السائق" : meters <= 50 ? "انا في نقطة الانطلاق" : driverEtaMinutes != null && driverEtaMinutes <= 2 ? "دقيقتين واوصل" : driverEtaMinutes != null ? `باقي ${driverEtaMinutes} دقيقة واوصل` : "الكابتن متجه إليك"; })()}</Text>}</View>
           <View style={{ width: 30 }} />
         </View>
-        <View style={{ paddingHorizontal: 16, paddingVertical: 7, backgroundColor: acceptedMapMode ? "rgba(7,21,37,0.88)" : palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line }}>
+        <View style={[{ paddingHorizontal: 16, paddingVertical: 7, backgroundColor: acceptedMapMode ? "rgba(7,21,37,0.88)" : palette.surface, borderBottomWidth: 1, borderBottomColor: palette.line }, acceptedMapMode && styles.orderNumberOnMap]}>
           <Text style={{ color: acceptedMapMode ? "#FFFFFF" : palette.ink, fontSize: 11, fontWeight: "900", textAlign: "center", writingDirection: "ltr" }}>رقم الطلب: {request.request_code || request.id.slice(0, 8).toUpperCase()}</Text>
         </View>
         <ScrollView
@@ -1997,7 +1997,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.pageCanvas },
   containerMap: { backgroundColor: "transparent" },
   fullScreenTrackingMap: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
-  headerOnMap: { backgroundColor: "rgba(255,255,255,0.94)", borderBottomColor: "rgba(15,23,42,0.10)", elevation: 4 },
+  headerOnMap: { position: "absolute", top: 30, left: 12, right: 12, zIndex: 30, backgroundColor: "rgba(7,21,37,0.90)", borderBottomWidth: 0, borderRadius: 20, paddingHorizontal: 14, minHeight: 52, elevation: 12 },
+  orderNumberOnMap: { position: "absolute", top: 90, left: 16, right: 16, zIndex: 29, alignSelf: "center", borderRadius: 14, borderBottomWidth: 0, paddingVertical: 8, elevation: 8 },
   requestScrollOnMap: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "38%", backgroundColor: "rgba(255,255,255,0.96)", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden", elevation: 8 },
   mapLiveBadge: { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: 7, marginTop: 10, marginBottom: 3, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.96)", borderWidth: 1, borderColor: palette.line, elevation: 3 },
   mapLiveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.success },
