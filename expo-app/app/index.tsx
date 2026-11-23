@@ -3,13 +3,23 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { useAuth } from "@/lib/auth-context";
 import { useCompanyBranding } from "@/lib/company-branding";
-import { useEffect, useState } from "react";
-import { View, ActivityIndicator, Image, Text, StyleSheet } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { View, ActivityIndicator, Image, Text, StyleSheet, Animated, Easing } from "react-native";
 
 export default function Index() {
   const { loading, session, roles } = useAuth();
-  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
   const [splashFinished, setSplashFinished] = useState(false);
+  const visualScale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!welcomeVisualAnimated || !welcomeVisualUrl) { visualScale.stopAnimation(); visualScale.setValue(1); return; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(visualScale, { toValue: 1.035, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(visualScale, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [welcomeVisualAnimated, welcomeVisualUrl, visualScale]);
   const [nextRoute, setNextRoute] = useState<"/select-governorate" | "/auth" | "/home" | "/admin/bootstrap" | null>(null);
 
   // Do not add an artificial splash delay; route as soon as auth is ready.
@@ -42,7 +52,7 @@ export default function Index() {
       <View style={styles.center}>
         {logoUrl ? <Image source={{uri:logoUrl}} style={styles.logo} resizeMode="contain" /> : <View style={styles.logoFallback}><Text style={styles.logoLetter}>م</Text></View>}
         <Text style={styles.brand}>أهلاً بك في {companyName}</Text>
-        {welcomeVisualUrl ? <Image source={{ uri: welcomeVisualUrl }} style={styles.welcomeVisual} resizeMode="cover" /> : null}
+        {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><Image source={{ uri: welcomeVisualUrl }} style={styles.welcomeVisual} resizeMode="cover" /></Animated.View> : null}
         <Text style={styles.tagline}>{welcomeMessage}</Text>
         {loading ? <ActivityIndicator size="small" color="#C99A35" style={styles.loader} /> : <View style={styles.loaderSpace} />}
       </View>
