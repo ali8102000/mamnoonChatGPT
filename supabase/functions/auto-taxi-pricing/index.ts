@@ -223,10 +223,38 @@ Deno.serve(async (req) => {
   const demandPercent=autoMonitorEnabled
     ? Number(activeControls?.auto_demand_percent)||0
     : 0;
+  const {data:categoryPeak,error:categoryPeakError}=await admin
+    .from("category_peak_pricing_settings")
+    .select("mode,enabled,min_surcharge_percent,max_surcharge_percent,auto_calculated_percent,last_calculated_at,observed_providers")
+    .eq("category_key","taxi:"+category)
+    .maybeSingle();
+  if(categoryPeakError || !categoryPeak) {
+    console.error("[auto-taxi-pricing] category peak settings unavailable",categoryPeakError?.code||"missing_category");
+    return json({error:"إعدادات الذروة لهذه الفئة غير متاحة حالياً؛ لم نضف أي زيادة للسعر.",code:"CATEGORY_PEAK_SETTINGS_UNAVAILABLE"},503);
+  }
+  const peakCalculatedAt=categoryPeak.last_calculated_at?new Date(categoryPeak.last_calculated_at).getTime():0;
+  const peakAgeMs=Date.now()-peakCalculatedAt;
+  // Fail closed for stale, missing, or future-dated monitor rows (clock skew included).
+  const peakDataFresh=Number.isFinite(peakCalculatedAt)&&peakCalculatedAt>0&&
+    peakAgeMs>=0&&peakAgeMs<=3*60*1000&&Number(categoryPeak.observed_providers)>0;
+  const categoryPeakEnabled=categoryPeak.enabled===true&&categoryPeak.mode==="auto";
+  const categoryPeakMinimum=Math.max(0,Number(categoryPeak.min_surcharge_percent)||0);
+  const categoryPeakMaximum=Math.max(categoryPeakMinimum,Number(categoryPeak.max_surcharge_percent)||0);
+  const calculatedCategoryPercent=Number(categoryPeak.auto_calculated_percent);
+  // Preserve the existing admin-controlled demand + traffic adjustment.
+  // Category peak is an additional bounded surcharge, and remains subject to
+  // the existing global automatic-pricing master switch enforced by the quote RPC.
   const demandDiscountCap=Math.max(0,Number(activeControls?.demand_discount_cap_percent)||0);
-  const autoPercent=autoMonitorEnabled
+  const legacyAutoPercent=autoMonitorEnabled
     ? Math.max(-demandDiscountCap,Math.min(200,demandPercent+trafficPercent))
     : 0;
+  const categoryPeakPercent=autoMonitorEnabled&&categoryPeakEnabled&&peakDataFresh&&
+    Number.isFinite(calculatedCategoryPercent)&&calculatedCategoryPercent>0
+    ? Math.max(categoryPeakMinimum,Math.min(categoryPeakMaximum,calculatedCategoryPercent))
+    : 0;
+  // The canonical quote RPC accepts one combined automatic percentage.
+  // Keep its supported range and avoid dropping the pre-existing pricing inputs.
+  const autoPercent=Math.max(-50,Math.min(200,legacyAutoPercent+categoryPeakPercent));
   const routed = {
     distanceKm: Number(routeData.distanceKm),
     durationMin: Number(routeData.durationMin),
