@@ -327,7 +327,7 @@ export default function HomeScreen() {
             {companyLogoUrl ? <Image source={{ uri: companyLogoUrl }} style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: "#FFFFFF" }} resizeMode="contain" /> : null}
             <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
           </View>
-          <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>{welcomeMessage}</Text>
+          <Text style={{ color: palette.muted, fontSize: 13, textAlign: "right", marginTop: 6, lineHeight: 22, flexWrap: "wrap", includeFontPadding: false }}>{welcomeMessage}</Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
