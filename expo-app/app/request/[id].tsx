@@ -264,7 +264,7 @@ export default function RequestDetail() {
   const [ratingComment, setRatingComment] = useState("");
   const [showRating, setShowRating] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
-  const [reportReason, setReportReason] = useState("مشكلة أثناء الطلب");
+  const [reportReason, setReportReason] = useState("مشكلة أثناء الرحلة أو الخدمة");
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
