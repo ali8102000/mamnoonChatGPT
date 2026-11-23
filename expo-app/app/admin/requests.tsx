@@ -141,8 +141,8 @@ export default function AdminRequestsScreen() {
           <Info label="تاريخ الإنشاء" value={detail.request?.created_at ? new Date(detail.request.created_at).toLocaleString("ar-IQ") : "—"}/>
           <Info label="بدء التنفيذ" value={detail.request?.started_at ? new Date(detail.request.started_at).toLocaleString("ar-IQ") : "—"}/>
           <Info label="الاكتمال" value={detail.request?.completed_at ? new Date(detail.request.completed_at).toLocaleString("ar-IQ") : "—"}/>
-          {detail.request?.status === "cancelled" && <>
-            <Info label="ألغى الرحلة" value={detail.request?.cancelled_by === detail.request?.customer_id ? "الزبون" : detail.request?.cancelled_by ? "السائق / مقدم الخدمة" : "النظام"}/>
+          {detail.request?.cancelled_by && <>
+            <Info label={detail.request?.status === "cancelled" ? "ألغى الرحلة" : "آخر اعتذار عن الرحلة"} value={detail.request?.cancelled_by === detail.request?.customer_id ? "الزبون" : "السائق / مقدم الخدمة"}/>
             <Info label="سبب الإلغاء" value={detail.request?.cancellation_reason || "غير مسجل"}/>
           </>}
           <Info label="الانطلاق" value={detail.request?.pickup_text}/>
