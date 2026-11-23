@@ -143,6 +143,10 @@ export default function AdminRequestsScreen() {
               <Text style={s.muted}>{detail.provider.phone || "—"}</Text>
             </View>}
           </View>
+          {!!detail.team_members?.length && <View style={s.detailSection}>
+            <Text style={s.name}>فريق تنفيذ الخدمة</Text>
+            {detail.team_members.map((member:any) => <Info key={member.provider_id} label={member.profile?.full_name || member.provider_id} value={"عدد الأفراد: " + Number(member.team_size || 1)}/>)}
+          </View>}
           {detail.request?.attachment_url && <View style={s.detailSection}>
             <Text style={s.name}>صورة العمل المرفقة</Text>
             <Image source={{uri:detail.request.attachment_url}} style={s.workImage} resizeMode="contain"/>
