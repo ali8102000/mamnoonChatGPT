@@ -34,7 +34,8 @@ export default function DriverOnboarding() {
   const [selectedModel, setSelectedModel] = useState<VehicleModel | null>(null);
   const [customModelName, setCustomModelName] = useState("");
   const [category, setCategory] = useState<"economy" | "premium" | "luxury" | "large">(largeDriverMode ? "large" : "economy");
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus" | null>(null);
+  const [vehicleArtwork, setVehicleArtwork] = useState<Record<string, any>>({});
   const [year, setYear] = useState("");
   const [plate, setPlate] = useState("");
   const [color, setColor] = useState("");
@@ -48,7 +49,7 @@ export default function DriverOnboarding() {
   const [vehicleVideoPath, setVehicleVideoPath] = useState<string | null>(null);
   const [vehicleVideoMaxDurationSeconds, setVehicleVideoMaxDurationSeconds] = useState(10);
   const [changedDocuments, setChangedDocuments] = useState<Record<string, boolean>>({});
-  const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: "", model: "", year: "", plate: "", color: "", category: largeDriverMode ? "large" : "economy", vehicleType: "kia_cargo" });
+  const [originalVehicle, setOriginalVehicle] = useState<Record<string, unknown>>({ make: "", model: "", year: "", plate: "", color: "", category: largeDriverMode ? "large" : "economy", vehicleType: null });
   const [status, setStatus] = useState<string | null>(null);
   const [savedModelName, setSavedModelName] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
@@ -56,6 +57,20 @@ export default function DriverOnboarding() {
   const [checkingSavedDriver, setCheckingSavedDriver] = useState(true);
   const [vehicleChangeMode, setVehicleChangeMode] = useState(false);
   const [pendingVehicleChange, setPendingVehicleChange] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (supabase as any).from("app_ui_elements_public")
+      .select("element_key,published_config,title,sort_order")
+      .in("element_key", ["vehicle_kia_cargo", "vehicle_kia_passenger", "vehicle_bus"])
+      .then(({ data, error }: any) => {
+        if (!active || error) return;
+        const next: Record<string, any> = {};
+        for (const item of data ?? []) next[item.element_key] = { ...(item.published_config ?? {}), title: item.title, sort_order: item.sort_order };
+        setVehicleArtwork(next);
+      });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     (supabase as any).from("company_settings").select("company_name,driver_video_max_duration_seconds").eq("id", 1).maybeSingle()
@@ -539,8 +554,16 @@ export default function DriverOnboarding() {
                 setSelectedMake("Kia");
                 setSelectedModel(models.find((m) => m.make === "Kia" && m.model === item.label) ?? null);
               }}>
-                <LargeVehicleIllustration kind={item.key} />
-                <Text style={[styles.chipText, vehicleType === item.key && styles.chipTextActive]}>{item.label}</Text>
+                {(() => {
+                  const visualKey = item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus";
+                  const visual = vehicleArtwork[visualKey];
+                  return visual?.image_url
+                    ? <Image source={{ uri: visual.image_url }} style={{ width: Number(visual.width_px) || 76, height: Number(visual.height_px) || 56, borderRadius: Number(visual.image_border_radius_px) || 10 }} resizeMode={visual.image_fit === "cover" ? "cover" : "contain"} />
+                    : visual?.icon_name
+                      ? <Text style={{ fontSize: 34 }}>{visual.icon_name}</Text>
+                      : <LargeVehicleIllustration kind={item.key} />;
+                })()}
+                <Text style={[styles.chipText, vehicleType === item.key && styles.chipTextActive]}>{vehicleArtwork[item.key === "kia_cargo" ? "vehicle_kia_cargo" : item.key === "kia_passenger" ? "vehicle_kia_passenger" : "vehicle_bus"]?.title || item.label}</Text>
                 {vehicleType === item.key && <Text style={{ color: palette.brand, fontSize: 10, fontWeight: "900", marginTop: 4 }}>تم الاختيار ✓</Text>}
               </TouchableOpacity>
             ))}
