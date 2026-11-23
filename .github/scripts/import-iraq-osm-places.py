@@ -228,10 +228,11 @@ def rest_upsert(rows: list[dict], base_url: str, service_key: str) -> None:
             time.sleep(wait)
 
 def main() -> int:
+    dry_run = os.environ.get("DRY_RUN", "").strip().lower() in ("1", "true", "yes")
     base_url = os.environ.get("SUPABASE_URL", "").strip()
     service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
-    if not base_url or not service_key:
-        raise RuntimeError("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY GitHub secrets.")
+    if not dry_run and (not base_url or not service_key):
+        raise RuntimeError("Set the SUPABASE_SERVICE_ROLE_KEY GitHub secret before importing.")
     work = Path(os.environ.get("RUNNER_TEMP", "/tmp"))
     pbf = work / "iraq-latest.osm.pbf"
     print(f"Downloading current Iraq extract: {PBF_URL}", flush=True)
@@ -245,6 +246,9 @@ def main() -> int:
         print(f"  {key}: {handler.counts[key]:,}", flush=True)
     if len(rows) < 5000:
         raise RuntimeError(f"Safety stop: only {len(rows)} rows parsed; refusing a suspiciously small import.")
+    if dry_run:
+        print("DRY_RUN enabled: no database writes were made.", flush=True)
+        return 0
     uploaded = 0
     for offset in range(0, len(rows), CHUNK_SIZE):
         rest_upsert(rows[offset:offset + CHUNK_SIZE], base_url, service_key)
