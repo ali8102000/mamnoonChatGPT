@@ -2493,6 +2493,16 @@ function WalletSection() {
                     </div>
                   ))}
                 </div>
+                {payableDetail.history_truncated && (
+                  <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-muted-foreground">
+                    الإجماليات أعلاه محسوبة من كامل السجل. تفاصيل الطلبات والتسويات تعرض أحدث السجلات فقط عند كثرتها.
+                  </p>
+                )}
+                {Number(payableDetail.summary?.over_settled_iqd ?? 0) > 0 && (
+                  <p className="mt-3 rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-700">
+                    تنبيه محاسبي: التسويات النقدية المسجلة أعلى من المستحق الحالي بمقدار {money(payableDetail.summary.over_settled_iqd)}. أوقف أي تسوية جديدة وراجع سبب الفرق.
+                  </p>
+                )}
                 <div className="mt-4">
                   <h4 className="font-black text-sm mb-2">الطلبات والرحلات المكتملة المدفوعة إلكترونياً</h4>
                   {(payableDetail.requests ?? []).length ? (
