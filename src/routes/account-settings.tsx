@@ -43,6 +43,7 @@ function AccountSettingsPage() {
   const isCompanyAdmin = session?.user.email?.toLowerCase() === "a7md0555666@gmail.com" && roles.includes("super_admin");
 
   useEffect(() => { setEmail(actualEmail); }, [actualEmail]);
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("partner") === "1") setPartnerFormOpen(true); }, []);
   useEffect(() => {
     if (!session?.user.id) return;
     void loadPartnerApplications();
