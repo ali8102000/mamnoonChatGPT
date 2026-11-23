@@ -77,6 +77,9 @@ function ProfilePage() {
   const [showProviderWalletDetails, setShowProviderWalletDetails] = useState(false);
   const [showProviderRecentTransactions, setShowProviderRecentTransactions] = useState(false);
   const [showRecentTransactions, setShowRecentTransactions] = useState(false);
+  const [showWalletTopup, setShowWalletTopup] = useState(false);
+  const [walletTopupAmount, setWalletTopupAmount] = useState("");
+  const [walletTopupLoading, setWalletTopupLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [referralSummary, setReferralSummary] = useState<{referral_code:string;successful_signups:number}|null>(null);
   const [showLogout, setShowLogout] = useState(false);
@@ -104,6 +107,30 @@ function ProfilePage() {
   const isDriver = roles.includes("driver") || roles.includes("large_driver");
   const isWorker = roles.includes("worker");
   const isProvider = (isDriver || isWorker) && activeRole !== "customer";
+
+  async function submitWalletTopup() {
+    const normalized = walletTopupAmount
+      .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+      .replace(/[٬,،\\s]/g, "");
+    const amountIQD = Number(normalized);
+    if (!Number.isSafeInteger(amountIQD) || amountIQD < 5000 || amountIQD > 5000000) {
+      toast.error("اكتب مبلغاً صحيحاً من ٥٬٠٠٠ إلى ٥٬٠٠٠٬٠٠٠ دينار.");
+      return;
+    }
+    setWalletTopupLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("zaincash-create-payment", {
+        body: { purpose: "wallet_topup", amountIQD },
+      });
+      if (error) throw error;
+      if (!data?.redirectUrl) throw new Error(data?.error || "تعذر إنشاء رابط الدفع");
+      window.location.assign(data.redirectUrl);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر بدء الشحن. حاول مرة ثانية.");
+    } finally {
+      setWalletTopupLoading(false);
+    }
+  }
 
   const getRepFn = useServerFn(getReputation);
   const getReviewsFn = useServerFn(getProviderReviews);
@@ -428,7 +455,7 @@ function ProfilePage() {
             <div className="flex items-center gap-2"><Wallet className="h-4 w-4" /><span className="text-sm font-black">محفظتي</span></div>
             <div className="mt-1 text-[10px] opacity-80">رصيدك المتاح</div>
             <div className="text-2xl font-black tabular-nums mt-1">{Number(wallet?.balance ?? 0).toLocaleString("ar-IQ")} <span className="text-xs font-bold opacity-80">د.ع</span></div>
-            <div className="mt-2 rounded-xl bg-white/15 p-2 text-[10px] leading-5">شحن الرصيد والسحب عبر زين كاش يتفعّلان بعد ربط مفاتيح التاجر الرسمية.</div>
+            <button type="button" onClick={() => { setWalletTopupAmount(""); setShowWalletTopup(true); }} className="mt-3 w-full rounded-xl bg-white/15 px-3 py-3 text-xs font-black transition hover:bg-white/20">شحن المحفظة عبر زين كاش</button>
             <button type="button" onClick={() => setShowRecentTransactions((v) => !v)} aria-expanded={showRecentTransactions} className="mt-2 w-full flex items-center justify-between rounded-xl bg-white/15 px-3 py-2.5 text-[10px] font-black">
               <span className="flex items-center gap-2"><TrendingUp className="h-3.5 w-3.5" /> سجل حركات المحفظة</span>
               <ChevronLeft className={"h-3.5 w-3.5 transition-transform " + (showRecentTransactions ? "-rotate-90" : "")} />
@@ -444,6 +471,28 @@ function ProfilePage() {
           </div>
         )}
 
+        {showWalletTopup && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-labelledby="wallet-topup-title">
+            <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-5 text-card-foreground shadow-2xl">
+              <h2 id="wallet-topup-title" className="text-lg font-black text-right">شحن محفظة ممنون</h2>
+              <p className="mt-1 text-xs text-muted-foreground text-right">اختار مبلغاً أو اكتب المبلغ اللي تريده</p>
+              <div className="mt-4 flex flex-wrap gap-2 justify-end" dir="rtl">
+                {[5000, 10000, 15000, 25000].map((amount) => (
+                  <button key={amount} type="button" onClick={() => setWalletTopupAmount(String(amount))} className={`rounded-xl border px-3 py-2 text-xs font-black ${walletTopupAmount === String(amount) ? "border-primary bg-primary/10" : "border-border bg-muted"}`}>
+                    {amount.toLocaleString("en")} د.ع
+                  </button>
+                ))}
+              </div>
+              <label htmlFor="wallet-topup-amount" className="mt-5 mb-2 block text-xs font-bold text-right">المبلغ بالدينار العراقي</label>
+              <input id="wallet-topup-amount" inputMode="numeric" type="text" dir="ltr" value={walletTopupAmount} onChange={(event) => setWalletTopupAmount(event.target.value)} placeholder="اكتب أي مبلغ" className="w-full rounded-xl border border-border bg-background px-4 py-3 text-lg font-black text-right outline-none focus:ring-2 focus:ring-primary" />
+              <p className="mt-2 text-[10px] text-muted-foreground text-right">الحد الأدنى ٥٬٠٠٠ د.ع والحد الأعلى ٥٬٠٠٠٬٠٠٠ د.ع</p>
+              <div className="mt-5 flex gap-2">
+                <button type="button" disabled={walletTopupLoading} onClick={() => void submitWalletTopup()} className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-black text-primary-foreground disabled:opacity-60">{walletTopupLoading ? "جارٍ التجهيز..." : "متابعة الدفع"}</button>
+                <button type="button" disabled={walletTopupLoading} onClick={() => setShowWalletTopup(false)} className="rounded-xl bg-muted px-4 py-3 text-sm font-bold">إلغاء</button>
+              </div>
+            </div>
+          </div>
+        )}
           {isAdmin && (
             <Link
               to="/admin"
