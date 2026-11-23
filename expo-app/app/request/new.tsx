@@ -1938,7 +1938,7 @@ export default function NewRequest() {
         </View>
       )}
 
-      <View style={[styles.mapContainer, { height: Math.max(480, window.height - 160) }]}>
+      <View style={[styles.mapContainer, { height: window.height }]}>
         <MapView
           ref={mapRef}
           style={styles.map}
