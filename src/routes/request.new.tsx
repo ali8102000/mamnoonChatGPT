@@ -585,6 +585,8 @@ function NewRequest() {
   // Submit Request
   async function submit(skipActiveRequestPrompt = false) {
     if (!session) return;
+    if (type === "taxi" && vehicle === "large" && !vehicleType) { toast.error("اختار نوع السيارة المطلوبة قبل إرسال الطلب."); return; }
+
     if (!pickupCoords) {
       toast.error("يرجى تحديد موقع الانطلاق");
       return;
