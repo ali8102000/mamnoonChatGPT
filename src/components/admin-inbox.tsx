@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "@/lib/toast";
-import { MessageSquare, Search, RefreshCw, Headset, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
+import { MessageSquare, Search, RefreshCw, Headset, CheckCircle2, AlertCircle, ArrowRight, Star } from "lucide-react";
 import { MamnoonChatThread } from "@/components/mamnoon-chat-thread";
 
 type Filter = "all" | "unread" | "bot" | "pending" | "favorites";
@@ -139,9 +139,11 @@ export default function AdminInbox() {
       {selected && <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {<>
           <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-3"><button onClick={()=>{setSelectedId(null);setMessages([]);setDraft("");setError("");}} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted" aria-label="رجوع"><ArrowRight className="h-5 w-5"/></button>
-            <div><h3 className="font-black text-sm">{selected.conversation_type === "service" ? `${selected.profile?.full_name || "الزبون"} ↔ ${selected.provider_profile?.full_name || "منفّذ الخدمة"}` : selected.profile?.full_name || selected.profile?.phone || "مستخدم ممنون"}</h3><p className="text-[10px] text-muted-foreground">{selected.conversation_type === "service" ? "محادثة طلب خدمة" : categories[selected.account_category]||"مستخدم"} · {selected.profile?.phone || selected.profile?.email || ""}</p></div>
+            <div className="min-w-0 flex-1"><h3 className="truncate font-black text-sm">{selected.conversation_type === "service" ? `${selected.profile?.full_name || "الزبون"} ↔ ${selected.provider_profile?.full_name || "منفّذ الخدمة"}` : selected.profile?.full_name || selected.profile?.phone || "مستخدم ممنون"}</h3><p className="text-[10px] text-muted-foreground">{selected.conversation_type === "service" ? "محادثة طلب خدمة" : categories[selected.account_category]||"مستخدم"} · {selected.profile?.phone || selected.profile?.email || ""}</p></div>
+            <button onClick={()=>toggleFavorite(selected.id)} aria-label="تبديل المفضلة" className="flex h-10 w-10 items-center justify-center"><Star className={favorites.includes(selected.id)?"h-5 w-5 fill-amber-400 text-amber-500":"h-5 w-5 text-muted-foreground"}/></button>
             {selected.conversation_type !== "service" && <div className="flex gap-1.5"><button disabled={busy} onClick={()=>void runAction("handoff")} className="rounded-lg border border-border px-3 py-2 text-[10px] font-bold"><Headset className="inline h-3.5 w-3.5 ml-1"/> تحويل للدعم</button><button disabled={busy} onClick={()=>void runAction("resolve")} className="rounded-lg bg-emerald-600 text-white px-3 py-2 text-[10px] font-bold"><CheckCircle2 className="inline h-3.5 w-3.5 ml-1"/> إنهاء</button></div>}
           </header>
+          {isBot(selected)&&<div className="shrink-0 bg-violet-100 px-3 py-2 text-xs font-bold text-violet-900">محوّلة من البوت · {selected.subject || "بانتظار متابعة موظف الدعم"}</div>}
           {!!selected.complaints?.length&&<div className="mt-3 rounded-lg bg-red-100 text-red-900 px-3 py-2 text-xs font-black">شكوى مرتبطة بالطلب: {selected.complaints[0].reason}{selected.complaints.length > 1 ? ` · وشكاوى أخرى ${selected.complaints.length - 1}` : ""}</div>}{selected.conversation_type !== "service" && selected.needs_admin_reply&&<div className="mt-3 rounded-lg bg-orange-100 text-orange-900 px-3 py-2 text-xs font-black"><AlertCircle className="inline h-4 w-4 ml-1"/> هذه المحادثة تحتاج رد الإدارة</div>}
           <MamnoonChatThread
             messages={messages.map((m) => ({
