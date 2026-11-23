@@ -19,6 +19,7 @@ type ControlRow = {
   message_position: 'top-center' | 'top-right' | 'top-left';
   message_top_offset: number;
   message_font_size: number;
+  regional_surcharge_percent: number;
   updated_at?: string;
 };
 
@@ -36,6 +37,7 @@ const EMPTY: Omit<ControlRow, "governorate_key"> = {
   message_position: "top-center" as const,
   message_top_offset: 12,
   message_font_size: 14,
+  regional_surcharge_percent: 0,
 };
 
 export default function RegionalControlsSection() {
@@ -52,7 +54,7 @@ export default function RegionalControlsSection() {
     setLoading(true);
     const { data, error } = await (supabase as any)
       .from("regional_service_controls")
-      .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,rejection_message,message_image_url,message_float_enabled,message_width_percent,message_height_percent,message_position,message_top_offset,message_font_size,updated_at")
+      .select("governorate_key,services_enabled,message_enabled,message_title,message_text,message_animate,rejection_message,message_image_url,message_float_enabled,message_width_percent,message_height_percent,message_position,message_top_offset,message_font_size,regional_surcharge_percent,updated_at")
       .order("governorate_key");
     if (error) {
       toast.error("تعذّر تحميل إعدادات المحافظات: " + error.message);
@@ -74,6 +76,7 @@ export default function RegionalControlsSection() {
         message_position: global.message_position ?? "top-center",
         message_top_offset: global.message_top_offset ?? 12,
         message_font_size: global.message_font_size ?? 14,
+        regional_surcharge_percent: global.regional_surcharge_percent ?? 0,
       });
     }
     setLoading(false);
@@ -103,6 +106,7 @@ export default function RegionalControlsSection() {
       message_position: row.message_position ?? "top-center",
       message_top_offset: row.message_top_offset ?? 12,
       message_font_size: row.message_font_size ?? 14,
+      regional_surcharge_percent: row.regional_surcharge_percent ?? 0,
     } : { ...EMPTY });
     setSaved(false);
   }
@@ -221,6 +225,14 @@ export default function RegionalControlsSection() {
             ))}
           </div>
         )}
+
+        <div className="rounded-xl border border-border p-3 space-y-2">
+          <label className="block text-xs font-bold">زيادة أجرة التكسي فوق التعرفة العامة لهذه المحافظة (%)</label>
+          <input type="number" min="0" max="200" step="1" value={settings.regional_surcharge_percent}
+            onChange={(e) => setSettings((s) => ({ ...s, regional_surcharge_percent: Math.max(0, Math.min(200, Number(e.target.value) || 0)) }))}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-bold" />
+          <p className="text-[11px] text-muted-foreground">تُطبّق الزيادة على أجرة التكسي المسعّر آلياً، وتُضاف إلى تسعير الذروة والمراقبة التلقائية. لا تغيّر تعرفة المحافظات الأخرى.</p>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-xl border border-border p-3">
