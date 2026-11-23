@@ -63,7 +63,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "refund_cases_list") {
       const { data: assignment, error: assignmentError } = await caller.from("staff_assignments")
-        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).maybeSingle();
+        .select("scope_type,scope_governorate").eq("user_id", auth.user.id).eq("active", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (assignmentError) return json({ error: "finance_scope_load_failed" }, 500);
       const scopeType = assignment?.scope_type === "governorate" ? "governorate" : "global";
       const scopeGovernorate = scopeType === "governorate" ? assignment?.scope_governorate ?? null : null;
