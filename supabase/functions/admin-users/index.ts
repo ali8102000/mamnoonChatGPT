@@ -820,7 +820,7 @@ Deno.serve(async (req: Request) => {
       const { data: reports, error } = await query;
       if (error) return json({ error: "reports_load_failed" }, 500);
       const reportRows = reports ?? [];
-      const relatedUserIds = [...new Set(reportRows.flatMap((report: any) => [report.reporter_id, report.reported_id]).filter(isUuid))];
+      const relatedUserIds = [...new Set(reportRows.flatMap((report: any) => [report.reporter_id, report.reported_id]).filter(isUuid))].filter((id) => !scopedUserIds || scopedUserIds.includes(id));
       const relatedRequestIds = [...new Set(reportRows.map((report: any) => report.request_id).filter(isUuid))];
       const [relatedProfiles, relatedRequests] = await Promise.all([
         relatedUserIds.length
