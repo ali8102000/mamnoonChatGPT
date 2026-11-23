@@ -67,7 +67,7 @@ NAME_KEYS = ("name:ar", "name", "name:en", "name:ku", "name:ckb", "official_name
 SEARCH_KEYS = (
     "name:ar", "name", "name:en", "name:ku", "name:ckb", "official_name",
     "alt_name", "old_name", "loc_name", "short_name", "brand", "operator",
-    "addr:street", "addr:suburb", "addr:neighbourhood", "addr:city",
+    "addr:street", "addr:housenumber", "addr:unit", "addr:postcode", "addr:suburb", "addr:neighbourhood", "addr:city",
     "addr:district", "addr:place", "ref", "int_name",
 )
 FEATURE_KEYS = {
@@ -187,6 +187,12 @@ def category_terms(tags) -> str:
 
 def make_row(element_type: str, element_id: int, tags, lon: float, lat: float):
     name = choose_name(tags)
+    # Addressable buildings are useful destination suggestions even when OSM
+    # has no POI name. Keep them clearly labelled as a street/house number.
+    house_number = tags.get("addr:housenumber", "").strip()
+    street = (tags.get("addr:street") or tags.get("addr:place") or "").strip()
+    if not name and tags.get("building") and house_number and street:
+        name = f"{street}، رقم {house_number}"
     if not name or not (-90 <= lat <= 90 and -180 <= lon <= 180):
         return None
     if not any(key in tags for key in FEATURE_KEYS):
@@ -196,7 +202,8 @@ def make_row(element_type: str, element_id: int, tags, lon: float, lat: float):
         return None
     names = [tags.get(key, "") for key in SEARCH_KEYS]
     address_parts = [
-        tags.get("addr:street", ""), tags.get("addr:suburb", ""),
+        tags.get("addr:street", ""), f"رقم {house_number}" if house_number else "",
+        tags.get("addr:unit", ""), tags.get("addr:suburb", ""),
         tags.get("addr:neighbourhood", ""), tags.get("addr:district", ""),
         tags.get("addr:city", ""), tags.get("addr:place", ""),
         GOVERNORATE_AR[governorate], "العراق",
