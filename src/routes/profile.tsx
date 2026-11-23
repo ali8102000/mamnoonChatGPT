@@ -471,7 +471,7 @@ function ProfilePage() {
             type="button"
             disabled={signingOut}
             onClick={async () => {
-              if (signingOut) return;
+              if (signingOut || !window.confirm("هل تريد إنهاء جلسة ممنون على هذا الجهاز؟")) return;
               setSigningOut(true);
               try { await signOut(); navigate({ to: "/auth" }); }
               catch (error: any) { toast.error(error?.message || "تعذر تسجيل الخروج. حاول مرة ثانية."); }
