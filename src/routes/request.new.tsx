@@ -472,6 +472,27 @@ function NewRequest() {
   }, [type, destConfirmed, pickupLat, pickupLng, destLat, destLng, vehicle, vehicleCategory, tripType, extraMinutes, interCity, destinationGovernorateKey, govKey, urgencyEnabled, routeRetry]);
 
   useEffect(() => {
+    if (type !== "taxi" || vehicle === "large" || !govKey) return;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setRouteRetry((value) => value + 1), 700);
+    };
+    const channel = supabase.channel(`taxi-live-pricing-${govKey}-${Date.now()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: `governorate_key=eq.${govKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "taxi_pricing_controls", filter: "governorate_key=eq.all" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pricing_settings", filter: `governorate_key=eq.${govKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "pricing_settings", filter: "governorate_key=eq.all" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls", filter: `governorate_key=eq.${govKey}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "regional_service_controls", filter: "governorate_key=eq.all" }, refresh)
+      .subscribe();
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [type, vehicle, govKey]);
+
+  useEffect(() => {
     if (pickupLat == null || pickupLng == null) return;
     const controller = new AbortController();
     detectWeatherCondition(pickupLat, pickupLng, controller.signal)
