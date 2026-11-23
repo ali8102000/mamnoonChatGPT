@@ -59,6 +59,7 @@ begin
  if not p_enabled and (p_admin_fixed_percent<>0 or p_provider_max_percent<>0) then raise exception 'disabled_policy_must_have_zero_rates'; end if;
  if not p_provider_can_choose and p_provider_max_percent<>0 then raise exception 'provider_choice_disabled'; end if;
  if p_mode='off' and p_enabled then raise exception 'off_mode_cannot_be_enabled'; end if;
+ if p_enabled then raise exception 'service_peak_quote_not_ready'; end if;
  if not public.admin_has_permission('pricing.peak.edit',
    case when p_governorate_key='all' then 'global' else 'governorate' end,
    case when p_governorate_key='all' then null else p_governorate_key end) then raise exception 'missing_pricing_permission'; end if;
