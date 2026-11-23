@@ -228,7 +228,7 @@ ALTER TABLE public.mamnoon_refund_commission_reversals ENABLE ROW LEVEL SECURITY
 REVOKE ALL ON public.mamnoon_refund_commission_reversals FROM anon, authenticated;
 GRANT ALL ON public.mamnoon_refund_commission_reversals TO service_role;
 
-CREATE OR REPLACE FUNCTION public.open_zaincash_refund_cases_for_cancelled_request(p_request_id uuid)
+CREATE OR REPLACE FUNCTION public.open_zaincash_refund_cases_for_cancelled_request(p_request_id uuid, p_only_payment_id uuid)
 RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -260,6 +260,7 @@ BEGIN
       AND p.provider = 'zaincash'
       AND p.currency = 'IQD'
       AND p.status = 'paid'
+      AND (p_only_payment_id IS NULL OR p.id = p_only_payment_id)
       AND p.user_id = v_request.customer_id
     ORDER BY p.paid_at, p.created_at
   LOOP
@@ -375,6 +376,68 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.cancel_service_request(_request_id uuid, _reason text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  r record;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+
+  -- Match the payment-finalization lock order: payment rows first, then the request.
+  -- This prevents a deadlock when a successful ZainCash callback races with cancellation.
+  PERFORM 1
+  FROM public.payment_transactions
+  WHERE request_id = _request_id
+    AND purpose = 'service_request'
+    AND provider = 'zaincash'
+    AND status IN ('pending','paid')
+  ORDER BY id
+  FOR UPDATE;
+
+  SELECT id, customer_id, provider_id, status, type, provider_arrived_at
+  INTO r FROM public.service_requests WHERE id = _request_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
+  IF r.customer_id <> auth.uid() AND r.provider_id <> auth.uid() THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+  IF r.status IN ('completed','cancelled') THEN RAISE EXCEPTION 'request_finished'; END IF;
+  IF r.provider_arrived_at IS NOT NULL THEN RAISE EXCEPTION 'provider_already_arrived'; END IF;
+  IF r.type::text = 'taxi' AND r.status = 'in_progress'
+     AND (r.customer_id = auth.uid() OR r.provider_id = auth.uid()) THEN
+    RAISE EXCEPTION 'taxi_trip_already_started';
+  END IF;
+  IF r.customer_id = auth.uid() THEN
+    UPDATE public.service_requests
+    SET status = 'cancelled', cancelled_by = auth.uid(), cancellation_reason = left(_reason, 500)
+    WHERE id = _request_id;
+    DELETE FROM public.request_offers WHERE request_id = _request_id;
+    IF r.provider_id IS NOT NULL THEN
+      INSERT INTO public.notifications (user_id, type, title, body, link)
+      VALUES (r.provider_id, 'request_cancelled', 'أُلغي الطلب',
+        coalesce(left(_reason, 200), 'ألغى الزبون الطلب'), '/request/' || _request_id);
+    END IF;
+    RETURN 'cancelled';
+  ELSIF r.provider_id = auth.uid() THEN
+    PERFORM set_config('mamnoon.allow_provider_request_transition', 'true', true);
+    UPDATE public.service_requests
+    SET status = 'searching', provider_id = NULL, accepted_at = NULL,
+        cancelled_by = auth.uid(), cancellation_reason = left(_reason, 500)
+    WHERE id = _request_id;
+    PERFORM set_config('mamnoon.allow_provider_request_transition', 'false', true);
+    DELETE FROM public.request_offers WHERE request_id = _request_id AND provider_id = auth.uid();
+    INSERT INTO public.notifications (user_id, type, title, body, link)
+    VALUES (r.customer_id, 'provider_released', 'نبحث عن مقدّم خدمة آخر',
+      coalesce(left(_reason, 200), 'اعتذر مقدّم الخدمة'), '/request/' || _request_id);
+    RETURN 'released';
+  END IF;
+  RAISE EXCEPTION 'forbidden';
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.open_zaincash_refund_case_on_customer_cancel()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -385,7 +448,7 @@ BEGIN
   IF NEW.status::text = 'cancelled'
      AND OLD.status::text <> 'cancelled'
      AND NEW.cancelled_by IS NOT DISTINCT FROM NEW.customer_id THEN
-    PERFORM public.open_zaincash_refund_cases_for_cancelled_request(NEW.id);
+    PERFORM public.open_zaincash_refund_cases_for_cancelled_request(NEW.id, NULL);
   END IF;
   RETURN NEW;
 END;
@@ -408,7 +471,7 @@ BEGIN
      AND NEW.provider = 'zaincash'
      AND NEW.purpose = 'service_request'
      AND NEW.request_id IS NOT NULL THEN
-    PERFORM public.open_zaincash_refund_cases_for_cancelled_request(NEW.request_id);
+    PERFORM public.open_zaincash_refund_cases_for_cancelled_request(NEW.request_id, NEW.id);
   END IF;
   RETURN NEW;
 END;
@@ -419,7 +482,7 @@ CREATE TRIGGER open_zaincash_refund_case_on_late_paid_payment
 AFTER UPDATE OF status ON public.payment_transactions
 FOR EACH ROW EXECUTE FUNCTION public.open_zaincash_refund_case_on_late_paid_payment();
 
-REVOKE ALL ON FUNCTION public.open_zaincash_refund_cases_for_cancelled_request(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.open_zaincash_refund_cases_for_cancelled_request(uuid,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.open_zaincash_refund_case_on_customer_cancel() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.open_zaincash_refund_case_on_late_paid_payment() FROM PUBLIC, anon, authenticated;
 
