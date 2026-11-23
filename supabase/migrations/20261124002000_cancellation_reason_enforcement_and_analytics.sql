@@ -1,6 +1,7 @@
 -- Require a meaningful cancellation reason and expose an admin-only cancellation breakdown.
 create index if not exists service_requests_cancelled_analytics_idx
-  on public.service_requests (status, cancelled_by, cancellation_reason);
+  on public.service_requests (cancelled_by, cancellation_reason)
+  where cancelled_by is not null;
 
 create or replace function public.cancel_service_request(_request_id uuid, _reason text)
 returns text
