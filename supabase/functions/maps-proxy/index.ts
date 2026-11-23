@@ -332,7 +332,9 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
           if(!name) return [];
           const parts=[p.street,p.locality,p.suburb,p.district,p.city,p.county,p.state,p.country]
             .filter(v=>typeof v==="string"&&v.trim());
-          const terms=[...new Set([...fields,q,normalized(q),p.type,p.osm_value]
+          // Keep the index limited to attributes of this POI. Adding the user query here
+          // contaminates every returned row with the same search phrase and creates false matches later.
+          const terms=[...new Set([...fields,p.type,p.osm_value]
             .filter(v=>typeof v==="string"&&v.trim()))];
           return [{governorate_key:key,source:"photon",
             source_key:"photon:"+(p.osm_type||"P")+":"+(p.osm_id||point.lat.toFixed(6)+":"+point.lng.toFixed(6)),
