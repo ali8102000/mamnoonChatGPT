@@ -70,7 +70,7 @@ export default function RequestChatScreen() {
         setLoading(false);
         return;
       }
-      const { data: requestCodeRow } = await supabase.from("service_requests").select("request_code").eq("id", id).maybeSingle();
+      const { data: requestCodeRow } = await (supabase as any).from("service_requests").select("request_code").eq("id", id).maybeSingle();
       setRequest({ ...req, request_code: (requestCodeRow as any)?.request_code ?? null });
       if (["completed", "cancelled"].includes(req.status)) {
         setLoading(false);
