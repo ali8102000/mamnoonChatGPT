@@ -30,7 +30,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 ];
 const categoryLabel: Record<string, string> = { customer: "زبون", technician: "فني", driver: "صاحب تكسي", restaurant: "مطعم", hotel: "فندق", store: "متجر" };
 const sourceLabel = (source: string) => source === "bot" ? "البوت" : source === "admin" ? "الإدارة" : source === "provider" ? "منفّذ الخدمة" : source === "customer" || source === "user" ? "الزبون" : "المستخدم";
-const isUnread = (item: Conversation) => !!item.latest_message && !item.latest_message.read_at && item.latest_message.sender_id !== item.assigned_staff_id;
+const isUnread = (item: Conversation) => item.conversation_type !== "service" && !!item.latest_message && !item.latest_message.read_at && item.latest_message.sender_id === item.user_id;
 const isBotHandoff = (item: Conversation) => item.conversation_type === "support" && (item.last_message_source === "bot" || item.latest_message?.is_ai === true || item.handoff_status === "waiting_for_admin");
 const isPending = (item: Conversation) => item.ticket_status === "pending" || item.ticket_status === "new" || item.status === "pending" || item.needs_admin_reply || item.handoff_status === "waiting_for_admin";
 
