@@ -26,7 +26,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
       - name: Install OSM PBF parser
         run: python -m pip install --upgrade pip osmium
       - name: Import named places from the latest Iraq extract
