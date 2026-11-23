@@ -994,24 +994,34 @@ export default function RequestDetail() {
         ? { latitude: Number(request.pickup_lat), longitude: Number(request.pickup_lng) }
         : isCustomer ? myLocation : otherLocation;
     const origin = isCustomer ? otherLocation : myLocation;
-    const coordinates = roadRoutePoints.length > 1
-      ? roadRoutePoints
-      : [origin, target].filter((point): point is Coordinates => point != null);
-    if (coordinates.length > 1) {
-      acceptedMapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 90, right: 44, bottom: 360, left: 44 },
-        animated: true,
-      });
-      acceptedMapFitKeyRef.current = fitKey;
-    } else if (coordinates.length === 1 && acceptedMapFitKeyRef.current !== singlePointFitKey) {
-      // Center provisionally on the known point, but allow a later live-location
-      // update to perform the full two-point fit exactly once.
-      acceptedMapRef.current.animateToRegion({
-        ...coordinates[0],
-        latitudeDelta: 0.018,
-        longitudeDelta: 0.018,
-      }, 450);
-      acceptedMapFitKeyRef.current = singlePointFitKey;
+    // Fit the actual road geometry when it arrives. First fitting only the
+    // two endpoints can crop bends and make the route appear to be a straight line.
+    if (roadRoutePoints.length > 1) {
+      const roadFitKey = `${fitKey}:road`;
+      if (acceptedMapFitKeyRef.current !== roadFitKey) {
+        acceptedMapRef.current.fitToCoordinates(roadRoutePoints, {
+          edgePadding: { top: 150, right: 52, bottom: 330, left: 52 },
+          animated: true,
+        });
+        acceptedMapFitKeyRef.current = roadFitKey;
+      }
+    } else {
+      const coordinates = [origin, target].filter((point): point is Coordinates => point != null);
+      if (coordinates.length > 1 && acceptedMapFitKeyRef.current !== fitKey &&
+          acceptedMapFitKeyRef.current !== `${fitKey}:road`) {
+        acceptedMapRef.current.fitToCoordinates(coordinates, {
+          edgePadding: { top: 150, right: 52, bottom: 330, left: 52 },
+          animated: false,
+        });
+        acceptedMapFitKeyRef.current = fitKey;
+      } else if (coordinates.length === 1 && acceptedMapFitKeyRef.current !== singlePointFitKey) {
+        acceptedMapRef.current.animateToRegion({
+          ...coordinates[0],
+          latitudeDelta: 0.012,
+          longitudeDelta: 0.012,
+        }, 450);
+        acceptedMapFitKeyRef.current = singlePointFitKey;
+      }
     }
   }, [
     acceptedMapMode,
