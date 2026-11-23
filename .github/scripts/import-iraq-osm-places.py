@@ -21,7 +21,7 @@ import osmium
 ROOT = Path(__file__).resolve().parents[2]
 BOUNDARIES_FILE = ROOT / "src/lib/iraq-governorate-boundaries.json"
 PBF_URL = os.environ.get(
-    "OSM_PBF_URL", "https://download.geofabrik.de/asia/iraq-latest.osm.pbf"
+    "OSM_PBF_URL", "https://download.geofabrik.de/asia/iraq/iraq-latest.osm.pbf"
 )
 CHUNK_SIZE = 400
 MAX_RETRIES = 5
