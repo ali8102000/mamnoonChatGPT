@@ -75,18 +75,45 @@ CATEGORY_AR = {
 }
 
 def download(url: str, target: Path) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "Mamnoon-Iraq-Places-Importer/1.0"})
-    with urllib.request.urlopen(request, timeout=120) as response, target.open("wb") as output:
-        total = int(response.headers.get("Content-Length", "0") or 0)
-        copied = 0
-        while True:
-            block = response.read(1024 * 1024)
-            if not block:
-                break
-            output.write(block)
-            copied += len(block)
-            if total and copied % (20 * 1024 * 1024) < 1024 * 1024:
-                print(f"Downloaded {copied // (1024 * 1024)} / {total // (1024 * 1024)} MiB", flush=True)
+    # Geofabrik may redirect to a separate download host. Use a generous
+    # timeout and resume partial downloads so transient CDN stalls do not
+    # restart an 80+ MiB country extract from zero.
+    for attempt in range(MAX_RETRIES):
+        offset = target.stat().st_size if target.exists() else 0
+        headers = {"User-Agent": "Mamnoon-Iraq-Places-Importer/1.0"}
+        if offset:
+            headers["Range"] = f"bytes={offset}-"
+        request = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=600) as response:
+                append = offset > 0 and response.status == 206
+                if offset and not append:
+                    offset = 0
+                mode = "ab" if append else "wb"
+                total_header = response.headers.get("Content-Range", "")
+                total = int(total_header.rsplit("/", 1)[-1]) if "/" in total_header else (
+                    offset + int(response.headers.get("Content-Length", "0") or 0)
+                )
+                copied = offset
+                with target.open(mode) as output:
+                    while True:
+                        block = response.read(1024 * 1024)
+                        if not block:
+                            break
+                        output.write(block)
+                        copied += len(block)
+                        if copied and copied % (20 * 1024 * 1024) < 1024 * 1024:
+                            suffix = f" / {total // (1024 * 1024)} MiB" if total else " MiB"
+                            print(f"Downloaded {copied // (1024 * 1024)}{suffix}", flush=True)
+            if target.exists() and target.stat().st_size > 10 * 1024 * 1024:
+                return
+            raise RuntimeError("Downloaded Iraq PBF is unexpectedly small.")
+        except Exception as exc:
+            if attempt == MAX_RETRIES - 1:
+                raise
+            wait = 5 * (attempt + 1)
+            print(f"Download retry {attempt + 1}/{MAX_RETRIES} in {wait}s: {exc}", flush=True)
+            time.sleep(wait)
 
 def point_in_ring(lon: float, lat: float, ring: list[list[float]]) -> bool:
     inside = False
