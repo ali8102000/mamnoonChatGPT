@@ -1,6 +1,9 @@
 name: Refresh Iraq OSM place search index
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
   schedule:
     - cron: "25 2 * * 1"
