@@ -87,6 +87,7 @@ import {
 } from "@/lib/admin.functions";
 import RegionalControlsSection from "@/components/admin-regional-controls";
 import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
+import AdminPeakWeatherControl from "@/components/admin-peak-weather-control";
 import AdminDispatchZones from "@/components/admin-dispatch-zones";
 import AdminProviderMissions from "@/components/admin-provider-missions";
 import { toast } from "@/lib/toast";
@@ -455,7 +456,7 @@ function AdminPage() {
           {section === "map" && <MapSection />}
           {section === "notifications" && <NotificationsSection />}
           {section === "regions" && <RegionalControlsSection />}
-          {section === "pricing" && <AdminTaxiPricingControls />}
+          {section === "pricing" && <><AdminTaxiPricingControls /><AdminPeakWeatherControl /></>}
           {section === "driverTiers" && <DriverPerformanceTierSettings />}
           {section === "dispatchZones" && <AdminDispatchZones />}
           {section === "missions" && <AdminProviderMissions />}
