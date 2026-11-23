@@ -38,7 +38,7 @@ target = sys.argv[2]
 for node in root.iter("node"):
     value = " ".join(filter(None, (node.attrib.get("text", ""), node.attrib.get("content-desc", ""))))
     if target in value:
-        m = re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]", node.attrib.get("bounds", ""))
+        m = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
         if m:
             x1,y1,x2,y2 = map(int,m.groups())
             print((x1+x2)//2, (y1+y2)//2)
