@@ -32,7 +32,38 @@ jobs:
           assert module.find_governorate(47.7804, 30.5085) == 'basra'
           print('Importer syntax and 18-governorate point-in-polygon checks passed.')
           PY
-      - name: Parse the current Iraq PBF without writing to production
-        env:
-          DRY_RUN: "true"
-        run: python .github/scripts/import-iraq-osm-places.py
+      - name: Test OSM node and way parsing with an offline fixture
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import tempfile
+          from pathlib import Path
+
+          spec = importlib.util.spec_from_file_location('iraq_importer', '.github/scripts/import-iraq-osm-places.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          fixture = '''<?xml version="1.0" encoding="UTF-8"?>
+          <osm version="0.6" generator="Mamnoon test">
+            <node id="900001" lat="32.0259" lon="44.3462">
+              <tag k="name:ar" v="مستشفى النجف التجريبي"/>
+              <tag k="amenity" v="hospital"/>
+            </node>
+            <node id="900002" lat="32.0260" lon="44.3463"/>
+            <way id="900010">
+              <nd ref="900001"/>
+              <nd ref="900002"/>
+              <tag k="name:ar" v="شارع تجريبي"/>
+              <tag k="highway" v="residential"/>
+            </way>
+          </osm>'''
+          with tempfile.TemporaryDirectory() as temp:
+              source = Path(temp) / 'fixture.osm'
+              source.write_text(fixture, encoding='utf-8')
+              handler = module.NamedPlaces()
+              handler.apply_file(str(source), locations=True, idx='flex_mem')
+          rows = list(handler.rows.values())
+          assert any(row['governorate_key'] == 'najaf' and row['name_ar'] == 'مستشفى النجف التجريبي' for row in rows), rows
+          assert any(row['governorate_key'] == 'najaf' and row['name_ar'] == 'شارع تجريبي' for row in rows), rows
+          print(f'Offline OSM parser fixture passed: {len(rows)} rows.')
+          PY
