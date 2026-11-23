@@ -30,6 +30,7 @@ import {
 import { MapPicker } from "@/components/map-picker";
 import { dispatchRequest } from "@/lib/dispatch.functions";
 import { useNearbyProviders } from "@/lib/use-nearby-providers";
+import { useCompanyBranding } from "@/lib/company-branding";
 import { lookupMapPlace } from "@/lib/maps.functions";
 import {
   taxiFare,
@@ -124,6 +125,7 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
 }
 
 function NewRequest() {
+  const companyBranding = useCompanyBranding();
   const { type, vehicle } = Route.useSearch();
   const { session, loading } = useAuth();
   const navigate = useNavigate();
@@ -1191,6 +1193,7 @@ function NewRequest() {
         {/* STEP 3: CARS ONLY */}
         {((mapStep === "dest" && destConfirmed) || (vehicle === "large" && mapStep === "pickup" && destConfirmed)) && (
           <div className="mt-auto relative z-30 bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 rounded-t-[32px] shadow-2xl border-t border-border/60 max-w-lg mx-auto w-full p-5 space-y-3">
+            {companyBranding.welcomeMediaUrl && <img src={companyBranding.welcomeMediaUrl} alt={`هوية ${companyBranding.companyName}`} className="mx-auto max-h-24 w-full max-w-[220px] rounded-xl object-contain" />}
             {vehicle !== "large" && routeKm === null && !routeError && (
               <div
                 className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
