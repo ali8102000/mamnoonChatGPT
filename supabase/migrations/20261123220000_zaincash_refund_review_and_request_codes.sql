@@ -783,10 +783,12 @@ BEGIN
     (
       SELECT COALESCE(SUM(rc.amount_iqd),0)
       FROM public.mamnoon_revenue_collections rc
-      WHERE NOT EXISTS (
-        SELECT 1 FROM public.mamnoon_revenue_collection_reversals reversal
-        WHERE reversal.revenue_collection_id = rc.id
-      )
+      JOIN public.payment_transactions pt ON pt.id = rc.payment_id
+      WHERE pt.purpose = 'wallet_topup'
+        AND NOT EXISTS (
+          SELECT 1 FROM public.mamnoon_revenue_collection_reversals reversal
+          WHERE reversal.revenue_collection_id = rc.id
+        )
     )
   );
 END;
