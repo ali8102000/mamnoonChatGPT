@@ -1460,6 +1460,7 @@ export default function RequestDetail() {
             }}
             showsUserLocation={request.type !== "taxi"}
             showsCompass
+            showsTraffic
             toolbarEnabled={false}
             scrollEnabled
             zoomEnabled
@@ -1488,7 +1489,7 @@ export default function RequestDetail() {
                 {request.dest_lat != null && request.dest_lng != null && (
                   <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
                 )}
-                {(isProvider ? myLocation : otherLocation) && (
+                {driverLocationFresh && (isProvider ? myLocation : otherLocation) && (
                   <TaxiCarMarker
                     coordinate={(isProvider ? myLocation : otherLocation)!}
                     heading={(isProvider ? myLocation : otherLocation)?.heading}
@@ -1512,7 +1513,7 @@ export default function RequestDetail() {
                 {request.dest_lat != null && request.dest_lng != null && (
                   <DestinationMarker coordinate={{ latitude: request.dest_lat, longitude: request.dest_lng }} />
                 )}
-                {(isProvider ? myLocation : otherLocation) && (
+                {driverLocationFresh && (isProvider ? myLocation : otherLocation) && (
                   <ServicePhotoMarker
                     coordinate={(isProvider ? myLocation : otherLocation)!}
                     imageSource={SERVICE_IMAGES[request.services?.slug ?? ""] ?? service_general}
