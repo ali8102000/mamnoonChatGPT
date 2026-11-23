@@ -22,7 +22,6 @@ const TAXI = [
   ["taxi:economy", "تكسي اقتصادي"],
   ["taxi:premium", "تكسي متميز"],
   ["taxi:luxury", "تكسي فاخر"],
-  ["taxi:large", "تكسي كبير"],
 ] as const;
 
 export default function AdminCategoryPeakPricing() {
