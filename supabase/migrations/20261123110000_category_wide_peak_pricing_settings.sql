@@ -25,7 +25,8 @@ insert into public.category_peak_pricing_settings(category_key,category_label_ar
 values
  ('taxi:economy','تكسي اقتصادي'),
  ('taxi:premium','تكسي متميز'),
- ('taxi:luxury','تكسي فاخر')
+ ('taxi:luxury','تكسي فاخر'),
+ ('taxi:large','مركبة كبيرة')
 on conflict(category_key) do update set category_label_ar=excluded.category_label_ar;
 
 alter table public.category_peak_pricing_settings enable row level security;
