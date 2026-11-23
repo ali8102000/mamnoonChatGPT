@@ -31,6 +31,14 @@ ALTER TABLE public.service_requests
   ADD COLUMN IF NOT EXISTS taxi_auto_percent numeric(6,2) NOT NULL DEFAULT 0
     CHECK (taxi_auto_percent BETWEEN -50 AND 200);
 
+-- Store GPS quality alongside provider presence; stale or low-accuracy points
+-- are excluded from the automatic supply/demand monitor.
+ALTER TABLE public.provider_presence
+  ADD COLUMN IF NOT EXISTS accuracy_m double precision
+    CHECK (accuracy_m IS NULL OR accuracy_m BETWEEN 0 AND 1000),
+  ADD COLUMN IF NOT EXISTS speed_mps double precision
+    CHECK (speed_mps IS NULL OR speed_mps BETWEEN 0 AND 150);
+
 CREATE OR REPLACE FUNCTION public.refresh_taxi_pricing_monitor()
 RETURNS void
 LANGUAGE plpgsql
@@ -62,6 +70,7 @@ BEGIN
       FROM public.provider_presence pp
       JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
       WHERE pp.updated_at > now()-interval '5 minutes'
+        AND pp.accuracy_m IS NOT NULL AND pp.accuracy_m<=100
         AND dp.status='approved'
         AND (dp.suspended_until IS NULL OR dp.suspended_until<=now());
 
@@ -69,6 +78,7 @@ BEGIN
       FROM public.provider_presence pp
       JOIN public.driver_profiles dp ON dp.user_id=pp.user_id
       WHERE pp.updated_at > now()-interval '5 minutes'
+        AND pp.accuracy_m IS NOT NULL AND pp.accuracy_m<=100
         AND dp.available=true AND dp.status='approved'
         AND (dp.suspended_until IS NULL OR dp.suspended_until<=now())
         AND NOT EXISTS (
