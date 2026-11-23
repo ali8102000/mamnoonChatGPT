@@ -250,7 +250,13 @@ function AccountSettingsPage() {
         <label className="block text-xs font-bold">البريد الإلكتروني (اختياري)<input type="email" value={partnerEmail} onChange={e=>setPartnerEmail(e.target.value)} dir="ltr" className="input-base mt-1 w-full rounded-xl text-left" placeholder="name@example.com" /></label>
         <label className="block text-xs font-bold">المحافظة<select value={partnerGovernorate} onChange={e=>setPartnerGovernorate(e.target.value)} className="input-base mt-1 w-full rounded-xl">{Object.entries(governorateLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
         <label className="block text-xs font-bold">المدينة / القضاء<input required minLength={2} maxLength={80} value={partnerCity} onChange={e=>setPartnerCity(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="مثال: النجف الأشرف" /></label>
-        <label className="block text-xs font-bold">العنوان التفصيلي<input required minLength={4} maxLength={240} value={partnerAddress} onChange={e=>setPartnerAddress(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="الحي والشارع وأقرب نقطة دالة" /></label>
+        <label className="block text-xs font-bold">العنوان التفصيلي<input required minLength={4} maxLength={240} value={partnerAddress} onChange={e=>setPartnerAddress(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="الحي والشارع وأقرب نقطة دالة" /></label>        <label className="block text-xs font-bold">رقم إجازة العمل / الترخيص<input required minLength={2} maxLength={100} value={partnerLicenseNumber} onChange={e=>setPartnerLicenseNumber(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="رقم الإجازة الرسمية" /></label>
+        <div className="space-y-2"><div className="flex items-center gap-2 text-xs font-black"><MapPin className="h-4 w-4"/> دبوس موقع المنشأة</div><p className="text-[10px] text-muted-foreground">اضغط على الخريطة أو اسحب الدبوس إلى موقع الفندق أو المتجر أو المول.</p><div ref={partnerMapRef} className="h-64 w-full rounded-xl border border-border bg-muted"/><p className="text-center text-[10px] text-muted-foreground">الإحداثيات: {partnerLat.toFixed(6)}, {partnerLng.toFixed(6)}</p></div>
+        <div className="space-y-2"><div className="text-xs font-black">المستندات الإلزامية</div>
+          <PartnerDocUpload label="إجازة العمل / رخصة النشاط" file={partnerLicenseFile} onChange={setPartnerLicenseFile}/>
+          <PartnerDocUpload label="هوية صاحب المنشأة - الوجه الأمامي" file={partnerIdFrontFile} onChange={setPartnerIdFrontFile}/>
+          <PartnerDocUpload label="هوية صاحب المنشأة - الوجه الخلفي" file={partnerIdBackFile} onChange={setPartnerIdBackFile}/>
+          <p className="text-[10px] text-muted-foreground">المستندات تحفظ بشكل خاص ولا تظهر للزبائن. الحد الأعلى 8 ميغابايت للصورة.</p></div>
         <label className="block text-xs font-bold">نبذة عن المنشأة (اختياري)<textarea maxLength={1000} value={partnerDescription} onChange={e=>setPartnerDescription(e.target.value)} className="input-base mt-1 min-h-20 w-full rounded-xl" placeholder="الخدمات أو المنتجات التي تقدمها" /></label>
         <button type="submit" disabled={partnerBusy} className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black disabled:opacity-50">{partnerBusy?"جارٍ إرسال الطلب...":"إرسال طلب الشراكة"}</button>
       </form>}
@@ -321,4 +327,8 @@ function AccountSettingsPage() {
       <span>بيانات حسابك محمية، ولا يتغير البريد أو الهاتف إلا بعد إكمال التحقق.</span>
     </div>
   </main>;
+}
+
+function PartnerDocUpload({label,file,onChange}:{label:string;file:File|null;onChange:(file:File|null)=>void}) {
+  return <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border p-3"><span className="min-w-0"><b className="block text-xs">{label}</b><small className="text-muted-foreground">{file?.name||"اختيار صورة واضحة"}</small></span><Upload className="h-4 w-4 shrink-0"/><input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e=>onChange(e.target.files?.[0]||null)}/></label>;
 }
