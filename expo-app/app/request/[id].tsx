@@ -904,6 +904,15 @@ export default function RequestDetail() {
     const routeKey = [id, request?.type, request?.status,
       destination.latitude.toFixed(5), destination.longitude.toFixed(5)].join(":");
     const previousRouteRequest = lastRoadRouteRequestRef.current;
+    if (previousRouteRequest && previousRouteRequest.routeKey !== routeKey) {
+      // A new trip leg (for example pickup -> destination) must never inherit
+      // the previous leg's road line while its own route is being calculated.
+      hasValidRoadRouteRef.current = false;
+      setRoadRoutePoints([]);
+      setRoadTrafficSegments([]);
+      setNextRouteInstruction(null);
+      setLiveRouteSource(null);
+    }
     const movedMeters = previousRouteRequest
       ? Math.hypot(
           (origin.latitude - previousRouteRequest.latitude) * 111320,
