@@ -1,9 +1,12 @@
 name: Validate Iraq OSM importer
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/iraq-osm-national-place-import-v2
+      - main
+    paths:
+      - ".github/scripts/import-iraq-osm-places.py"
+      - ".github/workflows/validate-iraq-osm-importer.yml"
 
 permissions:
   contents: read
