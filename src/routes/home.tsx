@@ -136,7 +136,7 @@ function HomePage() {
                 {firstName} <span className="inline-block animate-float">👋</span>
               </div>
             </div>
-            <p className="mt-1 text-xs font-semibold text-muted-foreground">{welcomeMessage}</p>
+            <p className="mt-1 max-w-full whitespace-pre-wrap break-words text-sm font-semibold leading-7 text-muted-foreground">{welcomeMessage}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
