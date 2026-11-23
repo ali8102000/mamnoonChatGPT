@@ -1,7 +1,4 @@
 -- Require a meaningful cancellation reason and expose an admin-only cancellation breakdown.
-alter table public.service_requests
-  add column if not exists cancellation_reason_code text;
-
 create index if not exists service_requests_cancelled_analytics_idx
   on public.service_requests (status, cancelled_by, cancellation_reason);
 
