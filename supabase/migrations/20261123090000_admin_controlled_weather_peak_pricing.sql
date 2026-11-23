@@ -16,7 +16,8 @@ create table if not exists public.taxi_peak_weather_settings (
   last_checked_at timestamptz,
   updated_by uuid references auth.users(id),
   updated_at timestamptz not null default now(),
-  constraint taxi_peak_weather_governorate_valid check (governorate_key in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah'))
+  constraint taxi_peak_weather_governorate_valid check (governorate_key in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah')),
+  constraint taxi_peak_weather_mode_enabled_valid check (mode <> 'off' or enabled = false)
 );
 
 create table if not exists public.taxi_peak_weather_observations (
@@ -91,6 +92,7 @@ begin
   if v_actor is null then raise exception 'unauthorized'; end if;
   if p_governorate_key not in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah') then raise exception 'invalid_governorate'; end if;
   if p_mode not in ('auto','notify','off') then raise exception 'invalid_mode'; end if;
+  if p_mode='off' and p_enabled then raise exception 'off_mode_cannot_be_enabled'; end if;
   if p_rain_threshold_mm not between 0 and 100 or p_heat_threshold_c not between 0 and 60
     or p_max_surcharge_percent not between 0 and 100
     or p_min_pending_requests not between 0 and 10000
@@ -123,4 +125,5 @@ begin
 end $$;
 
 grant select on public.taxi_peak_weather_settings, public.taxi_peak_weather_observations, public.taxi_peak_weather_decisions to authenticated;
+revoke all on function public.admin_save_taxi_peak_weather_settings(text,text,boolean,numeric,numeric,numeric,integer,integer,integer,integer,integer) from public, anon;
 grant execute on function public.admin_save_taxi_peak_weather_settings(text,text,boolean,numeric,numeric,numeric,integer,integer,integer,integer,integer) to authenticated;
