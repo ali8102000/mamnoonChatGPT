@@ -78,7 +78,7 @@ const CATEGORY_META: Record<
     desc: "أحدث الموديلات والفئات الراقية",
   },
   large: {
-    label: "سيارات كبيرة: كيا حمل / كيا ركاب",
+    label: "سيارات كبيرة: كيا حمل / كيا ركاب / باص",
     emoji: "🚚",
     gradient: "from-orange-500 to-amber-600",
     desc: "لأصحاب كيا الحمل وكيا الركاب — اختر نوع مركبتك بعد تحديد هذه الفئة",
@@ -549,7 +549,7 @@ export function OnboardingDriver({ largeDriverMode = (typeof window !== "undefin
         verifiedAt: new Date().toISOString(),
         status: "pending",
         vehicleMake: finalMake,
-        vehicleModel: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : "كيا ركاب") : modelName.trim(),
+        vehicleModel: category === "large" ? (vehicleType === "kia_cargo" ? "كيا حمل" : vehicleType === "kia_passenger" ? "كيا ركاب" : "باص") : modelName.trim(),
         vehicleYear: Number(year) || undefined,
         vehiclePlate: plate.trim(),
         vehicleColor: color.trim() || undefined,
