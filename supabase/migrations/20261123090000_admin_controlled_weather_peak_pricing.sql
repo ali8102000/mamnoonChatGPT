@@ -3,6 +3,7 @@ create table if not exists public.taxi_peak_weather_settings (
   governorate_key text primary key,
   mode text not null default 'off' check (mode in ('auto','notify','off')),
   enabled boolean not null default false,
+  weather_monitor_ready boolean not null default false,
   rain_threshold_mm numeric not null default 1 check (rain_threshold_mm between 0 and 100),
   heat_threshold_c numeric not null default 42 check (heat_threshold_c between 0 and 60),
   max_surcharge_percent numeric not null default 15 check (max_surcharge_percent between 0 and 100),
@@ -93,6 +94,7 @@ begin
   if p_governorate_key not in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah') then raise exception 'invalid_governorate'; end if;
   if p_mode not in ('auto','notify','off') then raise exception 'invalid_mode'; end if;
   if p_mode='off' and p_enabled then raise exception 'off_mode_cannot_be_enabled'; end if;
+  if p_enabled and not coalesce((select weather_monitor_ready from public.taxi_peak_weather_settings where governorate_key=p_governorate_key),false) then raise exception 'weather_monitor_not_ready'; end if;
   if p_rain_threshold_mm not between 0 and 100 or p_heat_threshold_c not between 0 and 60
     or p_max_surcharge_percent not between 0 and 100
     or p_min_pending_requests not between 0 and 10000
