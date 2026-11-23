@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - ".github/scripts/import-iraq-osm-places.py"
+      - ".github/workflows/refresh-iraq-osm-places.yml"
+      - "src/lib/iraq-governorate-boundaries.json"
   workflow_dispatch:
   schedule:
     - cron: "25 2 * * 1"
