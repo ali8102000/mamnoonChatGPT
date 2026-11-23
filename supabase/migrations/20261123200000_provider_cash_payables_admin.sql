@@ -22,6 +22,119 @@ GRANT ALL ON public.mamnoon_provider_cash_settlements TO service_role;
 COMMENT ON TABLE public.mamnoon_provider_cash_settlements IS
   'Append-only records of cash handed by the platform owner to a driver/worker against electronically collected completed requests. Does not alter provider wallet or earnings statistics.';
 
+-- Return exact all-time totals; the Edge Function separately limits visible line items.
+CREATE OR REPLACE FUNCTION public.admin_get_provider_payables_summary(p_provider_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_actor uuid := auth.uid();
+  v_provider_governorate text;
+  v_scope_type text;
+  v_scope_governorate text;
+  v_gross bigint := 0;
+  v_commission bigint := 0;
+  v_payable bigint := 0;
+  v_settled bigint := 0;
+BEGIN
+  IF v_actor IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  IF p_provider_id IS NULL THEN RAISE EXCEPTION 'provider_required'; END IF;
+
+  SELECT governorate_key INTO v_provider_governorate
+  FROM public.profiles
+  WHERE id = p_provider_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'provider_not_found'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = p_provider_id
+      AND role::text IN ('driver', 'worker', 'large_driver')
+  ) THEN
+    RAISE EXCEPTION 'provider_account_required';
+  END IF;
+
+  SELECT scope_type, scope_governorate
+  INTO v_scope_type, v_scope_governorate
+  FROM public.staff_assignments
+  WHERE user_id = v_actor AND active = true
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF v_scope_type = 'governorate'
+     AND v_scope_governorate IS DISTINCT FROM v_provider_governorate THEN
+    RAISE EXCEPTION 'provider_outside_finance_scope';
+  END IF;
+
+  IF NOT (
+    public.has_admin_access(v_actor)
+    OR public.admin_has_permission(
+      'finance.read',
+      CASE WHEN v_provider_governorate IS NULL THEN 'global' ELSE 'governorate' END,
+      v_provider_governorate
+    )
+  ) THEN
+    RAISE EXCEPTION 'missing_finance_read_permission';
+  END IF;
+
+  SELECT
+    COALESCE(SUM(q.gross_iqd), 0)::bigint,
+    COALESCE(SUM(q.commission_iqd), 0)::bigint,
+    COALESCE(SUM(GREATEST(q.gross_iqd - q.commission_iqd, 0)), 0)::bigint
+  INTO v_gross, v_commission, v_payable
+  FROM (
+    SELECT
+      sr.id,
+      SUM(pt.amount)::bigint AS gross_iqd,
+      LEAST(
+        SUM(pt.amount)::bigint,
+        GREATEST(0, ROUND(COALESCE(sr.commission, 0)))::bigint
+      ) AS commission_iqd
+    FROM public.service_requests sr
+    JOIN public.payment_transactions pt
+      ON pt.request_id = sr.id
+     AND pt.purpose = 'service_request'
+     AND pt.status = 'paid'
+     AND pt.provider = 'zaincash'
+     AND pt.currency = 'IQD'
+     AND pt.user_id = sr.customer_id
+    WHERE sr.provider_id = p_provider_id
+      AND sr.status = 'completed'
+      AND sr.payment_method = 'zaincash'
+    GROUP BY sr.id, sr.commission
+  ) q;
+
+  SELECT COALESCE(SUM(amount_iqd), 0)::bigint
+  INTO v_settled
+  FROM public.mamnoon_provider_cash_settlements
+  WHERE provider_id = p_provider_id;
+
+  RETURN jsonb_build_object(
+    'gross_paid_iqd', v_gross,
+    'commission_iqd', v_commission,
+    'payable_iqd', v_payable,
+    'settled_iqd', v_settled,
+    'outstanding_iqd', GREATEST(0, v_payable - v_settled),
+    'over_settled_iqd', GREATEST(0, v_settled - v_payable)
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.admin_get_provider_payables_summary(uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_get_provider_payables_summary(uuid)
+  TO authenticated;
+
+CREATE INDEX IF NOT EXISTS service_requests_provider_zaincash_completed_idx
+  ON public.service_requests(provider_id, completed_at DESC)
+  WHERE status = 'completed' AND payment_method = 'zaincash';
+
+CREATE INDEX IF NOT EXISTS payment_transactions_zaincash_service_paid_idx
+  ON public.payment_transactions(request_id, user_id)
+  WHERE purpose = 'service_request' AND status = 'paid'
+    AND provider = 'zaincash' AND currency = 'IQD';
+
 CREATE OR REPLACE FUNCTION public.admin_record_provider_cash_settlement(
   p_provider_id uuid,
   p_amount_iqd bigint,
