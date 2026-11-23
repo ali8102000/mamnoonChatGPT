@@ -92,6 +92,7 @@ export default function RegionalControlsSection() {
   function selectProvince(key: string) {
     setSelected((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
     const row = rows.find((item) => item.governorate_key === key);
+    const global = rows.find((item) => item.governorate_key === "all");
     setSettings(row ? {
       services_enabled: row.services_enabled,
       message_enabled: row.message_enabled,
@@ -106,8 +107,8 @@ export default function RegionalControlsSection() {
       message_position: row.message_position ?? "top-center",
       message_top_offset: row.message_top_offset ?? 12,
       message_font_size: row.message_font_size ?? 14,
-      regional_surcharge_percent: row.regional_surcharge_percent ?? 0,
-    } : { ...EMPTY });
+      regional_surcharge_percent: row.regional_surcharge_percent ?? global?.regional_surcharge_percent ?? 0,
+    } : { ...EMPTY, regional_surcharge_percent: global?.regional_surcharge_percent ?? 0 });
     setSaved(false);
   }
 
