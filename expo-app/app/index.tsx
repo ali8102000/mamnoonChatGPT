@@ -8,7 +8,7 @@ import { View, ActivityIndicator, Image, Text, StyleSheet, Animated, Easing } fr
 
 export default function Index() {
   const { loading, session, roles } = useAuth();
-  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated, isLoaded: brandingLoaded } = useCompanyBranding();
   const [splashFinished, setSplashFinished] = useState(false);
   const visualScale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -28,7 +28,7 @@ export default function Index() {
   }, [loading]);
 
   useEffect(() => {
-    if (loading || !splashFinished || nextRoute) return;
+    if (loading || !brandingLoaded || !splashFinished || nextRoute) return;
     let active = true;
     void (async () => {
       try {
@@ -45,9 +45,9 @@ export default function Index() {
       }
     })();
     return () => { active = false; };
-  }, [loading, splashFinished, nextRoute, session?.user.id, roles]);
+  }, [loading, brandingLoaded, splashFinished, nextRoute, session?.user.id, roles]);
 
-  if (loading || !splashFinished || !nextRoute) {
+  if (loading || !brandingLoaded || !splashFinished || !nextRoute) {
     return (
       <View style={styles.center}>
         {logoUrl ? <Image source={{uri:logoUrl}} style={styles.logo} resizeMode="contain" /> : <View style={styles.logoFallback}><Text style={styles.logoLetter}>م</Text></View>}
