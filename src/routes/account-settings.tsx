@@ -81,12 +81,21 @@ function AccountSettingsPage() {
   async function submitPartnerApplication(event: React.FormEvent) {
     event.preventDefault();
     if (!session?.user.id) return;
-    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4) {
-      toast.error("كمّل اسم المنشأة واسم المسؤول والهاتف والمحافظة والمدينة والعنوان");
-      return;
+    if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4 || partnerLicenseNumber.trim().length < 2) {
+      toast.error("كمّل اسم المنشأة واسم المسؤول والهاتف ورقم الإجازة والمحافظة والمدينة والعنوان"); return;
     }
+    const docs = [partnerLicenseFile, partnerIdFrontFile, partnerIdBackFile];
+    if (docs.some(file => !file)) { toast.error("إجازة العمل وصورتي هوية الوجهين مطلوبة"); return; }
+    if (docs.some(file => file && (file.size > 8 * 1024 * 1024 || !["image/jpeg","image/png","image/webp"].includes(file.type)))) { toast.error("ارفع صور JPG أو PNG أو WebP وبحجم لا يتجاوز 8 ميغابايت لكل مستند"); return; }
     setPartnerBusy(true);
     try {
+      const uploadPartnerDoc = async (file: File, key: string) => {
+        const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const path = session.user.id + "/partner-applications/" + key + "-" + Date.now() + "-" + Math.random().toString(36).slice(2,8) + "." + extension;
+        const { data, error } = await supabase.storage.from("provider-verification").upload(path, file, { contentType: file.type, upsert: false });
+        if (error) throw error; return data.path;
+      };
+      const [license_document_path, id_front_path, id_back_path] = await Promise.all([uploadPartnerDoc(partnerLicenseFile!, "license"), uploadPartnerDoc(partnerIdFrontFile!, "id-front"), uploadPartnerDoc(partnerIdBackFile!, "id-back")]);
       const { error } = await (supabase as any).from("partner_applications").insert({
         user_id: session.user.id,
         partner_type: partnerType,
@@ -98,12 +107,15 @@ function AccountSettingsPage() {
         city: partnerCity.trim(),
         address: partnerAddress.trim(),
         description: partnerDescription.trim() || null,
-        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null
+        mall_unit_type: partnerType === "store" ? "shop" : partnerType === "mall" ? "mall" : null,
+        license_number: partnerLicenseNumber.trim(),
+        license_document_path, id_front_path, id_back_path,
+        business_latitude: partnerLat, business_longitude: partnerLng
       });
       if (error) throw error;
       toast.success("وصل طلب الشراكة للإدارة وبانتظار المراجعة");
       setPartnerFormOpen(false);
-      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription("");
+      setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription(""); setPartnerLicenseNumber(""); setPartnerLicenseFile(null); setPartnerIdFrontFile(null); setPartnerIdBackFile(null);
       await loadPartnerApplications();
     } catch (error: any) {
       toast.error(error?.message || "تعذر إرسال طلب الشراكة");
