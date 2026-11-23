@@ -44,7 +44,7 @@ def candidate_pbf_urls() -> list[str]:
     except Exception as exc:
         print(f"Could not read Geofabrik index; trying latest alias only: {exc}", flush=True)
     return list(dict.fromkeys(urls))
-CHUNK_SIZE = 400
+CHUNK_SIZE = 100
 MAX_RETRIES = 5
 
 ISO_TO_KEY = {
@@ -324,7 +324,7 @@ def main() -> int:
     for offset in range(0, len(rows), CHUNK_SIZE):
         rest_upsert(rows[offset:offset + CHUNK_SIZE], base_url, service_key)
         uploaded += len(rows[offset:offset + CHUNK_SIZE])
-        if uploaded % 4000 == 0 or uploaded == len(rows):
+        if uploaded % 2000 == 0 or uploaded == len(rows):
             print(f"Upserted {uploaded:,}/{len(rows):,}", flush=True)
     print("Import complete. Existing records were preserved; no rows were deleted or deactivated.", flush=True)
     return 0
