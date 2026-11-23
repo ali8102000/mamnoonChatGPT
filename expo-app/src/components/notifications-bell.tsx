@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppState, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -22,7 +22,6 @@ export function NotificationsBell() {
   const [featured, setFeatured] = useState<NotificationRow | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(isNotificationSoundEnabled());
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
-  const knownNotificationIds = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -76,7 +75,6 @@ export function NotificationsBell() {
 
   useEffect(() => {
     if (!user?.id) {
-      knownNotificationIds.current = null;
       return;
     }
     void load();
