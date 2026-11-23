@@ -250,6 +250,7 @@ export default function RequestDetail() {
   const acceptedMapRef = useRef<MapView | null>(null);
   const acceptedMapFitKeyRef = useRef<string | null>(null);
   const roadRouteSequenceRef = useRef(0);
+  const hasValidRoadRouteRef = useRef(false);
   const lastRoadRouteRequestRef = useRef<{ routeKey: string; latitude: number; longitude: number; requestedAt: number } | null>(null);
   const lastRoutePointRef = useRef<{ latitude: number; longitude: number; timestamp: number } | null>(null);
   const [driverEtaMinutes, setDriverEtaMinutes] = useState<number | null>(null);
@@ -300,6 +301,12 @@ export default function RequestDetail() {
   const currentUserId = user?.id;
   useEffect(() => {
     lastRoutePointRef.current = null;
+    lastRoadRouteRequestRef.current = null;
+    hasValidRoadRouteRef.current = false;
+    setRoadRoutePoints([]);
+    setRoadTrafficSegments([]);
+    setNextRouteInstruction(null);
+    setLiveRouteSource(null);
   }, [id, currentUserId]);
   const currentRequestType = request?.type;
   const currentProviderId = request?.provider_id;
@@ -864,14 +871,18 @@ export default function RequestDetail() {
   }, [id, isActive, currentUserId]);
 
   useEffect(() => {
-    if (!isActive || !providerLiveLocation || !driverLocationFresh) {
+    if (!isActive) {
       roadRouteSequenceRef.current += 1;
+      hasValidRoadRouteRef.current = false;
       setRoadRoutePoints([]);
       setRoadTrafficSegments([]);
       setNextRouteInstruction(null);
       setLiveRouteSource(null);
       return;
     }
+    // A brief GPS/network gap must not make the confirmed route disappear.
+    // Keep the last road geometry until a fresh provider fix can be routed.
+    if (!providerLiveLocation || !driverLocationFresh) return;
     // The provider always routes to the saved work/pickup point for a service.
     // For taxis, route to the passenger until boarding, then to the trip destination.
     const origin = providerLiveLocation;
@@ -926,7 +937,13 @@ export default function RequestDetail() {
           Number.isFinite(point.lat) && Number.isFinite(point.lng) &&
           Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180,
         );
-        setRoadRoutePoints(points.length > 1 ? points.map((point) => ({ latitude: point.lat, longitude: point.lng })) : []);
+        const validRoutePoints = points.length > 1 ? points.map((point) => ({ latitude: point.lat, longitude: point.lng })) : [];
+        if (validRoutePoints.length > 1) {
+          hasValidRoadRouteRef.current = true;
+          setRoadRoutePoints(validRoutePoints);
+        } else {
+          throw new Error("لم يصل مسار شوارع صالح");
+        }
         setRoadTrafficSegments((route.trafficSegments ?? []).filter((segment) =>
           Number.isInteger(segment.startIndex) && Number.isInteger(segment.endIndex) &&
           segment.startIndex >= 0 && segment.endIndex > segment.startIndex && segment.endIndex <= points.length,
@@ -935,11 +952,15 @@ export default function RequestDetail() {
         setLiveRouteSource(route.routeSource ?? null);
       }).catch((error) => {
         if (sequence === roadRouteSequenceRef.current) {
-          setRoadRoutePoints([]);
-          setRoadTrafficSegments([]);
-          setNextRouteInstruction(null);
-          setLiveRouteSource(null);
-          console.warn("[Mamnoon] road route unavailable:", error instanceof Error ? error.message : "unknown");
+          // Preserve the last verified route on transient routing failures.
+          // Only show an empty route when no valid road geometry has ever arrived.
+          if (!hasValidRoadRouteRef.current) {
+            setRoadRoutePoints([]);
+            setRoadTrafficSegments([]);
+            setNextRouteInstruction(null);
+            setLiveRouteSource(null);
+          }
+          console.warn("[Mamnoon] road route refresh failed; retaining last valid route:", error instanceof Error ? error.message : "unknown");
         }
       });
     }, 350);
@@ -1436,7 +1457,8 @@ export default function RequestDetail() {
           >
             {roadRoutePoints.length > 1 && (
               <>
-                <Polyline coordinates={roadRoutePoints} strokeColor="#2563EB" strokeWidth={5} />
+                <Polyline coordinates={roadRoutePoints} strokeColor="#FFFFFF" strokeWidth={11} lineCap="round" lineJoin="round" />
+              <Polyline coordinates={roadRoutePoints} strokeColor="#0B63CE" strokeWidth={6} lineCap="round" lineJoin="round" />
                 {roadTrafficSegments.map((segment, index) => {
                   const segmentPoints = roadRoutePoints.slice(segment.startIndex, segment.endIndex);
                   if (segmentPoints.length < 2) return null;
