@@ -956,7 +956,7 @@ function NewRequest() {
           {govReady && gov && (
             <MapPicker
               key={`${gov.key}-${mapStep}-${mapStep === "dest" ? destinationGovernorateKey ?? gov.key : gov.key}`}
-              value={mapStep === "pickup" ? pickupCoords : destCoords}
+              value={mapStep === "pickup" ? pickupCoords : destCoords ?? pickupCoords}
               accent={mapStep === "pickup" ? "#1687F8" : "#16A34A"}
               nearby={mapStep === "pickup" ? nearby : undefined}
               nearbyKind="car"
