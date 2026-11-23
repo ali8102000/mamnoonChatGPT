@@ -270,7 +270,7 @@ export default function NewRequest() {
   const [uiVisuals, setUiVisuals] = useState<Record<string, any>>({});
   const [urgencyEnabled, setUrgencyEnabled] = useState(false);
   const [urgencyAllowed, setUrgencyAllowed] = useState(false);
-  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus">("kia_cargo");
+  const [vehicleType, setVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus" | null>(null);
   const [workerLevel, setWorkerLevel] = useState<"fani" | "khabir">("fani");
   const [extraWorkers, setExtraWorkers] = useState(0);
   const [notes, setNotes] = useState("");
@@ -1052,6 +1052,7 @@ export default function NewRequest() {
   }
 
   async function confirmPickupStep() {
+    if (isTaxi && isLargeVehicle && !vehicleType) { Alert.alert("نوع المركبة", "اختار كيا حمل أو كيا ركاب أو باص قبل إرسال الطلب."); return; }
     if (!pickupCoords) {
       Alert.alert("حدد موقع الانطلاق", "حرّك الخريطة إلى موقعك أو استخدم البحث عن مكان.");
       return;
