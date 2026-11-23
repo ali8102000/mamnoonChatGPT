@@ -322,5 +322,5 @@ Deno.serve(async (req) => {
     if(applyError) couponWarning="تم إنشاء الطلب، لكن تعذّر تطبيق الكوبون. يمكنك متابعة الطلب دون الخصم.";
     else couponResult=applied;
   }
-  return json({requestId:created.id,distanceKm:Number(created.distance_km),durationMin:Number(created.duration_min),priceEstimate:Number(created.price_estimate),autoPercent:quotedAutoPercent,trafficPercent,demandPercent,routeSource:routed.routeSource,couponDiscount:Number(couponResult?.discount||0),customerPayable:couponResult?.payable??created.customer_payable??null,couponWarning,routeSource:routed.routeSource});
+  return json({requestId:created.id,distanceKm:Number(created.distance_km),durationMin:Number(created.duration_min),priceEstimate:Number(created.price_estimate),autoPercent:quotedAutoPercent,trafficPercent,demandPercent,routeSource:routed.routeSource,couponDiscount:Number(couponResult?.discount||0),customerPayable:couponResult?.payable??created.customer_payable??null,couponWarning});
 });
