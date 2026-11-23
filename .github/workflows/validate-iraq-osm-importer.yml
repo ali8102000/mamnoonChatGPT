@@ -11,6 +11,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -68,6 +69,11 @@ jobs:
           print(f'Offline OSM parser fixture passed: {len(rows)} rows.')
           PY
 
+      - name: Parse the reachable Iraq PBF without writing to production
+        env:
+          DRY_RUN: "true"
+          PBF_URL: https://geo2day.com/asia/iraq.pbf
+        run: python .github/scripts/import-iraq-osm-places.py
       - name: Probe alternative public Iraq extract hosts
         continue-on-error: true
         run: |
