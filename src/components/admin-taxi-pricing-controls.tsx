@@ -81,6 +81,7 @@ export default function AdminTaxiPricingControls() {
       setRegional({
         ...DEFAULT,
         ...(list.find((row) => row.governorate_key === governorateKey) ?? {}),
+        ...(automatic.find((row) => row.governorate_key === "all") ?? {}),
         ...(automatic.find((row) => row.governorate_key === governorateKey) ?? {}),
         governorate_key: governorateKey,
       });
@@ -139,6 +140,7 @@ export default function AdminTaxiPricingControls() {
     setRegional({
       ...DEFAULT,
       ...(rows.find((row) => row.governorate_key === governorateKey) ?? {}),
+      ...(autoRows.find((row) => row.governorate_key === "all") ?? {}),
       ...(autoRows.find((row) => row.governorate_key === governorateKey) ?? {}),
       governorate_key: governorateKey,
     });
