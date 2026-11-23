@@ -386,6 +386,12 @@ DECLARE
   r record;
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  SELECT customer_id, provider_id INTO r
+  FROM public.service_requests WHERE id = _request_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
+  IF r.customer_id <> auth.uid() AND r.provider_id <> auth.uid() THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
 
   -- Match the payment-finalization lock order: payment rows first, then the request.
   -- This prevents a deadlock when a successful ZainCash callback races with cancellation.
