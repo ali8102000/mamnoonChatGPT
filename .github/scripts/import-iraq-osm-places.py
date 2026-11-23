@@ -36,7 +36,7 @@ def candidate_pbf_urls() -> list[str]:
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             html = response.read().decode("utf-8", errors="replace")
-        dated_files = sorted(set(re.findall(r"iraq-\\d{6}\\.osm\\.pbf", html)), reverse=True)
+        dated_files = sorted(set(re.findall(r"iraq-\d{6}\.osm\.pbf", html)), reverse=True)
         urls.extend(
             f"https://download.geofabrik.de/asia/iraq/{filename}"
             for filename in dated_files
