@@ -47,7 +47,7 @@ export default function AdminRights() {
   },[invoke]);
   useEffect(()=>{if(tab==="policies"||tab==="revenue"||tab==="special") void load();},[tab,load]);
   const loadRefundCases=useCallback(async()=>{
-    setLoading(true);setError("");
+    setLoading(true);setError("");setCanViewRefunds(false);setCanDecideRefunds(false);setRefundCases([]);
     try{
       const {data,error:callError}=await supabase.functions.invoke("admin-finance",{body:{action:"refund_cases_list"}});
       if(callError) throw new Error(callError.message||"تعذر تحميل طلبات الاسترداد");
