@@ -2322,8 +2322,28 @@ function WalletSection() {
   const [loading, setLoading] = useState(true);
   const [adjustModal, setAdjustModal] = useState(false);
   const [adjustBusy, setAdjustBusy] = useState(false);
+  const [providerQuery, setProviderQuery] = useState("");
+  const [providerMatches, setProviderMatches] = useState<any[]>([]);
+  const [providerSearchBusy, setProviderSearchBusy] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<any | null>(null);
+  const [payableDetail, setPayableDetail] = useState<any | null>(null);
+  const [payableLoading, setPayableLoading] = useState(false);
+  const [settlementAmount, setSettlementAmount] = useState("");
+  const [settlementNote, setSettlementNote] = useState("");
+  const [settlementBusy, setSettlementBusy] = useState(false);
+  const [pendingSettlement, setPendingSettlement] = useState<{
+    providerId: string; amount: number; note: string; idempotencyKey: string;
+  } | null>(null);
+
   const listTx = adminListTransactions;
   const adjustWallet = adminAdjustWallet;
+  const money = (value: any) => Number(value ?? 0).toLocaleString("ar-IQ") + " د.ع";
+  const invokePayables = async (body: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke("admin-finance", { body });
+    if (error) throw new Error(error.message || "تعذر الاتصال بخدمة المستحقات");
+    if (data?.error) throw new Error(String(data.error));
+    return data;
+  };
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2335,6 +2355,73 @@ function WalletSection() {
   useEffect(() => {
     load();
   }, [load]);
+  async function searchProviders() {
+    if (providerQuery.trim().length < 2) {
+      toast.error("اكتب رقم الهاتف أو اسم السائق/الفني");
+      return;
+    }
+    setProviderSearchBusy(true);
+    setSelectedProvider(null);
+    setPayableDetail(null);
+    try {
+      const result = await invokePayables({ action: "provider_payables_search", query: providerQuery.trim() });
+      setProviderMatches(result.providers ?? []);
+      if (!(result.providers ?? []).length) toast.error("ما لقينا سائق أو فني بهذا الرقم أو الاسم");
+    } catch (e: any) {
+      toast.error(e?.message || "تعذر البحث عن مقدم الخدمة");
+    } finally {
+      setProviderSearchBusy(false);
+    }
+  }
+  async function openProvider(provider: any) {
+    setSelectedProvider(provider);
+    setPayableDetail(null);
+    setPayableLoading(true);
+    try {
+      const result = await invokePayables({ action: "provider_payables_detail", provider_id: provider.id });
+      setPayableDetail(result);
+    } catch (e: any) {
+      toast.error(e?.message || "تعذر تحميل كشف المستحقات");
+    } finally {
+      setPayableLoading(false);
+    }
+  }
+  async function recordCashSettlement() {
+    const amount = Number(settlementAmount);
+    if (!selectedProvider || !payableDetail?.can_settle ||
+        !Number.isSafeInteger(amount) || amount <= 0 ||
+        amount > Number(payableDetail.summary?.outstanding_iqd ?? 0) ||
+        settlementNote.trim().length < 2) {
+      toast.error("تحقق من مبلغ التسوية والملاحظة؛ لا يمكن دفع أكثر من المستحق المتبقي");
+      return;
+    }
+    const note = settlementNote.trim();
+    const idempotencyKey = pendingSettlement &&
+      pendingSettlement.providerId === selectedProvider.id &&
+      pendingSettlement.amount === amount && pendingSettlement.note === note
+        ? pendingSettlement.idempotencyKey
+        : crypto.randomUUID();
+    setPendingSettlement({ providerId: selectedProvider.id, amount, note, idempotencyKey });
+    setSettlementBusy(true);
+    try {
+      await invokePayables({
+        action: "record_provider_cash_settlement",
+        provider_id: selectedProvider.id,
+        amount_iqd: amount,
+        note,
+        idempotency_key: idempotencyKey,
+      });
+      toast.success("تم تسجيل التسوية النقدية وتحديث المستحقات");
+      setSettlementAmount("");
+      setSettlementNote("");
+      setPendingSettlement(null);
+      await openProvider(selectedProvider);
+    } catch (e: any) {
+      toast.error(e?.message || "تعذر تسجيل التسوية النقدية");
+    } finally {
+      setSettlementBusy(false);
+    }
+  }
   async function handleAdjust(userId: string, amount: number, type: string, note: string) {
     if (adjustBusy) return;
     setAdjustBusy(true);
@@ -2346,42 +2433,174 @@ function WalletSection() {
     finally { setAdjustBusy(false); }
   }
   return (
-    <div>
-      <h2 className="text-xl font-black mb-4">إدارة المحفظة</h2>
-      <button
-        onClick={() => setAdjustModal(true)}
-        className="w-full glass rounded-2xl p-3 flex items-center justify-center gap-2 text-sm font-bold text-primary border-2 border-dashed border-primary/30 mb-4"
-      >
-        + تعديل رصيد
-      </button>
-      {loading ? (
-        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-      ) : transactions.length === 0 ? (
-        <EmptyState text="لا توجد معاملات" />
-      ) : (
-        <div className="space-y-2">
-          {transactions.map((tx) => (
-            <div key={tx.id} className="glass rounded-2xl p-3 text-sm">
-              <div className="flex justify-between mb-1">
-                <span className="font-bold">{tx.profiles?.full_name ?? "—"}</span>
-                <span
-                  className={`font-black ${tx.type === "credit" || (tx.type === "adjustment" && Number(tx.amount) >= 0) ? "text-emerald-600" : "text-red-500"}`}
-                >
-                  {tx.type === "credit" || (tx.type === "adjustment" && Number(tx.amount) >= 0) ? "+" : "-"}
-                  {Math.abs(Number(tx.amount)).toLocaleString()} د.ع
-                </span>
-              </div>
-              <div className="text-[10px] text-muted-foreground">
-                {new Date(tx.created_at).toLocaleString("ar-IQ")}
-              </div>
-              {tx.note && <div className="text-xs text-muted-foreground mt-1">{tx.note}</div>}
-            </div>
-          ))}
+    <div className="space-y-5" dir="rtl">
+      <section className="glass rounded-2xl border border-primary/20 p-4">
+        <h2 className="text-lg font-black mb-1">مستحقات السائقين والفنيين</h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          ابحث برقم الهاتف أو الاسم حتى يظهر المبلغ الذي استلمه ممنون إلكترونياً، والعمولة، وما تم تسليمه نقداً، والمتبقي له.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            value={providerQuery}
+            onChange={(event) => setProviderQuery(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter") void searchProviders(); }}
+            placeholder="رقم هاتف السائق أو الفني أو اسمه"
+            className="min-w-0 flex-1 glass rounded-xl px-4 py-3 text-sm"
+          />
+          <button onClick={() => void searchProviders()} disabled={providerSearchBusy}
+            className="rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">
+            {providerSearchBusy ? "جاري البحث..." : "بحث"}
+          </button>
         </div>
-      )}
-      {adjustModal && (
-        <WalletAdjustModal onConfirm={handleAdjust} onClose={() => setAdjustModal(false)} busy={adjustBusy} />
-      )}
+        {providerMatches.length > 0 && (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {providerMatches.map((provider) => (
+              <button key={provider.id} onClick={() => void openProvider(provider)}
+                className={"rounded-xl border p-3 text-right transition-colors " +
+                  (selectedProvider?.id === provider.id ? "border-primary bg-primary/10" : "border-border bg-background/60 hover:border-primary/50")}>
+                <span className="block text-sm font-black">{provider.full_name || "مستخدم ممنون"}</span>
+                <span className="block mt-1 text-xs text-muted-foreground" dir="ltr">{provider.phone || provider.email || "—"}</span>
+                <span className="block mt-1 text-[10px] text-primary">
+                  {(provider.roles ?? []).map((role: string) =>
+                    role === "worker" ? "فني" : role === "large_driver" ? "سائق مركبة كبيرة" : "سائق تكسي"
+                  ).join(" · ")}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        {selectedProvider && (
+          <div className="mt-4 border-t border-border/70 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <h3 className="font-black">{selectedProvider.full_name || "مقدم الخدمة"}</h3>
+                <p className="text-xs text-muted-foreground" dir="ltr">{selectedProvider.phone || selectedProvider.email}</p>
+              </div>
+              <button onClick={() => void openProvider(selectedProvider)} className="rounded-lg border border-border px-3 py-2 text-xs font-bold">تحديث الكشف</button>
+            </div>
+            {payableLoading ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : payableDetail ? (
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                  {[
+                    ["إجمالي الدفع الإلكتروني", payableDetail.summary?.gross_paid_iqd],
+                    ["عمولات ممنون", payableDetail.summary?.commission_iqd],
+                    ["صافي المستحق", payableDetail.summary?.payable_iqd],
+                    ["استلمه نقداً", payableDetail.summary?.settled_iqd],
+                    ["المتبقي له", payableDetail.summary?.outstanding_iqd],
+                  ].map(([label, value]: any, index) => (
+                    <div key={label} className={"rounded-xl p-3 " + (index === 4 ? "bg-primary/10 border border-primary/30" : "bg-background/70")}>
+                      <div className="text-[10px] text-muted-foreground leading-4">{label}</div>
+                      <div className="mt-1 text-sm sm:text-base font-black">{money(value)}</div>
+                    </div>
+                  ))}
+                </div>
+                {payableDetail.history_truncated && (
+                  <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-muted-foreground">
+                    الإجماليات أعلاه محسوبة من كامل السجل. تفاصيل الطلبات والتسويات تعرض أحدث السجلات فقط عند كثرتها.
+                  </p>
+                )}
+                {Number(payableDetail.summary?.over_settled_iqd ?? 0) > 0 && (
+                  <p className="mt-3 rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-700">
+                    تنبيه محاسبي: التسويات النقدية المسجلة أعلى من المستحق الحالي بمقدار {money(payableDetail.summary.over_settled_iqd)}. أوقف أي تسوية جديدة وراجع سبب الفرق.
+                  </p>
+                )}
+                <div className="mt-4">
+                  <h4 className="font-black text-sm mb-2">الطلبات والرحلات المكتملة المدفوعة إلكترونياً</h4>
+                  {(payableDetail.requests ?? []).length ? (
+                    <div className="space-y-2">
+                      {payableDetail.requests.map((request: any) => (
+                        <div key={request.request_id} className="rounded-xl bg-background/70 border border-border/60 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-xs font-black">{request.request_type === "taxi" ? "رحلة تكسي" : "طلب خدمة"} · {request.request_code || ("#" + String(request.request_id).slice(0, 8))}</span>
+                            <span className="text-[10px] text-muted-foreground">{request.completed_at ? new Date(request.completed_at).toLocaleString("ar-IQ") : "—"}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 mt-2 text-[11px]">
+                            <div><span className="block text-muted-foreground">المبلغ المدفوع</span><b>{money(request.gross_paid_iqd)}</b></div>
+                            <div><span className="block text-muted-foreground">العمولة</span><b>{money(request.commission_iqd)}</b></div>
+                            <div><span className="block text-muted-foreground">مستحق الطلب</span><b>{money(request.payable_iqd)}</b></div>
+                          </div>
+                          {(request.payments ?? []).map((payment: any) => (
+                            <div key={payment.id} className="mt-2 text-[10px] text-muted-foreground">
+                              دفعة {money(payment.amount)} · {payment.gateway_transaction_id || payment.id}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : <EmptyState text="لا توجد رحلات أو طلبات مكتملة مدفوعة إلكترونياً لهذا الحساب." />}
+                </div>
+                <div className="mt-4">
+                  <h4 className="font-black text-sm mb-2">التسويات النقدية المسجلة</h4>
+                  {(payableDetail.settlements ?? []).length ? (
+                    <div className="space-y-2">
+                      {payableDetail.settlements.map((settlement: any) => (
+                        <div key={settlement.id} className="rounded-xl bg-background/70 border border-border/60 p-3 flex flex-wrap justify-between gap-2">
+                          <div><b className="text-sm">{money(settlement.amount_iqd)}</b><div className="text-[10px] text-muted-foreground mt-1">{settlement.note}</div></div>
+                          <span className="text-[10px] text-muted-foreground">{new Date(settlement.created_at).toLocaleString("ar-IQ")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <p className="text-xs text-muted-foreground">ماكو تسويات نقدية مسجلة لحد الآن.</p>}
+                </div>
+                {payableDetail.can_settle && Number(payableDetail.summary?.outstanding_iqd ?? 0) > 0 && (
+                  <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+                    <h4 className="font-black text-sm">تسجيل مبلغ سلّمته نقداً</h4>
+                    <input type="number" min="1" step="1" max={payableDetail.summary.outstanding_iqd}
+                      value={settlementAmount} onChange={(event) => setSettlementAmount(event.target.value)}
+                      placeholder="المبلغ بالدينار العراقي" className="w-full glass rounded-xl px-3 py-2.5 text-sm" />
+                    <input value={settlementNote} onChange={(event) => setSettlementNote(event.target.value)}
+                      maxLength={500} placeholder="ملاحظة أو رقم وصل الاستلام" className="w-full glass rounded-xl px-3 py-2.5 text-sm" />
+                    <button onClick={() => void recordCashSettlement()} disabled={settlementBusy}
+                      className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white disabled:opacity-50">
+                      {settlementBusy ? "جاري تسجيل التسوية..." : "تأكيد تسليم المبلغ نقداً"}
+                    </button>
+                    <p className="text-[10px] text-muted-foreground">التسجيل لا يحوّل أموالاً إلكترونياً؛ هو إثبات محاسبي لمبلغ تم تسليمه نقداً فعلياً.</p>
+                  </div>
+                )}
+                {!payableDetail.can_settle && <p className="mt-3 text-[11px] text-muted-foreground">تقدر تشوف الكشف، لكن حسابك ما عنده صلاحية تسجيل التسويات النقدية.</p>}
+              </>
+            ) : <p className="text-xs text-muted-foreground">تعذر تحميل الكشف. جرّب تحديثه.</p>}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="text-xl font-black mb-4">إدارة المحفظة</h2>
+        <button
+          onClick={() => setAdjustModal(true)}
+          className="w-full glass rounded-2xl p-3 flex items-center justify-center gap-2 text-sm font-bold text-primary border-2 border-dashed border-primary/30 mb-4"
+        >
+          + تعديل رصيد
+        </button>
+        {loading ? (
+          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+        ) : transactions.length === 0 ? (
+          <EmptyState text="لا توجد معاملات" />
+        ) : (
+          <div className="space-y-2">
+            {transactions.map((tx) => (
+              <div key={tx.id} className="glass rounded-2xl p-3 text-sm">
+                <div className="flex justify-between mb-1">
+                  <span className="font-bold">{tx.profiles?.full_name ?? "—"}</span>
+                  <span
+                    className={"font-black " + (tx.type === "credit" || (tx.type === "adjustment" && Number(tx.amount) >= 0) ? "text-emerald-600" : "text-red-500")}
+                  >
+                    {tx.type === "credit" || (tx.type === "adjustment" && Number(tx.amount) >= 0) ? "+" : "-"}
+                    {Math.abs(Number(tx.amount)).toLocaleString()} د.ع
+                  </span>
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {new Date(tx.created_at).toLocaleString("ar-IQ")}
+                </div>
+                {tx.note && <div className="text-xs text-muted-foreground mt-1">{tx.note}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+        {adjustModal && (
+          <WalletAdjustModal onConfirm={handleAdjust} onClose={() => setAdjustModal(false)} busy={adjustBusy} />
+        )}
+      </section>
     </div>
   );
 }

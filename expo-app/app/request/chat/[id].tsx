@@ -70,7 +70,8 @@ export default function RequestChatScreen() {
         setLoading(false);
         return;
       }
-      setRequest(req);
+      const { data: requestCodeRow } = await (supabase as any).from("service_requests").select("request_code").eq("id", id).maybeSingle();
+      setRequest({ ...req, request_code: (requestCodeRow as any)?.request_code ?? null });
       if (["completed", "cancelled"].includes(req.status)) {
         setLoading(false);
         return;
@@ -156,7 +157,7 @@ export default function RequestChatScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.name} numberOfLines={1}>{otherProfile?.full_name || "المستخدم"}</Text>
-            <Text style={styles.subtitle}>{request.type === "taxi" ? "محادثة الرحلة" : "محادثة الخدمة"}</Text>
+            <Text style={styles.subtitle}>{request.type === "taxi" ? "محادثة الرحلة" : "محادثة الخدمة"} · رقم الطلب {request.request_code || request.id.slice(0, 8).toUpperCase()}</Text>
           </View>
         </View>
         {otherProfile?.phone ? (

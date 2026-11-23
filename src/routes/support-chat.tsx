@@ -15,6 +15,7 @@ export const Route = createFileRoute("/support-chat")({
 function SupportChatPage() {
   const { session, loading } = useAuth();
   const uid = session?.user.id;
+  const requestId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("requestId") : null;
   const [isStaff, setIsStaff] = useState(false);
   const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -76,10 +77,17 @@ function SupportChatPage() {
           data = retry.data;
         } else data = created.data;
       }
+      if (requestId && data?.id) {
+        const { error: linkError } = await (supabase as any).from("support_conversation_requests")
+          .insert({ conversation_id: data.id, request_id: requestId, linked_by: uid });
+        if (linkError && linkError.code !== "23505") {
+          console.warn("[support request link] failed:", linkError.message);
+        }
+      }
       setConversations([data]);
       setSelected(data);
     }
-  }, [uid, selected?.id]);
+  }, [uid, selected?.id, requestId]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     const { data, error } = await (supabase as any).from("support_messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
@@ -183,7 +191,7 @@ function SupportChatPage() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-5">
         <a href={isStaff ? "/admin" : "/messages"} className="h-10 w-10 rounded-xl bg-card border border-border grid place-items-center"><ArrowRight className="h-5 w-5" /></a>
-        <div><h1 className="text-2xl font-black">{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</h1><p className="text-xs text-muted-foreground">{customerServiceOnly ? "الرد على استفسارات ورسائل الزبائن فقط" : isStaff ? "استقبال رسائل الفنيين والسائقين والرد عليهم" : "تواصل مباشرة مع فريق شركة ممنون"}</p></div>
+        <div><h1 className="text-2xl font-black">{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</h1>{!!selected?.subject && <p className="text-xs font-bold text-primary mt-1">{selected.subject}</p>}<p className="text-xs text-muted-foreground">{customerServiceOnly ? "الرد على استفسارات ورسائل الزبائن فقط" : isStaff ? "استقبال رسائل الفنيين والسائقين والرد عليهم" : "تواصل مباشرة مع فريق شركة ممنون"}</p></div>
       </div>
       {isStaff && !customerServiceOnly && <div className="glass rounded-2xl p-3 mb-3">
         <div className="font-bold text-sm mb-2">ابدأ محادثة مع فني أو سائق</div>
@@ -196,7 +204,7 @@ function SupportChatPage() {
           <div className="grid grid-cols-2 gap-1.5 mb-3"><button onClick={() => setUnansweredOnly(false)} className={"rounded-lg py-2 text-xs font-bold " + (!unansweredOnly ? "bg-primary text-primary-foreground" : "bg-card border border-border")}>الكل</button><button onClick={() => setUnansweredOnly(true)} className={"rounded-lg py-2 text-xs font-bold " + (unansweredOnly ? "bg-primary text-primary-foreground" : "bg-card border border-border")}>بانتظار الرد</button></div>
           <div className="space-y-2 max-h-[65vh] overflow-y-auto">{conversations.filter((c) => !unansweredOnly || c.unanswered).length === 0 ? <p className="text-xs text-muted-foreground p-4 text-center">{unansweredOnly ? "ماكو رسائل تنتظر الرد" : "لا توجد محادثات بعد"}</p> : conversations.filter((c) => !unansweredOnly || c.unanswered).map((c) => <button key={c.id} onClick={() => setSelected(c)} className={"w-full text-right rounded-2xl p-3 transition " + (selected?.id === c.id ? "bg-primary/10 border border-primary/40" : "bg-card border border-border hover:border-primary/30")}>
             <div className="flex items-center gap-2.5"><div className="h-11 w-11 rounded-full bg-muted overflow-hidden shrink-0 grid place-items-center">{c.profile?.avatar_url ? <img src={c.profile.avatar_url} alt="" className="h-full w-full object-cover" /> : <span className="font-black text-primary">{String(c.profile?.full_name || "م").slice(0,1)}</span>}</div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><span className="font-black text-sm truncate">{c.profile?.full_name || "مستخدم ممنون"}</span>{c.unanswered && <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />}</div><div className="text-[11px] text-muted-foreground" dir="ltr">{c.profile?.phone || "—"}</div></div></div>
-            <div className="mt-2 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground truncate flex-1">{c.lastMessage?.body || "لا توجد رسائل بعد"}</p><span className="text-[9px] text-muted-foreground shrink-0">{c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"}) : ""}</span></div>
+            <div className="mt-2 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground truncate flex-1">{c.lastMessage?.body || c.subject || "لا توجد رسائل بعد"}</p><span className="text-[9px] text-muted-foreground shrink-0">{c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"}) : ""}</span></div>
             {c.ai_status === "waiting_human" && <div className="text-[10px] font-bold text-amber-600 mt-1">بانتظار تدخل موظف الدعم</div>}{c.unanswered && <div className="text-[10px] font-bold text-emerald-600 mt-1">تنتظر رد فريق الدعم</div>}
           </button>)}</div>
         </aside>}

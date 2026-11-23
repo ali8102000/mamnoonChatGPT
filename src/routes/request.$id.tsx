@@ -547,6 +547,7 @@ function RequestDetail() {
                 <CheckCircle2 className="h-3.5 w-3.5 text-success" />
               )}
               {statusLabel}
+              <span className="mr-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary" dir="ltr">رقم الطلب: {req.request_code || String(req.id).slice(0, 8).toUpperCase()}</span>
               {req.type === "taxi" && myRole === "customer" && req.status === "accepted" && (
                 <span className="mr-2 inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black text-emerald-700 dark:text-emerald-300">الكابتن متجه إليك</span>
               )}
@@ -739,6 +740,13 @@ function RequestDetail() {
           {req.notes && <div><span className="text-muted-foreground text-xs">📝 ملاحظة: </span><span>{req.notes}</span></div>}
         </div>}
 
+        {myRole === "customer" && req.status === "cancelled" && req.payment_method === "zaincash" && (
+          <div className="glass rounded-2xl border border-amber-500/30 p-4 space-y-2">
+            <div className="font-black text-sm">متابعة إلغاء واسترداد زين كاش</div>
+            <p className="text-xs text-muted-foreground">تم تسجيل إلغاء الطلب المدفوع بزين كاش. ستصلك إشعارات عند صدور قرار الإدارة أو تسجيل إعادة المبلغ. لم يتم أي تحويل تلقائي.</p>
+            <a href={"/support-chat?requestId=" + encodeURIComponent(req.id)} className="inline-flex rounded-xl bg-primary px-4 py-2.5 text-xs font-black text-primary-foreground">مراسلة شركة ممنون بخصوص هذا الطلب</a>
+          </div>
+        )}
         {myRole === "customer" && ["pending", "searching"].includes(req.status as string) && (
           <button
             onClick={() => setShowCancel(true)}
@@ -905,7 +913,7 @@ function RequestDetail() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="font-black text-sm truncate">{other?.full_name || "المستخدم"}</div>
-              <div className="text-[10px] text-muted-foreground">المحادثة المباشرة</div>
+              <div className="text-[10px] text-muted-foreground">المحادثة المباشرة · رقم الطلب {req.request_code || String(req.id).slice(0, 8).toUpperCase()}</div>
             </div>
             {other?.phone && <ContactOptions phone={other.phone} label="اتصال / واتساب" className="h-10 rounded-xl bg-primary px-3 grid place-items-center text-xs font-black text-primary-foreground" />}
             <button type="button" onClick={() => { const next = !soundEnabled; setSoundEnabled(next); setSoundEnabledState(next); toast.success(next ? "تم تفعيل صوت الإشعارات" : "تم إيقاف صوت الإشعارات"); }} className="h-10 w-10 rounded-xl border border-border grid place-items-center" title={soundEnabled ? "إيقاف صوت الإشعارات" : "تفعيل صوت الإشعارات"}>{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>

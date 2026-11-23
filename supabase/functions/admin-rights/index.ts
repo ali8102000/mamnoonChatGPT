@@ -103,24 +103,50 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === "list") {
       if (isSuperAdmin !== true) return json({ error: "super_admin_required" }, 403);
-      const [policies, overrides, revenue, collections] = await Promise.all([
+      const [policies, overrides, revenue, collections, collectionReversals] = await Promise.all([
         admin.from("mamnoon_commission_policies").select("*").order("created_at", { ascending: false }).limit(100),
         admin.from("mamnoon_user_fee_overrides").select("*").is("revoked_at", null).order("created_at", { ascending: false }).limit(200),
         admin.from("mamnoon_revenue_ledger").select("*").order("created_at", { ascending: false }).limit(200),
         admin.from("mamnoon_revenue_collections").select("id,revenue_ledger_id,payment_id,amount_iqd,provider_reference,created_at").order("created_at", { ascending: false }).limit(300),
+        admin.from("mamnoon_revenue_collection_reversals").select("revenue_collection_id,amount_iqd,reason,created_at").limit(500),
       ]);
-      if (policies.error || overrides.error || revenue.error || collections.error) return json({ error: "rights_data_load_failed" }, 500);
+      if (policies.error || overrides.error || revenue.error || collections.error || collectionReversals.error) return json({ error: "rights_data_load_failed" }, 500);
       const ids = [...new Set((overrides.data ?? []).map((r:any)=>r.user_id).concat((revenue.data ?? []).map((r:any)=>r.user_id)))];
       const { data: profiles } = ids.length ? await admin.from("profiles").select("id,full_name,phone").in("id",ids) : { data: [] };
       const byId = new Map((profiles ?? []).map((p:any)=>[p.id,p]));
+      const collectionPaymentIds = [...new Set((collections.data ?? []).map((row:any)=>row.payment_id).filter(Boolean))];
+      const { data: collectionPayments, error: collectionPaymentsError } = collectionPaymentIds.length
+        ? await admin.from("payment_transactions").select("id,purpose,provider,status").in("id",collectionPaymentIds)
+        : { data: [], error: null };
+      if (collectionPaymentsError) return json({ error: "rights_collection_payment_load_failed" }, 500);
+      const collectionPaymentById = new Map((collectionPayments ?? []).map((row:any)=>[row.id,row]));
+      const requestIds = [...new Set((revenue.data ?? []).map((row:any)=>row.request_id).filter(Boolean))];
+      const { data: requests, error: requestsError } = requestIds.length
+        ? await admin.from("service_requests").select("id,request_code").in("id",requestIds)
+        : { data: [], error: null };
+      if (requestsError) return json({ error: "rights_request_codes_load_failed" }, 500);
+      const requestCodeById = new Map((requests ?? []).map((row:any)=>[row.id,row.request_code]));
       const { data: summary, error: summaryError } = await caller.rpc("admin_get_revenue_summary");
       if (summaryError) return json({ error: "revenue_summary_load_failed" }, 500);
       return json({
         summary: summary ?? {},
         policies: policies.data ?? [],
         overrides: (overrides.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null})),
-        revenue: (revenue.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null})),
-        collections: collections.data ?? [],
+        revenue: (revenue.data ?? []).map((r:any)=>({...r,profile:byId.get(r.user_id) ?? null,request_code:requestCodeById.get(r.request_id) ?? null})),
+        collections: (collections.data ?? []).map((row:any) => {
+          const reversal = (collectionReversals.data ?? []).find((item:any) => item.revenue_collection_id === row.id);
+          const ledger = (revenue.data ?? []).find((item:any) => item.id === row.revenue_ledger_id);
+          return {
+            ...row,
+            reversed_amount_iqd: reversal?.amount_iqd ?? 0,
+            net_amount_iqd: Math.max(0, Number(row.amount_iqd ?? 0) - Number(reversal?.amount_iqd ?? 0)),
+            reversal_reason: reversal?.reason ?? null,
+            reversed_at: reversal?.created_at ?? null,
+            refund_review_pending: ledger?.metadata?.refund_review_pending === true,
+            payment_purpose: collectionPaymentById.get(row.payment_id)?.purpose ?? null,
+            payment_provider: collectionPaymentById.get(row.payment_id)?.provider ?? null,
+          };
+        }),
       });
     }
 

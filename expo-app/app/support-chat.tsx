@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Image } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
+import { useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius } from "@/styles/theme";
@@ -10,6 +11,7 @@ import MamnoonChatThread from "../components/MamnoonChatThread";
 
 export default function SupportChatScreen() {
   const { user } = useAuth();
+  const { requestId } = useLocalSearchParams<{ requestId?: string }>();
   const [staff, setStaff] = useState(false);
   const [customerServiceOnly, setCustomerServiceOnly] = useState(false);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -81,10 +83,17 @@ export default function SupportChatScreen() {
           data = retry.data;
         } else data = created.data;
       }
+      if (requestId && typeof requestId === "string" && data?.id) {
+        const { error: linkError } = await (supabase as any).from("support_conversation_requests")
+          .insert({ conversation_id: data.id, request_id: requestId, linked_by: user.id });
+        if (linkError && linkError.code !== "23505") {
+          console.warn("[support request link] failed:", linkError.message);
+        }
+      }
       setConversations([data]);
       setSelected(data);
     }
-  }, [user?.id, selected?.id]);
+  }, [user?.id, selected?.id, requestId]);
 
   const loadMessages = useCallback(async (id: string) => {
     const { data, error } = await (supabase as any).from("support_messages").select("*").eq("conversation_id", id).order("created_at", { ascending: true });
@@ -191,6 +200,7 @@ export default function SupportChatScreen() {
   if (loading) return <View style={styles.center}><ActivityIndicator /></View>;
   return <View style={styles.container}>
     <Text style={styles.title}>{customerServiceOnly ? "مركز خدمة العملاء" : "محادثة إدارة ممنون"}</Text>
+    {!!selected?.subject && <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right", marginBottom: 8 }}>{selected.subject}</Text>}
     {staff && !customerServiceOnly && <View style={styles.startBox}>
       <Text style={styles.startTitle}>ابدأ محادثة مع فني أو سائق</Text>
       <TextInput value={providerSearch} onChangeText={setProviderSearch} placeholder="ابحث بالاسم أو الهاتف" style={styles.searchInput} />
@@ -198,7 +208,7 @@ export default function SupportChatScreen() {
         {providerTargets.filter((p) => !providerSearch.trim() || String(p.full_name ?? "").includes(providerSearch.trim()) || String(p.phone ?? "").includes(providerSearch.trim())).slice(0, 8).map((p) => <TouchableOpacity key={p.id} onPress={() => void startConversation(p.id)} style={styles.person}><Text style={styles.personName}>{p.full_name || "مقدم خدمة"}</Text><Text style={styles.personPhone}>{p.phone || ""}</Text></TouchableOpacity>)}
       </ScrollView>
     </View>}
-    {staff && <View style={styles.inbox}><View style={styles.inboxTop}><Text style={styles.inboxTitle}>صندوق الوارد</Text><View style={styles.actions}><TouchableOpacity onPress={() => { const next = !muted; setMuted(next); void SecureStore.setItemAsync("mamnoon-support-muted", next ? "1" : "0").catch(() => {}); }} style={styles.action}><Text style={styles.actionText}>{muted ? "🔕 مكتوم" : "🔔 الصوت"}</Text></TouchableOpacity><TouchableOpacity onPress={() => void enableNotifications()} style={styles.action}><Text style={styles.actionText}>تفعيل التنبيهات</Text></TouchableOpacity></View></View><View style={styles.filters}><TouchableOpacity onPress={() => setUnansweredOnly(false)} style={[styles.filter, !unansweredOnly && styles.filterActive]}><Text style={[styles.filterText, !unansweredOnly && styles.filterTextActive]}>الكل</Text></TouchableOpacity><TouchableOpacity onPress={() => setUnansweredOnly(true)} style={[styles.filter, unansweredOnly && styles.filterActive]}><Text style={[styles.filterText, unansweredOnly && styles.filterTextActive]}>بانتظار الرد</Text></TouchableOpacity></View><ScrollView style={styles.list} nestedScrollEnabled>{conversations.filter((c) => !unansweredOnly || c.unanswered).map((c) => <TouchableOpacity key={c.id} onPress={() => setSelected(c)} style={[styles.personRow, selected?.id === c.id && styles.personActive]}>{c.profile?.avatar_url ? <Image source={{ uri: c.profile.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarLetter}>{String(c.profile?.full_name || "م").slice(0,1)}</Text></View>}<View style={styles.personInfo}><View style={styles.personLine}><Text style={styles.personName}>{c.profile?.full_name || "مستخدم ممنون"}</Text>{c.unanswered && <View style={styles.unansweredDot} />}</View><Text style={styles.personPhone}>{c.profile?.phone || "—"}</Text><Text numberOfLines={1} style={styles.preview}>{c.lastMessage?.body || "لا توجد رسائل بعد"}</Text>{c.ai_status === "waiting_human" && <Text style={styles.preview}>بانتظار تدخل موظف الدعم</Text>}</View><Text style={styles.personTime}>{c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"}) : ""}</Text></TouchableOpacity>)}{conversations.filter((c) => !unansweredOnly || c.unanswered).length === 0 && <Text style={styles.empty}>{unansweredOnly ? "ماكو رسائل تنتظر الرد" : "لا توجد محادثات بعد"}</Text>}</ScrollView></View>}
+    {staff && <View style={styles.inbox}><View style={styles.inboxTop}><Text style={styles.inboxTitle}>صندوق الوارد</Text><View style={styles.actions}><TouchableOpacity onPress={() => { const next = !muted; setMuted(next); void SecureStore.setItemAsync("mamnoon-support-muted", next ? "1" : "0").catch(() => {}); }} style={styles.action}><Text style={styles.actionText}>{muted ? "🔕 مكتوم" : "🔔 الصوت"}</Text></TouchableOpacity><TouchableOpacity onPress={() => void enableNotifications()} style={styles.action}><Text style={styles.actionText}>تفعيل التنبيهات</Text></TouchableOpacity></View></View><View style={styles.filters}><TouchableOpacity onPress={() => setUnansweredOnly(false)} style={[styles.filter, !unansweredOnly && styles.filterActive]}><Text style={[styles.filterText, !unansweredOnly && styles.filterTextActive]}>الكل</Text></TouchableOpacity><TouchableOpacity onPress={() => setUnansweredOnly(true)} style={[styles.filter, unansweredOnly && styles.filterActive]}><Text style={[styles.filterText, unansweredOnly && styles.filterTextActive]}>بانتظار الرد</Text></TouchableOpacity></View><ScrollView style={styles.list} nestedScrollEnabled>{conversations.filter((c) => !unansweredOnly || c.unanswered).map((c) => <TouchableOpacity key={c.id} onPress={() => setSelected(c)} style={[styles.personRow, selected?.id === c.id && styles.personActive]}>{c.profile?.avatar_url ? <Image source={{ uri: c.profile.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarLetter}>{String(c.profile?.full_name || "م").slice(0,1)}</Text></View>}<View style={styles.personInfo}><View style={styles.personLine}><Text style={styles.personName}>{c.profile?.full_name || "مستخدم ممنون"}</Text>{c.unanswered && <View style={styles.unansweredDot} />}</View><Text style={styles.personPhone}>{c.profile?.phone || "—"}</Text><Text numberOfLines={1} style={styles.preview}>{c.lastMessage?.body || c.subject || "لا توجد رسائل بعد"}</Text>{c.ai_status === "waiting_human" && <Text style={styles.preview}>بانتظار تدخل موظف الدعم</Text>}</View><Text style={styles.personTime}>{c.lastMessage?.created_at ? new Date(c.lastMessage.created_at).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"}) : ""}</Text></TouchableOpacity>)}{conversations.filter((c) => !unansweredOnly || c.unanswered).length === 0 && <Text style={styles.empty}>{unansweredOnly ? "ماكو رسائل تنتظر الرد" : "لا توجد محادثات بعد"}</Text>}</ScrollView></View>}
     {!!loadError && <Text style={styles.loadError}>{loadError} — حدّث الصفحة وحاول مرة ثانية</Text>}
     <MamnoonChatThread
       messages={messages.map((m) => {

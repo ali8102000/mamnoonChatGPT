@@ -6,8 +6,8 @@ import { Wallet, Search, PlusCircle, MinusCircle, ShieldCheck, Settings2, Receip
 type User = { id:string; full_name:string|null; phone:string|null; email:string|null; governorate_key:string|null; roles:string[]; partner?:any; balance_iqd:number };
 type Policy = { id:string; scope_type:string; scope_key:string|null; commission_rate_percent:number; commission_charge_percent:number; collection_event:string; free_trial_enabled:boolean; free_trial_days:number; new_users_only:boolean; is_enabled:boolean; starts_at:string|null; ends_at:string|null };
 type Override = { id:string; user_id:string; commission_charge_percent:number; ends_at:string|null; created_at:string; profile?:{full_name?:string|null;phone?:string|null}|null };
-type Collection = { id:string; payment_id:string; amount_iqd:number; provider_reference:string; created_at:string };
-type Revenue = { id:string; user_id:string; revenue_type:string; assessed_iqd:number; collected_iqd:number; waived_iqd:number; status:string; created_at:string; profile?:{full_name?:string|null;phone?:string|null}|null };
+type Collection = { id:string; payment_id:string; amount_iqd:number; provider_reference:string; created_at:string; reversed_amount_iqd?:number; net_amount_iqd?:number; reversal_reason?:string|null; reversed_at?:string|null; refund_review_pending?:boolean; payment_purpose?:string|null; payment_provider?:string|null };
+type Revenue = { id:string; user_id:string; request_code?:string|null; revenue_type:string; assessed_iqd:number; collected_iqd:number; waived_iqd:number; status:string; metadata?:Record<string,any>; created_at:string; profile?:{full_name?:string|null;phone?:string|null}|null };
 
 const durations = [{value:"1",label:"يوم"},{value:"7",label:"أسبوع"},{value:"30",label:"شهر"},{value:"90",label:"٣ أشهر"},{value:"180",label:"٦ أشهر"},{value:"365",label:"سنة"},{value:"permanent",label:"دائم"}];
 const roles = [{value:"driver",label:"أصحاب التكسي"},{value:"large_driver",label:"التكسي الكبير"},{value:"worker",label:"الفنيون"},{value:"restaurant",label:"المطاعم"},{value:"hotel",label:"الفنادق"},{value:"store",label:"المتاجر"}];
@@ -15,7 +15,7 @@ const governorates = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok"
 const govLabels:Record<string,string>={baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
 
 export default function AdminRights() {
-  const [tab,setTab]=useState<"wallet"|"special"|"policies"|"revenue">("wallet");
+  const [tab,setTab]=useState<"wallet"|"special"|"policies"|"revenue"|"refunds">("wallet");
   const [query,setQuery]=useState(""); const [users,setUsers]=useState<User[]>([]); const [selected,setSelected]=useState<User|null>(null);
   const [amount,setAmount]=useState(""); const [note,setNote]=useState(""); const [kind,setKind]=useState<"debit"|"credit">("debit");
   const [chargePercent,setChargePercent]=useState("0"); const [duration,setDuration]=useState("30"); const [overrideReason,setOverrideReason]=useState("إعفاء أو تخفيض عمولة بموافقة الإدارة");
@@ -24,6 +24,14 @@ export default function AdminRights() {
   const [commissionRate,setCommissionRate]=useState("0"); const [commissionCharge,setCommissionCharge]=useState("100");
   const [event,setEvent]=useState("taxi_acceptance"); const [trialEnabled,setTrialEnabled]=useState(false); const [trialDays,setTrialDays]=useState("30"); const [policyEnabled,setPolicyEnabled]=useState(false);
   const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(false); const [error,setError]=useState("");
+  const [refundCases,setRefundCases]=useState<any[]>([]);
+  const [canViewRefunds,setCanViewRefunds]=useState(false);
+  const [canDecideRefunds,setCanDecideRefunds]=useState(false);
+  const [refundNotes,setRefundNotes]=useState<Record<string,string>>({});
+  const [refundReferences,setRefundReferences]=useState<Record<string,string>>({});
+  const [refundFilter,setRefundFilter]=useState("pending_review");
+  const [refundBusyId,setRefundBusyId]=useState<string|null>(null);
+
 
   const invoke=useCallback(async(body:Record<string,unknown>)=>{
     const {data,error:callError}=await supabase.functions.invoke("admin-rights",{body});
@@ -38,6 +46,50 @@ export default function AdminRights() {
     catch(e:any){setError(String(e?.message||"تعذر تحميل إعدادات الحقوق"));}finally{setLoading(false);}
   },[invoke]);
   useEffect(()=>{if(tab==="policies"||tab==="revenue"||tab==="special") void load();},[tab,load]);
+  const loadRefundCases=useCallback(async()=>{
+    setLoading(true);setError("");setCanViewRefunds(false);setCanDecideRefunds(false);setRefundCases([]);
+    try{
+      const {data,error:callError}=await supabase.functions.invoke("admin-finance",{body:{action:"refund_cases_list"}});
+      if(callError) throw new Error(callError.message||"تعذر تحميل طلبات الاسترداد");
+      if(data?.error) throw new Error(String(data.error));
+      setRefundCases(data?.cases??[]);
+      setCanViewRefunds(data?.can_view===true);
+      setCanDecideRefunds(data?.can_decide===true);
+    }catch(e:any){setError(String(e?.message||"تعذر تحميل طلبات الاسترداد"));}
+    finally{setLoading(false);}
+  },[]);
+  useEffect(()=>{if(tab==="refunds") void loadRefundCases();},[tab,loadRefundCases]);
+
+  const decideRefundCase=async(refundCaseId:string,decision:"approved"|"rejected")=>{
+    if(refundBusyId)return;
+    const note=(refundNotes[refundCaseId]||"").trim();
+    if(decision==="rejected"&&note.length<2){toast.error("اكتب سبب رفض طلب الاسترداد");return;}
+    setRefundBusyId(refundCaseId);
+    try{
+      const {data,error:callError}=await supabase.functions.invoke("admin-finance",{body:{action:"refund_case_decide",refund_case_id:refundCaseId,decision,note}});
+      if(callError)throw new Error(callError.message||"تعذر حفظ القرار");
+      if(data?.error)throw new Error(String(data.error));
+      toast.success(decision==="approved"?"موافقة مبدئية؛ لم يتم تحويل مبلغ بعد":"تم رفض الطلب وتوثيق السبب");
+      await loadRefundCases();
+    }catch(e:any){toast.error(String(e?.message||"تعذر حفظ القرار"));}
+    finally{setRefundBusyId(null);}
+  };
+  const markRefundCasePaid=async(refundCaseId:string)=>{
+    if(refundBusyId)return;
+    const reference=(refundReferences[refundCaseId]||"").trim();
+    if(reference.length<2){toast.error("أدخل مرجع عملية الاسترداد بعد إعادة المبلغ فعلياً");return;}
+    setRefundBusyId(refundCaseId);
+    try{
+      const {data,error:callError}=await supabase.functions.invoke("admin-finance",{body:{action:"refund_case_mark_refunded",refund_case_id:refundCaseId,refund_reference:reference}});
+      if(callError)throw new Error(callError.message||"تعذر تسجيل الاسترداد");
+      if(data?.error)throw new Error(String(data.error));
+      toast.success("تم تسجيل الاسترداد الفعلي");
+      setRefundReferences(current=>({...current,[refundCaseId]:""}));
+      await loadRefundCases();
+    }catch(e:any){toast.error(String(e?.message||"تعذر تسجيل الاسترداد"));}
+    finally{setRefundBusyId(null);}
+  };
+
 
   const searchUsers=async()=>{
     if(query.trim().length<2){toast.error("اكتب حرفين أو أكثر للبحث");return;}
@@ -105,7 +157,7 @@ export default function AdminRights() {
   return <section dir="rtl" className="space-y-4">
     <header><h2 className="text-xl font-black flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary"/> حقوق ممنون</h2><p className="text-xs text-muted-foreground mt-1">المحافظ والعمولات والإعفاءات وسجل إيرادات ممنون.</p></header>
     <div className="flex flex-wrap gap-2">{[
-      ["wallet","استقطاع الشكاوي وإضافة الرصيد",Wallet],["special","مستخدمون بميزات خاصة",ShieldCheck],["policies","إعدادات الاستقطاع",Settings2],["revenue","الإيرادات",Receipt]
+      ["wallet","استقطاع الشكاوي وإضافة الرصيد",Wallet],["special","مستخدمون بميزات خاصة",ShieldCheck],["policies","إعدادات الاستقطاع",Settings2],["revenue","الإيرادات",Receipt],["refunds","طلبات الإلغاء والاسترداد",RefreshCw]
     ].map(([key,label,Icon]:any)=><button key={key} onClick={()=>setTab(key)} className={`rounded-xl px-3 py-2 text-xs font-bold flex items-center gap-2 ${tab===key?"bg-primary text-primary-foreground":"glass text-muted-foreground"}`}><Icon className="h-4 w-4"/>{label}</button>)}</div>
     {(tab==="wallet"||tab==="special")&&<div className="glass rounded-2xl p-4 space-y-3">
       <h3 className="font-black text-sm">البحث عن مستخدم</h3>
@@ -145,7 +197,40 @@ export default function AdminRights() {
       <button disabled={busy} onClick={()=>void savePolicy()} className="w-full rounded-xl bg-primary text-primary-foreground p-3 text-xs font-black">{busy?"جارٍ الحفظ...":"حفظ سياسة العمولة"}</button>
       <div className="border-t border-border pt-3 space-y-2"><h4 className="font-black text-xs">السياسات المحفوظة</h4>{policies.map(p=><div key={p.id} className="rounded-xl bg-card border border-border p-3 text-[10px]"><b>{scopeLabel[p.scope_type]||p.scope_type} · {formatScopeKey(p)}</b><div>عمولة {p.commission_rate_percent}% · تحصيل {p.commission_charge_percent}% · {eventLabel[p.collection_event]||p.collection_event} · {p.is_enabled?"فعالة":"متوقفة"}</div><div>إعفاء {p.free_trial_enabled?p.free_trial_days+" يوم":"متوقف"} · {p.new_users_only?"جدد فقط":"غير مقيد"}</div></div>)}</div>
     </div>}
-    {tab==="revenue"&&<div className="glass rounded-2xl p-4 space-y-3"><div className="flex justify-between items-center"><h3 className="font-black text-sm">دفتر إيرادات ممنون</h3><button onClick={()=>void load()} className="text-xs text-primary">تحديث</button></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-2"><div className="rounded-xl bg-primary/10 p-3"><p className="text-[10px] text-muted-foreground">إجمالي إيرادات ممنون المحصلة</p><b className="text-lg">{Number(summary.collected_iqd||0).toLocaleString("ar-IQ")} د.ع</b></div><div className="rounded-xl bg-muted p-3"><p className="text-[10px] text-muted-foreground">منها تحصيل ديون جديدة عبر زين كاش</p><b className="text-lg">{Number(summary.zaincash_debt_collected_iqd||0).toLocaleString("ar-IQ")} د.ع</b></div><div className="rounded-xl bg-muted p-3"><p className="text-[10px] text-muted-foreground">ديون مستحقة لممنون</p><b className="text-lg">{Number(summary.outstanding_iqd||0).toLocaleString("ar-IQ")} د.ع</b></div></div><h4 className="font-black text-xs">تحصيلات زين كاش المؤكدة</h4>{collections.map(x=><div key={x.id} className="rounded-xl bg-card border border-border p-3"><b className="text-xs">{Number(x.amount_iqd).toLocaleString("ar-IQ")} د.ع</b><p className="text-[10px] text-muted-foreground">مرجع زين كاش: {x.provider_reference} · {new Date(x.created_at).toLocaleString("ar-IQ")}</p></div>)}<h4 className="font-black text-xs pt-2">العمولات والاستقطاعات</h4>{revenue.map(r=><div key={r.id} className="rounded-xl bg-card border border-border p-3"><div className="font-black text-xs">{r.profile?.full_name||r.profile?.phone||"مستخدم"}</div><div className="text-[10px] text-muted-foreground">{revenueLabel[r.revenue_type]||r.revenue_type} · {new Date(r.created_at).toLocaleString("ar-IQ")}</div><div className="text-xs mt-1">مستحق {Number(r.assessed_iqd).toLocaleString("ar-IQ")} د.ع · محصل {Number(r.collected_iqd).toLocaleString("ar-IQ")} د.ع · معفى {Number(r.waived_iqd).toLocaleString("ar-IQ")} د.ع</div><div className="text-[10px] mt-1">{statusLabel[r.status]||r.status}</div></div>)}{!revenue.length&&<p className="text-xs text-muted-foreground">لا توجد إيرادات مسجلة حالياً</p>}</div>}
+    {tab==="revenue"&&<div className="glass rounded-2xl p-4 space-y-3"><div className="flex justify-between items-center"><h3 className="font-black text-sm">دفتر إيرادات ممنون</h3><button onClick={()=>void load()} className="text-xs text-primary">تحديث</button></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-2"><div className="rounded-xl bg-primary/10 p-3"><p className="text-[10px] text-muted-foreground">إجمالي إيرادات ممنون المحصلة</p><b className="text-lg">{Number(summary.collected_iqd||0).toLocaleString("ar-IQ")} د.ع</b></div><div className="rounded-xl bg-muted p-3"><p className="text-[10px] text-muted-foreground">منها تحصيل ديون جديدة عبر زين كاش</p><b className="text-lg">{Number(summary.zaincash_debt_collected_iqd||0).toLocaleString("ar-IQ")} د.ع</b></div><div className="rounded-xl bg-muted p-3"><p className="text-[10px] text-muted-foreground">ديون مستحقة لممنون</p><b className="text-lg">{Number(summary.outstanding_iqd||0).toLocaleString("ar-IQ")} د.ع</b></div></div><h4 className="font-black text-xs">تحصيلات زين كاش المؤكدة</h4>{collections.map(x=><div key={x.id} className="rounded-xl bg-card border border-border p-3"><b className="text-xs">{Number(x.amount_iqd).toLocaleString("ar-IQ")} د.ع</b><p className="text-[10px] text-muted-foreground">{x.payment_purpose==="wallet_topup"?"تحصيل من شحن محفظة":x.payment_purpose==="service_request"?"عمولة من دفعة طلب خدمة":"تحصيل"} · {x.payment_provider||"—"} · مرجع: {x.provider_reference} · {new Date(x.created_at).toLocaleString("ar-IQ")}</p>{x.refund_review_pending&&<p className="text-[10px] text-amber-700 font-black">معلّق لحين حسم طلب الاسترداد</p>}{Number(x.reversed_amount_iqd||0)>0&&<p className="text-[10px] text-amber-700">عكس قيد/استرداد: {Number(x.reversed_amount_iqd).toLocaleString("ar-IQ")} د.ع · الصافي المحتسب {Number(x.net_amount_iqd||0).toLocaleString("ar-IQ")} د.ع · {x.reversal_reason||"قيد معكوس"}</p>}</div>)}<h4 className="font-black text-xs pt-2">العمولات والاستقطاعات</h4>{revenue.map(r=><div key={r.id} className="rounded-xl bg-card border border-border p-3"><div className="font-black text-xs">{r.profile?.full_name||r.profile?.phone||"مستخدم"}</div><div className="text-[10px] text-muted-foreground">{revenueLabel[r.revenue_type]||r.revenue_type} · {new Date(r.created_at).toLocaleString("ar-IQ")}{r.request_code?" · رقم الطلب "+r.request_code:""}</div><div className="text-xs mt-1">مستحق {Number(r.assessed_iqd).toLocaleString("ar-IQ")} د.ع · محصل {Number(r.collected_iqd).toLocaleString("ar-IQ")} د.ع · معفى {Number(r.waived_iqd).toLocaleString("ar-IQ")} د.ع</div><div className={"text-[10px] mt-1 "+(r.metadata?.refund_review_pending?"text-amber-700 font-black":"")}>{r.metadata?.refund_review_pending?"معلّق لحين حسم طلب الاسترداد":statusLabel[r.status]||r.status}</div></div>)}{!revenue.length&&<p className="text-xs text-muted-foreground">لا توجد إيرادات مسجلة حالياً</p>}</div>}
+    {tab==="refunds"&&<div className="glass rounded-2xl p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><h3 className="font-black text-sm">طلبات إلغاء واسترداد زين كاش</h3><p className="text-[10px] text-muted-foreground mt-1">المبالغ قيد المراجعة ليست إيراداً نهائياً. لا يوجد تحويل تلقائي.</p></div>
+        <button onClick={()=>void loadRefundCases()} className="text-xs text-primary"><RefreshCw className="inline h-3.5 w-3.5 ml-1"/>تحديث</button>
+      </div>
+      {!canViewRefunds&&!loading?<p className="text-xs text-muted-foreground">ما عندك صلاحية عرض طلبات الاسترداد. يلزم منح صلاحية finance.refund.read.</p>:<>
+        <div className="flex flex-wrap gap-2">{[["pending_review","بانتظار المراجعة"],["approved","موافق عليه"],["rejected","مرفوض"],["refunded","مسترد فعلياً"],["all","الكل"]].map(([value,label])=><button key={value} onClick={()=>setRefundFilter(value)} className={`rounded-full border px-3 py-2 text-[10px] font-bold ${refundFilter===value?"bg-primary text-primary-foreground border-primary":"border-border bg-background"}`}>{label}</button>)}</div>
+        <div className="space-y-3">
+          {refundCases.filter(row=>refundFilter==="all"||row.status===refundFilter).map(row=><article key={row.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2"><b className="text-xs">{row.request?.request_code||("#"+String(row.request_id).slice(0,8))}</b><span className="rounded-full bg-muted px-2 py-1 text-[10px]">{row.status==="pending_review"?"بانتظار المراجعة":row.status==="approved"?"موافقة مبدئية":row.status==="rejected"?"مرفوض":"تم الاسترداد"}</span></div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[10px]">
+              <div><span className="block text-muted-foreground">الزبون</span><b>{row.customer?.full_name||"—"}</b></div>
+              <div><span className="block text-muted-foreground">الهاتف</span><b dir="ltr">{row.customer?.phone||"—"}</b></div>
+              <div><span className="block text-muted-foreground">المبلغ</span><b>{Number(row.amount_iqd||0).toLocaleString("ar-IQ")} د.ع</b></div>
+              <div><span className="block text-muted-foreground">مرجع الدفع</span><b dir="ltr" className="break-all">{row.payment?.gateway_transaction_id||"—"}</b></div>
+              <div><span className="block text-muted-foreground">تاريخ الإلغاء</span><b>{new Date(row.created_at).toLocaleString("ar-IQ")}</b></div>
+              <div><span className="block text-muted-foreground">بوابة الدفع</span><b>{row.payment?.provider||"—"} · {row.payment?.currency||"IQD"}</b></div><div><span className="block text-muted-foreground">تاريخ الدفع</span><b>{row.payment?.paid_at?new Date(row.payment.paid_at).toLocaleString("ar-IQ"):"—"}</b></div><div><span className="block text-muted-foreground">حالة الدفع</span><b>{row.payment?.status||"—"}</b></div>
+            </div>
+            <p className="rounded-lg bg-muted p-2 text-[10px]"><b>سبب الإلغاء: </b>{row.cancellation_reason||"لم يُذكر سبب"}</p>
+            {row.decision_note&&<p className="rounded-lg bg-muted p-2 text-[10px]"><b>ملاحظة القرار: </b>{row.decision_note}</p>}
+            {row.refund_reference&&<p className="text-[10px] text-emerald-700"><b>مرجع الاسترداد الفعلي: </b><span dir="ltr">{row.refund_reference}</span></p>}
+            {row.status==="pending_review"&&canDecideRefunds&&<div className="space-y-2 border-t border-border pt-2">
+              <textarea value={refundNotes[row.id]||""} onChange={e=>setRefundNotes(current=>({...current,[row.id]:e.target.value}))} maxLength={500} placeholder="ملاحظة المراجعة أو سبب الرفض (إلزامي عند الرفض)" className="w-full min-h-16 rounded-lg border border-border bg-background p-2 text-xs"/>
+              <div className="flex gap-2"><button disabled={refundBusyId===row.id} onClick={()=>void decideRefundCase(row.id,"approved")} className="flex-1 rounded-lg bg-emerald-600 p-2.5 text-[10px] font-black text-white disabled:opacity-50">موافقة مبدئية</button><button disabled={refundBusyId===row.id} onClick={()=>void decideRefundCase(row.id,"rejected")} className="flex-1 rounded-lg bg-red-600 p-2.5 text-[10px] font-black text-white disabled:opacity-50">رفض الطلب</button></div>
+            </div>}
+            {row.status==="approved"&&canDecideRefunds&&<div className="space-y-2 border-t border-border pt-2"><p className="text-[10px] text-muted-foreground">بعد إعادة المبلغ يدوياً عبر زين كاش، أدخل رقم المرجع. لا تؤكد قبل تنفيذ التحويل فعلياً.</p><input value={refundReferences[row.id]||""} onChange={e=>setRefundReferences(current=>({...current,[row.id]:e.target.value}))} maxLength={120} placeholder="رقم مرجع عملية الاسترداد" className="w-full rounded-lg border border-border bg-background p-2.5 text-xs"/><button disabled={refundBusyId===row.id} onClick={()=>void markRefundCasePaid(row.id)} className="w-full rounded-lg bg-primary p-2.5 text-xs font-black text-primary-foreground disabled:opacity-50">تأكيد أن المبلغ أُعيد فعلياً</button></div>}
+            {!canDecideRefunds&&row.status!=="refunded"&&<p className="text-[10px] text-muted-foreground">يمكنك الاطلاع فقط؛ لا تملك صلاحية اعتماد أو تسجيل الاسترداد.</p>}
+            {row.events?.length>0&&<div className="border-t border-border pt-2 space-y-1 text-[10px] text-muted-foreground"><b>سجل الإجراءات</b>{row.events.map((event:any)=><p key={event.id}>{event.event_type==="opened"?"فتح طلب المراجعة":event.event_type==="approved"?"موافقة مبدئية":event.event_type==="rejected"?"رفض الطلب":"تسجيل الاسترداد الفعلي"} · {new Date(event.created_at).toLocaleString("ar-IQ")} · {event.actor?.full_name||event.actor?.phone||"النظام"}{event.note?" · "+event.note:""}{event.reference?" · المرجع "+event.reference:""}</p>)}</div>}
+          </article>)}
+          {refundCases.filter(row=>refundFilter==="all"||row.status===refundFilter).length===0&&<p className="text-xs text-muted-foreground">لا توجد طلبات استرداد بهذا التصنيف حالياً.</p>}
+        </div>
+      </>}
+    </div>}
     {!!error&&<p className="text-xs text-destructive">{error}</p>}
     {loading&&<p className="text-xs text-muted-foreground">جارٍ تحديث البيانات...</p>}
   </section>;
