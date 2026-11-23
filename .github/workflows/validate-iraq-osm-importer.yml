@@ -33,7 +33,16 @@ jobs:
           assert module.find_governorate(44.3462, 32.0259) == 'najaf'
           assert module.find_governorate(44.0249, 32.6160) == 'karbala'
           assert module.find_governorate(47.7804, 30.5085) == 'basra'
-          print('Importer syntax and 18-governorate point-in-polygon checks passed.')
+          assert module.normalize_search_term('إِمَامَة') == 'امامه'
+          address_row = module.make_row('node', 123, {
+              'building': 'house',
+              'addr:street': 'شارع الكوفة',
+              'addr:housenumber': '12',
+          }, 44.3462, 32.0259)
+          assert address_row is not None
+          assert address_row['governorate_key'] == 'najaf'
+          assert address_row['name_ar'] == 'شارع الكوفة، رقم 12'
+          print('Importer syntax, governorate boundaries, Arabic normalization and address rows passed.')
           PY
       - name: Parse the current Iraq PBF without writing to production
         env:
