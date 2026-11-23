@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, RefreshCw, ChartColumn } from "lucide-react";
+import { Loader2, RefreshCw, BarChart3 } from "lucide-react";
 
 type Row = {
   cancellation_reason: string;
@@ -46,7 +46,7 @@ export default function AdminCancellationAnalytics() {
     <section dir="rtl" className="glass mb-4 space-y-4 rounded-2xl p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 font-black"><ChartColumn className="h-5 w-5 text-primary"/> إحصائيات أسباب الإلغاء</div>
+          <div className="flex items-center gap-2 font-black"><BarChart3 className="h-5 w-5 text-primary"/> إحصائيات أسباب الإلغاء</div>
           <p className="mt-1 text-[11px] text-muted-foreground">توزيع الإلغاءات حسب السبب والطرف الذي نفّذ الإلغاء</p>
         </div>
         <button type="button" onClick={() => void load()} disabled={loading} className="rounded-xl border border-border p-2" aria-label="تحديث الإحصائيات"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"}/></button>
@@ -61,7 +61,7 @@ export default function AdminCancellationAnalytics() {
           </div>
           {rows.length === 0 ? <p className="py-4 text-center text-xs text-muted-foreground">لا توجد إلغاءات مسجلة بأسباب حتى الآن.</p> : (
             <div className="space-y-3">
-              {rows.map((row, index) => {
+              {rows.map((row) => {
                 const count = Number(row.cancellation_count || 0);
                 const percent = Math.max(0, Math.min(100, Number(row.percentage || 0)));
                 return <div key={row.cancelled_by_role + ":" + row.cancellation_reason} className="space-y-1.5">
