@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useCompanyBranding } from "@/lib/company-branding";
 import ProviderMissions from "@/components/provider-missions";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
@@ -98,7 +99,7 @@ function HomePage() {
                 <Crown className="h-5 w-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2 text-xs font-black text-amber-600 dark:text-amber-400">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 whitespace-normal break-words text-xs font-black text-amber-600 dark:text-amber-400">
                   {companyLogoUrl && <img src={companyLogoUrl} alt="" className="h-7 w-7 rounded-lg object-contain bg-white p-0.5" />}
                   إدارة {companyName}
                 </div>
@@ -136,7 +137,8 @@ function HomePage() {
                 {firstName} <span className="inline-block animate-float">👋</span>
               </div>
             </div>
-            <p className="mt-1 text-xs font-semibold text-muted-foreground">{welcomeMessage}</p>
+            <p className="mt-1 max-w-[min(70vw,420px)] whitespace-normal break-words text-balance text-xs font-semibold leading-6 text-muted-foreground">{welcomeMessage}</p>
+            {welcomeMediaUrl && <img src={welcomeMediaUrl} alt={`واجهة ${companyName}`} className={`mt-2 h-14 max-w-[180px] object-contain rounded-lg ${welcomeMediaAnimated ? "animate-pulse" : ""}`} />}
           </div>
           <div className="flex items-center gap-2">
             <button
