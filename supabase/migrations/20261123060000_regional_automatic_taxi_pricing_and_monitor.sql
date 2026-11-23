@@ -197,7 +197,7 @@ CREATE OR REPLACE FUNCTION public.calculate_taxi_quote_internal(
   p_duration_min numeric,
   p_trip_type text,
   p_extra_minutes integer,
-  p_urgency_enabled boolean DEFAULT false,
+  p_urgency_enabled boolean,
   p_auto_percent numeric
 )
 RETURNS jsonb
@@ -380,7 +380,7 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.calculate_taxi_quote_internal(text,boolean,numeric,numeric,text,integer,boolean,numeric)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.calculate_taxi_quote_internal(text,boolean,numeric,numeric,text,integer,boolean)
+GRANT EXECUTE ON FUNCTION public.calculate_taxi_quote_internal(text,boolean,numeric,numeric,text,integer,boolean,numeric)
   TO service_role;
 
 -- The insert trigger recalculates with the same canonical DB function, so
