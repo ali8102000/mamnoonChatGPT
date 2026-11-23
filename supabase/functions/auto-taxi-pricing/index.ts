@@ -233,8 +233,10 @@ Deno.serve(async (req) => {
     return json({error:"إعدادات الذروة لهذه الفئة غير متاحة حالياً؛ لم نضف أي زيادة للسعر.",code:"CATEGORY_PEAK_SETTINGS_UNAVAILABLE"},503);
   }
   const peakCalculatedAt=categoryPeak.last_calculated_at?new Date(categoryPeak.last_calculated_at).getTime():0;
+  const peakAgeMs=Date.now()-peakCalculatedAt;
+  // Fail closed for stale, missing, or future-dated monitor rows (clock skew included).
   const peakDataFresh=Number.isFinite(peakCalculatedAt)&&peakCalculatedAt>0&&
-    Date.now()-peakCalculatedAt<=3*60*1000&&Number(categoryPeak.observed_providers)>0;
+    peakAgeMs>=0&&peakAgeMs<=3*60*1000&&Number(categoryPeak.observed_providers)>0;
   const categoryPeakEnabled=categoryPeak.enabled===true&&categoryPeak.mode==="auto";
   const categoryPeakMinimum=Math.max(0,Number(categoryPeak.min_surcharge_percent)||0);
   const categoryPeakMaximum=Math.max(categoryPeakMinimum,Number(categoryPeak.max_surcharge_percent)||0);
