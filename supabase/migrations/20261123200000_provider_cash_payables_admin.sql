@@ -131,6 +131,9 @@ BEGIN
       ON pt.request_id = sr.id
      AND pt.purpose = 'service_request'
      AND pt.status = 'paid'
+     AND pt.provider = 'zaincash'
+     AND pt.currency = 'IQD'
+     AND pt.user_id = sr.customer_id
     WHERE sr.provider_id = p_provider_id
       AND sr.status = 'completed'
       AND sr.payment_method = 'zaincash'
