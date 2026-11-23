@@ -299,18 +299,10 @@ async function autocomplete(admin:any,input:string,key:string,requestedCenter?:P
     return json({suggestions:initialSuggestions.slice(0,LIMIT),attribution:"بيانات الأماكن © OpenStreetMap contributors",fastPath:true});
   }
 
-  // Check the external-enrichment cache only after local search misses. This
-  // avoids an extra database round trip for the common, successful local path.
-  const {data:cached}=await admin.from("map_place_search_cache")
-    .select("expires_at").eq("governorate_key",key).eq("normalized_query",normalized(q)).maybeSingle();
-  const cacheFresh=!!cached?.expires_at&&new Date(cached.expires_at).getTime()>Date.now();
-
-  // A fresh query cache is authoritative for this query. Return it immediately;
-  // otherwise enrich partial local results from Photon instead of only searching
-  // externally when the local database is completely empty.
-  if(cacheFresh && Deno.env.get("MAPS_GOOGLE_TEXT_SEARCH_ENABLED")!=="true") {
-    return json({suggestions:[],attribution:"بيانات الأماكن © OpenStreetMap contributors",cacheHit:true});
-  }
+  // A previous empty Photon lookup must never suppress a fresh search.
+  // The cache stores expiry only, not reusable result rows, so it cannot safely
+  // serve as an authoritative empty response. Always retry external discovery
+  // when the governorate-scoped catalogue has no match.
 
   let fetchedRows:any[]=[];
   let photonLookupSucceeded=false;
