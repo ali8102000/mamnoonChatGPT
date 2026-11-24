@@ -1,4 +1,8 @@
 -- Integration checks for handle_new_user() against a minimal PostgreSQL Auth schema.
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 DO $test$
 DECLARE
   v_phone text;
@@ -59,7 +63,7 @@ BEGIN
 
   SELECT phone, email INTO v_phone, v_email
   FROM public.profiles WHERE id = v_admin_id;
-  IF v_phone <> 'user-' || v_admin_id::text THEN
+  IF v_phone <> ('user-' || v_admin_id::text) THEN
     RAISE EXCEPTION 'synthetic phone fallback failed: %', v_phone;
   END IF;
   IF v_email <> 'admin@example.com' THEN
