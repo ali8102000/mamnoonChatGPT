@@ -33,6 +33,7 @@ import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 import { ProviderMissions } from "@/components/provider-missions";
 import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const HOME_GRID_GAP = 12;
 
@@ -450,6 +451,14 @@ export default function HomeScreen() {
           />
         )}
       </ScrollView>
+      {selectedRole !== "customer" && (
+        <ProviderAvailabilityDock
+          available={available}
+          availabilitySaving={availabilitySaving}
+          verified={verified}
+          toggleAvailable={toggleAvailable}
+        />
+      )}
     </View>
   );
 }
@@ -1071,6 +1080,9 @@ function ProviderHome({
   incoming: IncomingRequest[];
   onRefresh: () => Promise<void>;
 }) {
+  const insets = useSafeAreaInsets();
+  const topOffset = Math.max(insets.top, 28);
+  const bottomOffset = Math.max(insets.bottom, 8);
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number; heading?: number | null } | null>(null);
@@ -1173,7 +1185,7 @@ function ProviderHome({
         </View>
       )}
 
-      <View style={providerMapStyles.topOverlay}>
+      <View style={[providerMapStyles.topOverlay, { top: topOffset + 8 }]}>
         <TouchableOpacity
           onPress={() => router.push("/profile")}
           activeOpacity={0.85}
@@ -1201,16 +1213,16 @@ function ProviderHome({
         </View>
       </View>
 
-      <View style={providerMapStyles.statusPill}>
+      <View style={[providerMapStyles.statusPill, { top: topOffset + 72 }]}>
         <View style={[providerMapStyles.statusDot, { backgroundColor: available && verified ? "#10B981" : "#F59E0B" }]} />
         <Text style={providerMapStyles.statusText}>{statusLabel}</Text>
       </View>
 
-      <TouchableOpacity onPress={() => void recenter()} activeOpacity={0.85} style={providerMapStyles.recenterButton} accessibilityRole="button" accessibilityLabel="العودة إلى موقعي">
+      <TouchableOpacity onPress={() => void recenter()} activeOpacity={0.85} style={[providerMapStyles.recenterButton, { bottom: bottomOffset + 355 }]} accessibilityRole="button" accessibilityLabel="العودة إلى موقعي">
         <Text style={{ color: "#17324D", fontSize: 21 }}>◎</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/messages")} activeOpacity={0.88} style={providerMapStyles.messagesBanner}>
+      <TouchableOpacity onPress={() => router.push("/messages")} activeOpacity={0.88} style={[providerMapStyles.messagesBanner, { top: topOffset + 122 }]}>
         <View style={providerMapStyles.messagesIcon}><Text style={{ fontSize: 18 }}>✉</Text></View>
         <View style={{ flex: 1 }}>
           <Text style={providerMapStyles.messagesTitle}>رسائلك وتنبيهات ممنون</Text>
@@ -1219,7 +1231,7 @@ function ProviderHome({
         <Text style={{ color: "#1D4ED8", fontSize: 18, fontWeight: "900" }}>‹</Text>
       </TouchableOpacity>
 
-      <View style={providerMapStyles.bottomPanel}>
+      <View style={[providerMapStyles.bottomPanel, { bottom: bottomOffset + 84 }]}>
         {!available && (
           <View style={providerMapStyles.offlineNotice}>
             <Text style={providerMapStyles.offlineNoticeTitle}>أنت غير متصل حالياً</Text>
