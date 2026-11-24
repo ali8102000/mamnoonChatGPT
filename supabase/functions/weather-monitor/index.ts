@@ -1,5 +1,25 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
-import { getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
+function getSupabaseSecretKey(): string {
+  const raw = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed?.default === "string" && parsed.default.trim()) return parsed.default.trim();
+    } catch { /* use legacy fallback below */ }
+  }
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
+  if (!legacy) throw new Error("missing_supabase_secret_key");
+  return legacy;
+}
+function createSupabaseFetch(apiKey: string): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined);
+    if (init?.headers) new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+    if ((apiKey.startsWith("sb_publishable_") || apiKey.startsWith("sb_secret_")) && headers.get("Authorization") === `Bearer ${apiKey}`) headers.delete("Authorization");
+    headers.set("apikey", apiKey);
+    return fetch(input, { ...init, headers });
+  };
+}
 
 const CITIES = [
   ["baghdad",33.3152,44.3661],["basra",30.5085,47.7804],["nineveh",36.34,43.13],
@@ -16,7 +36,7 @@ Deno.serve(async (req) => {
   if (!serviceKey || req.headers.get("apikey") !== serviceKey) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
-  const weatherKey = Deno.env.get("WEATHERAPI_KEY");
+  const weatherKey = Deno.env.get("WEATHERAPI_KEY") ?? Deno.env.get("WEATHERAPI_API_KEY");
   const url = Deno.env.get("SUPABASE_URL");
   if (!weatherKey || !url || !serviceKey) {
     return Response.json({ error: "weather_provider_not_configured" }, { status: 503 });
