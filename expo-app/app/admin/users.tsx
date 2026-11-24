@@ -177,17 +177,24 @@ export default function AdminUsersScreen() {
         available: editWorker.available === true,
         service_ids: editWorkerServices,
       } : undefined;
+      const business = detail.partnerBusinessProfiles?.[0] ?? {};
+      const application = detail.partnerApplications?.[0] ?? {};
       const hasPartner = !!(editPartner.business_profile_id && editPartner.application_id);
+      const partnerChanges: Record<string, unknown> = {};
+      const partnerPairs: [string, unknown, unknown][] = [
+        ["business_name", editPartner.business_name?.trim() || "", business.business_name ?? application.business_name ?? ""],
+        ["phone", editPartner.phone?.trim() || null, business.phone ?? application.phone ?? null],
+        ["email", editPartner.email?.trim() || null, business.email ?? application.email ?? null],
+        ["governorate_key", editPartner.governorate_key?.trim() || null, business.governorate_key ?? application.governorate_key ?? null],
+        ["city", editPartner.city?.trim() || "", business.city ?? application.city ?? ""],
+        ["address", editPartner.address?.trim() || "", business.address ?? application.address ?? ""],
+        ["description", editPartner.description?.trim() || "", business.description ?? application.description ?? ""],
+      ];
+      for (const [key, value, original] of partnerPairs) if (value !== original) partnerChanges[key] = value;
       const partner_profile = hasPartner ? {
         business_profile_id: editPartner.business_profile_id,
         application_id: editPartner.application_id,
-        business_name: editPartner.business_name?.trim() || "",
-        phone: editPartner.phone?.trim() || null,
-        email: editPartner.email?.trim() || null,
-        governorate_key: editPartner.governorate_key?.trim() || null,
-        city: editPartner.city?.trim() || "",
-        address: editPartner.address?.trim() || "",
-        description: editPartner.description?.trim() || "",
+        ...partnerChanges,
       } : undefined;
       const result = await invoke({
         action: "admin_update_account",
