@@ -139,7 +139,7 @@ export default function CompanySettingsScreen() {
           {logoAsset ? <Image source={{uri:logoAsset.uri}} style={s.logo} resizeMode="contain"/> : logoUrl ? <Image source={{uri:logoUrl}} style={s.logo} resizeMode="contain"/> : <Image source={mamnoonLogo} style={s.logo} resizeMode="contain"/>}
           <Text style={s.previewName}>{name || "اسم الشركة"}</Text>
           <Text style={s.muted}>{welcome}</Text>
-          {(!removeWelcomeVisual && (welcomeVisualAsset?.uri || welcomeVisualUrl)) ? <ExpoImage source={{uri:welcomeVisualAsset?.uri || welcomeVisualUrl || undefined}} style={[s.welcomeVisual,{width:welcomeVisualSizePx,height:welcomeVisualSizePx}]} contentFit="cover" autoplay={welcomeVisualAnimated}/> : <View style={[s.welcomeVisualEmpty,{width:welcomeVisualSizePx,height:welcomeVisualSizePx}]}><Text style={s.muted}>بدون صورة بداية</Text></View>}
+          {(!removeWelcomeVisual && (welcomeVisualAsset?.uri || welcomeVisualUrl)) ? <ExpoImage source={{uri:welcomeVisualAsset?.uri || welcomeVisualUrl || undefined}} style={[s.welcomeVisual,{width:welcomeVisualSizePx,height:welcomeVisualSizePx}]} contentFit="cover" autoplay={true}/> : <View style={[s.welcomeVisualEmpty,{width:welcomeVisualSizePx,height:welcomeVisualSizePx}]}><Text style={s.muted}>بدون صورة بداية</Text></View>}
         </View>
         <Text style={s.label}>اسم الشركة</Text>
         <TextInput value={name} onChangeText={setName} maxLength={80} placeholder="اسم الشركة" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
