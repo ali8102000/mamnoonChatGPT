@@ -389,7 +389,7 @@ Deno.serve(async (req: Request) => {
       }
       if (partnerInput.email !== undefined) {
         const value = textValue(partnerInput.email, 254);
-        if (value && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) return json({ error: "invalid_partner_email" }, 400);
+        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return json({ error: "invalid_partner_email" }, 400);
         partnerUpdates.email = value || null;
       }
       if (partnerInput.governorate_key !== undefined) {
