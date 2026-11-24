@@ -345,6 +345,11 @@ Deno.serve(async (req: Request) => {
         if (businessError) return json({ error: "partner_profile_update_failed", detail: businessError.message }, 400);
         const applicationFields: Record<string, unknown> = {};
         for (const key of ["business_name","phone","email","governorate_key","city","address","description"] as const) if (partnerUpdates[key] !== undefined) applicationFields[key] = partnerUpdates[key];
+        for (const key of ["contact_name","license_number","mall_unit_type","business_latitude","business_longitude"] as const) {
+          if (partnerInput[key] !== undefined) applicationFields[key] = partnerInput[key];
+        }
+        if (partnerUpdates.latitude !== undefined) applicationFields.business_latitude = partnerUpdates.latitude;
+        if (partnerUpdates.longitude !== undefined) applicationFields.business_longitude = partnerUpdates.longitude;
         if (Object.keys(applicationFields).length) {
           applicationFields.updated_at = new Date().toISOString();
           const { error: applicationError } = await admin.from("partner_applications").update(applicationFields).eq("user_id", userId);
