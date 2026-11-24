@@ -19,7 +19,7 @@ alter table public.home_carousel_banners enable row level security;
 drop policy if exists "Home banner display settings are publicly readable" on public.home_carousel_banners;
 create policy "Active home banners are publicly readable"
   on public.home_carousel_banners for select to anon, authenticated
-  using (true);
+  using (is_active = true);
 drop policy if exists "Super admins manage home banners" on public.home_carousel_banners;
 create policy "Super admins manage home banners"
   on public.home_carousel_banners for all to authenticated

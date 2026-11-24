@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { palette, radius, space } from "@/styles/theme";
 
-type Business = { id: string; partner_type: string; business_name: string; phone: string; city: string; address: string; description: string | null; opening_hours: Record<string, unknown> | null };
+type Business = { id: string; partner_type: string; business_name: string; phone: string; city: string; address: string; description: string | null; latitude: number | null; longitude: number | null; opening_hours: Record<string, unknown> | null };
 type CatalogItem = { id: string; item_type: string; name: string; description: string | null; price_amount: number; currency: string; quantity_available: number | null; image_urls: string[] };
 type CartLine = { id: string; catalog_item_id: string; quantity: number };
 
@@ -39,7 +39,7 @@ export default function PartnerPublicDetailsScreen() {
     setLoading(true); setError("");
     const { data: profile, error: profileError } = await (supabase as any)
       .from("partner_business_profiles")
-      .select("id,partner_type,business_name,phone,city,address,description,opening_hours")
+      .select("id,partner_type,business_name,phone,city,address,description,latitude,longitude,opening_hours")
       .eq("id", id).eq("is_published", true).maybeSingle();
     if (profileError || !profile) {
       setBusiness(null); setCatalog([]); setError("المنشأة غير متاحة أو تم إيقاف نشرها."); setLoading(false); return;
@@ -141,6 +141,7 @@ export default function PartnerPublicDetailsScreen() {
             <Text style={{ color: "#fff", opacity: 0.8, fontSize: 12, textAlign: "right" }}>{business.partner_type === "hotel" ? "فندق" : business.partner_type === "restaurant" ? "مطعم" : business.partner_type === "mall" ? "مول" : "متجر"}</Text>
             <Text style={{ color: "#fff", fontSize: 24, fontWeight: "900", textAlign: "right" }}>{business.business_name}</Text>
             <Text style={{ color: "#fff", opacity: 0.9, fontSize: 12, textAlign: "right" }}>📍 {business.city} · {business.address}</Text>
+            {business.latitude != null && business.longitude != null ? <Pressable onPress={() => void Linking.openURL(`https://www.google.com/maps?q=${business.latitude},${business.longitude}`)} style={{ alignSelf: "flex-end", backgroundColor: "#fff", borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10, marginTop: 4 }}><Text style={{ color: palette.brand, fontWeight: "900" }}>الوصول إلى موقع المنشأة</Text></Pressable> : null}
             {business.description ? <Text style={{ color: "#fff", opacity: 0.9, fontSize: 12, lineHeight: 21, textAlign: "right" }}>{business.description}</Text> : null}
             <Pressable onPress={() => void Linking.openURL(`tel:${business.phone}`)} style={{ alignSelf: "flex-end", backgroundColor: "#fff", borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10, marginTop: 4 }}><Text style={{ color: palette.brand, fontWeight: "900" }}>اتصال بالمنشأة</Text></Pressable>
           </View>

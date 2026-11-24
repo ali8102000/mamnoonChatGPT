@@ -6,7 +6,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $function$
 BEGIN
-  IF auth.uid() IS NOT NULL AND NOT public.has_admin_access(auth.uid()) THEN
+  IF auth.uid() IS NOT NULL AND NOT public.is_platform_admin(auth.uid()) THEN
     IF NEW.customer_id IS DISTINCT FROM auth.uid() THEN
       RAISE EXCEPTION 'request_customer_must_match_auth_user';
     END IF;

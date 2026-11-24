@@ -10,7 +10,7 @@ import { AccessibilityInfo, View, ActivityIndicator, Image, Text, StyleSheet, An
 
 export default function Index() {
   const { loading, session, roles } = useAuth();
-  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated, isLoaded: brandingLoaded } = useCompanyBranding();
+  const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated, welcomeVisualSizePx, isLoaded: brandingLoaded } = useCompanyBranding();
   const [splashFinished, setSplashFinished] = useState(false);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState<boolean | null>(null);
   const shouldAnimateBranding = welcomeVisualAnimated && reduceMotionEnabled === false;
@@ -79,7 +79,7 @@ export default function Index() {
           <Image source={logoUrl ? { uri: logoUrl } : mamnoonLogo} style={styles.logo} resizeMode="contain" />
         </Animated.View>
         <Text style={styles.brand}>أهلاً بك في {companyName}</Text>
-        {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={styles.welcomeVisual} contentFit="cover" autoplay={shouldAnimateBranding} /></Animated.View> : null}
+        {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={[styles.welcomeVisual,{width:welcomeVisualSizePx,height:welcomeVisualSizePx}]} contentFit="cover" autoplay={reduceMotionEnabled === false} /></Animated.View> : null}
         <Text style={styles.tagline}>{welcomeMessage}</Text>
         {loading ? <ActivityIndicator size="small" color="#C99A35" style={styles.loader} /> : <View style={styles.loaderSpace} />}
       </View>
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "transparent", padding: 24 },
   logo: { width: 164, height: 164, marginBottom: 14, borderRadius: 24, backgroundColor: "#FFFFFF" },
   brand: { color: "#17324D", fontSize: 27, fontWeight: "900", letterSpacing: 0.1, textAlign: "center", width: "100%", maxWidth: 340, lineHeight: 38, flexShrink: 1 },
-  welcomeVisual: { width: "100%", maxWidth: 340, height: 150, borderRadius: 22, marginTop: 14, backgroundColor: "#050B13" },
+  welcomeVisual: { maxWidth: "100%", borderRadius: 24, marginTop: 14, backgroundColor: "#050B13", overflow: "hidden" },
   tagline: { color: "#526477", fontSize: 15, fontWeight: "700", marginTop: 12, width: "100%", maxWidth: 340, textAlign: "center", lineHeight: 27, flexWrap: "wrap", includeFontPadding: false },
   loader: { marginTop: 26 },
   loaderSpace: { height: 42 },

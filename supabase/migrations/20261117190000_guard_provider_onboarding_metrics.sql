@@ -7,17 +7,31 @@ SECURITY DEFINER
 SET search_path = ''
 AS $function$
 DECLARE
-  v_is_admin boolean := auth.uid() IS NOT NULL AND public.has_admin_access(auth.uid());
+  v_is_admin boolean := auth.uid() IS NOT NULL AND public.is_platform_admin(auth.uid());
   v_allow_metrics boolean := current_setting('mamnoon.allow_provider_metrics_update', true) = 'true';
   v_rating_count integer := 0;
   v_completed integer := 0;
   v_avg_rating numeric(3,2) := 0;
   v_tier text := 'unranked';
+  v_target_governorate text;
+  v_scope_type text;
+  v_can_verify boolean := false;
+  v_can_suspend boolean := false;
+  v_can_edit_profile boolean := false;
 BEGIN
-  -- Service-role jobs and authorized administrators are trusted writers.
+  -- Service-role jobs and platform admins are trusted writers. Delegated staff
+  -- must pass the operation-specific permission checks below.
   IF auth.uid() IS NULL OR v_is_admin THEN
     RETURN NEW;
   END IF;
+
+  SELECT governorate_key INTO v_target_governorate
+  FROM public.profiles
+  WHERE id = NEW.user_id;
+  v_scope_type := CASE WHEN v_target_governorate IS NULL THEN 'global' ELSE 'governorate' END;
+  v_can_verify := public.admin_has_permission('providers.verify', v_scope_type, v_target_governorate);
+  v_can_suspend := public.admin_has_permission('providers.suspend', v_scope_type, v_target_governorate);
+  v_can_edit_profile := public.admin_has_permission('providers.profile.edit', v_scope_type, v_target_governorate);
 
   IF TG_OP = 'INSERT' THEN
     IF NEW.user_id IS DISTINCT FROM auth.uid() THEN
@@ -80,11 +94,19 @@ BEGIN
     -- A provider may resubmit a rejected profile, but cannot approve,
     -- suspend, or reset an already approved/suspended profile.
     IF NEW.status IS DISTINCT FROM OLD.status
-       AND NOT (OLD.status = 'rejected' AND NEW.status = 'pending') THEN
+       AND NOT (
+         (OLD.status = 'rejected' AND NEW.status = 'pending')
+         OR (NEW.status = 'suspended' AND v_can_suspend)
+         OR (NEW.status IN ('approved','rejected','pending') AND v_can_verify)
+       ) THEN
       RAISE EXCEPTION 'status_readonly';
     END IF;
 
-    IF NEW.suspended_until IS DISTINCT FROM OLD.suspended_until THEN
+    IF NEW.suspended_until IS DISTINCT FROM OLD.suspended_until
+       AND NOT (
+         v_can_suspend
+         OR (NEW.status IS DISTINCT FROM OLD.status AND v_can_verify)
+       ) THEN
       RAISE EXCEPTION 'provider_suspension_readonly';
     END IF;
 
@@ -118,12 +140,13 @@ BEGIN
         OR NEW.vehicle_type IS DISTINCT FROM OLD.vehicle_type
         OR NEW.vehicle_plate IS DISTINCT FROM OLD.vehicle_plate
         OR NEW.vehicle_color IS DISTINCT FROM OLD.vehicle_color
-      ) THEN
+      ) AND NOT v_can_verify THEN
         RAISE EXCEPTION 'approved_vehicle_changes_require_admin_review';
       END IF;
 
       IF TG_TABLE_NAME = 'worker_profiles'
-         AND NEW.level IS DISTINCT FROM OLD.level THEN
+         AND NEW.level IS DISTINCT FROM OLD.level
+         AND NOT v_can_edit_profile THEN
         RAISE EXCEPTION 'approved_worker_level_change_requires_admin_review';
       END IF;
     END IF;
@@ -211,22 +234,33 @@ BEGIN
 END
 $function$;
 
-UPDATE public.worker_profiles AS wp
-SET rating_avg = COALESCE((
-      SELECT AVG(r.stars)::numeric(3,2)
-      FROM public.ratings AS r
-      WHERE r.ratee_id = wp.user_id
-    ), 0),
-    ratings_count = (
-      SELECT COUNT(*)::integer
-      FROM public.ratings AS r
-      WHERE r.ratee_id = wp.user_id
-    ),
-    completed_jobs = (
-      SELECT COUNT(*)::integer
-      FROM public.service_requests AS s
-      WHERE s.provider_id = wp.user_id
-        AND s.type = 'service'
-        AND s.status::text = 'completed'
-    ),
-    updated_at = now();
+-- Run the migration-owned backfill through the same transaction-local guard
+-- used by the trusted recalculation function above. The profile triggers are
+-- already installed, so an unguarded UPDATE would reject rows needing correction.
+DO $backfill$
+BEGIN
+  PERFORM set_config('mamnoon.allow_provider_metrics_update', 'true', true);
+
+  UPDATE public.worker_profiles AS wp
+  SET rating_avg = COALESCE((
+        SELECT AVG(r.stars)::numeric(3,2)
+        FROM public.ratings AS r
+        WHERE r.ratee_id = wp.user_id
+      ), 0),
+      ratings_count = (
+        SELECT COUNT(*)::integer
+        FROM public.ratings AS r
+        WHERE r.ratee_id = wp.user_id
+      ),
+      completed_jobs = (
+        SELECT COUNT(*)::integer
+        FROM public.service_requests AS s
+        WHERE s.provider_id = wp.user_id
+          AND s.type = 'service'
+          AND s.status::text = 'completed'
+      ),
+      updated_at = now();
+
+  PERFORM set_config('mamnoon.allow_provider_metrics_update', '', true);
+END
+$backfill$;

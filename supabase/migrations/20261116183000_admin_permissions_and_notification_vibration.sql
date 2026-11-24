@@ -2,8 +2,9 @@
 alter table public.user_push_tokens
   add column if not exists vibration_enabled boolean not null default true;
 
--- General managers receive operational administration access, while role grants
--- and owner-only regional controls remain protected by their dedicated checks.
+-- Keep the broad admin bypass limited to platform admins. General managers
+-- receive operational capabilities through explicit, scoped admin permissions;
+-- support inspection is handled separately by has_chat_moderation_access().
 create or replace function public.has_admin_access(p_user_id uuid)
 returns boolean
 language sql
@@ -13,15 +14,9 @@ set search_path to 'public'
 as $function$
   select case
     when auth.uid() is null or p_user_id is distinct from auth.uid() then false
-    else (
-      exists (
-        select 1 from public.user_roles
-        where user_id = auth.uid() and role in ('super_admin','admin')
-      )
-      or exists (
-        select 1 from public.staff_assignments
-        where user_id = auth.uid() and active = true and rank = 'general_manager'
-      )
+    else exists (
+      select 1 from public.user_roles
+      where user_id = auth.uid() and role in ('super_admin','admin')
     )
   end
 $function$;
@@ -71,17 +66,25 @@ as $function$
   end
 $function$;
 
--- General managers can open and reply to support conversations.
+-- General managers remain read-only even if they also hold a support/moderation assignment.
 drop policy if exists "Users open own support conversation" on public.support_conversations;
 create policy "Users open own support conversation"
 on public.support_conversations
 for insert
 to authenticated
 with check (
-  (user_id = (select auth.uid()) and created_by = (select auth.uid()))
-  or (
-    public.has_chat_moderation_access((select auth.uid()))
-    and created_by = (select auth.uid())
+  not exists (
+    select 1 from public.staff_assignments sa
+    where sa.user_id = (select auth.uid())
+      and sa.active = true
+      and sa.rank = 'general_manager'
+  )
+  and (
+    (user_id = (select auth.uid()) and created_by = (select auth.uid()))
+    or (
+      public.has_chat_moderation_access((select auth.uid()))
+      and created_by = (select auth.uid())
+    )
   )
 );
 
@@ -91,7 +94,13 @@ on public.support_messages
 for insert
 to authenticated
 with check (
-  sender_id = (select auth.uid())
+  not exists (
+    select 1 from public.staff_assignments sa
+    where sa.user_id = (select auth.uid())
+      and sa.active = true
+      and sa.rank = 'general_manager'
+  )
+  and sender_id = (select auth.uid())
   and exists (
     select 1
     from public.support_conversations c
