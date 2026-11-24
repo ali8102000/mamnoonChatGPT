@@ -16,6 +16,8 @@ export default function AdminCompanySettings() {
   const [welcomeVisualFile, setWelcomeVisualFile] = useState<File | null>(null);
   const [welcomeVisualPreview, setWelcomeVisualPreview] = useState("");
   const [welcomeVisualAnimated, setWelcomeVisualAnimated] = useState(false);
+  const [welcomeVisualSizePx, setWelcomeVisualSizePx] = useState(180);
+  const [removeWelcomeVisual, setRemoveWelcomeVisual] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -47,10 +49,10 @@ export default function AdminCompanySettings() {
         if (active) { setMessage("لا توجد صلاحية المدير الأعلى لهذا الحساب."); setLoading(false); }
         return;
       }
-      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated,driver_video_max_duration_seconds,service_icon_display_seconds,service_icon_image_size_px").eq("id", 1).maybeSingle();
+      const { data, error } = await (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated,company_welcome_visual_size_px,driver_video_max_duration_seconds,service_icon_display_seconds,service_icon_image_size_px").eq("id", 1).maybeSingle();
       if (active) {
         if (error) setMessage("تعذر تحميل اسم الشركة: " + error.message);
-        else { setName(data?.company_name ?? "شركة ممنون"); setLogoUrl(data?.company_logo_url ?? ""); setWelcomeMessage(data?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد."); setWelcomeVisualUrl(data?.company_welcome_visual_url ?? ""); setWelcomeVisualAnimated(data?.company_welcome_visual_animated === true); setDriverVideoMaxDurationSeconds(Number.isInteger(data?.driver_video_max_duration_seconds) ? data.driver_video_max_duration_seconds : 10); setServiceIconDisplaySeconds(Number.isInteger(data?.service_icon_display_seconds) ? data.service_icon_display_seconds : 2); setServiceIconImageSizePx(Number.isInteger(data?.service_icon_image_size_px) ? data.service_icon_image_size_px : 40); }
+        else { setName(data?.company_name ?? "شركة ممنون"); setLogoUrl(data?.company_logo_url ?? ""); setWelcomeMessage(data?.welcome_message ?? "مشوارك وخدمات بيتك، بمكان واحد."); setWelcomeVisualUrl(data?.company_welcome_visual_url ?? ""); setWelcomeVisualAnimated(data?.company_welcome_visual_animated === true); setWelcomeVisualSizePx(Number.isInteger(data?.company_welcome_visual_size_px) ? Math.max(80, Math.min(320, data.company_welcome_visual_size_px)) : 180); setDriverVideoMaxDurationSeconds(Number.isInteger(data?.driver_video_max_duration_seconds) ? data.driver_video_max_duration_seconds : 10); setServiceIconDisplaySeconds(Number.isInteger(data?.service_icon_display_seconds) ? data.service_icon_display_seconds : 2); setServiceIconImageSizePx(Number.isInteger(data?.service_icon_image_size_px) ? data.service_icon_image_size_px : 40); }
         setLoading(false);
       }
     })();
@@ -78,7 +80,7 @@ export default function AdminCompanySettings() {
       if (uploaded.error) { setMessage("تعذر رفع الشعار: " + uploaded.error.message); setSaving(false); return; }
       nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
     }
-    let nextWelcomeVisualUrl = welcomeVisualUrl;
+    let nextWelcomeVisualUrl = removeWelcomeVisual ? "" : welcomeVisualUrl;
     if (welcomeVisualFile) {
       if (!welcomeVisualFile.type.startsWith("image/") || welcomeVisualFile.size > 12 * 1024 * 1024) { setMessage("الصورة الرئيسية لازم تكون صورة وحجمها أقل من 12 ميغابايت."); setSaving(false); return; }
       const visualPath = `company-branding/welcome-${Date.now()}-${welcomeVisualFile.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
@@ -86,8 +88,8 @@ export default function AdminCompanySettings() {
       if (visualUpload.error) { setMessage("تعذر رفع الصورة الرئيسية: " + visualUpload.error.message); setSaving(false); return; }
       nextWelcomeVisualUrl = supabase.storage.from("app-visuals").getPublicUrl(visualPath).data.publicUrl;
     }
-    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, company_logo_url: nextLogoUrl || null, welcome_message: welcome, company_welcome_visual_url: nextWelcomeVisualUrl || null, company_welcome_visual_animated: welcomeVisualAnimated, driver_video_max_duration_seconds: driverVideoMaxDurationSeconds, service_icon_display_seconds: serviceIconDisplaySeconds, service_icon_image_size_px: serviceIconImageSizePx, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
-    if (!error) { setLogoUrl(nextLogoUrl); setLogoFile(null); setWelcomeVisualUrl(nextWelcomeVisualUrl); setWelcomeVisualFile(null); }
+    const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, company_logo_url: nextLogoUrl || null, welcome_message: welcome, company_welcome_visual_url: nextWelcomeVisualUrl || null, company_welcome_visual_animated: welcomeVisualAnimated, company_welcome_visual_size_px: welcomeVisualSizePx, driver_video_max_duration_seconds: driverVideoMaxDurationSeconds, service_icon_display_seconds: serviceIconDisplaySeconds, service_icon_image_size_px: serviceIconImageSizePx, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    if (!error) { setLogoUrl(nextLogoUrl); setLogoFile(null); setWelcomeVisualUrl(nextWelcomeVisualUrl); setWelcomeVisualFile(null); setRemoveWelcomeVisual(false); }
     setMessage(error ? "فشل الحفظ: " + error.message : "تم حفظ إعدادات هوية ممنون ورسالة الترحيب.");
     setSaving(false);
   };
@@ -112,9 +114,14 @@ export default function AdminCompanySettings() {
       {logoFile && <p className="text-xs text-muted-foreground">الصورة المختارة: {logoFile.name}</p>}
       <label className="block text-sm font-bold" htmlFor="company-welcome-visual">الصورة الرئيسية لشاشة بداية التطبيق ومناطق الهوية</label>
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border p-3">
-        {(welcomeVisualPreview || welcomeVisualUrl) ? <img src={welcomeVisualPreview || welcomeVisualUrl} alt="معاينة الصورة الرئيسية" className="h-28 w-44 rounded-xl bg-slate-950 object-cover" /> : <div className="grid h-28 w-44 place-items-center rounded-xl bg-slate-950 text-xs font-bold text-white">معاينة الصورة</div>}
-        <div className="flex flex-col gap-2"><label htmlFor="company-welcome-visual" className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">اختيار أو تبديل الصورة</label><input id="company-welcome-visual" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => setWelcomeVisualFile(e.target.files?.[0] ?? null)} className="sr-only" /><span className="text-[11px] text-muted-foreground">PNG أو JPG أو WEBP أو GIF متحرك · الحد الأعلى 12 ميغابايت</span></div>
+        {(!removeWelcomeVisual && (welcomeVisualPreview || welcomeVisualUrl)) ? <img src={welcomeVisualPreview || welcomeVisualUrl} alt="معاينة صورة بداية التطبيق" style={{ width: welcomeVisualSizePx, height: welcomeVisualSizePx }} className="max-w-full rounded-3xl bg-slate-950 object-cover" /> : <div style={{ width: welcomeVisualSizePx, height: welcomeVisualSizePx }} className="grid max-w-full place-items-center rounded-3xl bg-slate-100 text-xs font-bold text-slate-600">بدون صورة بداية</div>}
+        <div className="flex flex-col gap-2"><label htmlFor="company-welcome-visual" className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">{welcomeVisualFile ? "اختيار صورة أخرى" : "اختيار أو تبديل الصورة"}</label><input id="company-welcome-visual" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => { setWelcomeVisualFile(e.target.files?.[0] ?? null); setRemoveWelcomeVisual(false); }} className="sr-only" /><span className="text-[11px] text-muted-foreground">PNG أو JPG أو WEBP أو GIF متحرك · الحد الأعلى 12 ميغابايت</span>
+          {welcomeVisualUrl && !removeWelcomeVisual && <button type="button" onClick={() => { setWelcomeVisualFile(null); setRemoveWelcomeVisual(true); }} className="min-h-10 rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-bold text-red-700">حذف صورة البداية</button>}
+          {welcomeVisualFile && <span className="text-xs text-muted-foreground">الصورة الجديدة: {welcomeVisualFile.name}</span>}
+        </div>
       </div>
+      <label className="block text-sm font-bold" htmlFor="company-welcome-visual-size">حجم صورة البداية (80–320 بكسل)</label>
+      <div className="flex items-center gap-3"><input id="company-welcome-visual-size" type="range" min={80} max={320} step={10} value={welcomeVisualSizePx} onChange={(e) => setWelcomeVisualSizePx(Number(e.target.value))} className="w-full accent-primary" /><span className="min-w-16 text-sm font-bold tabular-nums">{welcomeVisualSizePx}px</span></div>
       <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 text-sm font-bold"><input type="checkbox" checked={welcomeVisualAnimated} onChange={(e) => setWelcomeVisualAnimated(e.target.checked)} className="h-5 w-5 accent-primary" /> تفعيل حركة تفاعلية ناعمة للشعار وصورة البداية عند فتح التطبيق</label>
       <label className="block text-sm font-bold" htmlFor="driver-video-max-duration">الحد الأعلى لمدة فيديو توثيق السيارة (ثانية)</label>
       <div className="flex items-center gap-3">
