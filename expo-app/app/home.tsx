@@ -379,7 +379,7 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
           </View>
           <Text style={{ color: palette.muted, fontSize: 13, textAlign: "right", marginTop: 6, lineHeight: 22, flexWrap: "wrap", includeFontPadding: false }}>{welcomeMessage}</Text>
-          {welcomeVisualUrl ? <ExpoImage source={{ uri: welcomeVisualUrl }} style={{ width: 150, height: 54, marginTop: 6, alignSelf: "flex-end", opacity: welcomeVisualAnimated ? 0.92 : 1 }} contentFit="contain" autoplay={welcomeVisualAnimated} /> : null}
+          
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
@@ -398,7 +398,7 @@ export default function HomeScreen() {
         {selectedRole === "customer" ? (
           <>
             <HomeCampaignPopups userId={user?.id ?? null} />
-            <CustomerHome userId={user?.id ?? null} />
+            <CustomerHome userId={user?.id ?? null} welcomeVisualUrl={welcomeVisualUrl} welcomeVisualAnimated={welcomeVisualAnimated} welcomeVisualSizePx={150} />
           </>
         ) : (
           <ProviderHome
@@ -468,7 +468,7 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
   );
 }
 
-function CustomerHome({ userId }: { userId: string | null }) {
+function CustomerHome({ userId, welcomeVisualUrl, welcomeVisualAnimated, welcomeVisualSizePx }: { userId: string | null; welcomeVisualUrl: string | null; welcomeVisualAnimated: boolean; welcomeVisualSizePx: number }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
@@ -646,6 +646,8 @@ function CustomerHome({ userId }: { userId: string | null }) {
       </TouchableOpacity>
       </View>
       {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
+
+      {welcomeVisualUrl ? <View style={{ alignSelf: "center", width: Math.min(welcomeVisualSizePx, Dimensions.get("window").width - 48), aspectRatio: 1, borderRadius: 22, overflow: "hidden", marginTop: 2 }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" autoplay={welcomeVisualAnimated} /></View> : null}
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 
