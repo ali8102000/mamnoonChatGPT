@@ -340,6 +340,28 @@ Deno.serve(async (req: Request) => {
         const { error } = await admin.from("worker_profiles").update(workerUpdates).eq("user_id", userId);
         if (error) return json({ error: "worker_profile_update_failed", detail: error.message }, 400);
       }
+      if (workerInput.service_ids !== undefined) {
+        if (!Array.isArray(workerInput.service_ids) || workerInput.service_ids.length > 50 ||
+            !workerInput.service_ids.every((value: unknown) => isUuid(value))) return json({ error: "invalid_worker_service_ids" }, 400);
+        const desired = [...new Set(workerInput.service_ids as string[])];
+        const { data: validServices, error: serviceLookupError } = desired.length
+          ? await admin.from("services").select("id").in("id", desired)
+          : { data: [], error: null };
+        if (serviceLookupError || (validServices ?? []).length !== desired.length) return json({ error: "unknown_worker_service" }, 400);
+        const { data: currentServices, error: currentServiceError } = await admin.from("worker_services").select("service_id").eq("worker_id", userId);
+        if (currentServiceError) return json({ error: "worker_services_load_failed" }, 500);
+        const current = (currentServices ?? []).map((row: any) => row.service_id);
+        const removeIds = current.filter((id: string) => !desired.includes(id));
+        const addIds = desired.filter((id: string) => !current.includes(id));
+        if (removeIds.length) {
+          const { error } = await admin.from("worker_services").delete().eq("worker_id", userId).in("service_id", removeIds);
+          if (error) return json({ error: "worker_services_remove_failed" }, 500);
+        }
+        if (addIds.length) {
+          const { error } = await admin.from("worker_services").insert(addIds.map((service_id: string) => ({ worker_id: userId, service_id })));
+          if (error) return json({ error: "worker_services_add_failed" }, 500);
+        }
+      }
 
       const partnerAllowed = ["business_name","phone","email","governorate_key","city","address","description","opening_hours","social_links","is_published","business_vertical","promotion_governorates","promotion_radius_km","promotion_latitude","promotion_longitude","latitude","longitude"];
       const partnerUpdates: Record<string, unknown> = {};
@@ -597,7 +619,7 @@ Deno.serve(async (req: Request) => {
       const staffScope = await getStaffScope();
       if (staffScope.scopeType === "governorate" && staffScope.scopeGovernorate !== governorate) throw new Error("permission_required:users.read");
       await requireScopedReadPermission("users.read", "has_user_moderation_access", staffScope.scopeType, staffScope.scopeGovernorate);
-      const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications, partnerBusinesses, partnerApplications] = await Promise.all([
+      const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications, partnerBusinesses, partnerApplications, workerServices, availableServices] = await Promise.all([
         admin.from("profiles").select("*").eq("id", id).maybeSingle(),
         admin.from("user_roles").select("role,created_at").eq("user_id", id),
         admin.from("user_blocks").select("*").eq("user_id", id).maybeSingle(),
@@ -612,8 +634,10 @@ Deno.serve(async (req: Request) => {
           .eq("user_id", id),
         admin.from("partner_business_profiles").select("*").eq("user_id", id),
         admin.from("partner_applications").select("*").eq("user_id", id).order("created_at", { ascending: false }),
+        admin.from("worker_services").select("service_id").eq("worker_id", id),
+        admin.from("services").select("id,name_ar").order("sort_order", { ascending: true }).limit(200),
       ]);
-      const failed = [profile, roles, block, driver, worker, transactions, requests, verifications, partnerBusinesses, partnerApplications].find((r: any) => r.error);
+      const failed = [profile, roles, block, driver, worker, transactions, requests, verifications, partnerBusinesses, partnerApplications, workerServices, availableServices].find((r: any) => r.error);
       if (failed?.error) return json({ error: "user_detail_load_failed" }, 500);
       const signedVerifications = await Promise.all((verifications.data ?? []).map(async (row: any) => {
         const sign = async (path: string | null) => {
@@ -642,6 +666,8 @@ Deno.serve(async (req: Request) => {
         verifications: signedVerifications,
         partnerBusinessProfiles: partnerBusinesses.data ?? [],
         partnerApplications: partnerApplications.data ?? [],
+        workerServices: (workerServices.data ?? []).map((row: any) => row.service_id),
+        availableServices: availableServices.data ?? [],
         ratings: ratings.error ? [] : ratings.data ?? [],
         ratings_error: !!ratings.error,
       });
