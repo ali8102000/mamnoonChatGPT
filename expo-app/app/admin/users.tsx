@@ -149,6 +149,7 @@ export default function AdminUsersScreen() {
 
   const saveProfile = async () => {
     if (!detail?.profile?.id || editName.trim().length < 2) { Alert.alert("تحقق من الاسم", "اكتب اسماً من حرفين على الأقل."); return; }
+    if (detail.profile?.email && !editEmail.trim()) { Alert.alert("البريد مطلوب", "لا يمكن حذف بريد تسجيل الدخول من هنا؛ اتركه كما هو أو أدخل بريداً صحيحاً."); return; }
     if (editEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmail.trim())) { Alert.alert("تحقق من البريد", "اكتب بريداً إلكترونياً صحيحاً أو اترك الحقل كما هو."); return; }
     if (detail.partnerBusinessProfiles?.length && detail.partnerApplications?.length &&
         (!editPartner.business_name?.trim() || !editPartner.phone?.trim() || !editPartner.governorate_key?.trim() || !editPartner.city?.trim() || !editPartner.address?.trim())) {
