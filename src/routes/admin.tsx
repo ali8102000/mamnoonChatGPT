@@ -941,11 +941,19 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
   const [serviceRadius, setServiceRadius] = useState(String(driver.service_radius_km ?? worker.service_radius_km ?? 30));
   const [teamSize, setTeamSize] = useState(String(worker.team_size ?? 1));
   const [businessName, setBusinessName] = useState(partner.business_name ?? "");
+  const [businessContact, setBusinessContact] = useState(partner.contact_name ?? "");
+  const [businessLicense, setBusinessLicense] = useState(partner.license_number ?? "");
   const [businessPhone, setBusinessPhone] = useState(partner.phone ?? "");
   const [businessEmail, setBusinessEmail] = useState(partner.email ?? "");
+  const [businessGovernorate, setBusinessGovernorate] = useState(partner.governorate_key ?? "");
   const [businessCity, setBusinessCity] = useState(partner.city ?? "");
   const [businessAddress, setBusinessAddress] = useState(partner.address ?? "");
   const [businessDescription, setBusinessDescription] = useState(partner.description ?? "");
+  const [businessVertical, setBusinessVertical] = useState(partner.business_vertical ?? "");
+  const [businessMallUnitType, setBusinessMallUnitType] = useState(partner.mall_unit_type ?? "shop");
+  const [businessLatitude, setBusinessLatitude] = useState(String(partner.latitude ?? partner.business_latitude ?? ""));
+  const [businessLongitude, setBusinessLongitude] = useState(String(partner.longitude ?? partner.business_longitude ?? ""));
+  const [businessPublished, setBusinessPublished] = useState(partner.is_published === true);
   const [saving, setSaving] = useState(false);
   async function saveProfile() {
     if (fullName.trim().length < 2) { toast.error("الاسم يجب أن يكون حرفين على الأقل"); return; }
@@ -974,8 +982,12 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
           bio: workerBio, level: workerLevel, service_radius_km: Number(serviceRadius), team_size: Number(teamSize),
         } } : {}),
         ...(user.partnerBusinessProfiles?.length || user.partnerApplications?.length ? { partner_profile: {
-          business_name: businessName, phone: businessPhone, email: businessEmail || null,
+          business_name: businessName, contact_name: businessContact, license_number: businessLicense,
+          phone: businessPhone, email: businessEmail || null, governorate_key: businessGovernorate || null,
           city: businessCity, address: businessAddress, description: businessDescription,
+          business_vertical: businessVertical || null, mall_unit_type: businessMallUnitType,
+          latitude: businessLatitude ? Number(businessLatitude) : null,
+          longitude: businessLongitude ? Number(businessLongitude) : null, is_published: businessPublished,
         } } : {}),
       } });
       onSave({ profile: updated.profile ?? {}, driverProfile: updated.driver_profile ?? {}, workerProfile: updated.worker_profile ?? {} });
@@ -1032,12 +1044,20 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
             <div className="font-bold text-xs">بيانات المنشأة / المطعم / الفندق / المتجر</div>
             <input value={businessName} onChange={e=>setBusinessName(e.target.value)} placeholder="اسم المنشأة" className="w-full glass rounded-lg p-2 text-xs"/>
             <div className="grid grid-cols-2 gap-2">
+              <input value={businessContact} onChange={e=>setBusinessContact(e.target.value)} placeholder="اسم مسؤول التواصل" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessLicense} onChange={e=>setBusinessLicense(e.target.value)} placeholder="رقم الإجازة" className="glass rounded-lg p-2 text-xs"/>
               <input value={businessPhone} onChange={e=>setBusinessPhone(e.target.value)} placeholder="هاتف المنشأة" className="glass rounded-lg p-2 text-xs"/>
               <input value={businessEmail} onChange={e=>setBusinessEmail(e.target.value)} placeholder="بريد المنشأة" className="glass rounded-lg p-2 text-xs"/>
+              <select value={businessGovernorate} onChange={e=>setBusinessGovernorate(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="">المحافظة</option>{Object.entries(GOVERNORATE_LABELS).filter(([key])=>key!=="unknown").map(([key,label])=><option key={key} value={key}>{label}</option>)}</select>
               <input value={businessCity} onChange={e=>setBusinessCity(e.target.value)} placeholder="المدينة" className="glass rounded-lg p-2 text-xs"/>
-              <input value={businessAddress} onChange={e=>setBusinessAddress(e.target.value)} placeholder="العنوان" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessVertical} onChange={e=>setBusinessVertical(e.target.value)} placeholder="نوع النشاط" className="glass rounded-lg p-2 text-xs"/>
+              <select value={businessMallUnitType} onChange={e=>setBusinessMallUnitType(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="shop">محل</option><option value="mall">مول</option><option value="kiosk">كشك</option></select>
+              <input value={businessLatitude} onChange={e=>setBusinessLatitude(e.target.value)} placeholder="خط العرض" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessLongitude} onChange={e=>setBusinessLongitude(e.target.value)} placeholder="خط الطول" className="glass rounded-lg p-2 text-xs"/>
             </div>
+            <input value={businessAddress} onChange={e=>setBusinessAddress(e.target.value)} placeholder="العنوان التفصيلي" className="w-full glass rounded-lg p-2 text-xs"/>
             <textarea value={businessDescription} onChange={e=>setBusinessDescription(e.target.value)} placeholder="وصف المنشأة" className="w-full glass rounded-lg p-2 text-xs"/>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={businessPublished} onChange={e=>setBusinessPublished(e.target.checked)}/> المنشأة منشورة للزبائن</label>
           </div>}
           <button onClick={() => void saveProfile()} disabled={saving} className="w-full rounded-xl bg-primary text-primary-foreground py-2 text-sm font-bold disabled:opacity-50">{saving ? "جارٍ الحفظ..." : "حفظ جميع التعديلات"}</button>
         </div>
