@@ -117,11 +117,11 @@ Deno.serve(async (req) => {
       : `قراءات حديثة جزئية فقط: ${succeeded} من ${CITIES.length} محافظة؛ يمنع التفعيل الشامل`,
   }).eq("governorate_key", "all");
   return Response.json({
-    ok: succeeded === CITIES.length,
+    ok: allFresh,
     provider: "WeatherAPI",
     checked: results.length,
     succeeded,
     failed: results.length - succeeded,
     results,
-  }, { status: succeeded ? 200 : 207 });
+  }, { status: allFresh ? 200 : 207 });
 });
