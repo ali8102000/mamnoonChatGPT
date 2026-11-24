@@ -360,6 +360,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "update_profile") {
+      await requireAdmin();
       if (!isUuid(body.user_id) ||
           typeof body.full_name !== "string" ||
           body.full_name.trim().length < 2 ||
@@ -410,6 +411,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "update_provider_name") {
+      await requireAdmin();
       if (!isUuid(body.user_id) || typeof body.full_name !== "string" ||
           body.full_name.trim().length < 2 || body.full_name.trim().length > 80) {
         return json({ error: "invalid_provider_name" }, 400);
