@@ -141,7 +141,7 @@ export default function AdminPeakWeatherControl() {
         <div className="font-black">حالة القراءات</div>
         <p className="text-xs text-muted-foreground">الطقس: {weather?.is_fresh ? (weather.summary ? `قراءات حديثة لـ ${weather.fresh_count} من ${weather.total_count} محافظة` : "قراءة حديثة") : "لا توجد قراءة حديثة موثوقة"}{weather?.observed_at ? " · " + new Date(weather.observed_at).toLocaleString("ar-IQ") : ""}</p>
         {weather && <p className="text-xs">متوسط الحرارة: {weather.temperature_c ?? "—"}° · متوسط المطر: {weather.rain_mm ?? "—"} ملم · {weather.condition_text ?? ""}</p>}
-        {Array.isArray(weather?.alerts) && weather.alerts.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-300">تنبيهات الطقس الرسمية من المزوّد: {weather.alerts.length}</p>}
+        {Array.isArray(weather?.alerts) && weather.alerts.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-300">تنبيهات الطقس من المزوّد: {weather.alerts.length}</p>}
         {weather?.error && <p className="text-xs text-destructive">{weather.error}</p>}
         <p className="text-xs font-bold">المرور المباشر من Google Routes</p>
         <p className="text-xs text-muted-foreground">حالة العينات: {traffic?.is_fresh ? "بيانات ازدحام حديثة" : "بانتظار عيّنات طريق فعلية"} · عدد العينات: {traffic?.sample_count ?? 0}</p>
