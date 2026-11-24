@@ -304,6 +304,7 @@ export default function NewRequest() {
   const [tripType, setTripType] = useState<"one_way" | "round_trip" | "second_trip" | "stop">("one_way");
   const [extraMinutes, setExtraMinutes] = useState(0);
   const [placeQuery, setPlaceQuery] = useState("");
+  const [serviceMapExpanded, setServiceMapExpanded] = useState(false);
   const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ id: string; text: string; address?: string; coords?: { lat: number; lng: number }; governorateKey?: string }>>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [placeSearchError, setPlaceSearchError] = useState<string | null>(null);
@@ -1055,6 +1056,7 @@ export default function NewRequest() {
       moveMap({ ...coords, latitudeDelta: destinationZoom, longitudeDelta: destinationZoom });
       setPlaceQuery("");
       setPlaceSuggestions([]);
+      setServiceMapExpanded(false);
 
       // Nearby landmarks are fetched after the native pin has already moved.
       const nearbyRequest = ++nearbySelectionRef.current;
@@ -1938,38 +1940,123 @@ export default function NewRequest() {
         </View>
       )}
 
-      <View style={[styles.mapContainer, { height: window.height }]}>
-        <MapView
-          ref={mapRef}
-          style={styles.map}
-          provider={PROVIDER_GOOGLE}
-          initialRegion={region}
-          onPanDrag={() => { userPannedMapRef.current = true; }}
-          onRegionChangeComplete={handleRegionChangeComplete}
-          showsUserLocation
-          showsMyLocationButton={false}
-          loadingEnabled
-        >
-          {nearbyWorkers.map((worker) => (
-            <Marker
-              key={worker.pin_id}
-              coordinate={{ latitude: worker.lat, longitude: worker.lng }}
-              title="فني قريب"
-              anchor={{ x: 0.5, y: 0.5 }}
-              flat
-              rotation={Number.isFinite(worker.heading) ? Number(worker.heading) : 0}
-            >
-              <View style={styles.taxiNearbyMarker}><Text style={styles.taxiNearbyMarkerText}>🔧</Text></View>
-            </Marker>
-          ))}
-        </MapView>
+      <View style={[styles.mapContainer, { height: Math.min(window.width - 32, 340) }]}>
+        {!serviceMapExpanded && (
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={region}
+            onPanDrag={() => { userPannedMapRef.current = true; }}
+            onRegionChangeComplete={handleRegionChangeComplete}
+            showsUserLocation
+            showsMyLocationButton={false}
+            loadingEnabled
+          >
+            {nearbyWorkers.map((worker) => (
+              <Marker
+                key={worker.pin_id}
+                coordinate={{ latitude: worker.lat, longitude: worker.lng }}
+                title="فني قريب"
+                anchor={{ x: 0.5, y: 0.5 }}
+                flat
+                rotation={Number.isFinite(worker.heading) ? Number(worker.heading) : 0}
+              >
+                <View style={styles.taxiNearbyMarker}><Text style={styles.taxiNearbyMarkerText}>🔧</Text></View>
+              </Marker>
+            ))}
+          </MapView>
+        )}
         <View pointerEvents="none" style={styles.mapCenterPin}><MapCenterPin /></View>
         <Text style={styles.mapHint}>
           {mapMode === "pickup"
             ? "حرّك الخريطة حتى تصبح النقطة تحت الدبوس"
             : "حرّك الخريطة حتى تصبح الوجهة تحت الدبوس"}
         </Text>
+        <TouchableOpacity
+          onPress={() => setServiceMapExpanded(true)}
+          style={styles.mapExpandButton}
+          accessibilityRole="button"
+          accessibilityLabel="تكبير الخريطة"
+        >
+          <Text style={styles.mapExpandButtonText}>⛶ تكبير</Text>
+        </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={serviceMapExpanded}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setServiceMapExpanded(false)}
+      >
+        <View style={styles.expandedMapScreen}>
+          <MapView
+            ref={mapRef}
+            style={StyleSheet.absoluteFillObject}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={region}
+            onPanDrag={() => { userPannedMapRef.current = true; }}
+            onRegionChangeComplete={handleRegionChangeComplete}
+            showsUserLocation
+            showsMyLocationButton={false}
+            loadingEnabled
+          >
+            {nearbyWorkers.map((worker) => (
+              <Marker
+                key={worker.pin_id}
+                coordinate={{ latitude: worker.lat, longitude: worker.lng }}
+                title="فني قريب"
+                anchor={{ x: 0.5, y: 0.5 }}
+                flat
+                rotation={Number.isFinite(worker.heading) ? Number(worker.heading) : 0}
+              >
+                <View style={styles.taxiNearbyMarker}><Text style={styles.taxiNearbyMarkerText}>🔧</Text></View>
+              </Marker>
+            ))}
+          </MapView>
+          <View pointerEvents="none" style={styles.mapCenterPin}><MapCenterPin /></View>
+          <View style={styles.expandedMapSearchWrap}>
+            <View style={styles.expandedMapSearchRow}>
+              <TextInput
+                value={placeQuery}
+                onChangeText={setPlaceQuery}
+                placeholder={activeGovernorate ? `ابحث عن مكان داخل ${activeGovernorate.name}...` : "ابحث عن مكان"}
+                placeholderTextColor={palette.muted}
+                style={styles.expandedMapSearchInput}
+                returnKeyType="search"
+                autoFocus
+              />
+              <TouchableOpacity onPress={() => setServiceMapExpanded(false)} style={styles.expandedMapClose}>
+                <Text style={styles.expandedMapCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            {searchingPlaces && <ActivityIndicator color={palette.brand} style={{ marginTop: 8 }} />}
+            {!!placeSearchError && <Text style={styles.mapErrorText}>{placeSearchError}</Text>}
+            {placeSuggestions.length > 0 && (
+              <View style={styles.expandedMapSuggestions}>
+                <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {placeSuggestions.map((item) => (
+                    <TouchableOpacity key={item.id} style={styles.suggestionItem} onPress={() => void choosePlaceSuggestion(item)}>
+                      <Text style={styles.suggestionTitle}>{item.text}</Text>
+                      {!!item.address && item.address !== item.text && <Text style={styles.suggestionAddress}>{item.address}</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+          <TouchableOpacity
+            onPress={locateMe}
+            disabled={locationLoading}
+            style={styles.expandedMapLocate}
+          >
+            {locationLoading ? <ActivityIndicator color={palette.brand} /> : <Text style={styles.expandedMapLocateText}>◎ موقعي</Text>}
+          </TouchableOpacity>
+          <View style={styles.expandedMapBottomHint}>
+            <Text style={styles.expandedMapBottomText}>حرّك الخريطة أو كبّرها بإصبعين لتحديد الموقع بدقة</Text>
+          </View>
+        </View>
+      </Modal>
 
       <Text style={styles.label}>وصف نقطة الانطلاق</Text>
       <TextInput
@@ -2433,7 +2520,20 @@ const styles = StyleSheet.create({
   mapModeTextActive: { color: palette.white },
   locateButton: { paddingHorizontal: 14, minHeight: 46, borderRadius: radius.md, backgroundColor: palette.gold, minWidth: 62, alignItems: "center", justifyContent: "center" },
   locateButtonText: { color: palette.brandDeep, fontWeight: "900", fontSize: 12 },
-  mapContainer: { height: 560, borderRadius: 0, overflow: "hidden", marginTop: 8, marginHorizontal: -16, borderWidth: 0 },
+  mapContainer: { width: "100%", alignSelf: "center", borderRadius: 22, overflow: "hidden", marginTop: 8, marginHorizontal: 0, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.surface, elevation: 3 },
+  mapExpandButton: { position: "absolute", top: 12, right: 12, minHeight: 38, paddingHorizontal: 13, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.96)", borderWidth: 1, borderColor: palette.gold, alignItems: "center", justifyContent: "center", elevation: 5 },
+  mapExpandButtonText: { color: palette.brand, fontSize: 12, fontWeight: "900" },
+  expandedMapScreen: { flex: 1, backgroundColor: "#e5edf5" },
+  expandedMapSearchWrap: { position: "absolute", top: 52, left: 14, right: 14, zIndex: 20 },
+  expandedMapSearchRow: { minHeight: 52, borderRadius: 16, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, elevation: 8 },
+  expandedMapSearchInput: { flex: 1, minWidth: 0, color: palette.ink, textAlign: "right", fontSize: 14, fontWeight: "700", paddingVertical: 10 },
+  expandedMapClose: { width: 36, height: 36, borderRadius: 12, backgroundColor: palette.canvas, alignItems: "center", justifyContent: "center", marginLeft: 6 },
+  expandedMapCloseText: { color: palette.ink, fontSize: 26, fontWeight: "700", lineHeight: 30 },
+  expandedMapSuggestions: { maxHeight: 260, marginTop: 8, borderRadius: 16, overflow: "hidden", backgroundColor: palette.surface, elevation: 8 },
+  expandedMapLocate: { position: "absolute", right: 16, bottom: 38, minHeight: 46, paddingHorizontal: 15, borderRadius: 15, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.gold, justifyContent: "center", elevation: 7 },
+  expandedMapLocateText: { color: palette.brand, fontWeight: "900", fontSize: 12 },
+  expandedMapBottomHint: { position: "absolute", bottom: 40, left: 16, right: 90, alignItems: "center" },
+  expandedMapBottomText: { color: palette.white, backgroundColor: palette.brandDeep, borderRadius: 12, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 8, fontSize: 10, fontWeight: "800", textAlign: "center" },
   map: { flex: 1 },
   mapCenterPin: { position: "absolute", left: "50%", top: "50%", marginLeft: -21, marginTop: -48, zIndex: 5 },
   mapHint: { position: "absolute", bottom: 10, alignSelf: "center", backgroundColor: palette.brandDeep, color: palette.white, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, fontSize: 11, overflow: "hidden" },

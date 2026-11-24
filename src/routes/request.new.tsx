@@ -1468,6 +1468,7 @@ function NewRequest() {
       {/* Map location for service */}
       <div className="mt-4 mb-2 text-sm font-bold text-muted-foreground">📍 موقع تقديم الخدمة</div>
       <MapPicker
+        height={300}
         key={gov?.key ?? "no-governorate"}
         value={pickupCoords}
         accent="#0284c7"

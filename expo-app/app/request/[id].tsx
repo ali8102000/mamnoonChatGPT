@@ -264,6 +264,12 @@ export default function RequestDetail() {
   const [ratingReasons, setRatingReasons] = useState<string[]>([]);
   const [ratingComment, setRatingComment] = useState("");
   const [showRating, setShowRating] = useState(false);
+  const [ratingBusy, setRatingBusy] = useState(false);
+  const [showCancelSheet, setShowCancelSheet] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelOtherReason, setCancelOtherReason] = useState("");
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const [showReportForm, setShowReportForm] = useState(false);
   const [reportReason, setReportReason] = useState("مشكلة أثناء الرحلة أو الخدمة");
   const [reportDetails, setReportDetails] = useState("");
@@ -317,7 +323,7 @@ export default function RequestDetail() {
     : null;
   const urgentOfferFlash = activeOfferSeconds !== null && activeOfferSeconds <= 10 && activeOfferSeconds % 2 === 0;
 
-  const openTaxiNavigation = useCallback((app: "google" | "waze") => {
+  const openTaxiNavigation = useCallback((app: "google" | "waze" | "darbuna") => {
     if (!request) return;
     const customerTaxiDestination = request.type === "taxi" && isCustomer &&
       request.dest_lat != null && request.dest_lng != null;
@@ -337,7 +343,9 @@ export default function RequestDetail() {
     const destination = `${latitude},${longitude}`;
     const url = app === "google"
       ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate`
-      : `https://waze.com/ul?ll=${encodeURIComponent(destination)}&navigate=yes`;
+      : app === "waze"
+        ? `https://waze.com/ul?ll=${encodeURIComponent(destination)}&navigate=yes`
+        : `https://map.darbuna.app/pin/${latitude},${longitude},17z`;
 
     void Linking.openURL(url).catch((error) => {
       console.warn("[taxi navigation] unable to open navigation app:", error);
@@ -349,6 +357,7 @@ export default function RequestDetail() {
     Alert.alert("تحديد المسار", request?.type === "service" ? "اختَر التطبيق لفتح مسار موقع العمل." : "اختَر التطبيق لفتح مسار الزبون أو الوجهة.", [
       { text: "خرائط Google", onPress: () => openTaxiNavigation("google") },
       { text: "Waze", onPress: () => openTaxiNavigation("waze") },
+      { text: "دربونة", onPress: () => openTaxiNavigation("darbuna") },
       { text: "إلغاء", style: "cancel" },
     ]);
   }, [openTaxiNavigation, request?.type]);
@@ -1306,40 +1315,84 @@ export default function RequestDetail() {
     }
   }
 
-  async function cancelRequest() {
-    const customerReasons = ["طلبت بالخطأ", "لم أعد بحاجة للخدمة", "تغيير الموعد", "الموقع أو التفاصيل غير صحيحة"];
-    const providerReasons = ["الزبون لا يرد", "عطل بالمركبة أو المعدات", "ظرف طارئ", "الموقع غير صحيح"];
-    const reasons = isCustomer ? customerReasons : providerReasons;
-    const title = isProvider ? "اختر سبب الاعتذار عن الطلب" : "اختر سبب إلغاء الطلب";
-    const submitReason = async (reason: string) => {
-      const { error } = await (supabase as any).rpc("cancel_service_request", { _request_id: id, _reason: reason });
+  const customerCancelReasons = [
+    "طلبت بالخطأ",
+    "لم أعد بحاجة إلى الرحلة أو الخدمة",
+    "تغيّر الموعد أو الخطة",
+    "اخترت عنواناً أو موقعاً غير صحيح",
+    "تفاصيل الطلب تحتاج إلى تعديل",
+    "وجدت مقدم خدمة آخر",
+    "تأخر مقدم الخدمة عن الموعد",
+    "سبب شخصي أو ظرف طارئ",
+    "سبب آخر",
+  ];
+  const providerCancelReasons = [
+    "تعذّر التواصل مع الزبون",
+    "موقع الاستلام غير دقيق",
+    "عطل في المركبة أو المعدات",
+    "ازدحام أو إغلاق طريق",
+    "تفاصيل الطلب لا تطابق الخدمة",
+    "ظرف طارئ خارج عن الإرادة",
+    "تعذّر الوصول بأمان",
+    "سبب آخر",
+  ];
+
+  function cancelRequest() {
+    setCancelReason("");
+    setCancelOtherReason("");
+    setCancelError("");
+    setShowCancelSheet(true);
+  }
+
+  async function submitCancellation() {
+    if (!request || cancelBusy) return;
+    const reason = cancelReason === "سبب آخر" ? cancelOtherReason.trim() : cancelReason;
+    if (reason.length < 2) {
+      setCancelError(cancelReason === "سبب آخر" ? "اكتب سبباً مختصراً حتى نكمل الإلغاء." : "اختَر سبب الإلغاء أولاً.");
+      return;
+    }
+    setCancelBusy(true);
+    setCancelError("");
+    try {
+      const { data, error } = await (supabase as any).rpc("cancel_service_request", {
+        _request_id: id,
+        _reason: reason,
+      });
       if (error) {
-        const message = error.message?.includes("provider_already_arrived")
-          ? "الفني أكد وصوله للموقع، لذلك ما عاد الإلغاء متاحاً من التطبيق."
-          : error.message?.includes("service_already_started")
-            ? "بدأ الفني تنفيذ العمل، لذلك ما عاد الإلغاء متاحاً."
-            : error.message?.includes("forbidden")
-              ? "ما عندك صلاحية لإلغاء هذا الطلب."
-              : error.message?.includes("cancellation_reason_required")
-                ? "لازم تختار سبب الإلغاء أولاً."
-                : error.message || "حاول مرة ثانية.";
-        Alert.alert("تعذر الإلغاء", message);
-      } else {
-        await loadRequest();
-        router.back();
+        const raw = String(error.message || error.details || error.code || "");
+        const message = raw.includes("provider_already_arrived")
+          ? "مقدم الخدمة أكد وصوله، لذلك لا يمكن إلغاء الطلب من هذه المرحلة."
+          : raw.includes("service_already_started")
+            ? "بدأ تنفيذ الخدمة بالفعل، ولا يمكن إلغاؤها من التطبيق."
+            : raw.includes("taxi_trip_already_started")
+              ? "بدأت الرحلة بالفعل، ولا يمكن إلغاؤها بعد الانطلاق."
+              : raw.includes("taxi_cancellation_disabled_after_acceptance")
+                ? "لا يمكن إلغاء الرحلة بعد بدء السائق بها. إذا لم يصل بعد، حدّث الطلب وحاول مرة أخرى."
+                : raw.includes("request_finished")
+                  ? "هذا الطلب منتهٍ أو ملغي مسبقاً."
+                  : raw.includes("forbidden") || raw.includes("unauthorized")
+                    ? "تعذّر التحقق من صلاحيتك. سجّل الدخول من جديد وحاول."
+                    : raw.includes("cancellation_reason_required")
+                      ? "اختَر سبب الإلغاء أولاً."
+                      : raw.includes("request_not_found")
+                        ? "لم نعثر على هذا الطلب. حدّث الصفحة وحاول مرة أخرى."
+                        : "تعذّر تنفيذ الإلغاء حالياً. تأكد من اتصال الإنترنت وحاول مرة أخرى.";
+        setCancelError(message);
+        return;
       }
-    };
-    const showMore = () => Alert.alert(title, "اختر السبب المناسب. لا يمكن إتمام الإلغاء دون اختيار سبب.", [
-      { text: reasons[2], style: "destructive", onPress: () => void submitReason(reasons[2]) },
-      { text: reasons[3], style: "destructive", onPress: () => void submitReason(reasons[3]) },
-      { text: "رجوع", onPress: () => showFirst() },
-    ]);
-    const showFirst = () => Alert.alert(title, "اختر السبب المناسب. لا يمكن إتمام الإلغاء دون اختيار سبب.", [
-      { text: reasons[0], style: "destructive", onPress: () => void submitReason(reasons[0]) },
-      { text: reasons[1], style: "destructive", onPress: () => void submitReason(reasons[1]) },
-      { text: "المزيد من الأسباب", onPress: showMore },
-    ]);
-    showFirst();
+      setShowCancelSheet(false);
+      await loadRequest();
+      Alert.alert(
+        "تم الإلغاء بنجاح",
+        data === "released"
+          ? "تم فك ارتباطك بالطلب وإعادته للبحث عن مقدم خدمة آخر."
+          : "تم إلغاء الطلب وحفظ السبب وإبلاغ الطرف المعني.",
+      );
+    } catch (error: any) {
+      setCancelError(error?.message || "حدث خطأ غير متوقع. حاول مرة أخرى.");
+    } finally {
+      setCancelBusy(false);
+    }
   }
 
   async function applyRequestUrgency(multiplier: 2 | 3) {
@@ -1377,25 +1430,36 @@ export default function RequestDetail() {
   }
 
   async function submitRating() {
-    if (rating === 0 || !user) return;
+    if (rating === 0 || !user || ratingBusy) return;
     if (Object.values(ratingCriteria).some((value) => value < 1)) { Alert.alert("أكمل التقييم", "قيّم التعامل والالتزام والجودة كلٌّ على حدة."); return; }
     const otherId = isCustomer ? request?.provider_id : request?.customer_id;
     if (!otherId) return;
-    const { error } = await (supabase as any).from("ratings").insert({
-      request_id: id,
-      rater_id: user.id,
-      ratee_id: otherId,
-      stars: rating,
-      professionalism: ratingCriteria.professionalism,
-      punctuality: ratingCriteria.punctuality,
-      quality: ratingCriteria.quality,
-      reasons: ratingReasons,
-      comment: ratingComment.trim() || null,
-    });
-    if (error) Alert.alert("تعذر إرسال التقييم", error.message?.includes("rating_already_given_this_week") ? "لقد تم تقييم هذا الشخص من قبلك خلال آخر 7 أيام." : error.message);
-    else {
-      setShowRating(false);
-      router.back();
+    setRatingBusy(true);
+    try {
+      const { error } = await (supabase as any).from("ratings").insert({
+        request_id: id,
+        rater_id: user.id,
+        ratee_id: otherId,
+        stars: rating,
+        professionalism: ratingCriteria.professionalism,
+        punctuality: ratingCriteria.punctuality,
+        quality: ratingCriteria.quality,
+        reasons: ratingReasons.slice(0, 12),
+        comment: ratingComment.trim() || null,
+      });
+      if (error) {
+        Alert.alert("تعذر حفظ التقييم", error.message?.includes("rating_already_given_this_week")
+          ? "قيّمت هذا المستخدم خلال آخر 7 أيام."
+          : error.message?.includes("row-level security")
+            ? "لا يمكن تقييم الطلب إلا بعد اكتماله ومن أحد طرفيه."
+            : "تعذّر حفظ التقييم. تحقق من الاتصال وحاول مرة أخرى.");
+      } else {
+        setShowRating(false);
+        Alert.alert("شكراً لتقييمك", "تم حفظ تقييمك وربطه بهذا الطلب.");
+        router.back();
+      }
+    } finally {
+      setRatingBusy(false);
     }
   }
 
@@ -1928,7 +1992,6 @@ export default function RequestDetail() {
             request.status !== "cancelled" &&
             request.status !== "completed" &&
             request.status !== "in_progress" &&
-            !(request.type === "taxi" && request.status === "accepted") &&
             !request.provider_arrived_at && (
               <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: palette.danger }]}
@@ -1968,41 +2031,99 @@ export default function RequestDetail() {
           <View style={styles.chatClosed}><Text style={styles.chatClosedTitle}>{request.status === "completed" ? "اكتمل الطلب" : "تم إلغاء الطلب"}</Text><Text style={styles.chatClosedText}>انتهت المحادثة وتم إخفاء بيانات الطرف الآخر.</Text></View>
         )}
         </ScrollView>
-        {showRating && (
-          <View style={styles.ratingOverlay}>
-            <View style={styles.ratingCard}>
-              <Text style={styles.ratingTitle}>{isProvider ? "قيّم الزبون" : request.type === "taxi" ? "قيّم السائق" : "قيّم الفني"}</Text>
-              <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 10 }}>اختَر عدد النجوم بنفسك</Text>
-              <View style={styles.starsRow}>
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <TouchableOpacity key={s} onPress={() => setRating(s)}>
-                    <Text style={[styles.star, s <= rating && styles.starActive]}>★</Text>
-                  </TouchableOpacity>
-                ))}
+        {showCancelSheet && (
+          <View style={styles.cancelOverlay}>
+            <View style={styles.cancelCard}>
+              <View style={styles.feedbackHandle} />
+              <View style={styles.feedbackHeader}>
+                <View style={styles.cancelIconBadge}><Text style={{ fontSize: 22 }}>✦</Text></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.feedbackEyebrow}>MAMNOON • REQUEST CONTROL</Text>
+                  <Text style={styles.cancelTitle}>{isCustomer ? (request.type === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب") : "الاعتذار عن الطلب"}</Text>
+                  <Text style={styles.feedbackSubtitle}>اختَر السبب الأقرب حتى نوثّق الإجراء ونحسّن الخدمة</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowCancelSheet(false)} style={styles.feedbackClose}><Text style={styles.feedbackCloseText}>×</Text></TouchableOpacity>
               </View>
-              <View style={{ width: "100%", gap: 10, marginBottom: 14 }}>
-                {ratingCriteriaOptions.map((criterion) => <View key={criterion.key} style={{ gap: 4 }}>
-                  <Text style={{ color: palette.ink, fontSize: 11, fontWeight: "900", textAlign: "right" }}>{criterion.label}</Text>
-                  <View style={styles.starsRow}>
-                    {[1, 2, 3, 4, 5].map((score) => <TouchableOpacity key={score} onPress={() => setRatingCriteria((current) => ({ ...current, [criterion.key]: score }))}><Text style={[styles.star, score <= ratingCriteria[criterion.key] && styles.starActive]}>★</Text></TouchableOpacity>)}
-                  </View>
-                </View>)}
-              </View>
-              <Text style={{ color: palette.ink, fontSize: 13, fontWeight: "900", textAlign: "right", alignSelf: "stretch", marginBottom: 8 }}>أسباب التقييم (اختياري – تقدر تختار أكثر من سبب)</Text>
-              <View style={{ width: "100%", flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
-                {ratingReasonOptions.map((reason) => {
-                  const selected = ratingReasons.includes(reason);
+              <ScrollView style={styles.feedbackOptionsScroll} contentContainerStyle={styles.feedbackOptions} showsVerticalScrollIndicator={false}>
+                {(isCustomer ? customerCancelReasons : providerCancelReasons).map((reason, index) => {
+                  const selected = cancelReason === reason;
                   return (
-                    <TouchableOpacity key={reason} onPress={() => setRatingReasons((current) => selected ? current.filter((item) => item !== reason) : [...current, reason])} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: selected ? palette.brand : palette.line, backgroundColor: selected ? palette.brandSoft : palette.surface }}>
-                      <Text style={{ color: selected ? palette.brand : palette.ink, fontSize: 11, fontWeight: "800" }}>{selected ? "✓ " : ""}{reason}</Text>
+                    <TouchableOpacity key={reason} onPress={() => { setCancelReason(reason); setCancelError(""); }} activeOpacity={0.82} style={[styles.reasonChoice, selected && styles.reasonChoiceSelected]}>
+                      <View style={[styles.reasonIndex, selected && styles.reasonIndexSelected]}><Text style={[styles.reasonIndexText, selected && styles.reasonIndexTextSelected]}>{selected ? "✓" : String(index + 1).padStart(2, "0")}</Text></View>
+                      <Text style={[styles.reasonChoiceText, selected && styles.reasonChoiceTextSelected]}>{reason}</Text>
+                      <View style={[styles.reasonRadio, selected && styles.reasonRadioSelected]}>{selected && <View style={styles.reasonRadioDot} />}</View>
                     </TouchableOpacity>
                   );
                 })}
+                {cancelReason === "سبب آخر" && (
+                  <TextInput value={cancelOtherReason} onChangeText={(value) => { setCancelOtherReason(value.slice(0, 280)); setCancelError(""); }} placeholder="اكتب سبب الإلغاء..." placeholderTextColor="#94A3B8" multiline maxLength={280} style={styles.feedbackNoteInput} />
+                )}
+                {!!cancelError && <Text style={styles.feedbackError}>{cancelError}</Text>}
+              </ScrollView>
+              <View style={styles.feedbackFooter}>
+                <TouchableOpacity onPress={() => setShowCancelSheet(false)} disabled={cancelBusy} style={styles.feedbackBackButton}><Text style={styles.feedbackBackText}>رجوع</Text></TouchableOpacity>
+                <TouchableOpacity onPress={submitCancellation} disabled={cancelBusy || !cancelReason || (cancelReason === "سبب آخر" && cancelOtherReason.trim().length < 2)} style={[styles.feedbackConfirmButton, (cancelBusy || !cancelReason || (cancelReason === "سبب آخر" && cancelOtherReason.trim().length < 2)) && { opacity: 0.5 }]}>
+                  <Text style={styles.feedbackConfirmText}>{cancelBusy ? "جارٍ الإلغاء..." : "تأكيد الإلغاء"}</Text>
+                </TouchableOpacity>
               </View>
-              <TextInput value={ratingComment} onChangeText={setRatingComment} placeholder="ملاحظة اختيارية" placeholderTextColor="#94a3b8" multiline maxLength={500} style={[styles.reportInput, { width: "100%", minHeight: 64, marginBottom: 14 }]} />
-              <TouchableOpacity style={[styles.ratingSubmit, rating === 0 && { opacity: 0.45 }]} disabled={rating === 0} onPress={submitRating}>
-                <Text style={styles.ratingSubmitText}>إرسال التقييم</Text>
-              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        {showRating && (
+          <View style={styles.ratingOverlay}>
+            <View style={styles.ratingCard}>
+              <View style={styles.feedbackHandle} />
+              <Text style={styles.feedbackEyebrow}>MAMNOON • VERIFIED FEEDBACK</Text>
+              <Text style={styles.ratingTitle}>{isProvider ? "قيّم تجربة الزبون" : request.type === "taxi" ? "قيّم رحلتك" : "قيّم الخدمة"}</Text>
+              <Text style={styles.ratingSubtitle}>رأيك يساعد الناس تختار بثقة ويرفع جودة مجتمع ممنون</Text>
+              <View style={styles.ratingHero}>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <TouchableOpacity key={s} onPress={() => setRating(s)} activeOpacity={0.75} style={[styles.starTap, s <= rating && styles.starTapActive]}>
+                      <Text style={[styles.star, s <= rating && styles.starActive]}>★</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.ratingScore}>{rating ? ["", "ضعيف", "مقبول", "جيد", "جيد جداً", "ممتاز"][rating] : "اختَر تقييمك من نجمة إلى خمس نجوم"}</Text>
+              </View>
+              <ScrollView style={styles.ratingScroll} contentContainerStyle={styles.ratingScrollContent} showsVerticalScrollIndicator={false}>
+                <View style={styles.criteriaPanel}>
+                  {ratingCriteriaOptions.map((criterion) => (
+                    <View key={criterion.key} style={styles.criteriaRow}>
+                      <Text style={styles.criteriaLabel}>{criterion.label}</Text>
+                      <View style={styles.criteriaStars}>
+                        {[1, 2, 3, 4, 5].map((score) => (
+                          <TouchableOpacity key={score} onPress={() => setRatingCriteria((current) => ({ ...current, [criterion.key]: score }))} style={styles.criteriaStarTap}>
+                            <Text style={[styles.criteriaStar, score <= ratingCriteria[criterion.key] && styles.criteriaStarActive]}>★</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.reasonHeader}>
+                  <Text style={styles.reasonHeaderTitle}>شنو أكثر شي ميّز التجربة؟</Text>
+                  <Text style={styles.reasonHeaderCount}>{ratingReasons.length}/12</Text>
+                </View>
+                <View style={styles.ratingChips}>
+                  {ratingReasonOptions.map((reason) => {
+                    const selected = ratingReasons.includes(reason);
+                    const limitReached = ratingReasons.length >= 12 && !selected;
+                    return (
+                      <TouchableOpacity key={reason} disabled={limitReached} onPress={() => setRatingReasons((current) => selected ? current.filter((item) => item !== reason) : [...current, reason])} activeOpacity={0.82} style={[styles.ratingChip, selected && styles.ratingChipSelected, limitReached && { opacity: 0.4 }]}>
+                        <Text style={[styles.ratingChipText, selected && styles.ratingChipTextSelected]}>{selected ? "✓  " : "+  "}{reason}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <TextInput value={ratingComment} onChangeText={setRatingComment} placeholder="اكتب ملاحظة اختيارية عن تجربتك..." placeholderTextColor="#94A3B8" multiline maxLength={500} style={styles.feedbackNoteInput} />
+              </ScrollView>
+              <View style={styles.ratingFooter}>
+                <TouchableOpacity onPress={() => setShowRating(false)} disabled={ratingBusy} style={styles.feedbackBackButton}><Text style={styles.feedbackBackText}>لاحقاً</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.ratingSubmit, (rating === 0 || Object.values(ratingCriteria).some((value) => value < 1) || ratingBusy) && { opacity: 0.45 }]} disabled={rating === 0 || Object.values(ratingCriteria).some((value) => value < 1) || ratingBusy} onPress={submitRating}>
+                  <Text style={styles.ratingSubmitText}>{ratingBusy ? "جارٍ حفظ التقييم..." : "إرسال التقييم"}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -2127,12 +2248,65 @@ const styles = StyleSheet.create({
   msgInput: { flex: 1, borderWidth: 1, borderColor: palette.line, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 11, fontSize: 14, color: palette.ink, backgroundColor: palette.canvas },
   sendBtn: { backgroundColor: palette.brand, borderRadius: radius.pill, paddingHorizontal: 20, paddingVertical: 12 },
   sendBtnText: { color: palette.white, fontWeight: "900", fontSize: 14 },
-  ratingOverlay: { position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  ratingCard: { backgroundColor: palette.surface, borderRadius: radius.xl, padding: 28, alignItems: "center", width: "84%" },
-  ratingTitle: { fontSize: 21, fontWeight: "900", color: palette.ink, marginBottom: 20 },
-  starsRow: { flexDirection: "row", gap: 12, marginBottom: 24 },
-  star: { fontSize: 40, color: "#C9D1CA" },
-  starActive: { color: palette.gold },
-  ratingSubmit: { backgroundColor: palette.brand, borderRadius: radius.md, paddingHorizontal: 32, paddingVertical: 14 },
-  ratingSubmitText: { color: palette.white, fontSize: 15, fontWeight: "900" },
+  cancelOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 80, backgroundColor: "rgba(5,13,27,0.70)", justifyContent: "flex-end", padding: 10 },
+  cancelCard: { maxHeight: "88%", backgroundColor: "#F8FAFC", borderRadius: 28, padding: 17, borderWidth: 1, borderColor: "rgba(255,255,255,0.75)", elevation: 24 },
+  feedbackHandle: { width: 42, height: 4, borderRadius: 3, backgroundColor: "#CBD5E1", alignSelf: "center", marginBottom: 14 },
+  feedbackHeader: { flexDirection: "row", alignItems: "center", gap: 11, marginBottom: 14 },
+  cancelIconBadge: { width: 46, height: 46, borderRadius: 16, backgroundColor: "#FFF1F2", borderWidth: 1, borderColor: "#FECDD3", alignItems: "center", justifyContent: "center" },
+  feedbackEyebrow: { color: "#B58A37", fontSize: 8, fontWeight: "900", letterSpacing: 1.2, textAlign: "right" },
+  cancelTitle: { color: "#14253D", fontSize: 20, fontWeight: "900", textAlign: "right", marginTop: 2 },
+  feedbackSubtitle: { color: "#64748B", fontSize: 10, fontWeight: "700", textAlign: "right", marginTop: 3, lineHeight: 16 },
+  feedbackClose: { width: 32, height: 32, borderRadius: 12, backgroundColor: "#E9EEF5", alignItems: "center", justifyContent: "center" },
+  feedbackCloseText: { color: "#475569", fontSize: 23, lineHeight: 25, fontWeight: "400" },
+  feedbackOptionsScroll: { maxHeight: 390 },
+  feedbackOptions: { gap: 8, paddingBottom: 8 },
+  reasonChoice: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 11, paddingVertical: 9, borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0" },
+  reasonChoiceSelected: { backgroundColor: "#EFF6FF", borderColor: "#1D4ED8", borderWidth: 1.5 },
+  reasonIndex: { width: 30, height: 30, borderRadius: 10, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
+  reasonIndexSelected: { backgroundColor: "#1D4ED8" },
+  reasonIndexText: { color: "#64748B", fontSize: 9, fontWeight: "900" },
+  reasonIndexTextSelected: { color: "#FFFFFF" },
+  reasonChoiceText: { flex: 1, color: "#334155", fontSize: 12, fontWeight: "800", textAlign: "right" },
+  reasonChoiceTextSelected: { color: "#1D4ED8" },
+  reasonRadio: { width: 18, height: 18, borderRadius: 10, borderWidth: 1.5, borderColor: "#CBD5E1", alignItems: "center", justifyContent: "center" },
+  reasonRadioSelected: { borderColor: "#1D4ED8" },
+  reasonRadioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#1D4ED8" },
+  feedbackNoteInput: { minHeight: 76, maxHeight: 120, borderRadius: 15, borderWidth: 1, borderColor: "#CBD5E1", backgroundColor: "#FFFFFF", padding: 12, color: "#14253D", textAlign: "right", textAlignVertical: "top", fontSize: 12, marginTop: 9 },
+  feedbackError: { color: "#B91C1C", fontSize: 11, fontWeight: "800", textAlign: "right", padding: 10, backgroundColor: "#FEF2F2", borderRadius: 12, overflow: "hidden" },
+  feedbackFooter: { flexDirection: "row", gap: 9, marginTop: 12 },
+  feedbackBackButton: { minHeight: 48, flex: 1, borderRadius: 15, borderWidth: 1, borderColor: "#CBD5E1", backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  feedbackBackText: { color: "#475569", fontSize: 12, fontWeight: "900" },
+  feedbackConfirmButton: { minHeight: 48, flex: 1.4, borderRadius: 15, backgroundColor: "#B42332", alignItems: "center", justifyContent: "center" },
+  feedbackConfirmText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
+  ratingOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 81, backgroundColor: "rgba(5,13,27,0.72)", justifyContent: "flex-end", padding: 10 },
+  ratingCard: { maxHeight: "90%", backgroundColor: "#F8FAFC", borderRadius: 28, padding: 17, borderWidth: 1, borderColor: "rgba(255,255,255,0.78)", elevation: 24 },
+  ratingTitle: { fontSize: 20, fontWeight: "900", color: "#14253D", textAlign: "center", marginTop: 4 },
+  ratingSubtitle: { color: "#64748B", fontSize: 10, fontWeight: "700", textAlign: "center", marginTop: 5, marginBottom: 12, lineHeight: 16 },
+  ratingHero: { backgroundColor: "#10233F", borderRadius: 20, paddingVertical: 14, paddingHorizontal: 12, alignItems: "center", marginBottom: 12, borderWidth: 1, borderColor: "#D6B15B" },
+  starsRow: { flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 6 },
+  starTap: { width: 42, height: 42, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.10)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
+  starTapActive: { backgroundColor: "rgba(245,190,70,0.18)", borderColor: "#E7BE63" },
+  star: { fontSize: 28, color: "rgba(255,255,255,0.36)" },
+  starActive: { color: "#F5C451" },
+  ratingScore: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", marginTop: 4 },
+  ratingScroll: { maxHeight: 350 },
+  ratingScrollContent: { paddingBottom: 8, gap: 11 },
+  criteriaPanel: { borderRadius: 18, padding: 12, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", gap: 11 },
+  criteriaRow: { gap: 5 },
+  criteriaLabel: { color: "#334155", fontSize: 11, fontWeight: "900", textAlign: "right" },
+  criteriaStars: { flexDirection: "row", justifyContent: "flex-start", gap: 10 },
+  criteriaStarTap: { paddingHorizontal: 4, paddingVertical: 1 },
+  criteriaStar: { fontSize: 23, color: "#CBD5E1" },
+  criteriaStarActive: { color: "#D9A52D" },
+  reasonHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  reasonHeaderTitle: { color: "#14253D", fontSize: 12, fontWeight: "900" },
+  reasonHeaderCount: { color: "#64748B", fontSize: 10, fontWeight: "900" },
+  ratingChips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  ratingChip: { borderRadius: 14, paddingHorizontal: 11, paddingVertical: 9, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#DCE3EC" },
+  ratingChipSelected: { backgroundColor: "#EAF2FF", borderColor: "#2563EB" },
+  ratingChipText: { color: "#475569", fontSize: 10, fontWeight: "800" },
+  ratingChipTextSelected: { color: "#1D4ED8" },
+  ratingFooter: { flexDirection: "row", gap: 9, marginTop: 10 },
+  ratingSubmit: { flex: 1.4, backgroundColor: "#142B4B", borderRadius: 15, paddingHorizontal: 18, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
+  ratingSubmitText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
 });

@@ -31,6 +31,7 @@ import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 import { ProviderMissions } from "@/components/provider-missions";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 
 const HOME_GRID_GAP = 12;
 
@@ -392,7 +393,7 @@ export default function HomeScreen() {
       <ActiveCustomerRequestBanner />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: selectedRole === "customer" ? 100 : 150 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {selectedRole === "customer" ? (
@@ -412,6 +413,14 @@ export default function HomeScreen() {
           />
         )}
       </ScrollView>
+      {selectedRole !== "customer" && (
+        <ProviderAvailabilityDock
+          available={available}
+          availabilitySaving={availabilitySaving}
+          verified={verified}
+          toggleAvailable={toggleAvailable}
+        />
+      )}
     </View>
   );
 }
@@ -1015,37 +1024,123 @@ function ProviderHome({
   toggleAvailable: () => void;
   incoming: IncomingRequest[];
 }) {
+  const mapRef = useRef<MapView | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number; heading?: number | null } | null>(null);
+  useEffect(() => {
+    let active = true;
+    let subscription: Location.LocationSubscription | null = null;
+    const start = async () => {
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status !== "granted") return;
+        const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!active) return;
+        setCurrentCoords({ latitude: first.coords.latitude, longitude: first.coords.longitude, heading: first.coords.heading });
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, timeInterval: 3000, distanceInterval: 5 },
+          (point) => {
+            if (!active) return;
+            setCurrentCoords({ latitude: point.coords.latitude, longitude: point.coords.longitude, heading: point.coords.heading });
+          },
+        );
+      } catch (error) {
+        console.warn("[provider-map] live location unavailable:", error);
+      }
+    };
+    void start();
+    return () => { active = false; subscription?.remove(); };
+  }, []);
+  useEffect(() => {
+    if (!mapReady || !currentCoords) return;
+    mapRef.current?.animateCamera({
+      center: { latitude: currentCoords.latitude, longitude: currentCoords.longitude },
+      heading: currentCoords.heading ?? undefined,
+      pitch: 35,
+      zoom: 16,
+    }, { duration: 900 });
+  }, [mapReady, currentCoords]);
+  const statusLabel = !verified ? "الحساب بانتظار التوثيق" : availabilitySaving ? "جارٍ تحديث الحالة والموقع" : available ? "أنت متصل وتستقبل الطلبات" : "أنت غير متصل حالياً";
   return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
-      <View
-        style={[
-          styles.availCard,
-          available && styles.availCardActive,
-          !verified && { opacity: 0.65 },
-        ]}
-      >
-        <View style={styles.availContent}>
-          <Text style={styles.availEyebrow}>مركز استقبال الطلبات</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
-             accessibilityState={{ disabled: !verified || availabilitySaving }}
-            disabled={!verified || availabilitySaving}
-            onPress={toggleAvailable}
-            activeOpacity={0.86}
-            style={[styles.availPowerButton, available ? styles.availPowerButtonActive : styles.availPowerButtonClosed]}
-          >
-            <Text style={styles.availPowerButtonText}>{availabilitySaving ? "جارٍ التحديث" : available ? "متاح الآن" : "متوقف"}</Text>
-          </TouchableOpacity>
-          <Text style={styles.availHint}>{availabilitySaving ? "نزامن حالتك وموقعك..." : available ? "أنت ظاهر الآن لمستحقي الطلبات القريبين" : "اضغط للتفعيل وابدأ باستقبال الطلبات"}</Text>
+    <View style={providerMapStyles.screen}>
+      <View style={providerMapStyles.mapWrap}>
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_GOOGLE}
+          style={StyleSheet.absoluteFill}
+          initialRegion={{ latitude: 32.0, longitude: 44.0, latitudeDelta: 1.8, longitudeDelta: 1.8 }}
+          showsUserLocation
+          showsMyLocationButton
+          showsCompass
+          onMapReady={() => setMapReady(true)}
+          toolbarEnabled={false}
+          loadingEnabled
+        />
+        {!mapReady && <View pointerEvents="none" style={providerMapStyles.mapLoading}><Text style={providerMapStyles.mapLoadingText}>جارٍ تحميل الخريطة وموقعك…</Text></View>}
+        <View style={providerMapStyles.mapTopChip}>
+          <View style={[providerMapStyles.statusDot, { backgroundColor: available && verified ? "#10B981" : "#F59E0B" }]} />
+          <Text style={providerMapStyles.mapTopText}>{statusLabel}</Text>
         </View>
       </View>
-      <ProviderMissions />
-      <IncomingRequestList incoming={incoming} />
+      <View style={providerMapStyles.details}>
+        <ProviderMissions />
+        <View style={{ paddingHorizontal: 20 }}>
+          <IncomingRequestList incoming={incoming} />
+        </View>
+      </View>
     </View>
   );
 }
 
+const providerMapStyles = StyleSheet.create({
+  screen: { width: "100%", paddingTop: 0 },
+  mapWrap: { height: Math.max(430, Dimensions.get("window").height * 0.66), width: "100%", overflow: "hidden", backgroundColor: "#E7EDF2" },
+  mapLoading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(238,243,247,0.7)" },
+  mapLoadingText: { color: "#334155", fontSize: 13, fontWeight: "800" },
+  mapTopChip: { position: "absolute", top: 14, left: 14, right: 14, minHeight: 42, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.95)", borderWidth: 1, borderColor: "rgba(15,23,42,0.08)", paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 9, elevation: 4 },
+  statusDot: { width: 9, height: 9, borderRadius: 5 },
+  mapTopText: { color: "#17324D", fontSize: 12, fontWeight: "900", textAlign: "right", flex: 1 },
+  details: { paddingTop: 16, paddingBottom: 18 },
+  fixedDock: { position: "absolute", left: 14, right: 14, bottom: 104, zIndex: 40, minHeight: 82, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.98)", borderWidth: 1, borderColor: "rgba(15,23,42,0.10)", paddingHorizontal: 14, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 12, elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.20, shadowRadius: 18, shadowOffset: { width: 0, height: 7 } },
+  actionTitle: { color: "#17324D", fontSize: 13, fontWeight: "900", textAlign: "right" },
+  actionSubtitle: { color: "#64748B", fontSize: 10, fontWeight: "700", textAlign: "right", marginTop: 4 },
+  powerButton: { minWidth: 76, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center", paddingHorizontal: 15 },
+  powerButtonOn: { backgroundColor: "#059669" },
+  powerButtonOff: { backgroundColor: "#17324D" },
+  powerButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
+});
+ 
+function ProviderAvailabilityDock({
+  available,
+  availabilitySaving,
+  verified,
+  toggleAvailable,
+}: {
+  available: boolean;
+  availabilitySaving: boolean;
+  verified: boolean;
+  toggleAvailable: () => void;
+}) {
+  return (
+    <View style={providerMapStyles.fixedDock}>
+      <View style={{ flex: 1 }}>
+        <Text style={providerMapStyles.actionTitle}>{available ? "استقبال الطلبات مفعّل" : "جاهز تستقبل طلبات؟"}</Text>
+        <Text style={providerMapStyles.actionSubtitle}>{available ? "موقعك يتحدث على الخريطة" : verified ? "فعّل حالتك حتى تظهر للزبائن القريبين" : "أكمل توثيق حسابك أولاً"}</Text>
+      </View>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
+        accessibilityState={{ disabled: !verified || availabilitySaving }}
+        disabled={!verified || availabilitySaving}
+        onPress={toggleAvailable}
+        activeOpacity={0.86}
+        style={[providerMapStyles.powerButton, available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff, (!verified || availabilitySaving) && { opacity: 0.55 }]}
+      >
+        <Text style={providerMapStyles.powerButtonText}>{availabilitySaving ? "..." : available ? "متصل" : "ابدأ"}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.pageCanvas },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14, zIndex: 30, elevation: 12 },
