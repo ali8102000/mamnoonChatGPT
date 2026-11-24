@@ -35,7 +35,7 @@ BEGIN
       v_phone_digits := '964' || v_phone_digits;
     END IF;
 
-    IF length(v_phone_digits) < 8 OR length(v_phone_digits) > 15 THEN
+    IF length(v_phone_digits) < 12 OR length(v_phone_digits) > 15 THEN
       RAISE EXCEPTION 'profile_phone_invalid';
     END IF;
 
