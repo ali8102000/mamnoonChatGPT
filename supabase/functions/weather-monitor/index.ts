@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
         const { error } = await admin.from("taxi_peak_weather_observations").upsert(row, { onConflict: "governorate_key" });
         if (error) throw new Error("weather_observation_write_failed");
         await admin.from("taxi_peak_weather_settings").update({
+          weather_monitor_ready: row.is_fresh,
           last_checked_at: new Date().toISOString(),
           last_reason: row.is_fresh ? "تم استلام قراءة طقس حقيقية من WeatherAPI" : "وصلت قراءة قديمة؛ لا تستخدم للتشغيل التلقائي",
         }).eq("governorate_key", governorateKey);
