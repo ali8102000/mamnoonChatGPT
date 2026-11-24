@@ -367,6 +367,24 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  const isProviderRole = selectedRole === "driver" || selectedRole === "large_driver" || selectedRole === "worker";
+  if (isProviderRole) {
+    return (
+      <ProviderHome
+        role={selectedRole}
+        profile={profile}
+        available={available}
+        availabilitySaving={availabilitySaving}
+        verified={verified}
+        verificationStatus={verificationStatus}
+        companyName={companyName}
+        toggleAvailable={toggleAvailable}
+        incoming={incoming}
+        onRefresh={onRefresh}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       {roles.includes("super_admin") && (
@@ -1035,7 +1053,15 @@ function IncomingRequestList({ incoming }: { incoming: IncomingRequest[] }) {
   );
 }
 
+function scaleSize(size: number): number {
+  const width = Dimensions.get("window").width;
+  const ratio = Math.max(0.88, Math.min(1.15, width / 375));
+  return Math.round(size * ratio);
+}
+
 function ProviderHome({
+  role,
+  profile,
   available,
   availabilitySaving,
   verified,
@@ -1043,7 +1069,10 @@ function ProviderHome({
   companyName,
   toggleAvailable,
   incoming,
+  onRefresh,
 }: {
+  role: "driver" | "large_driver" | "worker";
+  profile: Profile | null;
   available: boolean;
   availabilitySaving: boolean;
   verified: boolean;
@@ -1051,10 +1080,17 @@ function ProviderHome({
   companyName: string;
   toggleAvailable: () => void;
   incoming: IncomingRequest[];
+  onRefresh: () => Promise<void>;
 }) {
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number; heading?: number | null } | null>(null);
+  const roleConfig = role === "large_driver"
+    ? { title: "سائق السيارة الكبيرة", short: "نقل وحمولات", emoji: "🚚" }
+    : role === "driver"
+      ? { title: "الكابتن", short: "طلبات التكسي", emoji: "🚕" }
+      : { title: "الفني", short: "الخدمات المنزلية", emoji: "🛠️" };
+
   useEffect(() => {
     let active = true;
     let subscription: Location.LocationSubscription | null = null;
@@ -1079,6 +1115,7 @@ function ProviderHome({
     void start();
     return () => { active = false; subscription?.remove(); };
   }, []);
+
   useEffect(() => {
     if (!mapReady || !currentCoords) return;
     mapRef.current?.animateCamera({
@@ -1086,39 +1123,196 @@ function ProviderHome({
       heading: currentCoords.heading ?? undefined,
       pitch: 35,
       zoom: 16,
-    }, { duration: 900 });
+    }, { duration: 700 });
   }, [mapReady, currentCoords]);
-  const statusLabel = !verified ? "الحساب بانتظار التوثيق" : availabilitySaving ? "جارٍ تحديث الحالة والموقع" : available ? "أنت متصل وتستقبل الطلبات" : "أنت غير متصل حالياً";
+
+  const statusLabel = !verified
+    ? "حسابك بانتظار التوثيق"
+    : availabilitySaving
+      ? "جارٍ تحديث الحالة"
+      : available
+        ? "متصل — تستقبل الطلبات"
+        : "غير متصل — الطلبات متوقفة";
+
+  const recenter = async () => {
+    if (currentCoords) {
+      mapRef.current?.animateCamera({
+        center: { latitude: currentCoords.latitude, longitude: currentCoords.longitude },
+        heading: currentCoords.heading ?? undefined,
+        pitch: 35,
+        zoom: 17,
+      }, { duration: 500 });
+      return;
+    }
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        Alert.alert("إذن الموقع مطلوب", "اسمح لممنون باستخدام موقعك حتى نحدد موقعك على الخريطة.");
+        return;
+      }
+      const point = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setCurrentCoords({ latitude: point.coords.latitude, longitude: point.coords.longitude, heading: point.coords.heading });
+      mapRef.current?.animateToRegion({
+        latitude: point.coords.latitude,
+        longitude: point.coords.longitude,
+        latitudeDelta: 0.012,
+        longitudeDelta: 0.012,
+      }, 500);
+    } catch {
+      Alert.alert("تعذر تحديد الموقع", "تأكد من تشغيل GPS وحاول مرة ثانية.");
+    }
+  };
+
   return (
     <View style={providerMapStyles.screen}>
-      <View style={providerMapStyles.mapWrap}>
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          style={StyleSheet.absoluteFill}
-          initialRegion={{ latitude: 32.0, longitude: 44.0, latitudeDelta: 1.8, longitudeDelta: 1.8 }}
-          showsUserLocation
-          showsMyLocationButton
-          showsCompass
-          onMapReady={() => setMapReady(true)}
-          toolbarEnabled={false}
-          loadingEnabled
-        />
-        {!mapReady && <View pointerEvents="none" style={providerMapStyles.mapLoading}><Text style={providerMapStyles.mapLoadingText}>جارٍ تحميل الخريطة وموقعك…</Text></View>}
-        <View style={providerMapStyles.mapTopChip}>
-          <View style={[providerMapStyles.statusDot, { backgroundColor: available && verified ? "#10B981" : "#F59E0B" }]} />
-          <Text style={providerMapStyles.mapTopText}>{statusLabel}</Text>
+      <MapView
+        ref={mapRef}
+        provider={PROVIDER_GOOGLE}
+        style={StyleSheet.absoluteFill}
+        initialRegion={{ latitude: 32.0, longitude: 44.0, latitudeDelta: 1.8, longitudeDelta: 1.8 }}
+        showsUserLocation
+        showsCompass
+        onMapReady={() => setMapReady(true)}
+        toolbarEnabled={false}
+        loadingEnabled
+        moveOnMarkerPress={false}
+      />
+
+      {!mapReady && (
+        <View pointerEvents="none" style={providerMapStyles.mapLoading}>
+          <Text style={providerMapStyles.mapLoadingText}>جارٍ تحميل الخريطة…</Text>
+        </View>
+      )}
+
+      <View style={providerMapStyles.topOverlay}>
+        <TouchableOpacity
+          onPress={() => router.push("/profile")}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="فتح الملف الشخصي"
+          style={providerMapStyles.identityCard}
+        >
+          {profile?.avatar_url
+            ? <ExpoImage source={{ uri: profile.avatar_url }} style={providerMapStyles.avatar} contentFit="cover" />
+            : <View style={providerMapStyles.avatarFallback}><Text style={{ fontSize: 19 }}>{roleConfig.emoji}</Text></View>}
+          <View style={{ flex: 1 }}>
+            <Text numberOfLines={1} style={providerMapStyles.personName}>{profile?.full_name?.split(" ")[0] || "أهلاً بيك"}</Text>
+            <Text numberOfLines={1} style={providerMapStyles.roleCaption}>{roleConfig.title}</Text>
+          </View>
+          <View style={providerMapStyles.requestCount}>
+            <Text style={providerMapStyles.requestCountNumber}>{incoming.length}</Text>
+            <Text style={providerMapStyles.requestCountLabel}>طلبات</Text>
+          </View>
+        </TouchableOpacity>
+        <View style={providerMapStyles.topActions}>
+          <NotificationsBell />
+          <TouchableOpacity onPress={() => router.push("/profile")} style={providerMapStyles.menuButton} accessibilityRole="button" accessibilityLabel="القائمة">
+            <Text style={{ color: "#17324D", fontSize: 21, fontWeight: "900" }}>☰</Text>
+          </TouchableOpacity>
         </View>
       </View>
-      <View style={providerMapStyles.details}>
-        <ProviderMissions />
-        <View style={{ paddingHorizontal: 20 }}>
-          <IncomingRequestList incoming={incoming} />
+
+      <View style={providerMapStyles.statusPill}>
+        <View style={[providerMapStyles.statusDot, { backgroundColor: available && verified ? "#10B981" : "#F59E0B" }]} />
+        <Text style={providerMapStyles.statusText}>{statusLabel}</Text>
+      </View>
+
+      <TouchableOpacity onPress={() => void recenter()} activeOpacity={0.85} style={providerMapStyles.recenterButton} accessibilityRole="button" accessibilityLabel="العودة إلى موقعي">
+        <Text style={{ color: "#17324D", fontSize: 21 }}>◎</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => router.push("/messages")} activeOpacity={0.88} style={providerMapStyles.messagesBanner}>
+        <View style={providerMapStyles.messagesIcon}><Text style={{ fontSize: 18 }}>✉</Text></View>
+        <View style={{ flex: 1 }}>
+          <Text style={providerMapStyles.messagesTitle}>رسائلك وتنبيهات ممنون</Text>
+          <Text style={providerMapStyles.messagesSubtitle}>تابع رسائل الزبائن وآخر التحديثات</Text>
         </View>
+        <Text style={{ color: "#1D4ED8", fontSize: 18, fontWeight: "900" }}>‹</Text>
+      </TouchableOpacity>
+
+      <View style={providerMapStyles.bottomPanel}>
+        {!available && (
+          <View style={providerMapStyles.offlineNotice}>
+            <Text style={providerMapStyles.offlineNoticeTitle}>أنت غير متصل حالياً</Text>
+            <Text style={providerMapStyles.offlineNoticeText}>فعّل استقبال الطلبات حتى توصلك طلبات {roleConfig.short} القريبة.</Text>
+          </View>
+        )}
+        <View style={providerMapStyles.panelHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={providerMapStyles.panelTitle}>طلباتك الواردة</Text>
+            <Text style={providerMapStyles.panelSubtitle}>{incoming.length ? "عندك طلبات بانتظار ردّك" : "تظهر الطلبات الجديدة هنا تلقائياً"}</Text>
+          </View>
+          <TouchableOpacity onPress={() => void onRefresh()} style={providerMapStyles.refreshButton} accessibilityRole="button" accessibilityLabel="تحديث الطلبات">
+            <Text style={{ color: "#17324D", fontSize: 18 }}>↻</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={{ maxHeight: scaleSize(190) }} contentContainerStyle={{ paddingBottom: 6 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+          <IncomingRequestList incoming={incoming} />
+        </ScrollView>
+        <View style={providerMapStyles.bottomActions}>
+          <TouchableOpacity onPress={() => router.push("/coupons")} style={providerMapStyles.secondaryAction}>
+            <Text style={providerMapStyles.secondaryActionText}>🎁 المكافآت</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/support-chat")} style={providerMapStyles.secondaryAction}>
+            <Text style={providerMapStyles.secondaryActionText}>؟ المساعدة</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "بدء استقبال الطلبات"}
+            disabled={!verified || availabilitySaving}
+            onPress={toggleAvailable}
+            activeOpacity={0.85}
+            style={[providerMapStyles.powerButton, available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff, (!verified || availabilitySaving) && { opacity: 0.5 }]}
+          >
+            <Text style={providerMapStyles.powerButtonText}>{availabilitySaving ? "..." : available ? "متصل" : "ابدأ"}</Text>
+          </TouchableOpacity>
+        </View>
+        {!verified && <Text style={providerMapStyles.verificationHint}>حالة التوثيق: {verificationStatus === "rejected" ? "مرفوض — راجع الدعم" : "بانتظار موافقة الإدارة"}</Text>}
       </View>
     </View>
   );
 }
+
+const providerMapStyles = StyleSheet.create({
+  screen: { flex: 1, width: "100%", backgroundColor: "#E8EEF3" },
+  mapLoading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(238,243,247,0.75)", zIndex: 2 },
+  mapLoadingText: { color: "#334155", fontSize: 13, fontWeight: "800" },
+  topOverlay: { position: "absolute", top: 48, left: 12, right: 12, flexDirection: "row", alignItems: "center", gap: 8, zIndex: 10 },
+  identityCard: { flex: 1, minHeight: 62, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.97)", borderWidth: 1, borderColor: "rgba(15,23,42,0.08)", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 9, elevation: 6, shadowColor: "#0F172A", shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E2E8F0" },
+  avatarFallback: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E8F1FF", alignItems: "center", justifyContent: "center" },
+  personName: { color: "#17324D", fontSize: 13, fontWeight: "900", textAlign: "right" },
+  roleCaption: { color: "#64748B", fontSize: 10, fontWeight: "700", textAlign: "right", marginTop: 2 },
+  requestCount: { minWidth: 42, alignItems: "center", borderRadius: 12, backgroundColor: "#EFF6FF", paddingVertical: 5, paddingHorizontal: 6 },
+  requestCountNumber: { color: "#1D4ED8", fontSize: 14, fontWeight: "900" },
+  requestCountLabel: { color: "#64748B", fontSize: 8, fontWeight: "800" },
+  topActions: { alignItems: "center", gap: 7 },
+  menuButton: { width: 40, height: 40, borderRadius: 14, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 4 },
+  statusPill: { position: "absolute", top: 120, left: 14, right: 14, minHeight: 39, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.96)", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8, elevation: 4 },
+  statusDot: { width: 9, height: 9, borderRadius: 5 },
+  statusText: { color: "#17324D", fontSize: 11, fontWeight: "900", textAlign: "right", flex: 1 },
+  recenterButton: { position: "absolute", right: 16, bottom: 355, width: 46, height: 46, borderRadius: 16, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 6 },
+  messagesBanner: { position: "absolute", top: 170, left: 14, right: 14, minHeight: 58, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.97)", borderWidth: 1, borderColor: "rgba(29,78,216,0.12)", paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 10, elevation: 4 },
+  messagesIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center" },
+  messagesTitle: { color: "#17324D", fontSize: 11, fontWeight: "900", textAlign: "right" },
+  messagesSubtitle: { color: "#64748B", fontSize: 9, fontWeight: "700", textAlign: "right", marginTop: 2 },
+  bottomPanel: { position: "absolute", left: 10, right: 10, bottom: 92, maxHeight: "54%", borderRadius: 22, backgroundColor: "rgba(255,255,255,0.98)", borderWidth: 1, borderColor: "rgba(15,23,42,0.08)", paddingHorizontal: 13, paddingTop: 12, paddingBottom: 10, elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 7 } },
+  offlineNotice: { backgroundColor: "#EAF3FF", borderColor: "#BFDBFE", borderWidth: 1, borderRadius: 13, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 9 },
+  offlineNoticeTitle: { color: "#1D4ED8", fontSize: 11, fontWeight: "900", textAlign: "right" },
+  offlineNoticeText: { color: "#315B8F", fontSize: 9, fontWeight: "700", textAlign: "right", marginTop: 2 },
+  panelHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 5 },
+  panelTitle: { color: "#17324D", fontSize: 15, fontWeight: "900", textAlign: "right" },
+  panelSubtitle: { color: "#64748B", fontSize: 9, fontWeight: "700", textAlign: "right", marginTop: 2 },
+  refreshButton: { width: 34, height: 34, borderRadius: 11, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
+  bottomActions: { flexDirection: "row", alignItems: "center", gap: 7, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E2E8F0" },
+  secondaryAction: { flex: 1, minHeight: 40, borderRadius: 12, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
+  secondaryActionText: { color: "#334155", fontSize: 10, fontWeight: "900" },
+  powerButton: { minWidth: 70, minHeight: 42, borderRadius: 13, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  powerButtonOn: { backgroundColor: "#059669" },
+  powerButtonOff: { backgroundColor: "#17324D" },
+  powerButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
+  verificationHint: { color: "#B45309", fontSize: 9, fontWeight: "800", textAlign: "center", marginTop: 6 },
+});
 
 const providerMapStyles = StyleSheet.create({
   screen: { width: "100%", paddingTop: 0 },
