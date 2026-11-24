@@ -353,8 +353,7 @@ Deno.serve(async (req: Request) => {
       if (partnerUpdates.longitude !== undefined) applicationFields.business_longitude = partnerUpdates.longitude;
       const partnerBusinessProfileId = isUuid(partnerInput.business_profile_id) ? partnerInput.business_profile_id : null;
       const partnerApplicationId = isUuid(partnerInput.application_id) ? partnerInput.application_id : null;
-      if (Object.keys(partnerUpdates).length) {
-        if (!partnerBusinessProfileId) return json({ error: "partner_business_profile_id_required" }, 400);
+      if (Object.keys(partnerUpdates).length && partnerBusinessProfileId) {
         partnerUpdates.updated_at = new Date().toISOString();
         const { error: businessError } = await admin.from("partner_business_profiles").update(partnerUpdates)
           .eq("user_id", userId).eq("id", partnerBusinessProfileId);
