@@ -207,6 +207,153 @@ Deno.serve(async (req: Request) => {
       return json({ rows: data ?? [] });
     }
 
+    if (body.action === "admin_update_account") {
+      await requireAdmin();
+      if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
+      const userId = body.user_id as string;
+      const profileInput = body.profile && typeof body.profile === "object" && !Array.isArray(body.profile) ? body.profile : {};
+      const driverInput = body.driver_profile && typeof body.driver_profile === "object" && !Array.isArray(body.driver_profile) ? body.driver_profile : {};
+      const workerInput = body.worker_profile && typeof body.worker_profile === "object" && !Array.isArray(body.worker_profile) ? body.worker_profile : {};
+      const partnerInput = body.partner_profile && typeof body.partner_profile === "object" && !Array.isArray(body.partner_profile) ? body.partner_profile : {};
+      const textValue = (value: unknown, max: number) => typeof value === "string" && value.trim().length <= max ? value.trim() : null;
+      const profileUpdates: Record<string, unknown> = {};
+      if (profileInput.full_name !== undefined) {
+        const value = textValue(profileInput.full_name, 100);
+        if (!value || value.length < 2) return json({ error: "invalid_full_name" }, 400);
+        profileUpdates.full_name = value;
+      }
+      if (profileInput.phone !== undefined) {
+        const value = textValue(profileInput.phone, 30);
+        if (!value || !/^\+?[0-9]{7,15}$/.test(value.replace(/[\s()-]/g, ""))) return json({ error: "invalid_phone" }, 400);
+        profileUpdates.phone = value.replace(/[\s()-]/g, "");
+      }
+      if (profileInput.email !== undefined) {
+        const value = textValue(profileInput.email, 254);
+        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return json({ error: "invalid_email" }, 400);
+        profileUpdates.email = value || null;
+      }
+      if (profileInput.governorate_key !== undefined) {
+        const allowed = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
+        if (profileInput.governorate_key !== null && !allowed.includes(profileInput.governorate_key)) return json({ error: "invalid_governorate" }, 400);
+        profileUpdates.governorate_key = profileInput.governorate_key;
+      }
+      if (profileInput.avatar_base64 !== undefined) {
+        if (typeof profileInput.avatar_base64 !== "string" || profileInput.avatar_base64.length > 7000000 ||
+            !["image/jpeg","image/png","image/webp"].includes(profileInput.avatar_mime)) return json({ error: "invalid_avatar" }, 400);
+        const binary = atob(profileInput.avatar_base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const extension = profileInput.avatar_mime === "image/png" ? "png" : profileInput.avatar_mime === "image/webp" ? "webp" : "jpg";
+        const path = `${userId}/admin-${Date.now()}.${extension}`;
+        const { error: uploadError } = await admin.storage.from("avatars").upload(path, bytes, { contentType: profileInput.avatar_mime, cacheControl: "3600", upsert: false });
+        if (uploadError) return json({ error: "avatar_upload_failed" }, 500);
+        const { data: publicUrl } = admin.storage.from("avatars").getPublicUrl(path);
+        profileUpdates.avatar_url = publicUrl.publicUrl;
+      }
+      const { data: existingProfile, error: existingProfileError } = await admin.from("profiles").select("id,phone,email,governorate_key").eq("id", userId).maybeSingle();
+      if (existingProfileError || !existingProfile) return json({ error: "user_not_found" }, 404);
+      const authUpdates: Record<string, unknown> = {};
+      if (profileUpdates.phone !== undefined && profileUpdates.phone !== existingProfile.phone) {
+        authUpdates.phone = profileUpdates.phone;
+        authUpdates.phone_confirm = true;
+      }
+      if (profileUpdates.email !== undefined && profileUpdates.email !== existingProfile.email) {
+        authUpdates.email = profileUpdates.email;
+        authUpdates.email_confirm = true;
+      }
+      if (Object.keys(authUpdates).length) {
+        const { error: authUpdateError } = await admin.auth.admin.updateUserById(userId, authUpdates);
+        if (authUpdateError) return json({ error: "auth_contact_update_failed", detail: authUpdateError.message }, 400);
+      }
+      if (Object.keys(profileUpdates).length) {
+        profileUpdates.updated_at = new Date().toISOString();
+        const { error } = await admin.from("profiles").update(profileUpdates).eq("id", userId);
+        if (error) return json({ error: "profile_update_failed" }, 500);
+      }
+
+      const driverAllowed = ["vehicle_make","vehicle_model","vehicle_plate","vehicle_color","vehicle_type"];
+      const driverUpdates: Record<string, unknown> = {};
+      for (const key of driverAllowed) if (driverInput[key] !== undefined) {
+        const value = textValue(driverInput[key], 100);
+        if (driverInput[key] !== null && value === null) return json({ error: "invalid_driver_field:" + key }, 400);
+        driverUpdates[key] = value;
+      }
+      if (driverInput.vehicle_year !== undefined) {
+        const year = driverInput.vehicle_year === null || driverInput.vehicle_year === "" ? null : Number(driverInput.vehicle_year);
+        if (year !== null && (!Number.isInteger(year) || year < 1950 || year > new Date().getFullYear() + 1)) return json({ error: "invalid_vehicle_year" }, 400);
+        driverUpdates.vehicle_year = year;
+      }
+      if (driverInput.vehicle_category !== undefined) {
+        if (!["economy","premium","luxury","large"].includes(driverInput.vehicle_category)) return json({ error: "invalid_vehicle_category" }, 400);
+        driverUpdates.vehicle_category = driverInput.vehicle_category;
+      }
+      if (driverInput.service_radius_km !== undefined) {
+        const value = Number(driverInput.service_radius_km);
+        if (!Number.isInteger(value) || value < 1 || value > 300) return json({ error: "invalid_service_radius" }, 400);
+        driverUpdates.service_radius_km = value;
+      }
+      if (driverInput.available !== undefined) {
+        if (typeof driverInput.available !== "boolean") return json({ error: "invalid_driver_availability" }, 400);
+        driverUpdates.available = driverInput.available;
+      }
+      if (Object.keys(driverUpdates).length) {
+        driverUpdates.updated_at = new Date().toISOString();
+        const { error } = await admin.from("driver_profiles").update(driverUpdates).eq("user_id", userId);
+        if (error) return json({ error: "driver_profile_update_failed", detail: error.message }, 400);
+        const { data: verifications } = await admin.from("provider_verifications").select("provider_type,metadata").eq("user_id", userId).in("provider_type", ["driver","large_driver"]);
+        for (const verification of verifications ?? []) {
+          const metadata = { ...(verification.metadata ?? {}) };
+          const pairs: Record<string,string> = { vehicle_make:"vehicleMake", vehicle_model:"vehicleModel", vehicle_year:"vehicleYear", vehicle_plate:"vehiclePlate", vehicle_color:"vehicleColor", vehicle_type:"vehicleType", vehicle_category:"vehicleCategory" };
+          for (const [field, metaKey] of Object.entries(pairs)) if (driverUpdates[field] !== undefined) metadata[metaKey] = driverUpdates[field] === null ? "" : String(driverUpdates[field]);
+          const { error: verificationUpdateError } = await admin.from("provider_verifications").update({ metadata, updated_at: new Date().toISOString() }).eq("user_id", userId).eq("provider_type", verification.provider_type);
+          if (verificationUpdateError) return json({ error: "vehicle_verification_sync_failed" }, 500);
+        }
+      }
+
+      const workerUpdates: Record<string, unknown> = {};
+      if (workerInput.bio !== undefined) {
+        const value = textValue(workerInput.bio, 2000);
+        if (workerInput.bio !== null && value === null) return json({ error: "invalid_worker_bio" }, 400);
+        workerUpdates.bio = value;
+      }
+      if (workerInput.level !== undefined) {
+        if (!["fani","khabir"].includes(workerInput.level)) return json({ error: "invalid_worker_level" }, 400);
+        workerUpdates.level = workerInput.level;
+      }
+      for (const key of ["service_radius_km","team_size"] as const) if (workerInput[key] !== undefined) {
+        const value = Number(workerInput[key]);
+        const max = key === "team_size" ? 100 : 300;
+        if (!Number.isInteger(value) || value < 1 || value > max) return json({ error: "invalid_worker_field:" + key }, 400);
+        workerUpdates[key] = value;
+      }
+      if (workerInput.available !== undefined) {
+        if (typeof workerInput.available !== "boolean") return json({ error: "invalid_worker_availability" }, 400);
+        workerUpdates.available = workerInput.available;
+      }
+      if (Object.keys(workerUpdates).length) {
+        workerUpdates.updated_at = new Date().toISOString();
+        const { error } = await admin.from("worker_profiles").update(workerUpdates).eq("user_id", userId);
+        if (error) return json({ error: "worker_profile_update_failed", detail: error.message }, 400);
+      }
+
+      const partnerAllowed = ["business_name","phone","email","governorate_key","city","address","description","opening_hours","social_links","is_published","business_vertical","promotion_governorates","promotion_radius_km","promotion_latitude","promotion_longitude","latitude","longitude"];
+      const partnerUpdates: Record<string, unknown> = {};
+      for (const key of partnerAllowed) if (partnerInput[key] !== undefined) partnerUpdates[key] = partnerInput[key];
+      if (Object.keys(partnerUpdates).length) {
+        partnerUpdates.updated_at = new Date().toISOString();
+        const { error: businessError } = await admin.from("partner_business_profiles").update(partnerUpdates).eq("user_id", userId);
+        if (businessError) return json({ error: "partner_profile_update_failed", detail: businessError.message }, 400);
+        const applicationFields: Record<string, unknown> = {};
+        for (const key of ["business_name","phone","email","governorate_key","city","address","description"] as const) if (partnerUpdates[key] !== undefined) applicationFields[key] = partnerUpdates[key];
+        if (Object.keys(applicationFields).length) {
+          applicationFields.updated_at = new Date().toISOString();
+          const { error: applicationError } = await admin.from("partner_applications").update(applicationFields).eq("user_id", userId);
+          if (applicationError) return json({ error: "partner_application_update_failed", detail: applicationError.message }, 400);
+        }
+      }
+      return json({ ok: true, profile: profileUpdates, driver_profile: driverUpdates, worker_profile: workerUpdates, partner_profile: partnerUpdates });
+    }
+
     if (body.action === "update_profile") {
       if (!isUuid(body.user_id) ||
           typeof body.full_name !== "string" ||
