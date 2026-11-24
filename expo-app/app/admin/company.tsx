@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import mamnoonLogo from "../../assets/mamnoon-logo.png";
 import { Image as ExpoImage } from "expo-image";
 import { useCompanyBranding } from "@/lib/company-branding";
 import { palette, radius, space } from "@/styles/theme";
@@ -124,9 +125,9 @@ export default function CompanySettingsScreen() {
     <ScrollView contentContainerStyle={s.content}>
       <View style={s.card}>
         <Text style={s.title}>هوية شركة ممنون</Text>
-        <Text style={s.muted}>الشعار والاسم ورسالة الترحيب والصورة الرئيسية تظهر في شاشة البداية والهوية. يدعم اختيار GIF متحرك إذا كان الجهاز يعرضه.</Text>
+        <Text style={s.muted}>الشعار الافتراضي يظهر تلقائياً، ويمكن تغييره من هنا. فعّل الحركة الناعمة لتتحرك هوية الشعار وصورة البداية.</Text>
         <View style={s.preview}>
-          {logoAsset ? <Image source={{uri:logoAsset.uri}} style={s.logo} resizeMode="contain"/> : logoUrl ? <Image source={{uri:logoUrl}} style={s.logo} resizeMode="contain"/> : <View style={s.fallback}><Text style={s.fallbackText}>م</Text></View>}
+          {logoAsset ? <Image source={{uri:logoAsset.uri}} style={s.logo} resizeMode="contain"/> : logoUrl ? <Image source={{uri:logoUrl}} style={s.logo} resizeMode="contain"/> : <Image source={mamnoonLogo} style={s.logo} resizeMode="contain"/>}
           <Text style={s.previewName}>{name || "اسم الشركة"}</Text>
           <Text style={s.muted}>{welcome}</Text>
           {(welcomeVisualAsset?.uri || welcomeVisualUrl) ? <ExpoImage source={{uri:welcomeVisualAsset?.uri || welcomeVisualUrl || undefined}} style={s.welcomeVisual} contentFit="cover" autoplay={welcomeVisualAnimated}/> : <View style={s.welcomeVisualEmpty}><Text style={s.muted}>صورة شاشة البداية</Text></View>}
@@ -139,7 +140,7 @@ export default function CompanySettingsScreen() {
         <Text style={s.label}>صورة شاشة بداية التطبيق (تقبل GIF متحرك)</Text>
         <TouchableOpacity onPress={()=>void chooseWelcomeVisual()} style={s.pickButton}><Text style={s.pickText}>{welcomeVisualAsset ? "اختيار صورة أخرى" : welcomeVisualUrl ? "تبديل صورة البداية" : "اختيار صورة البداية"}</Text></TouchableOpacity>
         {!!welcomeVisualAsset && <Text style={s.muted}>الصورة الجديدة محددة وجاهزة للحفظ.</Text>}
-        <TouchableOpacity onPress={()=>setWelcomeVisualAnimated(value=>!value)} style={s.animationToggle}><View style={[s.toggleDot,welcomeVisualAnimated&&s.toggleDotOn]}/><Text style={s.pickText}>{welcomeVisualAnimated ? "الحركة التفاعلية مفعّلة" : "تفعيل حركة تفاعلية ناعمة للصورة"}</Text></TouchableOpacity>
+        <TouchableOpacity onPress={()=>setWelcomeVisualAnimated(value=>!value)} style={s.animationToggle}><View style={[s.toggleDot,welcomeVisualAnimated&&s.toggleDotOn]}/><Text style={s.pickText}>{welcomeVisualAnimated ? "الحركة التفاعلية مفعّلة" : "تفعيل حركة تفاعلية ناعمة للشعار وصورة البداية"}</Text></TouchableOpacity>
         <Text style={s.label}>رسالة الترحيب</Text>
         <TextInput value={welcome} onChangeText={setWelcome} maxLength={180} multiline placeholder="مشوارك وخدمات بيتك، بمكان واحد." placeholderTextColor={palette.muted} style={[s.input,{minHeight:120,textAlignVertical:"top",lineHeight:24}]} textAlign="right"/>
         <TouchableOpacity disabled={saving} onPress={()=>void save()} style={[s.saveButton,saving&&{opacity:0.6}]}><Text style={s.saveText}>{saving?"جاري الحفظ...":"حفظ بيانات الشركة"}</Text></TouchableOpacity>
