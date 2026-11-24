@@ -490,39 +490,42 @@ do $notification_target_guards$
 declare
   v_definition text;
   v_new_definition text;
+  v_oid regprocedure;
   v_anchor text := 'RAISE EXCEPTION ''permission_required:notifications.send'';' || chr(10) || '  END IF;';
 begin
-  v_definition := pg_get_functiondef(
-    'public.admin_broadcast_governorate_notification(text,text,text)'::regprocedure
-  );
-  v_new_definition := replace(
-    v_definition,
-    v_anchor,
-    v_anchor || chr(10) ||
-    '  IF NOT public.admin_has_permission(''notifications.target'', ''governorate'', p_governorate_key) THEN' || chr(10) ||
-    '    RAISE EXCEPTION ''permission_required:notifications.target'';' || chr(10) ||
-    '  END IF;'
-  );
-  if v_new_definition = v_definition then
-    raise exception 'notification_target_guard_anchor_missing_for_governorate_broadcast';
+  v_oid := to_regprocedure('public.admin_broadcast_governorate_notification(text,text,text)');
+  if v_oid is not null then
+    v_definition := pg_get_functiondef(v_oid);
+    v_new_definition := replace(
+      v_definition,
+      v_anchor,
+      v_anchor || chr(10) ||
+      '  IF NOT public.admin_has_permission(''notifications.target'', ''governorate'', p_governorate_key) THEN' || chr(10) ||
+      '    RAISE EXCEPTION ''permission_required:notifications.target'';' || chr(10) ||
+      '  END IF;'
+    );
+    if v_new_definition = v_definition then
+      raise exception 'notification_target_guard_anchor_missing_for_governorate_broadcast';
+    end if;
+    execute v_new_definition;
   end if;
-  execute v_new_definition;
 
-  v_definition := pg_get_functiondef(
-    'public.admin_broadcast_notification(text,text,text,uuid)'::regprocedure
-  );
-  v_new_definition := replace(
-    v_definition,
-    v_anchor,
-    v_anchor || chr(10) ||
-    '  IF NOT public.admin_has_permission(''notifications.target'', v_scope_type, v_target_governorate) THEN' || chr(10) ||
-    '    RAISE EXCEPTION ''permission_required:notifications.target'';' || chr(10) ||
-    '  END IF;'
-  );
-  if v_new_definition = v_definition then
-    raise exception 'notification_target_guard_anchor_missing_for_broadcast';
+  v_oid := to_regprocedure('public.admin_broadcast_notification(text,text,text,uuid)');
+  if v_oid is not null then
+    v_definition := pg_get_functiondef(v_oid);
+    v_new_definition := replace(
+      v_definition,
+      v_anchor,
+      v_anchor || chr(10) ||
+      '  IF NOT public.admin_has_permission(''notifications.target'', v_scope_type, v_target_governorate) THEN' || chr(10) ||
+      '    RAISE EXCEPTION ''permission_required:notifications.target'';' || chr(10) ||
+      '  END IF;'
+    );
+    if v_new_definition = v_definition then
+      raise exception 'notification_target_guard_anchor_missing_for_broadcast';
+    end if;
+    execute v_new_definition;
   end if;
-  execute v_new_definition;
 end;
 $notification_target_guards$;
 
