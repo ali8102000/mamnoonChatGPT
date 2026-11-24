@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
   const categoryPeakMinimum=Math.max(0,Number(categoryPeak?.min_surcharge_percent)||0);
   const categoryPeakMaximum=Math.max(categoryPeakMinimum,Number(categoryPeak?.max_surcharge_percent)||0);
   const calculatedCategoryPercent=Number(categoryPeak?.auto_calculated_percent);
-  // Preserve the existing admin-controlled demand + traffic adjustment.
+  // Preserve the existing admin-controlled demand adjustment only.
   // Category peak is an additional bounded surcharge, and remains subject to
   // the existing global automatic-pricing master switch enforced by the quote RPC.
   const demandDiscountCap=Math.max(0,Number(activeControls?.demand_discount_cap_percent)||0);
