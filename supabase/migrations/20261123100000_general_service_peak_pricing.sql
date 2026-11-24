@@ -87,6 +87,13 @@ declare v_actor uuid:=auth.uid(); v_policy public.service_peak_pricing_policies%
 begin
  if v_actor is null then raise exception 'unauthorized'; end if;
  if p_percent is null or p_percent<0 or p_percent>100 then raise exception 'invalid_percent'; end if;
+ if not exists (
+   select 1
+   from public.worker_profiles wp
+   join public.worker_services ws on ws.worker_id=wp.user_id
+   join public.services s on s.id=ws.service_id
+   where wp.user_id=v_actor and wp.status='approved' and s.slug=p_service_slug
+ ) then raise exception 'approved_worker_service_required'; end if;
  select * into v_policy from public.service_peak_pricing_policies
  where governorate_key=p_governorate_key and service_slug=p_service_slug and enabled=true and mode<>'off'
  for share;
@@ -100,5 +107,7 @@ begin
 end $$;
 
 grant select on public.service_peak_pricing_policies,public.provider_service_peak_choices to authenticated;
+revoke all on function public.admin_save_service_peak_policy(text,text,text,boolean,numeric,boolean,numeric,numeric,numeric,integer) from public,anon;
+revoke all on function public.set_my_service_peak_percent(text,text,numeric) from public,anon;
 grant execute on function public.admin_save_service_peak_policy(text,text,text,boolean,numeric,boolean,numeric,numeric,numeric,integer) to authenticated;
 grant execute on function public.set_my_service_peak_percent(text,text,numeric) to authenticated;
