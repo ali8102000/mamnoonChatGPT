@@ -19,6 +19,9 @@ create table if not exists public.taxi_peak_weather_settings (
   constraint taxi_peak_weather_governorate_valid check (governorate_key in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah'))
 );
 
+alter table public.taxi_peak_weather_settings
+  add column if not exists weather_monitor_ready boolean not null default false;
+
 create table if not exists public.taxi_peak_weather_observations (
   governorate_key text primary key references public.taxi_peak_weather_settings(governorate_key) on delete cascade,
   temperature_c numeric,
