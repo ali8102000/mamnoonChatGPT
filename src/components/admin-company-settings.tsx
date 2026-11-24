@@ -160,7 +160,6 @@ export default function AdminCompanySettings() {
         <input id="home-visual-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => { setHomeVisualFile(e.target.files?.[0] ?? null); setRemoveHomeVisual(false); }} className="sr-only" />
         {homeVisualUrl && !removeHomeVisual && <button type="button" onClick={() => { setHomeVisualFile(null); setRemoveHomeVisual(true); }} className="min-h-10 rounded-xl border border-red-300 px-4 py-2 text-sm font-bold text-red-700">حذف GIF الصفحة الرئيسية</button>}
         <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={homeVisualEnabled} onChange={(e) => setHomeVisualEnabled(e.target.checked)} /> إظهار GIF الصفحة الرئيسية</label>
-        <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={homeVisualAnimated} onChange={(e) => setHomeVisualAnimated(e.target.checked)} /> تشغيل الحركة إذا كانت GIF</label>
         <label className="block text-sm font-bold">حجم صورة الصفحة الرئيسية (80–320 بكسل)</label>
         <div className="flex items-center gap-3"><input type="range" min={80} max={320} step={10} value={homeVisualSizePx} onChange={(e) => setHomeVisualSizePx(Number(e.target.value))} className="w-full accent-primary" /><span className="min-w-16 text-sm font-bold">{homeVisualSizePx}px</span></div>
       </div>
