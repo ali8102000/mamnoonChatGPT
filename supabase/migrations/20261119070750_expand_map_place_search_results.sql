@@ -1,5 +1,4 @@
 -- Expand map place lookup from 30 to 50 results and support multi-word queries.
--- This is an additive migration; it is not applied to production by this change.
 create or replace function public.search_map_place_suggestions(
   p_governorate_key text,
   p_query text,
