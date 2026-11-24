@@ -89,7 +89,14 @@ export default function AdminCompanySettings() {
       nextWelcomeVisualUrl = supabase.storage.from("app-visuals").getPublicUrl(visualPath).data.publicUrl;
     }
     const { error } = await (supabase as any).from("company_settings").upsert({ id: 1, company_name: value, company_logo_url: nextLogoUrl || null, welcome_message: welcome, company_welcome_visual_url: nextWelcomeVisualUrl || null, company_welcome_visual_animated: welcomeVisualAnimated, company_welcome_visual_size_px: welcomeVisualSizePx, driver_video_max_duration_seconds: driverVideoMaxDurationSeconds, service_icon_display_seconds: serviceIconDisplaySeconds, service_icon_image_size_px: serviceIconImageSizePx, updated_by: auth.user.id, updated_at: new Date().toISOString() }, { onConflict: "id" });
-    if (!error) { setLogoUrl(nextLogoUrl); setLogoFile(null); setWelcomeVisualUrl(nextWelcomeVisualUrl); setWelcomeVisualFile(null); setRemoveWelcomeVisual(false); }
+    if (!error) {
+      if (welcomeVisualUrl && nextWelcomeVisualUrl !== welcomeVisualUrl) {
+        const marker = "/storage/v1/object/public/app-visuals/";
+        const storedPath = welcomeVisualUrl.split(marker)[1]?.split("?")[0];
+        if (storedPath) await supabase.storage.from("app-visuals").remove([decodeURIComponent(storedPath)]);
+      }
+      setLogoUrl(nextLogoUrl); setLogoFile(null); setWelcomeVisualUrl(nextWelcomeVisualUrl); setWelcomeVisualFile(null); setRemoveWelcomeVisual(false);
+    }
     setMessage(error ? "فشل الحفظ: " + error.message : "تم حفظ إعدادات هوية ممنون ورسالة الترحيب.");
     setSaving(false);
   };
