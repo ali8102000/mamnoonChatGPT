@@ -90,7 +90,12 @@ create or replace function public.admin_save_taxi_peak_weather_settings(
 ) returns public.taxi_peak_weather_settings
 language plpgsql security definer set search_path=public,pg_temp
 as $$
-declare v_row public.taxi_peak_weather_settings%rowtype; v_actor uuid := auth.uid();
+declare
+  v_row public.taxi_peak_weather_settings%rowtype;
+  v_actor uuid := auth.uid();
+  v_ready boolean;
+  v_fresh_count integer;
+  v_expected_count integer;
 begin
   if v_actor is null then raise exception 'unauthorized'; end if;
   if p_governorate_key not in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah') then raise exception 'invalid_governorate'; end if;
@@ -105,6 +110,35 @@ begin
   if not public.admin_has_permission('pricing.peak.edit',
     case when p_governorate_key='all' then 'global' else 'governorate' end,
     case when p_governorate_key='all' then null else p_governorate_key end) then raise exception 'missing_pricing_permission'; end if;
+
+  -- Automatic weather pricing is deliberately unavailable; weather may notify only.
+  if p_mode='auto' then raise exception 'weather_auto_pricing_disabled'; end if;
+  if p_mode='off' and p_enabled then raise exception 'off_mode_cannot_be_enabled'; end if;
+  if p_enabled then
+    select coalesce(weather_monitor_ready,false) into v_ready
+      from public.taxi_peak_weather_settings
+      where governorate_key=p_governorate_key;
+    if not coalesce(v_ready,false) then raise exception 'weather_monitor_not_ready'; end if;
+
+    if p_governorate_key='all' then
+      select count(*) into v_expected_count
+        from public.taxi_peak_weather_settings where governorate_key<>'all';
+      select count(*) into v_fresh_count
+        from public.taxi_peak_weather_observations
+        where is_fresh=true
+          and observed_at >= now() - make_interval(mins => p_weather_max_age_minutes);
+      if v_expected_count=0 or v_fresh_count<>v_expected_count then
+        raise exception 'weather_observations_not_fresh_for_all_governorates';
+      end if;
+    else
+      select count(*) into v_fresh_count
+        from public.taxi_peak_weather_observations
+        where governorate_key=p_governorate_key
+          and is_fresh=true
+          and observed_at >= now() - make_interval(mins => p_weather_max_age_minutes);
+      if v_fresh_count<>1 then raise exception 'weather_observation_not_fresh'; end if;
+    end if;
+  end if;
 
   insert into public.taxi_peak_weather_settings(
     governorate_key,mode,enabled,rain_threshold_mm,heat_threshold_c,max_surcharge_percent,
