@@ -1027,6 +1027,7 @@ function ProviderHome({
 }) {
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number; heading?: number | null } | null>(null);
   useEffect(() => {
     let active = true;
     let subscription: Location.LocationSubscription | null = null;
@@ -1036,22 +1037,12 @@ function ProviderHome({
         if (permission.status !== "granted") return;
         const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         if (!active) return;
-        mapRef.current?.animateToRegion({
-          latitude: first.coords.latitude,
-          longitude: first.coords.longitude,
-          latitudeDelta: 0.012,
-          longitudeDelta: 0.012,
-        }, 650);
+        setCurrentCoords({ latitude: first.coords.latitude, longitude: first.coords.longitude, heading: first.coords.heading });
         subscription = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.High, timeInterval: 3000, distanceInterval: 5 },
           (point) => {
             if (!active) return;
-            mapRef.current?.animateCamera({
-              center: { latitude: point.coords.latitude, longitude: point.coords.longitude },
-              heading: point.coords.heading ?? undefined,
-              pitch: 35,
-              zoom: 16,
-            }, { duration: 900 });
+            setCurrentCoords({ latitude: point.coords.latitude, longitude: point.coords.longitude, heading: point.coords.heading });
           },
         );
       } catch (error) {
@@ -1061,6 +1052,15 @@ function ProviderHome({
     void start();
     return () => { active = false; subscription?.remove(); };
   }, []);
+  useEffect(() => {
+    if (!mapReady || !currentCoords) return;
+    mapRef.current?.animateCamera({
+      center: { latitude: currentCoords.latitude, longitude: currentCoords.longitude },
+      heading: currentCoords.heading ?? undefined,
+      pitch: 35,
+      zoom: 16,
+    }, { duration: 900 });
+  }, [mapReady, currentCoords]);
   const statusLabel = !verified ? "الحساب بانتظار التوثيق" : availabilitySaving ? "جارٍ تحديث الحالة والموقع" : available ? "أنت متصل وتستقبل الطلبات" : "أنت غير متصل حالياً";
   return (
     <View style={providerMapStyles.screen}>
