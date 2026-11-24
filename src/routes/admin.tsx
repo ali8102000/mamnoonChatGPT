@@ -45,6 +45,7 @@ import {
   adminGetGovernorateUserStats,
   adminGetCustomerActivityStats,
   adminUpdateUserProfile,
+  adminUpdateAccount,
   adminGetLiveLocations,
   adminGetLiveRequests,
   adminGetUserDetail,
@@ -445,7 +446,7 @@ function AdminPage() {
           )}
           {section === "stats" && <StatsSection canViewGovernorates={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "users" && <UsersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
-          {section === "providers" && <ProvidersSection />}
+          {section === "providers" && <ProvidersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "requests" && <RequestsSection />}
           {section === "chat" && <ChatSection />}
           {section === "friends" && <FriendsSection />}
@@ -920,10 +921,31 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
 }
 
 function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdit: boolean; onClose: () => void; onSave: (profile: any) => void }) {
-  const updateProfile = adminUpdateUserProfile;
   const [fullName, setFullName] = useState(user.profile?.full_name ?? "");
+  const [phone, setPhone] = useState(user.profile?.phone ?? "");
+  const [email, setEmail] = useState(user.profile?.email ?? "");
   const [governorateKey, setGovernorateKey] = useState(user.profile?.governorate_key ?? "");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const driver = user.driverProfile ?? {};
+  const worker = user.workerProfile ?? {};
+  const partner = user.partnerBusinessProfiles?.[0] ?? user.partnerApplications?.[0] ?? {};
+  const [vehicleMake, setVehicleMake] = useState(driver.vehicle_make ?? "");
+  const [vehicleModel, setVehicleModel] = useState(driver.vehicle_model ?? "");
+  const [vehicleYear, setVehicleYear] = useState(driver.vehicle_year?.toString() ?? "");
+  const [vehiclePlate, setVehiclePlate] = useState(driver.vehicle_plate ?? "");
+  const [vehicleColor, setVehicleColor] = useState(driver.vehicle_color ?? "");
+  const [vehicleCategory, setVehicleCategory] = useState(driver.vehicle_category ?? "economy");
+  const [vehicleType, setVehicleType] = useState(driver.vehicle_type ?? "");
+  const [workerBio, setWorkerBio] = useState(worker.bio ?? "");
+  const [workerLevel, setWorkerLevel] = useState(worker.level ?? "fani");
+  const [serviceRadius, setServiceRadius] = useState(String(driver.service_radius_km ?? worker.service_radius_km ?? 30));
+  const [teamSize, setTeamSize] = useState(String(worker.team_size ?? 1));
+  const [businessName, setBusinessName] = useState(partner.business_name ?? "");
+  const [businessPhone, setBusinessPhone] = useState(partner.phone ?? "");
+  const [businessEmail, setBusinessEmail] = useState(partner.email ?? "");
+  const [businessCity, setBusinessCity] = useState(partner.city ?? "");
+  const [businessAddress, setBusinessAddress] = useState(partner.address ?? "");
+  const [businessDescription, setBusinessDescription] = useState(partner.description ?? "");
   const [saving, setSaving] = useState(false);
   async function saveProfile() {
     if (fullName.trim().length < 2) { toast.error("الاسم يجب أن يكون حرفين على الأقل"); return; }
@@ -936,11 +958,28 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
         let binary = ""; for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
         avatar_base64 = btoa(binary);
       }
-      const updated = await updateProfile({ data: {
-        user_id: user.profile.id, full_name: fullName.trim(), governorate_key: governorateKey || null,
-        ...(avatar_base64 ? { avatar_base64, avatar_mime: avatarFile!.type as "image/jpeg" | "image/png" | "image/webp" } : {}),
+      const updated = await adminUpdateAccount({ data: {
+        user_id: user.profile.id,
+        profile: {
+          full_name: fullName.trim(), phone: phone.trim(), email: email.trim() || null,
+          governorate_key: governorateKey || null,
+          ...(avatar_base64 ? { avatar_base64, avatar_mime: avatarFile!.type as "image/jpeg" | "image/png" | "image/webp" } : {}),
+        },
+        ...(user.driverProfile ? { driver_profile: {
+          vehicle_make: vehicleMake, vehicle_model: vehicleModel, vehicle_year: vehicleYear ? Number(vehicleYear) : null,
+          vehicle_plate: vehiclePlate, vehicle_color: vehicleColor, vehicle_category: vehicleCategory,
+          vehicle_type: vehicleType, service_radius_km: Number(serviceRadius),
+        } } : {}),
+        ...(user.workerProfile ? { worker_profile: {
+          bio: workerBio, level: workerLevel, service_radius_km: Number(serviceRadius), team_size: Number(teamSize),
+        } } : {}),
+        ...(user.partnerBusinessProfiles?.length || user.partnerApplications?.length ? { partner_profile: {
+          business_name: businessName, phone: businessPhone, email: businessEmail || null,
+          city: businessCity, address: businessAddress, description: businessDescription,
+        } } : {}),
       } });
-      onSave(updated); setAvatarFile(null); toast.success("تم تحديث بيانات المستخدم");
+      onSave({ ...(updated.profile ?? {}), driverProfile: updated.driver_profile, workerProfile: updated.worker_profile });
+      setAvatarFile(null); toast.success("تم حفظ جميع التعديلات الإدارية");
     } catch (e: any) { toast.error(e?.message || "تعذر حفظ التعديلات"); }
     finally { setSaving(false); }
   }
@@ -955,15 +994,52 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
         </div>
         {canEdit && (
           <div className="glass rounded-2xl p-3 mb-4 space-y-2">
-          <div className="font-black text-sm">تعديل بيانات المستخدم</div>
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={100} placeholder="اسم المستخدم" className="w-full glass rounded-xl px-3 py-2 text-sm" />
-          <select value={governorateKey} onChange={(e) => setGovernorateKey(e.target.value)} className="w-full glass rounded-xl px-3 py-2 text-sm">
-            <option value="">المحافظة غير محددة</option>
-            {Object.entries(GOVERNORATE_LABELS).filter(([key]) => key !== "unknown").map(([key,label]) => <option key={key} value={key}>{label}</option>)}
-          </select>
-          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)} className="w-full text-xs" />
+          <div className="font-black text-sm">تعديل شامل للحساب — صلاحية الإدارة فقط</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={100} placeholder="الاسم الكامل" className="w-full glass rounded-xl px-3 py-2 text-sm" />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={30} placeholder="رقم الهاتف" dir="ltr" className="w-full glass rounded-xl px-3 py-2 text-sm" />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} placeholder="البريد الإلكتروني" dir="ltr" className="w-full glass rounded-xl px-3 py-2 text-sm" />
+            <select value={governorateKey} onChange={(e) => setGovernorateKey(e.target.value)} className="w-full glass rounded-xl px-3 py-2 text-sm">
+              <option value="">المحافظة غير محددة</option>
+              {Object.entries(GOVERNORATE_LABELS).filter(([key]) => key !== "unknown").map(([key,label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </div>
+          <label className="block text-xs font-bold">الصورة الشخصية<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)} className="mt-1 w-full text-xs" /></label>
           {avatarFile && <div className="text-[11px] text-muted-foreground">{avatarFile.name}</div>}
-          <button onClick={() => void saveProfile()} disabled={saving} className="w-full rounded-xl bg-primary text-primary-foreground py-2 text-sm font-bold disabled:opacity-50">{saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}</button>
+          {user.driverProfile && <div className="rounded-xl border border-border p-3 space-y-2">
+            <div className="font-bold text-xs">بيانات سيارة السائق</div>
+            <div className="grid grid-cols-2 gap-2">
+              <input value={vehicleMake} onChange={e=>setVehicleMake(e.target.value)} placeholder="شركة السيارة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={vehicleModel} onChange={e=>setVehicleModel(e.target.value)} placeholder="الموديل" className="glass rounded-lg p-2 text-xs"/>
+              <input value={vehicleYear} onChange={e=>setVehicleYear(e.target.value)} placeholder="سنة الصنع" type="number" className="glass rounded-lg p-2 text-xs"/>
+              <input value={vehiclePlate} onChange={e=>setVehiclePlate(e.target.value)} placeholder="رقم اللوحة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={vehicleColor} onChange={e=>setVehicleColor(e.target.value)} placeholder="لون السيارة" className="glass rounded-lg p-2 text-xs"/>
+              <select value={vehicleCategory} onChange={e=>setVehicleCategory(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="economy">اقتصادي</option><option value="premium">متميز</option><option value="luxury">فاخر</option><option value="large">سيارات كبيرة</option></select>
+              <input value={vehicleType} onChange={e=>setVehicleType(e.target.value)} placeholder="نوع المركبة الكبيرة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={serviceRadius} onChange={e=>setServiceRadius(e.target.value)} placeholder="نطاق الخدمة كم" type="number" className="glass rounded-lg p-2 text-xs"/>
+            </div>
+          </div>}
+          {user.workerProfile && <div className="rounded-xl border border-border p-3 space-y-2">
+            <div className="font-bold text-xs">بيانات الفني أو العامل</div>
+            <textarea value={workerBio} onChange={e=>setWorkerBio(e.target.value)} maxLength={2000} placeholder="نبذة ومعلومات المهنة" className="w-full glass rounded-lg p-2 text-xs"/>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={workerLevel} onChange={e=>setWorkerLevel(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="fani">فني</option><option value="khabir">خبير</option></select>
+              <input value={serviceRadius} onChange={e=>setServiceRadius(e.target.value)} type="number" placeholder="نطاق الخدمة كم" className="glass rounded-lg p-2 text-xs"/>
+              <input value={teamSize} onChange={e=>setTeamSize(e.target.value)} type="number" placeholder="عدد أفراد الفريق" className="glass rounded-lg p-2 text-xs"/>
+            </div>
+          </div>}
+          {(user.partnerBusinessProfiles?.length || user.partnerApplications?.length) > 0 && <div className="rounded-xl border border-border p-3 space-y-2">
+            <div className="font-bold text-xs">بيانات المنشأة / المطعم / الفندق / المتجر</div>
+            <input value={businessName} onChange={e=>setBusinessName(e.target.value)} placeholder="اسم المنشأة" className="w-full glass rounded-lg p-2 text-xs"/>
+            <div className="grid grid-cols-2 gap-2">
+              <input value={businessPhone} onChange={e=>setBusinessPhone(e.target.value)} placeholder="هاتف المنشأة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessEmail} onChange={e=>setBusinessEmail(e.target.value)} placeholder="بريد المنشأة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessCity} onChange={e=>setBusinessCity(e.target.value)} placeholder="المدينة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessAddress} onChange={e=>setBusinessAddress(e.target.value)} placeholder="العنوان" className="glass rounded-lg p-2 text-xs"/>
+            </div>
+            <textarea value={businessDescription} onChange={e=>setBusinessDescription(e.target.value)} placeholder="وصف المنشأة" className="w-full glass rounded-lg p-2 text-xs"/>
+          </div>}
+          <button onClick={() => void saveProfile()} disabled={saving} className="w-full rounded-xl bg-primary text-primary-foreground py-2 text-sm font-bold disabled:opacity-50">{saving ? "جارٍ الحفظ..." : "حفظ جميع التعديلات"}</button>
         </div>
         )}
         <div className="space-y-3 text-sm">
@@ -1042,9 +1118,10 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
                     ["الهوية الخلفية", v.id_card_back_photo_url],
                     ["مستند المركبة", v.vehicle_document_url],
                     ["فيديو السيارة", v.vehicle_video_url],
-                  ].map(([label, url]: any) => url
+                  ].filter(([label]: any) => label !== "فيديو السيارة").map(([label, url]: any) => url
                     ? <a key={label} href={url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary underline">عرض {label}</a>
                     : <span key={label} className="text-[10px] text-muted-foreground">{label}: غير متوفر</span>)}
+                {v.vehicle_video_url && <video controls playsInline preload="metadata" src={v.vehicle_video_url} className="mt-3 w-full max-h-80 rounded-xl bg-black" aria-label="فيديو المركبة المرفوع من مقدم الخدمة" />}
                 </div>
               </div>
             ))}
@@ -1238,7 +1315,7 @@ function ProviderDetailModal({
   );
 }
 
-function ProvidersSection() {
+function ProvidersSection({ canEdit = false }: { canEdit?: boolean }) {
   const [type, setType] = useState("driver");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -1605,6 +1682,7 @@ function ProvidersSection() {
       {selectedProvider && (
         <ProviderDetailModal
           user={selectedProvider}
+          canEdit={canEdit}
           onClose={() => setSelectedProvider(null)}
           onSaveName={saveProviderName}
         />
@@ -1652,7 +1730,10 @@ function ProvidersSection() {
                     <div className="mt-3">
                       <div className="text-sm font-bold mb-2">فيديو السيارة من جميع الجهات</div>
                       {selectedVerification.verification.vehicle_video_url ? (
-                        <a href={selectedVerification.verification.vehicle_video_url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-xl bg-primary text-primary-foreground px-4 py-2 text-xs font-bold">مشاهدة فيديو السيارة</a>
+                        <div className="space-y-2">
+                          <video controls playsInline preload="metadata" src={selectedVerification.verification.vehicle_video_url} className="w-full max-h-96 rounded-xl bg-black" aria-label="فيديو السيارة المرفوع من السائق" />
+                          <a href={selectedVerification.verification.vehicle_video_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">فتح الفيديو بملء الشاشة</a>
+                        </div>
                       ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم يُرفق فيديو السيارة لهذا الطلب.</div>}
                     </div>
                   </div>
