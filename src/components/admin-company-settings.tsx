@@ -85,6 +85,7 @@ export default function AdminCompanySettings() {
     if (!Number.isInteger(driverVideoMaxDurationSeconds) || driverVideoMaxDurationSeconds < 1 || driverVideoMaxDurationSeconds > 60) { setMessage("مدة فيديو السيارة لازم تكون بين 1 و60 ثانية."); return; }
     if (!Number.isInteger(serviceIconDisplaySeconds) || serviceIconDisplaySeconds < 1 || serviceIconDisplaySeconds > 10) { setMessage("مدة عرض أيقونات الفنيين لازم تكون بين 1 و10 ثوانٍ."); return; }
     if (!Number.isInteger(serviceIconImageSizePx) || serviceIconImageSizePx < 24 || serviceIconImageSizePx > 64) { setMessage("حجم صورة أيقونة الفني لازم يكون بين 24 و64 بكسل."); return; }
+    if (homeVisualLinkUrl.trim() && !(homeVisualLinkUrl.trim().startsWith("https://") || homeVisualLinkUrl.trim().startsWith("http://"))) { setMessage("رابط الصورة لازم يبدأ بـ https:// أو http://."); return; }
     setSaving(true); setMessage("");
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { setMessage("سجّل الدخول أولاً."); setSaving(false); return; }

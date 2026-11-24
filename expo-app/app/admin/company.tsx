@@ -94,6 +94,7 @@ export default function CompanySettingsScreen() {
     const message = welcome.trim();
     if (companyName.length < 2 || companyName.length > 80) { Alert.alert("تحقق من الاسم", "اسم الشركة يجب أن يكون بين حرفين و80 حرفاً."); return; }
     if (message.length < 2 || message.length > 180) { Alert.alert("تحقق من رسالة الترحيب", "رسالة الترحيب يجب أن تكون بين حرفين و180 حرفاً."); return; }
+    if (homeVisualLinkUrl.trim() && !(homeVisualLinkUrl.trim().startsWith("https://") || homeVisualLinkUrl.trim().startsWith("http://"))) { Alert.alert("تحقق من الرابط", "اكتب رابطاً يبدأ بـ https:// أو http://."); return; }
     if (!user?.id || !allowed) { Alert.alert("غير مصرّح", "تعديل هوية الشركة متاح للمدير الأعلى فقط."); return; }
     setSaving(true);
     try {

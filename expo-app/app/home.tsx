@@ -586,7 +586,6 @@ function CustomerHome({ userId, homeVisualUrl, homeVisualAnimated, homeVisualEna
   return (
     <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: gridGap }}>
       {homeVisualPosition === "above_banner" ? renderHomeVisual() : null}
-      {homeVisualPosition === "above_banner" ? renderHomeVisual() : null}
       <View {...topBannerSwipeResponder.panHandlers} style={{ width: "100%" }}>
       <TouchableOpacity activeOpacity={0.94} onPress={() => { if (suppressTopBannerPress.current) { suppressTopBannerPress.current = false; return; } if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }}>
       <LinearGradient
