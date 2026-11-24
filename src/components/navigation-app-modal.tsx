@@ -42,7 +42,7 @@ export function NavigationAppModal({
   const coords = current ? { lat: current.lat, lng: current.lng } : null;
   const label = current?.label || (targetType === "pickup" ? "موقع الانطلاق" : "وجهة الوصول");
 
-  function openApp(app: "google" | "waze") {
+  function openApp(app: "google" | "waze" | "darbuna") {
     if (!coords) {
       toast.error("إحداثيات الموقع غير متوفرة");
       return;
@@ -62,6 +62,13 @@ export function NavigationAppModal({
         const wazeUrl = `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
         window.open(wazeUrl, "_blank");
         toast.success("جاري فتح تطبيق Waze 🚗");
+        break;
+      }
+
+      case "darbuna": {
+        const darbunaUrl = `https://map.darbuna.app/pin/${lat},${lng},17z`;
+        window.open(darbunaUrl, "_blank");
+        toast.success("جاري فتح دربونة 📍");
         break;
       }
 
@@ -188,6 +195,24 @@ export function NavigationAppModal({
               <div className="font-black text-sm text-foreground">تطبيق Waze (ويز)</div>
               <div className="text-[11px] text-muted-foreground mt-0.5">
                 تنبيهات الازدحام اللحظية، الرادارات، والحوادث المرورية
+              </div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 opacity-60 group-hover:opacity-100" />
+          </Button>
+
+          {/* Darbuna */}
+          <Button
+            type="button"
+            onClick={() => openApp("darbuna")}
+            className="w-full p-3.5 rounded-2xl bg-white hover:bg-amber-50 border border-amber-200 shadow-sm flex items-center gap-3 text-right btn-press transition-all group"
+          >
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black text-xl grid place-items-center shadow-md shrink-0">
+              📍
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-black text-sm text-foreground">دربونة (Darbuna)</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                ملاحة الطرق العراقية وفتح موقع الوجهة مباشرة
               </div>
             </div>
             <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 opacity-60 group-hover:opacity-100" />
