@@ -19,6 +19,7 @@ values
   ('users.roles.read','users','عرض أدوار المستخدمين','sensitive','عرض أدوار المستخدمين وتاريخها'),
   ('users.roles.manage','users','إدارة أدوار المستخدمين','critical','تغيير أدوار التطبيق دون المساس بحساب المالك'),
   ('users.privacy.export','users','تصدير بيانات الخصوصية','critical','تنفيذ طلبات تصدير البيانات بعد التحقق'),
+  ('friends.manage','users','إدارة طلبات الصداقة','sensitive','مراجعة طلبات الصداقة وحذف العلاقات المخالفة مع تسجيل الإجراء'),
 
   -- Providers, drivers, workers and fleet
   ('providers.read','providers','عرض مقدمي الخدمة','normal','عرض ملفات السائقين والفنيين'),
@@ -89,6 +90,7 @@ values
   ('moderation.read','moderation','عرض البلاغات','normal','عرض البلاغات والمراجعات'),
   ('moderation.manage','moderation','إدارة البلاغات والمحتوى','sensitive','مراجعة البلاغات وإخفاء المحتوى وفق السياسة'),
   ('moderation.appeal','moderation','مراجعة الاعتراضات','sensitive','مراجعة اعتراضات الحظر والإجراءات'),
+  ('chats.moderate','moderation','إدارة رسائل المحادثات','sensitive','حذف الرسائل المخالفة وفق سياسة الإشراف وتسجيل الإجراء'),
 
   -- Communications and content
   ('notifications.read','communications','عرض الإشعارات','normal','عرض الحملات وحالات الإرسال'),
