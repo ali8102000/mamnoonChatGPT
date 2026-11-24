@@ -907,7 +907,7 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
         </div>
       )}
       {selectedUser && (
-        <UserDetailModal user={selectedUser} canEdit={canEdit} onClose={() => setSelectedUser(null)} onSave={(profile: any) => setSelectedUser((current: any) => current ? { ...current, profile: { ...current.profile, ...profile } } : current)} />
+        <UserDetailModal user={selectedUser} canEdit={canEdit} onClose={() => setSelectedUser(null)} onSave={(updated: any) => setSelectedUser((current: any) => current ? { ...current, profile: { ...current.profile, ...(updated.profile ?? {}) }, driverProfile: { ...current.driverProfile, ...(updated.driverProfile ?? {}) }, workerProfile: { ...current.workerProfile, ...(updated.workerProfile ?? {}) } } : current)} />
       )}
       {blockModal && (
         <BlockModal
@@ -978,7 +978,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
           city: businessCity, address: businessAddress, description: businessDescription,
         } } : {}),
       } });
-      onSave({ ...(updated.profile ?? {}), driverProfile: updated.driver_profile, workerProfile: updated.worker_profile });
+      onSave({ profile: updated.profile ?? {}, driverProfile: updated.driver_profile ?? {}, workerProfile: updated.worker_profile ?? {} });
       setAvatarFile(null); toast.success("تم حفظ جميع التعديلات الإدارية");
     } catch (e: any) { toast.error(e?.message || "تعذر حفظ التعديلات"); }
     finally { setSaving(false); }
