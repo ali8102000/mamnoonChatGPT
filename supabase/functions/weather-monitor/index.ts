@@ -53,8 +53,10 @@ Deno.serve(async (req) => {
           throw new Error("weather_payload_incomplete");
         }
         const observed = new Date(observedAt * 1000);
-        const ageMinutes = Math.max(0, (Date.now() - observed.getTime()) / 60000);
+        const ageMinutes = (Date.now() - observed.getTime()) / 60000;
         const freshnessLimit = Math.max(20, Number(setting.weather_max_age_minutes) || 30);
+        // Reject materially future-dated provider readings instead of clamping them to age zero.
+        const isFresh = ageMinutes >= -2 && ageMinutes <= freshnessLimit;
         const alerts = Array.isArray(payload.alerts?.alert) ? payload.alerts.alert.slice(0, 10).map((a: any) => ({
           headline: String(a.headline ?? "").slice(0, 240),
           severity: String(a.severity ?? "").slice(0, 40),
@@ -70,8 +72,8 @@ Deno.serve(async (req) => {
           observed_at: observed.toISOString(),
           fetched_at: new Date().toISOString(),
           provider: "weatherapi",
-          is_fresh: ageMinutes <= freshnessLimit,
-          error: ageMinutes <= freshnessLimit ? null : "قراءة الطقس أقدم من الحد المسموح",
+          is_fresh: isFresh,
+          error: isFresh ? null : ageMinutes < -2 ? "توقيت قراءة الطقس يقع في المستقبل" : "قراءة الطقس أقدم من الحد المسموح",
           alerts,
         };
         const { error } = await admin.from("taxi_peak_weather_observations").upsert(row, { onConflict: "governorate_key" });
@@ -79,7 +81,7 @@ Deno.serve(async (req) => {
         await admin.from("taxi_peak_weather_settings").update({
           weather_monitor_ready: row.is_fresh,
           last_checked_at: new Date().toISOString(),
-          last_reason: row.is_fresh ? "تم استلام قراءة طقس حقيقية من WeatherAPI" : "وصلت قراءة قديمة؛ لا تستخدم للتشغيل التلقائي",
+          last_reason: row.is_fresh ? "تم استلام قراءة طقس حقيقية وحديثة من WeatherAPI" : ageMinutes < -2 ? "توقيت قراءة الطقس في المستقبل؛ تم رفضها" : "وصلت قراءة قديمة؛ لا تستخدم للتشغيل",
         }).eq("governorate_key", governorateKey);
         return { governorate_key: governorateKey, ok: true, fresh: row.is_fresh, age_minutes: Math.round(ageMinutes), alerts: alerts.length };
       } catch (error) {
