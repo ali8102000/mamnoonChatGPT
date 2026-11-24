@@ -221,6 +221,12 @@ export default function WorkerOnboarding() {
     if (approvedWorkerRole && specialtyOnlyMode) {
       setBusy(true);
       try {
+        // Idempotently restore the worker role only if the database confirms approval.
+        const { data: roleGranted, error: roleError } = await supabase.rpc("grant_provider_role_safe", { _role: "worker" });
+        if (roleError) throw new Error(`تعذر التحقق من اعتماد حساب الفني: ${roleError.message}`);
+        if (roleGranted !== true) {
+          throw new Error("هذا المسار مخصص للفني المعتمد فقط. أكمل التسجيل الأولي إذا لم يسبق اعتماد حسابك.");
+        }
         const { error } = await (supabase as any).rpc("submit_provider_change_request", {
           _provider_type: "worker",
           _requested_data: { service_ids: selected },
@@ -392,6 +398,7 @@ export default function WorkerOnboarding() {
       <TextInput style={[styles.input, { height: 80 }]} value={bio} onChangeText={setBio} placeholder="خبراتك ومهاراتك..." multiline placeholderTextColor="#94a3b8" />
 
       <Text style={styles.label}>الصورة الشخصية للوجه *</Text>
+      <Text style={styles.note}>الصورة الشخصية إلزامية لجميع الفنيين. ارفع صورة حديثة وواضحة لوجهك أنت، بدون فلاتر أو أشخاص آخرين، حتى تتمكن الإدارة من مطابقتها مع صورة الهوية قبل تفعيل الحساب.</Text>
       <TouchableOpacity style={styles.photoButton} onPress={() => choosePhoto("face")}>
         {facePhoto ? <Image source={{ uri: facePhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>اضغط لالتقاط أو اختيار صورتك الشخصية</Text>}
       </TouchableOpacity>
