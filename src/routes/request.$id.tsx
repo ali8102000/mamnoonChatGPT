@@ -1187,82 +1187,70 @@ function RatingModal({
   const [busy, setBusy] = useState(false);
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-foreground/30 backdrop-blur-sm p-5"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm glass-strong rounded-3xl p-6 shadow-elegant relative animate-in fade-in zoom-in-95"
-      >
-        <button
-          onClick={onClose}
-          className="absolute top-3 left-3 h-9 w-9 rounded-full grid place-items-center text-muted-foreground hover:bg-secondary btn-press"
-        >
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 backdrop-blur-md p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm max-h-[92vh] overflow-y-auto rounded-[28px] bg-background border border-border/80 p-5 shadow-2xl relative animate-in fade-in zoom-in-95">
+        <button onClick={onClose} className="absolute top-3 left-3 h-9 w-9 rounded-full grid place-items-center text-muted-foreground hover:bg-secondary btn-press" aria-label="إغلاق">
           <X className="h-5 w-5" />
         </button>
         <div className="text-center mb-4">
-          <div className="h-16 w-16 mx-auto rounded-3xl overflow-hidden bg-gradient-to-br from-primary to-primary-glow grid place-items-center text-primary-foreground font-black text-2xl mb-3">
-            {target.avatar_url ? (
-              <img src={target.avatar_url} alt={target.full_name || "صورة المستخدم"} className="h-full w-full object-cover" />
-            ) : (
-              (target.full_name || "?").charAt(0)
-            )}
+          <div className="h-16 w-16 mx-auto rounded-3xl overflow-hidden bg-gradient-to-br from-slate-900 to-slate-700 grid place-items-center text-white font-black text-2xl mb-3 ring-2 ring-amber-400/50 shadow-lg">
+            {target.avatar_url ? <img src={target.avatar_url} alt={target.full_name || "صورة المستخدم"} className="h-full w-full object-cover" /> : (target.full_name || "?").charAt(0)}
           </div>
+          <div className="text-[9px] font-black tracking-[0.18em] text-primary mb-1">MAMNOON · VERIFIED FEEDBACK</div>
           <div className="font-black text-lg">كيف كانت تجربتك؟</div>
           <div className="text-xs text-muted-foreground mt-1">قيّم {target.full_name || "المستخدم"}</div>
-          <div className="text-xs text-muted-foreground mt-2">اختَر عدد النجوم بنفسك</div>
         </div>
 
-        <div className="flex justify-center gap-1.5 my-5" onMouseLeave={() => setHover(0)}>
-          {[1, 2, 3, 4, 5].map((s) => {
-            const active = s <= (hover || stars);
-            return (
-              <button key={s} type="button" onMouseEnter={() => setHover(s)} onClick={() => setStars(s)} className="btn-press p-1 transition-transform">
-                <Star className={`h-10 w-10 transition ${active ? "text-primary fill-primary drop-shadow-[0_4px_12px_var(--primary)]" : "text-muted-foreground"}`} />
-              </button>
-            );
-          })}
-        </div>
-        <div className="text-center text-xs text-muted-foreground mb-3">
-          {stars === 0 ? "لم يتم اختيار التقييم" : ["", "سيء جداً", "سيء", "مقبول", "جيد", "ممتاز"][stars]}
+        <div className="rounded-2xl bg-gradient-to-br from-slate-950 to-slate-800 border border-amber-400/40 p-3 shadow-lg mb-3">
+          <div className="flex justify-center gap-1" onMouseLeave={() => setHover(0)}>
+            {[1, 2, 3, 4, 5].map((s) => {
+              const active = s <= (hover || stars);
+              return <button key={s} type="button" onMouseEnter={() => setHover(s)} onClick={() => setStars(s)} className={`btn-press p-1.5 rounded-xl transition-all ${active ? "bg-amber-400/15 scale-110" : "hover:bg-white/5"}`}>
+                <Star className={`h-9 w-9 transition ${active ? "text-amber-300 fill-amber-300 drop-shadow-[0_3px_12px_rgba(251,191,36,0.65)]" : "text-white/25"}`} />
+              </button>;
+            })}
+          </div>
+          <div className="text-center text-xs font-black text-amber-300 mt-2">
+            {stars === 0 ? "اختَر تقييمك من نجمة إلى خمس نجوم" : ["", "ضعيف جداً", "ضعيف", "مقبول", "جيد جداً", "ممتاز"][stars]}
+          </div>
         </div>
 
         <div className="space-y-3 mb-4">
           {(["professionalism", "punctuality", "quality"] as const).map((key, index) => (
-            <div key={key} className="flex items-center justify-between gap-3">
-              <span className="text-xs font-black text-muted-foreground">{criteriaLabels[index]}</span>
-              <div className="flex gap-1" dir="ltr">
-                {[1, 2, 3, 4, 5].map((score) => <button key={score} type="button" onClick={() => setCriteria((current) => ({ ...current, [key]: score }))} className={`text-xl ${score <= criteria[key] ? "text-primary" : "text-muted-foreground/40"}`}>★</button>)}
+            <div key={key} className="rounded-2xl border border-border bg-card/80 p-3 flex items-center justify-between gap-3">
+              <span className="text-xs font-black text-foreground">{criteriaLabels[index]}</span>
+              <div className="flex gap-0.5 shrink-0" dir="ltr">
+                {[1, 2, 3, 4, 5].map((score) => <button key={score} type="button" aria-label={`${criteriaLabels[index]} ${score}`} onClick={() => setCriteria((current) => ({ ...current, [key]: score }))} className="p-0.5">
+                  <Star className={`h-5 w-5 ${score <= criteria[key] ? "text-amber-500 fill-amber-500" : "text-muted-foreground/25"}`} />
+                </button>)}
               </div>
             </div>
           ))}
         </div>
 
         <div className="mb-3">
-          <div className="text-xs font-black text-muted-foreground mb-2">أسباب التقييم (اختياري – تقدر تختار أكثر من سبب)</div>
+          <div className="flex items-center justify-between text-xs font-black text-muted-foreground mb-2">
+            <span>شنو ميّز التجربة؟ (اختياري)</span><span className="text-primary">{selectedReasons.length}/12</span>
+          </div>
           <div className="flex flex-wrap gap-2">
             {reasons.map((reason) => {
               const active = selectedReasons.includes(reason);
-              return (
-                <button key={reason} type="button" onClick={() => setSelectedReasons((current) => active ? current.filter((item) => item !== reason) : [...current, reason])}
-                  className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground"}`}>
-                  {active ? "✓ " : ""}{reason}
-                </button>
-              );
+              const limitReached = selectedReasons.length >= 12 && !active;
+              return <button key={reason} type="button" disabled={limitReached} onClick={() => setSelectedReasons((current) => active ? current.filter((item) => item !== reason) : [...current, reason])}
+                className={`rounded-xl border px-3 py-2 text-xs font-extrabold transition-all active:scale-95 ${active ? "border-primary bg-primary/10 text-primary shadow-sm" : "border-border bg-background text-muted-foreground"} ${limitReached ? "opacity-40" : ""}`}>
+                {active ? "✓  " : "+  "}{reason}
+              </button>;
             })}
           </div>
         </div>
 
-        <textarea value={comment} onChange={(e) => setComment(e.target.value.slice(0, 500))}
-          placeholder="ملاحظة إضافية (اختياري)..." rows={2}
+        <textarea value={comment} onChange={(e) => setComment(e.target.value.slice(0, 500))} placeholder="ملاحظة إضافية (اختياري)..." rows={2}
           className="w-full bg-input border border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-ring resize-none" />
-
         <button disabled={busy || stars === 0 || Object.values(criteria).some((value) => value < 1)} onClick={async () => {
           setBusy(true);
-          await onSubmit(stars, comment.trim(), selectedReasons, criteria);
-          setBusy(false);
-        }} className="mt-4 w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-primary-glow text-primary-foreground font-black btn-press glow-primary disabled:opacity-50">
+          try { await onSubmit(stars, comment.trim(), selectedReasons.slice(0, 12), criteria); }
+          finally { setBusy(false); }
+        }} className="mt-4 w-full h-12 rounded-2xl bg-gradient-to-r from-slate-950 to-slate-800 border border-amber-400/40 text-white font-black btn-press shadow-lg disabled:opacity-50">
           {busy ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "إرسال التقييم"}
         </button>
       </div>
