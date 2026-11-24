@@ -182,9 +182,9 @@ export default function AdminUsersScreen() {
         business_profile_id: editPartner.business_profile_id,
         application_id: editPartner.application_id,
         business_name: editPartner.business_name?.trim() || "",
-        phone: editPartner.phone?.trim() || "",
-        email: editPartner.email?.trim() || "",
-        governorate_key: editPartner.governorate_key || null,
+        phone: editPartner.phone?.trim() || null,
+        email: editPartner.email?.trim() || null,
+        governorate_key: editPartner.governorate_key?.trim() || null,
         city: editPartner.city?.trim() || "",
         address: editPartner.address?.trim() || "",
         description: editPartner.description?.trim() || "",
@@ -202,9 +202,12 @@ export default function AdminUsersScreen() {
         profile: { ...current.profile, ...(result.profile ?? {}) },
         driverProfile: { ...current.driverProfile, ...(result.driver_profile ?? {}) },
         workerProfile: { ...current.workerProfile, ...(result.worker_profile ?? {}) },
+        workerServices: editWorkerServices,
         partnerBusinessProfiles: current.partnerBusinessProfiles?.map((row, index) => index === 0 ? { ...row, ...(result.partner_profile ?? {}) } : row),
+        partnerApplications: current.partnerApplications?.map((row, index) => index === 0 ? { ...row, ...(result.partner_profile ?? {}) } : row),
       } : current);
       setRows((current) => current.map((row) => row.id === detail.profile.id ? { ...row, ...(result.profile ?? {}) } : row));
+      setEditPhone(String(result.profile?.phone ?? editPhone));
       setAvatarBase64(null);
       Alert.alert("تم الحفظ", "تم تحديث بيانات الحساب وملفات السائق أو الفني والمنشأة ضمن صلاحيات الإدارة.");
     } catch (e:any) { Alert.alert("تعذر الحفظ", String(e?.message || "حاول مرة ثانية")); }
