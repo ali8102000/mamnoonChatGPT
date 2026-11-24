@@ -110,12 +110,16 @@ export default function CompanySettingsScreen() {
         welcome_message: message, company_welcome_visual_url: nextWelcomeVisualUrl, company_welcome_visual_animated: welcomeVisualAnimated, company_welcome_visual_size_px: welcomeVisualSizePx, updated_by: user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
       if (error) throw error;
+      if (welcomeVisualUrl && nextWelcomeVisualUrl !== welcomeVisualUrl) {
+        const marker = "/storage/v1/object/public/app-visuals/";
+        const storedPath = welcomeVisualUrl.split(marker)[1]?.split("?")[0];
+        if (storedPath) await supabase.storage.from("app-visuals").remove([decodeURIComponent(storedPath)]);
+      }
       setLogoUrl(nextLogoUrl);
       setLogoAsset(null);
       setWelcomeVisualUrl(nextWelcomeVisualUrl);
       setWelcomeVisualAsset(null);
       setRemoveWelcomeVisual(false);
-      setWelcomeVisualUrl(nextWelcomeVisualUrl);
       Alert.alert("تم الحفظ", "تحدثت هوية الشركة وستظهر في شاشة الترحيب وتسجيل الدخول.");
     } catch (error: any) {
       Alert.alert("تعذر الحفظ", error?.message || "حدث خطأ أثناء حفظ بيانات الشركة.");
