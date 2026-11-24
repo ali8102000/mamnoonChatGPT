@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - fix/provider-change-request-migration
   workflow_dispatch:
 
 permissions:
