@@ -153,9 +153,9 @@ export default function AdminUsersScreen() {
     try {
       const profile: Record<string, unknown> = {
         full_name: editName.trim(),
-        phone: editPhone.trim(),
-        email: editEmail.trim(),
         governorate_key: editGovernorate || null,
+        ...(editPhone.trim() !== String(detail.profile?.phone ?? "") ? { phone: editPhone.trim() } : {}),
+        ...(editEmail.trim() !== String(detail.profile?.email ?? "") ? { email: editEmail.trim() } : {}),
         ...(avatarBase64 ? { avatar_base64: avatarBase64, avatar_mime: avatarMime } : {}),
       };
       const driver_profile = detail.driverProfile ? {
