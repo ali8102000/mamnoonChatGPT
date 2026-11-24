@@ -94,6 +94,7 @@ Deno.serve(async (req) => {
         }, { onConflict: "governorate_key" });
         await admin.from("taxi_peak_weather_settings").update({
           last_checked_at: new Date().toISOString(),
+          weather_monitor_ready: false,
           last_reason: "تعذر جلب قراءة الطقس؛ تم منع استخدام بيانات غير مؤكدة",
         }).eq("governorate_key", governorateKey);
         return { governorate_key: governorateKey, ok: false, error: message.slice(0, 120) };
