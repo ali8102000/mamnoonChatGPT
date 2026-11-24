@@ -1,4 +1,3 @@
--- Keep the production schema migration aligned with the web and Android controls.
 alter table public.regional_service_controls
   add column if not exists message_float_enabled boolean not null default true,
   add column if not exists message_width_percent integer not null default 92,
