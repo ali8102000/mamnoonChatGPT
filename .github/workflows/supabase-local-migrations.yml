@@ -1,0 +1,43 @@
+name: Supabase local migration verification
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/config.toml"
+      - ".github/workflows/supabase-local-migrations.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-local-migrations-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apply-all-migrations-locally:
+    name: Apply complete migration history on local PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase database services
+        run: supabase start -x studio,edge-runtime,logflare,vector,imgproxy
+
+      - name: Apply every migration from a clean local database
+        run: supabase db reset --local
+
+      - name: Verify local database is healthy
+        run: supabase status
+
+      - name: Stop local Supabase services
+        if: always()
+        run: supabase stop --no-backup
