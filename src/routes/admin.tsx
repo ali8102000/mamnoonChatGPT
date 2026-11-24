@@ -937,6 +937,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
   const [vehicleType, setVehicleType] = useState(driver.vehicle_type ?? "");
   const [workerBio, setWorkerBio] = useState(worker.bio ?? "");
   const [workerLevel, setWorkerLevel] = useState(worker.level ?? "fani");
+  const [workerServiceIds, setWorkerServiceIds] = useState<string[]>(user.workerServices ?? []);
   const [serviceRadius, setServiceRadius] = useState(String(driver.service_radius_km ?? worker.service_radius_km ?? 30));
   const [teamSize, setTeamSize] = useState(String(worker.team_size ?? 1));
   const [businessName, setBusinessName] = useState(partner.business_name ?? "");
@@ -981,6 +982,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
         } } : {}),
         ...(user.workerProfile ? { worker_profile: {
           bio: workerBio, level: workerLevel, service_radius_km: Number(serviceRadius), team_size: Number(teamSize),
+          service_ids: workerServiceIds,
         } } : {}),
         ...(user.partnerBusinessProfiles?.length || user.partnerApplications?.length ? { partner_profile: {
           business_profile_id: user.partnerBusinessProfiles?.[0]?.id ?? null,
@@ -1041,6 +1043,10 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
               <select value={workerLevel} onChange={e=>setWorkerLevel(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="fani">فني</option><option value="khabir">خبير</option></select>
               <input value={serviceRadius} onChange={e=>setServiceRadius(e.target.value)} type="number" placeholder="نطاق الخدمة كم" className="glass rounded-lg p-2 text-xs"/>
               <input value={teamSize} onChange={e=>setTeamSize(e.target.value)} type="number" placeholder="عدد أفراد الفريق" className="glass rounded-lg p-2 text-xs"/>
+            </div>
+            <div className="text-xs font-bold">اختصاصات الفني التي يحق له استقبال طلباتها</div>
+            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto rounded-lg bg-surface-2 p-2">
+              {(user.availableServices ?? []).map((service: any) => <label key={service.id} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={workerServiceIds.includes(service.id)} onChange={e=>setWorkerServiceIds(current=>e.target.checked?[...current,service.id]:current.filter(id=>id!==service.id))}/>{service.name_ar}</label>)}
             </div>
           </div>}
           {(user.partnerBusinessProfiles?.length || user.partnerApplications?.length) > 0 && <div className="rounded-xl border border-border p-3 space-y-2">
