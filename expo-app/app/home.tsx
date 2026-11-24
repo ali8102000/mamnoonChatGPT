@@ -548,7 +548,8 @@ function CustomerHome({ userId, homeVisualUrl, homeVisualAnimated, homeVisualEna
     return () => clearInterval(timer);
   }, [topBanners, topBanner?.scroll_speed, topBanner?.motion_direction]);
 
-  const safeHomeVisualLink = /^https?:\/\//i.test(homeVisualLinkUrl.trim()) ? homeVisualLinkUrl.trim() : "";
+  const normalizedHomeVisualLink = homeVisualLinkUrl.trim();
+  const safeHomeVisualLink = normalizedHomeVisualLink.startsWith("https://") || normalizedHomeVisualLink.startsWith("http://") ? normalizedHomeVisualLink : "";
   const renderHomeVisual = () => homeVisualEnabled && homeVisualUrl ? <View style={{ alignSelf: "center", width: Math.min(homeVisualWidthPx, Dimensions.get("window").width - 24), height: homeVisualHeightPx, borderRadius: 22, overflow: "hidden", marginTop: 2 }}><TouchableOpacity disabled={!safeHomeVisualLink} activeOpacity={0.85} onPress={() => { if (safeHomeVisualLink) void Linking.openURL(safeHomeVisualLink).catch(() => Alert.alert("تعذر فتح الرابط", "تحقق من الرابط وحاول مرة ثانية.")); }}><ExpoImage source={{ uri: homeVisualUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" autoplay={homeVisualAnimated} /></TouchableOpacity></View> : null;
 
   const tiles = [
@@ -584,6 +585,7 @@ function CustomerHome({ userId, homeVisualUrl, homeVisualAnimated, homeVisualEna
 
   return (
     <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: gridGap }}>
+      {homeVisualPosition === "above_banner" ? renderHomeVisual() : null}
       {homeVisualPosition === "above_banner" ? renderHomeVisual() : null}
       <View {...topBannerSwipeResponder.panHandlers} style={{ width: "100%" }}>
       <TouchableOpacity activeOpacity={0.94} onPress={() => { if (suppressTopBannerPress.current) { suppressTopBannerPress.current = false; return; } if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }}>
