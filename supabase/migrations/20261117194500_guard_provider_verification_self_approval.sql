@@ -9,8 +9,21 @@ AS $function$
 DECLARE
   v_video_path text;
   v_expected_prefix text;
+  v_target_governorate text;
+  v_scope_type text;
 BEGIN
-  IF auth.uid() IS NULL OR public.has_admin_access(auth.uid()) THEN
+  IF auth.uid() IS NULL OR public.is_platform_admin(auth.uid()) THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT governorate_key INTO v_target_governorate
+  FROM public.profiles
+  WHERE id = NEW.user_id;
+  v_scope_type := CASE WHEN v_target_governorate IS NULL THEN 'global' ELSE 'governorate' END;
+
+  -- Delegated reviewers may update verification records only when their
+  -- explicit providers.verify permission covers the provider's governorate.
+  IF public.admin_has_permission('providers.verify', v_scope_type, v_target_governorate) THEN
     RETURN NEW;
   END IF;
 
