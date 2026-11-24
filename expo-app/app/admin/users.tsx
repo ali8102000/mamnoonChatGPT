@@ -161,20 +161,20 @@ export default function AdminUsersScreen() {
       const driver_profile = detail.driverProfile ? {
         vehicle_make: editDriver.vehicle_make?.trim() || null,
         vehicle_model: editDriver.vehicle_model?.trim() || null,
-        vehicle_year: editDriver.vehicle_year === "" ? null : Number(editDriver.vehicle_year),
+        vehicle_year: editDriver.vehicle_year == null || editDriver.vehicle_year === "" ? null : Number(editDriver.vehicle_year),
         vehicle_plate: editDriver.vehicle_plate?.trim() || null,
         vehicle_color: editDriver.vehicle_color?.trim() || null,
         vehicle_type: editDriver.vehicle_type?.trim() || null,
-        vehicle_category: editDriver.vehicle_category || "economy",
-        service_radius_km: Number(editDriver.service_radius_km || 1),
-        available: editDriver.available === true,
+        ...(editDriver.vehicle_category ? { vehicle_category: editDriver.vehicle_category } : {}),
+        ...(editDriver.service_radius_km != null && editDriver.service_radius_km !== "" ? { service_radius_km: Number(editDriver.service_radius_km) } : {}),
+        ...(typeof editDriver.available === "boolean" ? { available: editDriver.available } : {}),
       } : undefined;
       const worker_profile = detail.workerProfile ? {
-        bio: editWorker.bio?.trim() || null,
-        level: editWorker.level || "fani",
-        service_radius_km: Number(editWorker.service_radius_km || 1),
-        team_size: Number(editWorker.team_size || 1),
-        available: editWorker.available === true,
+        ...(editWorker.bio !== undefined ? { bio: editWorker.bio?.trim() || null } : {}),
+        ...(editWorker.level ? { level: editWorker.level } : {}),
+        ...(editWorker.service_radius_km != null && editWorker.service_radius_km !== "" ? { service_radius_km: Number(editWorker.service_radius_km) } : {}),
+        ...(editWorker.team_size != null && editWorker.team_size !== "" ? { team_size: Number(editWorker.team_size) } : {}),
+        ...(typeof editWorker.available === "boolean" ? { available: editWorker.available } : {}),
         service_ids: editWorkerServices,
       } : undefined;
       const business = detail.partnerBusinessProfiles?.[0] ?? {};
