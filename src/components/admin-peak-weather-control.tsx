@@ -45,7 +45,7 @@ export default function AdminPeakWeatherControl() {
     const latestWeather = weatherRows.reduce((latest: any, row: any) =>
       !latest || new Date(row.observed_at ?? 0).getTime() > new Date(latest.observed_at ?? 0).getTime() ? row : latest, null);
     setWeather(key === "all" ? {
-      is_fresh: freshWeather.length > 0, summary: true, fresh_count: freshWeather.length, total_count: weatherRows.length,
+      is_fresh: freshWeather.length === 18 && weatherRows.length === 18, summary: true, fresh_count: freshWeather.length, total_count: weatherRows.length,
       temperature_c: freshWeather.length ? Number((freshWeather.reduce((sum: number, row: any) => sum + Number(row.temperature_c ?? 0), 0) / freshWeather.length).toFixed(1)) : null,
       rain_mm: freshWeather.length ? Number((freshWeather.reduce((sum: number, row: any) => sum + Number(row.rain_mm ?? 0), 0) / freshWeather.length).toFixed(1)) : null,
       observed_at: latestWeather?.observed_at, alerts: weatherRows.reduce((sum: number, row: any) => sum + (Array.isArray(row.alerts) ? row.alerts.length : 0), 0),
