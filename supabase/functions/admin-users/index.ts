@@ -426,12 +426,13 @@ Deno.serve(async (req: Request) => {
           .eq("user_id", userId).eq("id", partnerBusinessProfileId);
         if (businessError) return json({ error: "partner_profile_update_failed", detail: businessError.message }, 400);
       }
-      if (Object.keys(applicationFields).length) {
-        if (!partnerApplicationId) return json({ error: "partner_application_id_required" }, 400);
+      if (Object.keys(applicationFields).length && partnerApplicationId) {
         applicationFields.updated_at = new Date().toISOString();
         const { error: applicationError } = await admin.from("partner_applications").update(applicationFields)
           .eq("user_id", userId).eq("id", partnerApplicationId);
         if (applicationError) return json({ error: "partner_application_update_failed", detail: applicationError.message }, 400);
+      } else if (Object.keys(applicationFields).length && !partnerBusinessProfileId) {
+        return json({ error: "partner_application_id_required" }, 400);
       }
       return json({ ok: true, profile: profileUpdates, driver_profile: driverUpdates, worker_profile: workerUpdates, partner_profile: partnerUpdates });
     }
