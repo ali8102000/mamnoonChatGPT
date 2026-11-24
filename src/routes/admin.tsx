@@ -984,7 +984,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
     finally { setSaving(false); }
   }
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[150] bg-black/60 grid place-items-center p-4 overflow-y-auto">
       <div className="glass rounded-3xl p-5 w-full max-w-lg my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-black">تفاصيل المستخدم</h3>
@@ -1247,13 +1247,16 @@ function InfoRow({ label, value }: { label: string; value: any }) {
 
 function ProviderDetailModal({
   user,
+  canEdit = false,
   onClose,
   onSaveName,
 }: {
   user: any;
+  canEdit?: boolean;
   onClose: () => void;
   onSaveName: (userId: string, fullName: string) => Promise<void>;
 }) {
+  const [editingAccount, setEditingAccount] = useState(false);
   const [name, setName] = useState(user.profile?.full_name ?? "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -1286,6 +1289,7 @@ function ProviderDetailModal({
             <div className="text-xs text-muted-foreground">{user.driverProfile ? "سائق تكسي" : "فني"}</div>
           </div>
         </div>
+        {canEdit && <button type="button" onClick={() => setEditingAccount(true)} className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-black mb-3">تعديل شامل لكل بيانات الحساب والفئة</button>}
         <label className="block text-xs font-bold mb-2">تعديل اسم المستخدم</label>
         <div className="flex gap-2 mb-2">
           <input value={name} onChange={(e) => setName(e.target.value)} className="flex-1 glass rounded-xl px-3 py-2 text-sm" maxLength={80} />
@@ -1311,6 +1315,7 @@ function ProviderDetailModal({
           </div>)}
         </div> : <div className="rounded-xl bg-surface-2 p-4 text-xs text-muted-foreground">لا توجد تقييمات مسجلة لهذا الحساب بعد.</div>}
       </div>
+      {editingAccount && <UserDetailModal user={user} canEdit={true} onClose={() => setEditingAccount(false)} onSave={() => { setEditingAccount(false); }} />}
     </div>
   );
 }
