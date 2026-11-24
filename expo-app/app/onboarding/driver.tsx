@@ -25,8 +25,10 @@ const CATEGORIES = [
 
 export default function DriverOnboarding() {
   const { user, profile, refresh, setActiveRole } = useAuth();
-  const params = useLocalSearchParams<{ providerType?: string }>();
-  const largeDriverMode = params.providerType === "large_driver";
+  // Accept both the native parameter and the web/deep-link parameter so
+  // customer entry points consistently open the large-vehicle registration flow.
+  const params = useLocalSearchParams<{ providerType?: string; provider?: string }>();
+  const largeDriverMode = params.providerType === "large_driver" || params.provider === "large_driver";
   const providerRole = largeDriverMode ? "large_driver" : "driver";
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [models, setModels] = useState<VehicleModel[]>([]);
