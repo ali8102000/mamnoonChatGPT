@@ -22,7 +22,6 @@ export default function AdminPeakWeatherControl() {
   const [key, setKey] = useState("all");
   const [settings, setSettings] = useState<Settings>(DEFAULT);
   const [weather, setWeather] = useState<any>(null);
-  const [traffic, setTraffic] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [allowed, setAllowed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -32,12 +31,10 @@ export default function AdminPeakWeatherControl() {
     const scopeType = key === "all" ? "global" : "governorate";
     const scope = key === "all" ? null : key;
     const weatherQuery = (supabase as any).from("taxi_peak_weather_observations").select("*");
-    const trafficQuery = (supabase as any).from("taxi_peak_traffic_observations").select("*");
-    const [permission, config, observation, trafficRows, history] = await Promise.all([
+    const [permission, config, observation, history] = await Promise.all([
       (supabase as any).rpc("admin_has_permission", { p_permission_key: "pricing.peak.edit", p_scope_type: scopeType, p_scope_governorate: scope }),
       (supabase as any).from("taxi_peak_weather_settings").select("*").eq("governorate_key", key).maybeSingle(),
       key === "all" ? weatherQuery : weatherQuery.eq("governorate_key", key).maybeSingle(),
-      key === "all" ? trafficQuery : trafficQuery.eq("governorate_key", key).maybeSingle(),
       (supabase as any).from("taxi_peak_weather_decisions").select("id,mode,decision,reason,surcharge_percent,created_at").eq("governorate_key", key).order("created_at", { ascending: false }).limit(8),
     ]);
     setAllowed(!permission.error && permission.data === true);
@@ -53,15 +50,6 @@ export default function AdminPeakWeatherControl() {
       rain_mm: freshWeather.length ? Number((freshWeather.reduce((sum: number, row: any) => sum + Number(row.rain_mm ?? 0), 0) / freshWeather.length).toFixed(1)) : null,
       observed_at: latestWeather?.observed_at, alerts: weatherRows.reduce((sum: number, row: any) => sum + (Array.isArray(row.alerts) ? row.alerts.length : 0), 0),
     } : observation.data ?? null);
-    const trafficList = Array.isArray(trafficRows.data) ? trafficRows.data : trafficRows.data ? [trafficRows.data] : [];
-    const freshTraffic = trafficList.filter((row: any) => row.last_sampled_at && Date.now() - new Date(row.last_sampled_at).getTime() <= 30 * 60 * 1000);
-    const sampleCount = freshTraffic.reduce((sum: number, row: any) => sum + Number(row.sample_count ?? 0), 0);
-    setTraffic(key === "all" ? {
-      is_fresh: freshTraffic.length > 0, sample_count: sampleCount,
-      average_delay_percent: sampleCount ? Number((freshTraffic.reduce((sum: number, row: any) => sum + Number(row.average_delay_percent ?? 0) * Number(row.sample_count ?? 0), 0) / sampleCount).toFixed(1)) : null,
-      maximum_delay_percent: freshTraffic.length ? Math.max(...freshTraffic.map((row: any) => Number(row.maximum_delay_percent ?? 0))) : null,
-      last_sampled_at: freshTraffic.reduce((latest: string | null, row: any) => !latest || new Date(row.last_sampled_at) > new Date(latest) ? row.last_sampled_at : latest, null),
-    } : { ...(trafficRows.data ?? {}), is_fresh: freshTraffic.length > 0 });
     setLogs(history.data ?? []);
     setLoading(false);
   }, [key]);
@@ -143,10 +131,6 @@ export default function AdminPeakWeatherControl() {
         {weather && <p className="text-xs">متوسط الحرارة: {weather.temperature_c ?? "—"}° · متوسط المطر: {weather.rain_mm ?? "—"} ملم · {weather.condition_text ?? ""}</p>}
         {Array.isArray(weather?.alerts) && weather.alerts.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-300">تنبيهات الطقس من المزوّد: {weather.alerts.length}</p>}
         {weather?.error && <p className="text-xs text-destructive">{weather.error}</p>}
-        <p className="text-xs font-bold">المرور المباشر من Google Routes</p>
-        <p className="text-xs text-muted-foreground">حالة العينات: {traffic?.is_fresh ? "بيانات ازدحام حديثة" : "بانتظار عيّنات طريق فعلية"} · عدد العينات: {traffic?.sample_count ?? 0}</p>
-        <p className="text-xs">متوسط التأخير عن الزمن المعتاد: {traffic?.average_delay_percent == null ? "—" : traffic.average_delay_percent + "%"} · أعلى تأخير مسجل: {traffic?.maximum_delay_percent == null ? "—" : traffic.maximum_delay_percent + "%"}</p>
-        {traffic?.last_sampled_at && <p className="text-[11px] text-muted-foreground">آخر عينة مرور: {new Date(traffic.last_sampled_at).toLocaleString("ar-IQ")}</p>}
         <p className="text-xs text-muted-foreground">آخر قرار: {settings.last_decision ?? "لا يوجد"} — {settings.last_reason ?? "بانتظار المراقبة"}</p>
         <p className="text-[11px] text-muted-foreground">آخر فحص: {settings.last_checked_at ? new Date(settings.last_checked_at).toLocaleString("ar-IQ") : "لم يبدأ بعد"}</p>
       </div>
@@ -157,7 +141,7 @@ export default function AdminPeakWeatherControl() {
       <div className="space-y-2"><b className="text-sm">سجل آخر القرارات</b>
         {logs.length ? logs.map(item => <div key={item.id} className="rounded-lg bg-muted/40 p-2 text-xs"><b>{item.decision}</b> · {item.reason}<div className="text-muted-foreground">{new Date(item.created_at).toLocaleString("ar-IQ")} · زيادة {item.surcharge_percent}%</div></div>) : <p className="text-xs text-muted-foreground">لا توجد قرارات مسجلة بعد.</p>}
       </div>
-      <p className="text-[11px] text-muted-foreground">مصدر الطقس: <a className="underline" href="https://www.weatherapi.com/" target="_blank" rel="noreferrer">WeatherAPI.com</a>. بيانات المرور من Google Routes API.</p>
+      <p className="text-[11px] text-muted-foreground">مصدر الطقس: <a className="underline" href="https://www.weatherapi.com/" target="_blank" rel="noreferrer">WeatherAPI.com</a></p>
       <p className="text-[11px] text-muted-foreground">لن تُفعّل زيادة سعر بمجرد حفظ الإعدادات. يلزم نشر وفحص مراقب الطقس أولاً، والقراءات القديمة أو غير الموثوقة تمنع أي قرار تلقائي.</p>
     </section>
   );
