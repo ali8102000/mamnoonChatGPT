@@ -15,4 +15,7 @@ GRANT SELECT (
   company_welcome_visual_url,
   company_welcome_visual_animated,
   company_welcome_visual_size_px
-) ON TABLE public.company_settings TO anon;
+) ON TABLE public.company_settings TO anon, authenticated;
+
+-- Authenticated writes remain subject to the existing super-admin RLS policy.
+GRANT UPDATE (company_welcome_visual_size_px) ON TABLE public.company_settings TO authenticated;
