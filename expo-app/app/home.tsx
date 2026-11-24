@@ -450,14 +450,6 @@ export default function HomeScreen() {
           />
         )}
       </ScrollView>
-      {selectedRole !== "customer" && (
-        <ProviderAvailabilityDock
-          available={available}
-          availabilitySaving={availabilitySaving}
-          verified={verified}
-          toggleAvailable={toggleAvailable}
-        />
-      )}
     </View>
   );
 }
