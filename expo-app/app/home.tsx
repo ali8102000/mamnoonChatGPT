@@ -377,7 +377,6 @@ export default function HomeScreen() {
         availabilitySaving={availabilitySaving}
         verified={verified}
         verificationStatus={verificationStatus}
-        companyName={companyName}
         toggleAvailable={toggleAvailable}
         incoming={incoming}
         onRefresh={onRefresh}
@@ -1066,13 +1065,12 @@ function ProviderHome({
   availabilitySaving,
   verified,
   verificationStatus,
-  companyName,
   toggleAvailable,
   incoming,
   onRefresh,
 }: {
   role: "driver" | "large_driver" | "worker";
-  profile: Profile | null;
+  profile: { full_name?: string | null; avatar_url?: string | null } | null;
   available: boolean;
   availabilitySaving: boolean;
   verified: boolean;
