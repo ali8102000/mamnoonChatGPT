@@ -826,7 +826,6 @@ function RequestDetail() {
                   </button>
                 )}
                 {["pending", "searching", "accepted"].includes(req.status as string) &&
-                  !(req.type === "taxi" && req.status === "accepted") &&
                   !req.provider_arrived_at && (
                   <button
                     onClick={() => setShowCancel(true)}
@@ -1090,7 +1089,19 @@ function RequestDetail() {
               if (myRole === "provider") navigate({ to: "/home" });
               else await loadAll();
             } catch (e: any) {
-              toast.error(e.message ?? "تعذّر الإلغاء");
+              const raw = String(e?.message ?? "");
+              const message = raw.includes("provider_already_arrived")
+                ? "مقدم الخدمة أكد وصوله، لذلك لا يمكن إلغاء الطلب الآن."
+                : raw.includes("taxi_trip_already_started")
+                  ? "بدأت الرحلة بالفعل ولا يمكن إلغاؤها بعد الانطلاق."
+                  : raw.includes("service_already_started")
+                    ? "بدأ تنفيذ الخدمة بالفعل ولا يمكن إلغاؤها من التطبيق."
+                    : raw.includes("request_finished")
+                      ? "هذا الطلب منتهٍ أو ملغي مسبقاً."
+                      : raw.includes("forbidden") || raw.includes("unauthorized")
+                        ? "تعذّر التحقق من صلاحيتك. سجّل الدخول من جديد وحاول."
+                        : "تعذّر تنفيذ الإلغاء حالياً. تحقق من اتصال الإنترنت وحاول مرة أخرى.";
+              toast.error(message);
             }
           }}
         />
