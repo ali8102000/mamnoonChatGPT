@@ -195,54 +195,11 @@ Deno.serve(async (req) => {
   if (typeof body.isIntercity === "boolean" && body.isIntercity !== isIntercity) {
     return json({ error: "المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد." }, 400);
   }
-  const {data:controlRows,error:controlError}=await admin.from("taxi_pricing_auto_controls")
-    .select("governorate_key,auto_monitor_enabled,demand_increase_cap_percent,demand_discount_cap_percent,auto_demand_percent")
-    .in("governorate_key",[fromGovernorate,"all"]);
-  if(controlError) {
-    console.error("[auto-taxi-pricing] automatic pricing controls unavailable",controlError.code||"unknown");
-    return json({error:"سنصل إليك قريباً. تعذّر التحقق من إعدادات التسعير الآلي حالياً.",code:"AUTO_PRICING_CONTROLS_UNAVAILABLE"},503);
-  }
-  const activeControls=(controlRows??[]).find((row:any)=>row.governorate_key===fromGovernorate)
-    ??(controlRows??[]).find((row:any)=>row.governorate_key==="all");
-  const autoMonitorEnabled=activeControls?.auto_monitor_enabled===true;
-  // Traffic-based surcharge is disabled by project decision.
+  // This release keeps demand/traffic observation separate from customer pricing.
+  // Automatic adjustments are explicitly zero until the user approves a later pricing engine.
   const trafficPercent=0;
-  const demandPercent=autoMonitorEnabled
-    ? Number(activeControls?.auto_demand_percent)||0
-    : 0;
-  const {data:categoryPeak,error:categoryPeakError}=await admin
-    .from("category_peak_pricing_settings")
-    .select("mode,enabled,min_surcharge_percent,max_surcharge_percent,auto_calculated_percent,last_calculated_at,observed_providers")
-    .eq("category_key","taxi:"+category)
-    .maybeSingle();
-  if(categoryPeakError || !categoryPeak) {
-    // The category monitor migration may not yet be deployed. Preserve the
-    // existing fare quote and apply no category surcharge until settings exist.
-    console.warn("[auto-taxi-pricing] category peak settings unavailable; surcharge remains zero",categoryPeakError?.code||"missing_category");
-  }
-  const peakCalculatedAt=categoryPeak?.last_calculated_at?new Date(categoryPeak.last_calculated_at).getTime():0;
-  const peakAgeMs=Date.now()-peakCalculatedAt;
-  // Fail closed for stale, missing, or future-dated monitor rows (clock skew included).
-  const peakDataFresh=!!categoryPeak&&Number.isFinite(peakCalculatedAt)&&peakCalculatedAt>0&&
-    peakAgeMs>=0&&peakAgeMs<=3*60*1000&&Number(categoryPeak.observed_providers)>0;
-  const categoryPeakEnabled=categoryPeak?.enabled===true&&categoryPeak?.mode==="auto";
-  const categoryPeakMinimum=Math.max(0,Number(categoryPeak?.min_surcharge_percent)||0);
-  const categoryPeakMaximum=Math.max(categoryPeakMinimum,Number(categoryPeak?.max_surcharge_percent)||0);
-  const calculatedCategoryPercent=Number(categoryPeak?.auto_calculated_percent);
-  // Preserve the existing admin-controlled demand adjustment only.
-  // Category peak is an additional bounded surcharge, and remains subject to
-  // the existing global automatic-pricing master switch enforced by the quote RPC.
-  const demandDiscountCap=Math.max(0,Number(activeControls?.demand_discount_cap_percent)||0);
-  const legacyAutoPercent=autoMonitorEnabled
-    ? Math.max(-demandDiscountCap,Math.min(200,demandPercent))
-    : 0;
-  const categoryPeakPercent=autoMonitorEnabled&&categoryPeakEnabled&&peakDataFresh&&
-    Number.isFinite(calculatedCategoryPercent)&&calculatedCategoryPercent>0
-    ? Math.max(categoryPeakMinimum,Math.min(categoryPeakMaximum,calculatedCategoryPercent))
-    : 0;
-  // The canonical quote RPC accepts one combined automatic percentage.
-  // Keep its supported range and avoid dropping the pre-existing pricing inputs.
-  const autoPercent=Math.max(-50,Math.min(200,legacyAutoPercent+categoryPeakPercent));
+  const demandPercent=0;
+  const autoPercent=0;
   const routed = {
     distanceKm: Number(routeData.distanceKm),
     durationMin: Number(routeData.durationMin),
