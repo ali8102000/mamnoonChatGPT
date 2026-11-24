@@ -19,6 +19,9 @@ create table if not exists public.taxi_peak_weather_settings (
   constraint taxi_peak_weather_governorate_valid check (governorate_key in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah'))
 );
 
+alter table public.taxi_peak_weather_settings
+  add column if not exists weather_monitor_ready boolean not null default false;
+
 create table if not exists public.taxi_peak_weather_observations (
   governorate_key text primary key references public.taxi_peak_weather_settings(governorate_key) on delete cascade,
   temperature_c numeric,
@@ -28,7 +31,8 @@ create table if not exists public.taxi_peak_weather_observations (
   fetched_at timestamptz not null default now(),
   provider text not null default 'weatherapi',
   is_fresh boolean not null default false,
-  error text
+  error text,
+  alerts jsonb not null default '[]'::jsonb
 );
 
 create table if not exists public.taxi_peak_weather_decisions (
@@ -86,7 +90,12 @@ create or replace function public.admin_save_taxi_peak_weather_settings(
 ) returns public.taxi_peak_weather_settings
 language plpgsql security definer set search_path=public,pg_temp
 as $$
-declare v_row public.taxi_peak_weather_settings%rowtype; v_actor uuid := auth.uid();
+declare
+  v_row public.taxi_peak_weather_settings%rowtype;
+  v_actor uuid := auth.uid();
+  v_ready boolean;
+  v_fresh_count integer;
+  v_expected_count integer;
 begin
   if v_actor is null then raise exception 'unauthorized'; end if;
   if p_governorate_key not in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah') then raise exception 'invalid_governorate'; end if;
@@ -101,6 +110,37 @@ begin
   if not public.admin_has_permission('pricing.peak.edit',
     case when p_governorate_key='all' then 'global' else 'governorate' end,
     case when p_governorate_key='all' then null else p_governorate_key end) then raise exception 'missing_pricing_permission'; end if;
+
+  -- This release collects and displays weather observations only.
+  -- Notifications and all automatic pricing remain disabled until their decision engine is implemented and verified.
+  if p_mode<>'off' or p_enabled then raise exception 'weather_decision_engine_not_enabled'; end if;
+  if p_enabled then
+    select coalesce(weather_monitor_ready,false) into v_ready
+      from public.taxi_peak_weather_settings
+      where governorate_key=p_governorate_key;
+    if not coalesce(v_ready,false) then raise exception 'weather_monitor_not_ready'; end if;
+
+    if p_governorate_key='all' then
+      select count(*) into v_expected_count
+        from public.taxi_peak_weather_settings where governorate_key<>'all';
+      select count(*) into v_fresh_count
+        from public.taxi_peak_weather_observations
+        where is_fresh=true
+          and observed_at >= now() - make_interval(mins => p_weather_max_age_minutes)
+          and observed_at <= now() + interval '2 minutes';
+      if v_expected_count=0 or v_fresh_count<>v_expected_count then
+        raise exception 'weather_observations_not_fresh_for_all_governorates';
+      end if;
+    else
+      select count(*) into v_fresh_count
+        from public.taxi_peak_weather_observations
+        where governorate_key=p_governorate_key
+          and is_fresh=true
+          and observed_at >= now() - make_interval(mins => p_weather_max_age_minutes)
+          and observed_at <= now() + interval '2 minutes';
+      if v_fresh_count<>1 then raise exception 'weather_observation_not_fresh'; end if;
+    end if;
+  end if;
 
   insert into public.taxi_peak_weather_settings(
     governorate_key,mode,enabled,rain_threshold_mm,heat_threshold_c,max_surcharge_percent,
@@ -123,4 +163,37 @@ begin
 end $$;
 
 grant select on public.taxi_peak_weather_settings, public.taxi_peak_weather_observations, public.taxi_peak_weather_decisions to authenticated;
+revoke all on function public.admin_save_taxi_peak_weather_settings(text,text,boolean,numeric,numeric,numeric,integer,integer,integer,integer,integer) from public, anon;
 grant execute on function public.admin_save_taxi_peak_weather_settings(text,text,boolean,numeric,numeric,numeric,integer,integer,integer,integer,integer) to authenticated;
+
+
+-- Seed one independently configurable weather scope for every Iraqi governorate.
+insert into public.taxi_peak_weather_settings(governorate_key)
+values
+ ('baghdad'),('basra'),('nineveh'),('erbil'),('sulaymaniyah'),('duhok'),
+ ('kirkuk'),('najaf'),('karbala'),('babil'),('anbar'),('diyala'),
+ ('saladin'),('wasit'),('dhiqar'),('maysan'),('muthanna'),('qadisiyah'),('all')
+on conflict(governorate_key) do nothing;
+
+-- Refresh every 15 minutes. The job stays dormant until project_url and secret_key
+-- are added to Supabase Vault; it never embeds a credential in the migration.
+select cron.schedule(
+  'mamnoon-weather-monitor',
+  '*/15 * * * *',
+  $job$
+    select case
+      when exists (select 1 from vault.decrypted_secrets where name='project_url')
+       and exists (select 1 from vault.decrypted_secrets where name='secret_key')
+      then net.http_post(
+        url := (select decrypted_secret from vault.decrypted_secrets where name='project_url') || '/functions/v1/weather-monitor',
+        headers := jsonb_build_object(
+          'Content-Type','application/json',
+          'apikey',(select decrypted_secret from vault.decrypted_secrets where name='secret_key')
+        ),
+        body := '{}'::jsonb,
+        timeout_milliseconds := 20000
+      )
+      else null
+    end;
+  $job$
+);

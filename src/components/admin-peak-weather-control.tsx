@@ -30,16 +30,26 @@ export default function AdminPeakWeatherControl() {
     setLoading(true);
     const scopeType = key === "all" ? "global" : "governorate";
     const scope = key === "all" ? null : key;
+    const weatherQuery = (supabase as any).from("taxi_peak_weather_observations").select("*");
     const [permission, config, observation, history] = await Promise.all([
       (supabase as any).rpc("admin_has_permission", { p_permission_key: "pricing.peak.edit", p_scope_type: scopeType, p_scope_governorate: scope }),
       (supabase as any).from("taxi_peak_weather_settings").select("*").eq("governorate_key", key).maybeSingle(),
-      (supabase as any).from("taxi_peak_weather_observations").select("*").eq("governorate_key", key).maybeSingle(),
+      key === "all" ? weatherQuery : weatherQuery.eq("governorate_key", key).maybeSingle(),
       (supabase as any).from("taxi_peak_weather_decisions").select("id,mode,decision,reason,surcharge_percent,created_at").eq("governorate_key", key).order("created_at", { ascending: false }).limit(8),
     ]);
     setAllowed(!permission.error && permission.data === true);
     if (config.error && !/does not exist|schema cache/i.test(config.error.message)) toast.error("تعذّر تحميل إعدادات طقس الذروة: " + config.error.message);
     setSettings({ ...DEFAULT, ...(config.data ?? {}), governorate_key: key });
-    setWeather(observation.data ?? null);
+    const weatherRows = (Array.isArray(observation.data) ? observation.data : observation.data ? [observation.data] : []);
+    const freshWeather = weatherRows.filter((row: any) => row.is_fresh === true);
+    const latestWeather = weatherRows.reduce((latest: any, row: any) =>
+      !latest || new Date(row.observed_at ?? 0).getTime() > new Date(latest.observed_at ?? 0).getTime() ? row : latest, null);
+    setWeather(key === "all" ? {
+      is_fresh: freshWeather.length === 18 && weatherRows.length === 18, summary: true, fresh_count: freshWeather.length, total_count: weatherRows.length,
+      temperature_c: freshWeather.length ? Number((freshWeather.reduce((sum: number, row: any) => sum + Number(row.temperature_c ?? 0), 0) / freshWeather.length).toFixed(1)) : null,
+      rain_mm: freshWeather.length ? Number((freshWeather.reduce((sum: number, row: any) => sum + Number(row.rain_mm ?? 0), 0) / freshWeather.length).toFixed(1)) : null,
+      observed_at: latestWeather?.observed_at, alerts: weatherRows.reduce((sum: number, row: any) => sum + (Array.isArray(row.alerts) ? row.alerts.length : 0), 0),
+    } : observation.data ?? null);
     setLogs(history.data ?? []);
     setLoading(false);
   }, [key]);
@@ -88,22 +98,14 @@ export default function AdminPeakWeatherControl() {
       </label>
       <div className="rounded-xl border border-border p-3 space-y-3">
         <div className="font-black flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> وضع التشغيل</div>
-        {!settings.weather_monitor_ready && <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">مراقب الطقس لم يُنشر ويُختبر بعد؛ التفعيل التلقائي والإخباري مقفولان حالياً حتى لا تُفعّل زيادة غير مراقبة.</p>}
+        <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">هذا الإصدار يعرض قراءات الطقس فقط. لا توجد إشعارات فعلية أو تغيير أسعار آلي؛ ستبقى أوضاع التشغيل متوقفة إلى أن يُنفّذ محرك القرارات ويُختبر.</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {([{value:"auto",label:"تلقائي",desc:"يفعّل ويوقف حسب الشروط"},{value:"notify",label:"إخباري",desc:"يرسل توصية للأدمن فقط"},{value:"off",label:"إيقاف",desc:"يعطّل الأتمتة"}] as const).map(option =>
-            <button key={option.value} type="button" disabled={option.value!=="off" && !settings.weather_monitor_ready} onClick={() => setSettings(v => ({...v,mode:option.value,enabled:option.value!=="off"}))}
-              className={`rounded-xl border p-3 text-right disabled:cursor-not-allowed disabled:opacity-40 ${settings.mode===option.value ? "border-primary bg-primary/5" : "border-border"}`}>
-              <b className="block text-sm">{option.label}</b><span className="text-[11px] text-muted-foreground">{option.desc}</span>
-            </button>)}
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm font-bold">مراقبة قراءات فقط — وضع التشغيل متوقف</div>
         </div>
-        <label className="flex items-center justify-between gap-3 text-sm font-bold">
-          <span>السماح بتشغيل هذا الوضع على النطاق المحدد</span>
-          <input type="checkbox" checked={settings.enabled && settings.mode!=="off"} disabled={settings.mode==="off" || !settings.weather_monitor_ready}
-            onChange={e=>setSettings(v=>({...v,enabled:e.target.checked}))} className="h-5 w-5 accent-primary"/>
-        </label>
+        <p className="text-xs text-muted-foreground">حالة التشغيل: متوقف دائماً في هذه النسخة. لا يمكن تفعيل إشعارات أو رسوم إضافية من هذه الشاشة.</p>
       </div>
       <div className="rounded-xl border border-border p-3 space-y-3">
-        <div className="font-black flex items-center gap-2"><ThermometerSun className="h-4 w-4"/> شروط المراقبة وحدود السعر</div>
+        <div className="font-black flex items-center gap-2"><ThermometerSun className="h-4 w-4"/> حدود محفوظة للمستقبل (غير مطبقة)</div>
         <div className="grid grid-cols-2 gap-3">
           {field("rain_threshold_mm","حد المطر (ملم)",0,100,0.1)}
           {field("heat_threshold_c","حد الحرارة (°م)",0,60)}
@@ -117,20 +119,22 @@ export default function AdminPeakWeatherControl() {
       </div>
       <div className="rounded-xl border border-border p-3 space-y-2">
         <div className="font-black">حالة القراءات</div>
-        <p className="text-xs text-muted-foreground">الطقس: {weather?.is_fresh ? "قراءة حديثة" : "لا توجد قراءة حديثة موثوقة"}{weather?.observed_at ? " · " + new Date(weather.observed_at).toLocaleString("ar-IQ") : ""}</p>
-        {weather && <p className="text-xs">الحرارة: {weather.temperature_c ?? "—"}° · المطر: {weather.rain_mm ?? "—"} ملم · {weather.condition_text ?? ""}</p>}
+        <p className="text-xs text-muted-foreground">الطقس: {weather?.is_fresh ? (weather.summary ? `قراءات حديثة لـ ${weather.fresh_count} من ${weather.total_count} محافظة` : "قراءة حديثة") : "لا توجد قراءة حديثة موثوقة"}{weather?.observed_at ? " · " + new Date(weather.observed_at).toLocaleString("ar-IQ") : ""}</p>
+        {weather && <p className="text-xs">متوسط الحرارة: {weather.temperature_c ?? "—"}° · متوسط المطر: {weather.rain_mm ?? "—"} ملم · {weather.condition_text ?? ""}</p>}
+        {Array.isArray(weather?.alerts) && weather.alerts.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-300">تنبيهات الطقس من المزوّد: {weather.alerts.length}</p>}
         {weather?.error && <p className="text-xs text-destructive">{weather.error}</p>}
         <p className="text-xs text-muted-foreground">آخر قرار: {settings.last_decision ?? "لا يوجد"} — {settings.last_reason ?? "بانتظار المراقبة"}</p>
         <p className="text-[11px] text-muted-foreground">آخر فحص: {settings.last_checked_at ? new Date(settings.last_checked_at).toLocaleString("ar-IQ") : "لم يبدأ بعد"}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={saving || (settings.enabled && !settings.weather_monitor_ready)} onClick={() => void save()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4"/> حفظ إعدادات الذروة</button>
+        <button type="button" disabled={saving || settings.mode === "auto" || (settings.enabled && !settings.weather_monitor_ready)} onClick={() => void save()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4"/> حفظ إعدادات الذروة</button>
         <button type="button" onClick={() => void load()} className="rounded-xl border border-border px-4 py-2.5 text-sm font-bold"><RefreshCw className="ml-2 inline h-4 w-4"/> تحديث الحالة</button>
       </div>
       <div className="space-y-2"><b className="text-sm">سجل آخر القرارات</b>
         {logs.length ? logs.map(item => <div key={item.id} className="rounded-lg bg-muted/40 p-2 text-xs"><b>{item.decision}</b> · {item.reason}<div className="text-muted-foreground">{new Date(item.created_at).toLocaleString("ar-IQ")} · زيادة {item.surcharge_percent}%</div></div>) : <p className="text-xs text-muted-foreground">لا توجد قرارات مسجلة بعد.</p>}
       </div>
-      <p className="text-[11px] text-muted-foreground">لن تُفعّل زيادة سعر بمجرد حفظ الإعدادات. يلزم نشر وفحص مراقب الطقس أولاً، والقراءات القديمة أو غير الموثوقة تمنع أي قرار تلقائي.</p>
+      <p className="text-[11px] text-muted-foreground">مصدر الطقس: <a className="underline" href="https://www.weatherapi.com/" target="_blank" rel="noreferrer">WeatherAPI.com</a></p>
+      <p className="text-[11px] text-muted-foreground">حفظ هذه القيم لا يرسل إشعارات ولا يغيّر أجرة أي رحلة. وظيفة هذه النسخة هي جمع قراءات الطقس وعرضها فقط.</p>
     </section>
   );
 }

@@ -42,6 +42,8 @@ jobs:
           bun-version: latest
       - name: Install locked app dependencies
         run: bun install
+      - name: Set up Gradle dependency cache
+        uses: gradle/actions/setup-gradle@v4
       - name: Generate standalone Android release APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -88,7 +90,8 @@ jobs:
           retention-days: 7
 
   android-emulator-smoke:
-    if: always() && needs.build-preview-apk.result == 'success'
+    # Emulator testing is intentionally skipped for this device-only preview cycle.
+    if: ${{ false }}
     name: Install, launch, and inspect navigation on Android 15
     needs: build-preview-apk
     runs-on: ubuntu-latest

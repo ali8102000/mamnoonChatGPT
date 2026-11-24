@@ -710,6 +710,23 @@ export const adminUpdateUserProfile = createClientFn({ method: "POST" })
   });
 
 
+export const adminUpdateAccount = createClientFn({ method: "POST" })
+  .inputValidator((d) => z.object({
+    user_id: z.string().uuid(),
+    profile: z.record(z.unknown()).optional(),
+    driver_profile: z.record(z.unknown()).optional(),
+    worker_profile: z.record(z.unknown()).optional(),
+    partner_profile: z.record(z.unknown()).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: result, error } = await (context.supabase as any).functions.invoke("admin-users", {
+      body: { action: "admin_update_account", ...data },
+    });
+    if (error || result?.error) throw new Error(result?.detail || result?.error || "فشل تحديث الحساب");
+    return result;
+  });
+
+
 export const adminGovernanceListStaff = createClientFn({ method: "GET" })
   .inputValidator((d) => z.object({}).parse(d))
   .handler(async ({ context }) => {

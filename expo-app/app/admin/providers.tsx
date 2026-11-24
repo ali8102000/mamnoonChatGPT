@@ -26,6 +26,7 @@ type Provider = {
   level?: string;
   profiles?: { full_name?: string | null; phone?: string | null; email?: string | null };
   verification?: {
+    legal_name?: string | null;
     status?: string;
     rejection_reason?: string | null;
     face_photo_url?: string | null;
@@ -222,6 +223,8 @@ export default function AdminProvidersScreen() {
                 <Info label="الفئة" value={provider.vehicle_category || provider.vehicle_type}/>
               </>
             ) : <Info label="المستوى" value={provider.level}/>}
+            <Info label="الاسم حسب الهوية" value={provider.verification?.legal_name || "غير مسجل"}/>
+            {type === "large_driver" && <Info label="مطابقة الهوية" value="تدقيق يدوي: قارن الاسم وصورة الوجه مع الهوية قبل الاعتماد"/>}
             <Info label="حالة المستمسكات" value={provider.verification?.status || "لم تُرفع مستمسكات"}/>
             {!!provider.verification?.rejection_reason && <Text style={s.errorText}>سبب الرفض: {provider.verification.rejection_reason}</Text>}
             <View style={s.docs}>

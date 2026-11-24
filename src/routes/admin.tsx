@@ -44,7 +44,7 @@ import {
   adminGetDashboardStats,
   adminGetGovernorateUserStats,
   adminGetCustomerActivityStats,
-  adminUpdateUserProfile,
+  adminUpdateAccount,
   adminGetLiveLocations,
   adminGetLiveRequests,
   adminGetUserDetail,
@@ -88,6 +88,7 @@ import {
 import RegionalControlsSection from "@/components/admin-regional-controls";
 import AdminTaxiPricingControls from "@/components/admin-taxi-pricing-controls";
 import AdminPeakWeatherControl from "@/components/admin-peak-weather-control";
+import AdminCategoryPeakPricing from "@/components/admin-category-peak-pricing";
 import AdminDispatchZones from "@/components/admin-dispatch-zones";
 import AdminProviderMissions from "@/components/admin-provider-missions";
 import { toast } from "@/lib/toast";
@@ -445,7 +446,7 @@ function AdminPage() {
           )}
           {section === "stats" && <StatsSection canViewGovernorates={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "users" && <UsersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
-          {section === "providers" && <ProvidersSection />}
+          {section === "providers" && <ProvidersSection canEdit={staffRoles.includes("super_admin") || staffRoles.includes("admin")} />}
           {section === "requests" && <RequestsSection />}
           {section === "chat" && <ChatSection />}
           {section === "friends" && <FriendsSection />}
@@ -456,7 +457,7 @@ function AdminPage() {
           {section === "map" && <MapSection />}
           {section === "notifications" && <NotificationsSection />}
           {section === "regions" && <RegionalControlsSection />}
-          {section === "pricing" && <><AdminTaxiPricingControls /><AdminPeakWeatherControl /></>}
+          {section === "pricing" && <><AdminTaxiPricingControls /><AdminPeakWeatherControl /><AdminCategoryPeakPricing /></>}
           {section === "driverTiers" && <DriverPerformanceTierSettings />}
           {section === "dispatchZones" && <AdminDispatchZones />}
           {section === "missions" && <AdminProviderMissions />}
@@ -906,7 +907,7 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
         </div>
       )}
       {selectedUser && (
-        <UserDetailModal user={selectedUser} canEdit={canEdit} onClose={() => setSelectedUser(null)} onSave={(profile: any) => setSelectedUser((current: any) => current ? { ...current, profile: { ...current.profile, ...profile } } : current)} />
+        <UserDetailModal user={selectedUser} canEdit={canEdit} onClose={() => setSelectedUser(null)} onSave={(updated: any) => setSelectedUser((current: any) => current ? { ...current, profile: { ...current.profile, ...(updated.profile ?? {}) }, driverProfile: { ...current.driverProfile, ...(updated.driverProfile ?? {}) }, workerProfile: { ...current.workerProfile, ...(updated.workerProfile ?? {}) } } : current)} />
       )}
       {blockModal && (
         <BlockModal
@@ -920,14 +921,52 @@ function UsersSection({ canEdit = false }: { canEdit?: boolean }) {
 }
 
 function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdit: boolean; onClose: () => void; onSave: (profile: any) => void }) {
-  const updateProfile = adminUpdateUserProfile;
   const [fullName, setFullName] = useState(user.profile?.full_name ?? "");
+  const [phone, setPhone] = useState(user.profile?.phone ?? "");
+  const [email, setEmail] = useState(user.profile?.email ?? "");
   const [governorateKey, setGovernorateKey] = useState(user.profile?.governorate_key ?? "");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const driver = user.driverProfile ?? {};
+  const worker = user.workerProfile ?? {};
+  const partner = user.partnerBusinessProfiles?.[0] ?? user.partnerApplications?.[0] ?? {};
+  const [vehicleMake, setVehicleMake] = useState(driver.vehicle_make ?? "");
+  const [vehicleModel, setVehicleModel] = useState(driver.vehicle_model ?? "");
+  const [vehicleYear, setVehicleYear] = useState(driver.vehicle_year?.toString() ?? "");
+  const [vehiclePlate, setVehiclePlate] = useState(driver.vehicle_plate ?? "");
+  const [vehicleColor, setVehicleColor] = useState(driver.vehicle_color ?? "");
+  const [vehicleCategory, setVehicleCategory] = useState(driver.vehicle_category ?? "economy");
+  const [vehicleType, setVehicleType] = useState(driver.vehicle_type ?? "");
+  const [workerBio, setWorkerBio] = useState(worker.bio ?? "");
+  const [workerLevel, setWorkerLevel] = useState(worker.level ?? "fani");
+  const [workerServiceIds, setWorkerServiceIds] = useState<string[]>(user.workerServices ?? []);
+  const [serviceRadius, setServiceRadius] = useState(String(driver.service_radius_km ?? worker.service_radius_km ?? 30));
+  const [teamSize, setTeamSize] = useState(String(worker.team_size ?? 1));
+  const [businessName, setBusinessName] = useState(partner.business_name ?? "");
+  const [businessContact, setBusinessContact] = useState(partner.contact_name ?? "");
+  const [businessLicense, setBusinessLicense] = useState(partner.license_number ?? "");
+  const [businessPhone, setBusinessPhone] = useState(partner.phone ?? "");
+  const [businessEmail, setBusinessEmail] = useState(partner.email ?? "");
+  const [businessGovernorate, setBusinessGovernorate] = useState(partner.governorate_key ?? "");
+  const [businessCity, setBusinessCity] = useState(partner.city ?? "");
+  const [businessAddress, setBusinessAddress] = useState(partner.address ?? "");
+  const [businessDescription, setBusinessDescription] = useState(partner.description ?? "");
+  const [businessVertical, setBusinessVertical] = useState(partner.business_vertical ?? "");
+  const [businessMallUnitType, setBusinessMallUnitType] = useState(partner.mall_unit_type ?? (["store","mall"].includes(partner.partner_type) ? "shop" : ""));
+  const [businessLatitude, setBusinessLatitude] = useState(String(partner.latitude ?? partner.business_latitude ?? ""));
+  const [businessLongitude, setBusinessLongitude] = useState(String(partner.longitude ?? partner.business_longitude ?? ""));
+  const [businessPublished, setBusinessPublished] = useState(partner.is_published === true);
   const [saving, setSaving] = useState(false);
   async function saveProfile() {
     if (fullName.trim().length < 2) { toast.error("الاسم يجب أن يكون حرفين على الأقل"); return; }
+    if (user.profile?.email && !email.trim()) { toast.error("لا يمكن حذف بريد تسجيل الدخول من هنا؛ اتركه كما هو أو أدخل بريداً صحيحاً"); return; }
+    if ((businessLatitude.trim() !== "") !== (businessLongitude.trim() !== "")) { toast.error("أدخل خط العرض وخط الطول معاً أو اتركهما فارغين"); return; }
+    if (businessLatitude.trim() && (!Number.isFinite(Number(businessLatitude)) || Number(businessLatitude) < -90 || Number(businessLatitude) > 90 || !Number.isFinite(Number(businessLongitude)) || Number(businessLongitude) < -180 || Number(businessLongitude) > 180)) { toast.error("إحداثيات موقع المنشأة غير صحيحة"); return; }
     if (avatarFile && avatarFile.size > 5 * 1024 * 1024) { toast.error("حجم الصورة يجب ألا يتجاوز 5 ميغابايت"); return; }
+    if ((user.partnerBusinessProfiles?.length || user.partnerApplications?.length) &&
+        (!businessName.trim() || !businessPhone.trim() || !businessGovernorate.trim() || !businessCity.trim() || !businessAddress.trim() || (user.partnerBusinessProfiles?.length && !businessVertical.trim()))) {
+      toast.error("اسم المنشأة والهاتف والمحافظة والمدينة والعنوان ونوع النشاط حقول مطلوبة");
+      return;
+    }
     setSaving(true);
     try {
       let avatar_base64: string | undefined;
@@ -936,16 +975,59 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
         let binary = ""; for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
         avatar_base64 = btoa(binary);
       }
-      const updated = await updateProfile({ data: {
-        user_id: user.profile.id, full_name: fullName.trim(), governorate_key: governorateKey || null,
-        ...(avatar_base64 ? { avatar_base64, avatar_mime: avatarFile!.type as "image/jpeg" | "image/png" | "image/webp" } : {}),
+      const business = user.partnerBusinessProfiles?.[0] ?? {};
+      const application = user.partnerApplications?.[0] ?? {};
+      const hasPartner = !!(user.partnerBusinessProfiles?.length || user.partnerApplications?.length);
+      const partnerChanges: Record<string, unknown> = {};
+      const partnerPairs: [string, unknown, unknown][] = [
+        ["business_name", businessName.trim(), business.business_name ?? application.business_name ?? ""],
+        ["phone", businessPhone.trim(), business.phone ?? application.phone ?? ""],
+        ["email", businessEmail.trim() || null, business.email ?? application.email ?? null],
+        ["governorate_key", businessGovernorate || null, business.governorate_key ?? application.governorate_key ?? null],
+        ["city", businessCity.trim(), business.city ?? application.city ?? ""],
+        ["address", businessAddress.trim(), business.address ?? application.address ?? ""],
+        ["description", businessDescription.trim(), business.description ?? application.description ?? ""],
+        ["business_vertical", businessVertical || null, business.business_vertical ?? null],
+        ["contact_name", businessContact.trim(), application.contact_name ?? ""],
+        ["license_number", businessLicense.trim() || null, application.license_number ?? null],
+        ["mall_unit_type", businessMallUnitType || null, application.mall_unit_type ?? null],
+        ["latitude", businessLatitude.trim() ? Number(businessLatitude) : null, business.latitude ?? application.business_latitude ?? null],
+        ["longitude", businessLongitude.trim() ? Number(businessLongitude) : null, business.longitude ?? application.business_longitude ?? null],
+        ["is_published", businessPublished, business.is_published ?? false],
+      ];
+      for (const [key, value, original] of partnerPairs) if (value !== original) partnerChanges[key] = value;
+      const partner_profile = hasPartner ? {
+        business_profile_id: business.id ?? null,
+        application_id: business.application_id ?? application.id ?? null,
+        ...partnerChanges,
+      } : undefined;
+      const updated = await adminUpdateAccount({ data: {
+        user_id: user.profile.id,
+        profile: {
+          full_name: fullName.trim(),
+          ...(phone.trim() !== String(user.profile?.phone ?? "") ? { phone: phone.trim() } : {}),
+          ...(email.trim() !== String(user.profile?.email ?? "") ? { email: email.trim() || null } : {}),
+          governorate_key: governorateKey || null,
+          ...(avatar_base64 ? { avatar_base64, avatar_mime: avatarFile!.type as "image/jpeg" | "image/png" | "image/webp" } : {}),
+        },
+        ...(user.driverProfile ? { driver_profile: {
+          vehicle_make: vehicleMake, vehicle_model: vehicleModel, vehicle_year: vehicleYear ? Number(vehicleYear) : null,
+          vehicle_plate: vehiclePlate, vehicle_color: vehicleColor, vehicle_category: vehicleCategory,
+          vehicle_type: vehicleType, service_radius_km: Number(serviceRadius),
+        } } : {}),
+        ...(user.workerProfile ? { worker_profile: {
+          bio: workerBio, level: workerLevel, service_radius_km: Number(serviceRadius), team_size: Number(teamSize),
+          service_ids: workerServiceIds,
+        } } : {}),
+        ...(partner_profile ? { partner_profile } : {}),
       } });
-      onSave(updated); setAvatarFile(null); toast.success("تم تحديث بيانات المستخدم");
+      onSave({ profile: updated.profile ?? {}, driverProfile: updated.driver_profile ?? {}, workerProfile: updated.worker_profile ?? {} });
+      setAvatarFile(null); toast.success("تم حفظ جميع التعديلات الإدارية");
     } catch (e: any) { toast.error(e?.message || "تعذر حفظ التعديلات"); }
     finally { setSaving(false); }
   }
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[150] bg-black/60 grid place-items-center p-4 overflow-y-auto">
       <div className="glass rounded-3xl p-5 w-full max-w-lg my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-black">تفاصيل المستخدم</h3>
@@ -955,15 +1037,64 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
         </div>
         {canEdit && (
           <div className="glass rounded-2xl p-3 mb-4 space-y-2">
-          <div className="font-black text-sm">تعديل بيانات المستخدم</div>
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={100} placeholder="اسم المستخدم" className="w-full glass rounded-xl px-3 py-2 text-sm" />
-          <select value={governorateKey} onChange={(e) => setGovernorateKey(e.target.value)} className="w-full glass rounded-xl px-3 py-2 text-sm">
-            <option value="">المحافظة غير محددة</option>
-            {Object.entries(GOVERNORATE_LABELS).filter(([key]) => key !== "unknown").map(([key,label]) => <option key={key} value={key}>{label}</option>)}
-          </select>
-          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)} className="w-full text-xs" />
+          <div className="font-black text-sm">تعديل شامل للحساب — صلاحية الإدارة فقط</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={100} placeholder="الاسم الكامل" className="w-full glass rounded-xl px-3 py-2 text-sm" />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={30} placeholder="رقم الهاتف" dir="ltr" className="w-full glass rounded-xl px-3 py-2 text-sm" />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} placeholder="البريد الإلكتروني" dir="ltr" className="w-full glass rounded-xl px-3 py-2 text-sm" />
+            <select value={governorateKey} onChange={(e) => setGovernorateKey(e.target.value)} className="w-full glass rounded-xl px-3 py-2 text-sm">
+              <option value="">المحافظة غير محددة</option>
+              {Object.entries(GOVERNORATE_LABELS).filter(([key]) => key !== "unknown").map(([key,label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </div>
+          <label className="block text-xs font-bold">الصورة الشخصية<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)} className="mt-1 w-full text-xs" /></label>
           {avatarFile && <div className="text-[11px] text-muted-foreground">{avatarFile.name}</div>}
-          <button onClick={() => void saveProfile()} disabled={saving} className="w-full rounded-xl bg-primary text-primary-foreground py-2 text-sm font-bold disabled:opacity-50">{saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}</button>
+          {user.driverProfile && <div className="rounded-xl border border-border p-3 space-y-2">
+            <div className="font-bold text-xs">بيانات سيارة السائق</div>
+            <div className="grid grid-cols-2 gap-2">
+              <input value={vehicleMake} onChange={e=>setVehicleMake(e.target.value)} placeholder="شركة السيارة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={vehicleModel} onChange={e=>setVehicleModel(e.target.value)} placeholder="الموديل" className="glass rounded-lg p-2 text-xs"/>
+              <input value={vehicleYear} onChange={e=>setVehicleYear(e.target.value)} placeholder="سنة الصنع" type="number" className="glass rounded-lg p-2 text-xs"/>
+              <input value={vehiclePlate} onChange={e=>setVehiclePlate(e.target.value)} placeholder="رقم اللوحة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={vehicleColor} onChange={e=>setVehicleColor(e.target.value)} placeholder="لون السيارة" className="glass rounded-lg p-2 text-xs"/>
+              <select value={vehicleCategory} onChange={e=>setVehicleCategory(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="economy">اقتصادي</option><option value="premium">متميز</option><option value="luxury">فاخر</option><option value="large">سيارات كبيرة</option></select>
+              <input value={vehicleType} onChange={e=>setVehicleType(e.target.value)} placeholder="نوع المركبة الكبيرة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={serviceRadius} onChange={e=>setServiceRadius(e.target.value)} placeholder="نطاق الخدمة كم" type="number" className="glass rounded-lg p-2 text-xs"/>
+            </div>
+          </div>}
+          {user.workerProfile && <div className="rounded-xl border border-border p-3 space-y-2">
+            <div className="font-bold text-xs">بيانات الفني أو العامل</div>
+            <textarea value={workerBio} onChange={e=>setWorkerBio(e.target.value)} maxLength={2000} placeholder="نبذة ومعلومات المهنة" className="w-full glass rounded-lg p-2 text-xs"/>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={workerLevel} onChange={e=>setWorkerLevel(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="fani">فني</option><option value="khabir">خبير</option></select>
+              <input value={serviceRadius} onChange={e=>setServiceRadius(e.target.value)} type="number" placeholder="نطاق الخدمة كم" className="glass rounded-lg p-2 text-xs"/>
+              <input value={teamSize} onChange={e=>setTeamSize(e.target.value)} type="number" placeholder="عدد أفراد الفريق" className="glass rounded-lg p-2 text-xs"/>
+            </div>
+            <div className="text-xs font-bold">اختصاصات الفني التي يحق له استقبال طلباتها</div>
+            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto rounded-lg bg-surface-2 p-2">
+              {(user.availableServices ?? []).map((service: any) => <label key={service.id} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={workerServiceIds.includes(service.id)} onChange={e=>setWorkerServiceIds(current=>e.target.checked?[...current,service.id]:current.filter(id=>id!==service.id))}/>{service.name_ar}</label>)}
+            </div>
+          </div>}
+          {(user.partnerBusinessProfiles?.length || user.partnerApplications?.length) > 0 && <div className="rounded-xl border border-border p-3 space-y-2">
+            <div className="font-bold text-xs">بيانات المنشأة / المطعم / الفندق / المتجر</div>
+            <input value={businessName} onChange={e=>setBusinessName(e.target.value)} placeholder="اسم المنشأة" className="w-full glass rounded-lg p-2 text-xs"/>
+            <div className="grid grid-cols-2 gap-2">
+              <input value={businessContact} onChange={e=>setBusinessContact(e.target.value)} placeholder="اسم مسؤول التواصل" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessLicense} onChange={e=>setBusinessLicense(e.target.value)} placeholder="رقم الإجازة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessPhone} onChange={e=>setBusinessPhone(e.target.value)} placeholder="هاتف المنشأة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessEmail} onChange={e=>setBusinessEmail(e.target.value)} placeholder="بريد المنشأة" className="glass rounded-lg p-2 text-xs"/>
+              <select value={businessGovernorate} onChange={e=>setBusinessGovernorate(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="">المحافظة</option>{Object.entries(GOVERNORATE_LABELS).filter(([key])=>key!=="unknown").map(([key,label])=><option key={key} value={key}>{label}</option>)}</select>
+              <input value={businessCity} onChange={e=>setBusinessCity(e.target.value)} placeholder="المدينة" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessVertical} onChange={e=>setBusinessVertical(e.target.value)} placeholder="نوع النشاط" className="glass rounded-lg p-2 text-xs"/>
+              {["store","mall"].includes(partner.partner_type) && <select value={businessMallUnitType} onChange={e=>setBusinessMallUnitType(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="shop">محل</option><option value="mall">مول</option><option value="kiosk">كشك</option></select>}
+              <input value={businessLatitude} onChange={e=>setBusinessLatitude(e.target.value)} placeholder="خط العرض" className="glass rounded-lg p-2 text-xs"/>
+              <input value={businessLongitude} onChange={e=>setBusinessLongitude(e.target.value)} placeholder="خط الطول" className="glass rounded-lg p-2 text-xs"/>
+            </div>
+            <input value={businessAddress} onChange={e=>setBusinessAddress(e.target.value)} placeholder="العنوان التفصيلي" className="w-full glass rounded-lg p-2 text-xs"/>
+            <textarea value={businessDescription} onChange={e=>setBusinessDescription(e.target.value)} placeholder="وصف المنشأة" className="w-full glass rounded-lg p-2 text-xs"/>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={businessPublished} onChange={e=>setBusinessPublished(e.target.checked)}/> المنشأة منشورة للزبائن</label>
+          </div>}
+          <button onClick={() => void saveProfile()} disabled={saving} className="w-full rounded-xl bg-primary text-primary-foreground py-2 text-sm font-bold disabled:opacity-50">{saving ? "جارٍ الحفظ..." : "حفظ جميع التعديلات"}</button>
         </div>
         )}
         <div className="space-y-3 text-sm">
@@ -1042,9 +1173,10 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
                     ["الهوية الخلفية", v.id_card_back_photo_url],
                     ["مستند المركبة", v.vehicle_document_url],
                     ["فيديو السيارة", v.vehicle_video_url],
-                  ].map(([label, url]: any) => url
+                  ].filter(([label]: any) => label !== "فيديو السيارة").map(([label, url]: any) => url
                     ? <a key={label} href={url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-primary underline">عرض {label}</a>
                     : <span key={label} className="text-[10px] text-muted-foreground">{label}: غير متوفر</span>)}
+                {v.vehicle_video_url && <video controls playsInline preload="metadata" src={v.vehicle_video_url} className="mt-3 w-full max-h-80 rounded-xl bg-black" aria-label="فيديو المركبة المرفوع من مقدم الخدمة" />}
                 </div>
               </div>
             ))}
@@ -1170,13 +1302,16 @@ function InfoRow({ label, value }: { label: string; value: any }) {
 
 function ProviderDetailModal({
   user,
+  canEdit = false,
   onClose,
   onSaveName,
 }: {
   user: any;
+  canEdit?: boolean;
   onClose: () => void;
   onSaveName: (userId: string, fullName: string) => Promise<void>;
 }) {
+  const [editingAccount, setEditingAccount] = useState(false);
   const [name, setName] = useState(user.profile?.full_name ?? "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -1209,12 +1344,15 @@ function ProviderDetailModal({
             <div className="text-xs text-muted-foreground">{user.driverProfile ? "سائق تكسي" : "فني"}</div>
           </div>
         </div>
-        <label className="block text-xs font-bold mb-2">تعديل اسم المستخدم</label>
-        <div className="flex gap-2 mb-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} className="flex-1 glass rounded-xl px-3 py-2 text-sm" maxLength={80} />
-          <button onClick={save} disabled={saving || name.trim() === profile.full_name} className="px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50">{saving ? "حفظ..." : "حفظ الاسم"}</button>
-        </div>
-        {message && <div className="text-xs text-destructive mb-3">{message}</div>}
+        {canEdit && <button type="button" onClick={() => setEditingAccount(true)} className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-black mb-3">تعديل شامل لكل بيانات الحساب والفئة</button>}
+        {canEdit && <>
+          <label className="block text-xs font-bold mb-2">تعديل اسم المستخدم</label>
+          <div className="flex gap-2 mb-2">
+            <input value={name} onChange={(e) => setName(e.target.value)} className="flex-1 glass rounded-xl px-3 py-2 text-sm" maxLength={80} />
+            <button onClick={save} disabled={saving || name.trim() === profile.full_name} className="px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50">{saving ? "حفظ..." : "حفظ الاسم"}</button>
+          </div>
+          {message && <div className="text-xs text-destructive mb-3">{message}</div>}
+        </>}
         <div className="grid grid-cols-2 gap-2 my-4">
           <div className="glass rounded-xl p-3"><div className="text-xs text-muted-foreground">عدد التقييمات</div><div className="text-xl font-black">{ratings.length}</div></div>
           <div className="glass rounded-xl p-3"><div className="text-xs text-muted-foreground">المعدل الحقيقي</div><div className="text-xl font-black">⭐ {average.toFixed(2)} / 5</div></div>
@@ -1234,11 +1372,12 @@ function ProviderDetailModal({
           </div>)}
         </div> : <div className="rounded-xl bg-surface-2 p-4 text-xs text-muted-foreground">لا توجد تقييمات مسجلة لهذا الحساب بعد.</div>}
       </div>
+      {editingAccount && <UserDetailModal user={user} canEdit={true} onClose={() => setEditingAccount(false)} onSave={() => { setEditingAccount(false); }} />}
     </div>
   );
 }
 
-function ProvidersSection() {
+function ProvidersSection({ canEdit = false }: { canEdit?: boolean }) {
   const [type, setType] = useState("driver");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -1605,6 +1744,7 @@ function ProvidersSection() {
       {selectedProvider && (
         <ProviderDetailModal
           user={selectedProvider}
+          canEdit={canEdit}
           onClose={() => setSelectedProvider(null)}
           onSaveName={saveProviderName}
         />
@@ -1652,7 +1792,10 @@ function ProvidersSection() {
                     <div className="mt-3">
                       <div className="text-sm font-bold mb-2">فيديو السيارة من جميع الجهات</div>
                       {selectedVerification.verification.vehicle_video_url ? (
-                        <a href={selectedVerification.verification.vehicle_video_url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-xl bg-primary text-primary-foreground px-4 py-2 text-xs font-bold">مشاهدة فيديو السيارة</a>
+                        <div className="space-y-2">
+                          <video controls playsInline preload="metadata" src={selectedVerification.verification.vehicle_video_url} className="w-full max-h-96 rounded-xl bg-black" aria-label="فيديو السيارة المرفوع من السائق" />
+                          <a href={selectedVerification.verification.vehicle_video_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">فتح الفيديو بملء الشاشة</a>
+                        </div>
                       ) : <div className="text-xs text-amber-700 rounded-xl bg-amber-500/10 p-3">لم يُرفق فيديو السيارة لهذا الطلب.</div>}
                     </div>
                   </div>
