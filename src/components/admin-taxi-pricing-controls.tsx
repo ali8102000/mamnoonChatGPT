@@ -183,32 +183,6 @@ export default function AdminTaxiPricingControls() {
     await load();
   }
 
-  async function saveAutoMonitor() {
-    const current = governorateKey === "all" ? global : regional;
-    const values = [
-      current.traffic_surcharge_cap_percent,
-      current.demand_increase_cap_percent,
-      current.demand_discount_cap_percent,
-    ].map(Number);
-    if (values.some((value) => !Number.isFinite(value) || value < 0) ||
-        values[0] > 200 || values[1] > 100 || values[2] > 50) {
-      toast.error("تحقق من الحدود: ازدحام الطريق حتى 200%، زيادة الطلب حتى 100%، التخفيض حتى 50%.");
-      return;
-    }
-    setSaving(true);
-    const { error } = await (supabase as any).rpc("admin_update_taxi_auto_monitor_settings", {
-      p_governorate_key: governorateKey,
-      p_enabled: current.auto_monitor_enabled,
-      p_traffic_cap: values[0],
-      p_demand_increase_cap: values[1],
-      p_demand_discount_cap: values[2],
-    });
-    setSaving(false);
-    if (error) { toast.error("تعذّر حفظ المراقبة التلقائية: " + error.message); return; }
-    toast.success("تم حفظ إعداد المراقبة الدورية التلقائية للأسعار.");
-    await load();
-  }
-
   async function saveTariff(row: TaxiTariff) {
     const values = [row.base_fare,row.per_km_rate,row.per_min_rate,row.min_fare].map(Number);
     if (values.some((value) => !Number.isFinite(value) || value < 0) || row.min_fare < 1000) {
@@ -280,41 +254,9 @@ export default function AdminTaxiPricingControls() {
         </> : <p className="text-xs text-muted-foreground">اختر محافظة ضمن نطاق صلاحيتك حتى تظهر إعدادات الذروة المتاحة لك.</p>}
         <button type="button" disabled={saving} onClick={() => void load()} className="mr-2 rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50"><RefreshCw className="ml-2 inline h-4 w-4" /> تحديث</button>
       </div>}
-      {(canGlobalPeak || canRegionalPeak) && <div className="rounded-xl border border-border p-3 space-y-3">
-        <div className="flex items-center gap-2 font-black"><RefreshCw className="h-4 w-4 text-sky-600" /> مراقبة دورية تلقائية للأسعار</div>
-        <p className="text-xs text-muted-foreground">تُحدّث قاعدة البيانات أعداد السائقين والطلبات كل دقيقة. ويُقاس ازدحام طريق الرحلة وقت طلب السعر من بيانات Google Traffic الحية. تنتهي زيادة الازدحام تلقائياً عند رجوع زمن الطريق إلى وضعه الطبيعي.</p>
-        <label className="flex items-center justify-between gap-3 text-sm font-bold">
-          <span>تفعيل المراقبة التلقائية لهذه المحافظة</span>
-          <input type="checkbox" checked={(governorateKey === "all" ? global : regional).auto_monitor_enabled}
-            onChange={(e) => {
-              const setter = governorateKey === "all" ? setGlobal : setRegional;
-              setter((v) => ({ ...v, auto_monitor_enabled: e.target.checked }));
-            }} className="h-5 w-5 accent-sky-600" />
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {([
-            ["traffic_surcharge_cap_percent","سقف زيادة الازدحام المروري (%)",200],
-            ["demand_increase_cap_percent","سقف زيادة كثرة الطلبات (%)",100],
-            ["demand_discount_cap_percent","سقف التخفيض عند وفرة السائقين (%)",50],
-          ] as const).map(([key,label,max]) => <label key={key} className="block space-y-1 text-xs font-bold">
-            <span>{label}</span>
-            <input className={inputClass} type="number" min="0" max={max} step="1"
-              value={(governorateKey === "all" ? global : regional)[key]}
-              onChange={(e) => {
-                const setter = governorateKey === "all" ? setGlobal : setRegional;
-                setter((v) => ({ ...v, [key]: Number(e.target.value) }));
-              }} />
-          </label>)}
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-          <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">السائقون المتاحون</div><b>{(governorateKey === "all" ? global : regional).auto_active_drivers}</b></div>
-          <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">إشارات GPS الحديثة</div><b>{(governorateKey === "all" ? global : regional).auto_gps_observed}</b></div>
-          <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">الطلبات المنتظرة</div><b>{(governorateKey === "all" ? global : regional).auto_pending_requests}</b></div>
-          <div className="rounded-lg bg-muted/40 p-2"><div className="text-muted-foreground">تعديل الطلب الحالي</div><b>{Number((governorateKey === "all" ? global : regional).auto_demand_percent).toFixed(0)}%</b></div>
-        </div>
-        <p className="text-[11px] text-muted-foreground">إذا انقطعت إشارات GPS الحديثة، يوقف النظام تعديل السعر حسب العرض والطلب بدلاً من افتراض عدم وجود سائقين.</p>
-        <p className="text-[11px] text-muted-foreground">آخر تحديث: {(governorateKey === "all" ? global : regional).auto_updated_at ? new Date((governorateKey === "all" ? global : regional).auto_updated_at!).toLocaleString("ar-IQ") : "بانتظار أول دورة مراقبة"}.</p>
-        <button type="button" disabled={saving} onClick={() => void saveAutoMonitor()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4" /> حفظ إعداد المراقبة</button>
+      {(canGlobalPeak || canRegionalPeak) && <div className="rounded-xl border border-border p-3 space-y-2">
+        <div className="flex items-center gap-2 font-black"><RefreshCw className="h-4 w-4 text-sky-600" /> مراقبة العرض والطلب دون تعديل الأجرة</div>
+        <p className="text-xs text-muted-foreground">التسعير التلقائي حسب الطلب والازدحام المروري متوقف بالكامل بقرار المشروع. يمكن عرض مؤشرات التوفر والطلبات من لوحة مراقبة الفئات، ولا تُضاف أي زيادة تلقائية إلى سعر الزبون.</p>
       </div>}
 
       {canTariff && <div className="rounded-xl border border-border p-3 space-y-3">
