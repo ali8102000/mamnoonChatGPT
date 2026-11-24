@@ -392,6 +392,7 @@ export default function WorkerOnboarding() {
       <TextInput style={[styles.input, { height: 80 }]} value={bio} onChangeText={setBio} placeholder="خبراتك ومهاراتك..." multiline placeholderTextColor="#94a3b8" />
 
       <Text style={styles.label}>الصورة الشخصية للوجه *</Text>
+      <Text style={styles.note}>الصورة الشخصية إلزامية لجميع الفنيين. ارفع صورة حديثة وواضحة لوجهك أنت، بدون فلاتر أو أشخاص آخرين، حتى تتمكن الإدارة من مطابقتها مع صورة الهوية قبل تفعيل الحساب.</Text>
       <TouchableOpacity style={styles.photoButton} onPress={() => choosePhoto("face")}>
         {facePhoto ? <Image source={{ uri: facePhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>اضغط لالتقاط أو اختيار صورتك الشخصية</Text>}
       </TouchableOpacity>
