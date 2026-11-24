@@ -161,6 +161,7 @@ begin
 end $$;
 
 grant select on public.taxi_peak_weather_settings, public.taxi_peak_weather_observations, public.taxi_peak_weather_decisions to authenticated;
+revoke all on function public.admin_save_taxi_peak_weather_settings(text,text,boolean,numeric,numeric,numeric,integer,integer,integer,integer,integer) from public, anon;
 grant execute on function public.admin_save_taxi_peak_weather_settings(text,text,boolean,numeric,numeric,numeric,integer,integer,integer,integer,integer) to authenticated;
 
 
