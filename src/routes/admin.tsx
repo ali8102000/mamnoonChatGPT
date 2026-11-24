@@ -981,6 +981,8 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
           bio: workerBio, level: workerLevel, service_radius_km: Number(serviceRadius), team_size: Number(teamSize),
         } } : {}),
         ...(user.partnerBusinessProfiles?.length || user.partnerApplications?.length ? { partner_profile: {
+          business_profile_id: user.partnerBusinessProfiles?.[0]?.id ?? null,
+          application_id: user.partnerBusinessProfiles?.[0]?.application_id ?? user.partnerApplications?.[0]?.id ?? null,
           business_name: businessName, contact_name: businessContact, license_number: businessLicense,
           phone: businessPhone, email: businessEmail || null, governorate_key: businessGovernorate || null,
           city: businessCity, address: businessAddress, description: businessDescription,
