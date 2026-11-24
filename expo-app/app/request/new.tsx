@@ -1941,30 +1941,32 @@ export default function NewRequest() {
       )}
 
       <View style={[styles.mapContainer, { height: Math.min(window.width - 32, 340) }]}>
-        <MapView
-          ref={mapRef}
-          style={styles.map}
-          provider={PROVIDER_GOOGLE}
-          initialRegion={region}
-          onPanDrag={() => { userPannedMapRef.current = true; }}
-          onRegionChangeComplete={handleRegionChangeComplete}
-          showsUserLocation
-          showsMyLocationButton={false}
-          loadingEnabled
-        >
-          {nearbyWorkers.map((worker) => (
-            <Marker
-              key={worker.pin_id}
-              coordinate={{ latitude: worker.lat, longitude: worker.lng }}
-              title="فني قريب"
-              anchor={{ x: 0.5, y: 0.5 }}
-              flat
-              rotation={Number.isFinite(worker.heading) ? Number(worker.heading) : 0}
-            >
-              <View style={styles.taxiNearbyMarker}><Text style={styles.taxiNearbyMarkerText}>🔧</Text></View>
-            </Marker>
-          ))}
-        </MapView>
+        {!serviceMapExpanded && (
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={region}
+            onPanDrag={() => { userPannedMapRef.current = true; }}
+            onRegionChangeComplete={handleRegionChangeComplete}
+            showsUserLocation
+            showsMyLocationButton={false}
+            loadingEnabled
+          >
+            {nearbyWorkers.map((worker) => (
+              <Marker
+                key={worker.pin_id}
+                coordinate={{ latitude: worker.lat, longitude: worker.lng }}
+                title="فني قريب"
+                anchor={{ x: 0.5, y: 0.5 }}
+                flat
+                rotation={Number.isFinite(worker.heading) ? Number(worker.heading) : 0}
+              >
+                <View style={styles.taxiNearbyMarker}><Text style={styles.taxiNearbyMarkerText}>🔧</Text></View>
+              </Marker>
+            ))}
+          </MapView>
+        )}
         <View pointerEvents="none" style={styles.mapCenterPin}><MapCenterPin /></View>
         <Text style={styles.mapHint}>
           {mapMode === "pickup"
