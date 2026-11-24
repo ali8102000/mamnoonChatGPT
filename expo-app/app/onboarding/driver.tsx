@@ -587,6 +587,7 @@ export default function DriverOnboarding() {
 
       <Text style={styles.label}>الاسم الكامل المطابق للهوية</Text>
       <TextInput style={styles.input} value={legalName} onChangeText={setLegalName} placeholder="الاسم الثلاثي واللقب" placeholderTextColor="#94a3b8" />
+      {largeDriverMode && <Text style={styles.note}>لسائقي كيا الحمل وكيا الركاب والباص: اكتب الاسم الكامل حرفياً كما هو في البطاقة الوطنية أو المستمسك الرسمي. ستتم مراجعة الاسم وصورة الوجه يدوياً قبل تفعيل حسابك.</Text>}
 
       <Text style={styles.label}>نوع المستمسك</Text>
       <View style={styles.row}>
@@ -599,6 +600,7 @@ export default function DriverOnboarding() {
       </View>
 
       <Text style={styles.label}>صورة الوجه الشخصية *</Text>
+      {largeDriverMode && <Text style={styles.note}>الصورة الشخصية إلزامية ويجب أن تكون واضحة وحديثة وتُظهر وجه السائق نفسه، حتى تتمكن الإدارة من مطابقتها بصرياً مع صورة الهوية.</Text>}
       <TouchableOpacity style={styles.photoButton} onPress={() => pickPhoto("face")}>
         {facePhoto ? <Image source={{ uri: facePhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>فتح الكاميرا والتقاط صورة الوجه</Text>}
       </TouchableOpacity>
