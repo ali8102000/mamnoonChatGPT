@@ -362,13 +362,14 @@ Deno.serve(async (req: Request) => {
         const current = (currentServices ?? []).map((row: any) => row.service_id);
         const removeIds = current.filter((id: string) => !desired.includes(id));
         const addIds = desired.filter((id: string) => !current.includes(id));
-        if (removeIds.length) {
-          const { error } = await admin.from("worker_services").delete().eq("worker_id", userId).in("service_id", removeIds);
-          if (error) return json({ error: "worker_services_remove_failed" }, 500);
-        }
+        // Add first: if insertion fails, the worker keeps every existing specialty.
         if (addIds.length) {
           const { error } = await admin.from("worker_services").insert(addIds.map((service_id: string) => ({ worker_id: userId, service_id })));
           if (error) return json({ error: "worker_services_add_failed" }, 500);
+        }
+        if (removeIds.length) {
+          const { error } = await admin.from("worker_services").delete().eq("worker_id", userId).in("service_id", removeIds);
+          if (error) return json({ error: "worker_services_remove_failed" }, 500);
         }
       }
 
