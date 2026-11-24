@@ -297,10 +297,15 @@ Deno.serve(async (req: Request) => {
         driverUpdates.available = driverInput.available;
       }
       if (Object.keys(driverUpdates).length) {
+        const { data: currentDriverProfile, error: currentDriverError } = await admin.from("driver_profiles")
+          .select("vehicle_category").eq("user_id", userId).maybeSingle();
+        if (currentDriverError) return json({ error: "driver_profile_lookup_failed" }, 500);
         driverUpdates.updated_at = new Date().toISOString();
         const { error } = await admin.from("driver_profiles").update(driverUpdates).eq("user_id", userId);
         if (error) return json({ error: "driver_profile_update_failed", detail: error.message }, 400);
-        const { data: verifications } = await admin.from("provider_verifications").select("provider_type,metadata").eq("user_id", userId).in("provider_type", ["driver","large_driver"]);
+        const verificationType = currentDriverProfile?.vehicle_category === "large" ? "large_driver" : "driver";
+        const { data: verifications } = await admin.from("provider_verifications").select("provider_type,metadata")
+          .eq("user_id", userId).eq("provider_type", verificationType);
         for (const verification of verifications ?? []) {
           const metadata = { ...(verification.metadata ?? {}) };
           const pairs: Record<string,string> = { vehicle_make:"vehicleMake", vehicle_model:"vehicleModel", vehicle_year:"vehicleYear", vehicle_plate:"vehiclePlate", vehicle_color:"vehicleColor", vehicle_type:"vehicleType", vehicle_category:"vehicleCategory" };
@@ -346,14 +351,20 @@ Deno.serve(async (req: Request) => {
       }
       if (partnerUpdates.latitude !== undefined) applicationFields.business_latitude = partnerUpdates.latitude;
       if (partnerUpdates.longitude !== undefined) applicationFields.business_longitude = partnerUpdates.longitude;
+      const partnerBusinessProfileId = isUuid(partnerInput.business_profile_id) ? partnerInput.business_profile_id : null;
+      const partnerApplicationId = isUuid(partnerInput.application_id) ? partnerInput.application_id : null;
       if (Object.keys(partnerUpdates).length) {
+        if (!partnerBusinessProfileId) return json({ error: "partner_business_profile_id_required" }, 400);
         partnerUpdates.updated_at = new Date().toISOString();
-        const { error: businessError } = await admin.from("partner_business_profiles").update(partnerUpdates).eq("user_id", userId);
+        const { error: businessError } = await admin.from("partner_business_profiles").update(partnerUpdates)
+          .eq("user_id", userId).eq("id", partnerBusinessProfileId);
         if (businessError) return json({ error: "partner_profile_update_failed", detail: businessError.message }, 400);
       }
       if (Object.keys(applicationFields).length) {
+        if (!partnerApplicationId) return json({ error: "partner_application_id_required" }, 400);
         applicationFields.updated_at = new Date().toISOString();
-        const { error: applicationError } = await admin.from("partner_applications").update(applicationFields).eq("user_id", userId);
+        const { error: applicationError } = await admin.from("partner_applications").update(applicationFields)
+          .eq("user_id", userId).eq("id", partnerApplicationId);
         if (applicationError) return json({ error: "partner_application_update_failed", detail: applicationError.message }, 400);
       }
       return json({ ok: true, profile: profileUpdates, driver_profile: driverUpdates, worker_profile: workerUpdates, partner_profile: partnerUpdates });
