@@ -1067,7 +1067,6 @@ function ProviderHome({
   availabilitySaving: boolean;
   verified: boolean;
   verificationStatus: string;
-  companyName: string;
   toggleAvailable: () => void;
   incoming: IncomingRequest[];
   onRefresh: () => Promise<void>;
