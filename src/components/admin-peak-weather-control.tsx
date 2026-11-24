@@ -98,22 +98,14 @@ export default function AdminPeakWeatherControl() {
       </label>
       <div className="rounded-xl border border-border p-3 space-y-3">
         <div className="font-black flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> وضع التشغيل</div>
-        {!settings.weather_monitor_ready && <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">مراقب الطقس لم يُنشر ويُختبر بعد؛ الإشعارات مقفولة حتى وصول قراءات حديثة. التسعير التلقائي مؤجل دائماً حالياً.</p>}
+        <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">هذا الإصدار يعرض قراءات الطقس فقط. لا توجد إشعارات فعلية أو تغيير أسعار آلي؛ ستبقى أوضاع التشغيل متوقفة إلى أن يُنفّذ محرك القرارات ويُختبر.</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {([{value:"auto",label:"تلقائي (مؤجل)",desc:"غير متاح حالياً بقرار المشروع"},{value:"notify",label:"إخباري",desc:"يرسل توصية للأدمن فقط"},{value:"off",label:"إيقاف",desc:"يعطّل الأتمتة"}] as const).map(option =>
-            <button key={option.value} type="button" disabled={option.value==="auto" || (option.value!=="off" && !settings.weather_monitor_ready)} onClick={() => setSettings(v => ({...v,mode:option.value,enabled:option.value!=="off"}))}
-              className={`rounded-xl border p-3 text-right disabled:cursor-not-allowed disabled:opacity-40 ${settings.mode===option.value ? "border-primary bg-primary/5" : "border-border"}`}>
-              <b className="block text-sm">{option.label}</b><span className="text-[11px] text-muted-foreground">{option.desc}</span>
-            </button>)}
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm font-bold">مراقبة قراءات فقط — وضع التشغيل متوقف</div>
         </div>
-        <label className="flex items-center justify-between gap-3 text-sm font-bold">
-          <span>السماح بتشغيل هذا الوضع على النطاق المحدد</span>
-          <input type="checkbox" checked={settings.enabled && settings.mode!=="off"} disabled={settings.mode==="off" || !settings.weather_monitor_ready}
-            onChange={e=>setSettings(v=>({...v,enabled:e.target.checked}))} className="h-5 w-5 accent-primary"/>
-        </label>
+        <p className="text-xs text-muted-foreground">حالة التشغيل: متوقف دائماً في هذه النسخة. لا يمكن تفعيل إشعارات أو رسوم إضافية من هذه الشاشة.</p>
       </div>
       <div className="rounded-xl border border-border p-3 space-y-3">
-        <div className="font-black flex items-center gap-2"><ThermometerSun className="h-4 w-4"/> شروط المراقبة وحدود السعر</div>
+        <div className="font-black flex items-center gap-2"><ThermometerSun className="h-4 w-4"/> حدود محفوظة للمستقبل (غير مطبقة)</div>
         <div className="grid grid-cols-2 gap-3">
           {field("rain_threshold_mm","حد المطر (ملم)",0,100,0.1)}
           {field("heat_threshold_c","حد الحرارة (°م)",0,60)}
@@ -142,7 +134,7 @@ export default function AdminPeakWeatherControl() {
         {logs.length ? logs.map(item => <div key={item.id} className="rounded-lg bg-muted/40 p-2 text-xs"><b>{item.decision}</b> · {item.reason}<div className="text-muted-foreground">{new Date(item.created_at).toLocaleString("ar-IQ")} · زيادة {item.surcharge_percent}%</div></div>) : <p className="text-xs text-muted-foreground">لا توجد قرارات مسجلة بعد.</p>}
       </div>
       <p className="text-[11px] text-muted-foreground">مصدر الطقس: <a className="underline" href="https://www.weatherapi.com/" target="_blank" rel="noreferrer">WeatherAPI.com</a></p>
-      <p className="text-[11px] text-muted-foreground">لن تُفعّل زيادة سعر بمجرد حفظ الإعدادات. يلزم نشر وفحص مراقب الطقس أولاً، والقراءات القديمة أو غير الموثوقة تمنع أي قرار تلقائي.</p>
+      <p className="text-[11px] text-muted-foreground">حفظ هذه القيم لا يرسل إشعارات ولا يغيّر أجرة أي رحلة. وظيفة هذه النسخة هي جمع قراءات الطقس وعرضها فقط.</p>
     </section>
   );
 }
