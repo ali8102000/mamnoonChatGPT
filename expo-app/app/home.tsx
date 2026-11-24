@@ -1330,37 +1330,6 @@ const providerMapStyles = StyleSheet.create({
   powerButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
 });
  
-function ProviderAvailabilityDock({
-  available,
-  availabilitySaving,
-  verified,
-  toggleAvailable,
-}: {
-  available: boolean;
-  availabilitySaving: boolean;
-  verified: boolean;
-  toggleAvailable: () => void;
-}) {
-  return (
-    <View style={providerMapStyles.fixedDock}>
-      <View style={{ flex: 1 }}>
-        <Text style={providerMapStyles.actionTitle}>{available ? "استقبال الطلبات مفعّل" : "جاهز تستقبل طلبات؟"}</Text>
-        <Text style={providerMapStyles.actionSubtitle}>{available ? "موقعك يتحدث على الخريطة" : verified ? "فعّل حالتك حتى تظهر للزبائن القريبين" : "أكمل توثيق حسابك أولاً"}</Text>
-      </View>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
-        accessibilityState={{ disabled: !verified || availabilitySaving }}
-        disabled={!verified || availabilitySaving}
-        onPress={toggleAvailable}
-        activeOpacity={0.86}
-        style={[providerMapStyles.powerButton, available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff, (!verified || availabilitySaving) && { opacity: 0.55 }]}
-      >
-        <Text style={providerMapStyles.powerButtonText}>{availabilitySaving ? "..." : available ? "متصل" : "ابدأ"}</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.pageCanvas },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14, zIndex: 30, elevation: 12 },
