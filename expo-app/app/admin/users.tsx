@@ -149,6 +149,7 @@ export default function AdminUsersScreen() {
 
   const saveProfile = async () => {
     if (!detail?.profile?.id || editName.trim().length < 2) { Alert.alert("تحقق من الاسم", "اكتب اسماً من حرفين على الأقل."); return; }
+    if (editEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmail.trim())) { Alert.alert("تحقق من البريد", "اكتب بريداً إلكترونياً صحيحاً أو اترك الحقل كما هو."); return; }
     setBusyId(detail.profile.id);
     try {
       const profile: Record<string, unknown> = {
@@ -303,7 +304,7 @@ export default function AdminUsersScreen() {
             <TouchableOpacity style={s.secondary} onPress={()=>void pickAdminAvatar()}><Text style={s.secondaryText}>اختيار / تغيير الصورة</Text></TouchableOpacity>
             <TextInput value={editName} onChangeText={setEditName} placeholder="اسم المستخدم" placeholderTextColor={palette.muted} style={s.input} textAlign="right" maxLength={100}/>
             <TextInput value={editPhone} onChangeText={setEditPhone} placeholder="رقم الهاتف" placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType="phone-pad" maxLength={24}/>
-            <TextInput value={editEmail} onChangeText={setEditEmail} placeholder="البريد الإلكتروني" placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType="email-address" autoCapitalize="none" maxLength={254}/>
+            <TextInput value={editEmail} onChangeText={setEditEmail} placeholder="البريد الإلكتروني" placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} maxLength={254}/>
             <Text style={s.muted}>المحافظة المسجلة</Text>
             <View style={s.durationWrap}>
               {[
