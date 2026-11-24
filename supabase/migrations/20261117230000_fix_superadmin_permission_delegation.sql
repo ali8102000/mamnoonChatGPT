@@ -475,4 +475,39 @@ begin
 end;
 $granular_rpc_guards$;
 
+
+-- Keep the taxi post-acceptance cancellation guard aligned with the scoped
+-- orders.cancel permission used by the administrative cancellation RPC.
+create or replace function public.guard_no_cancel_after_taxi_acceptance()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_governorate text;
+begin
+  if old.type::text = 'taxi'
+     and old.status::text in ('accepted','in_progress')
+     and new.status::text = 'cancelled'
+     and auth.uid() is not null then
+    select governorate_key into v_governorate
+    from public.profiles
+    where id = old.customer_id;
+
+    if not public.has_admin_access(auth.uid())
+       and not public.admin_has_permission(
+         'orders.cancel',
+         case when v_governorate is null then 'global' else 'governorate' end,
+         v_governorate
+       ) then
+      raise exception 'taxi_cancellation_disabled_after_acceptance';
+    end if;
+  end if;
+  return new;
+end;
+$function$;
+
+revoke all on function public.guard_no_cancel_after_taxi_acceptance() from public, anon, authenticated;
+
 commit;
