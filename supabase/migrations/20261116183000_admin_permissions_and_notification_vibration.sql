@@ -71,17 +71,25 @@ as $function$
   end
 $function$;
 
--- General managers can open and reply to support conversations.
+-- General managers remain read-only even if they also hold a support/moderation assignment.
 drop policy if exists "Users open own support conversation" on public.support_conversations;
 create policy "Users open own support conversation"
 on public.support_conversations
 for insert
 to authenticated
 with check (
-  (user_id = (select auth.uid()) and created_by = (select auth.uid()))
-  or (
-    public.has_chat_moderation_access((select auth.uid()))
-    and created_by = (select auth.uid())
+  not exists (
+    select 1 from public.staff_assignments sa
+    where sa.user_id = (select auth.uid())
+      and sa.active = true
+      and sa.rank = 'general_manager'
+  )
+  and (
+    (user_id = (select auth.uid()) and created_by = (select auth.uid()))
+    or (
+      public.has_chat_moderation_access((select auth.uid()))
+      and created_by = (select auth.uid())
+    )
   )
 );
 
@@ -91,7 +99,13 @@ on public.support_messages
 for insert
 to authenticated
 with check (
-  sender_id = (select auth.uid())
+  not exists (
+    select 1 from public.staff_assignments sa
+    where sa.user_id = (select auth.uid())
+      and sa.active = true
+      and sa.rank = 'general_manager'
+  )
+  and sender_id = (select auth.uid())
   and exists (
     select 1
     from public.support_conversations c
