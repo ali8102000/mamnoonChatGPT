@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
-import MapView, { Marker, type MapPressEvent } from "react-native-maps";
+import MapView from "react-native-maps";
+import * as Location from "expo-location";
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -44,6 +45,8 @@ export default function AccountSettingsScreen() {
   const [partnerDocs, setPartnerDocs] = useState<{license:ImagePicker.ImagePickerAsset|null;idFront:ImagePicker.ImagePickerAsset|null;idBack:ImagePicker.ImagePickerAsset|null}>({license:null,idFront:null,idBack:null});
   const [partnerLat, setPartnerLat] = useState(33.3152);
   const [partnerLng, setPartnerLng] = useState(44.3661);
+  const [partnerPlaceQuery, setPartnerPlaceQuery] = useState("");
+  const [partnerMapBusy, setPartnerMapBusy] = useState(false);
   const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [partnerBusy, setPartnerBusy] = useState(false);
   const governorateLabels: Record<string,string> = {baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
@@ -120,6 +123,30 @@ export default function AccountSettingsScreen() {
     const asset = result.assets[0];
     if (asset.fileSize && asset.fileSize > 8 * 1024 * 1024) { Alert.alert("حجم الملف كبير", "الحد الأعلى لكل مستند 8 ميغابايت"); return; }
     setPartnerDocs(old => ({ ...old, [key]: asset }));
+  }
+  async function locatePartnerBusiness() {
+    setPartnerMapBusy(true);
+    try {
+      let permission = await Location.getForegroundPermissionsAsync();
+      if (!permission.granted) permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) throw new Error("اسمح لممنون بالوصول للموقع حتى نحدد موقع المنشأة.");
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setPartnerLat(position.coords.latitude); setPartnerLng(position.coords.longitude);
+    } catch (error) {
+      Alert.alert("تعذر تحديد الموقع", error instanceof Error ? error.message : "حاول مرة ثانية.");
+    } finally { setPartnerMapBusy(false); }
+  }
+  async function searchPartnerBusiness() {
+    const query = partnerPlaceQuery.trim();
+    if (query.length < 3) { Alert.alert("اكتب المكان", "اكتب اسم المنطقة أو الشارع أو المكان."); return; }
+    setPartnerMapBusy(true);
+    try {
+      const matches = await Location.geocodeAsync(query + ", Iraq");
+      if (!matches.length) throw new Error("ما لكيت هذا المكان. جرّب اسم منطقة أو شارع أوضح.");
+      setPartnerLat(matches[0].latitude); setPartnerLng(matches[0].longitude);
+    } catch (error) {
+      Alert.alert("تعذر البحث", error instanceof Error ? error.message : "حاول مرة ثانية.");
+    } finally { setPartnerMapBusy(false); }
   }
   async function submitPartnerApplication() {
     if (!user?.id) return;
@@ -409,7 +436,18 @@ export default function AccountSettingsScreen() {
           <Text style={styles.partnerLabel}>العنوان التفصيلي</Text><RealInput value={partnerAddress} onChangeText={setPartnerAddress} placeholder="الحي والشارع وأقرب نقطة دالة" maxLength={240} />          <Text style={styles.partnerLabel}>رقم إجازة العمل / الترخيص</Text><RealInput value={partnerLicenseNumber} onChangeText={setPartnerLicenseNumber} placeholder="رقم الإجازة الرسمية" maxLength={100} />
           <Text style={styles.partnerLabel}>حدد موقع المنشأة بالدبوس</Text>
           <Text style={styles.note}>اضغط على الخريطة أو حرّك الدبوس إلى موقع الفندق أو المتجر أو المول.</Text>
-          <MapView style={{height:250,borderRadius:14,marginBottom:10}} initialRegion={{latitude:partnerLat,longitude:partnerLng,latitudeDelta:0.035,longitudeDelta:0.035}} onPress={event=>{setPartnerLat(event.nativeEvent.coordinate.latitude);setPartnerLng(event.nativeEvent.coordinate.longitude);}}><Marker coordinate={{latitude:partnerLat,longitude:partnerLng}} draggable onDragEnd={event=>{setPartnerLat(event.nativeEvent.coordinate.latitude);setPartnerLng(event.nativeEvent.coordinate.longitude);}} title={partnerName||"موقع المنشأة"}/></MapView>
+          <View style={{gap:8}}>
+            <View style={{flexDirection:"row",gap:8}}>
+              <View style={{flex:1}}><RealInput value={partnerPlaceQuery} onChangeText={setPartnerPlaceQuery} placeholder="ابحث عن المنطقة أو الشارع"/></View>
+              <TouchableOpacity disabled={partnerMapBusy} onPress={()=>void searchPartnerBusiness()} style={styles.partnerDocButton}><Text style={styles.partnerDocTitle}>بحث</Text></TouchableOpacity>
+            </View>
+            <TouchableOpacity disabled={partnerMapBusy} onPress={()=>void locatePartnerBusiness()} style={styles.partnerDocButton}><Text style={styles.partnerDocTitle}>{partnerMapBusy?"جارٍ تحديد الموقع...":"تحديد موقعي الحالي"}</Text></TouchableOpacity>
+            <View style={{height:250,borderRadius:14,overflow:"hidden",marginBottom:10}}>
+              <MapView style={{flex:1}} initialRegion={{latitude:partnerLat,longitude:partnerLng,latitudeDelta:0.035,longitudeDelta:0.035}} region={{latitude:partnerLat,longitude:partnerLng,latitudeDelta:0.035,longitudeDelta:0.035}} onRegionChangeComplete={region=>{setPartnerLat(region.latitude);setPartnerLng(region.longitude);}} showsUserLocation>
+              </MapView>
+              <View pointerEvents="none" style={{position:"absolute",left:"50%",top:"50%",marginLeft:-14,marginTop:-30,width:28,height:36,alignItems:"center",justifyContent:"center"}}><Text style={{fontSize:30,color:"#D32F2F",fontWeight:"900",textShadowColor:"#fff",textShadowRadius:3}}>📍</Text></View>
+            </View>
+          </View>
           <Text style={styles.note}>الإحداثيات: {partnerLat.toFixed(6)}, {partnerLng.toFixed(6)}</Text>
           <Text style={styles.partnerLabel}>المستندات الإلزامية</Text>
           {([{key:"license",label:"إجازة العمل / رخصة النشاط"},{key:"idFront",label:"هوية صاحب المنشأة - الوجه الأمامي"},{key:"idBack",label:"هوية صاحب المنشأة - الوجه الخلفي"}] as const).map(item=><TouchableOpacity key={item.key} onPress={()=>void pickPartnerDoc(item.key)} style={styles.partnerDocButton}><Text style={styles.partnerDocTitle}>{item.label}</Text><Text style={styles.note}>{partnerDocs[item.key]?.fileName||"اضغط لاختيار صورة واضحة"}</Text></TouchableOpacity>)}
