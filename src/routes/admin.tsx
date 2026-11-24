@@ -957,6 +957,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
   const [saving, setSaving] = useState(false);
   async function saveProfile() {
     if (fullName.trim().length < 2) { toast.error("الاسم يجب أن يكون حرفين على الأقل"); return; }
+    if (user.profile?.email && !email.trim()) { toast.error("لا يمكن حذف بريد تسجيل الدخول من هنا؛ اتركه كما هو أو أدخل بريداً صحيحاً"); return; }
     if ((businessLatitude.trim() !== "") !== (businessLongitude.trim() !== "")) { toast.error("أدخل خط العرض وخط الطول معاً أو اتركهما فارغين"); return; }
     if (businessLatitude.trim() && (!Number.isFinite(Number(businessLatitude)) || Number(businessLatitude) < -90 || Number(businessLatitude) > 90 || !Number.isFinite(Number(businessLongitude)) || Number(businessLongitude) < -180 || Number(businessLongitude) > 180)) { toast.error("إحداثيات موقع المنشأة غير صحيحة"); return; }
     if (avatarFile && avatarFile.size > 5 * 1024 * 1024) { toast.error("حجم الصورة يجب ألا يتجاوز 5 ميغابايت"); return; }
