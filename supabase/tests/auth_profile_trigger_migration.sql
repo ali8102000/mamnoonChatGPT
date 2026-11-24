@@ -13,6 +13,7 @@ DECLARE
   v_admin_id constant uuid := '10000000-0000-4000-8000-000000000003';
   v_duplicate_id constant uuid := '10000000-0000-4000-8000-000000000004';
   v_bad_email_id constant uuid := '10000000-0000-4000-8000-000000000005';
+  v_short_phone_id constant uuid := '10000000-0000-4000-8000-000000000006';
 BEGIN
   INSERT INTO auth.users (id, email, raw_user_meta_data)
   VALUES (
@@ -86,6 +87,24 @@ BEGIN
 
   IF EXISTS (SELECT 1 FROM auth.users WHERE id = v_duplicate_id) THEN
     RAISE EXCEPTION 'duplicate Auth user row was not rolled back';
+  END IF;
+
+  BEGIN
+    INSERT INTO auth.users (id, email, raw_user_meta_data)
+    VALUES (
+      v_short_phone_id,
+      'phone9641234567@mamnoon.app',
+      jsonb_build_object('phone', '1234567', 'full_name', 'Short Phone')
+    );
+    RAISE EXCEPTION 'expected short phone to be rejected';
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    IF SQLERRM <> 'profile_phone_invalid' THEN
+      RAISE;
+    END IF;
+  END;
+
+  IF EXISTS (SELECT 1 FROM auth.users WHERE id = v_short_phone_id) THEN
+    RAISE EXCEPTION 'short-phone Auth user row was not rolled back';
   END IF;
 
   BEGIN
