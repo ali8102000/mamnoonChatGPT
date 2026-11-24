@@ -580,7 +580,7 @@ Deno.serve(async (req: Request) => {
       const staffScope = await getStaffScope();
       if (staffScope.scopeType === "governorate" && staffScope.scopeGovernorate !== governorate) throw new Error("permission_required:users.read");
       await requireScopedReadPermission("users.read", "has_user_moderation_access", staffScope.scopeType, staffScope.scopeGovernorate);
-      const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications] = await Promise.all([
+      const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications, partnerBusinesses, partnerApplications] = await Promise.all([
         admin.from("profiles").select("*").eq("id", id).maybeSingle(),
         admin.from("user_roles").select("role,created_at").eq("user_id", id),
         admin.from("user_blocks").select("*").eq("user_id", id).maybeSingle(),
@@ -593,8 +593,10 @@ Deno.serve(async (req: Request) => {
           .eq("ratee_id", id).order("created_at", { ascending: false }).limit(100),
         admin.from("provider_verifications").select("provider_type,legal_name,phone,email,document_type,id_number,status,rejection_reason,metadata,face_photo_path,id_card_photo_path,id_card_back_photo_path,vehicle_document_path,submitted_at,reviewed_at,updated_at")
           .eq("user_id", id),
+        admin.from("partner_business_profiles").select("*").eq("user_id", id),
+        admin.from("partner_applications").select("*").eq("user_id", id).order("created_at", { ascending: false }),
       ]);
-      const failed = [profile, roles, block, driver, worker, transactions, requests, verifications].find((r: any) => r.error);
+      const failed = [profile, roles, block, driver, worker, transactions, requests, verifications, partnerBusinesses, partnerApplications].find((r: any) => r.error);
       if (failed?.error) return json({ error: "user_detail_load_failed" }, 500);
       const signedVerifications = await Promise.all((verifications.data ?? []).map(async (row: any) => {
         const sign = async (path: string | null) => {
@@ -621,6 +623,8 @@ Deno.serve(async (req: Request) => {
         driverProfile: driver.data, workerProfile: worker.data,
         transactions: transactions.data ?? [], requests: requests.data ?? [],
         verifications: signedVerifications,
+        partnerBusinessProfiles: partnerBusinesses.data ?? [],
+        partnerApplications: partnerApplications.data ?? [],
         ratings: ratings.error ? [] : ratings.data ?? [],
         ratings_error: !!ratings.error,
       });
