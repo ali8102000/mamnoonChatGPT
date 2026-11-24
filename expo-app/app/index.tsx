@@ -79,7 +79,7 @@ export default function Index() {
           <Image source={logoUrl ? { uri: logoUrl } : mamnoonLogo} style={styles.logo} resizeMode="contain" />
         </Animated.View>
         <Text style={styles.brand}>أهلاً بك في {companyName}</Text>
-        {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={[styles.welcomeVisual,{width:welcomeVisualSizePx,height:welcomeVisualSizePx}]} contentFit="cover" autoplay={shouldAnimateBranding} /></Animated.View> : null}
+        {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={[styles.welcomeVisual,{width:welcomeVisualSizePx,height:welcomeVisualSizePx}]} contentFit="cover" autoplay={reduceMotionEnabled === false} /></Animated.View> : null}
         <Text style={styles.tagline}>{welcomeMessage}</Text>
         {loading ? <ActivityIndicator size="small" color="#C99A35" style={styles.loader} /> : <View style={styles.loaderSpace} />}
       </View>
