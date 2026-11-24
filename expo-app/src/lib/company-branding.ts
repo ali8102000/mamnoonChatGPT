@@ -7,6 +7,7 @@ export type CompanyBranding = {
   welcomeMessage: string;
   welcomeVisualUrl: string | null;
   welcomeVisualAnimated: boolean;
+  welcomeVisualSizePx: number;
   isLoaded: boolean;
 };
 
@@ -16,6 +17,7 @@ const DEFAULT_BRANDING: CompanyBranding = {
   welcomeMessage: "مشوارك وخدمات بيتك، بمكان واحد.",
   welcomeVisualUrl: null,
   welcomeVisualAnimated: false,
+  welcomeVisualSizePx: 180,
   isLoaded: false,
 };
 
@@ -39,12 +41,13 @@ export function useCompanyBranding() {
         welcomeMessage: data.welcome_message || DEFAULT_BRANDING.welcomeMessage,
         welcomeVisualUrl: data.company_welcome_visual_url || null,
         welcomeVisualAnimated: data.company_welcome_visual_animated === true,
+        welcomeVisualSizePx: Number.isInteger(data.company_welcome_visual_size_px) ? Math.max(80, Math.min(320, data.company_welcome_visual_size_px)) : 180,
         isLoaded: true,
       });
     };
     void (supabase as any)
       .from("company_settings")
-      .select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated")
+      .select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated,company_welcome_visual_size_px")
       .eq("id", 1)
       .maybeSingle()
       .then(({ data, error }: any) => {
