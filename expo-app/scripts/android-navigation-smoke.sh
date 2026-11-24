@@ -77,14 +77,14 @@ PY
 }
 
 recover_system_ui_dialog() {
-  if grep -qi "System UI isn't responding" "$UI"; then
+  if grep -Eqi "(System UI|Process system) isn't responding" "$UI"; then
     echo "System UI ANR dialog detected; choosing Wait and retrying UI capture."
     if grep -q 'text="Wait"' "$UI"; then
       tap_text "Wait"
       sleep 15
       assert_alive
       dump_ui
-      if grep -qi "System UI isn't responding" "$UI"; then
+      if grep -Eqi "(System UI|Process system) isn't responding" "$UI"; then
         echo "System UI remained unresponsive after Wait."
         exit 1
       fi
