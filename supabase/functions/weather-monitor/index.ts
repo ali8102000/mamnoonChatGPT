@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
-import { getSupabaseSecretKey } from "../_shared/api-keys.ts";
+import { getSupabaseSecretKey, createSupabaseFetch } from "../_shared/api-keys.ts";
 
 const CITIES = [
   ["baghdad",33.3152,44.3661],["basra",30.5085,47.7804],["nineveh",36.34,43.13],
@@ -22,7 +22,10 @@ Deno.serve(async (req) => {
     return Response.json({ error: "weather_provider_not_configured" }, { status: 503 });
   }
 
-  const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const admin = createClient(url, serviceKey, {
+    global: { fetch: createSupabaseFetch(serviceKey) },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   const { data: settings, error: settingsError } = await admin
     .from("taxi_peak_weather_settings")
     .select("governorate_key,weather_max_age_minutes")
