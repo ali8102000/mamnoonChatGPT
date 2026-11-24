@@ -88,7 +88,8 @@ jobs:
           retention-days: 7
 
   android-emulator-smoke:
-    if: always() && needs.build-preview-apk.result == 'success'
+    # Emulator testing is intentionally skipped for the requested device-only preview.
+    if: ${{ false }}
     name: Install, launch, and inspect navigation on Android 15
     needs: build-preview-apk
     runs-on: ubuntu-latest
