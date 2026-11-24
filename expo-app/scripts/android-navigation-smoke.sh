@@ -30,10 +30,10 @@ labels = []
 for node in nodes:
     labels.extend((node.attrib.get("text", ""), node.attrib.get("content-desc", "")))
 all_text = " ".join(labels).lower()
-if "system ui" in all_text and "responding" in all_text:
+if "system ui" in all_text and ("responding" in all_text or "not responding" in all_text):
     for node in nodes:
         label = " ".join((node.attrib.get("text", ""), node.attrib.get("content-desc", ""))).strip().lower()
-        if label == "wait":
+        if label in ("wait", "انتظار"):
             match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
             if match:
                 x1, y1, x2, y2 = map(int, match.groups())
