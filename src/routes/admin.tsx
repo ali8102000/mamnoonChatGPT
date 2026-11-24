@@ -1290,12 +1290,14 @@ function ProviderDetailModal({
           </div>
         </div>
         {canEdit && <button type="button" onClick={() => setEditingAccount(true)} className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 text-sm font-black mb-3">تعديل شامل لكل بيانات الحساب والفئة</button>}
-        <label className="block text-xs font-bold mb-2">تعديل اسم المستخدم</label>
-        <div className="flex gap-2 mb-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} className="flex-1 glass rounded-xl px-3 py-2 text-sm" maxLength={80} />
-          <button onClick={save} disabled={saving || name.trim() === profile.full_name} className="px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50">{saving ? "حفظ..." : "حفظ الاسم"}</button>
-        </div>
-        {message && <div className="text-xs text-destructive mb-3">{message}</div>}
+        {canEdit && <>
+          <label className="block text-xs font-bold mb-2">تعديل اسم المستخدم</label>
+          <div className="flex gap-2 mb-2">
+            <input value={name} onChange={(e) => setName(e.target.value)} className="flex-1 glass rounded-xl px-3 py-2 text-sm" maxLength={80} />
+            <button onClick={save} disabled={saving || name.trim() === profile.full_name} className="px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-50">{saving ? "حفظ..." : "حفظ الاسم"}</button>
+          </div>
+          {message && <div className="text-xs text-destructive mb-3">{message}</div>}
+        </>}
         <div className="grid grid-cols-2 gap-2 my-4">
           <div className="glass rounded-xl p-3"><div className="text-xs text-muted-foreground">عدد التقييمات</div><div className="text-xl font-black">{ratings.length}</div></div>
           <div className="glass rounded-xl p-3"><div className="text-xs text-muted-foreground">المعدل الحقيقي</div><div className="text-xl font-black">⭐ {average.toFixed(2)} / 5</div></div>
