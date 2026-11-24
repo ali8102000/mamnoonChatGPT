@@ -128,16 +128,25 @@ create policy "Users read own contest entry images and admins read all"
   );
 
 drop policy if exists "Users delete own pending contest entry images" on storage.objects;
-create policy "Users delete own pending contest entry images"
+drop policy if exists "Users clean up unsubmitted or rejected contest images" on storage.objects;
+create policy "Users clean up unsubmitted or rejected contest images"
   on storage.objects for delete to authenticated
   using (
     bucket_id = 'campaign-entries'
     and (storage.foldername(name))[2] = (select auth.uid())::text
-    and exists (
+    and not exists (
       select 1
       from public.app_campaign_entries e
       where e.user_id = (select auth.uid())
         and e.storage_path = name
-        and e.status = 'pending'
+        and e.status in ('pending','approved')
     )
+  );
+
+drop policy if exists "Super admins delete contest entry images" on storage.objects;
+create policy "Super admins delete contest entry images"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'campaign-entries'
+    and public.is_super_admin((select auth.uid()))
   );
