@@ -59,7 +59,7 @@ export default function HomeScreen() {
     ? activeRole
     : roles.includes("customer") ? "customer" : roles[0] || "customer";
   const { resolved: resolvedTheme, setMode } = useThemePreference();
-  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
+  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualSizePx } = useCompanyBranding();
 
   const [available, setAvailable] = useState(false);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
@@ -398,7 +398,7 @@ export default function HomeScreen() {
         {selectedRole === "customer" ? (
           <>
             <HomeCampaignPopups userId={user?.id ?? null} />
-            <CustomerHome userId={user?.id ?? null} welcomeVisualUrl={welcomeVisualUrl} welcomeVisualAnimated={welcomeVisualAnimated} welcomeVisualSizePx={150} />
+            <CustomerHome userId={user?.id ?? null} homeVisualUrl={homeVisualUrl} homeVisualAnimated={homeVisualAnimated} homeVisualEnabled={homeVisualEnabled} homeVisualSizePx={homeVisualSizePx} />
           </>
         ) : (
           <ProviderHome
@@ -468,7 +468,7 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
   );
 }
 
-function CustomerHome({ userId, welcomeVisualUrl, welcomeVisualAnimated, welcomeVisualSizePx }: { userId: string | null; welcomeVisualUrl: string | null; welcomeVisualAnimated: boolean; welcomeVisualSizePx: number }) {
+function CustomerHome({ userId, homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualSizePx }: { userId: string | null; homeVisualUrl: string | null; homeVisualAnimated: boolean; homeVisualEnabled: boolean; homeVisualSizePx: number }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
@@ -647,7 +647,7 @@ function CustomerHome({ userId, welcomeVisualUrl, welcomeVisualAnimated, welcome
       </View>
       {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
 
-      {welcomeVisualUrl ? <View style={{ alignSelf: "center", width: Math.min(welcomeVisualSizePx, Dimensions.get("window").width - 48), aspectRatio: 1, borderRadius: 22, overflow: "hidden", marginTop: 2 }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" autoplay={welcomeVisualAnimated} /></View> : null}
+      {homeVisualEnabled && homeVisualUrl ? <View style={{ alignSelf: "center", width: Math.min(homeVisualSizePx, Dimensions.get("window").width - 48), aspectRatio: 1, borderRadius: 22, overflow: "hidden", marginTop: 2 }}><ExpoImage source={{ uri: homeVisualUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" autoplay={homeVisualAnimated} /></View> : null}
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
 

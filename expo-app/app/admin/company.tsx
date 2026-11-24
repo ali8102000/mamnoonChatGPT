@@ -21,6 +21,12 @@ export default function CompanySettingsScreen() {
   const [welcomeVisualAnimated, setWelcomeVisualAnimated] = useState(false);
   const [welcomeVisualSizePx, setWelcomeVisualSizePx] = useState(180);
   const [removeWelcomeVisual, setRemoveWelcomeVisual] = useState(false);
+  const [homeVisualUrl, setHomeVisualUrl] = useState<string | null>(null);
+  const [homeVisualAsset, setHomeVisualAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [homeVisualAnimated, setHomeVisualAnimated] = useState(true);
+  const [homeVisualEnabled, setHomeVisualEnabled] = useState(true);
+  const [homeVisualSizePx, setHomeVisualSizePx] = useState(180);
+  const [removeHomeVisual, setRemoveHomeVisual] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [allowed, setAllowed] = useState(false);
@@ -32,7 +38,7 @@ export default function CompanySettingsScreen() {
       try {
         const [{ data: owner, error: permissionError }, { data, error }] = await Promise.all([
           supabase.rpc("is_super_admin", { p_user_id: user.id }),
-          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated,company_welcome_visual_size_px").eq("id",1).maybeSingle(),
+          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated,company_welcome_visual_size_px,home_visual_url,home_visual_animated,home_visual_enabled,home_visual_size_px").eq("id",1).maybeSingle(),
         ]);
         if (!active) return;
         setAllowed(!permissionError && owner === true);
@@ -43,6 +49,7 @@ export default function CompanySettingsScreen() {
         setWelcomeVisualUrl(data?.company_welcome_visual_url || branding.welcomeVisualUrl);
         setWelcomeVisualAnimated(data?.company_welcome_visual_animated === true);
         setWelcomeVisualSizePx(Number.isInteger(data?.company_welcome_visual_size_px) ? Math.max(80, Math.min(320, data.company_welcome_visual_size_px)) : 180);
+        setHomeVisualUrl(data?.home_visual_url || null); setHomeVisualAnimated(data?.home_visual_animated !== false); setHomeVisualEnabled(data?.home_visual_enabled !== false); setHomeVisualSizePx(Number.isInteger(data?.home_visual_size_px) ? Math.max(80, Math.min(320, data.home_visual_size_px)) : 180);
       } catch (error: any) {
         if (active) Alert.alert("تعذر تحميل بيانات الشركة", error?.message || "تحقق من الاتصال وحاول مرة ثانية.");
       } finally {
@@ -69,6 +76,13 @@ export default function CompanySettingsScreen() {
     if (!permission.granted) { Alert.alert("إذن الصور مطلوب", "اسمح للتطبيق بالوصول إلى الصور حتى تختار صورة البداية."); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 1 });
     if (!result.canceled && result.assets[0]) { setWelcomeVisualAsset(result.assets[0]); setRemoveWelcomeVisual(false); }
+  }
+
+  async function chooseHomeVisual() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { Alert.alert("إذن الصور مطلوب", "اسمح للتطبيق بالوصول إلى الصور حتى تختار GIF الصفحة الرئيسية."); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 1 });
+    if (!result.canceled && result.assets[0]) { setHomeVisualAsset(result.assets[0]); setRemoveHomeVisual(false); }
   }
 
   async function save() {
@@ -105,9 +119,18 @@ export default function CompanySettingsScreen() {
         if (visualUploadError) throw visualUploadError;
         nextWelcomeVisualUrl = supabase.storage.from("app-visuals").getPublicUrl(visualPath).data.publicUrl;
       }
+      let nextHomeVisualUrl = removeHomeVisual ? null : homeVisualUrl;
+      if (homeVisualAsset) {
+        if (!homeVisualAsset.mimeType?.startsWith("image/") || (homeVisualAsset.fileSize != null && homeVisualAsset.fileSize > 12 * 1024 * 1024)) throw new Error("اختار GIF أو صورة للصفحة الرئيسية بحجم 12 ميغابايت أو أقل.");
+        const response = await fetch(homeVisualAsset.uri); if (!response.ok) throw new Error("تعذر قراءة صورة الصفحة الرئيسية المختارة.");
+        const bytes = await response.arrayBuffer(); const ext = (homeVisualAsset.mimeType?.split("/")[1] || "jpeg").replace(/[^a-z0-9]/gi,"").toLowerCase() || "jpg";
+        const path = `company-branding/home-${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from("app-visuals").upload(path, bytes, { upsert: false, contentType: homeVisualAsset.mimeType || "image/jpeg" }); if (uploadError) throw uploadError;
+        nextHomeVisualUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
+      }
       const { error } = await (supabase as any).from("company_settings").upsert({
         id: 1, company_name: companyName, company_logo_url: nextLogoUrl,
-        welcome_message: message, company_welcome_visual_url: nextWelcomeVisualUrl, company_welcome_visual_animated: welcomeVisualAnimated, company_welcome_visual_size_px: welcomeVisualSizePx, updated_by: user.id, updated_at: new Date().toISOString(),
+        welcome_message: message, company_welcome_visual_url: nextWelcomeVisualUrl, company_welcome_visual_animated: welcomeVisualAnimated, company_welcome_visual_size_px: welcomeVisualSizePx, home_visual_url: nextHomeVisualUrl, home_visual_animated: homeVisualAnimated, home_visual_enabled: homeVisualEnabled, home_visual_size_px: homeVisualSizePx, updated_by: user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
       if (error) throw error;
       if (welcomeVisualUrl && nextWelcomeVisualUrl !== welcomeVisualUrl) {
@@ -119,6 +142,8 @@ export default function CompanySettingsScreen() {
       setLogoAsset(null);
       setWelcomeVisualUrl(nextWelcomeVisualUrl);
       setWelcomeVisualAsset(null);
+      if (homeVisualUrl && nextHomeVisualUrl !== homeVisualUrl) { const marker = "/storage/v1/object/public/app-visuals/"; const oldPath = homeVisualUrl.split(marker)[1]?.split("?")[0]; if (oldPath) await supabase.storage.from("app-visuals").remove([decodeURIComponent(oldPath)]); }
+      setHomeVisualUrl(nextHomeVisualUrl); setHomeVisualAsset(null); setRemoveHomeVisual(false);
       setRemoveWelcomeVisual(false);
       Alert.alert("تم الحفظ", "تحدثت هوية الشركة وستظهر في شاشة الترحيب وتسجيل الدخول.");
     } catch (error: any) {
@@ -153,6 +178,15 @@ export default function CompanySettingsScreen() {
         <Text style={s.label}>حجم صورة البداية (80–320 بكسل)</Text>
         <TextInput value={String(welcomeVisualSizePx)} onChangeText={value=>setWelcomeVisualSizePx(Math.max(80,Math.min(320,Math.round(Number(value)||180))))} keyboardType="numeric" style={s.input} textAlign="right" />
         <TouchableOpacity onPress={()=>setWelcomeVisualAnimated(value=>!value)} style={s.animationToggle}><View style={[s.toggleDot,welcomeVisualAnimated&&s.toggleDotOn]}/><Text style={s.pickText}>{welcomeVisualAnimated ? "الحركة التفاعلية مفعّلة" : "تفعيل حركة تفاعلية ناعمة للشعار وصورة البداية"}</Text></TouchableOpacity>
+        <Text style={s.label}>GIF الصفحة الرئيسية (مستقل عن صورة البداية)</Text>
+        {(!removeHomeVisual && (homeVisualAsset?.uri || homeVisualUrl)) ? <ExpoImage source={{uri:homeVisualAsset?.uri || homeVisualUrl || undefined}} style={[s.welcomeVisual,{width:Math.min(homeVisualSizePx,300),height:Math.min(homeVisualSizePx,300)}]} contentFit="cover" autoplay={homeVisualAnimated}/> : <Text style={s.muted}>ماكو صورة للصفحة الرئيسية حالياً</Text>}
+        <TouchableOpacity onPress={()=>void chooseHomeVisual()} style={s.pickButton}><Text style={s.pickText}>{homeVisualAsset ? "اختيار صورة أخرى" : homeVisualUrl ? "تبديل GIF الصفحة الرئيسية" : "اختيار GIF الصفحة الرئيسية"}</Text></TouchableOpacity>
+        {!!homeVisualAsset && <TouchableOpacity onPress={()=>setHomeVisualAsset(null)} style={s.removeButton}><Text style={s.removeButtonText}>إلغاء الصورة المختارة</Text></TouchableOpacity>}
+        {!!homeVisualUrl && !removeHomeVisual && <TouchableOpacity onPress={()=>Alert.alert("حذف GIF الصفحة الرئيسية","راح تنحذف من الصفحة الرئيسية بعد الحفظ. متأكد؟",[{text:"إلغاء",style:"cancel"},{text:"حذف",style:"destructive",onPress:()=>{setHomeVisualAsset(null);setRemoveHomeVisual(true);}}])} style={s.removeButton}><Text style={s.removeButtonText}>حذف GIF الصفحة الرئيسية</Text></TouchableOpacity>}
+        <TouchableOpacity onPress={()=>setHomeVisualEnabled(v=>!v)} style={s.animationToggle}><View style={[s.toggleDot,homeVisualEnabled&&s.toggleDotOn]}/><Text style={s.pickText}>{homeVisualEnabled ? "إظهار GIF الصفحة الرئيسية" : "إخفاء GIF الصفحة الرئيسية"}</Text></TouchableOpacity>
+        <TouchableOpacity onPress={()=>setHomeVisualAnimated(v=>!v)} style={s.animationToggle}><View style={[s.toggleDot,homeVisualAnimated&&s.toggleDotOn]}/><Text style={s.pickText}>{homeVisualAnimated ? "حركة GIF مفعّلة" : "حركة GIF متوقفة"}</Text></TouchableOpacity>
+        <Text style={s.label}>حجم GIF الصفحة الرئيسية (80–320 بكسل)</Text>
+        <TextInput value={String(homeVisualSizePx)} onChangeText={value=>setHomeVisualSizePx(Math.max(80,Math.min(320,Math.round(Number(value)||180))))} keyboardType="numeric" style={s.input} textAlign="right"/>
         <Text style={s.label}>رسالة الترحيب</Text>
         <TextInput value={welcome} onChangeText={setWelcome} maxLength={180} multiline placeholder="مشوارك وخدمات بيتك، بمكان واحد." placeholderTextColor={palette.muted} style={[s.input,{minHeight:120,textAlignVertical:"top",lineHeight:24}]} textAlign="right"/>
         <TouchableOpacity disabled={saving} onPress={()=>void save()} style={[s.saveButton,saving&&{opacity:0.6}]}><Text style={s.saveText}>{saving?"جاري الحفظ...":"حفظ بيانات الشركة"}</Text></TouchableOpacity>

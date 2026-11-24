@@ -56,6 +56,7 @@ function greetingByHour() {
 function HomePage() {
   const { loading, session, profile, roles, activeRole, isSuperAdmin } = useAuth();
   const { theme, toggle } = useTheme();
+  const branding = useCompanyBranding();
   const greet = useMemo(greetingByHour, []);
   const [companyName, setCompanyName] = useState("شركة ممنون");
   const [companyLogoUrl, setCompanyLogoUrl] = useState("");
@@ -162,13 +163,13 @@ function HomePage() {
 
         {(activeRole === "driver" || activeRole === "large_driver") && <ProviderHome type="taxi" largeDriverMode={activeRole === "large_driver"} />}
         {activeRole === "worker" && <ProviderHome type="service" />}
-        {activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker" && <CustomerHome />}
+        {activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker" && <CustomerHome homeVisualUrl={branding.homeVisualUrl} homeVisualAnimated={branding.homeVisualAnimated} homeVisualEnabled={branding.homeVisualEnabled} homeVisualSizePx={branding.homeVisualSizePx} />}
       </div>
     </MobileShell>
   );
 }
 
-function CustomerHome() {
+function CustomerHome({ homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualSizePx }: { homeVisualUrl: string; homeVisualAnimated: boolean; homeVisualEnabled: boolean; homeVisualSizePx: number }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
@@ -252,6 +253,8 @@ function CustomerHome() {
         </div>
       </div>
       {activeBannerCampaignId && <HomeBannerCampaignDialog campaignId={activeBannerCampaignId} onClose={closeBannerCampaign} />}
+
+      {homeVisualEnabled && homeVisualUrl && <div className="mx-auto w-full max-w-[320px] overflow-hidden rounded-[22px]" style={{ width: `min(${homeVisualSizePx}px, calc(100vw - 48px))`, aspectRatio: "1 / 1" }}><img src={homeVisualUrl} alt="صورة الصفحة الرئيسية" className="h-full w-full object-cover" style={{ animation: homeVisualAnimated ? "none" : undefined }} /></div>}
 
       <HomeCustomContent placementKey="home.customer.top" />
 

@@ -8,6 +8,10 @@ export type CompanyBranding = {
   welcomeVisualUrl: string;
   welcomeVisualAnimated: boolean;
   welcomeVisualSizePx: number;
+  homeVisualUrl: string;
+  homeVisualAnimated: boolean;
+  homeVisualEnabled: boolean;
+  homeVisualSizePx: number;
   isLoaded: boolean;
 };
 
@@ -18,6 +22,10 @@ const DEFAULT_BRANDING: CompanyBranding = {
   welcomeVisualUrl: "",
   welcomeVisualAnimated: false,
   welcomeVisualSizePx: 180,
+  homeVisualUrl: "",
+  homeVisualAnimated: false,
+  homeVisualEnabled: true,
+  homeVisualSizePx: 180,
   isLoaded: false,
 };
 
@@ -36,11 +44,15 @@ export function useCompanyBranding() {
         welcomeVisualUrl: data.company_welcome_visual_url || DEFAULT_BRANDING.welcomeVisualUrl,
         welcomeVisualAnimated: data.company_welcome_visual_animated === true,
         welcomeVisualSizePx: Number.isInteger(data.company_welcome_visual_size_px) ? Math.max(80, Math.min(320, data.company_welcome_visual_size_px)) : 180,
+        homeVisualUrl: data.home_visual_url || "",
+        homeVisualAnimated: data.home_visual_animated === true,
+        homeVisualEnabled: data.home_visual_enabled !== false,
+        homeVisualSizePx: Number.isInteger(data.home_visual_size_px) ? Math.max(80, Math.min(320, data.home_visual_size_px)) : 180,
         isLoaded: true,
       });
     };
     void (supabase as any).from("company_settings")
-      .select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated,company_welcome_visual_size_px")
+      .select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated,company_welcome_visual_size_px,home_visual_url,home_visual_animated,home_visual_enabled,home_visual_size_px")
       .eq("id", 1).maybeSingle()
       .then(({ data, error }: any) => { if (error) { if (active) setBranding((current) => ({ ...current, isLoaded: true })); } else apply(data); })
       .catch((error: unknown) => { console.warn("[company-branding] load failed", error); if (active) setBranding((current) => ({ ...current, isLoaded: true })); });
