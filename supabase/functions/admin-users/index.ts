@@ -207,7 +207,239 @@ Deno.serve(async (req: Request) => {
       return json({ rows: data ?? [] });
     }
 
+    if (body.action === "admin_update_account") {
+      await requireAdmin();
+      if (!isUuid(body.user_id)) return json({ error: "invalid_user_id" }, 400);
+      const userId = body.user_id as string;
+      const profileInput = body.profile && typeof body.profile === "object" && !Array.isArray(body.profile) ? body.profile : {};
+      const driverInput = body.driver_profile && typeof body.driver_profile === "object" && !Array.isArray(body.driver_profile) ? body.driver_profile : {};
+      const workerInput = body.worker_profile && typeof body.worker_profile === "object" && !Array.isArray(body.worker_profile) ? body.worker_profile : {};
+      const partnerInput = body.partner_profile && typeof body.partner_profile === "object" && !Array.isArray(body.partner_profile) ? body.partner_profile : {};
+      const textValue = (value: unknown, max: number) => typeof value === "string" && value.trim().length <= max ? value.trim() : null;
+      const normalizeIraqiPhone = (value: unknown) => {
+        const raw = textValue(value, 30);
+        if (!raw) return null;
+        let digits = raw.replace(/\D/g, "");
+        if (digits.startsWith("00")) digits = digits.slice(2);
+        if (digits.startsWith("0")) digits = "964" + digits.slice(1);
+        else if (!digits.startsWith("964") && !raw.startsWith("+")) digits = "964" + digits;
+        return digits.length >= 12 && digits.length <= 15 ? "+" + digits : null;
+      };
+      const profileUpdates: Record<string, unknown> = {};
+      if (profileInput.full_name !== undefined) {
+        const value = textValue(profileInput.full_name, 100);
+        if (!value || value.length < 2) return json({ error: "invalid_full_name" }, 400);
+        profileUpdates.full_name = value;
+      }
+      if (profileInput.phone !== undefined) {
+        const value = normalizeIraqiPhone(profileInput.phone);
+        if (!value) return json({ error: "invalid_phone" }, 400);
+        profileUpdates.phone = value;
+      }
+      if (profileInput.email !== undefined) {
+        const value = textValue(profileInput.email, 254);
+        if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return json({ error: "invalid_email" }, 400);
+        profileUpdates.email = value.toLowerCase();
+      }
+      if (profileInput.governorate_key !== undefined) {
+        const allowed = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
+        if (profileInput.governorate_key !== null && !allowed.includes(profileInput.governorate_key)) return json({ error: "invalid_governorate" }, 400);
+        profileUpdates.governorate_key = profileInput.governorate_key;
+      }
+      if (profileInput.avatar_base64 !== undefined) {
+        if (typeof profileInput.avatar_base64 !== "string" || profileInput.avatar_base64.length > 7000000 ||
+            !["image/jpeg","image/png","image/webp"].includes(profileInput.avatar_mime)) return json({ error: "invalid_avatar" }, 400);
+        const binary = atob(profileInput.avatar_base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const extension = profileInput.avatar_mime === "image/png" ? "png" : profileInput.avatar_mime === "image/webp" ? "webp" : "jpg";
+        const path = `${userId}/admin-${Date.now()}.${extension}`;
+        const { error: uploadError } = await admin.storage.from("avatars").upload(path, bytes, { contentType: profileInput.avatar_mime, cacheControl: "3600", upsert: false });
+        if (uploadError) return json({ error: "avatar_upload_failed" }, 500);
+        const { data: publicUrl } = admin.storage.from("avatars").getPublicUrl(path);
+        profileUpdates.avatar_url = publicUrl.publicUrl;
+      }
+      const { data: existingProfile, error: existingProfileError } = await admin.from("profiles").select("id,phone,email,governorate_key").eq("id", userId).maybeSingle();
+      if (existingProfileError || !existingProfile) return json({ error: "user_not_found" }, 404);
+      const authUpdates: Record<string, unknown> = {};
+      if (profileUpdates.phone !== undefined && profileUpdates.phone !== existingProfile.phone) {
+        authUpdates.phone = profileUpdates.phone;
+        authUpdates.phone_confirm = true;
+      }
+      if (profileUpdates.email !== undefined && profileUpdates.email !== existingProfile.email) {
+        authUpdates.email = profileUpdates.email;
+        authUpdates.email_confirm = true;
+      }
+      if (Object.keys(authUpdates).length) {
+        const { error: authUpdateError } = await admin.auth.admin.updateUserById(userId, authUpdates);
+        if (authUpdateError) return json({ error: "auth_contact_update_failed", detail: authUpdateError.message }, 400);
+      }
+      if (Object.keys(profileUpdates).length) {
+        profileUpdates.updated_at = new Date().toISOString();
+        const { error } = await admin.from("profiles").update(profileUpdates).eq("id", userId);
+        if (error) return json({ error: "profile_update_failed" }, 500);
+      }
+
+      const driverAllowed = ["vehicle_make","vehicle_model","vehicle_plate","vehicle_color","vehicle_type"];
+      const driverUpdates: Record<string, unknown> = {};
+      for (const key of driverAllowed) if (driverInput[key] !== undefined) {
+        const value = textValue(driverInput[key], 100);
+        if (driverInput[key] !== null && value === null) return json({ error: "invalid_driver_field:" + key }, 400);
+        driverUpdates[key] = value;
+      }
+      if (driverInput.vehicle_year !== undefined) {
+        const year = driverInput.vehicle_year === null || driverInput.vehicle_year === "" ? null : Number(driverInput.vehicle_year);
+        if (year !== null && (!Number.isInteger(year) || year < 1950 || year > new Date().getFullYear() + 1)) return json({ error: "invalid_vehicle_year" }, 400);
+        driverUpdates.vehicle_year = year;
+      }
+      if (driverInput.vehicle_category !== undefined) {
+        if (!["economy","premium","luxury","large"].includes(driverInput.vehicle_category)) return json({ error: "invalid_vehicle_category" }, 400);
+        driverUpdates.vehicle_category = driverInput.vehicle_category;
+      }
+      if (driverInput.service_radius_km !== undefined) {
+        const value = Number(driverInput.service_radius_km);
+        if (!Number.isInteger(value) || value < 1 || value > 300) return json({ error: "invalid_service_radius" }, 400);
+        driverUpdates.service_radius_km = value;
+      }
+      if (driverInput.available !== undefined) {
+        if (typeof driverInput.available !== "boolean") return json({ error: "invalid_driver_availability" }, 400);
+        driverUpdates.available = driverInput.available;
+      }
+      if (Object.keys(driverUpdates).length) {
+        const { data: currentDriverProfile, error: currentDriverError } = await admin.from("driver_profiles")
+          .select("vehicle_category").eq("user_id", userId).maybeSingle();
+        if (currentDriverError) return json({ error: "driver_profile_lookup_failed" }, 500);
+        driverUpdates.updated_at = new Date().toISOString();
+        const { error } = await admin.from("driver_profiles").update(driverUpdates).eq("user_id", userId);
+        if (error) return json({ error: "driver_profile_update_failed", detail: error.message }, 400);
+        const verificationType = currentDriverProfile?.vehicle_category === "large" ? "large_driver" : "driver";
+        const { data: verifications } = await admin.from("provider_verifications").select("provider_type,metadata")
+          .eq("user_id", userId).eq("provider_type", verificationType);
+        for (const verification of verifications ?? []) {
+          const metadata = { ...(verification.metadata ?? {}) };
+          const pairs: Record<string,string> = { vehicle_make:"vehicleMake", vehicle_model:"vehicleModel", vehicle_year:"vehicleYear", vehicle_plate:"vehiclePlate", vehicle_color:"vehicleColor", vehicle_type:"vehicleType", vehicle_category:"vehicleCategory" };
+          for (const [field, metaKey] of Object.entries(pairs)) if (driverUpdates[field] !== undefined) metadata[metaKey] = driverUpdates[field] === null ? "" : String(driverUpdates[field]);
+          const { error: verificationUpdateError } = await admin.from("provider_verifications").update({ metadata, updated_at: new Date().toISOString() }).eq("user_id", userId).eq("provider_type", verification.provider_type);
+          if (verificationUpdateError) return json({ error: "vehicle_verification_sync_failed" }, 500);
+        }
+      }
+
+      const workerUpdates: Record<string, unknown> = {};
+      if (workerInput.bio !== undefined) {
+        const value = textValue(workerInput.bio, 2000);
+        if (workerInput.bio !== null && value === null) return json({ error: "invalid_worker_bio" }, 400);
+        workerUpdates.bio = value;
+      }
+      if (workerInput.level !== undefined) {
+        if (!["fani","khabir"].includes(workerInput.level)) return json({ error: "invalid_worker_level" }, 400);
+        workerUpdates.level = workerInput.level;
+      }
+      for (const key of ["service_radius_km","team_size"] as const) if (workerInput[key] !== undefined) {
+        const value = Number(workerInput[key]);
+        const max = key === "team_size" ? 100 : 300;
+        if (!Number.isInteger(value) || value < 1 || value > max) return json({ error: "invalid_worker_field:" + key }, 400);
+        workerUpdates[key] = value;
+      }
+      if (workerInput.available !== undefined) {
+        if (typeof workerInput.available !== "boolean") return json({ error: "invalid_worker_availability" }, 400);
+        workerUpdates.available = workerInput.available;
+      }
+      if (Object.keys(workerUpdates).length) {
+        workerUpdates.updated_at = new Date().toISOString();
+        const { error } = await admin.from("worker_profiles").update(workerUpdates).eq("user_id", userId);
+        if (error) return json({ error: "worker_profile_update_failed", detail: error.message }, 400);
+      }
+      if (workerInput.service_ids !== undefined) {
+        if (!Array.isArray(workerInput.service_ids) || workerInput.service_ids.length > 50 ||
+            !workerInput.service_ids.every((value: unknown) => isUuid(value))) return json({ error: "invalid_worker_service_ids" }, 400);
+        const desired = [...new Set(workerInput.service_ids as string[])];
+        const { data: validServices, error: serviceLookupError } = desired.length
+          ? await admin.from("services").select("id").in("id", desired)
+          : { data: [], error: null };
+        if (serviceLookupError || (validServices ?? []).length !== desired.length) return json({ error: "unknown_worker_service" }, 400);
+        const { data: currentServices, error: currentServiceError } = await admin.from("worker_services").select("service_id").eq("worker_id", userId);
+        if (currentServiceError) return json({ error: "worker_services_load_failed" }, 500);
+        const current = (currentServices ?? []).map((row: any) => row.service_id);
+        const removeIds = current.filter((id: string) => !desired.includes(id));
+        const addIds = desired.filter((id: string) => !current.includes(id));
+        // Add first: if insertion fails, the worker keeps every existing specialty.
+        if (addIds.length) {
+          const { error } = await admin.from("worker_services").insert(addIds.map((service_id: string) => ({ worker_id: userId, service_id })));
+          if (error) return json({ error: "worker_services_add_failed" }, 500);
+        }
+        if (removeIds.length) {
+          const { error } = await admin.from("worker_services").delete().eq("worker_id", userId).in("service_id", removeIds);
+          if (error) return json({ error: "worker_services_remove_failed" }, 500);
+        }
+      }
+
+      const partnerAllowed = ["business_name","phone","email","governorate_key","city","address","description","opening_hours","social_links","is_published","business_vertical","promotion_governorates","promotion_radius_km","promotion_latitude","promotion_longitude","latitude","longitude"];
+      const partnerUpdates: Record<string, unknown> = {};
+      for (const key of partnerAllowed) if (partnerInput[key] !== undefined) partnerUpdates[key] = partnerInput[key];
+      if (partnerInput.business_name !== undefined) {
+        const value = textValue(partnerInput.business_name, 150);
+        if (!value) return json({ error: "invalid_partner_business_name" }, 400);
+        partnerUpdates.business_name = value;
+      }
+      if (partnerInput.business_vertical !== undefined) {
+        const value = textValue(partnerInput.business_vertical, 40);
+        if (!value) return json({ error: "invalid_partner_business_vertical" }, 400);
+        partnerUpdates.business_vertical = value;
+      }
+      if (partnerInput.phone !== undefined) {
+        const value = normalizeIraqiPhone(partnerInput.phone);
+        if (!value) return json({ error: "invalid_partner_phone" }, 400);
+        partnerUpdates.phone = value;
+      }
+      if (partnerInput.email !== undefined) {
+        const value = textValue(partnerInput.email, 254);
+        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return json({ error: "invalid_partner_email" }, 400);
+        partnerUpdates.email = value || null;
+      }
+      if (partnerInput.governorate_key !== undefined) {
+        const allowed = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
+        if (typeof partnerInput.governorate_key !== "string" || !allowed.includes(partnerInput.governorate_key)) return json({ error: "invalid_partner_governorate" }, 400);
+      }
+      for (const [key, max] of [["city",120],["address",500]] as const) {
+        if (partnerInput[key] !== undefined) {
+          const value = textValue(partnerInput[key], max);
+          if (!value) return json({ error: "invalid_partner_field:" + key }, 400);
+          partnerUpdates[key] = value;
+        }
+      }
+      if (partnerInput.description !== undefined) {
+        const value = partnerInput.description === null ? null : textValue(partnerInput.description, 2000);
+        if (partnerInput.description !== null && value === null) return json({ error: "invalid_partner_field:description" }, 400);
+        partnerUpdates.description = value;
+      }
+      const applicationFields: Record<string, unknown> = {};
+      for (const key of ["business_name","phone","email","governorate_key","city","address","description"] as const) if (partnerUpdates[key] !== undefined) applicationFields[key] = partnerUpdates[key];
+      for (const key of ["contact_name","license_number","mall_unit_type","business_latitude","business_longitude"] as const) {
+        if (partnerInput[key] !== undefined) applicationFields[key] = partnerInput[key];
+      }
+      if (partnerUpdates.latitude !== undefined) applicationFields.business_latitude = partnerUpdates.latitude;
+      if (partnerUpdates.longitude !== undefined) applicationFields.business_longitude = partnerUpdates.longitude;
+      const partnerBusinessProfileId = isUuid(partnerInput.business_profile_id) ? partnerInput.business_profile_id : null;
+      const partnerApplicationId = isUuid(partnerInput.application_id) ? partnerInput.application_id : null;
+      if (Object.keys(partnerUpdates).length && partnerBusinessProfileId) {
+        partnerUpdates.updated_at = new Date().toISOString();
+        const { error: businessError } = await admin.from("partner_business_profiles").update(partnerUpdates)
+          .eq("user_id", userId).eq("id", partnerBusinessProfileId);
+        if (businessError) return json({ error: "partner_profile_update_failed", detail: businessError.message }, 400);
+      }
+      if (Object.keys(applicationFields).length && partnerApplicationId) {
+        applicationFields.updated_at = new Date().toISOString();
+        const { error: applicationError } = await admin.from("partner_applications").update(applicationFields)
+          .eq("user_id", userId).eq("id", partnerApplicationId);
+        if (applicationError) return json({ error: "partner_application_update_failed", detail: applicationError.message }, 400);
+      } else if (Object.keys(applicationFields).length && !partnerBusinessProfileId) {
+        return json({ error: "partner_application_id_required" }, 400);
+      }
+      return json({ ok: true, profile: profileUpdates, driver_profile: driverUpdates, worker_profile: workerUpdates, partner_profile: partnerUpdates });
+    }
+
     if (body.action === "update_profile") {
+      await requireAdmin();
       if (!isUuid(body.user_id) ||
           typeof body.full_name !== "string" ||
           body.full_name.trim().length < 2 ||
@@ -258,6 +490,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "update_provider_name") {
+      await requireAdmin();
       if (!isUuid(body.user_id) || typeof body.full_name !== "string" ||
           body.full_name.trim().length < 2 || body.full_name.trim().length > 80) {
         return json({ error: "invalid_provider_name" }, 400);
@@ -433,7 +666,7 @@ Deno.serve(async (req: Request) => {
       const staffScope = await getStaffScope();
       if (staffScope.scopeType === "governorate" && staffScope.scopeGovernorate !== governorate) throw new Error("permission_required:users.read");
       await requireScopedReadPermission("users.read", "has_user_moderation_access", staffScope.scopeType, staffScope.scopeGovernorate);
-      const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications] = await Promise.all([
+      const [profile, roles, block, driver, worker, transactions, requests, ratings, verifications, partnerBusinesses, partnerApplications, workerServices, availableServices] = await Promise.all([
         admin.from("profiles").select("*").eq("id", id).maybeSingle(),
         admin.from("user_roles").select("role,created_at").eq("user_id", id),
         admin.from("user_blocks").select("*").eq("user_id", id).maybeSingle(),
@@ -446,13 +679,17 @@ Deno.serve(async (req: Request) => {
           .eq("ratee_id", id).order("created_at", { ascending: false }).limit(100),
         admin.from("provider_verifications").select("provider_type,legal_name,phone,email,document_type,id_number,status,rejection_reason,metadata,face_photo_path,id_card_photo_path,id_card_back_photo_path,vehicle_document_path,submitted_at,reviewed_at,updated_at")
           .eq("user_id", id),
+        admin.from("partner_business_profiles").select("*").eq("user_id", id),
+        admin.from("partner_applications").select("*").eq("user_id", id).order("created_at", { ascending: false }),
+        admin.from("worker_services").select("service_id").eq("worker_id", id),
+        admin.from("services").select("id,name_ar").order("sort_order", { ascending: true }).limit(200),
       ]);
-      const failed = [profile, roles, block, driver, worker, transactions, requests, verifications].find((r: any) => r.error);
+      const failed = [profile, roles, block, driver, worker, transactions, requests, verifications, partnerBusinesses, partnerApplications, workerServices, availableServices].find((r: any) => r.error);
       if (failed?.error) return json({ error: "user_detail_load_failed" }, 500);
       const signedVerifications = await Promise.all((verifications.data ?? []).map(async (row: any) => {
         const sign = async (path: string | null) => {
           if (!path) return null;
-          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 600);
+          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 3600);
           return error ? null : data?.signedUrl ?? null;
         };
         const vehicleVideoPath = typeof row.metadata?.vehicleVideoPath === "string" ? row.metadata.vehicleVideoPath : null;
@@ -474,6 +711,10 @@ Deno.serve(async (req: Request) => {
         driverProfile: driver.data, workerProfile: worker.data,
         transactions: transactions.data ?? [], requests: requests.data ?? [],
         verifications: signedVerifications,
+        partnerBusinessProfiles: partnerBusinesses.data ?? [],
+        partnerApplications: partnerApplications.data ?? [],
+        workerServices: (workerServices.data ?? []).map((row: any) => row.service_id),
+        availableServices: availableServices.data ?? [],
         ratings: ratings.error ? [] : ratings.data ?? [],
         ratings_error: !!ratings.error,
       });
@@ -505,7 +746,7 @@ Deno.serve(async (req: Request) => {
         if (!verification) return { ...provider, verification: null };
         const sign = async (path: string | null | undefined) => {
           if (!path) return null;
-          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 600);
+          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 3600);
           return error ? null : data?.signedUrl ?? null;
         };
         const vehicleVideoPath = typeof verification.metadata?.vehicleVideoPath === "string" ? verification.metadata.vehicleVideoPath : null;
@@ -571,7 +812,7 @@ Deno.serve(async (req: Request) => {
       if (failed?.error) return json({ error: "request_related_data_load_failed" }, 500);
       const signRequestPhoto = async (path: string | null) => {
         if (!path) return null;
-        const { data, error } = await admin.storage.from("request-attachments").createSignedUrl(path, 600);
+        const { data, error } = await admin.storage.from("request-attachments").createSignedUrl(path, 3600);
         return error ? null : data?.signedUrl ?? null;
       };
       const attachmentUrl = await signRequestPhoto(request.attachment_path);

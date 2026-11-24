@@ -4,12 +4,12 @@
     "slug": "kfw",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/favicon.png",
+    "icon": "./assets/mamnoon-logo.png",
     "scheme": "mamnoon",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/favicon.png",
+      "image": "./assets/mamnoon-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#f7f8f5"
     },
@@ -28,7 +28,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/favicon.png",
+        "foregroundImage": "./assets/mamnoon-logo.png",
         "backgroundColor": "#f7f8f5"
       },
       "package": "com.mamnoon.app",
@@ -43,7 +43,7 @@
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/mamnoon-logo.png"
     },
     "plugins": [
       "expo-router",

@@ -94,41 +94,33 @@ function plausibleRoadDistance(from: Point, to: Point, distanceKm: number) {
 
 async function route(from:Point,to:Point,admin:any) {
   const key=Deno.env.get("GOOGLE_MAPS_API_KEY");
-  if(!key) throw new Error("سنصل إليك قريباً. خدمة التحقق من الطريق والازدحام غير متاحة حالياً.");
-  // Do not use the 24-hour distance cache for a fare quote: it cannot prove
-  // that the road is still open or reflect current traffic.
+  if(!key) throw new Error("سنصل إليك قريباً. خدمة التحقق من الطريق غير متاحة حالياً.");
+  // Use standard routing only. Live traffic and traffic-based pricing are deferred.
   const response=await fetch("https://routes.googleapis.com/directions/v2:computeRoutes",{
     method:"POST",
     headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
-      "X-Goog-FieldMask":"routes.distanceMeters,routes.duration,routes.staticDuration"},
+      "X-Goog-FieldMask":"routes.distanceMeters,routes.duration"},
     body:JSON.stringify({
       origin:{location:{latLng:{latitude:from.lat,longitude:from.lng}}},
       destination:{location:{latLng:{latitude:to.lat,longitude:to.lng}}},
-      travelMode:"DRIVE",routingPreference:"TRAFFIC_AWARE_OPTIMAL",
-      departureTime:new Date().toISOString(),computeAlternativeRoutes:false,
+      travelMode:"DRIVE",routingPreference:"TRAFFIC_UNAWARE",
+      computeAlternativeRoutes:false,
       languageCode:"ar",units:"METRIC"
     }),
     signal:AbortSignal.timeout(12000)
   });
-  if(!response.ok) throw new Error("سنصل إليك قريباً. تعذّر التحقق من حالة الطريق والازدحام حالياً.");
+  if(!response.ok) throw new Error("سنصل إليك قريباً. تعذّر التحقق من الطريق حالياً.");
   const result=await response.json() as any;
   const selected=(result.routes??[]).find((r:any)=>
     Number.isFinite(r.distanceMeters)&&r.distanceMeters>0&&
-    typeof r.duration==="string"&&/^\\d+(\\.\\d+)?s$/.test(r.duration)&&parseFloat(r.duration)>0&&
-    typeof r.staticDuration==="string"&&/^\\d+(\\.\\d+)?s$/.test(r.staticDuration)&&parseFloat(r.staticDuration)>0);
+    typeof r.duration==="string"&&/^\\d+(\\.\\d+)?s$/.test(r.duration)&&parseFloat(r.duration)>0);
   if(!selected) throw new Error("سنصل إليك قريباً. لم نعثر على طريق سيارة صالح ومؤكد بين الموقعين.");
   const distanceKm=Number(selected.distanceMeters)/1000;
   const durationMin=parseFloat(selected.duration)/60;
-  const staticDurationMin=parseFloat(selected.staticDuration)/60;
-  if(!plausibleRoadDistance(from,to,distanceKm)||!Number.isFinite(durationMin)||durationMin<=0||
-     !Number.isFinite(staticDurationMin)||staticDurationMin<=0) {
+  if(!plausibleRoadDistance(from,to,distanceKm)||!Number.isFinite(durationMin)||durationMin<=0) {
     throw new Error("سنصل إليك قريباً. بيانات الطريق أو المسافة غير متطابقة، لذلك لم نعرض سعراً.");
   }
-  return {
-    distanceKm,durationMin,staticDurationMin,
-    trafficRatio:durationMin/staticDurationMin,
-    routeSource:"google_routes_traffic",cacheHit:false
-  };
+  return { distanceKm,durationMin,routeSource:"google_routes",cacheHit:false };
 }
 
 Deno.serve(async (req) => {
@@ -203,30 +195,11 @@ Deno.serve(async (req) => {
   if (typeof body.isIntercity === "boolean" && body.isIntercity !== isIntercity) {
     return json({ error: "المحافظة المحددة لا تطابق مسار الرحلة. حدّد محافظة الوجهة من جديد." }, 400);
   }
-  const {data:controlRows,error:controlError}=await admin.from("taxi_pricing_auto_controls")
-    .select("governorate_key,auto_monitor_enabled,traffic_surcharge_cap_percent,demand_increase_cap_percent,demand_discount_cap_percent,auto_demand_percent")
-    .in("governorate_key",[fromGovernorate,"all"]);
-  if(controlError) {
-    console.error("[auto-taxi-pricing] automatic pricing controls unavailable",controlError.code||"unknown");
-    return json({error:"سنصل إليك قريباً. تعذّر التحقق من إعدادات التسعير الآلي حالياً.",code:"AUTO_PRICING_CONTROLS_UNAVAILABLE"},503);
-  }
-  const activeControls=(controlRows??[]).find((row:any)=>row.governorate_key===fromGovernorate)
-    ??(controlRows??[]).find((row:any)=>row.governorate_key==="all");
-  const autoMonitorEnabled=activeControls?.auto_monitor_enabled===true;
-  const trafficRatio=Number(routeData.trafficRatio);
-  if(!Number.isFinite(trafficRatio)||trafficRatio<=0) {
-    return json({error:"سنصل إليك قريباً. لم نستطع التحقق من زمن الطريق الحالي.",code:"TRAFFIC_VERIFICATION_FAILED"},503);
-  }
-  const trafficPercent=autoMonitorEnabled
-    ? Math.min(Math.max(0,Number(activeControls?.traffic_surcharge_cap_percent)||0),Math.max(0,(trafficRatio-1)*100))
-    : 0;
-  const demandPercent=autoMonitorEnabled
-    ? Number(activeControls?.auto_demand_percent)||0
-    : 0;
-  const demandDiscountCap=Math.max(0,Number(activeControls?.demand_discount_cap_percent)||0);
-  const autoPercent=autoMonitorEnabled
-    ? Math.max(-demandDiscountCap,Math.min(200,demandPercent+trafficPercent))
-    : 0;
+  // This release keeps demand/traffic observation separate from customer pricing.
+  // Automatic adjustments are explicitly zero until the user approves a later pricing engine.
+  const trafficPercent=0;
+  const demandPercent=0;
+  const autoPercent=0;
   const routed = {
     distanceKm: Number(routeData.distanceKm),
     durationMin: Number(routeData.durationMin),
@@ -285,7 +258,7 @@ Deno.serve(async (req) => {
   const priceEstimate=Number(categoryPrices[category]);
   const urgencyAllowed=Boolean(quoteData.urgencyAllowed);
   const urgencyIsEnabled=Boolean(quoteData.urgencyEnabled);
-  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,regionalPercent,autoPercent:quotedAutoPercent,trafficPercent,demandPercent,trafficRatio,urgencyEnabled:urgencyIsEnabled,urgencyAllowed,urgencyPercent,governorateKey:fromGovernorate,fromGovernorateKey:fromGovernorate,toGovernorateKey:toGovernorate,isIntercity});
+  if(body.action==="quote") return json({...routed,priceEstimate,categoryPrices,currency:"IQD",vehicleCategory:category,peakPercent,regionalPercent,autoPercent:quotedAutoPercent,trafficPercent,demandPercent,urgencyEnabled:urgencyIsEnabled,urgencyAllowed,urgencyPercent,governorateKey:fromGovernorate,fromGovernorateKey:fromGovernorate,toGovernorateKey:toGovernorate,isIntercity});
   if(body.action!=="create") return json({error:"نوع العملية غير مدعوم"},400);
   const expectedPrice=Number(body.expectedPriceEstimate);
   if(!Number.isSafeInteger(expectedPrice)||expectedPrice!==priceEstimate) {

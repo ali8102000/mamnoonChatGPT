@@ -100,26 +100,26 @@ export default function AdminCategoryPeakPricing() {
   return <section dir="rtl" className="rounded-2xl border border-border bg-card p-4 space-y-4">
     <header className="flex items-center gap-3">
       <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Gauge className="h-5 w-5" /></div>
-      <div><h3 className="font-black">حدود الذروة التلقائية لكل الفئات</h3><p className="text-xs text-muted-foreground">الإدارة تحدد النطاق، وممنون يختار النسبة داخله عند تشغيل محرك التسعير.</p></div>
+      <div><h3 className="font-black">مراقبة الطلب والتوفر حسب الفئة</h3><p className="text-xs text-muted-foreground">عرض مؤشرات التشغيل فقط؛ لا توجد إشعارات أو تغييرات على أجرة الزبون في هذه النسخة.</p></div>
     </header>
-    <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">كل فئة لها حد أدنى وحد أعلى مستقلان. تبقى كل الفئات متوقفة افتراضياً إلى أن تُفعّل بعد اكتمال واختبار محرك الاحتساب.</div>
+    <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">الحدود الرقمية محفوظة للمستقبل فقط. مراقبة الطلب والتوفر لا تغيّر الأجرة، وكل أوضاع التشغيل متوقفة.</div>
     {rows.map(row => <div key={row.category_key} className="rounded-xl border border-border p-3 space-y-3">
       <div className="flex items-center justify-between gap-2"><b className="text-sm">{row.category_label_ar}</b><span className="text-[10px] text-muted-foreground">{row.category_key}</span></div>
       <div className="rounded-lg bg-muted/40 p-3 text-xs space-y-1">
-        <div className="flex justify-between"><span>النسبة التي حسبها ممنون</span><b>{Number(row.auto_calculated_percent ?? 0).toFixed(2)}%</b></div>
+        <div className="flex justify-between"><span>نسبة الزيادة المحسوبة (غير مطبقة)</span><b>{Number(row.auto_calculated_percent ?? 0).toFixed(2)}%</b></div>
         <div className="flex justify-between"><span>مقدمو الخدمة المتاحون / المرصودون</span><b>{row.active_providers ?? 0} / {row.observed_providers ?? 0}</b></div>
         <div className="flex justify-between"><span>الطلبات المعلّقة</span><b>{row.pending_requests ?? 0}</b></div>
         <p className="text-muted-foreground">{row.last_reason ?? "بانتظار أول دورة مراقبة."}</p>
         <p className="text-[10px] text-muted-foreground">{row.last_calculated_at ? "آخر تحديث: " + new Date(row.last_calculated_at).toLocaleString("ar-IQ") : "لم تُحسب بعد"}</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <label className="text-xs font-bold space-y-1"><span>من (%)</span><input type="number" min="0" max="100" value={row.min_surcharge_percent} onChange={e=>edit(row.category_key,{min_surcharge_percent:Number(e.target.value)})} className="w-full rounded-lg border bg-background p-2.5"/></label>
-        <label className="text-xs font-bold space-y-1"><span>إلى (%)</span><input type="number" min="0" max="100" value={row.max_surcharge_percent} onChange={e=>edit(row.category_key,{max_surcharge_percent:Number(e.target.value)})} className="w-full rounded-lg border bg-background p-2.5"/></label>
+        <label className="text-xs font-bold space-y-1"><span>الحد المستقبلي الأدنى (%)</span><input type="number" min="0" max="100" value={row.min_surcharge_percent} onChange={e=>edit(row.category_key,{min_surcharge_percent:Number(e.target.value)})} className="w-full rounded-lg border bg-background p-2.5"/></label>
+        <label className="text-xs font-bold space-y-1"><span>الحد المستقبلي الأعلى (%)</span><input type="number" min="0" max="100" value={row.max_surcharge_percent} onChange={e=>edit(row.category_key,{max_surcharge_percent:Number(e.target.value)})} className="w-full rounded-lg border bg-background p-2.5"/></label>
       </div>
-      {row.category_key.startsWith("service:") && <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">توصية الطلب على هذه الخدمة تُحسب للمراقبة فقط حالياً. التفعيل مقفول حتى نربط السعر النهائي للزبون ونثبّته داخل الطلب.</p>}
+      <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">التوصيات والإشعارات وزيادات الأجرة غير مفعّلة حالياً. هذه الشاشة تعرض مؤشرات الطلب والتوفر فقط.</p>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-xs font-bold space-y-1"><span>وضع التشغيل</span><select value={row.mode} onChange={e=>edit(row.category_key,{mode:e.target.value as Row["mode"],enabled:e.target.value!=="off"})} className="w-full rounded-lg border bg-background p-2.5"><option value="off">إيقاف</option><option value="auto" disabled>تلقائي (موقوف بقرار الإدارة)</option><option value="notify" disabled>إخباري (غير مفعّل حالياً)</option></select></label>
-        <label className="flex items-center gap-2 text-xs font-bold pt-5"><input type="checkbox" checked={row.enabled && row.mode!=="off"} disabled={row.mode==="off" || row.category_key.startsWith("service:")} onChange={e=>edit(row.category_key,{enabled:e.target.checked})}/> تفعيل الفئة</label>
+        <label className="flex items-center gap-2 text-xs font-bold pt-5"><input type="checkbox" checked={false} disabled onChange={()=>{}}/> تفعيل الفئة</label>
       </div>
       <button disabled={saving===row.category_key} onClick={()=>void save(row)} className="w-full rounded-lg bg-primary px-3 py-2.5 text-xs font-black text-primary-foreground disabled:opacity-50"><Save className="ml-1 inline h-4 w-4"/> {saving===row.category_key?"جارٍ الحفظ…":"حفظ حدود هذه الفئة"}</button>
     </div>)}

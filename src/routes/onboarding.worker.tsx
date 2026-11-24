@@ -283,6 +283,9 @@ function OnboardingWorker() {
     if (hasApprovedWorkerRole && specialtyOnlyMode) {
       setBusy(true);
       try {
+        // Restore a missing role only after the database confirms worker approval.
+        const { error: roleError } = await supabase.rpc("grant_provider_role_safe", { _role: "worker" });
+        if (roleError) throw new Error(`تعذر التحقق من اعتماد حساب الفني: ${roleError.message}`);
         const { error } = await (supabase as any).rpc("submit_provider_change_request", {
           _provider_type: "worker",
           _requested_data: { service_ids: Array.from(selected) },

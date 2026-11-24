@@ -1,0 +1,2 @@
+REVOKE ALL ON FUNCTION public.has_chat_moderation_access(uuid), public.has_live_ops_access(uuid), public.has_provider_ops_access(uuid), public.has_user_moderation_access(uuid), public.has_finance_access(uuid), public.has_friend_admin_access(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_chat_moderation_access(uuid), public.has_live_ops_access(uuid), public.has_provider_ops_access(uuid), public.has_user_moderation_access(uuid), public.has_finance_access(uuid), public.has_friend_admin_access(uuid) TO authenticated;

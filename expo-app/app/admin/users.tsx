@@ -19,6 +19,7 @@ type UserRow = {
 type Detail = {
   profile: any; roles: { role: string; created_at: string }[]; block: any;
   driverProfile: any; workerProfile: any; transactions: any[]; requests: any[]; ratings: any[]; verifications?: any[];
+  partnerBusinessProfiles?: any[]; partnerApplications?: any[]; workerServices?: string[]; availableServices?: any[];
   ratings_error?: boolean;
 };
 const DURATIONS = [
@@ -39,7 +40,13 @@ export default function AdminUsersScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editGovernorate, setEditGovernorate] = useState("");
+  const [editDriver, setEditDriver] = useState<any>({});
+  const [editWorker, setEditWorker] = useState<any>({});
+  const [editWorkerServices, setEditWorkerServices] = useState<string[]>([]);
+  const [editPartner, setEditPartner] = useState<any>({});
   const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
   const [avatarMime, setAvatarMime] = useState<"image/jpeg" | "image/png" | "image/webp">("image/jpeg");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -92,7 +99,32 @@ export default function AdminUsersScreen() {
 
   const showDetail = async (id: string) => {
     setBusyId(id);
-    try { const loaded = await invoke({ action: "detail", user_id: id }); setDetail(loaded); setEditName(loaded.profile?.full_name ?? ""); setEditGovernorate(loaded.profile?.governorate_key ?? ""); setAvatarBase64(null); setAvatarPreview(loaded.profile?.avatar_url ?? null); }
+    try {
+      const loaded = await invoke({ action: "detail", user_id: id });
+      setDetail(loaded);
+      setEditName(loaded.profile?.full_name ?? "");
+      setEditPhone(loaded.profile?.phone ?? "");
+      setEditEmail(loaded.profile?.email ?? "");
+      setEditGovernorate(loaded.profile?.governorate_key ?? "");
+      setEditDriver({ ...(loaded.driverProfile ?? {}) });
+      setEditWorker({ ...(loaded.workerProfile ?? {}) });
+      setEditWorkerServices(loaded.workerServices ?? []);
+      const business = loaded.partnerBusinessProfiles?.[0] ?? {};
+      const application = loaded.partnerApplications?.[0] ?? {};
+      setEditPartner({
+        business_profile_id: business.id ?? null,
+        application_id: application.id ?? null,
+        business_name: business.business_name ?? application.business_name ?? "",
+        phone: business.phone ?? application.phone ?? "",
+        email: business.email ?? application.email ?? "",
+        governorate_key: business.governorate_key ?? application.governorate_key ?? "",
+        city: business.city ?? application.city ?? "",
+        address: business.address ?? application.address ?? "",
+        description: business.description ?? application.description ?? "",
+      });
+      setAvatarBase64(null);
+      setAvatarPreview(loaded.profile?.avatar_url ?? null);
+    }
     catch (e: any) { Alert.alert("تعذر تحميل التفاصيل", String(e?.message || "حاول مرة ثانية")); }
     finally { setBusyId(null); }
   };
@@ -117,17 +149,81 @@ export default function AdminUsersScreen() {
 
   const saveProfile = async () => {
     if (!detail?.profile?.id || editName.trim().length < 2) { Alert.alert("تحقق من الاسم", "اكتب اسماً من حرفين على الأقل."); return; }
+    if (detail.profile?.email && !editEmail.trim()) { Alert.alert("البريد مطلوب", "لا يمكن حذف بريد تسجيل الدخول من هنا؛ اتركه كما هو أو أدخل بريداً صحيحاً."); return; }
+    if (editEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmail.trim())) { Alert.alert("تحقق من البريد", "اكتب بريداً إلكترونياً صحيحاً أو اترك الحقل كما هو."); return; }
+    if (detail.partnerBusinessProfiles?.length && detail.partnerApplications?.length &&
+        (!editPartner.business_name?.trim() || !editPartner.phone?.trim() || !editPartner.governorate_key?.trim() || !editPartner.city?.trim() || !editPartner.address?.trim())) {
+      Alert.alert("بيانات المنشأة ناقصة", "اسم المنشأة والهاتف والمحافظة والمدينة والعنوان حقول مطلوبة.");
+      return;
+    }
     setBusyId(detail.profile.id);
     try {
-      const result = await invoke({
-        action: "update_profile", user_id: detail.profile.id,
-        full_name: editName.trim(), governorate_key: editGovernorate || null,
+      const profile: Record<string, unknown> = {
+        full_name: editName.trim(),
+        governorate_key: editGovernorate || null,
+        ...(editPhone.trim() !== String(detail.profile?.phone ?? "") ? { phone: editPhone.trim() } : {}),
+        ...(editEmail.trim() !== String(detail.profile?.email ?? "") ? { email: editEmail.trim() } : {}),
         ...(avatarBase64 ? { avatar_base64: avatarBase64, avatar_mime: avatarMime } : {}),
+      };
+      const driver_profile = detail.driverProfile ? {
+        vehicle_make: editDriver.vehicle_make?.trim() || null,
+        vehicle_model: editDriver.vehicle_model?.trim() || null,
+        vehicle_year: editDriver.vehicle_year == null || editDriver.vehicle_year === "" ? null : Number(editDriver.vehicle_year),
+        vehicle_plate: editDriver.vehicle_plate?.trim() || null,
+        vehicle_color: editDriver.vehicle_color?.trim() || null,
+        vehicle_type: editDriver.vehicle_type?.trim() || null,
+        ...(editDriver.vehicle_category ? { vehicle_category: editDriver.vehicle_category } : {}),
+        ...(editDriver.service_radius_km != null && editDriver.service_radius_km !== "" ? { service_radius_km: Number(editDriver.service_radius_km) } : {}),
+        ...(typeof editDriver.available === "boolean" ? { available: editDriver.available } : {}),
+      } : undefined;
+      const worker_profile = detail.workerProfile ? {
+        ...(editWorker.bio !== undefined ? { bio: editWorker.bio?.trim() || null } : {}),
+        ...(editWorker.level ? { level: editWorker.level } : {}),
+        ...(editWorker.service_radius_km != null && editWorker.service_radius_km !== "" ? { service_radius_km: Number(editWorker.service_radius_km) } : {}),
+        ...(editWorker.team_size != null && editWorker.team_size !== "" ? { team_size: Number(editWorker.team_size) } : {}),
+        ...(typeof editWorker.available === "boolean" ? { available: editWorker.available } : {}),
+        service_ids: editWorkerServices,
+      } : undefined;
+      const business = detail.partnerBusinessProfiles?.[0] ?? {};
+      const application = detail.partnerApplications?.[0] ?? {};
+      const hasPartner = !!(editPartner.business_profile_id && editPartner.application_id);
+      const partnerChanges: Record<string, unknown> = {};
+      const partnerPairs: [string, unknown, unknown][] = [
+        ["business_name", editPartner.business_name?.trim() || "", business.business_name ?? application.business_name ?? ""],
+        ["phone", editPartner.phone?.trim() || null, business.phone ?? application.phone ?? null],
+        ["email", editPartner.email?.trim() || null, business.email ?? application.email ?? null],
+        ["governorate_key", editPartner.governorate_key?.trim() || null, business.governorate_key ?? application.governorate_key ?? null],
+        ["city", editPartner.city?.trim() || "", business.city ?? application.city ?? ""],
+        ["address", editPartner.address?.trim() || "", business.address ?? application.address ?? ""],
+        ["description", editPartner.description?.trim() || "", business.description ?? application.description ?? ""],
+      ];
+      for (const [key, value, original] of partnerPairs) if (value !== original) partnerChanges[key] = value;
+      const partner_profile = hasPartner ? {
+        business_profile_id: editPartner.business_profile_id,
+        application_id: editPartner.application_id,
+        ...partnerChanges,
+      } : undefined;
+      const result = await invoke({
+        action: "admin_update_account",
+        user_id: detail.profile.id,
+        profile,
+        ...(driver_profile ? { driver_profile } : {}),
+        ...(worker_profile ? { worker_profile } : {}),
+        ...(partner_profile ? { partner_profile } : {}),
       });
-      setDetail((current) => current ? { ...current, profile: { ...current.profile, ...result.profile } } : current);
-      setRows((current) => current.map((row) => row.id === detail.profile.id ? { ...row, ...result.profile } : row));
+      setDetail((current) => current ? {
+        ...current,
+        profile: { ...current.profile, ...(result.profile ?? {}) },
+        driverProfile: { ...current.driverProfile, ...(result.driver_profile ?? {}) },
+        workerProfile: { ...current.workerProfile, ...(result.worker_profile ?? {}) },
+        workerServices: editWorkerServices,
+        partnerBusinessProfiles: current.partnerBusinessProfiles?.map((row, index) => index === 0 ? { ...row, ...(result.partner_profile ?? {}) } : row),
+        partnerApplications: current.partnerApplications?.map((row, index) => index === 0 ? { ...row, ...(result.partner_profile ?? {}) } : row),
+      } : current);
+      setRows((current) => current.map((row) => row.id === detail.profile.id ? { ...row, ...(result.profile ?? {}) } : row));
+      setEditPhone(String(result.profile?.phone ?? editPhone));
       setAvatarBase64(null);
-      Alert.alert("تم الحفظ", "تم تحديث اسم المستخدم وصورته ومحافظته.");
+      Alert.alert("تم الحفظ", "تم تحديث بيانات الحساب وملفات السائق أو الفني والمنشأة ضمن صلاحيات الإدارة.");
     } catch (e:any) { Alert.alert("تعذر الحفظ", String(e?.message || "حاول مرة ثانية")); }
     finally { setBusyId(null); }
   };
@@ -213,6 +309,8 @@ export default function AdminUsersScreen() {
             {avatarPreview ? <Image source={{uri:avatarPreview}} style={s.avatarPreview}/> : null}
             <TouchableOpacity style={s.secondary} onPress={()=>void pickAdminAvatar()}><Text style={s.secondaryText}>اختيار / تغيير الصورة</Text></TouchableOpacity>
             <TextInput value={editName} onChangeText={setEditName} placeholder="اسم المستخدم" placeholderTextColor={palette.muted} style={s.input} textAlign="right" maxLength={100}/>
+            <TextInput value={editPhone} onChangeText={setEditPhone} placeholder="رقم الهاتف" placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType="phone-pad" maxLength={24}/>
+            <TextInput value={editEmail} onChangeText={setEditEmail} placeholder="البريد الإلكتروني" placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} maxLength={254}/>
             <Text style={s.muted}>المحافظة المسجلة</Text>
             <View style={s.durationWrap}>
               {[
@@ -220,6 +318,37 @@ export default function AdminUsersScreen() {
               ].map(([key,label])=><TouchableOpacity key={key} onPress={()=>setEditGovernorate(key)} style={[s.duration,editGovernorate===key&&s.durationActive]}><Text style={[s.durationText,editGovernorate===key&&s.durationTextActive]}>{label}</Text></TouchableOpacity>)}
               <TouchableOpacity onPress={()=>setEditGovernorate("")} style={[s.duration,!editGovernorate&&s.durationActive]}><Text style={[s.durationText,!editGovernorate&&s.durationTextActive]}>غير محددة</Text></TouchableOpacity>
             </View>
+            {!!detail?.driverProfile && <>
+              <Text style={s.section}>بيانات المركبة</Text>
+              {[
+                ["vehicle_make","الشركة المصنعة"],["vehicle_model","طراز المركبة"],["vehicle_year","سنة الصنع"],
+                ["vehicle_plate","رقم اللوحة"],["vehicle_color","اللون"],["vehicle_type","نوع المركبة"],["service_radius_km","نطاق الخدمة كم"],
+              ].map(([key,label])=><TextInput key={key} value={String(editDriver[key] ?? "")} onChangeText={value=>setEditDriver((current:any)=>({...current,[key]:value}))} placeholder={label} placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType={key==="vehicle_year"||key==="service_radius_km"?"numeric":"default"}/>)}
+              <Text style={s.muted}>فئة المركبة</Text>
+              <View style={s.durationWrap}>{[["economy","اقتصادي"],["premium","متميز"],["luxury","فاخر"],["large","مركبة كبيرة"]].map(([value,label])=><TouchableOpacity key={value} onPress={()=>setEditDriver((current:any)=>({...current,vehicle_category:value}))} style={[s.duration,editDriver.vehicle_category===value&&s.durationActive]}><Text style={[s.durationText,editDriver.vehicle_category===value&&s.durationTextActive]}>{label}</Text></TouchableOpacity>)}</View>
+              <TouchableOpacity style={s.secondary} onPress={()=>setEditDriver((current:any)=>({...current,available:!current.available}))}><Text style={s.secondaryText}>حالة التوفر: {editDriver.available?"متاح":"غير متاح"} · اضغط للتبديل</Text></TouchableOpacity>
+            </>}
+            {!!detail?.workerProfile && <>
+              <Text style={s.section}>بيانات الفني</Text>
+              <TextInput value={String(editWorker.bio ?? "")} onChangeText={value=>setEditWorker((current:any)=>({...current,bio:value}))} placeholder="نبذة وخبرات الفني" placeholderTextColor={palette.muted} style={[s.input,{minHeight:80}]} textAlign="right" multiline/>
+              <Text style={s.muted}>مستوى الفني</Text>
+              <View style={s.durationWrap}>{[["fani","فني"],["khabir","خبير"]].map(([value,label])=><TouchableOpacity key={value} onPress={()=>setEditWorker((current:any)=>({...current,level:value}))} style={[s.duration,editWorker.level===value&&s.durationActive]}><Text style={[s.durationText,editWorker.level===value&&s.durationTextActive]}>{label}</Text></TouchableOpacity>)}</View>
+              <TextInput value={String(editWorker.service_radius_km ?? "")} onChangeText={value=>setEditWorker((current:any)=>({...current,service_radius_km:value}))} placeholder="نطاق الخدمة كم" placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType="numeric"/>
+              <TextInput value={String(editWorker.team_size ?? "")} onChangeText={value=>setEditWorker((current:any)=>({...current,team_size:value}))} placeholder="عدد أفراد الفريق" placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType="numeric"/>
+              <TouchableOpacity style={s.secondary} onPress={()=>setEditWorker((current:any)=>({...current,available:!current.available}))}><Text style={s.secondaryText}>حالة التوفر: {editWorker.available?"متاح":"غير متاح"} · اضغط للتبديل</Text></TouchableOpacity>
+              <Text style={s.muted}>اختصاصات الفني</Text>
+              {(detail.availableServices ?? []).map((service:any)=><TouchableOpacity key={service.id} style={s.secondary} onPress={()=>setEditWorkerServices(current=>current.includes(service.id)?current.filter(id=>id!==service.id):[...current,service.id])}><Text style={s.secondaryText}>{editWorkerServices.includes(service.id)?"✓ ":"＋ "}{service.name_ar}</Text></TouchableOpacity>)}
+            </>}
+            {!!(detail?.partnerBusinessProfiles?.length && detail?.partnerApplications?.length) && <>
+              <Text style={s.section}>بيانات المنشأة</Text>
+              <TextInput value={String(editPartner.business_name ?? "")} onChangeText={value=>setEditPartner((current:any)=>({...current,business_name:value}))} placeholder="اسم المنشأة" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
+              <TextInput value={String(editPartner.phone ?? "")} onChangeText={value=>setEditPartner((current:any)=>({...current,phone:value}))} placeholder="هاتف المنشأة" placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType="phone-pad"/>
+              <TextInput value={String(editPartner.email ?? "")} onChangeText={value=>setEditPartner((current:any)=>({...current,email:value}))} placeholder="بريد المنشأة" placeholderTextColor={palette.muted} style={s.input} textAlign="right" keyboardType="email-address"/>
+              <TextInput value={String(editPartner.governorate_key ?? "")} onChangeText={value=>setEditPartner((current:any)=>({...current,governorate_key:value}))} placeholder="رمز المحافظة (مثلاً najaf)" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
+              <TextInput value={String(editPartner.city ?? "")} onChangeText={value=>setEditPartner((current:any)=>({...current,city:value}))} placeholder="المدينة" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
+              <TextInput value={String(editPartner.address ?? "")} onChangeText={value=>setEditPartner((current:any)=>({...current,address:value}))} placeholder="العنوان" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
+              <TextInput value={String(editPartner.description ?? "")} onChangeText={value=>setEditPartner((current:any)=>({...current,description:value}))} placeholder="وصف المنشأة" placeholderTextColor={palette.muted} style={[s.input,{minHeight:80}]} textAlign="right" multiline/>
+            </>}
             <TouchableOpacity style={s.primary} disabled={busyId===detail?.profile?.id} onPress={()=>void saveProfile()}><Text style={s.buttonText}>{busyId===detail?.profile?.id ? "جارٍ الحفظ..." : "حفظ التعديلات"}</Text></TouchableOpacity>
             </>}
             <Info label="الاسم" value={detail?.profile?.full_name}/>
@@ -249,6 +378,7 @@ export default function AdminUsersScreen() {
                     ["الهوية الأمامية", verification.id_card_photo_url],
                     ["الهوية الخلفية", verification.id_card_back_photo_url],
                     ["مستند المركبة", verification.vehicle_document_url],
+                    ["فيديو المركبة", verification.vehicle_video_url],
                   ].map(([label, url]: any) => <TouchableOpacity key={label} disabled={!url} style={[s.secondary, !url && s.disabled]} onPress={() => url && void Linking.openURL(url)}><Text style={s.secondaryText}>{url ? `عرض ${label}` : `${label} غير متوفر`}</Text></TouchableOpacity>)}
                 </View>
               </View>
