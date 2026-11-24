@@ -39,6 +39,7 @@ values
   ('orders.override','orders','التدخل بحالات الطلب','critical','تجاوز حالة الطلب وفق ضوابط التدقيق'),
   ('dispatch.manage','orders','إدارة التوزيع الآلي','critical','إدارة إعدادات التوزيع وإعادة المحاولة ضمن النطاق'),
   ('dispatch.monitor','orders','مراقبة التوزيع','normal','عرض الطوابير وأسباب تعذر التعيين'),
+  ('operations.missions.manage','orders','إدارة المهام التشغيلية','critical','إدارة مهام مقدمي الخدمة ضمن نطاق المحافظة أو النطاق العام'),
 
   -- Pricing and geography
   ('pricing.taxi.read','pricing','عرض تعرفة التاكسي','normal','قراءة تعرفة التاكسي'),
