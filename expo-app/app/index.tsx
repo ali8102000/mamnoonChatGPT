@@ -6,32 +6,45 @@ import { useAuth } from "@/lib/auth-context";
 import mamnoonLogo from "../assets/mamnoon-logo.png";
 import { useCompanyBranding } from "@/lib/company-branding";
 import { useEffect, useRef, useState } from "react";
-import { View, ActivityIndicator, Image, Text, StyleSheet, Animated, Easing } from "react-native";
+import { AccessibilityInfo, View, ActivityIndicator, Image, Text, StyleSheet, Animated, Easing } from "react-native";
 
 export default function Index() {
   const { loading, session, roles } = useAuth();
   const { companyName, logoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated, isLoaded: brandingLoaded } = useCompanyBranding();
   const [splashFinished, setSplashFinished] = useState(false);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState<boolean | null>(null);
+  const shouldAnimateBranding = welcomeVisualAnimated && reduceMotionEnabled === false;
+  useEffect(() => {
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (active) setReduceMotionEnabled(enabled);
+    }).catch(() => {
+      // Prefer a static startup visual if the device accessibility setting cannot be read.
+      if (active) setReduceMotionEnabled(true);
+    });
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotionEnabled);
+    return () => { active = false; subscription.remove(); };
+  }, []);
   const visualScale = useRef(new Animated.Value(1)).current;
   const logoScale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
-    if (!welcomeVisualAnimated) { logoScale.stopAnimation(); logoScale.setValue(1); return; }
+    if (!shouldAnimateBranding) { logoScale.stopAnimation(); logoScale.setValue(1); return; }
     const logoLoop = Animated.loop(Animated.sequence([
       Animated.timing(logoScale, { toValue: 1.045, duration: 1500, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
       Animated.timing(logoScale, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
     ]));
     logoLoop.start();
     return () => logoLoop.stop();
-  }, [welcomeVisualAnimated, logoScale]);
+  }, [shouldAnimateBranding, logoScale]);
   useEffect(() => {
-    if (!welcomeVisualAnimated || !welcomeVisualUrl) { visualScale.stopAnimation(); visualScale.setValue(1); return; }
+    if (!shouldAnimateBranding || !welcomeVisualUrl) { visualScale.stopAnimation(); visualScale.setValue(1); return; }
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(visualScale, { toValue: 1.035, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
       Animated.timing(visualScale, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
     ]));
     loop.start();
     return () => loop.stop();
-  }, [welcomeVisualAnimated, welcomeVisualUrl, visualScale]);
+  }, [shouldAnimateBranding, welcomeVisualUrl, visualScale]);
   const [nextRoute, setNextRoute] = useState<"/select-governorate" | "/auth" | "/home" | "/admin/bootstrap" | null>(null);
 
   // Do not add an artificial splash delay; route as soon as auth is ready.
@@ -66,7 +79,7 @@ export default function Index() {
           <Image source={logoUrl ? { uri: logoUrl } : mamnoonLogo} style={styles.logo} resizeMode="contain" />
         </Animated.View>
         <Text style={styles.brand}>أهلاً بك في {companyName}</Text>
-        {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={styles.welcomeVisual} contentFit="cover" autoplay={welcomeVisualAnimated} /></Animated.View> : null}
+        {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={styles.welcomeVisual} contentFit="cover" autoplay={shouldAnimateBranding} /></Animated.View> : null}
         <Text style={styles.tagline}>{welcomeMessage}</Text>
         {loading ? <ActivityIndicator size="small" color="#C99A35" style={styles.loader} /> : <View style={styles.loaderSpace} />}
       </View>
