@@ -1315,24 +1315,6 @@ const providerMapStyles = StyleSheet.create({
   verificationHint: { color: "#B45309", fontSize: 9, fontWeight: "800", textAlign: "center", marginTop: 6 },
 });
 
-const providerMapStyles = StyleSheet.create({
-  screen: { width: "100%", paddingTop: 0 },
-  mapWrap: { height: Math.max(430, Dimensions.get("window").height * 0.66), width: "100%", overflow: "hidden", backgroundColor: "#E7EDF2" },
-  mapLoading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(238,243,247,0.7)" },
-  mapLoadingText: { color: "#334155", fontSize: 13, fontWeight: "800" },
-  mapTopChip: { position: "absolute", top: 14, left: 14, right: 14, minHeight: 42, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.95)", borderWidth: 1, borderColor: "rgba(15,23,42,0.08)", paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 9, elevation: 4 },
-  statusDot: { width: 9, height: 9, borderRadius: 5 },
-  mapTopText: { color: "#17324D", fontSize: 12, fontWeight: "900", textAlign: "right", flex: 1 },
-  details: { paddingTop: 16, paddingBottom: 18 },
-  fixedDock: { position: "absolute", left: 14, right: 14, bottom: 104, zIndex: 40, minHeight: 82, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.98)", borderWidth: 1, borderColor: "rgba(15,23,42,0.10)", paddingHorizontal: 14, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 12, elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.20, shadowRadius: 18, shadowOffset: { width: 0, height: 7 } },
-  actionTitle: { color: "#17324D", fontSize: 13, fontWeight: "900", textAlign: "right" },
-  actionSubtitle: { color: "#64748B", fontSize: 10, fontWeight: "700", textAlign: "right", marginTop: 4 },
-  powerButton: { minWidth: 76, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center", paddingHorizontal: 15 },
-  powerButtonOn: { backgroundColor: "#059669" },
-  powerButtonOff: { backgroundColor: "#17324D" },
-  powerButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
-});
- 
 function LegacyProviderHome({
   available,
   availabilitySaving,
