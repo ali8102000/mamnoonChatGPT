@@ -98,5 +98,17 @@ ALTER POLICY "Providers update own presence"
 
 ALTER POLICY "Admins manage regional controls"
   ON public.regional_service_controls
-  USING (has_admin_access((select auth.uid())))
-  WITH CHECK (has_admin_access((select auth.uid())));
+  USING (
+    public.admin_has_permission(
+      'regions.manage',
+      case when governorate_key = 'all' then 'global' else 'governorate' end,
+      case when governorate_key = 'all' then null else governorate_key end
+    )
+  )
+  WITH CHECK (
+    public.admin_has_permission(
+      'regions.manage',
+      case when governorate_key = 'all' then 'global' else 'governorate' end,
+      case when governorate_key = 'all' then null else governorate_key end
+    )
+  );

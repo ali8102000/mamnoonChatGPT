@@ -40,7 +40,13 @@ grant select on public.regional_dispatch_zone_settings to authenticated;
 drop policy if exists "Admins read regional dispatch zones" on public.regional_dispatch_zone_settings;
 create policy "Admins read regional dispatch zones"
 on public.regional_dispatch_zone_settings for select to authenticated
-using (public.has_admin_access(auth.uid()));
+using (
+  public.admin_has_permission(
+    'zones.manage',
+    case when governorate_key = 'all' then 'global' else 'governorate' end,
+    case when governorate_key = 'all' then null else governorate_key end
+  )
+);
 
 create or replace function public.get_regional_dispatch_ring(
   p_dispatch_type text,
@@ -91,13 +97,18 @@ language plpgsql stable security definer
 set search_path = public
 as $function$
 begin
-  if auth.uid() is null or not public.has_admin_access(auth.uid()) then
+  if auth.uid() is null then
     raise exception 'forbidden';
   end if;
   return query
     select s.governorate_key,s.dispatch_type,s.category_key,s.ring1_min_km,s.ring1_max_km,
            s.ring2_min_km,s.ring2_max_km,s.ring3_min_km,s.ring3_max_km,s.updated_at
     from public.regional_dispatch_zone_settings s
+    where public.admin_has_permission(
+      'zones.manage',
+      case when s.governorate_key = 'all' then 'global' else 'governorate' end,
+      case when s.governorate_key = 'all' then null else s.governorate_key end
+    )
     order by case s.governorate_key when 'all' then 0 else 1 end,s.governorate_key,
       case s.dispatch_type when 'taxi' then 1 when 'large_driver' then 2 else 3 end,s.category_key;
 end;
@@ -115,7 +126,7 @@ declare
   v_key text := lower(trim(coalesce(p_governorate_key,'')));
   v_category text := lower(trim(coalesce(p_category_key,'all')));
 begin
-  if auth.uid() is null or not public.has_admin_access(auth.uid()) then
+  if auth.uid() is null then
     raise exception 'forbidden';
   end if;
   if v_key not in ('all','baghdad','basra','nineveh','erbil','sulaymaniyah','duhok','kirkuk','najaf','karbala','babil','anbar','diyala','saladin','wasit','dhiqar','maysan','muthanna','qadisiyah')
@@ -124,6 +135,13 @@ begin
      or p_ring1_max_km <= 0 or p_ring2_max_km <= p_ring1_max_km
      or p_ring3_max_km <= p_ring2_max_km or p_ring3_max_km > 55 then
     raise exception 'invalid_dispatch_zone_ranges';
+  end if;
+  if not public.admin_has_permission(
+    'zones.manage',
+    case when v_key = 'all' then 'global' else 'governorate' end,
+    case when v_key = 'all' then null else v_key end
+  ) then
+    raise exception 'missing_dispatch_zone_permission';
   end if;
   insert into public.regional_dispatch_zone_settings(
     governorate_key,dispatch_type,category_key,ring1_min_km,ring1_max_km,

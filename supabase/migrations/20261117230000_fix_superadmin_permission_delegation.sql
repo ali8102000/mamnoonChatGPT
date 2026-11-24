@@ -354,6 +354,8 @@ declare
   v_definition text;
   v_new_definition text;
   v_check text;
+  v_guard text;
+  v_oid regprocedure;
 begin
   for v_signature,v_permission_expression,v_scope_expression,v_error in
     select * from (values
@@ -382,9 +384,17 @@ begin
         '(select governorate_key from public.service_requests where id=p_request_id)',
         'missing_order_reopen_permission'),
       ('public.admin_broadcast_announcement(text,text,text)',
-        '''notifications.create''',
+        '''notifications.send''',
         'null',
-        'missing_notifications_create_permission'),
+        'missing_notifications_send_permission'),
+      ('public.admin_broadcast_governorate_notification(text,text,text)',
+        '''notifications.send''',
+        'p_governorate_key',
+        'missing_notifications_send_permission'),
+      ('public.admin_broadcast_notification(text,text,text,uuid)',
+        '''notifications.send''',
+        'v_target_governorate',
+        'missing_notifications_send_permission'),
       ('public.admin_cancel_free_subscription(uuid)',
         '''subscriptions.revoke''',
         '(select governorate_key from public.profiles where id=p_user_id)',
@@ -411,23 +421,172 @@ begin
         'missing_subscription_status_permission')
     ) as guards(signature,permission_expression,scope_expression,error_message)
   loop
-    v_definition := pg_get_functiondef(v_signature::regprocedure);
-    v_check := format(
-      'IF NOT public.admin_has_permission(%s, CASE WHEN (%s) IS NULL THEN ''global'' ELSE ''governorate'' END, (%s)) THEN RAISE EXCEPTION %L; END IF;',
-      v_permission_expression,v_scope_expression,v_scope_expression,v_error
-    );
+    -- Some legacy subscription RPCs were intentionally removed; do not fail
+    -- the entire migration because an obsolete optional signature is absent.
+    v_oid := to_regprocedure(v_signature);
+    if v_oid is null then
+      continue;
+    end if;
+
+    v_definition := pg_get_functiondef(v_oid);
+    if v_signature = 'public.admin_broadcast_announcement(text,text,text)' then
+      -- Broadcasting immediately sends to an audience, so require both send
+      -- and targeting permissions rather than the weaker draft/create grant.
+      v_guard := '(public.admin_has_permission(''notifications.send'',''global'',null) AND public.admin_has_permission(''notifications.target'',''global'',null))';
+      v_check := format('IF NOT %s THEN RAISE EXCEPTION %L; END IF;',v_guard,'missing_notifications_send_or_target_permission');
+    else
+      v_guard := format(
+        'public.admin_has_permission(%s, CASE WHEN (%s) IS NULL THEN ''global'' ELSE ''governorate'' END, (%s))',
+        v_permission_expression,v_scope_expression,v_scope_expression
+      );
+      v_check := format('IF NOT %s THEN RAISE EXCEPTION %L; END IF;',v_guard,v_error);
+    end if;
+
     v_new_definition := regexp_replace(
       v_definition,
       'perform\s+public\.assert_staff\(''admin''\);',
       v_check,
       'gi'
     );
-    if v_new_definition=v_definition then
-      raise exception 'granular_permission_anchor_missing_for_%',v_signature;
+
+    if v_new_definition = v_definition then
+      if position('public.has_admin_access(auth.uid())' in v_definition) > 0 then
+        if position('public.admin_has_permission' in v_definition) > 0
+           and v_signature <> 'public.admin_broadcast_announcement(text,text,text)' then
+          -- These deployed functions already have the scoped permission check;
+          -- remove only the broad-role bypass that would include general managers.
+          v_new_definition := regexp_replace(
+            v_definition,
+            'public\.has_admin_access\(auth\.uid\(\)\)\s+OR\s+',
+            '',
+            'gi'
+          );
+        else
+          -- Older definitions had only the broad gate; replace it with the
+          -- operation-specific permission expression.
+          v_new_definition := replace(
+            v_definition,
+            'public.has_admin_access(auth.uid())',
+            v_guard
+          );
+        end if;
+      elsif position('public.admin_has_permission' in v_definition) > 0 then
+        -- Already uses a granular permission check and has no broad bypass.
+        continue;
+      else
+        raise exception 'granular_permission_anchor_missing_for_%',v_signature;
+      end if;
     end if;
+
     execute v_new_definition;
   end loop;
 end;
 $granular_rpc_guards$;
+
+
+-- Targeted broadcasts require both permission to send and permission to
+-- choose an audience. The send check above is scoped to the destination.
+do $notification_target_guards$
+declare
+  v_definition text;
+  v_new_definition text;
+  v_oid regprocedure;
+  v_anchor text := 'RAISE EXCEPTION ''permission_required:notifications.send'';' || chr(10) || '  END IF;';
+begin
+  v_oid := to_regprocedure('public.admin_broadcast_governorate_notification(text,text,text)');
+  if v_oid is not null then
+    v_definition := pg_get_functiondef(v_oid);
+    v_new_definition := replace(
+      v_definition,
+      v_anchor,
+      v_anchor || chr(10) ||
+      '  IF NOT public.admin_has_permission(''notifications.target'', ''governorate'', p_governorate_key) THEN' || chr(10) ||
+      '    RAISE EXCEPTION ''permission_required:notifications.target'';' || chr(10) ||
+      '  END IF;'
+    );
+    if v_new_definition = v_definition then
+      raise exception 'notification_target_guard_anchor_missing_for_governorate_broadcast';
+    end if;
+    execute v_new_definition;
+  end if;
+
+  v_oid := to_regprocedure('public.admin_broadcast_notification(text,text,text,uuid)');
+  if v_oid is not null then
+    v_definition := pg_get_functiondef(v_oid);
+    v_new_definition := replace(
+      v_definition,
+      v_anchor,
+      v_anchor || chr(10) ||
+      '  IF NOT public.admin_has_permission(''notifications.target'', v_scope_type, v_target_governorate) THEN' || chr(10) ||
+      '    RAISE EXCEPTION ''permission_required:notifications.target'';' || chr(10) ||
+      '  END IF;'
+    );
+    if v_new_definition = v_definition then
+      raise exception 'notification_target_guard_anchor_missing_for_broadcast';
+    end if;
+    execute v_new_definition;
+  end if;
+end;
+$notification_target_guards$;
+
+-- General managers may inspect reports but must remain read-only, even when
+-- they also hold a monitoring/moderation assignment.
+do $general_manager_report_readonly$
+declare
+  v_oid regprocedure;
+  v_definition text;
+  v_new_definition text;
+begin
+  v_oid := to_regprocedure('public.admin_resolve_report(uuid,text,text)');
+  if v_oid is not null then
+    v_definition := pg_get_functiondef(v_oid);
+    v_new_definition := replace(
+      v_definition,
+      'IF auth.uid() IS NULL OR NOT (',
+      'IF auth.uid() IS NULL OR (' ||
+      'EXISTS (SELECT 1 FROM public.staff_assignments WHERE user_id=auth.uid() AND active=true AND rank=''general_manager'') ' ||
+      'AND NOT public.is_platform_admin(auth.uid())) OR NOT ('
+    );
+    if v_new_definition = v_definition then
+      raise exception 'general_manager_report_readonly_anchor_missing';
+    end if;
+    execute v_new_definition;
+  end if;
+end;
+$general_manager_report_readonly$;
+
+-- Keep the taxi post-acceptance cancellation guard aligned with the scoped
+-- orders.cancel permission used by the administrative cancellation RPC.
+create or replace function public.guard_no_cancel_after_taxi_acceptance()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $function$
+declare
+  v_governorate text;
+begin
+  if old.type::text = 'taxi'
+     and old.status::text in ('accepted','in_progress')
+     and new.status::text = 'cancelled'
+     and auth.uid() is not null then
+    select governorate_key into v_governorate
+    from public.profiles
+    where id = old.customer_id;
+
+    if not public.has_admin_access(auth.uid())
+       and not public.admin_has_permission(
+         'orders.cancel',
+         case when v_governorate is null then 'global' else 'governorate' end,
+         v_governorate
+       ) then
+      raise exception 'taxi_cancellation_disabled_after_acceptance';
+    end if;
+  end if;
+  return new;
+end;
+$function$;
+
+revoke all on function public.guard_no_cancel_after_taxi_acceptance() from public, anon, authenticated;
 
 commit;

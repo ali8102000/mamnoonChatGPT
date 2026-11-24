@@ -12,6 +12,7 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  Linking,
   Image,
   Vibration,
 } from "react-native";
@@ -60,7 +61,7 @@ export default function HomeScreen() {
     ? activeRole
     : roles.includes("customer") ? "customer" : roles[0] || "customer";
   const { resolved: resolvedTheme, setMode } = useThemePreference();
-  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, welcomeVisualUrl, welcomeVisualAnimated } = useCompanyBranding();
+  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualWidthPx, homeVisualHeightPx, homeVisualPosition, homeVisualLinkUrl } = useCompanyBranding();
 
   const [available, setAvailable] = useState(false);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
@@ -380,7 +381,7 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>{profile?.full_name?.split(" ")[0] || "صديقنا"} 👋</Text>
           </View>
           <Text style={{ color: palette.muted, fontSize: 13, textAlign: "right", marginTop: 6, lineHeight: 22, flexWrap: "wrap", includeFontPadding: false }}>{welcomeMessage}</Text>
-          {welcomeVisualUrl ? <ExpoImage source={{ uri: welcomeVisualUrl }} style={{ width: 150, height: 54, marginTop: 6, alignSelf: "flex-end", opacity: welcomeVisualAnimated ? 0.92 : 1 }} contentFit="contain" autoplay={welcomeVisualAnimated} /> : null}
+          
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => void setMode(resolvedTheme === "dark" ? "light" : "dark")} accessibilityRole="button" accessibilityLabel="تبديل الوضع" style={styles.themeToggle}>
@@ -399,7 +400,7 @@ export default function HomeScreen() {
         {selectedRole === "customer" ? (
           <>
             <HomeCampaignPopups userId={user?.id ?? null} />
-            <CustomerHome userId={user?.id ?? null} />
+            <CustomerHome userId={user?.id ?? null} homeVisualUrl={homeVisualUrl} homeVisualAnimated={homeVisualAnimated} homeVisualEnabled={homeVisualEnabled} homeVisualWidthPx={homeVisualWidthPx} homeVisualHeightPx={homeVisualHeightPx} homeVisualPosition={homeVisualPosition} homeVisualLinkUrl={homeVisualLinkUrl} />
           </>
         ) : (
           <ProviderHome
@@ -477,7 +478,7 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
   );
 }
 
-function CustomerHome({ userId }: { userId: string | null }) {
+function CustomerHome({ userId, homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualWidthPx, homeVisualHeightPx, homeVisualPosition, homeVisualLinkUrl }: { userId: string | null; homeVisualUrl: string | null; homeVisualAnimated: boolean; homeVisualEnabled: boolean; homeVisualWidthPx: number; homeVisualHeightPx: number; homeVisualPosition: string; homeVisualLinkUrl: string }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
@@ -556,6 +557,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
     return () => clearInterval(timer);
   }, [topBanners, topBanner?.scroll_speed, topBanner?.motion_direction]);
 
+  const normalizedHomeVisualLink = homeVisualLinkUrl.trim();
+  const safeHomeVisualLink = normalizedHomeVisualLink.startsWith("https://") || normalizedHomeVisualLink.startsWith("http://") ? normalizedHomeVisualLink : "";
+  const renderHomeVisual = () => homeVisualEnabled && homeVisualUrl ? <View style={{ alignSelf: "center", width: Math.min(homeVisualWidthPx, Dimensions.get("window").width - 24), height: homeVisualHeightPx, borderRadius: 22, overflow: "hidden", marginTop: 2 }}><TouchableOpacity disabled={!safeHomeVisualLink} activeOpacity={0.85} onPress={() => { if (safeHomeVisualLink) void Linking.openURL(safeHomeVisualLink).catch(() => Alert.alert("تعذر فتح الرابط", "تحقق من الرابط وحاول مرة ثانية.")); }}><ExpoImage source={{ uri: homeVisualUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" autoplay={homeVisualAnimated} /></TouchableOpacity></View> : null;
+
   const tiles = [
     {
       key: "taxi",
@@ -589,6 +594,7 @@ function CustomerHome({ userId }: { userId: string | null }) {
 
   return (
     <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: gridGap }}>
+      {homeVisualPosition === "above_banner" ? renderHomeVisual() : null}
       <View {...topBannerSwipeResponder.panHandlers} style={{ width: "100%" }}>
       <TouchableOpacity activeOpacity={0.94} onPress={() => { if (suppressTopBannerPress.current) { suppressTopBannerPress.current = false; return; } if (topBanner?.target_campaign_id) setActiveBannerCampaignId(topBanner.target_campaign_id); else router.push("/request/new"); }}>
       <LinearGradient
@@ -656,7 +662,10 @@ function CustomerHome({ userId }: { userId: string | null }) {
       </View>
       {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
 
+      {homeVisualPosition === "below_banner" ? renderHomeVisual() : null}
+
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
+      {homeVisualPosition === "below_custom_content" ? renderHomeVisual() : null}
 
       <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: gridGap, columnGap: gridGap }}>
         {[...tiles].sort((a,b) => {

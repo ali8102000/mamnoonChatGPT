@@ -31,7 +31,7 @@ create index if not exists app_campaign_entries_user_idx
   on public.app_campaign_entries (user_id, created_at desc);
 
 alter table public.app_campaign_entries enable row level security;
-grant select, insert, update on public.app_campaign_entries to authenticated;
+grant select, insert, update, delete on public.app_campaign_entries to authenticated;
 
 drop policy if exists "Users read own contest entries" on public.app_campaign_entries;
 create policy "Users read own contest entries" on public.app_campaign_entries
@@ -62,6 +62,17 @@ create policy "Users submit one entry to active contests" on public.app_campaign
             and nullif(trim(coalesce(text_content,'')), '') is not null
             and image_url is not null and storage_path like (c.id::text || '/' || (select auth.uid())::text || '/%'))
         )
+    )
+    and (
+      storage_path is null
+      or exists (
+        select 1
+        from storage.objects o
+        where o.bucket_id = 'campaign-entries'
+          and o.name = storage_path
+          and (storage.foldername(o.name))[1] = campaign_id::text
+          and (storage.foldername(o.name))[2] = (select auth.uid())::text
+      )
     )
   );
 
@@ -117,9 +128,25 @@ create policy "Users read own contest entry images and admins read all"
   );
 
 drop policy if exists "Users delete own pending contest entry images" on storage.objects;
-create policy "Users delete own pending contest entry images"
+drop policy if exists "Users clean up unsubmitted or rejected contest images" on storage.objects;
+create policy "Users clean up unsubmitted or rejected contest images"
   on storage.objects for delete to authenticated
   using (
     bucket_id = 'campaign-entries'
     and (storage.foldername(name))[2] = (select auth.uid())::text
+    and not exists (
+      select 1
+      from public.app_campaign_entries e
+      where e.user_id = (select auth.uid())
+        and e.storage_path = name
+        and e.status in ('pending','approved')
+    )
+  );
+
+drop policy if exists "Super admins delete contest entry images" on storage.objects;
+create policy "Super admins delete contest entry images"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'campaign-entries'
+    and public.is_super_admin((select auth.uid()))
   );
