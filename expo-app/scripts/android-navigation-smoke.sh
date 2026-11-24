@@ -7,19 +7,74 @@ UI="/tmp/mamnoon-window.xml"
 REMOTE_UI="/data/local/tmp/mamnoon-window.xml"
 
 dump_ui() {
-  # Android 15 restricts pulling files directly from shared storage on some
-  # emulator images. uiautomator writes to the shell-owned local tmp directory.
-  adb shell uiautomator dump "$REMOTE_UI" >/dev/null
-  adb pull "$REMOTE_UI" "$UI" >/dev/null
-  test -s "$UI"
-  python3 - "$UI" <<'PY'
-import sys, xml.etree.ElementTree as ET
+  # Android 15 can occasionally show a System UI ANR dialog in the emulator.
+  # Wait for System UI to recover; never dismiss or hide an app crash.
+  for attempt in 1 2 3; do
+    if ! timeout 30s adb shell uiautomator dump "$REMOTE_UI" >/dev/null 2>&1; then
+      echo "UI hierarchy dump timed out (attempt $attempt/3)."
+      sleep 2
+      continue
+    fi
+    if ! adb pull "$REMOTE_UI" "$UI" >/dev/null 2>&1 || ! test -s "$UI"; then
+      echo "UI hierarchy pull failed (attempt $attempt/3)."
+      sleep 2
+      continue
+    fi
+
+    local result
+    result="$(python3 - "$UI" <<'PY'
+import re, sys, xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()
 nodes = list(root.iter("node"))
-if len(nodes) < 3:
-    raise SystemExit("UI hierarchy is unexpectedly empty")
-print("UI hierarchy nodes:", len(nodes))
+labels = []
+for node in nodes:
+    labels.extend((node.attrib.get("text", ""), node.attrib.get("content-desc", "")))
+all_text = " ".join(labels).lower()
+if "system ui" in all_text and "responding" in all_text:
+    for node in nodes:
+        label = " ".join((node.attrib.get("text", ""), node.attrib.get("content-desc", ""))).strip().lower()
+        if label == "wait":
+            match = re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]", node.attrib.get("bounds", ""))
+            if match:
+                x1, y1, x2, y2 = map(int, match.groups())
+                print("ANR_WAIT", (x1+x2)//2, (y1+y2)//2)
+                raise SystemExit(0)
+    print("ANR_NO_WAIT")
+elif len(nodes) < 3:
+    print("EMPTY")
+else:
+    print("OK", len(nodes))
 PY
+)"
+    case "$result" in
+      ANR_WAIT\ *)
+        read -r _ x y <<< "$result"
+        echo "Android System UI is unresponsive; tapping Wait (attempt $attempt/3)."
+        adb shell input tap "$x" "$y"
+        sleep 5
+        ;;
+      ANR_NO_WAIT)
+        echo "Android System UI ANR dialog has no safe Wait action."
+        adb logcat -d -t 3000 | tail -n 120
+        return 1
+        ;;
+      EMPTY)
+        echo "UI hierarchy is unexpectedly empty (attempt $attempt/3)."
+        sleep 2
+        ;;
+      OK\ *)
+        echo "UI hierarchy nodes: ${result#OK }"
+        return 0
+        ;;
+      *)
+        echo "Could not classify UI hierarchy (attempt $attempt/3): $result"
+        sleep 2
+        ;;
+    esac
+  done
+  echo "Could not obtain a stable Android UI hierarchy after three attempts."
+  adb logcat -d -t 3000 | tail -n 120
+  return 1
 }
 
 assert_alive() {
