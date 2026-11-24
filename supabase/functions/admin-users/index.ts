@@ -916,12 +916,21 @@ Deno.serve(async (req: Request) => {
           user_id: body.user_id, type: notificationType, title, body: messageBody, link: "/home",
           data: { provider_type: body.type, status: body.status, suspended_until: suspendedUntil, company: companyName },
         });
-        if (notificationError) return json({ error: "provider_notification_save_failed" }, 500);
-        notificationSent = true;
+        if (notificationError) {
+          // Provider approval is already committed; notification delivery must not
+          // turn a successful status change into a misleading non-2xx failure.
+          console.warn("[admin-users] provider approval notification save failed", notificationError);
+        } else {
+          notificationSent = true;
+        }
 
         const { data: pushRows, error: pushRowsError } = await admin.from("user_push_tokens")
           .select("expo_push_token,sound_enabled,vibration_enabled").eq("user_id", body.user_id);
-        if (pushRowsError) return json({ error: "provider_push_preferences_load_failed" }, 500);
+        if (pushRowsError) {
+          // Push preferences are optional and must not roll back/report failure
+          // after the provider status and role have been successfully updated.
+          console.warn("[admin-users] provider push preferences load failed", pushRowsError);
+        }
         const tokens = (pushRows ?? []).filter((row: any) =>
           typeof row.expo_push_token === "string" &&
           (row.expo_push_token.startsWith("ExpoPushToken[") || row.expo_push_token.startsWith("ExponentPushToken[")),
