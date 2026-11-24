@@ -34,7 +34,7 @@ if "system ui" in all_text and "responding" in all_text:
     for node in nodes:
         label = " ".join((node.attrib.get("text", ""), node.attrib.get("content-desc", ""))).strip().lower()
         if label == "wait":
-            match = re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]", node.attrib.get("bounds", ""))
+            match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
             if match:
                 x1, y1, x2, y2 = map(int, match.groups())
                 print("ANR_WAIT", (x1+x2)//2, (y1+y2)//2)
