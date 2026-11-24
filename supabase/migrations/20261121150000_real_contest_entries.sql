@@ -31,7 +31,7 @@ create index if not exists app_campaign_entries_user_idx
   on public.app_campaign_entries (user_id, created_at desc);
 
 alter table public.app_campaign_entries enable row level security;
-grant select, insert, update on public.app_campaign_entries to authenticated;
+grant select, insert, update, delete on public.app_campaign_entries to authenticated;
 
 drop policy if exists "Users read own contest entries" on public.app_campaign_entries;
 create policy "Users read own contest entries" on public.app_campaign_entries
