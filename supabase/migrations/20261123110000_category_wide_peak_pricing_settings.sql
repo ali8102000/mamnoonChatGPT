@@ -55,9 +55,8 @@ begin
     or p_min_surcharge_percent < 0 or p_max_surcharge_percent > 100
     or p_min_surcharge_percent > p_max_surcharge_percent then raise exception 'invalid_surcharge_bounds'; end if;
   if p_mode not in ('auto','notify','off') then raise exception 'invalid_mode'; end if;
-  -- Project decision: automatic price changes remain disabled until explicitly approved.
-  if p_mode='auto' then raise exception 'category_peak_auto_pricing_disabled'; end if;
-  if p_mode='off' and p_enabled then raise exception 'off_mode_cannot_be_enabled'; end if;
+  -- This release records category supply/demand only; no notification or fare-decision engine is active.
+  if p_mode<>'off' or p_enabled then raise exception 'category_peak_decision_engine_not_enabled'; end if;
   if left(p_category_key,8)='service:' and p_enabled then raise exception 'service_peak_quote_not_ready'; end if;
   update public.category_peak_pricing_settings
     set min_surcharge_percent=p_min_surcharge_percent,
