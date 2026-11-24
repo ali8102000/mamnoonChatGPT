@@ -103,6 +103,14 @@ Deno.serve(async (req) => {
     results.push(...settled);
   }
   const succeeded = results.filter((r) => r.ok).length;
+  const allFresh = succeeded === CITIES.length && results.every((r) => r.ok && r.fresh === true);
+  await admin.from("taxi_peak_weather_settings").update({
+    weather_monitor_ready: allFresh,
+    last_checked_at: new Date().toISOString(),
+    last_reason: allFresh
+      ? "توجد قراءات طقس حديثة لجميع المحافظات"
+      : `قراءات حديثة جزئية فقط: ${succeeded} من ${CITIES.length} محافظة؛ يمنع التفعيل الشامل`,
+  }).eq("governorate_key", "all");
   return Response.json({
     ok: succeeded === CITIES.length,
     provider: "WeatherAPI",
