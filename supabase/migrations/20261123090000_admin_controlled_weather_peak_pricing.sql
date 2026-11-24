@@ -126,7 +126,8 @@ begin
       select count(*) into v_fresh_count
         from public.taxi_peak_weather_observations
         where is_fresh=true
-          and observed_at >= now() - make_interval(mins => p_weather_max_age_minutes);
+          and observed_at >= now() - make_interval(mins => p_weather_max_age_minutes)
+          and observed_at <= now() + interval '2 minutes';
       if v_expected_count=0 or v_fresh_count<>v_expected_count then
         raise exception 'weather_observations_not_fresh_for_all_governorates';
       end if;
@@ -135,7 +136,8 @@ begin
         from public.taxi_peak_weather_observations
         where governorate_key=p_governorate_key
           and is_fresh=true
-          and observed_at >= now() - make_interval(mins => p_weather_max_age_minutes);
+          and observed_at >= now() - make_interval(mins => p_weather_max_age_minutes)
+          and observed_at <= now() + interval '2 minutes';
       if v_fresh_count<>1 then raise exception 'weather_observation_not_fresh'; end if;
     end if;
   end if;
