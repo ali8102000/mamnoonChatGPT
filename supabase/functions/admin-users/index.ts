@@ -381,8 +381,8 @@ Deno.serve(async (req: Request) => {
         partnerUpdates.business_name = value;
       }
       if (partnerInput.phone !== undefined) {
-        const value = partnerInput.phone === null || partnerInput.phone === "" ? null : normalizeIraqiPhone(partnerInput.phone);
-        if (partnerInput.phone !== null && partnerInput.phone !== "" && !value) return json({ error: "invalid_partner_phone" }, 400);
+        const value = normalizeIraqiPhone(partnerInput.phone);
+        if (!value) return json({ error: "invalid_partner_phone" }, 400);
         partnerUpdates.phone = value;
       }
       if (partnerInput.email !== undefined) {
@@ -392,14 +392,19 @@ Deno.serve(async (req: Request) => {
       }
       if (partnerInput.governorate_key !== undefined) {
         const allowed = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
-        if (partnerInput.governorate_key !== null && !allowed.includes(partnerInput.governorate_key)) return json({ error: "invalid_partner_governorate" }, 400);
+        if (typeof partnerInput.governorate_key !== "string" || !allowed.includes(partnerInput.governorate_key)) return json({ error: "invalid_partner_governorate" }, 400);
       }
-      for (const [key, max] of [["city",120],["address",500],["description",2000]] as const) {
+      for (const [key, max] of [["city",120],["address",500]] as const) {
         if (partnerInput[key] !== undefined) {
-          const value = partnerInput[key] === null ? null : textValue(partnerInput[key], max);
-          if (partnerInput[key] !== null && value === null) return json({ error: "invalid_partner_field:" + key }, 400);
+          const value = textValue(partnerInput[key], max);
+          if (!value) return json({ error: "invalid_partner_field:" + key }, 400);
           partnerUpdates[key] = value;
         }
+      }
+      if (partnerInput.description !== undefined) {
+        const value = partnerInput.description === null ? null : textValue(partnerInput.description, 2000);
+        if (partnerInput.description !== null && value === null) return json({ error: "invalid_partner_field:description" }, 400);
+        partnerUpdates.description = value;
       }
       const applicationFields: Record<string, unknown> = {};
       for (const key of ["business_name","phone","email","governorate_key","city","address","description"] as const) if (partnerUpdates[key] !== undefined) applicationFields[key] = partnerUpdates[key];
