@@ -238,8 +238,8 @@ Deno.serve(async (req: Request) => {
       }
       if (profileInput.email !== undefined) {
         const value = textValue(profileInput.email, 254);
-        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return json({ error: "invalid_email" }, 400);
-        profileUpdates.email = value || null;
+        if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return json({ error: "invalid_email" }, 400);
+        profileUpdates.email = value.toLowerCase();
       }
       if (profileInput.governorate_key !== undefined) {
         const allowed = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
