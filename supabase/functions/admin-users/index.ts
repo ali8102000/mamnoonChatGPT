@@ -220,11 +220,9 @@ Deno.serve(async (req: Request) => {
         const raw = textValue(value, 30);
         if (!raw) return null;
         let digits = raw.replace(/\D/g, "");
-        if (!raw.startsWith("+")) {
-          if (digits.startsWith("00")) digits = digits.slice(2);
-          if (digits.startsWith("0")) digits = "964" + digits.slice(1);
-          else if (!digits.startsWith("964")) digits = "964" + digits;
-        }
+        if (digits.startsWith("00")) digits = digits.slice(2);
+        if (digits.startsWith("0")) digits = "964" + digits.slice(1);
+        else if (!digits.startsWith("964") && !raw.startsWith("+")) digits = "964" + digits;
         return digits.length >= 12 && digits.length <= 15 ? "+" + digits : null;
       };
       const profileUpdates: Record<string, unknown> = {};
