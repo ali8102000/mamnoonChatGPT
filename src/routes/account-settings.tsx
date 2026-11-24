@@ -174,6 +174,7 @@ function AccountSettingsPage() {
       if (error) throw error;
       toast.success("وصل طلب الشراكة للإدارة وبانتظار المراجعة");
       setPartnerFormOpen(false);
+      setPartnerLocationSelected(false); setPartnerPlaceQuery("");
       setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription(""); setPartnerLicenseNumber(""); setPartnerLicenseFile(null); setPartnerIdFrontFile(null); setPartnerIdBackFile(null);
       await loadPartnerApplications();
     } catch (error: any) {
