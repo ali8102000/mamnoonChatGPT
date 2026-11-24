@@ -1940,7 +1940,7 @@ export default function NewRequest() {
         </View>
       )}
 
-      <View style={[styles.mapContainer, { height: Math.min(window.width - 32, 190) }]}>
+      <View style={[styles.mapContainer, { height: Math.min(window.width - 32, 340) }]}>
         {!serviceMapExpanded && (
           <MapView
             ref={mapRef}
