@@ -122,4 +122,11 @@ create policy "Users delete own pending contest entry images"
   using (
     bucket_id = 'campaign-entries'
     and (storage.foldername(name))[2] = (select auth.uid())::text
+    and exists (
+      select 1
+      from public.app_campaign_entries e
+      where e.user_id = (select auth.uid())
+        and e.storage_path = name
+        and e.status = 'pending'
+    )
   );
