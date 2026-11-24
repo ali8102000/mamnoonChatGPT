@@ -529,6 +529,32 @@ begin
 end;
 $notification_target_guards$;
 
+-- General managers may inspect reports but must remain read-only, even when
+-- they also hold a monitoring/moderation assignment.
+do $general_manager_report_readonly$
+declare
+  v_oid regprocedure;
+  v_definition text;
+  v_new_definition text;
+begin
+  v_oid := to_regprocedure('public.admin_resolve_report(uuid,text,text)');
+  if v_oid is not null then
+    v_definition := pg_get_functiondef(v_oid);
+    v_new_definition := replace(
+      v_definition,
+      'IF auth.uid() IS NULL OR NOT (',
+      'IF auth.uid() IS NULL OR (' ||
+      'EXISTS (SELECT 1 FROM public.staff_assignments WHERE user_id=auth.uid() AND active=true AND rank=''general_manager'') ' ||
+      'AND NOT public.is_platform_admin(auth.uid())) OR NOT ('
+    );
+    if v_new_definition = v_definition then
+      raise exception 'general_manager_report_readonly_anchor_missing';
+    end if;
+    execute v_new_definition;
+  end if;
+end;
+$general_manager_report_readonly$;
+
 -- Keep the taxi post-acceptance cancellation guard aligned with the scoped
 -- orders.cancel permission used by the administrative cancellation RPC.
 create or replace function public.guard_no_cancel_after_taxi_acceptance()
