@@ -122,3 +122,24 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/mamnoon_test
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/auth_profile_trigger_migration.sql
+
+
+  supabase-migrations-local:
+    name: Full Supabase migration history on free local runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start local Supabase database services
+        run: supabase start -x studio,edge-runtime,logflare,vector,imgproxy
+      - name: Apply every migration from a clean local database
+        run: supabase db reset --local
+      - name: Verify local database health
+        run: supabase status
+      - name: Stop local Supabase services
+        if: always()
+        run: supabase stop --no-backup
