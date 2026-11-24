@@ -211,22 +211,33 @@ BEGIN
 END
 $function$;
 
-UPDATE public.worker_profiles AS wp
-SET rating_avg = COALESCE((
-      SELECT AVG(r.stars)::numeric(3,2)
-      FROM public.ratings AS r
-      WHERE r.ratee_id = wp.user_id
-    ), 0),
-    ratings_count = (
-      SELECT COUNT(*)::integer
-      FROM public.ratings AS r
-      WHERE r.ratee_id = wp.user_id
-    ),
-    completed_jobs = (
-      SELECT COUNT(*)::integer
-      FROM public.service_requests AS s
-      WHERE s.provider_id = wp.user_id
-        AND s.type = 'service'
-        AND s.status::text = 'completed'
-    ),
-    updated_at = now();
+-- Run the migration-owned backfill through the same transaction-local guard
+-- used by the trusted recalculation function above. The profile triggers are
+-- already installed, so an unguarded UPDATE would reject rows needing correction.
+DO $backfill$
+BEGIN
+  PERFORM set_config('mamnoon.allow_provider_metrics_update', 'true', true);
+
+  UPDATE public.worker_profiles AS wp
+  SET rating_avg = COALESCE((
+        SELECT AVG(r.stars)::numeric(3,2)
+        FROM public.ratings AS r
+        WHERE r.ratee_id = wp.user_id
+      ), 0),
+      ratings_count = (
+        SELECT COUNT(*)::integer
+        FROM public.ratings AS r
+        WHERE r.ratee_id = wp.user_id
+      ),
+      completed_jobs = (
+        SELECT COUNT(*)::integer
+        FROM public.service_requests AS s
+        WHERE s.provider_id = wp.user_id
+          AND s.type = 'service'
+          AND s.status::text = 'completed'
+      ),
+      updated_at = now();
+
+  PERFORM set_config('mamnoon.allow_provider_metrics_update', '', true);
+END
+$backfill$;
