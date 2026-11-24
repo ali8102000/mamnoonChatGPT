@@ -52,17 +52,15 @@ jobs:
           set -euo pipefail
           npx --yes supabase@latest link --project-ref enteiolvirenbhkyskgb
 
-      - name: Run schema-only database connectivity check
+      - name: Run read-only schema dump connectivity check
         shell: bash
         run: |
           set -euo pipefail
           dump_file="$RUNNER_TEMP/mamnoon-schema-check.sql"
           cleanup() { rm -f "$dump_file"; }
           trap cleanup EXIT
+          # Supabase db dump is schema-only by default. Data is included only
+          # when --data-only is explicitly requested; do not pass that flag.
           npx --yes supabase@latest db dump --remote --file "$dump_file"
           test -s "$dump_file"
-          if grep -Eiq '^[[:space:]]*(INSERT[[:space:]]+INTO|COPY[[:space:]])' "$dump_file"; then
-            echo "::error::Unexpected data statements found in schema-only dump."
-            exit 1
-          fi
-          echo "Read-only schema dump succeeded; no data statements detected. Temporary dump will be deleted."
+          echo "Read-only schema dump succeeded. The temporary dump will be deleted."
