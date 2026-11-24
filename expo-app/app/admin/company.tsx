@@ -19,6 +19,8 @@ export default function CompanySettingsScreen() {
   const [welcomeVisualUrl, setWelcomeVisualUrl] = useState<string | null>(null);
   const [welcomeVisualAsset, setWelcomeVisualAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [welcomeVisualAnimated, setWelcomeVisualAnimated] = useState(false);
+  const [welcomeVisualSizePx, setWelcomeVisualSizePx] = useState(180);
+  const [removeWelcomeVisual, setRemoveWelcomeVisual] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [allowed, setAllowed] = useState(false);
@@ -30,7 +32,7 @@ export default function CompanySettingsScreen() {
       try {
         const [{ data: owner, error: permissionError }, { data, error }] = await Promise.all([
           supabase.rpc("is_super_admin", { p_user_id: user.id }),
-          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated").eq("id",1).maybeSingle(),
+          (supabase as any).from("company_settings").select("company_name,company_logo_url,welcome_message,company_welcome_visual_url,company_welcome_visual_animated,company_welcome_visual_size_px").eq("id",1).maybeSingle(),
         ]);
         if (!active) return;
         setAllowed(!permissionError && owner === true);
@@ -40,6 +42,7 @@ export default function CompanySettingsScreen() {
         setWelcome(data?.welcome_message || branding.welcomeMessage);
         setWelcomeVisualUrl(data?.company_welcome_visual_url || branding.welcomeVisualUrl);
         setWelcomeVisualAnimated(data?.company_welcome_visual_animated === true);
+        setWelcomeVisualSizePx(Number.isInteger(data?.company_welcome_visual_size_px) ? Math.max(80, Math.min(320, data.company_welcome_visual_size_px)) : 180);
       } catch (error: any) {
         if (active) Alert.alert("تعذر تحميل بيانات الشركة", error?.message || "تحقق من الاتصال وحاول مرة ثانية.");
       } finally {
@@ -65,7 +68,7 @@ export default function CompanySettingsScreen() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) { Alert.alert("إذن الصور مطلوب", "اسمح للتطبيق بالوصول إلى الصور حتى تختار صورة البداية."); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 1 });
-    if (!result.canceled && result.assets[0]) setWelcomeVisualAsset(result.assets[0]);
+    if (!result.canceled && result.assets[0]) { setWelcomeVisualAsset(result.assets[0]); setRemoveWelcomeVisual(false); }
   }
 
   async function save() {
@@ -90,7 +93,7 @@ export default function CompanySettingsScreen() {
         if (uploadError) throw uploadError;
         nextLogoUrl = supabase.storage.from("app-visuals").getPublicUrl(path).data.publicUrl;
       }
-      let nextWelcomeVisualUrl = welcomeVisualUrl;
+      let nextWelcomeVisualUrl = removeWelcomeVisual ? null : welcomeVisualUrl;
       if (welcomeVisualAsset) {
         if (!welcomeVisualAsset.mimeType?.startsWith("image/") || (welcomeVisualAsset.fileSize != null && welcomeVisualAsset.fileSize > 12 * 1024 * 1024)) throw new Error("اختار صورة بداية حجمها 12 ميغابايت أو أقل.");
         const visualResponse = await fetch(welcomeVisualAsset.uri);
@@ -104,13 +107,15 @@ export default function CompanySettingsScreen() {
       }
       const { error } = await (supabase as any).from("company_settings").upsert({
         id: 1, company_name: companyName, company_logo_url: nextLogoUrl,
-        welcome_message: message, company_welcome_visual_url: nextWelcomeVisualUrl, company_welcome_visual_animated: welcomeVisualAnimated, updated_by: user.id, updated_at: new Date().toISOString(),
+        welcome_message: message, company_welcome_visual_url: nextWelcomeVisualUrl, company_welcome_visual_animated: welcomeVisualAnimated, company_welcome_visual_size_px: welcomeVisualSizePx, updated_by: user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
       if (error) throw error;
       setLogoUrl(nextLogoUrl);
       setLogoAsset(null);
       setWelcomeVisualUrl(nextWelcomeVisualUrl);
       setWelcomeVisualAsset(null);
+      setRemoveWelcomeVisual(false);
+      setWelcomeVisualUrl(nextWelcomeVisualUrl);
       Alert.alert("تم الحفظ", "تحدثت هوية الشركة وستظهر في شاشة الترحيب وتسجيل الدخول.");
     } catch (error: any) {
       Alert.alert("تعذر الحفظ", error?.message || "حدث خطأ أثناء حفظ بيانات الشركة.");
@@ -130,7 +135,7 @@ export default function CompanySettingsScreen() {
           {logoAsset ? <Image source={{uri:logoAsset.uri}} style={s.logo} resizeMode="contain"/> : logoUrl ? <Image source={{uri:logoUrl}} style={s.logo} resizeMode="contain"/> : <Image source={mamnoonLogo} style={s.logo} resizeMode="contain"/>}
           <Text style={s.previewName}>{name || "اسم الشركة"}</Text>
           <Text style={s.muted}>{welcome}</Text>
-          {(welcomeVisualAsset?.uri || welcomeVisualUrl) ? <ExpoImage source={{uri:welcomeVisualAsset?.uri || welcomeVisualUrl || undefined}} style={s.welcomeVisual} contentFit="cover" autoplay={welcomeVisualAnimated}/> : <View style={s.welcomeVisualEmpty}><Text style={s.muted}>صورة شاشة البداية</Text></View>}
+          {(!removeWelcomeVisual && (welcomeVisualAsset?.uri || welcomeVisualUrl)) ? <ExpoImage source={{uri:welcomeVisualAsset?.uri || welcomeVisualUrl || undefined}} style={[s.welcomeVisual,{width:welcomeVisualSizePx,height:welcomeVisualSizePx}]} contentFit="cover" autoplay={welcomeVisualAnimated}/> : <View style={[s.welcomeVisualEmpty,{width:welcomeVisualSizePx,height:welcomeVisualSizePx}]}><Text style={s.muted}>بدون صورة بداية</Text></View>}
         </View>
         <Text style={s.label}>اسم الشركة</Text>
         <TextInput value={name} onChangeText={setName} maxLength={80} placeholder="اسم الشركة" placeholderTextColor={palette.muted} style={s.input} textAlign="right"/>
@@ -140,6 +145,9 @@ export default function CompanySettingsScreen() {
         <Text style={s.label}>صورة شاشة بداية التطبيق (تقبل GIF متحرك)</Text>
         <TouchableOpacity onPress={()=>void chooseWelcomeVisual()} style={s.pickButton}><Text style={s.pickText}>{welcomeVisualAsset ? "اختيار صورة أخرى" : welcomeVisualUrl ? "تبديل صورة البداية" : "اختيار صورة البداية"}</Text></TouchableOpacity>
         {!!welcomeVisualAsset && <Text style={s.muted}>الصورة الجديدة محددة وجاهزة للحفظ.</Text>}
+        {!!welcomeVisualUrl && !removeWelcomeVisual && <TouchableOpacity onPress={()=>Alert.alert("حذف صورة البداية","راح تنحذف الصورة من شاشة فتح التطبيق بعد الحفظ. متأكد؟",[{text:"إلغاء",style:"cancel"},{text:"حذف",style:"destructive",onPress:()=>{setWelcomeVisualAsset(null);setRemoveWelcomeVisual(true);}}])} style={s.removeButton}><Text style={s.removeButtonText}>حذف صورة البداية</Text></TouchableOpacity>}
+        <Text style={s.label}>حجم صورة البداية (80–320 بكسل)</Text>
+        <TextInput value={String(welcomeVisualSizePx)} onChangeText={value=>setWelcomeVisualSizePx(Math.max(80,Math.min(320,Math.round(Number(value)||180))))} keyboardType="numeric" style={s.input} textAlign="right" />
         <TouchableOpacity onPress={()=>setWelcomeVisualAnimated(value=>!value)} style={s.animationToggle}><View style={[s.toggleDot,welcomeVisualAnimated&&s.toggleDotOn]}/><Text style={s.pickText}>{welcomeVisualAnimated ? "الحركة التفاعلية مفعّلة" : "تفعيل حركة تفاعلية ناعمة للشعار وصورة البداية"}</Text></TouchableOpacity>
         <Text style={s.label}>رسالة الترحيب</Text>
         <TextInput value={welcome} onChangeText={setWelcome} maxLength={180} multiline placeholder="مشوارك وخدمات بيتك، بمكان واحد." placeholderTextColor={palette.muted} style={[s.input,{minHeight:120,textAlignVertical:"top",lineHeight:24}]} textAlign="right"/>
@@ -159,7 +167,8 @@ const s=StyleSheet.create({
   logo:{width:96,height:96,borderRadius:22,backgroundColor:"#fff"},fallback:{width:96,height:96,borderRadius:22,backgroundColor:palette.brand,alignItems:"center",justifyContent:"center"},
   fallbackText:{color:palette.white,fontSize:48,fontWeight:"900"},previewName:{color:palette.ink,fontSize:20,fontWeight:"900"},
   animationToggle:{minHeight:48,borderRadius:radius.md,borderWidth:1,borderColor:palette.line,backgroundColor:palette.canvas,flexDirection:"row",alignItems:"center",justifyContent:"flex-end",gap:10,padding:12},toggleDot:{width:18,height:18,borderRadius:9,borderWidth:2,borderColor:palette.muted},toggleDotOn:{backgroundColor:palette.gold,borderColor:palette.gold},
-  welcomeVisual:{width:"100%",height:150,borderRadius:16,backgroundColor:"#050B13"},welcomeVisualEmpty:{width:"100%",height:100,borderRadius:16,backgroundColor:"#050B13",alignItems:"center",justifyContent:"center"},
+  welcomeVisual:{borderRadius:24,backgroundColor:"#050B13",overflow:"hidden"},welcomeVisualEmpty:{borderRadius:24,backgroundColor:"#EAF0F4",alignItems:"center",justifyContent:"center"},
+  removeButton:{minHeight:42,borderRadius:radius.md,borderWidth:1,borderColor:"#D96B6B",backgroundColor:"#FFF3F3",alignItems:"center",justifyContent:"center",padding:10},removeButtonText:{color:"#B42318",fontWeight:"900",fontSize:12},
   input:{minHeight:48,borderWidth:1,borderColor:palette.line,borderRadius:radius.md,paddingHorizontal:13,paddingVertical:10,color:palette.ink,backgroundColor:palette.canvas,fontSize:13},
   pickButton:{minHeight:46,backgroundColor:palette.brandSoft,borderRadius:radius.md,alignItems:"center",justifyContent:"center",padding:12,borderWidth:1,borderColor:palette.brand},
   pickText:{color:palette.brand,fontWeight:"900",fontSize:13},
