@@ -64,3 +64,6 @@ verify_jwt = true
 
 [functions.mamnoon-ai]
 verify_jwt = true
+
+[functions.weather-monitor]
+verify_jwt = false
