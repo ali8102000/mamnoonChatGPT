@@ -56,7 +56,8 @@ export function CancelReasonModal({ role, requestType, onClose, onSubmit }: Prop
               <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <div>
-              <div className="text-[9px] font-black tracking-[0.18em] text-primary mb-1">MAMNOON · REQUEST CONTROL</div>\n              <div className="font-black text-base">{role === "customer" ? (requestType === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب") : (requestType === "taxi" ? "الاعتذار عن الرحلة" : "الاعتذار عن الطلب") }</div>
+              <div className="text-[9px] font-black tracking-[0.18em] text-primary mb-1">MAMNOON · REQUEST CONTROL</div>
+              <div className="font-black text-base">{role === "customer" ? (requestType === "taxi" ? "إلغاء الرحلة" : "إلغاء الطلب") : (requestType === "taxi" ? "الاعتذار عن الرحلة" : "الاعتذار عن الطلب") }</div>
               <div className="text-[11px] text-muted-foreground">
                 {role === "customer" ? "سيتم إيقاف الطلب وإبلاغ الطرف الآخر" : requestType === "taxi" ? "سيتم فك ارتباطك بالرحلة وإعادتها للبحث عن سائق آخر" : "سيتم فك ارتباطك بالطلب وإعادته للبحث عن فني آخر"}
               </div>
