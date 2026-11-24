@@ -120,9 +120,24 @@ jobs:
             set -euo pipefail
             adb install -r artifacts/app-release.apk
             adb shell am force-stop com.mamnoon.app || true
-            adb shell monkey -p com.mamnoon.app 1
-            sleep 30
-            adb shell pidof com.mamnoon.app >/dev/null || (adb logcat -d -t 2000; echo "Mamnoon process exited during startup."; exit 1)
-            adb logcat -d -t 3000 > /tmp/mamnoon-startup-log.txt
+            adb logcat -c
+            # Launch the app through its registered deep link. Monkey can abort
+            # on Android 15 emulator images while dumping system meminfo before
+            # injecting even one event, which falsely reports an app startup crash.
+            adb shell am start -W -a android.intent.action.VIEW -d "mamnoon://home" -p com.mamnoon.app
+            for attempt in $(seq 1 30); do
+              if adb shell pidof com.mamnoon.app >/dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+            done
+            adb shell pidof com.mamnoon.app >/dev/null || {
+              adb logcat -d -v threadtime -s AndroidRuntime ReactNativeJS Expo
+              adb shell dumpsys activity activities | tail -n 100
+              echo "Mamnoon did not remain running after the Android activity launch."
+              exit 1
+            }
+            sleep 10
+            adb logcat -d -t 5000 > /tmp/mamnoon-startup-log.txt
             ! grep -E -i "app-boundary.*Unhandled render error|Unhandled render error.*app-boundary" /tmp/mamnoon-startup-log.txt || (echo "Mamnoon displayed its root React error boundary during startup."; exit 1)
             bash expo-app/scripts/android-navigation-smoke.sh
