@@ -148,7 +148,7 @@ export default function CompanySettingsScreen() {
         {!!logoAsset && <Text style={s.muted}>الصورة الجديدة محددة وجاهزة للحفظ.</Text>}
         <Text style={s.label}>صورة شاشة بداية التطبيق (تقبل GIF متحرك)</Text>
         <TouchableOpacity onPress={()=>void chooseWelcomeVisual()} style={s.pickButton}><Text style={s.pickText}>{welcomeVisualAsset ? "اختيار صورة أخرى" : welcomeVisualUrl ? "تبديل صورة البداية" : "اختيار صورة البداية"}</Text></TouchableOpacity>
-        {!!welcomeVisualAsset && <Text style={s.muted}>الصورة الجديدة محددة وجاهزة للحفظ.</Text>}
+        {!!welcomeVisualAsset && <><Text style={s.muted}>الصورة الجديدة محددة وجاهزة للحفظ.</Text><TouchableOpacity onPress={()=>setWelcomeVisualAsset(null)} style={s.removeButton}><Text style={s.removeButtonText}>إلغاء الصورة المختارة</Text></TouchableOpacity></>}
         {!!welcomeVisualUrl && !removeWelcomeVisual && <TouchableOpacity onPress={()=>Alert.alert("حذف صورة البداية","راح تنحذف الصورة من شاشة فتح التطبيق بعد الحفظ. متأكد؟",[{text:"إلغاء",style:"cancel"},{text:"حذف",style:"destructive",onPress:()=>{setWelcomeVisualAsset(null);setRemoveWelcomeVisual(true);}}])} style={s.removeButton}><Text style={s.removeButtonText}>حذف صورة البداية</Text></TouchableOpacity>}
         <Text style={s.label}>حجم صورة البداية (80–320 بكسل)</Text>
         <TextInput value={String(welcomeVisualSizePx)} onChangeText={value=>setWelcomeVisualSizePx(Math.max(80,Math.min(320,Math.round(Number(value)||180))))} keyboardType="numeric" style={s.input} textAlign="right" />
