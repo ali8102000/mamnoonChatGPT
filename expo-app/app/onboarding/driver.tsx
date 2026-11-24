@@ -111,23 +111,23 @@ export default function DriverOnboarding() {
       ]).then(async ([verification, driverProfile]) => {
         if (!active) return;
         const saved = driverProfile.data;
-        let verificationData = verification.data;
-        if (!verificationData && largeDriverMode) {
-          const legacyVerification = await supabase.from("provider_verifications")
-            .select("status,rejection_reason,metadata")
-            .eq("user_id", user.id).eq("provider_type", "driver").maybeSingle();
-          verificationData = legacyVerification.data;
-        }
+        // Large-vehicle onboarding must never inherit taxi verification/status.
+        // driver_profiles is shared by the legacy taxi flow, so only trust its
+        // status and vehicle fields when its category matches this entry flow.
+        const relevantSaved = largeDriverMode
+          ? (saved?.vehicle_category === "large" ? saved : null)
+          : saved;
+        const verificationData = verification.data;
         const m = (verificationData?.metadata ?? {}) as Record<string, unknown>;
-        const resolvedStatus = verificationData?.status ?? saved?.status ?? null;
+        const resolvedStatus = verificationData?.status ?? relevantSaved?.status ?? null;
         if (resolvedStatus) setStatus(resolvedStatus);
         setRejectionReason(verificationData?.rejection_reason ?? null);
-        const make = typeof saved?.vehicle_make === "string" ? saved.vehicle_make : m.vehicleMake;
-        const model = typeof saved?.vehicle_model === "string" ? saved.vehicle_model : m.vehicleModel;
-        const savedYear = typeof saved?.vehicle_year === "number" ? saved.vehicle_year : m.vehicleYear;
-        const savedPlate = typeof saved?.vehicle_plate === "string" ? saved.vehicle_plate : m.vehiclePlate;
-        const savedColor = typeof saved?.vehicle_color === "string" ? saved.vehicle_color : m.vehicleColor;
-        const savedCategory = saved?.vehicle_category ?? m.vehicleCategory;
+        const make = typeof relevantSaved?.vehicle_make === "string" ? relevantSaved.vehicle_make : m.vehicleMake;
+        const model = typeof relevantSaved?.vehicle_model === "string" ? relevantSaved.vehicle_model : m.vehicleModel;
+        const savedYear = typeof relevantSaved?.vehicle_year === "number" ? relevantSaved.vehicle_year : m.vehicleYear;
+        const savedPlate = typeof relevantSaved?.vehicle_plate === "string" ? relevantSaved.vehicle_plate : m.vehiclePlate;
+        const savedColor = typeof relevantSaved?.vehicle_color === "string" ? relevantSaved.vehicle_color : m.vehicleColor;
+        const savedCategory = relevantSaved?.vehicle_category ?? m.vehicleCategory;
         if (typeof m.vehicleVideoPath === "string") setVehicleVideoPath(m.vehicleVideoPath);
         if (typeof make === "string") setSelectedMake(make);
         if (typeof model === "string") setSavedModelName(model);
@@ -136,7 +136,7 @@ export default function DriverOnboarding() {
         if (typeof savedColor === "string") setColor(savedColor);
         if (largeDriverMode) setCategory("large");
         else if (savedCategory === "economy" || savedCategory === "premium" || savedCategory === "luxury" || savedCategory === "large") setCategory(savedCategory);
-        const savedVehicleType = saved?.vehicle_type ?? m.vehicleType;
+        const savedVehicleType = relevantSaved?.vehicle_type ?? m.vehicleType;
         if (savedVehicleType === "kia_cargo" || savedVehicleType === "kia_passenger" || savedVehicleType === "bus") setVehicleType(savedVehicleType);
         setOriginalVehicle({ make: make ?? (largeDriverMode ? "كيا" : ""), model: model ?? (largeDriverMode ? "كيا حمل" : ""), year: savedYear == null ? "" : String(savedYear), plate: savedPlate ?? "", color: savedColor ?? null, category: savedCategory ?? (largeDriverMode ? "large" : "economy"), vehicleType: savedVehicleType ?? null });
         setCheckingSavedDriver(false);
@@ -339,8 +339,11 @@ export default function DriverOnboarding() {
         }
         // Reconcile a missing provider role only through the server-side guard;
         // this function grants the role only when the provider profile is approved.
-        const { error: roleError } = await supabase.rpc("grant_provider_role_safe", { _role: providerRole as any });
+        const { data: roleGranted, error: roleError } = await supabase.rpc("grant_provider_role_safe", { _role: providerRole as any });
         if (roleError) throw new Error(`تعذر التحقق من اعتماد حساب السائق: ${roleError.message}`);
+        if (roleGranted !== true) {
+          throw new Error("هذا المسار مخصص للحساب المعتمد فقط. إذا كنت تسجل لأول مرة، ارجع إلى التسجيل الأولي ولا ترسل طلب تحديث.");
+        }
         const { error } = await (supabase as any).rpc("submit_provider_change_request", {
           _provider_type: providerRole,
           _requested_data: {
