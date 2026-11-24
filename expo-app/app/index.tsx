@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useAuth } from "@/lib/auth-context";
+import mamnoonLogo from "../assets/mamnoon-logo.png";
 import { useCompanyBranding } from "@/lib/company-branding";
 import { useEffect, useRef, useState } from "react";
 import { View, ActivityIndicator, Image, Text, StyleSheet, Animated, Easing } from "react-native";
@@ -62,7 +63,7 @@ export default function Index() {
     return (
       <View style={styles.center}>
         <Animated.View style={{ transform: [{ scale: logoScale }] }}>
-          <Image source={logoUrl ? { uri: logoUrl } : require("../assets/mamnoon-logo.png")} style={styles.logo} resizeMode="contain" />
+          <Image source={logoUrl ? { uri: logoUrl } : mamnoonLogo} style={styles.logo} resizeMode="contain" />
         </Animated.View>
         <Text style={styles.brand}>أهلاً بك في {companyName}</Text>
         {welcomeVisualUrl ? <Animated.View style={{ transform: [{ scale: visualScale }] }}><ExpoImage source={{ uri: welcomeVisualUrl }} style={styles.welcomeVisual} contentFit="cover" autoplay={welcomeVisualAnimated} /></Animated.View> : null}
