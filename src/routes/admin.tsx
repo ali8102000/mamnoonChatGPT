@@ -44,7 +44,6 @@ import {
   adminGetDashboardStats,
   adminGetGovernorateUserStats,
   adminGetCustomerActivityStats,
-  adminUpdateUserProfile,
   adminUpdateAccount,
   adminGetLiveLocations,
   adminGetLiveRequests,
@@ -950,7 +949,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
   const [businessAddress, setBusinessAddress] = useState(partner.address ?? "");
   const [businessDescription, setBusinessDescription] = useState(partner.description ?? "");
   const [businessVertical, setBusinessVertical] = useState(partner.business_vertical ?? "");
-  const [businessMallUnitType, setBusinessMallUnitType] = useState(partner.mall_unit_type ?? "shop");
+  const [businessMallUnitType, setBusinessMallUnitType] = useState(partner.mall_unit_type ?? (["store","mall"].includes(partner.partner_type) ? "shop" : ""));
   const [businessLatitude, setBusinessLatitude] = useState(String(partner.latitude ?? partner.business_latitude ?? ""));
   const [businessLongitude, setBusinessLongitude] = useState(String(partner.longitude ?? partner.business_longitude ?? ""));
   const [businessPublished, setBusinessPublished] = useState(partner.is_published === true);
@@ -985,7 +984,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
           business_name: businessName, contact_name: businessContact, license_number: businessLicense,
           phone: businessPhone, email: businessEmail || null, governorate_key: businessGovernorate || null,
           city: businessCity, address: businessAddress, description: businessDescription,
-          business_vertical: businessVertical || null, mall_unit_type: businessMallUnitType,
+          business_vertical: businessVertical || null, mall_unit_type: ["store","mall"].includes(partner.partner_type) ? businessMallUnitType : null,
           latitude: businessLatitude ? Number(businessLatitude) : null,
           longitude: businessLongitude ? Number(businessLongitude) : null, is_published: businessPublished,
         } } : {}),
@@ -1051,7 +1050,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
               <select value={businessGovernorate} onChange={e=>setBusinessGovernorate(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="">المحافظة</option>{Object.entries(GOVERNORATE_LABELS).filter(([key])=>key!=="unknown").map(([key,label])=><option key={key} value={key}>{label}</option>)}</select>
               <input value={businessCity} onChange={e=>setBusinessCity(e.target.value)} placeholder="المدينة" className="glass rounded-lg p-2 text-xs"/>
               <input value={businessVertical} onChange={e=>setBusinessVertical(e.target.value)} placeholder="نوع النشاط" className="glass rounded-lg p-2 text-xs"/>
-              <select value={businessMallUnitType} onChange={e=>setBusinessMallUnitType(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="shop">محل</option><option value="mall">مول</option><option value="kiosk">كشك</option></select>
+              {["store","mall"].includes(partner.partner_type) && <select value={businessMallUnitType} onChange={e=>setBusinessMallUnitType(e.target.value)} className="glass rounded-lg p-2 text-xs"><option value="shop">محل</option><option value="mall">مول</option><option value="kiosk">كشك</option></select>}
               <input value={businessLatitude} onChange={e=>setBusinessLatitude(e.target.value)} placeholder="خط العرض" className="glass rounded-lg p-2 text-xs"/>
               <input value={businessLongitude} onChange={e=>setBusinessLongitude(e.target.value)} placeholder="خط الطول" className="glass rounded-lg p-2 text-xs"/>
             </div>
