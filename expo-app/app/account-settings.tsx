@@ -186,6 +186,7 @@ export default function AccountSettingsScreen() {
       if (error) throw error;
       Alert.alert("تم إرسال الطلب", "وصل طلب الشراكة إلى إدارة ممنون وبانتظار المراجعة.");
       setPartnerFormOpen(false);
+      setPartnerLocationSelected(false); setPartnerPlaceQuery("");
       setPartnerName(""); setPartnerCity(""); setPartnerAddress(""); setPartnerDescription(""); setPartnerLicenseNumber(""); setPartnerDocs({license:null,idFront:null,idBack:null});
       await loadPartnerApplications();
     } catch (error) {
