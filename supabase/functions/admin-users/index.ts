@@ -216,6 +216,17 @@ Deno.serve(async (req: Request) => {
       const workerInput = body.worker_profile && typeof body.worker_profile === "object" && !Array.isArray(body.worker_profile) ? body.worker_profile : {};
       const partnerInput = body.partner_profile && typeof body.partner_profile === "object" && !Array.isArray(body.partner_profile) ? body.partner_profile : {};
       const textValue = (value: unknown, max: number) => typeof value === "string" && value.trim().length <= max ? value.trim() : null;
+      const normalizeIraqiPhone = (value: unknown) => {
+        const raw = textValue(value, 30);
+        if (!raw) return null;
+        let digits = raw.replace(/\D/g, "");
+        if (!raw.startsWith("+")) {
+          if (digits.startsWith("00")) digits = digits.slice(2);
+          if (digits.startsWith("0")) digits = "964" + digits.slice(1);
+          else if (!digits.startsWith("964")) digits = "964" + digits;
+        }
+        return digits.length >= 12 && digits.length <= 15 ? "+" + digits : null;
+      };
       const profileUpdates: Record<string, unknown> = {};
       if (profileInput.full_name !== undefined) {
         const value = textValue(profileInput.full_name, 100);
@@ -223,9 +234,9 @@ Deno.serve(async (req: Request) => {
         profileUpdates.full_name = value;
       }
       if (profileInput.phone !== undefined) {
-        const value = textValue(profileInput.phone, 30);
-        if (!value || !/^\+?[0-9]{7,15}$/.test(value.replace(/[\s()-]/g, ""))) return json({ error: "invalid_phone" }, 400);
-        profileUpdates.phone = value.replace(/[\s()-]/g, "");
+        const value = normalizeIraqiPhone(profileInput.phone);
+        if (!value) return json({ error: "invalid_phone" }, 400);
+        profileUpdates.phone = value;
       }
       if (profileInput.email !== undefined) {
         const value = textValue(profileInput.email, 254);
@@ -366,6 +377,32 @@ Deno.serve(async (req: Request) => {
       const partnerAllowed = ["business_name","phone","email","governorate_key","city","address","description","opening_hours","social_links","is_published","business_vertical","promotion_governorates","promotion_radius_km","promotion_latitude","promotion_longitude","latitude","longitude"];
       const partnerUpdates: Record<string, unknown> = {};
       for (const key of partnerAllowed) if (partnerInput[key] !== undefined) partnerUpdates[key] = partnerInput[key];
+      if (partnerInput.business_name !== undefined) {
+        const value = textValue(partnerInput.business_name, 150);
+        if (!value) return json({ error: "invalid_partner_business_name" }, 400);
+        partnerUpdates.business_name = value;
+      }
+      if (partnerInput.phone !== undefined) {
+        const value = partnerInput.phone === null || partnerInput.phone === "" ? null : normalizeIraqiPhone(partnerInput.phone);
+        if (partnerInput.phone !== null && partnerInput.phone !== "" && !value) return json({ error: "invalid_partner_phone" }, 400);
+        partnerUpdates.phone = value;
+      }
+      if (partnerInput.email !== undefined) {
+        const value = textValue(partnerInput.email, 254);
+        if (value && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) return json({ error: "invalid_partner_email" }, 400);
+        partnerUpdates.email = value || null;
+      }
+      if (partnerInput.governorate_key !== undefined) {
+        const allowed = ["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
+        if (partnerInput.governorate_key !== null && !allowed.includes(partnerInput.governorate_key)) return json({ error: "invalid_partner_governorate" }, 400);
+      }
+      for (const [key, max] of [["city",120],["address",500],["description",2000]] as const) {
+        if (partnerInput[key] !== undefined) {
+          const value = partnerInput[key] === null ? null : textValue(partnerInput[key], max);
+          if (partnerInput[key] !== null && value === null) return json({ error: "invalid_partner_field:" + key }, 400);
+          partnerUpdates[key] = value;
+        }
+      }
       const applicationFields: Record<string, unknown> = {};
       for (const key of ["business_name","phone","email","governorate_key","city","address","description"] as const) if (partnerUpdates[key] !== undefined) applicationFields[key] = partnerUpdates[key];
       for (const key of ["contact_name","license_number","mall_unit_type","business_latitude","business_longitude"] as const) {
