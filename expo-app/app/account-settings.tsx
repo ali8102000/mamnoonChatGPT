@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import MapView from "react-native-maps";
 import * as Location from "expo-location";
@@ -43,8 +43,10 @@ export default function AccountSettingsScreen() {
   const [partnerDescription, setPartnerDescription] = useState("");
   const [partnerLicenseNumber, setPartnerLicenseNumber] = useState("");
   const [partnerDocs, setPartnerDocs] = useState<{license:ImagePicker.ImagePickerAsset|null;idFront:ImagePicker.ImagePickerAsset|null;idBack:ImagePicker.ImagePickerAsset|null}>({license:null,idFront:null,idBack:null});
-  const [partnerLat, setPartnerLat] = useState(33.3152);
-  const [partnerLng, setPartnerLng] = useState(44.3661);
+  const [partnerLat, setPartnerLat] = useState(32.0000);
+  const [partnerLng, setPartnerLng] = useState(44.3300);
+  const [partnerLocationSelected, setPartnerLocationSelected] = useState(false);
+  const partnerMapRef = useRef<MapView | null>(null);
   const [partnerPlaceQuery, setPartnerPlaceQuery] = useState("");
   const [partnerMapBusy, setPartnerMapBusy] = useState(false);
   const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
@@ -124,6 +126,11 @@ export default function AccountSettingsScreen() {
     if (asset.fileSize && asset.fileSize > 8 * 1024 * 1024) { Alert.alert("حجم الملف كبير", "الحد الأعلى لكل مستند 8 ميغابايت"); return; }
     setPartnerDocs(old => ({ ...old, [key]: asset }));
   }
+  function setPartnerBusinessPoint(latitude: number, longitude: number) {
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return;
+    setPartnerLat(latitude); setPartnerLng(longitude); setPartnerLocationSelected(true);
+    partnerMapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.035, longitudeDelta: 0.035 }, 600);
+  }
   async function locatePartnerBusiness() {
     setPartnerMapBusy(true);
     try {
@@ -131,7 +138,7 @@ export default function AccountSettingsScreen() {
       if (!permission.granted) permission = await Location.requestForegroundPermissionsAsync();
       if (!permission.granted) throw new Error("اسمح لممنون بالوصول للموقع حتى نحدد موقع المنشأة.");
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setPartnerLat(position.coords.latitude); setPartnerLng(position.coords.longitude);
+      setPartnerBusinessPoint(position.coords.latitude, position.coords.longitude);
     } catch (error) {
       Alert.alert("تعذر تحديد الموقع", error instanceof Error ? error.message : "حاول مرة ثانية.");
     } finally { setPartnerMapBusy(false); }
@@ -141,9 +148,10 @@ export default function AccountSettingsScreen() {
     if (query.length < 3) { Alert.alert("اكتب المكان", "اكتب اسم المنطقة أو الشارع أو المكان."); return; }
     setPartnerMapBusy(true);
     try {
-      const matches = await Location.geocodeAsync(query + ", Iraq");
+      const searchText = [query, partnerCity.trim(), governorateLabels[partnerGovernorate], "Iraq"].filter(Boolean).join(", ");
+      const matches = await Location.geocodeAsync(searchText);
       if (!matches.length) throw new Error("ما لكيت هذا المكان. جرّب اسم منطقة أو شارع أوضح.");
-      setPartnerLat(matches[0].latitude); setPartnerLng(matches[0].longitude);
+      setPartnerBusinessPoint(matches[0].latitude, matches[0].longitude);
     } catch (error) {
       Alert.alert("تعذر البحث", error instanceof Error ? error.message : "حاول مرة ثانية.");
     } finally { setPartnerMapBusy(false); }
@@ -153,6 +161,7 @@ export default function AccountSettingsScreen() {
     if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4 || partnerLicenseNumber.trim().length < 2) {
       Alert.alert("بيانات ناقصة", "كمّل اسم المنشأة واسم المسؤول والهاتف ورقم الإجازة والمدينة والعنوان."); return;
     }
+    if (!partnerLocationSelected) { Alert.alert("حدد موقع المنشأة", "حرّك الخريطة إلى مدخل الفندق أو المول وحدد الموقع قبل الإرسال."); return; }
     if (!partnerDocs.license || !partnerDocs.idFront || !partnerDocs.idBack) { Alert.alert("المستندات مطلوبة", "ارفع إجازة العمل وصورتي هوية الوجهين."); return; }
     setPartnerBusy(true);
     try {
@@ -443,12 +452,12 @@ export default function AccountSettingsScreen() {
             </View>
             <TouchableOpacity disabled={partnerMapBusy} onPress={()=>void locatePartnerBusiness()} style={styles.partnerDocButton}><Text style={styles.partnerDocTitle}>{partnerMapBusy?"جارٍ تحديد الموقع...":"تحديد موقعي الحالي"}</Text></TouchableOpacity>
             <View style={{height:250,borderRadius:14,overflow:"hidden",marginBottom:10}}>
-              <MapView style={{flex:1}} initialRegion={{latitude:partnerLat,longitude:partnerLng,latitudeDelta:0.035,longitudeDelta:0.035}} region={{latitude:partnerLat,longitude:partnerLng,latitudeDelta:0.035,longitudeDelta:0.035}} onRegionChangeComplete={region=>{setPartnerLat(region.latitude);setPartnerLng(region.longitude);}} showsUserLocation>
+              <MapView ref={partnerMapRef} style={{flex:1}} initialRegion={{latitude:partnerLat,longitude:partnerLng,latitudeDelta:0.035,longitudeDelta:0.035}} onPanDrag={()=>setPartnerLocationSelected(true)} onRegionChangeComplete={region=>{setPartnerLat(region.latitude);setPartnerLng(region.longitude);}} showsUserLocation>
               </MapView>
               <View pointerEvents="none" style={{position:"absolute",left:"50%",top:"50%",marginLeft:-14,marginTop:-30,width:28,height:36,alignItems:"center",justifyContent:"center"}}><Text style={{fontSize:30,color:"#D32F2F",fontWeight:"900",textShadowColor:"#fff",textShadowRadius:3}}>📍</Text></View>
             </View>
           </View>
-          <Text style={styles.note}>الإحداثيات: {partnerLat.toFixed(6)}, {partnerLng.toFixed(6)}</Text>
+          <Text style={styles.note}>الإحداثيات: {partnerLat.toFixed(6)}, {partnerLng.toFixed(6)} · {partnerLocationSelected?"تم تحديد الموقع":"حرّك الخريطة لتحديد الموقع"}</Text>
           <Text style={styles.partnerLabel}>المستندات الإلزامية</Text>
           {([{key:"license",label:"إجازة العمل / رخصة النشاط"},{key:"idFront",label:"هوية صاحب المنشأة - الوجه الأمامي"},{key:"idBack",label:"هوية صاحب المنشأة - الوجه الخلفي"}] as const).map(item=><TouchableOpacity key={item.key} onPress={()=>void pickPartnerDoc(item.key)} style={styles.partnerDocButton}><Text style={styles.partnerDocTitle}>{item.label}</Text><Text style={styles.note}>{partnerDocs[item.key]?.fileName||"اضغط لاختيار صورة واضحة"}</Text></TouchableOpacity>)}
           <Text style={styles.note}>المستندات سرية ولا تظهر للزبائن، والحد الأعلى 8 ميغابايت لكل صورة.</Text>
