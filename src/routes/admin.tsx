@@ -961,6 +961,11 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
     if ((businessLatitude.trim() !== "") !== (businessLongitude.trim() !== "")) { toast.error("أدخل خط العرض وخط الطول معاً أو اتركهما فارغين"); return; }
     if (businessLatitude.trim() && (!Number.isFinite(Number(businessLatitude)) || Number(businessLatitude) < -90 || Number(businessLatitude) > 90 || !Number.isFinite(Number(businessLongitude)) || Number(businessLongitude) < -180 || Number(businessLongitude) > 180)) { toast.error("إحداثيات موقع المنشأة غير صحيحة"); return; }
     if (avatarFile && avatarFile.size > 5 * 1024 * 1024) { toast.error("حجم الصورة يجب ألا يتجاوز 5 ميغابايت"); return; }
+    if ((user.partnerBusinessProfiles?.length || user.partnerApplications?.length) &&
+        (!businessName.trim() || !businessPhone.trim() || !businessGovernorate.trim() || !businessCity.trim() || !businessAddress.trim() || (user.partnerBusinessProfiles?.length && !businessVertical.trim()))) {
+      toast.error("اسم المنشأة والهاتف والمحافظة والمدينة والعنوان ونوع النشاط حقول مطلوبة");
+      return;
+    }
     setSaving(true);
     try {
       let avatar_base64: string | undefined;
@@ -969,6 +974,32 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
         let binary = ""; for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
         avatar_base64 = btoa(binary);
       }
+      const business = user.partnerBusinessProfiles?.[0] ?? {};
+      const application = user.partnerApplications?.[0] ?? {};
+      const hasPartner = !!(user.partnerBusinessProfiles?.length || user.partnerApplications?.length);
+      const partnerChanges: Record<string, unknown> = {};
+      const partnerPairs: [string, unknown, unknown][] = [
+        ["business_name", businessName.trim(), business.business_name ?? application.business_name ?? ""],
+        ["phone", businessPhone.trim(), business.phone ?? application.phone ?? ""],
+        ["email", businessEmail.trim() || null, business.email ?? application.email ?? null],
+        ["governorate_key", businessGovernorate || null, business.governorate_key ?? application.governorate_key ?? null],
+        ["city", businessCity.trim(), business.city ?? application.city ?? ""],
+        ["address", businessAddress.trim(), business.address ?? application.address ?? ""],
+        ["description", businessDescription.trim(), business.description ?? application.description ?? ""],
+        ["business_vertical", businessVertical || null, business.business_vertical ?? null],
+        ["contact_name", businessContact.trim(), application.contact_name ?? ""],
+        ["license_number", businessLicense.trim() || null, application.license_number ?? null],
+        ["mall_unit_type", businessMallUnitType || null, application.mall_unit_type ?? null],
+        ["latitude", businessLatitude.trim() ? Number(businessLatitude) : null, business.latitude ?? application.business_latitude ?? null],
+        ["longitude", businessLongitude.trim() ? Number(businessLongitude) : null, business.longitude ?? application.business_longitude ?? null],
+        ["is_published", businessPublished, business.is_published ?? false],
+      ];
+      for (const [key, value, original] of partnerPairs) if (value !== original) partnerChanges[key] = value;
+      const partner_profile = hasPartner ? {
+        business_profile_id: business.id ?? null,
+        application_id: business.application_id ?? application.id ?? null,
+        ...partnerChanges,
+      } : undefined;
       const updated = await adminUpdateAccount({ data: {
         user_id: user.profile.id,
         profile: {
@@ -987,16 +1018,7 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
           bio: workerBio, level: workerLevel, service_radius_km: Number(serviceRadius), team_size: Number(teamSize),
           service_ids: workerServiceIds,
         } } : {}),
-        ...(user.partnerBusinessProfiles?.length || user.partnerApplications?.length ? { partner_profile: {
-          business_profile_id: user.partnerBusinessProfiles?.[0]?.id ?? null,
-          application_id: user.partnerBusinessProfiles?.[0]?.application_id ?? user.partnerApplications?.[0]?.id ?? null,
-          business_name: businessName, contact_name: businessContact, license_number: businessLicense,
-          phone: businessPhone, email: businessEmail || null, governorate_key: businessGovernorate || null,
-          city: businessCity, address: businessAddress, description: businessDescription,
-          business_vertical: businessVertical || null, mall_unit_type: ["store","mall"].includes(partner.partner_type) ? businessMallUnitType : null,
-          latitude: businessLatitude ? Number(businessLatitude) : null,
-          longitude: businessLongitude ? Number(businessLongitude) : null, is_published: businessPublished,
-        } } : {}),
+        ...(partner_profile ? { partner_profile } : {}),
       } });
       onSave({ profile: updated.profile ?? {}, driverProfile: updated.driver_profile ?? {}, workerProfile: updated.worker_profile ?? {} });
       setAvatarFile(null); toast.success("تم حفظ جميع التعديلات الإدارية");
