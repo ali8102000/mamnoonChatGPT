@@ -317,7 +317,7 @@ export default function RequestDetail() {
     : null;
   const urgentOfferFlash = activeOfferSeconds !== null && activeOfferSeconds <= 10 && activeOfferSeconds % 2 === 0;
 
-  const openTaxiNavigation = useCallback((app: "google" | "waze") => {
+  const openTaxiNavigation = useCallback((app: "google" | "waze" | "darbuna") => {
     if (!request) return;
     const customerTaxiDestination = request.type === "taxi" && isCustomer &&
       request.dest_lat != null && request.dest_lng != null;
@@ -337,7 +337,9 @@ export default function RequestDetail() {
     const destination = `${latitude},${longitude}`;
     const url = app === "google"
       ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate`
-      : `https://waze.com/ul?ll=${encodeURIComponent(destination)}&navigate=yes`;
+      : app === "waze"
+        ? `https://waze.com/ul?ll=${encodeURIComponent(destination)}&navigate=yes`
+        : `https://map.darbuna.app/pin/${latitude},${longitude},17z`;
 
     void Linking.openURL(url).catch((error) => {
       console.warn("[taxi navigation] unable to open navigation app:", error);
@@ -349,6 +351,7 @@ export default function RequestDetail() {
     Alert.alert("تحديد المسار", request?.type === "service" ? "اختَر التطبيق لفتح مسار موقع العمل." : "اختَر التطبيق لفتح مسار الزبون أو الوجهة.", [
       { text: "خرائط Google", onPress: () => openTaxiNavigation("google") },
       { text: "Waze", onPress: () => openTaxiNavigation("waze") },
+      { text: "دربونة", onPress: () => openTaxiNavigation("darbuna") },
       { text: "إلغاء", style: "cancel" },
     ]);
   }, [openTaxiNavigation, request?.type]);
