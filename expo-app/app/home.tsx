@@ -148,21 +148,40 @@ export default function HomeScreen() {
       return;
     }
     const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
-    supabase
-      .from(table)
-      .select("available, status")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) {
-          Alert.alert("تعذر تحميل الحالة", "حاول تحديث الصفحة");
-          return;
-        }
-        const status = String(data?.status ?? "pending");
-        setAvailable(Boolean(data?.available));
-        setVerified(status === "approved");
-        setVerificationStatus(status);
-      });
+    // Verification is role-specific: an approved large-driver account must
+    // not be blocked by a separate pending worker verification on the same user.
+    // provider_verifications is the authoritative per-role review record; the
+    // profile status remains a compatibility fallback for legacy accounts.
+    Promise.all([
+      supabase
+        .from(table)
+        .select("available, status")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      (supabase as any)
+        .from("provider_verifications")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("provider_type", selectedRole)
+        .maybeSingle(),
+    ]).then(([profileResult, verificationResult]) => {
+      if (profileResult.error && verificationResult.error) {
+        console.warn("[provider-verification] Could not load role status:", profileResult.error, verificationResult.error);
+        Alert.alert("تعذر تحميل الحالة", "تحقق من اتصال الإنترنت ثم حدّث الصفحة.");
+        return;
+      }
+      if (profileResult.error) console.warn("[provider-verification] Profile status lookup failed:", profileResult.error);
+      if (verificationResult.error) console.warn("[provider-verification] Role verification lookup failed:", verificationResult.error);
+      const profileStatus = String(profileResult.data?.status ?? "");
+      const roleVerificationStatus = String(verificationResult.data?.status ?? "");
+      const status = roleVerificationStatus || profileStatus || "pending";
+      const isApproved = roleVerificationStatus
+        ? roleVerificationStatus === "approved"
+        : profileStatus === "approved";
+      setAvailable(Boolean(profileResult.data?.available));
+      setVerified(isApproved);
+      setVerificationStatus(status);
+    });
   }, [selectedRole, user]);
 
   useEffect(() => {
