@@ -600,7 +600,7 @@ export default function DriverOnboarding() {
       </View>
 
       <Text style={styles.label}>صورة الوجه الشخصية *</Text>
-      {largeDriverMode && <Text style={styles.note}>الصورة الشخصية إلزامية ويجب أن تكون واضحة وحديثة وتُظهر وجه السائق نفسه، حتى تتمكن الإدارة من مطابقتها بصرياً مع صورة الهوية.</Text>}
+      <Text style={styles.note}>الصورة الشخصية إلزامية لجميع فئات السائقين. ارفع صورة حديثة وواضحة لوجهك أنت، بدون فلاتر أو أشخاص آخرين، حتى تتمكن الإدارة من مطابقتها مع صورة الهوية قبل تفعيل الحساب.</Text>
       <TouchableOpacity style={styles.photoButton} onPress={() => pickPhoto("face")}>
         {facePhoto ? <Image source={{ uri: facePhoto.uri }} style={styles.preview} /> : <Text style={styles.photoText}>فتح الكاميرا والتقاط صورة الوجه</Text>}
       </TouchableOpacity>
