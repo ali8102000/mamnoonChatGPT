@@ -100,7 +100,7 @@ export default function AdminCompanySettings() {
       <input id="company-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" placeholder="مثلاً: شركة ممنون" />
       <label className="block text-sm font-bold" htmlFor="company-logo-upload">شعار الشركة الظاهر بالتطبيق</label>
       <div className="flex flex-wrap items-center gap-3">
-        {logoPreview || logoUrl ? <img src={logoPreview || logoUrl} alt={`معاينة شعار ${name || "الشركة"}`} className="h-20 w-20 rounded-2xl border border-border bg-background object-contain p-2" /> : <div className="grid h-20 w-20 place-items-center rounded-2xl bg-primary text-3xl font-black text-primary-foreground">م</div>}
+        <img src={logoPreview || logoUrl || "/mamnoon-logo.png"} alt={`معاينة شعار ${name || "الشركة"}`} className="h-20 w-20 rounded-2xl border border-border bg-background object-contain p-2" />
         <div className="flex flex-col gap-2">
           <label htmlFor="company-logo-upload" className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90">
             {logoFile ? "اختيار صورة أخرى" : "اختيار صورة الشعار"}
@@ -115,7 +115,7 @@ export default function AdminCompanySettings() {
         {(welcomeVisualPreview || welcomeVisualUrl) ? <img src={welcomeVisualPreview || welcomeVisualUrl} alt="معاينة الصورة الرئيسية" className="h-28 w-44 rounded-xl bg-slate-950 object-cover" /> : <div className="grid h-28 w-44 place-items-center rounded-xl bg-slate-950 text-xs font-bold text-white">معاينة الصورة</div>}
         <div className="flex flex-col gap-2"><label htmlFor="company-welcome-visual" className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">اختيار أو تبديل الصورة</label><input id="company-welcome-visual" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => setWelcomeVisualFile(e.target.files?.[0] ?? null)} className="sr-only" /><span className="text-[11px] text-muted-foreground">PNG أو JPG أو WEBP أو GIF متحرك · الحد الأعلى 12 ميغابايت</span></div>
       </div>
-      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 text-sm font-bold"><input type="checkbox" checked={welcomeVisualAnimated} onChange={(e) => setWelcomeVisualAnimated(e.target.checked)} className="h-5 w-5 accent-primary" /> تفعيل حركة تفاعلية ناعمة للصورة عند فتح التطبيق</label>
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 text-sm font-bold"><input type="checkbox" checked={welcomeVisualAnimated} onChange={(e) => setWelcomeVisualAnimated(e.target.checked)} className="h-5 w-5 accent-primary" /> تفعيل حركة تفاعلية ناعمة للشعار وصورة البداية عند فتح التطبيق</label>
       <label className="block text-sm font-bold" htmlFor="driver-video-max-duration">الحد الأعلى لمدة فيديو توثيق السيارة (ثانية)</label>
       <div className="flex items-center gap-3">
         <input id="driver-video-max-duration" type="number" min={1} max={60} step={1} value={driverVideoMaxDurationSeconds} onChange={(e) => setDriverVideoMaxDurationSeconds(Number(e.target.value))} className="w-28 rounded-xl border border-border bg-background px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary" />
