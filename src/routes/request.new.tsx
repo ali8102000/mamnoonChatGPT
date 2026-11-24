@@ -1470,6 +1470,7 @@ function NewRequest() {
       <MapPicker
         key={gov?.key ?? "no-governorate"}
         value={pickupCoords}
+        height={220}
         accent="#0284c7"
         nearby={nearby}
         nearbyKind="worker"

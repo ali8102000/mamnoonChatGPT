@@ -269,6 +269,7 @@ export default function NewRequest() {
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
   const [nearbyWorkers, setNearbyWorkers] = useState<Array<{ pin_id: string; lat: number; lng: number; heading: number | null }>>([]);
   const [locationLoading, setLocationLoading] = useState(true);
+  const [serviceMapExpanded, setServiceMapExpanded] = useState(false);
   const [vehicleCat, setVehicleCat] = useState<VehicleCategory>(vehicle === "large" ? "large" : "economy");
   const [uiVisuals, setUiVisuals] = useState<Record<string, any>>({});
   const [urgencyEnabled, setUrgencyEnabled] = useState(false);
@@ -1938,7 +1939,7 @@ export default function NewRequest() {
         </View>
       )}
 
-      <View style={[styles.mapContainer, { height: window.height }]}>
+      <View style={[styles.mapContainer, { height: serviceMapExpanded ? Math.round(window.height * 0.72) : 220 }]}>
         <MapView
           ref={mapRef}
           style={styles.map}
@@ -1964,6 +1965,14 @@ export default function NewRequest() {
           ))}
         </MapView>
         <View pointerEvents="none" style={styles.mapCenterPin}><MapCenterPin /></View>
+        <TouchableOpacity
+          onPress={() => setServiceMapExpanded((expanded) => !expanded)}
+          accessibilityRole="button"
+          accessibilityLabel={serviceMapExpanded ? "تصغير الخريطة" : "تكبير الخريطة"}
+          style={{ position: "absolute", top: 10, right: 10, zIndex: 10, minHeight: 40, paddingHorizontal: 13, borderRadius: 13, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", elevation: 5 }}
+        >
+          <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900" }}>{serviceMapExpanded ? "تصغير الخريطة −" : "تكبير الخريطة ⛶"}</Text>
+        </TouchableOpacity>
         <Text style={styles.mapHint}>
           {mapMode === "pickup"
             ? "حرّك الخريطة حتى تصبح النقطة تحت الدبوس"
