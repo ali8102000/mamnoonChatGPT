@@ -222,8 +222,11 @@ export default function WorkerOnboarding() {
       setBusy(true);
       try {
         // Idempotently restore the worker role only if the database confirms approval.
-        const { error: roleError } = await supabase.rpc("grant_provider_role_safe", { _role: "worker" });
+        const { data: roleGranted, error: roleError } = await supabase.rpc("grant_provider_role_safe", { _role: "worker" });
         if (roleError) throw new Error(`تعذر التحقق من اعتماد حساب الفني: ${roleError.message}`);
+        if (roleGranted !== true) {
+          throw new Error("هذا المسار مخصص للفني المعتمد فقط. أكمل التسجيل الأولي إذا لم يسبق اعتماد حسابك.");
+        }
         const { error } = await (supabase as any).rpc("submit_provider_change_request", {
           _provider_type: "worker",
           _requested_data: { service_ids: selected },
