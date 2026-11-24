@@ -971,7 +971,9 @@ function UserDetailModal({ user, canEdit, onClose, onSave }: { user: any; canEdi
       const updated = await adminUpdateAccount({ data: {
         user_id: user.profile.id,
         profile: {
-          full_name: fullName.trim(), phone: phone.trim(), email: email.trim() || null,
+          full_name: fullName.trim(),
+          ...(phone.trim() !== String(user.profile?.phone ?? "") ? { phone: phone.trim() } : {}),
+          ...(email.trim() !== String(user.profile?.email ?? "") ? { email: email.trim() || null } : {}),
           governorate_key: governorateKey || null,
           ...(avatar_base64 ? { avatar_base64, avatar_mime: avatarFile!.type as "image/jpeg" | "image/png" | "image/webp" } : {}),
         },
