@@ -12,6 +12,7 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  Linking,
   Image,
   Vibration,
 } from "react-native";
@@ -59,7 +60,7 @@ export default function HomeScreen() {
     ? activeRole
     : roles.includes("customer") ? "customer" : roles[0] || "customer";
   const { resolved: resolvedTheme, setMode } = useThemePreference();
-  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualSizePx } = useCompanyBranding();
+  const { companyName, logoUrl: companyLogoUrl, welcomeMessage, homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualWidthPx, homeVisualHeightPx, homeVisualPosition, homeVisualLinkUrl } = useCompanyBranding();
 
   const [available, setAvailable] = useState(false);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
@@ -398,7 +399,7 @@ export default function HomeScreen() {
         {selectedRole === "customer" ? (
           <>
             <HomeCampaignPopups userId={user?.id ?? null} />
-            <CustomerHome userId={user?.id ?? null} homeVisualUrl={homeVisualUrl} homeVisualAnimated={homeVisualAnimated} homeVisualEnabled={homeVisualEnabled} homeVisualSizePx={homeVisualSizePx} />
+            <CustomerHome userId={user?.id ?? null} homeVisualUrl={homeVisualUrl} homeVisualAnimated={homeVisualAnimated} homeVisualEnabled={homeVisualEnabled} homeVisualWidthPx={homeVisualWidthPx} homeVisualHeightPx={homeVisualHeightPx} homeVisualPosition={homeVisualPosition} homeVisualLinkUrl={homeVisualLinkUrl} />
           </>
         ) : (
           <ProviderHome
@@ -468,7 +469,7 @@ function HomeGlyph({ name, color, size = 22 }: { name: HomeGlyphName; color: str
   );
 }
 
-function CustomerHome({ userId, homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualSizePx }: { userId: string | null; homeVisualUrl: string | null; homeVisualAnimated: boolean; homeVisualEnabled: boolean; homeVisualSizePx: number }) {
+function CustomerHome({ userId, homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualWidthPx, homeVisualHeightPx, homeVisualPosition, homeVisualLinkUrl }: { userId: string | null; homeVisualUrl: string | null; homeVisualAnimated: boolean; homeVisualEnabled: boolean; homeVisualWidthPx: number; homeVisualHeightPx: number; homeVisualPosition: string; homeVisualLinkUrl: string }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
@@ -546,6 +547,9 @@ function CustomerHome({ userId, homeVisualUrl, homeVisualAnimated, homeVisualEna
     }, seconds * 1000);
     return () => clearInterval(timer);
   }, [topBanners, topBanner?.scroll_speed, topBanner?.motion_direction]);
+
+  const safeHomeVisualLink = /^https?:\\/\\//i.test(homeVisualLinkUrl.trim()) ? homeVisualLinkUrl.trim() : "";
+  const renderHomeVisual = () => homeVisualEnabled && homeVisualUrl ? <View style={{ alignSelf: "center", width: Math.min(homeVisualWidthPx, Dimensions.get("window").width - 24), height: homeVisualHeightPx, borderRadius: 22, overflow: "hidden", marginTop: 2 }}><TouchableOpacity disabled={!safeHomeVisualLink} activeOpacity={0.85} onPress={() => { if (safeHomeVisualLink) void Linking.openURL(safeHomeVisualLink).catch(() => Alert.alert("تعذر فتح الرابط", "تحقق من الرابط وحاول مرة ثانية.")); }}><ExpoImage source={{ uri: homeVisualUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" autoplay={homeVisualAnimated} /></TouchableOpacity></View> : null;
 
   const tiles = [
     {
@@ -647,9 +651,10 @@ function CustomerHome({ userId, homeVisualUrl, homeVisualAnimated, homeVisualEna
       </View>
       {activeBannerCampaignId ? <HomeCampaignPopups userId={userId} campaignId={activeBannerCampaignId} onClose={() => setActiveBannerCampaignId(null)} /> : null}
 
-      {homeVisualEnabled && homeVisualUrl ? <View style={{ alignSelf: "center", width: Math.min(homeVisualSizePx, Dimensions.get("window").width - 48), aspectRatio: 1, borderRadius: 22, overflow: "hidden", marginTop: 2 }}><ExpoImage source={{ uri: homeVisualUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" autoplay={homeVisualAnimated} /></View> : null}
+      {homeVisualPosition === "below_banner" ? renderHomeVisual() : null}
 
       <HomeCustomContent userId={userId} placementKey="home.customer.top" />
+      {homeVisualPosition === "below_custom_content" ? renderHomeVisual() : null}
 
       <View style={{ flexDirection: "row", direction: "ltr", flexWrap: "wrap", justifyContent: "space-between", rowGap: gridGap, columnGap: gridGap }}>
         {[...tiles].sort((a,b) => {

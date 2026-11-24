@@ -163,13 +163,13 @@ function HomePage() {
 
         {(activeRole === "driver" || activeRole === "large_driver") && <ProviderHome type="taxi" largeDriverMode={activeRole === "large_driver"} />}
         {activeRole === "worker" && <ProviderHome type="service" />}
-        {activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker" && <CustomerHome homeVisualUrl={branding.homeVisualUrl} homeVisualAnimated={branding.homeVisualAnimated} homeVisualEnabled={branding.homeVisualEnabled} homeVisualSizePx={branding.homeVisualSizePx} />}
+        {activeRole !== "driver" && activeRole !== "large_driver" && activeRole !== "worker" && <CustomerHome homeVisualUrl={branding.homeVisualUrl} homeVisualAnimated={branding.homeVisualAnimated} homeVisualEnabled={branding.homeVisualEnabled} homeVisualWidthPx={branding.homeVisualWidthPx} homeVisualHeightPx={branding.homeVisualHeightPx} homeVisualPosition={branding.homeVisualPosition} homeVisualLinkUrl={branding.homeVisualLinkUrl} />}
       </div>
     </MobileShell>
   );
 }
 
-function CustomerHome({ homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualSizePx }: { homeVisualUrl: string; homeVisualAnimated: boolean; homeVisualEnabled: boolean; homeVisualSizePx: number }) {
+function CustomerHome({ homeVisualUrl, homeVisualAnimated, homeVisualEnabled, homeVisualWidthPx, homeVisualHeightPx, homeVisualPosition, homeVisualLinkUrl }: { homeVisualUrl: string; homeVisualAnimated: boolean; homeVisualEnabled: boolean; homeVisualWidthPx: number; homeVisualHeightPx: number; homeVisualPosition: string; homeVisualLinkUrl: string }) {
   const [visuals, setVisuals] = useState<Record<string, any>>({});
   const [topBanners, setTopBanners] = useState<any[]>([]);
   const [topBannerIndex, setTopBannerIndex] = useState(0);
@@ -224,6 +224,9 @@ function CustomerHome({ homeVisualUrl, homeVisualAnimated, homeVisualEnabled, ho
     return () => window.clearInterval(timer);
   }, [topBanners, topBanner?.scroll_speed, topBanner?.motion_direction]);
 
+  const safeHomeVisualLink = /^https?:\\/\\//i.test(homeVisualLinkUrl.trim()) ? homeVisualLinkUrl.trim() : "";
+  const renderHomeVisual = () => homeVisualEnabled && homeVisualUrl ? <div className="mx-auto overflow-hidden rounded-[22px]" style={{ width: `min(${homeVisualWidthPx}px, calc(100vw - 24px))`, height: `${homeVisualHeightPx}px` }}>{safeHomeVisualLink ? <a href={safeHomeVisualLink} target="_blank" rel="noopener noreferrer" aria-label="فتح رابط الإعلان"><img src={homeVisualUrl} alt="صورة الصفحة الرئيسية" className="h-full w-full object-cover" /></a> : <img src={homeVisualUrl} alt="صورة الصفحة الرئيسية" className="h-full w-full object-cover" />}</div> : null;
+
   return (
     <div className="-mx-2 space-y-3 pt-4">
       <style>{`
@@ -254,9 +257,10 @@ function CustomerHome({ homeVisualUrl, homeVisualAnimated, homeVisualEnabled, ho
       </div>
       {activeBannerCampaignId && <HomeBannerCampaignDialog campaignId={activeBannerCampaignId} onClose={closeBannerCampaign} />}
 
-      {homeVisualEnabled && homeVisualUrl && <div className="mx-auto w-full max-w-[320px] overflow-hidden rounded-[22px]" style={{ width: `min(${homeVisualSizePx}px, calc(100vw - 48px))`, aspectRatio: "1 / 1" }}><img src={homeVisualUrl} alt="صورة الصفحة الرئيسية" className="h-full w-full object-cover" style={{ animation: homeVisualAnimated ? "none" : undefined }} /></div>}
+      {homeVisualPosition === "below_banner" ? renderHomeVisual() : null}
 
       <HomeCustomContent placementKey="home.customer.top" />
+      {homeVisualPosition === "below_custom_content" ? renderHomeVisual() : null}
 
       <div dir="ltr" className="grid" style={{ gap: gridGap, gridTemplateColumns: `minmax(0, ${wideRatio}fr) minmax(0, 1fr)`, gridTemplateRows: `${firstRowHeight}px ${secondRowHeight}px`, gridAutoFlow: "row" }}>
         <QuickTile

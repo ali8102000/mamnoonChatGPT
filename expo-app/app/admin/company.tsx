@@ -26,6 +26,10 @@ export default function CompanySettingsScreen() {
   const [homeVisualAnimated, setHomeVisualAnimated] = useState(true);
   const [homeVisualEnabled, setHomeVisualEnabled] = useState(true);
   const [homeVisualSizePx, setHomeVisualSizePx] = useState(180);
+  const [homeVisualWidthPx, setHomeVisualWidthPx] = useState(320);
+  const [homeVisualHeightPx, setHomeVisualHeightPx] = useState(180);
+  const [homeVisualPosition, setHomeVisualPosition] = useState("below_banner");
+  const [homeVisualLinkUrl, setHomeVisualLinkUrl] = useState("");
   const [removeHomeVisual, setRemoveHomeVisual] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,7 +53,7 @@ export default function CompanySettingsScreen() {
         setWelcomeVisualUrl(data?.company_welcome_visual_url || branding.welcomeVisualUrl);
         setWelcomeVisualAnimated(data?.company_welcome_visual_animated === true);
         setWelcomeVisualSizePx(Number.isInteger(data?.company_welcome_visual_size_px) ? Math.max(80, Math.min(320, data.company_welcome_visual_size_px)) : 180);
-        setHomeVisualUrl(data?.home_visual_url || null); setHomeVisualAnimated(data?.home_visual_animated !== false); setHomeVisualEnabled(data?.home_visual_enabled !== false); setHomeVisualSizePx(Number.isInteger(data?.home_visual_size_px) ? Math.max(80, Math.min(320, data.home_visual_size_px)) : 180);
+        setHomeVisualUrl(data?.home_visual_url || null); setHomeVisualAnimated(data?.home_visual_animated !== false); setHomeVisualEnabled(data?.home_visual_enabled !== false); setHomeVisualSizePx(Number.isInteger(data?.home_visual_size_px) ? Math.max(80, Math.min(320, data.home_visual_size_px)) : 180); setHomeVisualWidthPx(Number.isInteger(data?.home_visual_width_px) ? Math.max(80, Math.min(600, data.home_visual_width_px)) : 320); setHomeVisualHeightPx(Number.isInteger(data?.home_visual_height_px) ? Math.max(80, Math.min(600, data.home_visual_height_px)) : 180); setHomeVisualPosition(["above_banner","below_banner","below_custom_content"].includes(data?.home_visual_position) ? data.home_visual_position : "below_banner"); setHomeVisualLinkUrl(data?.home_visual_link_url ?? "");
       } catch (error: any) {
         if (active) Alert.alert("تعذر تحميل بيانات الشركة", error?.message || "تحقق من الاتصال وحاول مرة ثانية.");
       } finally {
@@ -130,7 +134,7 @@ export default function CompanySettingsScreen() {
       }
       const { error } = await (supabase as any).from("company_settings").upsert({
         id: 1, company_name: companyName, company_logo_url: nextLogoUrl,
-        welcome_message: message, company_welcome_visual_url: nextWelcomeVisualUrl, company_welcome_visual_animated: welcomeVisualAnimated, company_welcome_visual_size_px: welcomeVisualSizePx, home_visual_url: nextHomeVisualUrl, home_visual_animated: homeVisualAnimated, home_visual_enabled: homeVisualEnabled, home_visual_size_px: homeVisualSizePx, updated_by: user.id, updated_at: new Date().toISOString(),
+        welcome_message: message, company_welcome_visual_url: nextWelcomeVisualUrl, company_welcome_visual_animated: welcomeVisualAnimated, company_welcome_visual_size_px: welcomeVisualSizePx, home_visual_url: nextHomeVisualUrl, home_visual_animated: homeVisualAnimated, home_visual_enabled: homeVisualEnabled, home_visual_size_px: homeVisualSizePx, home_visual_width_px: homeVisualWidthPx, home_visual_height_px: homeVisualHeightPx, home_visual_position: homeVisualPosition, home_visual_link_url: homeVisualLinkUrl.trim() || null, updated_by: user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "id" });
       if (error) throw error;
       if (welcomeVisualUrl && nextWelcomeVisualUrl !== welcomeVisualUrl) {
@@ -185,8 +189,11 @@ export default function CompanySettingsScreen() {
         {!!homeVisualUrl && !removeHomeVisual && <TouchableOpacity onPress={()=>Alert.alert("حذف GIF الصفحة الرئيسية","راح تنحذف من الصفحة الرئيسية بعد الحفظ. متأكد؟",[{text:"إلغاء",style:"cancel"},{text:"حذف",style:"destructive",onPress:()=>{setHomeVisualAsset(null);setRemoveHomeVisual(true);}}])} style={s.removeButton}><Text style={s.removeButtonText}>حذف GIF الصفحة الرئيسية</Text></TouchableOpacity>}
         <TouchableOpacity onPress={()=>setHomeVisualEnabled(v=>!v)} style={s.animationToggle}><View style={[s.toggleDot,homeVisualEnabled&&s.toggleDotOn]}/><Text style={s.pickText}>{homeVisualEnabled ? "إظهار GIF الصفحة الرئيسية" : "إخفاء GIF الصفحة الرئيسية"}</Text></TouchableOpacity>
         <TouchableOpacity onPress={()=>setHomeVisualAnimated(v=>!v)} style={s.animationToggle}><View style={[s.toggleDot,homeVisualAnimated&&s.toggleDotOn]}/><Text style={s.pickText}>{homeVisualAnimated ? "حركة GIF مفعّلة" : "حركة GIF متوقفة"}</Text></TouchableOpacity>
-        <Text style={s.label}>حجم GIF الصفحة الرئيسية (80–320 بكسل)</Text>
-        <TextInput value={String(homeVisualSizePx)} onChangeText={value=>setHomeVisualSizePx(Math.max(80,Math.min(320,Math.round(Number(value)||180))))} keyboardType="numeric" style={s.input} textAlign="right"/>
+        <Text style={s.label}>مكان ظهور صورة الصفحة الرئيسية</Text>
+        {([{value:"above_banner",label:"فوق البانر العلوي"},{value:"below_banner",label:"تحت البانر العلوي"},{value:"below_custom_content",label:"بعد محتوى الصفحة وقبل أزرار الطلب"}] as const).map(option=><TouchableOpacity key={option.value} onPress={()=>setHomeVisualPosition(option.value)} style={s.animationToggle}><View style={[s.toggleDot,homeVisualPosition===option.value&&s.toggleDotOn]}/><Text style={s.pickText}>{option.label}</Text></TouchableOpacity>)}
+        <Text style={s.label}>عرض الصورة بالبكسل (80–600)</Text><TextInput value={String(homeVisualWidthPx)} onChangeText={value=>setHomeVisualWidthPx(Math.max(80,Math.min(600,Math.round(Number(value)||80))))} keyboardType="numeric" style={s.input} textAlign="right"/>
+        <Text style={s.label}>ارتفاع الصورة بالبكسل (80–600)</Text><TextInput value={String(homeVisualHeightPx)} onChangeText={value=>setHomeVisualHeightPx(Math.max(80,Math.min(600,Math.round(Number(value)||80))))} keyboardType="numeric" style={s.input} textAlign="right"/>
+        <Text style={s.label}>رابط يفتح عند الضغط على الصورة (اختياري)</Text><TextInput value={homeVisualLinkUrl} onChangeText={setHomeVisualLinkUrl} autoCapitalize="none" keyboardType="url" placeholder="https://example.com" placeholderTextColor={palette.muted} style={s.input} textAlign="left"/>
         <Text style={s.label}>رسالة الترحيب</Text>
         <TextInput value={welcome} onChangeText={setWelcome} maxLength={180} multiline placeholder="مشوارك وخدمات بيتك، بمكان واحد." placeholderTextColor={palette.muted} style={[s.input,{minHeight:120,textAlignVertical:"top",lineHeight:24}]} textAlign="right"/>
         <TouchableOpacity disabled={saving} onPress={()=>void save()} style={[s.saveButton,saving&&{opacity:0.6}]}><Text style={s.saveText}>{saving?"جاري الحفظ...":"حفظ بيانات الشركة"}</Text></TouchableOpacity>
