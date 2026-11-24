@@ -217,6 +217,18 @@ Deno.serve(async (req) => {
   if(!Number.isFinite(trafficRatio)||trafficRatio<=0) {
     return json({error:"سنصل إليك قريباً. لم نستطع التحقق من زمن الطريق الحالي.",code:"TRAFFIC_VERIFICATION_FAILED"},503);
   }
+  // Persist only anonymized governorate-level traffic delay aggregates.
+  // No route coordinates, customer IDs, request IDs, or driver IDs are stored.
+  if (routeData.routeSource === "google_routes_traffic") {
+    const { error: trafficSampleError } = await admin.rpc("record_taxi_peak_traffic_sample", {
+      p_governorate_key: fromGovernorate,
+      p_traffic_ratio: trafficRatio,
+      p_provider: "google_routes_traffic",
+    });
+    if (trafficSampleError) {
+      console.warn("[auto-taxi-pricing] live traffic observation could not be stored", trafficSampleError.code || "unknown");
+    }
+  }
   const trafficPercent=autoMonitorEnabled
     ? Math.min(Math.max(0,Number(activeControls?.traffic_surcharge_cap_percent)||0),Math.max(0,(trafficRatio-1)*100))
     : 0;
