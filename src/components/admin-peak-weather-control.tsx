@@ -98,10 +98,10 @@ export default function AdminPeakWeatherControl() {
       </label>
       <div className="rounded-xl border border-border p-3 space-y-3">
         <div className="font-black flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> وضع التشغيل</div>
-        {!settings.weather_monitor_ready && <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">مراقب الطقس لم يُنشر ويُختبر بعد؛ التفعيل التلقائي والإخباري مقفولان حالياً حتى لا تُفعّل زيادة غير مراقبة.</p>}
+        {!settings.weather_monitor_ready && <p className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">مراقب الطقس لم يُنشر ويُختبر بعد؛ الإشعارات مقفولة حتى وصول قراءات حديثة. التسعير التلقائي مؤجل دائماً حالياً.</p>}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {([{value:"auto",label:"تلقائي",desc:"يفعّل ويوقف حسب الشروط"},{value:"notify",label:"إخباري",desc:"يرسل توصية للأدمن فقط"},{value:"off",label:"إيقاف",desc:"يعطّل الأتمتة"}] as const).map(option =>
-            <button key={option.value} type="button" disabled={option.value!=="off" && !settings.weather_monitor_ready} onClick={() => setSettings(v => ({...v,mode:option.value,enabled:option.value!=="off"}))}
+          {([{value:"auto",label:"تلقائي (مؤجل)",desc:"غير متاح حالياً بقرار المشروع"},{value:"notify",label:"إخباري",desc:"يرسل توصية للأدمن فقط"},{value:"off",label:"إيقاف",desc:"يعطّل الأتمتة"}] as const).map(option =>
+            <button key={option.value} type="button" disabled={option.value==="auto" || (option.value!=="off" && !settings.weather_monitor_ready)} onClick={() => setSettings(v => ({...v,mode:option.value,enabled:option.value!=="off"}))}
               className={`rounded-xl border p-3 text-right disabled:cursor-not-allowed disabled:opacity-40 ${settings.mode===option.value ? "border-primary bg-primary/5" : "border-border"}`}>
               <b className="block text-sm">{option.label}</b><span className="text-[11px] text-muted-foreground">{option.desc}</span>
             </button>)}
