@@ -33,9 +33,13 @@ function AccountSettingsPage() {
   const [partnerLicenseFile, setPartnerLicenseFile] = useState<File | null>(null);
   const [partnerIdFrontFile, setPartnerIdFrontFile] = useState<File | null>(null);
   const [partnerIdBackFile, setPartnerIdBackFile] = useState<File | null>(null);
-  const [partnerLat, setPartnerLat] = useState(33.3152);
-  const [partnerLng, setPartnerLng] = useState(44.3661);
+  const [partnerLat, setPartnerLat] = useState(32.0000);
+  const [partnerLng, setPartnerLng] = useState(44.3300);
+  const [partnerPlaceQuery, setPartnerPlaceQuery] = useState("");
+  const [partnerMapBusy, setPartnerMapBusy] = useState(false);
+  const [partnerLocationSelected, setPartnerLocationSelected] = useState(false);
   const partnerMapRef = useRef<HTMLDivElement>(null);
+  const partnerMoveMapRef = useRef<((lat: number, lng: number) => void) | null>(null);
   const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [partnerBusy, setPartnerBusy] = useState(false);
   const governorateLabels: Record<string,string> = {baghdad:"بغداد",basra:"البصرة",nineveh:"نينوى",erbil:"أربيل",sulaymaniyah:"السليمانية",duhok:"دهوك",kirkuk:"كركوك",najaf:"النجف",karbala:"كربلاء",babil:"بابل",anbar:"الأنبار",diyala:"ديالى",saladin:"صلاح الدين",wasit:"واسط",dhiqar:"ذي قار",maysan:"ميسان",muthanna:"المثنى",qadisiyah:"القادسية"};
@@ -60,8 +64,9 @@ function AccountSettingsPage() {
       const map = L.map(partnerMapRef.current, { scrollWheelZoom: true }).setView(center, 16);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
       const marker = L.marker(center, { draggable: true }).addTo(map);
-      map.on("click", (event: any) => { marker.setLatLng(event.latlng); setPartnerLat(event.latlng.lat); setPartnerLng(event.latlng.lng); });
-      marker.on("dragend", () => { const point = marker.getLatLng(); setPartnerLat(point.lat); setPartnerLng(point.lng); });
+      partnerMoveMapRef.current = (lat, lng) => { map.setView([lat, lng], 16); marker.setLatLng([lat, lng]); };
+      map.on("click", (event: any) => { marker.setLatLng(event.latlng); setPartnerLat(event.latlng.lat); setPartnerLng(event.latlng.lng); setPartnerLocationSelected(true); });
+      marker.on("dragend", () => { const point = marker.getLatLng(); setPartnerLat(point.lat); setPartnerLng(point.lng); setPartnerLocationSelected(true); });
     };
     if (!key) {
       if (!(window as any).L) {
@@ -75,8 +80,9 @@ function AccountSettingsPage() {
       const center = { lat: partnerLat, lng: partnerLng };
       const map = new window.google.maps.Map(partnerMapRef.current, { center, zoom: 16, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, gestureHandling: "greedy" });
       const marker = new window.google.maps.Marker({ position: center, map, draggable: true, title: partnerName || "موقع المنشأة" });
-      map.addListener("click", (event: google.maps.MapMouseEvent) => { if (!event.latLng) return; const point = { lat: event.latLng.lat(), lng: event.latLng.lng() }; marker.setPosition(point); setPartnerLat(point.lat); setPartnerLng(point.lng); });
-      marker.addListener("dragend", () => { const point = marker.getPosition(); if (point) { setPartnerLat(point.lat()); setPartnerLng(point.lng()); } });
+      partnerMoveMapRef.current = (lat, lng) => { const point = { lat, lng }; map.setCenter(point); marker.setPosition(point); };
+      map.addListener("click", (event: google.maps.MapMouseEvent) => { if (!event.latLng) return; const point = { lat: event.latLng.lat(), lng: event.latLng.lng() }; marker.setPosition(point); setPartnerLat(point.lat); setPartnerLng(point.lng); setPartnerLocationSelected(true); });
+      marker.addListener("dragend", () => { const point = marker.getPosition(); if (point) { setPartnerLat(point.lat()); setPartnerLng(point.lng()); setPartnerLocationSelected(true); } });
     };
     if (window.google?.maps) initialize();
     else {
@@ -95,12 +101,48 @@ function AccountSettingsPage() {
     setPartnerApplications(data ?? []);
   }
 
+  function setPartnerBusinessPoint(lat: number, lng: number) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
+    setPartnerLat(lat); setPartnerLng(lng); setPartnerLocationSelected(true);
+    partnerMoveMapRef.current?.(lat, lng);
+  }
+
+  async function locatePartnerBusiness() {
+    if (!navigator.geolocation) { toast.error("المتصفح لا يدعم تحديد الموقع"); return; }
+    setPartnerMapBusy(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 })
+      );
+      setPartnerBusinessPoint(position.coords.latitude, position.coords.longitude);
+    } catch (error: any) {
+      toast.error(error?.code === 1 ? "اسمح للمتصفح بالوصول إلى الموقع" : "تعذر تحديد الموقع الحالي");
+    } finally { setPartnerMapBusy(false); }
+  }
+
+  async function searchPartnerBusiness() {
+    const query = partnerPlaceQuery.trim();
+    if (query.length < 3) { toast.error("اكتب اسم المنطقة أو الشارع أولاً"); return; }
+    setPartnerMapBusy(true);
+    try {
+      const fullQuery = [query, partnerCity.trim(), governorateLabels[partnerGovernorate], "Iraq"].filter(Boolean).join(", ");
+      const response = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(fullQuery));
+      if (!response.ok) throw new Error("تعذر البحث عن المكان");
+      const results = await response.json();
+      if (!Array.isArray(results) || !results[0]) throw new Error("ما لكيت المكان، جرّب اسم منطقة أو شارع أوضح");
+      setPartnerBusinessPoint(Number(results[0].lat), Number(results[0].lon));
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر البحث عن المكان");
+    } finally { setPartnerMapBusy(false); }
+  }
+
   async function submitPartnerApplication(event: React.FormEvent) {
     event.preventDefault();
     if (!session?.user.id) return;
     if (partnerName.trim().length < 2 || partnerContact.trim().length < 2 || partnerPhone.trim().length < 7 || partnerCity.trim().length < 2 || partnerAddress.trim().length < 4 || partnerLicenseNumber.trim().length < 2) {
       toast.error("كمّل اسم المنشأة واسم المسؤول والهاتف ورقم الإجازة والمحافظة والمدينة والعنوان"); return;
     }
+    if (!partnerLocationSelected) { toast.error("حدد موقع المنشأة على الخريطة قبل إرسال الطلب"); return; }
     const docs = [partnerLicenseFile, partnerIdFrontFile, partnerIdBackFile];
     if (docs.some(file => !file)) { toast.error("إجازة العمل وصورتي هوية الوجهين مطلوبة"); return; }
     if (docs.some(file => file && (file.size > 8 * 1024 * 1024 || !["image/jpeg","image/png","image/webp"].includes(file.type)))) { toast.error("ارفع صور JPG أو PNG أو WebP وبحجم لا يتجاوز 8 ميغابايت لكل مستند"); return; }
@@ -268,7 +310,7 @@ function AccountSettingsPage() {
         <label className="block text-xs font-bold">المحافظة<select value={partnerGovernorate} onChange={e=>setPartnerGovernorate(e.target.value)} className="input-base mt-1 w-full rounded-xl">{Object.entries(governorateLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
         <label className="block text-xs font-bold">المدينة / القضاء<input required minLength={2} maxLength={80} value={partnerCity} onChange={e=>setPartnerCity(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="مثال: النجف الأشرف" /></label>
         <label className="block text-xs font-bold">العنوان التفصيلي<input required minLength={4} maxLength={240} value={partnerAddress} onChange={e=>setPartnerAddress(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="الحي والشارع وأقرب نقطة دالة" /></label>        <label className="block text-xs font-bold">رقم إجازة العمل / الترخيص<input required minLength={2} maxLength={100} value={partnerLicenseNumber} onChange={e=>setPartnerLicenseNumber(e.target.value)} className="input-base mt-1 w-full rounded-xl" placeholder="رقم الإجازة الرسمية" /></label>
-        <div className="space-y-2"><div className="flex items-center gap-2 text-xs font-black"><MapPin className="h-4 w-4"/> دبوس موقع المنشأة</div><p className="text-[10px] text-muted-foreground">اضغط على الخريطة أو اسحب الدبوس إلى موقع الفندق أو المتجر أو المول.</p><div ref={partnerMapRef} className="h-64 w-full rounded-xl border border-border bg-muted"/><p className="text-center text-[10px] text-muted-foreground">الإحداثيات: {partnerLat.toFixed(6)}, {partnerLng.toFixed(6)}</p></div>
+        <div className="space-y-2"><div className="flex items-center gap-2 text-xs font-black"><MapPin className="h-4 w-4"/> دبوس موقع المنشأة</div><p className="text-[10px] text-muted-foreground">ابحث عن العنوان أو حدد موقعك، ثم اضغط على الخريطة أو اسحب الدبوس إلى مدخل المنشأة.</p><div className="flex gap-2"><input value={partnerPlaceQuery} onChange={e=>setPartnerPlaceQuery(e.target.value)} className="input-base min-w-0 flex-1 rounded-xl" placeholder="اسم المنطقة أو الشارع"/><Button type="button" variant="outline" disabled={partnerMapBusy} onClick={()=>void searchPartnerBusiness()}>بحث</Button></div><Button type="button" variant="outline" disabled={partnerMapBusy} onClick={()=>void locatePartnerBusiness()} className="w-full">{partnerMapBusy?"جارٍ تحديد الموقع...":"تحديد موقعي الحالي"}</Button><div ref={partnerMapRef} className="h-64 w-full rounded-xl border border-border bg-muted"/><p className="text-center text-[10px] text-muted-foreground">الإحداثيات: {partnerLat.toFixed(6)}, {partnerLng.toFixed(6)} · {partnerLocationSelected?"تم تحديد الموقع":"لم يتم تحديد الموقع بعد"}</p></div>
         <div className="space-y-2"><div className="text-xs font-black">المستندات الإلزامية</div>
           <PartnerDocUpload label="إجازة العمل / رخصة النشاط" file={partnerLicenseFile} onChange={setPartnerLicenseFile}/>
           <PartnerDocUpload label="هوية صاحب المنشأة - الوجه الأمامي" file={partnerIdFrontFile} onChange={setPartnerIdFrontFile}/>
