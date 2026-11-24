@@ -135,7 +135,7 @@ export default function AdminPeakWeatherControl() {
         <p className="text-[11px] text-muted-foreground">آخر فحص: {settings.last_checked_at ? new Date(settings.last_checked_at).toLocaleString("ar-IQ") : "لم يبدأ بعد"}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={saving || (settings.enabled && !settings.weather_monitor_ready)} onClick={() => void save()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4"/> حفظ إعدادات الذروة</button>
+        <button type="button" disabled={saving || settings.mode === "auto" || (settings.enabled && !settings.weather_monitor_ready)} onClick={() => void save()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground disabled:opacity-50"><Save className="ml-2 inline h-4 w-4"/> حفظ إعدادات الذروة</button>
         <button type="button" onClick={() => void load()} className="rounded-xl border border-border px-4 py-2.5 text-sm font-bold"><RefreshCw className="ml-2 inline h-4 w-4"/> تحديث الحالة</button>
       </div>
       <div className="space-y-2"><b className="text-sm">سجل آخر القرارات</b>
