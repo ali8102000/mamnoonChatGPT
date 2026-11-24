@@ -337,6 +337,10 @@ export default function DriverOnboarding() {
           Alert.alert("ماكو تغييرات", "ماكو بيانات أو مستندات جديدة لإرسالها.");
           return;
         }
+        // Reconcile a missing provider role only through the server-side guard;
+        // this function grants the role only when the provider profile is approved.
+        const { error: roleError } = await supabase.rpc("grant_provider_role_safe", { _role: providerRole as any });
+        if (roleError) throw new Error(`تعذر التحقق من اعتماد حساب السائق: ${roleError.message}`);
         const { error } = await (supabase as any).rpc("submit_provider_change_request", {
           _provider_type: providerRole,
           _requested_data: {
