@@ -111,9 +111,9 @@ begin
     case when p_governorate_key='all' then 'global' else 'governorate' end,
     case when p_governorate_key='all' then null else p_governorate_key end) then raise exception 'missing_pricing_permission'; end if;
 
-  -- Automatic weather pricing is deliberately unavailable; weather may notify only.
-  if p_mode='auto' then raise exception 'weather_auto_pricing_disabled'; end if;
-  if p_mode='off' and p_enabled then raise exception 'off_mode_cannot_be_enabled'; end if;
+  -- This release collects and displays weather observations only.
+  -- Notifications and all automatic pricing remain disabled until their decision engine is implemented and verified.
+  if p_mode<>'off' or p_enabled then raise exception 'weather_decision_engine_not_enabled'; end if;
   if p_enabled then
     select coalesce(weather_monitor_ready,false) into v_ready
       from public.taxi_peak_weather_settings
