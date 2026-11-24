@@ -601,7 +601,7 @@ Deno.serve(async (req: Request) => {
       const signedVerifications = await Promise.all((verifications.data ?? []).map(async (row: any) => {
         const sign = async (path: string | null) => {
           if (!path) return null;
-          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 600);
+          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 3600);
           return error ? null : data?.signedUrl ?? null;
         };
         const vehicleVideoPath = typeof row.metadata?.vehicleVideoPath === "string" ? row.metadata.vehicleVideoPath : null;
@@ -656,7 +656,7 @@ Deno.serve(async (req: Request) => {
         if (!verification) return { ...provider, verification: null };
         const sign = async (path: string | null | undefined) => {
           if (!path) return null;
-          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 600);
+          const { data, error } = await admin.storage.from("provider-verification").createSignedUrl(path, 3600);
           return error ? null : data?.signedUrl ?? null;
         };
         const vehicleVideoPath = typeof verification.metadata?.vehicleVideoPath === "string" ? verification.metadata.vehicleVideoPath : null;
@@ -722,7 +722,7 @@ Deno.serve(async (req: Request) => {
       if (failed?.error) return json({ error: "request_related_data_load_failed" }, 500);
       const signRequestPhoto = async (path: string | null) => {
         if (!path) return null;
-        const { data, error } = await admin.storage.from("request-attachments").createSignedUrl(path, 600);
+        const { data, error } = await admin.storage.from("request-attachments").createSignedUrl(path, 3600);
         return error ? null : data?.signedUrl ?? null;
       };
       const attachmentUrl = await signRequestPhoto(request.attachment_path);
