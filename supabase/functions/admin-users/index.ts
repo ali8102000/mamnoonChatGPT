@@ -380,6 +380,11 @@ Deno.serve(async (req: Request) => {
         if (!value) return json({ error: "invalid_partner_business_name" }, 400);
         partnerUpdates.business_name = value;
       }
+      if (partnerInput.business_vertical !== undefined) {
+        const value = textValue(partnerInput.business_vertical, 40);
+        if (!value) return json({ error: "invalid_partner_business_vertical" }, 400);
+        partnerUpdates.business_vertical = value;
+      }
       if (partnerInput.phone !== undefined) {
         const value = normalizeIraqiPhone(partnerInput.phone);
         if (!value) return json({ error: "invalid_partner_phone" }, 400);
