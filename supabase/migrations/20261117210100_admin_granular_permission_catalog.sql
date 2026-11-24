@@ -90,6 +90,7 @@ values
   ('moderation.read','moderation','عرض البلاغات','normal','عرض البلاغات والمراجعات'),
   ('moderation.manage','moderation','إدارة البلاغات والمحتوى','sensitive','مراجعة البلاغات وإخفاء المحتوى وفق السياسة'),
   ('moderation.appeal','moderation','مراجعة الاعتراضات','sensitive','مراجعة اعتراضات الحظر والإجراءات'),
+  ('reports.resolve','reports','معالجة البلاغات والشكاوى','sensitive','تغيير حالة البلاغ وإضافة ملاحظة ضمن نطاق الصلاحية'),
   ('chats.moderate','moderation','إدارة رسائل المحادثات','sensitive','حذف الرسائل المخالفة وفق سياسة الإشراف وتسجيل الإجراء'),
 
   -- Communications and content
