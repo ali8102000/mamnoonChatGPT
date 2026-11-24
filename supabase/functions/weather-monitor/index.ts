@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
-import { getSupabaseSecretKey, getSupabasePublishableKey } from "../_shared/api-keys.ts";
+import { getSupabaseSecretKey } from "../_shared/api-keys.ts";
 
 const CITIES = [
   ["baghdad",33.3152,44.3661],["basra",30.5085,47.7804],["nineveh",36.34,43.13],
@@ -18,8 +18,7 @@ Deno.serve(async (req) => {
   }
   const weatherKey = Deno.env.get("WEATHERAPI_KEY");
   const url = Deno.env.get("SUPABASE_URL");
-  const publishableKey = getSupabasePublishableKey();
-  if (!weatherKey || !url || !publishableKey || !serviceKey) {
+  if (!weatherKey || !url || !serviceKey) {
     return Response.json({ error: "weather_provider_not_configured" }, { status: 503 });
   }
 
