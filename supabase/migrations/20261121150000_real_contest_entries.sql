@@ -63,6 +63,17 @@ create policy "Users submit one entry to active contests" on public.app_campaign
             and image_url is not null and storage_path like (c.id::text || '/' || (select auth.uid())::text || '/%'))
         )
     )
+    and (
+      storage_path is null
+      or exists (
+        select 1
+        from storage.objects o
+        where o.bucket_id = 'campaign-entries'
+          and o.name = storage_path
+          and (storage.foldername(o.name))[1] = campaign_id::text
+          and (storage.foldername(o.name))[2] = (select auth.uid())::text
+      )
+    )
   );
 
 drop policy if exists "Super admins review contest entries" on public.app_campaign_entries;
