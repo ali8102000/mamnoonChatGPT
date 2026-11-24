@@ -74,34 +74,36 @@ BEGIN
        OR length(v_video_path) > 512
        OR position('..' in v_video_path) > 0
        OR left(v_video_path, length(v_expected_prefix)) <> v_expected_prefix
-       OR v_video_path !~ ('^' || NEW.user_id::text || '/' || NEW.provider_type || '/vehicle-video-[0-9]+(-[a-z0-9]{6})?[.](mp4|mov|webm)
-  ELSIF v_video_path IS NOT NULL THEN
-    RAISE EXCEPTION 'vehicle_video_not_allowed_for_worker_verification';
-  END IF;
-
-  RETURN NEW;
-END;
-$function$;
-
-DROP TRIGGER IF EXISTS guard_provider_verification_owner_write
-  ON public.provider_verifications;
-
-CREATE TRIGGER guard_provider_verification_owner_write
-BEFORE INSERT OR UPDATE ON public.provider_verifications
-FOR EACH ROW
-EXECUTE FUNCTION public.guard_provider_verification_owner_write();
-
-REVOKE ALL ON FUNCTION public.guard_provider_verification_owner_write() FROM PUBLIC, anon, authenticated;
-)
-       OR NOT EXISTS (
-         SELECT 1
-         FROM storage.objects o
-         WHERE o.bucket_id = 'provider-verification'
-           AND o.name = v_video_path
-           AND (storage.foldername(o.name))[1] = NEW.user_id::text
-           AND lower(coalesce(o.metadata->>'mimetype','')) IN ('video/mp4','video/quicktime','video/webm')
-       ) THEN
+       OR v_video_path !~ ('^' || NEW.user_id::text || '/' || NEW.provider_type || '/vehicle-video-[0-9]+(-[a-z0-9]{6})?[.](mp4|mov|webm)$') THEN
       RAISE EXCEPTION 'vehicle_video_path_must_belong_to_provider';
+    END IF;
+
+    -- Validate the uploaded object when the video is submitted, changed, or
+    -- the application moves into a reviewable state. Existing pending rows
+    -- with a missing legacy upload remain editable until the provider resubmits.
+    IF TG_OP = 'INSERT' THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM storage.objects o
+        WHERE o.bucket_id = 'provider-verification'
+          AND o.name = v_video_path
+          AND (storage.foldername(o.name))[1] = NEW.user_id::text
+          AND lower(coalesce(o.metadata->>'mimetype','')) IN ('video/mp4','video/quicktime','video/webm')
+      ) THEN
+        RAISE EXCEPTION 'vehicle_video_upload_missing_or_invalid';
+      END IF;
+    ELSIF (
+      (NEW.status IN ('pending','approved') AND OLD.status IS DISTINCT FROM NEW.status)
+      OR OLD.metadata->>'vehicleVideoPath' IS DISTINCT FROM v_video_path
+    ) THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM storage.objects o
+        WHERE o.bucket_id = 'provider-verification'
+          AND o.name = v_video_path
+          AND (storage.foldername(o.name))[1] = NEW.user_id::text
+          AND lower(coalesce(o.metadata->>'mimetype','')) IN ('video/mp4','video/quicktime','video/webm')
+      ) THEN
+        RAISE EXCEPTION 'vehicle_video_upload_missing_or_invalid';
+      END IF;
     END IF;
   ELSIF v_video_path IS NOT NULL THEN
     RAISE EXCEPTION 'vehicle_video_not_allowed_for_worker_verification';
