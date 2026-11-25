@@ -70,6 +70,7 @@ export default function HomeScreen() {
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState("pending");
+  const [providerVehicleType, setProviderVehicleType] = useState<"kia_cargo" | "kia_passenger" | "bus" | null>(null);
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -155,6 +156,7 @@ export default function HomeScreen() {
       setAvailable(false);
       setVerified(false);
       setVerificationStatus("pending");
+      setProviderVehicleType(null);
       return;
     }
     const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
@@ -165,7 +167,7 @@ export default function HomeScreen() {
     Promise.all([
       supabase
         .from(table)
-        .select("available, status")
+        .select("available, status, vehicle_type")
         .eq("user_id", user.id)
         .maybeSingle(),
       (supabase as any)
@@ -189,6 +191,8 @@ export default function HomeScreen() {
         ? roleVerificationStatus === "approved"
         : profileStatus === "approved";
       setAvailable(Boolean(profileResult.data?.available));
+      const savedVehicleType = profileResult.data?.vehicle_type;
+      setProviderVehicleType(savedVehicleType === "kia_cargo" || savedVehicleType === "kia_passenger" || savedVehicleType === "bus" ? savedVehicleType : null);
       setVerified(isApproved);
       setVerificationStatus(status);
     });
@@ -1231,6 +1235,7 @@ function ProviderHome({
         {currentCoords ? (
           <ProviderLocationMarker
             role={role === "driver" ? "captain" : role === "large_driver" ? "carrier" : "usta"}
+            vehicleType={role === "large_driver" ? providerVehicleType : null}
             coordinate={{ latitude: currentCoords.latitude, longitude: currentCoords.longitude }}
             heading={currentCoords.heading}
             title={roleConfig.title}
