@@ -41,6 +41,9 @@ export default function AdminGrowthCampaigns() {
   const [startsAt,setStartsAt] = useState(localInput(new Date()));
   const [endsAt,setEndsAt] = useState(localInput(new Date(Date.now()+30*86400000)));
   const [governorates,setGovernorates] = useState<string[]>([]);
+  const [couponRequestTypes,setCouponRequestTypes] = useState<string[]>(["taxi"]);
+  const [couponVehicleCategories,setCouponVehicleCategories] = useState<string[]>(["economy","premium","luxury","large"]);
+  const [couponServicesText,setCouponServicesText] = useState("");
   const [active,setActive] = useState(false);
   const [campaigns,setCampaigns] = useState<Campaign[]>([]);
   const [awards,setAwards] = useState<Award[]>([]);
@@ -84,7 +87,9 @@ export default function AdminGrowthCampaigns() {
       p_target_governorates:governorates,p_amount_iqd:amountN,p_budget_iqd:Number(budget),p_delay_days:isCustomer?delayN:0,
       p_coupon_valid_days:isCustomer?couponN:0,p_max_awards:maxN,
       p_starts_at:new Date(startsAt).toISOString(),p_ends_at:new Date(endsAt).toISOString(),p_active:active,
-      p_coupon_request_types:["taxi"],p_coupon_vehicle_categories:["economy","premium","luxury","large"],p_coupon_service_slugs:[]
+      p_coupon_request_types:couponRequestTypes,
+      p_coupon_vehicle_categories:couponVehicleCategories,
+      p_coupon_service_slugs:couponServicesText.split(",").map(x=>x.trim()).filter(Boolean)
     });
     setSaving(false);
     if(saveError) setError(saveError.message);
@@ -93,6 +98,9 @@ export default function AdminGrowthCampaigns() {
   const editCampaign = (c:Campaign) => {
     setEditingId(c.campaign_id); setKind(c.campaign_type as any); setTitle(c.title);
     setProviderType(c.provider_type??"driver"); setServiceSlug(c.service_slug??"");
+    setCouponRequestTypes(c.coupon_request_types??["taxi"]);
+    setCouponVehicleCategories(c.coupon_vehicle_categories??["economy","premium","luxury","large"]);
+    setCouponServicesText((c.coupon_service_slugs??[]).join(","));
     setAmount(String(c.amount_iqd)); setBudget(String(c.budget_iqd)); setDelay(String(c.delay_days)); setCouponDays(String(c.coupon_valid_days));
     setMaxAwards(String(c.max_awards)); setStartsAt(localInput(new Date(c.starts_at)));
     setEndsAt(localInput(new Date(c.ends_at))); setGovernorates(c.target_governorates??[]); setActive(c.active);
@@ -123,6 +131,14 @@ export default function AdminGrowthCampaigns() {
       {!isCustomer&&<label className="block text-xs font-bold">الفئة المستفيدة<select value={providerType} onChange={e=>setProviderType(e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3">{PROVIDER_TYPES.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}</select></label>}
       {!isCustomer&&providerType==="worker"&&<label className="block text-xs font-bold">رمز تخصص الفني (اختياري)<input value={serviceSlug} onChange={e=>setServiceSlug(e.target.value)} placeholder="اتركه فارغاً لكل التخصصات" className="mt-1 w-full rounded-xl border bg-background p-3" /></label>}
       <label className="block text-xs font-bold">{isCustomer?"قيمة الخصم الثابت":"مبلغ الإيداع في محفظة المزود"} (دينار عراقي)<input type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3" /></label>
+      {isCustomer&&<div className="rounded-xl border p-3 space-y-2">
+        <div className="text-xs font-black">الخدمات التي يقبلها الكوبون</div>
+        <div className="flex flex-wrap gap-2">
+          {[["taxi","التكسي"],["service","خدمات الفنيين"]].map(([v,l])=><label key={v} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={couponRequestTypes.includes(v)} onChange={e=>setCouponRequestTypes(old=>e.target.checked?[...old,v]:old.filter(x=>x!==v))}/>{l}</label>)}
+        </div>
+        {couponRequestTypes.includes("taxi")&&<div className="space-y-1"><div className="text-xs font-bold">فئات التكسي</div><div className="flex flex-wrap gap-2">{[["economy","اقتصادي"],["premium","مميز"],["luxury","فاخر"],["large","سيارات كبيرة"]].map(([v,l])=><label key={v} className="flex items-center gap-1 text-xs"><input type="checkbox" checked={couponVehicleCategories.includes(v)} onChange={e=>setCouponVehicleCategories(old=>e.target.checked?[...old,v]:old.filter(x=>x!==v))}/>{l}</label>)}</div></div>}
+        {couponRequestTypes.includes("service")&&<label className="block text-xs font-bold">تخصصات الفنيين (رموز الخدمات مفصولة بفواصل، واتركه فارغاً لكل التخصصات)<input value={couponServicesText} onChange={e=>setCouponServicesText(e.target.value)} placeholder="electrician,plumbing" className="mt-1 w-full rounded-xl border bg-background p-3"/></label>}
+      </div>}
       {isCustomer&&<div className="grid grid-cols-2 gap-2">
         <label className="block text-xs font-bold">بعد كم يوم من التسجيل؟<input type="number" min="1" max="3650" value={delay} onChange={e=>setDelay(e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3"/></label>
         <label className="block text-xs font-bold">صلاحية الكوبون بالأيام (0 بلا انتهاء)<input type="number" min="0" max="3650" value={couponDays} onChange={e=>setCouponDays(e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3"/></label>
