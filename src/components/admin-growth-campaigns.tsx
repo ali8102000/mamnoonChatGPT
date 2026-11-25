@@ -112,8 +112,8 @@ export default function AdminGrowthCampaigns() {
       <h2 className="text-xl font-black">عروض التسجيل والمكافآت التلقائية</h2>
       <p className="text-xs leading-6 text-muted-foreground">أنشئ مكافآت لمحافظ مزوّدي الخدمة، أو كوبونات للزبائن بعد مدة تختارها. كل حملة لها ميزانية عددية ونطاق جغرافي وتاريخ بداية ونهاية. الحملات الجديدة تبدأ متوقفة حتى تفعّلها بنفسك.</p>
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={()=>setKind("provider_wallet_signup")} className={`rounded-xl p-3 text-sm font-black border ${!isCustomer?"bg-primary text-primary-foreground":"bg-background"}`}>مكافأة مزوّد الخدمة</button>
-        <button onClick={()=>setKind("customer_delayed_coupon")} className={`rounded-xl p-3 text-sm font-black border ${isCustomer?"bg-primary text-primary-foreground":"bg-background"}`}>خصم الزبون بعد مدة</button>
+        <button onClick={()=>{setKind("provider_wallet_signup");setAmount("50000");}} className={`rounded-xl p-3 text-sm font-black border ${!isCustomer?"bg-primary text-primary-foreground":"bg-background"}`}>مكافأة مزوّد الخدمة</button>
+        <button onClick={()=>{setKind("customer_delayed_coupon");setAmount("3500");}} className={`rounded-xl p-3 text-sm font-black border ${isCustomer?"bg-primary text-primary-foreground":"bg-background"}`}>خصم الزبون بعد مدة</button>
       </div>
     </div>
     <div className="glass rounded-2xl p-4 space-y-3">
