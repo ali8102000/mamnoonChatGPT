@@ -34,6 +34,7 @@ export default function AdminGrowthCampaigns() {
   const [providerType,setProviderType] = useState("driver");
   const [serviceSlug,setServiceSlug] = useState("");
   const [amount,setAmount] = useState("50000");
+  const [budget,setBudget] = useState("100000000");
   const [delay,setDelay] = useState("3");
   const [couponDays,setCouponDays] = useState("7");
   const [maxAwards,setMaxAwards] = useState("100000");
@@ -80,7 +81,7 @@ export default function AdminGrowthCampaigns() {
     const {error:saveError}=await (supabase as any).rpc("admin_save_growth_campaign",{
       p_campaign_id:editingId,p_campaign_type:kind,p_title:title.trim(),
       p_provider_type:isCustomer?null:providerType,p_service_slug:isCustomer?null:(serviceSlug.trim()||null),
-      p_target_governorates:governorates,p_amount_iqd:amountN,p_delay_days:isCustomer?delayN:0,
+      p_target_governorates:governorates,p_amount_iqd:amountN,p_budget_iqd:Number(budget),p_delay_days:isCustomer?delayN:0,
       p_coupon_valid_days:isCustomer?couponN:0,p_max_awards:maxN,
       p_starts_at:new Date(startsAt).toISOString(),p_ends_at:new Date(endsAt).toISOString(),p_active:active
     });
@@ -91,7 +92,7 @@ export default function AdminGrowthCampaigns() {
   const editCampaign = (c:Campaign) => {
     setEditingId(c.campaign_id); setKind(c.campaign_type as any); setTitle(c.title);
     setProviderType(c.provider_type??"driver"); setServiceSlug(c.service_slug??"");
-    setAmount(String(c.amount_iqd)); setDelay(String(c.delay_days)); setCouponDays(String(c.coupon_valid_days));
+    setAmount(String(c.amount_iqd)); setBudget(String(c.budget_iqd)); setDelay(String(c.delay_days)); setCouponDays(String(c.coupon_valid_days));
     setMaxAwards(String(c.max_awards)); setStartsAt(localInput(new Date(c.starts_at)));
     setEndsAt(localInput(new Date(c.ends_at))); setGovernorates(c.target_governorates??[]); setActive(c.active);
     setError(""); window.scrollTo({top:0,behavior:"smooth"});
@@ -100,7 +101,7 @@ export default function AdminGrowthCampaigns() {
     const {error:e}=await (supabase as any).rpc("admin_save_growth_campaign",{
       p_campaign_id:c.campaign_id,p_campaign_type:c.campaign_type,p_title:c.title,
       p_provider_type:c.provider_type,p_service_slug:c.service_slug,p_target_governorates:c.target_governorates,
-      p_amount_iqd:c.amount_iqd,p_delay_days:c.delay_days,p_coupon_valid_days:c.coupon_valid_days,
+      p_amount_iqd:c.amount_iqd,p_budget_iqd:c.budget_iqd,p_delay_days:c.delay_days,p_coupon_valid_days:c.coupon_valid_days,
       p_max_awards:c.max_awards,p_starts_at:c.starts_at,p_ends_at:c.ends_at,p_active:!c.active
     });
     if(e) toast.error(e.message); else { toast.success(c.active?"تم إيقاف الحملة":"تم تفعيل الحملة"); await load(); }
@@ -124,6 +125,7 @@ export default function AdminGrowthCampaigns() {
         <label className="block text-xs font-bold">بعد كم يوم من التسجيل؟<input type="number" min="1" max="3650" value={delay} onChange={e=>setDelay(e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3"/></label>
         <label className="block text-xs font-bold">صلاحية الكوبون بالأيام (0 بلا انتهاء)<input type="number" min="0" max="3650" value={couponDays} onChange={e=>setCouponDays(e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3"/></label>
       </div>}
+      <label className="block text-xs font-bold">الميزانية الإجمالية للحملة (دينار عراقي)<input type="number" min={amount} value={budget} onChange={e=>setBudget(e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3" /></label>
       <label className="block text-xs font-bold">الحد الأقصى للمستفيدين<input type="number" min="1" max="1000000" value={maxAwards} onChange={e=>setMaxAwards(e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3"/></label>
       <div className="space-y-2"><div className="text-xs font-black">المحافظات المستهدفة</div><p className="text-[11px] text-muted-foreground">عدم اختيار أي محافظة يعني كل العراق.</p>
         <div className="flex flex-wrap gap-2">{GOVERNORATES.map(g=><label key={g.key} className="flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs"><input type="checkbox" checked={governorates.includes(g.key)} onChange={e=>setGovernorates(v=>e.target.checked?[...v,g.key]:v.filter(x=>x!==g.key))}/>{g.name}</label>)}</div>
@@ -142,7 +144,7 @@ export default function AdminGrowthCampaigns() {
       <div className="flex items-center justify-between"><h3 className="font-black">الحملات المسجلة</h3><button onClick={()=>void load()} className="text-xs font-bold text-primary">تحديث</button></div>
       {loading?<div className="text-sm text-muted-foreground">جارٍ التحميل...</div>:campaigns.length===0?<div className="text-sm text-muted-foreground">ماكو حملات بعد.</div>:campaigns.map(c=><div key={c.campaign_id} className="rounded-xl border p-3 space-y-2">
         <div className="flex items-start justify-between gap-2"><div><div className="font-black text-sm">{c.title}</div><div className="text-[11px] text-muted-foreground">{c.campaign_type==="provider_wallet_signup"?"مكافأة محفظة مزود":"كوبون زبون مؤجل"} · {c.provider_type?PROVIDER_TYPES.find(x=>x.value===c.provider_type)?.label??c.provider_type:"الزبائن"} · {c.target_governorates.length?c.target_governorates.map(g=>GOV_LABELS[g]??g).join("، "):"كل العراق"}</div></div><span className={`rounded-full px-2 py-1 text-[10px] ${c.active?"bg-emerald-100 text-emerald-700":"bg-muted text-muted-foreground"}`}>{c.active?"فعّالة":"متوقفة"}</span></div>
-        <div className="text-xs">القيمة: {money(c.amount_iqd)} · {c.campaign_type==="customer_delayed_coupon"?`بعد ${c.delay_days} يوم`:"عند التسجيل"} · المستفيدون: {c.issued_count}/{c.max_awards}</div>
+        <div className="text-xs">القيمة: {money(c.amount_iqd)} · {c.campaign_type==="customer_delayed_coupon"?`بعد ${c.delay_days} يوم`:"عند التسجيل"} · المستفيدون: {c.issued_count}/{c.max_awards} · المصروف: {money(c.spent_iqd)}/{money(c.budget_iqd)}</div>
         <div className="text-[10px] text-muted-foreground">{new Date(c.starts_at).toLocaleString("ar-IQ")} — {new Date(c.ends_at).toLocaleString("ar-IQ")}</div>
         <div className="grid grid-cols-2 gap-2"><button onClick={()=>editCampaign(c)} className="rounded-lg border py-2 text-xs font-bold">تعديل</button><button onClick={()=>void toggleCampaign(c)} className="rounded-lg border py-2 text-xs font-bold">{c.active?"إيقاف الحملة":"تفعيل الحملة"}</button></div>
       </div>)}
