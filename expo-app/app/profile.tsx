@@ -354,7 +354,12 @@ export default function ProfileScreen() {
           <View style={[styles.walletCard, styles.compactWalletCard]}>
             {accountWalletOffline && <View style={styles.walletOfflineNotice}><Text style={styles.walletOfflineText}>تعذر تحديث الرصيد من الخادم حالياً.</Text></View>}
             <Text style={styles.walletTitle}>💳 محفظتي</Text>
-            <Text style={styles.compactWalletBalance}>{(accountWallet?.balance_iqd || 0).toLocaleString("en")} د.ع</Text>
+            <Text style={styles.compactWalletBalance}>{accountWallet ? accountWallet.balance_iqd.toLocaleString("en") : accountWalletOffline ? "—" : "جارٍ التحميل"} د.ع</Text>
+            {accountWallet && accountWallet.balance_iqd <= -5000 && (
+              <Text style={{ color: "#B91C1C", backgroundColor: "#FEF2F2", borderRadius: 10, padding: 8, fontSize: 10, fontWeight: "800", textAlign: "right", marginBottom: 8 }}>
+                وصلت إلى حد المديونية (-5,000 د.ع). استقبال الطلبات متوقف حتى تشحن محفظتك.
+              </Text>
+            )}
             <TouchableOpacity style={styles.compactDetailsButton} onPress={chooseWalletTopup} disabled={walletTopupLoading}>
               <Text style={styles.walletDetailsButtonText}>{walletTopupLoading ? "جارٍ التجهيز..." : "شحن عبر زين كاش"}</Text>
             </TouchableOpacity>
