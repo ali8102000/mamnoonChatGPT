@@ -397,9 +397,9 @@ export default function NewRequest() {
   const serviceTotalPrice = Number(customerPrice || 0) * servicePriceMultiplier;
 
   function getCouponBaseAmount() {
-    if (isTaxi) return isLargeVehicle ? proposedPrice : estimatedTaxiFare;
+    if (isTaxi) return isLargeVehicle ? (customerPrice.trim() ? Number(customerPrice) : null) : estimatedTaxiFare;
     if (pricingMode === "negotiable") return null;
-    return proposedPrice !== null && proposedPrice > 0 ? proposedPrice : null;
+    return serviceTotalPrice > 0 ? serviceTotalPrice : null;
   }
 
   async function previewCoupon() {
