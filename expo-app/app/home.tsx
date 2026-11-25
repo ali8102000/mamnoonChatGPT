@@ -1222,7 +1222,7 @@ function ProviderHome({
             tracksViewChanges={false}
             title="موقعك الحالي"
           >
-            <View style={providerMapStyles.vehicleMarker}>
+            <View style={[providerMapStyles.vehicleMarker, { transform: [{ rotate: `${currentCoords.heading ?? 0}deg` }] }]}>
               <Text style={providerMapStyles.vehicleMarkerText}>{roleConfig.emoji}</Text>
             </View>
           </Marker>
