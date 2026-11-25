@@ -117,6 +117,9 @@ BEGIN
     v_cash_iqd := 0;
     v_change_iqd := 0;
   ELSE
+    IF _cash_received_iqd < v_fare_iqd THEN
+      RAISE EXCEPTION 'cash_received_less_than_fare';
+    END IF;
     v_cash_iqd := _cash_received_iqd;
     v_change_iqd := GREATEST(v_cash_iqd - v_fare_iqd, 0);
   END IF;
