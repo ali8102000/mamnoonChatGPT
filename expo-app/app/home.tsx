@@ -32,7 +32,7 @@ import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 import { ProviderMissions } from "@/components/provider-missions";
-import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const HOME_GRID_GAP = 12;
@@ -395,7 +395,6 @@ export default function HomeScreen() {
         verificationStatus={verificationStatus}
         toggleAvailable={toggleAvailable}
         incoming={incoming}
-        onRefresh={onRefresh}
       />
     );
   }
@@ -1074,6 +1073,13 @@ function scaleSize(size: number): number {
   return Math.round(size * ratio);
 }
 
+const ROLE_CONFIG = {
+  captain: { title: "الكابتن", short: "طلبات التكسي", emoji: "🚕", destination: "وجهة التكسي" },
+  carrier: { title: "سائق السيارة الكبيرة", short: "النقل والحمولات", emoji: "🚚", destination: "وجهة النقل" },
+  usta: { title: "الفني", short: "الخدمات المنزلية", emoji: "🛠️", destination: "وجهة الخدمة" },
+  partner: { title: "الشريك", short: "طلبات الشريك", emoji: "🏪", destination: "إدارة الوجهة" },
+} as const;
+
 function ProviderHome({
   role,
   profile,
@@ -1106,11 +1112,7 @@ function ProviderHome({
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
   const [walletOffline, setWalletOffline] = useState(false);
-  const roleConfig = role === "large_driver"
-    ? { title: "سائق السيارة الكبيرة", short: "نقل وحمولات", emoji: "🚚" }
-    : role === "driver"
-      ? { title: "الكابتن", short: "طلبات التكسي", emoji: "🚕" }
-      : { title: "الفني", short: "الخدمات المنزلية", emoji: "🛠️" };
+  const roleConfig = ROLE_CONFIG[role === "driver" ? "captain" : role === "large_driver" ? "carrier" : "usta"];
 
   useEffect(() => {
     let active = true;
@@ -1225,13 +1227,26 @@ function ProviderHome({
         provider={PROVIDER_GOOGLE}
         style={StyleSheet.absoluteFill}
         initialRegion={{ latitude: 32.0, longitude: 44.0, latitudeDelta: 1.8, longitudeDelta: 1.8 }}
-        showsUserLocation
-        showsCompass
+        showsUserLocation={false}
+        showsCompass={false}
         onMapReady={() => setMapReady(true)}
         toolbarEnabled={false}
         loadingEnabled
         moveOnMarkerPress={false}
-      />
+      >
+        {currentCoords ? (
+          <Marker
+            coordinate={{ latitude: currentCoords.latitude, longitude: currentCoords.longitude }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+            title="موقعك الحالي"
+          >
+            <View style={providerMapStyles.vehicleMarker}>
+              <Text style={providerMapStyles.vehicleMarkerText}>{roleConfig.emoji}</Text>
+            </View>
+          </Marker>
+        ) : null}
+      </MapView>
 
       {!mapReady && (
         <View pointerEvents="none" style={providerMapStyles.mapLoading}>
@@ -1245,144 +1260,131 @@ function ProviderHome({
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="فتح الملف الشخصي"
-          style={providerMapStyles.identityCard}
+          style={providerMapStyles.profileColumn}
         >
           {profile?.avatar_url
             ? <ExpoImage source={{ uri: profile.avatar_url }} style={providerMapStyles.avatar} contentFit="cover" />
-            : <View style={providerMapStyles.avatarFallback}><Text style={{ fontSize: 19 }}>{roleConfig.emoji}</Text></View>}
-          <View style={{ flex: 1 }}>
-            <Text numberOfLines={1} style={providerMapStyles.personName}>{profile?.full_name?.split(" ")[0] || "أهلاً بيك"}</Text>
-            <Text numberOfLines={1} style={providerMapStyles.roleCaption}>{roleConfig.title}</Text>
-          </View>
-          <View style={providerMapStyles.walletBalance}>
-            <Text style={providerMapStyles.walletBalanceLabel}>المحفظة</Text>
-            <Text numberOfLines={1} style={[providerMapStyles.walletBalanceValue, walletBlocked && { color: "#DC2626" }]}>
-              {walletBalance === null ? (walletLoading ? "..." : "—") : walletBalance.toLocaleString("en")}
-            </Text>
-            <Text style={providerMapStyles.walletBalanceCurrency}>د.ع</Text>
-          </View>
+            : <View style={providerMapStyles.avatarFallback}><Text style={{ fontSize: 21 }}>{roleConfig.emoji}</Text></View>}
           <View style={providerMapStyles.requestCount}>
             <Text style={providerMapStyles.requestCountNumber}>{walletBlocked ? 0 : incoming.length}</Text>
-            <Text style={providerMapStyles.requestCountLabel}>طلبات</Text>
           </View>
         </TouchableOpacity>
-        <View style={providerMapStyles.topActions}>
-          <NotificationsBell />
-          <TouchableOpacity onPress={() => router.push("/profile")} style={providerMapStyles.menuButton} accessibilityRole="button" accessibilityLabel="القائمة">
-            <Text style={{ color: "#17324D", fontSize: 21, fontWeight: "900" }}>☰</Text>
+
+        <View style={providerMapStyles.topCenter}>
+          <TouchableOpacity onPress={() => router.push("/coupons")} activeOpacity={0.9} style={providerMapStyles.walletBalance}>
+            <Text style={providerMapStyles.walletBalanceText}>
+              الرصيد: {walletBalance === null ? (walletLoading ? "..." : "—") : walletBalance.toLocaleString("ar-IQ")} دينار
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/messages")} activeOpacity={0.9} style={providerMapStyles.messagesBanner}>
+            <View style={providerMapStyles.messagesIcon}><Text style={{ color: "#1D4ED8", fontSize: 17 }}>✉</Text></View>
+            <Text numberOfLines={1} style={providerMapStyles.messagesTitle}>عروضك وإشعاراتك الجديدة</Text>
+            <View style={providerMapStyles.notificationBadge}><Text style={providerMapStyles.notificationBadgeText}>!</Text></View>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          onPress={() => router.push("/profile")}
+          style={providerMapStyles.menuButton}
+          accessibilityRole="button"
+          accessibilityLabel="القائمة"
+          activeOpacity={0.85}
+        >
+          <Text style={{ color: "#1D4ED8", fontSize: 22, fontWeight: "900" }}>☰</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={[providerMapStyles.statusPill, { top: topOffset + 72 }]}>
-        <View style={[providerMapStyles.statusDot, { backgroundColor: available && verified ? "#10B981" : "#F59E0B" }]} />
-        <Text style={providerMapStyles.statusText}>{statusLabel}</Text>
-      </View>
-
-      <TouchableOpacity onPress={() => void recenter()} activeOpacity={0.85} style={[providerMapStyles.recenterButton, { bottom: bottomOffset + 355 }]} accessibilityRole="button" accessibilityLabel="العودة إلى موقعي">
-        <Text style={{ color: "#17324D", fontSize: 21 }}>◎</Text>
+      <TouchableOpacity
+        onPress={() => void recenter()}
+        activeOpacity={0.85}
+        style={[providerMapStyles.recenterButton, { bottom: bottomOffset + (available ? 88 : 146) }]}
+        accessibilityRole="button"
+        accessibilityLabel="إعادة التمركز على موقعي"
+      >
+        <Text style={{ color: "#17324D", fontSize: 22 }}>◎</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/messages")} activeOpacity={0.88} style={[providerMapStyles.messagesBanner, { top: topOffset + 122 }]}>
-        <View style={providerMapStyles.messagesIcon}><Text style={{ fontSize: 18 }}>✉</Text></View>
-        <View style={{ flex: 1 }}>
-          <Text style={providerMapStyles.messagesTitle}>رسائلك وتنبيهات ممنون</Text>
-          <Text style={providerMapStyles.messagesSubtitle}>تابع رسائل الزبائن وآخر التحديثات</Text>
-        </View>
-        <Text style={{ color: "#1D4ED8", fontSize: 18, fontWeight: "900" }}>‹</Text>
+      <TouchableOpacity
+        onPress={() => router.push("/request/new")}
+        activeOpacity={0.9}
+        style={[providerMapStyles.destinationButton, { bottom: bottomOffset + (available ? 88 : 146) }]}
+        accessibilityRole="button"
+        accessibilityLabel="الوجهة"
+      >
+        <Text style={providerMapStyles.destinationStar}>★</Text>
+        <Text numberOfLines={1} style={providerMapStyles.destinationText}>{roleConfig.destination}</Text>
       </TouchableOpacity>
 
-      <View style={[providerMapStyles.bottomPanel, { bottom: bottomOffset + 84 }]}>
-        {(!available || walletBlocked) && (
-          <View style={providerMapStyles.offlineNotice}>
-            <Text style={providerMapStyles.offlineNoticeTitle}>{walletBlocked ? "استقبال الطلبات متوقف بسبب رصيد المحفظة" : "أنت غير متصل حالياً"}</Text>
-            <Text style={providerMapStyles.offlineNoticeText}>{walletBlocked ? "اشحن محفظتك حتى يرجع بإمكانك استقبال الطلبات." : `فعّل استقبال الطلبات حتى توصلك طلبات ${roleConfig.short} القريبة.`}</Text>
-          </View>
-        )}
-        <View style={providerMapStyles.panelHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={providerMapStyles.panelTitle}>طلباتك الواردة</Text>
-            <Text style={providerMapStyles.panelSubtitle}>{incoming.length ? "عندك طلبات بانتظار ردّك" : "تظهر الطلبات الجديدة هنا تلقائياً"}</Text>
-          </View>
-          <TouchableOpacity onPress={() => void onRefresh()} style={providerMapStyles.refreshButton} accessibilityRole="button" accessibilityLabel="تحديث الطلبات">
-            <Text style={{ color: "#17324D", fontSize: 18 }}>↻</Text>
-          </TouchableOpacity>
+      {!available && (
+        <View style={[providerMapStyles.offlineNotice, { bottom: bottomOffset + 12 }]}>
+          <Text numberOfLines={1} style={providerMapStyles.offlineNoticeText}>
+            {walletBlocked ? "اشحن رصيدك حتى تعود لاستقبال الطلبات" : !verified ? "أكمل توثيق حسابك لتفعيل استقبال الطلبات" : "فعّل حالتك حتى تصلك الطلبات القريبة"}
+          </Text>
         </View>
-        {walletBlocked ? (
-          <Text style={providerMapStyles.walletBlockedMessage}>ما تگدر تقبل أو تستلم طلبات جديدة قبل ما تشحن المحفظة وتتجاوز حد المديونية.</Text>
-        ) : (
-          <ScrollView style={{ maxHeight: scaleSize(190) }} contentContainerStyle={{ paddingBottom: 6 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-            <IncomingRequestList incoming={incoming} />
-          </ScrollView>
-        )}
-        <View style={providerMapStyles.bottomActions}>
-          <TouchableOpacity onPress={() => router.push("/coupons")} style={providerMapStyles.secondaryAction}>
-            <Text style={providerMapStyles.secondaryActionText}>🎁 المكافآت</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push("/support-chat")} style={providerMapStyles.secondaryAction}>
-            <Text style={providerMapStyles.secondaryActionText}>؟ المساعدة</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "بدء استقبال الطلبات"}
-            disabled={!verified || availabilitySaving || (walletBlocked && !available)}
-            onPress={toggleAvailable}
-            activeOpacity={0.85}
-            style={[providerMapStyles.powerButton, available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff, (!verified || availabilitySaving || (walletBlocked && !available)) && { opacity: 0.5 }]}
-          >
-            <Text style={providerMapStyles.powerButtonText}>{availabilitySaving ? "..." : available ? "متصل" : "ابدأ"}</Text>
-          </TouchableOpacity>
-        </View>
-        {!verified && <Text style={providerMapStyles.verificationHint}>حالة التوثيق: {verificationStatus === "rejected" ? "مرفوض — راجع الدعم" : "بانتظار موافقة الإدارة"}</Text>}
+      )}
+
+      <View style={[providerMapStyles.bottomBar, { bottom: Math.max(insets.bottom, 8) + 4 }]}>
+        <TouchableOpacity onPress={() => router.push("/support-chat")} style={providerMapStyles.footerAction} accessibilityRole="button">
+          <Text style={providerMapStyles.footerActionText}>مساعدة</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
+          disabled={!verified || availabilitySaving || (walletBlocked && !available)}
+          onPress={toggleAvailable}
+          activeOpacity={0.85}
+          style={[
+            providerMapStyles.powerButton,
+            available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff,
+            (!verified || availabilitySaving || (walletBlocked && !available)) && { opacity: 0.55 },
+          ]}
+        >
+          <Text style={[providerMapStyles.powerButtonText, !available && providerMapStyles.powerButtonTextOff]}>
+            <Text style={{ fontSize: 15 }}>⏻ </Text>{availabilitySaving ? "..." : available ? "متصل" : "مغلق"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/coupons")} style={providerMapStyles.footerAction} accessibilityRole="button">
+          <Text style={providerMapStyles.footerActionText}>المكافآت</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
-
 const providerMapStyles = StyleSheet.create({
   screen: { flex: 1, width: "100%", backgroundColor: "#E8EEF3" },
-  mapLoading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(238,243,247,0.75)", zIndex: 2 },
+  mapLoading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(238,243,247,0.65)", zIndex: 2 },
   mapLoadingText: { color: "#334155", fontSize: 13, fontWeight: "800" },
-  topOverlay: { position: "absolute", top: 48, left: 12, right: 12, flexDirection: "row", alignItems: "center", gap: 8, zIndex: 10 },
-  identityCard: { flex: 1, minHeight: 62, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.97)", borderWidth: 1, borderColor: "rgba(15,23,42,0.08)", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 9, elevation: 6, shadowColor: "#0F172A", shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E2E8F0" },
-  avatarFallback: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E8F1FF", alignItems: "center", justifyContent: "center" },
-  personName: { color: "#17324D", fontSize: 13, fontWeight: "900", textAlign: "right" },
-  roleCaption: { color: "#64748B", fontSize: 10, fontWeight: "700", textAlign: "right", marginTop: 2 },
-  walletBalance: { minWidth: 72, maxWidth: 86, alignItems: "center", borderRadius: 12, backgroundColor: "#F0FDF4", paddingVertical: 5, paddingHorizontal: 6 },
-  walletBalanceLabel: { color: "#64748B", fontSize: 8, fontWeight: "800" },
-  walletBalanceValue: { color: "#166534", fontSize: 11, fontWeight: "900", marginTop: 2 },
-  walletBalanceCurrency: { color: "#64748B", fontSize: 7, fontWeight: "700" },
-  walletBlockedMessage: { color: "#B91C1C", backgroundColor: "#FEF2F2", borderRadius: 12, padding: 12, fontSize: 10, fontWeight: "800", textAlign: "right" },
-  requestCount: { minWidth: 42, alignItems: "center", borderRadius: 12, backgroundColor: "#EFF6FF", paddingVertical: 5, paddingHorizontal: 6 },
-  requestCountNumber: { color: "#1D4ED8", fontSize: 14, fontWeight: "900" },
-  requestCountLabel: { color: "#64748B", fontSize: 8, fontWeight: "800" },
-  topActions: { alignItems: "center", gap: 7 },
-  menuButton: { width: 40, height: 40, borderRadius: 14, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 4 },
-  statusPill: { position: "absolute", top: 120, left: 14, right: 14, minHeight: 39, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.96)", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8, elevation: 4 },
-  statusDot: { width: 9, height: 9, borderRadius: 5 },
-  statusText: { color: "#17324D", fontSize: 11, fontWeight: "900", textAlign: "right", flex: 1 },
-  recenterButton: { position: "absolute", right: 16, bottom: 355, width: 46, height: 46, borderRadius: 16, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 6 },
-  messagesBanner: { position: "absolute", top: 170, left: 14, right: 14, minHeight: 58, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.97)", borderWidth: 1, borderColor: "rgba(29,78,216,0.12)", paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 10, elevation: 4 },
-  messagesIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center" },
-  messagesTitle: { color: "#17324D", fontSize: 11, fontWeight: "900", textAlign: "right" },
-  messagesSubtitle: { color: "#64748B", fontSize: 9, fontWeight: "700", textAlign: "right", marginTop: 2 },
-  bottomPanel: { position: "absolute", left: 10, right: 10, bottom: 92, maxHeight: "54%", borderRadius: 22, backgroundColor: "rgba(255,255,255,0.98)", borderWidth: 1, borderColor: "rgba(15,23,42,0.08)", paddingHorizontal: 13, paddingTop: 12, paddingBottom: 10, elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 7 } },
-  offlineNotice: { backgroundColor: "#EAF3FF", borderColor: "#BFDBFE", borderWidth: 1, borderRadius: 13, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 9 },
-  offlineNoticeTitle: { color: "#1D4ED8", fontSize: 11, fontWeight: "900", textAlign: "right" },
-  offlineNoticeText: { color: "#315B8F", fontSize: 9, fontWeight: "700", textAlign: "right", marginTop: 2 },
-  panelHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 5 },
-  panelTitle: { color: "#17324D", fontSize: 15, fontWeight: "900", textAlign: "right" },
-  panelSubtitle: { color: "#64748B", fontSize: 9, fontWeight: "700", textAlign: "right", marginTop: 2 },
-  refreshButton: { width: 34, height: 34, borderRadius: 11, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
-  bottomActions: { flexDirection: "row", alignItems: "center", gap: 7, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E2E8F0" },
-  secondaryAction: { flex: 1, minHeight: 40, borderRadius: 12, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
-  secondaryActionText: { color: "#334155", fontSize: 10, fontWeight: "900" },
-  powerButton: { minWidth: 70, minHeight: 42, borderRadius: 13, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
-  powerButtonOn: { backgroundColor: "#059669" },
-  powerButtonOff: { backgroundColor: "#17324D" },
-  powerButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
-  verificationHint: { color: "#B45309", fontSize: 9, fontWeight: "800", textAlign: "center", marginTop: 6 },
+  vehicleMarker: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#FFFFFF", borderWidth: 3, borderColor: "#1D4ED8", alignItems: "center", justifyContent: "center", elevation: 8 },
+  vehicleMarkerText: { fontSize: 23 },
+  topOverlay: { position: "absolute", left: 12, right: 12, flexDirection: "row", alignItems: "flex-start", gap: 8, zIndex: 10 },
+  profileColumn: { width: 54, alignItems: "center", gap: 4 },
+  avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#E2E8F0", borderWidth: 2, borderColor: "#FFFFFF" },
+  avatarFallback: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 4 },
+  requestCount: { width: 38, height: 20, borderRadius: 10, backgroundColor: "#1D4ED8", alignItems: "center", justifyContent: "center" },
+  requestCountNumber: { color: "#FFFFFF", fontSize: 10, lineHeight: 14, fontWeight: "900" },
+  topCenter: { flex: 1, alignItems: "center", gap: 6 },
+  walletBalance: { height: 42, minWidth: 176, maxWidth: "100%", paddingHorizontal: 13, borderRadius: 21, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 5, shadowColor: "#0F172A", shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  walletBalanceText: { color: "#17324D", fontSize: 12, fontWeight: "900" },
+  menuButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 5 },
+  messagesBanner: { height: 44, width: "100%", borderRadius: 22, backgroundColor: "#FFFFFF", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, elevation: 4, shadowColor: "#0F172A", shadowOpacity: 0.1, shadowRadius: 7, shadowOffset: { width: 0, height: 2 } },
+  messagesIcon: { width: 25, height: 25, borderRadius: 13, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center" },
+  messagesTitle: { color: "#17324D", fontSize: 10, fontWeight: "900", flexShrink: 1 },
+  notificationBadge: { width: 17, height: 17, borderRadius: 9, backgroundColor: "#DC2626", alignItems: "center", justifyContent: "center" },
+  notificationBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
+  recenterButton: { position: "absolute", left: 14, width: 42, height: 42, borderRadius: 21, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 6 },
+  destinationButton: { position: "absolute", right: 14, height: 42, maxWidth: "62%", minWidth: 132, paddingHorizontal: 13, borderRadius: 21, backgroundColor: "#FFFFFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, elevation: 6 },
+  destinationStar: { color: "#F4B400", fontSize: 18, fontWeight: "900" },
+  destinationText: { color: "#17324D", fontSize: 11, fontWeight: "900", flexShrink: 1 },
+  offlineNotice: { position: "absolute", left: 12, right: 12, height: 44, borderRadius: 22, backgroundColor: "#1D4ED8", alignItems: "center", justifyContent: "center", paddingHorizontal: 14, elevation: 5 },
+  offlineNoticeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", textAlign: "center" },
+  bottomBar: { position: "absolute", left: 0, right: 0, height: 66, backgroundColor: "#FFFFFF", borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: -3 } },
+  footerAction: { width: 76, height: 44, alignItems: "center", justifyContent: "center" },
+  footerActionText: { color: "#17324D", fontSize: 11, fontWeight: "900" },
+  powerButton: { width: 160, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  powerButtonOn: { backgroundColor: "#DCFCE7" },
+  powerButtonOff: { backgroundColor: "#F1F5F9" },
+  powerButtonText: { color: "#047857", fontSize: 13, fontWeight: "900" },
+  powerButtonTextOff: { color: "#64748B" },
 });
 
 function LegacyProviderHome({
