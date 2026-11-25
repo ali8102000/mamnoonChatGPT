@@ -103,7 +103,8 @@ begin
   if p_campaign_type='provider_wallet_signup' then
     if p_provider_type is null or p_provider_type not in ('all','driver','large_driver','worker')
        or coalesce(p_delay_days,0)<>0
-       or (p_service_slug is not null and p_provider_type not in ('worker','all')) then
+       or (p_service_slug is not null and p_provider_type not in ('worker','all'))
+       or (p_service_slug is not null and not exists(select 1 from public.services where slug=p_service_slug)) then
       raise exception 'invalid_provider_signup_campaign';
     end if;
   elsif p_provider_type is not null or p_service_slug is not null
@@ -242,7 +243,6 @@ begin
   for v_campaign in
     select * from public.mamnoon_growth_campaigns
     where campaign_type='provider_wallet_signup' and active=true
-      and now() between starts_at and ends_at
       and v_profile.created_at between starts_at and ends_at
       and (cardinality(target_governorates)=0 or v_profile.governorate_key=any(target_governorates))
       and issued_count<max_awards
@@ -340,7 +340,7 @@ begin
   for v_campaign in
     select * from public.mamnoon_growth_campaigns
     where campaign_type='customer_delayed_coupon' and active=true
-      and now() between starts_at and ends_at and issued_count<max_awards
+      and starts_at<=now() and issued_count<max_awards
     order by created_at
   loop
     for v_profile in
