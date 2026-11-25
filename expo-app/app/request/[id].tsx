@@ -2087,15 +2087,6 @@ export default function RequestDetail() {
               <Text style={styles.actionBtnText}>قبول الطلب</Text>
             </TouchableOpacity>
           )}
-          {["pending", "searching"].includes(request.status) && canAccept && request.vehicle_category === "large" && !isCustomer && Number(request.customer_price ?? request.customer_payable ?? request.price_estimate ?? 0) > 0 && (
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: palette.success, opacity: acceptingLargeRequest ? 0.55 : 1 }]}
-              onPress={acceptLargeVehicleRequest}
-              disabled={acceptingLargeRequest || largeOfferBusy}
-            >
-              <Text style={styles.actionBtnText}>{acceptingLargeRequest ? "جارٍ قبول الطلب..." : "قبول بأجرة الزبون"}</Text>
-            </TouchableOpacity>
-          )}
           {request.status === "accepted" && isProvider &&
             (request.type !== "taxi" || request.vehicle_category === "large") &&
             !request.provider_arrived_at && (
