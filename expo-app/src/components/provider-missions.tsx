@@ -10,10 +10,11 @@ type Mission = {
 };
 const money=(n:number)=>new Intl.NumberFormat("ar-IQ").format(Number(n)||0)+" د.ع";
 const scopeText=(s:string)=>s==="inside_governorate"?"داخل المحافظة فقط":s==="outside_governorate"?"خارج المحافظة فقط":"داخل وخارج المحافظة";
-const statusText=(s:string,endsAt:string)=>s==="eligible"?"مكتملة — بانتظار مراجعة الإدارة":s==="approved"?"تم اعتماد المكافأة وإيداعها":s==="rejected"?"لم تعتمد الإدارة المكافأة":new Date(endsAt).getTime()<=Date.now()?"انتهت المهلة":"مستمرة";
+const statusText=(s:string,endsAt:string)=>s==="eligible"?"فزت بالمهمة — بانتظار اعتماد الإدارة":s==="approved"?"مبروك! تم اعتماد مكافأتك وإيداعها":s==="rejected"?"لم تعتمد الإدارة المكافأة":new Date(endsAt).getTime()<=Date.now()?"انتهت المهلة":"مستمرة";
 
 export function ProviderMissions(){
  const [items,setItems]=useState<Mission[]>([]);
+ const wonItems=items.filter((m)=>m.reward_status==="eligible"||m.reward_status==="approved");
  const [loading,setLoading]=useState(true);
  const load=useCallback(async()=>{
   const {data,error}=await (supabase as any).rpc("provider_get_missions");
@@ -31,13 +32,13 @@ export function ProviderMissions(){
  return (
   <View style={styles.wrap}>
    <View style={styles.heading}>
-    <Text style={styles.headingText}>مهماتي ومكافآتي</Text>
+    <Text style={styles.headingText}>مكافآتي من المسابقات</Text>
     <TouchableOpacity onPress={()=>void load()}><Text style={styles.refresh}>تحديث</Text></TouchableOpacity>
    </View>
-   {loading&&!items.length?<ActivityIndicator color={palette.brand}/>:items.length===0?
-    <View style={styles.empty}><Text style={styles.emptyTitle}>ما عندك مهمات حالياً</Text><Text style={styles.emptyText}>أي مهمة جديدة من الإدارة راح توصلك هنا ويصلك إشعار بيها.</Text></View>:
+   {loading&&!wonItems.length?<ActivityIndicator color={palette.brand}/>:wonItems.length===0?
+    <View style={styles.empty}><Text style={styles.emptyTitle}>ما فزت بمكافأة لحد الآن</Text><Text style={styles.emptyText}>المكافآت اللي تفوز بيها من مسابقات ممنون راح تظهر هنا بعد إكمال شروطها ومراجعتها.</Text></View>:
     <View style={styles.timeline}>
-     {items.map((m,index)=>{
+     {wonItems.map((m,index)=>{
       const progress=Math.min(100,Math.round(m.progress_count/Math.max(1,m.target_count)*100));
       const completed=progress>=100 || m.reward_status==="eligible" || m.reward_status==="approved";
       const progressColor=completed?"#10B981":progress>0?"#D4A017":"#94A3B8";
