@@ -4,6 +4,7 @@ import { AnimatedRegion, Marker } from "react-native-maps";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 export type ProviderMarkerRole = "captain" | "usta" | "carrier" | "partner";
+export type LargeVehicleMarkerType = "kia_cargo" | "kia_passenger" | "bus";
 export type ProviderMarkerCoordinate = {
   latitude: number;
   longitude: number;
@@ -11,6 +12,7 @@ export type ProviderMarkerCoordinate = {
 
 type Props = {
   role: ProviderMarkerRole;
+  vehicleType?: LargeVehicleMarkerType | null;
   coordinate: ProviderMarkerCoordinate;
   heading?: number | null;
   title?: string;
@@ -45,7 +47,7 @@ function shortestTurn(from: number, to: number) {
   return from + delta;
 }
 
-function RoleGlyph({ role, color }: { role: ProviderMarkerRole; color: string }) {
+function RoleGlyph({ role, color, vehicleType }: { role: ProviderMarkerRole; color: string; vehicleType?: LargeVehicleMarkerType | null }) {
   const common = { stroke: color, strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" as const };
   if (role === "captain") {
     return (
@@ -57,11 +59,33 @@ function RoleGlyph({ role, color }: { role: ProviderMarkerRole; color: string })
       </Svg>
     );
   }
+  if (role === "carrier" && vehicleType === "bus") {
+    return (
+      <Svg width={32} height={32} viewBox="0 0 24 24">
+        <Path {...common} d="M5 19V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v13H5Z" />
+        <Path {...common} d="M5 11h14M8 7h2m4 0h2M8 15h8M8 19v2m8-2v2" />
+        <Circle {...common} cx="8" cy="17" r=".7" />
+        <Circle {...common} cx="16" cy="17" r=".7" />
+      </Svg>
+    );
+  }
+  if (role === "carrier" && vehicleType === "kia_passenger") {
+    return (
+      <Svg width={32} height={32} viewBox="0 0 24 24">
+        <Path {...common} d="M3 15.5 4.8 9a2.5 2.5 0 0 1 2.4-1.8h9.6A2.5 2.5 0 0 1 19.2 9l1.8 6.5V19h-3v-1.5H6V19H3v-3.5Z" />
+        <Path {...common} d="M6 12h12M8 7.5l1.2-3h5.6l1.2 3" />
+        <Circle {...common} cx="7" cy="15.5" r="1" />
+        <Circle {...common} cx="17" cy="15.5" r="1" />
+      </Svg>
+    );
+  }
   if (role === "carrier") {
     return (
-      <Svg width={30} height={30} viewBox="0 0 24 24">
-        <Path {...common} d="M6 10h12v10H6zM8 10V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v5" />
-        <Path {...common} d="M9 6h6M8.5 20v1M15.5 20v1M8.5 14h7" />
+      <Svg width={32} height={32} viewBox="0 0 24 24">
+        <Path {...common} d="M2 6h13v12H2zM15 10h4l3 4v4h-7z" />
+        <Path {...common} d="M4 9h9v6H4zM16 11h2l2 3h-4" />
+        <Circle {...common} cx="6" cy="18" r="1.6" />
+        <Circle {...common} cx="18" cy="18" r="1.6" />
       </Svg>
     );
   }
@@ -83,7 +107,7 @@ function RoleGlyph({ role, color }: { role: ProviderMarkerRole; color: string })
 }
 
 /** Smoothly interpolated provider marker with a distinct icon for each work category. */
-export function ProviderLocationMarker({ role, coordinate, heading, title, animated = true }: Props) {
+export function ProviderLocationMarker({ role, vehicleType, coordinate, heading, title, animated = true }: Props) {
   const initialHeading = validHeading(heading) ? heading : 0;
   const coordinateRef = useRef(
     new AnimatedRegion({
@@ -167,7 +191,7 @@ export function ProviderLocationMarker({ role, coordinate, heading, title, anima
         ]}
       >
         <View style={[styles.glyphWrap, role === "partner" && styles.partnerGlyphWrap]}>
-          <RoleGlyph role={role} color={color} />
+          <RoleGlyph role={role} color={color} vehicleType={vehicleType} />
         </View>
         {role !== "partner" ? <View style={[styles.directionNose, { borderBottomColor: color }]} /> : null}
       </Animated.View>
