@@ -94,10 +94,14 @@ export default function HomeScreen() {
     let offerQuery = (supabase as any)
       .from("request_offers")
       .select("request_id, expires_at, sent_at, distance_km")
-      .eq("provider_id", user.id)
-      .eq("status", "pending");
-    if (selectedRole !== "large_driver") {
-      offerQuery = offerQuery.gt("expires_at", new Date().toISOString());
+      .eq("provider_id", user.id);
+    // Large-vehicle requests remain visible while the customer request is
+    // still open, even after dispatch marks the short offer timer as expired.
+    // Providers can still accept the customer's fare or submit a fresh bid.
+    if (selectedRole === "large_driver") {
+      offerQuery = offerQuery.in("status", ["pending", "expired", "rejected"]);
+    } else {
+      offerQuery = offerQuery.eq("status", "pending").gt("expires_at", new Date().toISOString());
     }
     const { data: offerRows, error: offersError } = await offerQuery;
     if (offersError) {
