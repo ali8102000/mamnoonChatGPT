@@ -60,8 +60,8 @@ function RoleGlyph({ role, color }: { role: ProviderMarkerRole; color: string })
   if (role === "carrier") {
     return (
       <Svg width={30} height={30} viewBox="0 0 24 24">
-        <Path {...common} d="M2.5 6.5h12v11h-12zM14.5 10h4l3 3.5v4h-7z" />
-        <Path {...common} d="M16 10v4h5M6.5 17.5a1.7 1.7 0 1 0 0 .1M17.5 17.5a1.7 1.7 0 1 0 0 .1" />
+        <Path {...common} d="M6 10h12v10H6zM8 10V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v5" />
+        <Path {...common} d="M9 6h6M8.5 20v1M15.5 20v1M8.5 14h7" />
       </Svg>
     );
   }
