@@ -51,7 +51,7 @@ export default function AdminGrowthCampaigns() {
   const load = useCallback(async () => {
     setLoading(true);
     const [c,a] = await Promise.all([
-      (supabase as any).rpc("admin_list_growth_campaigns"),
+      (supabase as any).rpc("admin_list_growth_campaigns_v2"),
       (supabase as any).rpc("admin_list_growth_awards",{p_limit:100}),
     ]);
     if(c.error || a.error) setError(c.error?.message || a.error?.message || "تعذّر تحميل الحملات");
@@ -78,12 +78,13 @@ export default function AdminGrowthCampaigns() {
     }
     if(new Date(endsAt)<=new Date(startsAt)) { setError("تاريخ نهاية الحملة يجب أن يكون بعد بدايتها."); return; }
     setSaving(true); setError("");
-    const {error:saveError}=await (supabase as any).rpc("admin_save_growth_campaign",{
+    const {error:saveError}=await (supabase as any).rpc("admin_save_growth_campaign_v2",{
       p_campaign_id:editingId,p_campaign_type:kind,p_title:title.trim(),
       p_provider_type:isCustomer?null:providerType,p_service_slug:isCustomer?null:(serviceSlug.trim()||null),
       p_target_governorates:governorates,p_amount_iqd:amountN,p_budget_iqd:Number(budget),p_delay_days:isCustomer?delayN:0,
       p_coupon_valid_days:isCustomer?couponN:0,p_max_awards:maxN,
-      p_starts_at:new Date(startsAt).toISOString(),p_ends_at:new Date(endsAt).toISOString(),p_active:active
+      p_starts_at:new Date(startsAt).toISOString(),p_ends_at:new Date(endsAt).toISOString(),p_active:active,
+      p_coupon_request_types:["taxi"],p_coupon_vehicle_categories:["economy","premium","luxury","large"],p_coupon_service_slugs:[]
     });
     setSaving(false);
     if(saveError) setError(saveError.message);
@@ -98,11 +99,12 @@ export default function AdminGrowthCampaigns() {
     setError(""); window.scrollTo({top:0,behavior:"smooth"});
   };
   const toggleCampaign = async (c:Campaign) => {
-    const {error:e}=await (supabase as any).rpc("admin_save_growth_campaign",{
+    const {error:e}=await (supabase as any).rpc("admin_save_growth_campaign_v2",{
       p_campaign_id:c.campaign_id,p_campaign_type:c.campaign_type,p_title:c.title,
       p_provider_type:c.provider_type,p_service_slug:c.service_slug,p_target_governorates:c.target_governorates,
       p_amount_iqd:c.amount_iqd,p_budget_iqd:c.budget_iqd,p_delay_days:c.delay_days,p_coupon_valid_days:c.coupon_valid_days,
-      p_max_awards:c.max_awards,p_starts_at:c.starts_at,p_ends_at:c.ends_at,p_active:!c.active
+      p_max_awards:c.max_awards,p_starts_at:c.starts_at,p_ends_at:c.ends_at,p_active:!c.active,
+      p_coupon_request_types:c.coupon_request_types??["taxi"],p_coupon_vehicle_categories:c.coupon_vehicle_categories??["economy","premium","luxury","large"],p_coupon_service_slugs:c.coupon_service_slugs??[]
     });
     if(e) toast.error(e.message); else { toast.success(c.active?"تم إيقاف الحملة":"تم تفعيل الحملة"); await load(); }
   };
