@@ -24,9 +24,10 @@ function NavigationIcon({ name, color }: { name: Tab["icon"]; color: string }) {
 
 export function NativeBottomNavigation() {
   const pathname = usePathname();
-  const { activeRole } = useAuth();
+  const { activeRole, roles } = useAuth();
+  const selectedRole = activeRole && roles.includes(activeRole) ? activeRole : roles.includes("customer") ? "customer" : roles[0] || "customer";
   const visible = pathname === "/subscriptions" || tabs.some((tab) => pathname === tab.path || pathname.startsWith(tab.path + "/"));
-  const providerMapActive = pathname === "/home" && (activeRole === "driver" || activeRole === "large_driver" || activeRole === "worker");
+  const providerMapActive = pathname === "/home" && (selectedRole === "driver" || selectedRole === "large_driver" || selectedRole === "worker");
   if (!visible || providerMapActive) return null;
 
   return (
