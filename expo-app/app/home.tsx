@@ -1146,7 +1146,7 @@ function ProviderHome({
         if (!active) return;
         setCurrentCoords({ latitude: first.coords.latitude, longitude: first.coords.longitude, heading: first.coords.heading });
         subscription = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.High, timeInterval: 3000, distanceInterval: 5 },
+          { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 1500, distanceInterval: 3 },
           (point) => {
             if (!active) return;
             setCurrentCoords({ latitude: point.coords.latitude, longitude: point.coords.longitude, heading: point.coords.heading });
@@ -1165,8 +1165,8 @@ function ProviderHome({
     mapRef.current?.animateCamera({
       center: { latitude: currentCoords.latitude, longitude: currentCoords.longitude },
       heading: currentCoords.heading ?? undefined,
-      pitch: 35,
-      zoom: 16,
+      pitch: 0,
+      zoom: 17,
     }, { duration: 700 });
   }, [mapReady, currentCoords]);
 
@@ -1177,7 +1177,7 @@ function ProviderHome({
       mapRef.current?.animateCamera({
         center: { latitude: currentCoords.latitude, longitude: currentCoords.longitude },
         heading: currentCoords.heading ?? undefined,
-        pitch: 35,
+        pitch: 0,
         zoom: 17,
       }, { duration: 500 });
       return;
@@ -1340,25 +1340,25 @@ const providerMapStyles = StyleSheet.create({
   requestCount: { width: 38, height: 20, borderRadius: 10, backgroundColor: "#1D4ED8", alignItems: "center", justifyContent: "center" },
   requestCountNumber: { color: "#FFFFFF", fontSize: 10, lineHeight: 14, fontWeight: "900" },
   topCenter: { flex: 1, alignItems: "center", gap: 6 },
-  walletBalance: { height: 42, minWidth: 176, maxWidth: "100%", paddingHorizontal: 13, borderRadius: 21, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 5, shadowColor: "#0F172A", shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
-  walletBalanceText: { color: "#17324D", fontSize: 12, fontWeight: "900" },
-  menuButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 5 },
-  messagesBanner: { height: 44, width: "100%", borderRadius: 22, backgroundColor: "#FFFFFF", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, elevation: 4, shadowColor: "#0F172A", shadowOpacity: 0.1, shadowRadius: 7, shadowOffset: { width: 0, height: 2 } },
-  messagesIcon: { width: 25, height: 25, borderRadius: 13, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center" },
-  messagesTitle: { color: "#17324D", fontSize: 10, fontWeight: "900", flexShrink: 1 },
+  walletBalance: { height: 56, minWidth: 205, maxWidth: "100%", paddingHorizontal: 16, borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E7EDF5", alignItems: "center", justifyContent: "center", elevation: 8, shadowColor: "#0F172A", shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  walletBalanceText: { color: "#17324D", fontSize: 15, fontWeight: "900" },
+  menuButton: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#EEF2F7", alignItems: "center", justifyContent: "center", elevation: 8, shadowColor: "#0F172A", shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } },
+  messagesBanner: { height: 48, width: "100%", borderRadius: 26, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E7EDF5", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, elevation: 8, shadowColor: "#0F172A", shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  messagesIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#EAF2FF", borderWidth: 1, borderColor: "#D8E7FF", alignItems: "center", justifyContent: "center" },
+  messagesTitle: { color: "#102F59", fontSize: 12, fontWeight: "900", flexShrink: 1 },
   notificationBadge: { width: 17, height: 17, borderRadius: 9, backgroundColor: "#DC2626", alignItems: "center", justifyContent: "center" },
   notificationBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
-  recenterButton: { position: "absolute", left: 14, width: 42, height: 42, borderRadius: 21, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 6 },
-  destinationButton: { position: "absolute", right: 14, height: 42, maxWidth: "62%", minWidth: 132, paddingHorizontal: 13, borderRadius: 21, backgroundColor: "#FFFFFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, elevation: 6 },
+  recenterButton: { position: "absolute", left: 14, width: 50, height: 50, borderRadius: 25, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E7EDF5", alignItems: "center", justifyContent: "center", elevation: 9, shadowColor: "#0F172A", shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  destinationButton: { position: "absolute", right: 14, height: 50, maxWidth: "66%", minWidth: 170, paddingHorizontal: 16, borderRadius: 25, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E7EDF5", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, elevation: 9, shadowColor: "#0F172A", shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 5 } },
   destinationStar: { color: "#F4B400", fontSize: 18, fontWeight: "900" },
-  destinationText: { color: "#17324D", fontSize: 11, fontWeight: "900", flexShrink: 1 },
+  destinationText: { color: "#123B70", fontSize: 13, fontWeight: "900", flexShrink: 1 },
   mapAttribution: { position: "absolute", left: 8, color: "#334155", backgroundColor: "rgba(255,255,255,0.82)", paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, fontSize: 9, fontWeight: "800", zIndex: 3 },
   offlineNotice: { position: "absolute", left: 12, right: 12, height: 44, borderRadius: 22, backgroundColor: "#1D4ED8", alignItems: "center", justifyContent: "center", paddingHorizontal: 14, elevation: 5 },
   offlineNoticeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", textAlign: "center" },
-  bottomBar: { position: "absolute", left: 0, right: 0, height: 66, direction: "ltr", backgroundColor: "#FFFFFF", borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: -3 } },
+  bottomBar: { position: "absolute", left: 0, right: 0, height: 72, direction: "ltr", backgroundColor: "#FFFFFF", borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: -3 } },
   footerAction: { width: 76, height: 44, alignItems: "center", justifyContent: "center" },
   footerActionText: { color: "#17324D", fontSize: 11, fontWeight: "900" },
-  powerButton: { width: 160, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  powerButton: { width: 180, height: 52, borderRadius: 26, borderWidth: 1, borderColor: "#E1E7EF", alignItems: "center", justifyContent: "center", elevation: 2 },
   powerButtonOn: { backgroundColor: "#DCFCE7" },
   powerButtonOff: { backgroundColor: "#F1F5F9" },
   powerButtonText: { color: "#047857", fontSize: 13, fontWeight: "900" },
