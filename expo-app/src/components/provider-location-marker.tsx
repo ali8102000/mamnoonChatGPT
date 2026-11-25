@@ -111,8 +111,12 @@ export function ProviderLocationMarker({ role, coordinate, heading, title, anima
 
     if (animated && movedEnough) {
       coordinateRef.current.timing({
+        // AnimatedRegion replaces this placeholder with each coordinate value internally.
+        toValue: 0,
         latitude: nextCoordinate.latitude,
         longitude: nextCoordinate.longitude,
+        latitudeDelta: 0,
+        longitudeDelta: 0,
         duration: 850,
         useNativeDriver: false,
       }).start();
@@ -149,7 +153,7 @@ export function ProviderLocationMarker({ role, coordinate, heading, title, anima
 
   return (
     <Marker.Animated
-      coordinate={coordinateRef.current}
+      coordinate={coordinateRef.current as any}
       anchor={{ x: 0.5, y: role === "partner" ? 0.92 : 0.5 }}
       title={title || ROLE_STYLE[role].title}
       tracksViewChanges
