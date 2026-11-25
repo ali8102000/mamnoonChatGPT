@@ -46,7 +46,7 @@ function shortestTurn(from: number, to: number) {
   return from + delta;
 }
 
-function RoleGlyph({ role, color, vehicleType }: { role: ProviderMarkerRole; color: string; vehicleType?: LargeVehicleMarkerType | null }) {
+function RoleGlyph({ role, vehicleType }: { role: ProviderMarkerRole; vehicleType?: LargeVehicleMarkerType | null }) {
   // Use recognizable symbols rather than hand-drawn vehicle illustrations.
   const symbol = role === "captain"
     ? "🚕"
@@ -155,7 +155,7 @@ export function ProviderLocationMarker({ role, vehicleType, coordinate, heading,
         ]}
       >
         <View style={[styles.glyphWrap, role === "partner" && styles.partnerGlyphWrap]}>
-          <RoleGlyph role={role} color={color} vehicleType={vehicleType} />
+          <RoleGlyph role={role} vehicleType={vehicleType} />
         </View>
         {role !== "partner" ? <View style={[styles.directionNose, { borderBottomColor: color }]} /> : null}
       </Animated.View>
