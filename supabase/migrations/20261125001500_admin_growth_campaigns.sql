@@ -48,7 +48,7 @@ create table if not exists public.mamnoon_growth_campaign_awards (
   wallet_transaction_id uuid references public.account_wallet_transactions(id),
   coupon_id uuid references public.coupons(id),
   created_at timestamptz not null default now(),
-  unique(campaign_id,user_id),
+  unique(campaign_id,user_id)
 );
 
 create index if not exists mamnoon_growth_campaigns_active_window_idx
@@ -300,8 +300,11 @@ language plpgsql
 security definer
 set search_path=public
 as $function$
+declare
+  v_user_id uuid;
 begin
-  perform public.mamnoon_apply_provider_signup_rewards(coalesce(new.user_id,new.id));
+  if tg_table_name='profiles' then v_user_id:=new.id; else v_user_id:=new.user_id; end if;
+  perform public.mamnoon_apply_provider_signup_rewards(v_user_id);
   return new;
 end;
 $function$;
