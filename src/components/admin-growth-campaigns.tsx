@@ -5,7 +5,7 @@ import { toast } from "@/lib/toast";
 
 type Campaign = {
   campaign_id: string; campaign_type: string; title: string; provider_type: string | null;
-  service_slug: string | null; target_governorates: string[]; amount_iqd: number;
+  service_slug: string | null; target_governorates: string[]; amount_iqd: number; budget_iqd: number; spent_iqd: number;
   delay_days: number; coupon_valid_days: number; max_awards: number; issued_count: number;
   starts_at: string; ends_at: string; active: boolean; created_at: string;
 };
@@ -64,7 +64,7 @@ export default function AdminGrowthCampaigns() {
   const selectedGovs = useMemo(()=>governorates.length===0?"كل العراق":governorates.map(g=>GOV_LABELS[g]??g).join("، "),[governorates]);
   const save = async () => {
     const amountN=Number(amount), delayN=Number(delay), maxN=Number(maxAwards), couponN=Number(couponDays);
-    if(!title.trim() || !Number.isSafeInteger(amountN) || amountN<1 || !Number.isInteger(maxN) || maxN<1) {
+    if(!title.trim() || !Number.isSafeInteger(amountN) || amountN<1 || !Number.isSafeInteger(Number(budget)) || Number(budget)<amountN || !Number.isInteger(maxN) || maxN<1) {
       setError("تأكد من اسم الحملة والمبلغ والعدد الأقصى.");
       return;
     }
