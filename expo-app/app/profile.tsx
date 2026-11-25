@@ -47,7 +47,7 @@ function summarizeProviderEarnings(rows: WalletTransaction[]): EarningsSummary {
 }
 
 export default function ProfileScreen() {
-  const { user, profile, roles, activeRole, signOut, refresh } = useAuth();
+  const { user, profile, roles, activeRole, setActiveRole, signOut, refresh } = useAuth();
   const isProvider = activeRole === "worker" || activeRole === "driver" || activeRole === "large_driver";
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [accountWallet, setAccountWallet] = useState<AccountWallet | null>(null);
@@ -342,11 +342,33 @@ export default function ProfileScreen() {
 
       <View style={styles.rolesRow}>
         {roles.filter((r) => ["customer", "driver", "large_driver", "worker"].includes(r)).map((r) => (
-          <View key={r} style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>
+          <TouchableOpacity
+            key={r}
+            activeOpacity={0.78}
+            disabled={r === activeRole}
+            onPress={async () => {
+              if (r === activeRole || !user?.id) return;
+              try {
+                if (activeRole === "driver" || activeRole === "large_driver" || activeRole === "worker") {
+                  const table = activeRole === "worker" ? "worker_profiles" : "driver_profiles";
+                  const { error } = await supabase.from(table).update({ available: false }).eq("user_id", user.id);
+                  if (error) throw error;
+                }
+                await setActiveRole(r);
+                router.replace("/home");
+              } catch (error: any) {
+                Alert.alert("تعذر تبديل الدور", error?.message || "تحقق من اتصال الإنترنت وحاول مرة ثانية.");
+              }
+            }}
+            style={[styles.roleBadge, r === activeRole && styles.roleBadgeActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: r === activeRole, disabled: r === activeRole }}
+          >
+            <Text style={[styles.roleBadgeText, r === activeRole && styles.roleBadgeTextActive]}>
               {r === "customer" ? "زبون" : r === "driver" ? "كابتن تكسي" : r === "large_driver" ? "سائق سيارات كبيرة" : "فني"}
+              {r === activeRole ? " ✓" : " ↔"}
             </Text>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
       {isProvider ? (
@@ -506,6 +528,8 @@ const styles = StyleSheet.create({
   rolesRow: { flexDirection: "row", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 20 },
   roleBadge: { backgroundColor: palette.brandSoft, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7 },
   roleBadgeText: { fontSize: 11, fontWeight: "900", color: palette.brand },
+  roleBadgeActive: { backgroundColor: palette.brand, borderWidth: 1, borderColor: palette.gold },
+  roleBadgeTextActive: { color: palette.white },
   walletOfflineNotice: { padding: 9, borderRadius: 10, backgroundColor: palette.goldSoft, marginBottom: 10 },
   walletOfflineText: { color: palette.ink, fontSize: 10, fontWeight: "700", textAlign: "right" },
   walletEarningsRow: { flexDirection: "row-reverse", gap: 10, marginBottom: 18, alignItems: "flex-start" },
