@@ -3,6 +3,7 @@ import { router, usePathname } from "expo-router";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { palette } from "@/styles/theme";
 import { safeNavigate } from "@/lib/safe-navigation";
+import { useAuth } from "@/lib/auth-context";
 
 type Tab = { path: string; label: string; icon: "home" | "clipboard" | "message" | "user" };
 
@@ -23,8 +24,10 @@ function NavigationIcon({ name, color }: { name: Tab["icon"]; color: string }) {
 
 export function NativeBottomNavigation() {
   const pathname = usePathname();
+  const { activeRole } = useAuth();
   const visible = pathname === "/subscriptions" || tabs.some((tab) => pathname === tab.path || pathname.startsWith(tab.path + "/"));
-  if (!visible) return null;
+  const providerMapActive = pathname === "/home" && (activeRole === "driver" || activeRole === "large_driver" || activeRole === "worker");
+  if (!visible || providerMapActive) return null;
 
   return (
     <View pointerEvents="box-none" style={styles.positioner}>
