@@ -125,7 +125,7 @@ export default function AdminFinanceScreen() {
     }
     Alert.alert("تأكيد تعديل المحفظة", `${kind === "credit" ? "إضافة" : "خصم"} ${Number(amount).toLocaleString("ar-IQ")} د.ع للمستخدم ${selected.full_name || selected.phone || ""}؟`, [
       { text: "رجوع", style: "cancel" },
-      { text: "تأكيد", onPress: () => void run({ action: "adjust_wallet", user_id: selected.id, amount: Number(amount), type: kind, note }, "تم تسجيل حركة المحفظة.") },
+      { text: "تأكيد", onPress: () => void run({ action: "adjust_wallet", user_id: selected.id, amount: Number(amount), type: kind, note: note.trim() || "تعديل رصيد من الإدارة", idempotency_key: "admin-wallet:" + selected.id + ":" + Date.now() + ":" + Math.random().toString(36).slice(2, 10) }, "تم تحديث محفظة المستخدم وتسجيل الحركة.") },
     ]);
   };
   const run = async (body: Record<string, unknown>, success: string) => {
