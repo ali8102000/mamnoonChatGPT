@@ -730,6 +730,13 @@ Deno.serve(async (req: Request) => {
       let providerQuery = admin.from(table)
         .select("*, profiles!inner(full_name,phone,email,avatar_url)", { count: "exact" });
       if (scopeType === "governorate" && scopeGovernorate) providerQuery = providerQuery.eq("profiles.governorate_key", scopeGovernorate);
+      // The taxi and large-vehicle roles share driver_profiles, so the role
+      // selector must also constrain the underlying vehicle category.
+      if (type === "large_driver") {
+        providerQuery = providerQuery.eq("vehicle_category", "large");
+      } else if (type === "driver") {
+        providerQuery = providerQuery.in("vehicle_category", ["economy", "premium", "luxury"]);
+      }
       if (status !== "all") providerQuery = providerQuery.eq("status", status);
       if (category !== "all") providerQuery = providerQuery.eq(type === "worker" ? "level" : "vehicle_category", category);
       const { data: providers, count, error } = await providerQuery
@@ -852,6 +859,20 @@ Deno.serve(async (req: Request) => {
       if (body.status === "rejected" && !reason) {
         return json({ error: "rejection_reason_required" }, 400);
       }
+      // Do not let a mismatched UI request approve a large-vehicle profile
+      // as a taxi driver (or the reverse). The database RPC applies the same
+      // separation, but fail here with a clear, actionable response.
+      if (body.type !== "worker") {
+        const { data: driverProfile, error: driverProfileError } = await admin.from("driver_profiles")
+          .select("vehicle_category").eq("user_id", body.user_id).maybeSingle();
+        if (driverProfileError) return json({ error: "provider_profile_lookup_failed" }, 500);
+        const isLargeVehicle = driverProfile?.vehicle_category === "large";
+        const isTaxiVehicle = ["economy", "premium", "luxury"].includes(String(driverProfile?.vehicle_category ?? ""));
+        if (!driverProfile || (body.type === "large_driver" ? !isLargeVehicle : !isTaxiVehicle)) {
+          return json({ error: "provider_type_profile_mismatch" }, 409);
+        }
+      }
+
       const { data: targetProfile, error: targetProfileError } = await admin.from("profiles")
         .select("governorate_key").eq("id", body.user_id).maybeSingle();
       if (targetProfileError || !targetProfile) throw new Error("permission_required:providers.verify");
