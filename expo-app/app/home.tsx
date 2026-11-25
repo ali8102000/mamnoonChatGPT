@@ -32,7 +32,7 @@ import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 import { ProviderMissions } from "@/components/provider-missions";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProviderLocationMarker } from "@/components/provider-location-marker";
 import { PowerStatusSwitch } from "@/components/power-status-switch";
@@ -1316,7 +1316,7 @@ function ProviderHome({
         <PowerStatusSwitch
           isOnline={isOnline}
           offlineText={availabilitySaving ? "جارٍ التحديث..." : "غير متصل"}
-          onlineText="متصل وتستقبل الطلبات"
+          onlineText="متصل"
           activeColor="#059669"
           scaleFn={scaleSize}
           disabled={!verified || availabilitySaving || (walletBlocked && !available)}
