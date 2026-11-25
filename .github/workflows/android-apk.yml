@@ -153,8 +153,9 @@ jobs:
             sleep 5
             adb logcat -d -t 6000 > expo-app/release-artifacts/emulator-logcat.txt
             if grep -q "FATAL EXCEPTION" expo-app/release-artifacts/emulator-logcat.txt; then echo "::error::Mamnoon crashed after the React Native entry point started."; tail -n 160 expo-app/release-artifacts/emulator-logcat.txt; exit 1; fi
-            adb shell screencap -p /sdcard/mamnoon-screen.png
-            adb pull /sdcard/mamnoon-screen.png expo-app/release-artifacts/emulator-screen.png
+            # Stream the screenshot directly to the runner; Android 15 may deny writes to /sdcard.
+            adb exec-out screencap -p > expo-app/release-artifacts/emulator-screen.png
+            test -s expo-app/release-artifacts/emulator-screen.png
       - name: Upload Android emulator smoke evidence
         if: always()
         uses: actions/upload-artifact@v4
