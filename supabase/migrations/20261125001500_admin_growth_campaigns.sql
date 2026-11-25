@@ -247,6 +247,7 @@ begin
       and (cardinality(target_governorates)=0 or v_profile.governorate_key=any(target_governorates))
       and issued_count<max_awards
     order by created_at
+    for update
   loop
     select exists(
       select 1 from public.user_roles r
