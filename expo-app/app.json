@@ -27,6 +27,7 @@
       }
     },
     "android": {
+      "versionCode": 8,
       "adaptiveIcon": {
         "foregroundImage": "./assets/mamnoon-logo.png",
         "backgroundColor": "#f7f8f5"
