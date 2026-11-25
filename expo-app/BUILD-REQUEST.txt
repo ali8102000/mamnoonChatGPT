@@ -1,0 +1,2 @@
+Android APK build requested after restoring interactive role switching in profile.tsx.
+This file is a build trigger only; it does not change application behavior.
