@@ -392,7 +392,6 @@ export default function HomeScreen() {
         available={available}
         availabilitySaving={availabilitySaving}
         verified={verified}
-        verificationStatus={verificationStatus}
         toggleAvailable={toggleAvailable}
         incoming={incoming}
       />
@@ -1087,10 +1086,8 @@ function ProviderHome({
   available,
   availabilitySaving,
   verified,
-  verificationStatus,
   toggleAvailable,
   incoming,
-  onRefresh,
 }: {
   role: "driver" | "large_driver" | "worker";
   profile: { full_name?: string | null; avatar_url?: string | null } | null;
@@ -1098,10 +1095,8 @@ function ProviderHome({
   available: boolean;
   availabilitySaving: boolean;
   verified: boolean;
-  verificationStatus: string;
   toggleAvailable: () => void;
   incoming: IncomingRequest[];
-  onRefresh: () => Promise<void>;
 }) {
   const insets = useSafeAreaInsets();
   const topOffset = Math.max(insets.top, 28);
@@ -1111,14 +1106,13 @@ function ProviderHome({
   const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number; heading?: number | null } | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
-  const [walletOffline, setWalletOffline] = useState(false);
   const roleConfig = ROLE_CONFIG[role === "driver" ? "captain" : role === "large_driver" ? "carrier" : "usta"];
 
   useEffect(() => {
     let active = true;
     const loadWallet = async () => {
       if (!userId) {
-        if (active) { setWalletBalance(null); setWalletOffline(true); setWalletLoading(false); }
+        if (active) { setWalletBalance(null); setWalletLoading(false); }
         return;
       }
       try {
@@ -1128,12 +1122,10 @@ function ProviderHome({
         if (!Number.isFinite(balance)) throw new Error("wallet_balance_unavailable");
         if (!active) return;
         setWalletBalance(balance);
-        setWalletOffline(false);
       } catch (error) {
         console.warn("[provider-home] authoritative wallet unavailable:", error);
         if (!active) return;
         setWalletBalance(null);
-        setWalletOffline(true);
       } finally {
         if (active) setWalletLoading(false);
       }
@@ -1179,18 +1171,6 @@ function ProviderHome({
   }, [mapReady, currentCoords]);
 
   const walletBlocked = walletBalance !== null && walletBalance <= -5000;
-  const statusLabel = walletBlocked
-    ? "رصيد المحفظة وصل -5,000 د.ع — استقبال الطلبات متوقف"
-    : walletOffline && walletBalance === null
-      ? "تعذر التحقق من رصيد المحفظة"
-      : !verified
-        ? "حسابك بانتظار التوثيق"
-        : availabilitySaving
-          ? "جارٍ تحديث الحالة"
-          : available
-            ? "متصل — تستقبل الطلبات"
-            : "غير متصل — الطلبات متوقفة";
-
   const recenter = async () => {
     if (currentCoords) {
       mapRef.current?.animateCamera({
@@ -1356,7 +1336,7 @@ const providerMapStyles = StyleSheet.create({
   mapLoadingText: { color: "#334155", fontSize: 13, fontWeight: "800" },
   vehicleMarker: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#FFFFFF", borderWidth: 3, borderColor: "#1D4ED8", alignItems: "center", justifyContent: "center", elevation: 8 },
   vehicleMarkerText: { fontSize: 23 },
-  topOverlay: { position: "absolute", left: 12, right: 12, flexDirection: "row", alignItems: "flex-start", gap: 8, zIndex: 10 },
+  topOverlay: { position: "absolute", left: 12, right: 12, flexDirection: "row", direction: "ltr", alignItems: "flex-start", gap: 8, zIndex: 10 },
   profileColumn: { width: 54, alignItems: "center", gap: 4 },
   avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#E2E8F0", borderWidth: 2, borderColor: "#FFFFFF" },
   avatarFallback: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 4 },
@@ -1377,7 +1357,7 @@ const providerMapStyles = StyleSheet.create({
   destinationText: { color: "#17324D", fontSize: 11, fontWeight: "900", flexShrink: 1 },
   offlineNotice: { position: "absolute", left: 12, right: 12, height: 44, borderRadius: 22, backgroundColor: "#1D4ED8", alignItems: "center", justifyContent: "center", paddingHorizontal: 14, elevation: 5 },
   offlineNoticeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", textAlign: "center" },
-  bottomBar: { position: "absolute", left: 0, right: 0, height: 66, backgroundColor: "#FFFFFF", borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: -3 } },
+  bottomBar: { position: "absolute", left: 0, right: 0, height: 66, direction: "ltr", backgroundColor: "#FFFFFF", borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: -3 } },
   footerAction: { width: 76, height: 44, alignItems: "center", justifyContent: "center" },
   footerActionText: { color: "#17324D", fontSize: 11, fontWeight: "900" },
   powerButton: { width: 160, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
