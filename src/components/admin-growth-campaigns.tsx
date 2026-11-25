@@ -29,6 +29,7 @@ const localInput = (date:Date) => {
 
 export default function AdminGrowthCampaigns() {
   const [kind,setKind] = useState<"provider_wallet_signup"|"customer_delayed_coupon">("provider_wallet_signup");
+  const [editingId,setEditingId] = useState<string|null>(null);
   const [title,setTitle] = useState("مكافأة التسجيل الجديدة");
   const [providerType,setProviderType] = useState("driver");
   const [serviceSlug,setServiceSlug] = useState("");
@@ -77,7 +78,7 @@ export default function AdminGrowthCampaigns() {
     if(new Date(endsAt)<=new Date(startsAt)) { setError("تاريخ نهاية الحملة يجب أن يكون بعد بدايتها."); return; }
     setSaving(true); setError("");
     const {error:saveError}=await (supabase as any).rpc("admin_save_growth_campaign",{
-      p_campaign_id:null,p_campaign_type:kind,p_title:title.trim(),
+      p_campaign_id:editingId,p_campaign_type:kind,p_title:title.trim(),
       p_provider_type:isCustomer?null:providerType,p_service_slug:isCustomer?null:(serviceSlug.trim()||null),
       p_target_governorates:governorates,p_amount_iqd:amountN,p_delay_days:isCustomer?delayN:0,
       p_coupon_valid_days:isCustomer?couponN:0,p_max_awards:maxN,
@@ -85,7 +86,15 @@ export default function AdminGrowthCampaigns() {
     });
     setSaving(false);
     if(saveError) setError(saveError.message);
-    else { toast.success(active?"تم إنشاء الحملة وتفعيلها":"تم حفظ الحملة كمسودة"); await load(); }
+    else { toast.success(editingId?"تم تحديث الحملة":active?"تم إنشاء الحملة وتفعيلها":"تم حفظ الحملة كمسودة"); setEditingId(null); await load(); }
+  };
+  const editCampaign = (c:Campaign) => {
+    setEditingId(c.campaign_id); setKind(c.campaign_type as any); setTitle(c.title);
+    setProviderType(c.provider_type??"driver"); setServiceSlug(c.service_slug??"");
+    setAmount(String(c.amount_iqd)); setDelay(String(c.delay_days)); setCouponDays(String(c.coupon_valid_days));
+    setMaxAwards(String(c.max_awards)); setStartsAt(localInput(new Date(c.starts_at)));
+    setEndsAt(localInput(new Date(c.ends_at))); setGovernorates(c.target_governorates??[]); setActive(c.active);
+    setError(""); window.scrollTo({top:0,behavior:"smooth"});
   };
   const toggleCampaign = async (c:Campaign) => {
     const {error:e}=await (supabase as any).rpc("admin_save_growth_campaign",{
@@ -125,7 +134,8 @@ export default function AdminGrowthCampaigns() {
         <label className="block text-xs font-bold">تنتهي<input type="datetime-local" value={endsAt} onChange={e=>setEndsAt(e.target.value)} className="mt-1 w-full rounded-xl border bg-background p-3"/></label>
       </div>
       <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={active} onChange={e=>setActive(e.target.checked)}/> تفعيل الحملة فور الحفظ</label>
-      <button disabled={saving} onClick={()=>void save()} className="w-full rounded-xl bg-primary py-3 font-black text-primary-foreground disabled:opacity-50">{saving?"جارٍ الحفظ...":"حفظ الحملة"}</button>
+      <button disabled={saving} onClick={()=>void save()} className="w-full rounded-xl bg-primary py-3 font-black text-primary-foreground disabled:opacity-50">{saving?"جارٍ الحفظ...":editingId?"حفظ التعديلات":"حفظ الحملة"}</button>
+      {editingId&&<button onClick={()=>setEditingId(null)} className="w-full rounded-xl border py-2 text-xs font-bold">إلغاء التعديل</button>}
       {error&&<div role="alert" className="rounded-xl bg-red-50 p-3 text-xs text-red-700">{error}</div>}
     </div>
     <div className="glass rounded-2xl p-4 space-y-3">
@@ -134,7 +144,7 @@ export default function AdminGrowthCampaigns() {
         <div className="flex items-start justify-between gap-2"><div><div className="font-black text-sm">{c.title}</div><div className="text-[11px] text-muted-foreground">{c.campaign_type==="provider_wallet_signup"?"مكافأة محفظة مزود":"كوبون زبون مؤجل"} · {c.provider_type?PROVIDER_TYPES.find(x=>x.value===c.provider_type)?.label??c.provider_type:"الزبائن"} · {c.target_governorates.length?c.target_governorates.map(g=>GOV_LABELS[g]??g).join("، "):"كل العراق"}</div></div><span className={`rounded-full px-2 py-1 text-[10px] ${c.active?"bg-emerald-100 text-emerald-700":"bg-muted text-muted-foreground"}`}>{c.active?"فعّالة":"متوقفة"}</span></div>
         <div className="text-xs">القيمة: {money(c.amount_iqd)} · {c.campaign_type==="customer_delayed_coupon"?`بعد ${c.delay_days} يوم`:"عند التسجيل"} · المستفيدون: {c.issued_count}/{c.max_awards}</div>
         <div className="text-[10px] text-muted-foreground">{new Date(c.starts_at).toLocaleString("ar-IQ")} — {new Date(c.ends_at).toLocaleString("ar-IQ")}</div>
-        <button onClick={()=>void toggleCampaign(c)} className="w-full rounded-lg border py-2 text-xs font-bold">{c.active?"إيقاف الحملة":"تفعيل الحملة"}</button>
+        <div className="grid grid-cols-2 gap-2"><button onClick={()=>editCampaign(c)} className="rounded-lg border py-2 text-xs font-bold">تعديل</button><button onClick={()=>void toggleCampaign(c)} className="rounded-lg border py-2 text-xs font-bold">{c.active?"إيقاف الحملة":"تفعيل الحملة"}</button></div>
       </div>)}
     </div>
     <div className="glass rounded-2xl p-4 space-y-3">
