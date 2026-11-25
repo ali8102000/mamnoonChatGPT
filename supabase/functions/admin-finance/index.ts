@@ -396,10 +396,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === "adjust_wallet") {
-      if (!uuid(body.user_id) || typeof body.amount !== "number" || !Number.isFinite(body.amount) ||
-          body.amount <= 0 || body.amount > 1000000000 ||
+      if (!uuid(body.user_id) || typeof body.amount !== "number" || !Number.isSafeInteger(body.amount) ||
+          body.amount <= 0 || body.amount > 100000000 ||
           !["credit", "debit"].includes(body.type) ||
-          (body.note !== undefined && (typeof body.note !== "string" || body.note.length > 500))) {
+          typeof body.idempotency_key !== "string" || body.idempotency_key.length < 8 || body.idempotency_key.length > 200 ||
+          typeof body.note !== "string" || body.note.trim().length < 2 || body.note.length > 500) {
         return json({ error: "invalid_request" }, 400);
       }
       const { data: targetProfile, error: targetProfileError } = await admin.from("profiles")
@@ -410,10 +411,13 @@ Deno.serve(async (req: Request) => {
         "finance.wallet.adjust",
         governorate ? "governorate" : "global", governorate,
       );
-      return await rpc("admin_adjust_wallet", {
-        p_user_id: body.user_id, p_amount: body.amount,
-        p_note: typeof body.note === "string" ? body.note.trim() || null : null,
+      // Use the canonical ledger read by provider apps, not the legacy driver_wallets ledger.
+      return await rpc("admin_adjust_account_wallet", {
+        p_user_id: body.user_id,
+        p_amount_iqd: body.amount,
+        p_note: body.note.trim(),
         p_type: body.type,
+        p_idempotency_key: body.idempotency_key,
       });
     }
 
