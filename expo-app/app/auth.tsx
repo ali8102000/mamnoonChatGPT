@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import {
   View, Text, StyleSheet, ScrollView, Alert, Pressable, Image,
   KeyboardAvoidingView, Platform,
@@ -22,13 +22,10 @@ type AuthIconName = "user" | "phone" | "mail" | "lock";
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<Mode>("signup");
-  const routeParams = useLocalSearchParams<{ref?: string}>();
   const [identifier, setIdentifier] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [referralCode, setReferralCode] = useState(routeParams.ref || "");
-  const [accountType, setAccountType] = useState<"customer" | "partner">("customer");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const { refresh } = useAuth();
@@ -56,7 +53,6 @@ export default function AuthScreen() {
           phone: normalized,
           full_name: name.trim(),
           contact_email: contactEmail || null,
-          referral_code: referralCode.trim().toUpperCase() || null,
         });
         if (!result.session) throw new Error("تعذّر إكمال التسجيل. حاول مرة أخرى.");
         const { error } = await supabase.auth.setSession(result.session);
@@ -68,7 +64,7 @@ export default function AuthScreen() {
           if (metadataError) throw metadataError;
         }
         await refresh();
-        router.replace(accountType === "partner" ? "/account-settings?partner=1" : "/home");
+        router.replace("/home");
       } else {
         const id = identifier.trim();
         if (!id) throw new Error("أدخل رقم الهاتف أو البريد الإلكتروني");
@@ -200,9 +196,6 @@ export default function AuthScreen() {
                     style={styles.inputLtr}
                   />
                 </AuthField>
-                <AuthField title="رمز الإحالة" hint="اختياري" icon="user">
-                  <RealInput value={referralCode} onChangeText={setReferralCode} placeholder="أدخل رمز دعوة صديقك" autoCapitalize="characters" maxLength={10} style={styles.inputLtr} />
-                </AuthField>
               </>
             ) : (
               <AuthField title="رقم الهاتف أو البريد" icon="phone">
@@ -233,7 +226,6 @@ export default function AuthScreen() {
               />
             </AuthField>
 
-            {isSignup && <View style={styles.field}><Text style={styles.fieldLabel}>نوع الحساب</Text><View style={{flexDirection:"row",gap:8}}><Pressable onPress={()=>setAccountType("customer")} style={[styles.modeOption,accountType==="customer"&&styles.modeOptionActive,{borderWidth:1,borderColor:palette.line}]}><Text style={[styles.modeText,accountType==="customer"&&styles.modeTextActive]}>حساب زبون</Text></Pressable><Pressable onPress={()=>setAccountType("partner")} style={[styles.modeOption,accountType==="partner"&&styles.modeOptionActive,{borderWidth:1,borderColor:palette.line}]}><Text style={[styles.modeText,accountType==="partner"&&styles.modeTextActive]}>شريك تجاري</Text></Pressable></View>{accountType==="partner"&&<Text style={styles.fieldHint}>بعد إنشاء الحساب تكمل بيانات المنشأة وترفع الإجازة والمستمسكات وتحدد موقعها بالخريطة.</Text>}</View>}
             {!isSignup && (
               <Pressable onPress={() => router.push("/forgot-password")} style={styles.forgotButton}>
                 <Text style={styles.forgotText}>نسيت كلمة المرور؟</Text>
