@@ -36,9 +36,7 @@ begin
  return query select c.id,c.campaign_type,c.title,c.provider_type,c.service_slug,c.target_governorates,c.amount_iqd,c.budget_iqd,c.spent_iqd,
  c.delay_days,c.coupon_valid_days,c.max_awards,c.issued_count,c.starts_at,c.ends_at,c.active,c.created_at,
  c.coupon_request_types,c.coupon_vehicle_categories,c.coupon_service_slugs from public.mamnoon_growth_campaigns c order by c.created_at desc;
-end $function$
-
-
+end $function$;
 CREATE OR REPLACE FUNCTION public.admin_save_growth_campaign_v2(p_campaign_id uuid, p_campaign_type text, p_title text, p_provider_type text, p_service_slug text, p_target_governorates text[], p_amount_iqd bigint, p_budget_iqd bigint, p_delay_days integer, p_coupon_valid_days integer, p_max_awards integer, p_starts_at timestamp with time zone, p_ends_at timestamp with time zone, p_active boolean, p_coupon_request_types text[], p_coupon_vehicle_categories text[], p_coupon_service_slugs text[])
  RETURNS uuid
  LANGUAGE plpgsql
@@ -67,9 +65,7 @@ begin
    coupon_service_slugs=coalesce(p_coupon_service_slugs,'{}'::text[]),updated_at=now() where id=v_id;
  end if;
  return v_id;
-end $function$
-
-
+end $function$;
 CREATE OR REPLACE FUNCTION public.apply_coupon_to_existing_request(p_request_id uuid, p_code text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -104,9 +100,7 @@ begin
  insert into public.coupon_subsidy_ledger(request_id,coupon_id,customer_id,discount_amount,currency,status) values(p_request_id,c.id,auth.uid(),d,'IQD','pending_completion');
  insert into public.notifications(user_id,type,title,body,link,data) values(auth.uid(),'coupon_redeemed','تم تطبيق الكوبون 🎉','تم خصم '||trim(to_char(d,'FM999999990.##'))||' د.ع من طلبك','/request/'||p_request_id,jsonb_build_object('coupon_id',c.id,'request_id',p_request_id,'discount',d,'payable',amount-d));
  return jsonb_build_object('discount',d,'payable',amount-d,'coupon_id',c.id);
-end $function$
-
-
+end $function$;
 CREATE OR REPLACE FUNCTION public.apply_coupon_to_new_request()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -134,9 +128,7 @@ begin
  new.coupon_code:=c.code;new.coupon_id:=c.id;
  new.coupon_discount:=greatest(0,least(amount,case when c.type='percentage' then round(amount*c.value/100,2) else least(amount,c.value) end));
  new.customer_payable:=amount-new.coupon_discount;return new;
-end $function$
-
-
+end $function$;
 CREATE OR REPLACE FUNCTION public.get_my_coupons_v2()
  RETURNS TABLE(id uuid, code text, type text, value numeric, min_amount numeric, expires_at timestamp with time zone, active boolean, assigned_at timestamp with time zone, used boolean, applicable_request_types text[], applicable_vehicle_categories text[], applicable_service_slugs text[])
  LANGUAGE sql
@@ -151,9 +143,7 @@ AS $function$
  and exists(select 1 from public.user_roles ur where ur.user_id=auth.uid() and ur.role='customer')
  and not exists(select 1 from public.user_roles ur where ur.user_id=auth.uid() and ur.role in ('driver','worker','large_driver'))
  order by a.assigned_at desc;
-$function$
-
-
+$function$;
 CREATE OR REPLACE FUNCTION public.preview_my_coupon_for_request(p_code text, p_amount numeric, p_request_type text, p_vehicle_category text DEFAULT NULL::text, p_service_slug text DEFAULT NULL::text)
  RETURNS TABLE(coupon_id uuid, code text, discount numeric, payable numeric, type text, value numeric)
  LANGUAGE plpgsql
@@ -176,9 +166,7 @@ begin
  if not found then raise exception 'الكوبون غير متاح لهذا النوع من الطلبات أو لا يطابق شروطه'; end if;
  d:=greatest(0,least(p_amount,case when c.type='percentage' then round(p_amount*c.value/100,2) else least(p_amount,c.value) end));
  return query select c.id,c.code,d,p_amount-d,c.type,c.value;
-end $function$
-
-
+end $function$;
 CREATE OR REPLACE FUNCTION public.process_mamnoon_growth_campaigns()
  RETURNS integer
  LANGUAGE plpgsql
@@ -242,8 +230,7 @@ begin
   end loop;
   return v_assigned;
 end;
-$function$
-
+$function$;
 revoke all on function public.admin_save_growth_campaign_v2(uuid,text,text,text,text,text[],bigint,bigint,integer,integer,integer,timestamptz,timestamptz,boolean,text[],text[],text[]) from public,anon;
 grant execute on function public.admin_save_growth_campaign_v2(uuid,text,text,text,text,text[],bigint,bigint,integer,integer,integer,timestamptz,timestamptz,boolean,text[],text[],text[]) to authenticated;
 revoke all on function public.admin_list_growth_campaigns_v2() from public,anon;
