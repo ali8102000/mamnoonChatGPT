@@ -399,7 +399,7 @@ export default function NewRequest() {
   function getCouponBaseAmount() {
     if (isTaxi) return isLargeVehicle ? proposedPrice : estimatedTaxiFare;
     if (pricingMode === "negotiable") return null;
-    return serviceTotalPrice > 0 ? serviceTotalPrice : null;
+    return proposedPrice !== null && proposedPrice > 0 ? proposedPrice : null;
   }
 
   async function previewCoupon() {
