@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
-import MapView, { AnimatedRegion, Marker } from "react-native-maps";
+import { AnimatedRegion, Marker } from "react-native-maps";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 export type ProviderMarkerRole = "captain" | "usta" | "carrier" | "partner";
