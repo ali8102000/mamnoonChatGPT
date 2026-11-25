@@ -1330,7 +1330,7 @@ function ProviderHome({
           isOnline={isOnline}
           offlineText={availabilitySaving ? "جارٍ التحديث..." : "غير متصل"}
           onlineText="متصل"
-          activeColor="#059669"
+          activeColor="#0F766E"
           scaleFn={scaleSize}
           disabled={!verified || availabilitySaving || (walletBlocked && !available)}
           onToggle={toggleAvailable}
