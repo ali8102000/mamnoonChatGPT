@@ -882,9 +882,9 @@ function RequestDetail() {
                         <label className="block text-xs font-bold">كم استلمت من الزبون نقداً؟</label>
                         <input
                           inputMode="numeric"
-                          type="number"
-                          min="0"
-                          max="100000000"
+                          type="text"
+                          pattern="[0-9]*"
+                          maxLength={9}
                           value={cashReceivedInput}
                           onChange={(event) => setCashReceivedInput(normalizeCashDigits(event.target.value))}
                           placeholder="مثلاً 5000"
