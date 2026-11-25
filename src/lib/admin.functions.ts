@@ -390,12 +390,15 @@ export const adminSaveCoupon = createClientFn({ method: "POST" })
         expires_at: z.string().datetime().optional().nullable(),
         active: z.boolean().default(true),
         min_amount: z.number().min(0).default(0),
+        applicable_request_types: z.array(z.enum(["taxi","service"])).min(1).default(["taxi"]),
+        applicable_vehicle_categories: z.array(z.enum(["economy","premium","luxury","large"])).default(["economy","premium","luxury","large"]),
+        applicable_service_slugs: z.array(z.string().min(1).max(100)).default([]),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const { error } = await (supabase as any).rpc("admin_save_coupon", {
+    const { error } = await (supabase as any).rpc("admin_save_coupon_v2", {
       p_id: data.id ?? null,
       p_code: data.code,
       p_type: data.type,
@@ -404,6 +407,9 @@ export const adminSaveCoupon = createClientFn({ method: "POST" })
       p_expires_at: data.expires_at ?? null,
       p_active: data.active,
       p_min_amount: data.min_amount,
+      p_applicable_request_types: data.applicable_request_types,
+      p_applicable_vehicle_categories: data.applicable_vehicle_categories,
+      p_applicable_service_slugs: data.applicable_service_slugs,
     });
     if (error) throw new Error(error.message);
     return { ok: true };

@@ -397,8 +397,9 @@ export default function NewRequest() {
   const serviceTotalPrice = Number(customerPrice || 0) * servicePriceMultiplier;
 
   function getCouponBaseAmount() {
-    if (!isTaxi || isLargeVehicle) return null;
-    return estimatedTaxiFare;
+    if (isTaxi) return isLargeVehicle ? (customerPrice.trim() ? Number(customerPrice) : null) : estimatedTaxiFare;
+    if (pricingMode === "negotiable") return null;
+    return serviceTotalPrice > 0 ? serviceTotalPrice : null;
   }
 
   async function previewCoupon() {
@@ -416,9 +417,10 @@ export default function NewRequest() {
     setCouponError("");
     setCouponPreview(null);
     try {
-      const { data, error } = await supabase.rpc("preview_my_coupon", {
-        p_code: code,
-        p_amount: amount,
+      const { data, error } = await supabase.rpc("preview_my_coupon_for_request", {
+        p_code: code, p_amount: amount, p_request_type: isTaxi ? "taxi" : "service",
+        p_vehicle_category: isTaxi ? (isLargeVehicle ? "large" : vehicleCat) : null,
+        p_service_slug: isTaxi ? null : selectedService,
       });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
@@ -1225,12 +1227,13 @@ export default function NewRequest() {
       if (isTaxi && !isLargeVehicle && (routeKm === null || serverTaxiFare === null)) {
         throw new Error("لم يصل تسعير موثوق من الخادم. أعد المحاولة.");
       }
-      if (isTaxi && !isLargeVehicle && couponCode.trim()) {
+      if (couponCode.trim()) {
         const amount = getCouponBaseAmount();
         if (!amount || amount <= 0) throw new Error("حدد سعر الطلب أولاً حتى نطبق الكوبون");
-        const { data: couponData, error: couponCheckError } = await supabase.rpc("preview_my_coupon", {
-          p_code: couponCode.trim().toUpperCase(),
-          p_amount: amount,
+        const { data: couponData, error: couponCheckError } = await supabase.rpc("preview_my_coupon_for_request", {
+          p_code: couponCode.trim().toUpperCase(), p_amount: amount, p_request_type: isTaxi ? "taxi" : "service",
+          p_vehicle_category: isTaxi ? (isLargeVehicle ? "large" : vehicleCat) : null,
+          p_service_slug: isTaxi ? null : selectedService,
         });
         if (couponCheckError) throw couponCheckError;
         const couponRow = Array.isArray(couponData) ? couponData[0] : couponData;
@@ -1243,7 +1246,7 @@ export default function NewRequest() {
           .from("service_requests")
           .insert({
             customer_id: user.id,
-            coupon_code: null,
+            coupon_code: couponCode.trim().toUpperCase() || null,
             type: "taxi",
             status: "pending",
             vehicle_category: "large",
@@ -1723,7 +1726,7 @@ export default function NewRequest() {
                   </View>
                 )}
 
-                {!isLargeVehicle && (
+                {(
                   <View style={styles.taxiCouponPanel}>
                     <Text style={styles.taxiFieldLabel}>🎁 عندك كوبون خصم؟</Text>
                     <View style={styles.taxiSearchRow}>
@@ -2125,7 +2128,7 @@ export default function NewRequest() {
               )}
             </View>
           )}
-          {isTaxi && !isLargeVehicle && (
+          {isTaxi && (
                   <View style={{ marginTop: 18, marginBottom: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: "#F59E0B80", backgroundColor: palette.goldSoft }}>
                     <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", marginBottom: 9 }}>🎁 عندك كوبون خصم؟</Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -2292,6 +2295,18 @@ export default function NewRequest() {
         </>
       )}
 
+
+      {!isTaxi && (
+        <View style={styles.taxiCouponPanel}>
+          <Text style={styles.taxiFieldLabel}>🎁 عندك كوبون خصم؟</Text>
+          <View style={styles.taxiSearchRow}>
+            <TextInput style={[styles.taxiSearchInput, { flex: 1 }]} value={couponCode} onChangeText={(value) => { setCouponCode(value.toUpperCase()); setCouponPreview(null); setCouponError(""); }} placeholder="اكتب رمز الكوبون" placeholderTextColor={palette.muted} autoCapitalize="characters" />
+            <TouchableOpacity style={styles.taxiCouponButton} onPress={previewCoupon} disabled={couponLoading}>{couponLoading ? <ActivityIndicator color={palette.white} /> : <Text style={styles.taxiCouponButtonText}>تحقق</Text>}</TouchableOpacity>
+          </View>
+          {!!couponError && <Text style={styles.taxiErrorText}>{couponError}</Text>}
+          {couponPreview && <View style={styles.taxiCouponResult}><Text style={styles.taxiSuccessText}>تم التحقق من الكوبون</Text><Text style={styles.taxiCouponText}>قيمة الخصم: {couponPreview.discount.toLocaleString("ar-IQ")} د.ع</Text><Text style={styles.taxiCouponText}>المبلغ بعد الخصم: {couponPreview.payable.toLocaleString("ar-IQ")} د.ع</Text></View>}
+        </View>
+      )}
 
       {showRequestPhoto && (
         <View style={{ marginTop: 18, padding: 14, borderRadius: 16, borderWidth: 1, borderStyle: "dashed", borderColor: palette.gold, backgroundColor: palette.surface }}>

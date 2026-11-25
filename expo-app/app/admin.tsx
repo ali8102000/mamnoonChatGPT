@@ -30,6 +30,7 @@ const GROUPS: NavGroup[] = [
   { title: "المالية وحقوق ممنون", description: "المحافظ والعمولات والإيرادات", icon: "💰", items: [
     { title: "حقوق ممنون", description: "استقطاع الشكاوي وإضافة الرصيد والإعفاءات وسياسات العمولة", route: "/admin/rights", icon: "⚖️" },
     { title: "المالية والكوبونات", description: "المحفظة والحركات والعروض", route: "/admin/finance", icon: "💳" },
+    { title: "عروض التسجيل والمكافآت التلقائية", description: "مكافآت مزودي الخدمة وكوبونات الزبائن المؤجلة حسب المدة والمحافظة", route: "/admin/growth-campaigns", icon: "🎁" },
     { title: "الإحصائيات", description: "تقارير المنصة ومؤشراتها", route: "/admin/analytics", icon: "📊" },
   ]},
   { title: "المحتوى وهوية الشركة", description: "الشعار والبانرات ومحتوى التطبيق", icon: "🎨", items: [

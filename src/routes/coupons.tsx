@@ -21,6 +21,9 @@ type Coupon = {
   active: boolean;
   assigned_at: string;
   used: boolean;
+  applicable_request_types: string[];
+  applicable_vehicle_categories: string[];
+  applicable_service_slugs: string[];
 };
 
 function MyCouponsPage() {
@@ -28,13 +31,14 @@ function MyCouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [category, setCategory] = useState("all");
 
   useEffect(() => {
     if (!session) return;
     let alive = true;
     (async () => {
       setBusy(true);
-      const { data, error: queryError } = await (supabase as any).rpc("get_my_coupons");
+      const { data, error: queryError } = await (supabase as any).rpc("get_my_coupons_v2");
       if (!alive) return;
       if (queryError) setError("تعذّر تحميل كوبوناتك حالياً");
       else setCoupons((data ?? []) as Coupon[]);
@@ -47,8 +51,12 @@ function MyCouponsPage() {
   if (!session) return <Navigate to="/auth" />;
 
   const now = Date.now();
-  const available = coupons.filter(c => c.active && !c.used && (!c.expires_at || new Date(c.expires_at).getTime() > now));
-  const unavailable = coupons.filter(c => !available.includes(c));
+  const matchesCategory = (c: Coupon) => category === "all" ||
+    (category === "taxi" && c.applicable_request_types?.includes("taxi")) ||
+    (category === "large" && c.applicable_request_types?.includes("taxi") && c.applicable_vehicle_categories?.includes("large")) ||
+    (category === "service" && c.applicable_request_types?.includes("service"));
+  const available = coupons.filter(c => matchesCategory(c) && c.active && !c.used && (!c.expires_at || new Date(c.expires_at).getTime() > now));
+  const unavailable = coupons.filter(c => matchesCategory(c) && !available.includes(c));
 
   return (
     <div className="min-h-screen bg-background px-4 py-5" dir="rtl">
@@ -57,6 +65,7 @@ function MyCouponsPage() {
           <Link to="/home" className="h-10 w-10 rounded-xl glass grid place-items-center"><ArrowRight className="h-5 w-5" /></Link>
           <div><h1 className="text-xl font-black">كوبوناتي</h1><p className="text-xs text-muted-foreground">العروض والكوبونات المرسلة إلك من ممنون</p></div>
         </div>
+        <div className="flex flex-wrap gap-2 mb-4">{[["all","الكل"],["taxi","التكسي"],["large","السيارات الكبيرة"],["service","الفنيين"]].map(([value,label])=><button key={value} onClick={()=>setCategory(value)} className={`rounded-full px-3 py-2 text-xs font-bold border ${category===value?"bg-primary text-primary-foreground":"bg-background"}`}>{label}</button>)}</div>
         {busy ? <div className="py-16 grid place-items-center"><Loader2 className="h-7 w-7 animate-spin" /></div>
           : error ? <div className="glass rounded-2xl p-5 text-sm text-center">{error}</div>
           : coupons.length === 0 ? (
@@ -67,6 +76,7 @@ function MyCouponsPage() {
             </div>
           ) : (
             <div className="space-y-3">
+              {available.length>0&&<div className="text-sm font-black">الكوبونات المتاحة</div>}
               {available.map(c => (
                 <div key={c.id} className="glass rounded-2xl p-4 border border-emerald-500/20">
                   <div className="flex items-center justify-between gap-2">
@@ -74,11 +84,13 @@ function MyCouponsPage() {
                     <span className="font-mono text-lg font-black">{c.code}</span>
                   </div>
                   <div className="text-xl font-black mt-2">{c.type === "percentage" ? `خصم ${c.value}%` : `خصم ${Number(c.value).toLocaleString("ar-IQ")} د.ع`}</div>
+                  <div className="text-xs text-muted-foreground mt-1">يشمل: {[(c.applicable_request_types??[]).includes("taxi")?"التكسي":null,(c.applicable_vehicle_categories??[]).includes("large")?"السيارات الكبيرة":null,(c.applicable_request_types??[]).includes("service")?"الفنيين":null].filter(Boolean).join(" • ")||"حسب شروط الكوبون"}</div>
                   <div className="text-xs text-muted-foreground mt-1">الحد الأدنى للطلب: {Number(c.min_amount).toLocaleString("ar-IQ")} د.ع</div>
                   {c.expires_at && <div className="text-xs text-muted-foreground mt-1">ينتهي: {new Date(c.expires_at).toLocaleString("ar-IQ")}</div>}
                   <button onClick={() => { void navigator.clipboard?.writeText(c.code).then(() => toast.success("تم نسخ الكود")).catch(() => toast.error("تعذّر نسخ الكود")); }} className="mt-3 w-full rounded-xl bg-primary/10 text-primary font-bold text-sm py-2.5 flex items-center justify-center gap-2"><Copy className="h-4 w-4" /> نسخ الكوبون</button>
                 </div>
               ))}
+              {unavailable.length>0&&<div className="text-sm font-black pt-2">مستخدمة أو غير متاحة</div>}
               {unavailable.map(c => (
                 <div key={c.id} className="glass rounded-2xl p-4 opacity-60">
                   <div className="flex justify-between gap-2"><span className="font-mono font-black">{c.code}</span><span className="text-xs font-bold">{c.used ? "مستخدم" : "منتهي أو متوقف"}</span></div>

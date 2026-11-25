@@ -14,6 +14,7 @@ import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemePreferenceProvider } from "@/lib/theme-preference";
 import { supabase } from "@/lib/supabase";
 import { IncomingRequestModal } from "@/components/incoming-request-modal";
@@ -204,6 +205,7 @@ export default function RootLayout() {
   }
   return (
     <AppErrorBoundary>
+    <SafeAreaProvider>
     <ThemePreferenceProvider>
       <AuthProvider>
         <PushNotificationSetup />
@@ -244,6 +246,7 @@ export default function RootLayout() {
         </View>
       </AuthProvider>
     </ThemePreferenceProvider>
+    </SafeAreaProvider>
     </AppErrorBoundary>
   );
 }

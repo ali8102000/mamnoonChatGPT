@@ -33,6 +33,7 @@ import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 import { ProviderMissions } from "@/components/provider-missions";
 import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const HOME_GRID_GAP = 12;
 
@@ -305,6 +306,20 @@ export default function HomeScreen() {
     Vibration.vibrate(35);
     try {
       if (next) {
+        const { data: walletData, error: walletError } = await (supabase as any).rpc("get_my_account_wallet");
+        if (walletError) {
+          Alert.alert("تعذر التحقق من المحفظة", "ما نكدر نشغّل استقبال الطلبات قبل ما نتأكد من رصيدك. حاول مرة ثانية.");
+          return;
+        }
+        const currentWalletBalance = Number(walletData?.wallet?.balance_iqd);
+        if (!Number.isFinite(currentWalletBalance)) {
+          Alert.alert("المحفظة غير متاحة", "تعذر قراءة رصيدك الحقيقي. حاول بعد قليل.");
+          return;
+        }
+        if (currentWalletBalance <= -5000) {
+          Alert.alert("استقبال الطلبات متوقف", "وصل رصيدك إلى -5,000 دينار. اشحن محفظتك حتى تقدر تستقبل طلبات جديدة.");
+          return;
+        }
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
           Alert.alert("إذن الموقع مطلوب", "اسمح لممنون باستخدام موقعك أثناء استعمال التطبيق قبل استقبال الطلبات.");
@@ -367,6 +382,24 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  const isProviderRole = selectedRole === "driver" || selectedRole === "large_driver" || selectedRole === "worker";
+  if (isProviderRole) {
+    return (
+      <ProviderHome
+        role={selectedRole}
+        profile={profile}
+        userId={user?.id ?? null}
+        available={available}
+        availabilitySaving={availabilitySaving}
+        verified={verified}
+        verificationStatus={verificationStatus}
+        toggleAvailable={toggleAvailable}
+        incoming={incoming}
+        onRefresh={onRefresh}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       {roles.includes("super_admin") && (
@@ -422,7 +455,7 @@ export default function HomeScreen() {
             <CustomerHome userId={user?.id ?? null} homeVisualUrl={homeVisualUrl} homeVisualAnimated={homeVisualAnimated} homeVisualEnabled={homeVisualEnabled} homeVisualWidthPx={homeVisualWidthPx} homeVisualHeightPx={homeVisualHeightPx} homeVisualPosition={homeVisualPosition} homeVisualLinkUrl={homeVisualLinkUrl} />
           </>
         ) : (
-          <ProviderHome
+          <LegacyProviderHome
             available={available}
             availabilitySaving={availabilitySaving}
             verified={verified}
@@ -1035,7 +1068,324 @@ function IncomingRequestList({ incoming }: { incoming: IncomingRequest[] }) {
   );
 }
 
+function scaleSize(size: number): number {
+  const width = Dimensions.get("window").width;
+  const ratio = Math.max(0.88, Math.min(1.15, width / 375));
+  return Math.round(size * ratio);
+}
+
 function ProviderHome({
+  role,
+  profile,
+  userId,
+  available,
+  availabilitySaving,
+  verified,
+  verificationStatus,
+  toggleAvailable,
+  incoming,
+  onRefresh,
+}: {
+  role: "driver" | "large_driver" | "worker";
+  profile: { full_name?: string | null; avatar_url?: string | null } | null;
+  userId: string | null;
+  available: boolean;
+  availabilitySaving: boolean;
+  verified: boolean;
+  verificationStatus: string;
+  toggleAvailable: () => void;
+  incoming: IncomingRequest[];
+  onRefresh: () => Promise<void>;
+}) {
+  const insets = useSafeAreaInsets();
+  const topOffset = Math.max(insets.top, 28);
+  const bottomOffset = Math.max(insets.bottom, 8);
+  const mapRef = useRef<MapView | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number; heading?: number | null } | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
+  const [walletOffline, setWalletOffline] = useState(false);
+  const roleConfig = role === "large_driver"
+    ? { title: "سائق السيارة الكبيرة", short: "نقل وحمولات", emoji: "🚚" }
+    : role === "driver"
+      ? { title: "الكابتن", short: "طلبات التكسي", emoji: "🚕" }
+      : { title: "الفني", short: "الخدمات المنزلية", emoji: "🛠️" };
+
+  useEffect(() => {
+    let active = true;
+    const loadWallet = async () => {
+      if (!userId) {
+        if (active) { setWalletBalance(null); setWalletOffline(true); setWalletLoading(false); }
+        return;
+      }
+      try {
+        const { data, error } = await (supabase as any).rpc("get_my_account_wallet");
+        if (error) throw error;
+        const balance = Number(data?.wallet?.balance_iqd);
+        if (!Number.isFinite(balance)) throw new Error("wallet_balance_unavailable");
+        if (!active) return;
+        setWalletBalance(balance);
+        setWalletOffline(false);
+      } catch (error) {
+        console.warn("[provider-home] authoritative wallet unavailable:", error);
+        if (!active) return;
+        setWalletBalance(null);
+        setWalletOffline(true);
+      } finally {
+        if (active) setWalletLoading(false);
+      }
+    };
+    void loadWallet();
+    const refreshTimer = setInterval(() => { void loadWallet(); }, 15000);
+    return () => { active = false; clearInterval(refreshTimer); };
+  }, [userId]);
+
+  useEffect(() => {
+    let active = true;
+    let subscription: Location.LocationSubscription | null = null;
+    const start = async () => {
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status !== "granted") return;
+        const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!active) return;
+        setCurrentCoords({ latitude: first.coords.latitude, longitude: first.coords.longitude, heading: first.coords.heading });
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, timeInterval: 3000, distanceInterval: 5 },
+          (point) => {
+            if (!active) return;
+            setCurrentCoords({ latitude: point.coords.latitude, longitude: point.coords.longitude, heading: point.coords.heading });
+          },
+        );
+      } catch (error) {
+        console.warn("[provider-map] live location unavailable:", error);
+      }
+    };
+    void start();
+    return () => { active = false; subscription?.remove(); };
+  }, []);
+
+  useEffect(() => {
+    if (!mapReady || !currentCoords) return;
+    mapRef.current?.animateCamera({
+      center: { latitude: currentCoords.latitude, longitude: currentCoords.longitude },
+      heading: currentCoords.heading ?? undefined,
+      pitch: 35,
+      zoom: 16,
+    }, { duration: 700 });
+  }, [mapReady, currentCoords]);
+
+  const walletBlocked = walletBalance !== null && walletBalance <= -5000;
+  const statusLabel = walletBlocked
+    ? "رصيد المحفظة وصل -5,000 د.ع — استقبال الطلبات متوقف"
+    : walletOffline && walletBalance === null
+      ? "تعذر التحقق من رصيد المحفظة"
+      : !verified
+        ? "حسابك بانتظار التوثيق"
+        : availabilitySaving
+          ? "جارٍ تحديث الحالة"
+          : available
+            ? "متصل — تستقبل الطلبات"
+            : "غير متصل — الطلبات متوقفة";
+
+  const recenter = async () => {
+    if (currentCoords) {
+      mapRef.current?.animateCamera({
+        center: { latitude: currentCoords.latitude, longitude: currentCoords.longitude },
+        heading: currentCoords.heading ?? undefined,
+        pitch: 35,
+        zoom: 17,
+      }, { duration: 500 });
+      return;
+    }
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        Alert.alert("إذن الموقع مطلوب", "اسمح لممنون باستخدام موقعك حتى نحدد موقعك على الخريطة.");
+        return;
+      }
+      const point = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setCurrentCoords({ latitude: point.coords.latitude, longitude: point.coords.longitude, heading: point.coords.heading });
+      mapRef.current?.animateToRegion({
+        latitude: point.coords.latitude,
+        longitude: point.coords.longitude,
+        latitudeDelta: 0.012,
+        longitudeDelta: 0.012,
+      }, 500);
+    } catch {
+      Alert.alert("تعذر تحديد الموقع", "تأكد من تشغيل GPS وحاول مرة ثانية.");
+    }
+  };
+
+  return (
+    <View style={providerMapStyles.screen}>
+      <MapView
+        ref={mapRef}
+        provider={PROVIDER_GOOGLE}
+        style={StyleSheet.absoluteFill}
+        initialRegion={{ latitude: 32.0, longitude: 44.0, latitudeDelta: 1.8, longitudeDelta: 1.8 }}
+        showsUserLocation
+        showsCompass
+        onMapReady={() => setMapReady(true)}
+        toolbarEnabled={false}
+        loadingEnabled
+        moveOnMarkerPress={false}
+      />
+
+      {!mapReady && (
+        <View pointerEvents="none" style={providerMapStyles.mapLoading}>
+          <Text style={providerMapStyles.mapLoadingText}>جارٍ تحميل الخريطة…</Text>
+        </View>
+      )}
+
+      <View style={[providerMapStyles.topOverlay, { top: topOffset + 8 }]}>
+        <TouchableOpacity
+          onPress={() => router.push("/profile")}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="فتح الملف الشخصي"
+          style={providerMapStyles.identityCard}
+        >
+          {profile?.avatar_url
+            ? <ExpoImage source={{ uri: profile.avatar_url }} style={providerMapStyles.avatar} contentFit="cover" />
+            : <View style={providerMapStyles.avatarFallback}><Text style={{ fontSize: 19 }}>{roleConfig.emoji}</Text></View>}
+          <View style={{ flex: 1 }}>
+            <Text numberOfLines={1} style={providerMapStyles.personName}>{profile?.full_name?.split(" ")[0] || "أهلاً بيك"}</Text>
+            <Text numberOfLines={1} style={providerMapStyles.roleCaption}>{roleConfig.title}</Text>
+          </View>
+          <View style={providerMapStyles.walletBalance}>
+            <Text style={providerMapStyles.walletBalanceLabel}>المحفظة</Text>
+            <Text numberOfLines={1} style={[providerMapStyles.walletBalanceValue, walletBlocked && { color: "#DC2626" }]}>
+              {walletBalance === null ? (walletLoading ? "..." : "—") : walletBalance.toLocaleString("en")}
+            </Text>
+            <Text style={providerMapStyles.walletBalanceCurrency}>د.ع</Text>
+          </View>
+          <View style={providerMapStyles.requestCount}>
+            <Text style={providerMapStyles.requestCountNumber}>{walletBlocked ? 0 : incoming.length}</Text>
+            <Text style={providerMapStyles.requestCountLabel}>طلبات</Text>
+          </View>
+        </TouchableOpacity>
+        <View style={providerMapStyles.topActions}>
+          <NotificationsBell />
+          <TouchableOpacity onPress={() => router.push("/profile")} style={providerMapStyles.menuButton} accessibilityRole="button" accessibilityLabel="القائمة">
+            <Text style={{ color: "#17324D", fontSize: 21, fontWeight: "900" }}>☰</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={[providerMapStyles.statusPill, { top: topOffset + 72 }]}>
+        <View style={[providerMapStyles.statusDot, { backgroundColor: available && verified ? "#10B981" : "#F59E0B" }]} />
+        <Text style={providerMapStyles.statusText}>{statusLabel}</Text>
+      </View>
+
+      <TouchableOpacity onPress={() => void recenter()} activeOpacity={0.85} style={[providerMapStyles.recenterButton, { bottom: bottomOffset + 355 }]} accessibilityRole="button" accessibilityLabel="العودة إلى موقعي">
+        <Text style={{ color: "#17324D", fontSize: 21 }}>◎</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => router.push("/messages")} activeOpacity={0.88} style={[providerMapStyles.messagesBanner, { top: topOffset + 122 }]}>
+        <View style={providerMapStyles.messagesIcon}><Text style={{ fontSize: 18 }}>✉</Text></View>
+        <View style={{ flex: 1 }}>
+          <Text style={providerMapStyles.messagesTitle}>رسائلك وتنبيهات ممنون</Text>
+          <Text style={providerMapStyles.messagesSubtitle}>تابع رسائل الزبائن وآخر التحديثات</Text>
+        </View>
+        <Text style={{ color: "#1D4ED8", fontSize: 18, fontWeight: "900" }}>‹</Text>
+      </TouchableOpacity>
+
+      <View style={[providerMapStyles.bottomPanel, { bottom: bottomOffset + 84 }]}>
+        {(!available || walletBlocked) && (
+          <View style={providerMapStyles.offlineNotice}>
+            <Text style={providerMapStyles.offlineNoticeTitle}>{walletBlocked ? "استقبال الطلبات متوقف بسبب رصيد المحفظة" : "أنت غير متصل حالياً"}</Text>
+            <Text style={providerMapStyles.offlineNoticeText}>{walletBlocked ? "اشحن محفظتك حتى يرجع بإمكانك استقبال الطلبات." : `فعّل استقبال الطلبات حتى توصلك طلبات ${roleConfig.short} القريبة.`}</Text>
+          </View>
+        )}
+        <View style={providerMapStyles.panelHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={providerMapStyles.panelTitle}>طلباتك الواردة</Text>
+            <Text style={providerMapStyles.panelSubtitle}>{incoming.length ? "عندك طلبات بانتظار ردّك" : "تظهر الطلبات الجديدة هنا تلقائياً"}</Text>
+          </View>
+          <TouchableOpacity onPress={() => void onRefresh()} style={providerMapStyles.refreshButton} accessibilityRole="button" accessibilityLabel="تحديث الطلبات">
+            <Text style={{ color: "#17324D", fontSize: 18 }}>↻</Text>
+          </TouchableOpacity>
+        </View>
+        {walletBlocked ? (
+          <Text style={providerMapStyles.walletBlockedMessage}>ما تگدر تقبل أو تستلم طلبات جديدة قبل ما تشحن المحفظة وتتجاوز حد المديونية.</Text>
+        ) : (
+          <ScrollView style={{ maxHeight: scaleSize(190) }} contentContainerStyle={{ paddingBottom: 6 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+            <IncomingRequestList incoming={incoming} />
+          </ScrollView>
+        )}
+        <View style={providerMapStyles.bottomActions}>
+          <TouchableOpacity onPress={() => router.push("/coupons")} style={providerMapStyles.secondaryAction}>
+            <Text style={providerMapStyles.secondaryActionText}>🎁 المكافآت</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/support-chat")} style={providerMapStyles.secondaryAction}>
+            <Text style={providerMapStyles.secondaryActionText}>؟ المساعدة</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "بدء استقبال الطلبات"}
+            disabled={!verified || availabilitySaving || (walletBlocked && !available)}
+            onPress={toggleAvailable}
+            activeOpacity={0.85}
+            style={[providerMapStyles.powerButton, available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff, (!verified || availabilitySaving || (walletBlocked && !available)) && { opacity: 0.5 }]}
+          >
+            <Text style={providerMapStyles.powerButtonText}>{availabilitySaving ? "..." : available ? "متصل" : "ابدأ"}</Text>
+          </TouchableOpacity>
+        </View>
+        {!verified && <Text style={providerMapStyles.verificationHint}>حالة التوثيق: {verificationStatus === "rejected" ? "مرفوض — راجع الدعم" : "بانتظار موافقة الإدارة"}</Text>}
+      </View>
+    </View>
+  );
+}
+
+const providerMapStyles = StyleSheet.create({
+  screen: { flex: 1, width: "100%", backgroundColor: "#E8EEF3" },
+  mapLoading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(238,243,247,0.75)", zIndex: 2 },
+  mapLoadingText: { color: "#334155", fontSize: 13, fontWeight: "800" },
+  topOverlay: { position: "absolute", top: 48, left: 12, right: 12, flexDirection: "row", alignItems: "center", gap: 8, zIndex: 10 },
+  identityCard: { flex: 1, minHeight: 62, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.97)", borderWidth: 1, borderColor: "rgba(15,23,42,0.08)", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 9, elevation: 6, shadowColor: "#0F172A", shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E2E8F0" },
+  avatarFallback: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E8F1FF", alignItems: "center", justifyContent: "center" },
+  personName: { color: "#17324D", fontSize: 13, fontWeight: "900", textAlign: "right" },
+  roleCaption: { color: "#64748B", fontSize: 10, fontWeight: "700", textAlign: "right", marginTop: 2 },
+  walletBalance: { minWidth: 72, maxWidth: 86, alignItems: "center", borderRadius: 12, backgroundColor: "#F0FDF4", paddingVertical: 5, paddingHorizontal: 6 },
+  walletBalanceLabel: { color: "#64748B", fontSize: 8, fontWeight: "800" },
+  walletBalanceValue: { color: "#166534", fontSize: 11, fontWeight: "900", marginTop: 2 },
+  walletBalanceCurrency: { color: "#64748B", fontSize: 7, fontWeight: "700" },
+  walletBlockedMessage: { color: "#B91C1C", backgroundColor: "#FEF2F2", borderRadius: 12, padding: 12, fontSize: 10, fontWeight: "800", textAlign: "right" },
+  requestCount: { minWidth: 42, alignItems: "center", borderRadius: 12, backgroundColor: "#EFF6FF", paddingVertical: 5, paddingHorizontal: 6 },
+  requestCountNumber: { color: "#1D4ED8", fontSize: 14, fontWeight: "900" },
+  requestCountLabel: { color: "#64748B", fontSize: 8, fontWeight: "800" },
+  topActions: { alignItems: "center", gap: 7 },
+  menuButton: { width: 40, height: 40, borderRadius: 14, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 4 },
+  statusPill: { position: "absolute", top: 120, left: 14, right: 14, minHeight: 39, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.96)", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8, elevation: 4 },
+  statusDot: { width: 9, height: 9, borderRadius: 5 },
+  statusText: { color: "#17324D", fontSize: 11, fontWeight: "900", textAlign: "right", flex: 1 },
+  recenterButton: { position: "absolute", right: 16, bottom: 355, width: 46, height: 46, borderRadius: 16, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", elevation: 6 },
+  messagesBanner: { position: "absolute", top: 170, left: 14, right: 14, minHeight: 58, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.97)", borderWidth: 1, borderColor: "rgba(29,78,216,0.12)", paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 10, elevation: 4 },
+  messagesIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center" },
+  messagesTitle: { color: "#17324D", fontSize: 11, fontWeight: "900", textAlign: "right" },
+  messagesSubtitle: { color: "#64748B", fontSize: 9, fontWeight: "700", textAlign: "right", marginTop: 2 },
+  bottomPanel: { position: "absolute", left: 10, right: 10, bottom: 92, maxHeight: "54%", borderRadius: 22, backgroundColor: "rgba(255,255,255,0.98)", borderWidth: 1, borderColor: "rgba(15,23,42,0.08)", paddingHorizontal: 13, paddingTop: 12, paddingBottom: 10, elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 7 } },
+  offlineNotice: { backgroundColor: "#EAF3FF", borderColor: "#BFDBFE", borderWidth: 1, borderRadius: 13, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 9 },
+  offlineNoticeTitle: { color: "#1D4ED8", fontSize: 11, fontWeight: "900", textAlign: "right" },
+  offlineNoticeText: { color: "#315B8F", fontSize: 9, fontWeight: "700", textAlign: "right", marginTop: 2 },
+  panelHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 5 },
+  panelTitle: { color: "#17324D", fontSize: 15, fontWeight: "900", textAlign: "right" },
+  panelSubtitle: { color: "#64748B", fontSize: 9, fontWeight: "700", textAlign: "right", marginTop: 2 },
+  refreshButton: { width: 34, height: 34, borderRadius: 11, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
+  bottomActions: { flexDirection: "row", alignItems: "center", gap: 7, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E2E8F0" },
+  secondaryAction: { flex: 1, minHeight: 40, borderRadius: 12, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
+  secondaryActionText: { color: "#334155", fontSize: 10, fontWeight: "900" },
+  powerButton: { minWidth: 70, minHeight: 42, borderRadius: 13, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  powerButtonOn: { backgroundColor: "#059669" },
+  powerButtonOff: { backgroundColor: "#17324D" },
+  powerButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
+  verificationHint: { color: "#B45309", fontSize: 9, fontWeight: "800", textAlign: "center", marginTop: 6 },
+});
+
+function LegacyProviderHome({
   available,
   availabilitySaving,
   verified,
@@ -1090,8 +1440,8 @@ function ProviderHome({
   }, [mapReady, currentCoords]);
   const statusLabel = !verified ? "الحساب بانتظار التوثيق" : availabilitySaving ? "جارٍ تحديث الحالة والموقع" : available ? "أنت متصل وتستقبل الطلبات" : "أنت غير متصل حالياً";
   return (
-    <View style={providerMapStyles.screen}>
-      <View style={providerMapStyles.mapWrap}>
+    <View style={legacyProviderMapStyles.screen}>
+      <View style={legacyProviderMapStyles.mapWrap}>
         <MapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
@@ -1104,13 +1454,13 @@ function ProviderHome({
           toolbarEnabled={false}
           loadingEnabled
         />
-        {!mapReady && <View pointerEvents="none" style={providerMapStyles.mapLoading}><Text style={providerMapStyles.mapLoadingText}>جارٍ تحميل الخريطة وموقعك…</Text></View>}
-        <View style={providerMapStyles.mapTopChip}>
-          <View style={[providerMapStyles.statusDot, { backgroundColor: available && verified ? "#10B981" : "#F59E0B" }]} />
-          <Text style={providerMapStyles.mapTopText}>{statusLabel}</Text>
+        {!mapReady && <View pointerEvents="none" style={legacyProviderMapStyles.mapLoading}><Text style={legacyProviderMapStyles.mapLoadingText}>جارٍ تحميل الخريطة وموقعك…</Text></View>}
+        <View style={legacyProviderMapStyles.mapTopChip}>
+          <View style={[legacyProviderMapStyles.statusDot, { backgroundColor: available && verified ? "#10B981" : "#F59E0B" }]} />
+          <Text style={legacyProviderMapStyles.mapTopText}>{statusLabel}</Text>
         </View>
       </View>
-      <View style={providerMapStyles.details}>
+      <View style={legacyProviderMapStyles.details}>
         <ProviderMissions />
         <View style={{ paddingHorizontal: 20 }}>
           <IncomingRequestList incoming={incoming} />
@@ -1120,7 +1470,7 @@ function ProviderHome({
   );
 }
 
-const providerMapStyles = StyleSheet.create({
+const legacyProviderMapStyles = StyleSheet.create({
   screen: { width: "100%", paddingTop: 0 },
   mapWrap: { height: Math.max(430, Dimensions.get("window").height * 0.66), width: "100%", overflow: "hidden", backgroundColor: "#E7EDF2" },
   mapLoading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(238,243,247,0.7)" },
@@ -1150,10 +1500,10 @@ function ProviderAvailabilityDock({
   toggleAvailable: () => void;
 }) {
   return (
-    <View style={providerMapStyles.fixedDock}>
+    <View style={legacyProviderMapStyles.fixedDock}>
       <View style={{ flex: 1 }}>
-        <Text style={providerMapStyles.actionTitle}>{available ? "استقبال الطلبات مفعّل" : "جاهز تستقبل طلبات؟"}</Text>
-        <Text style={providerMapStyles.actionSubtitle}>{available ? "موقعك يتحدث على الخريطة" : verified ? "فعّل حالتك حتى تظهر للزبائن القريبين" : "أكمل توثيق حسابك أولاً"}</Text>
+        <Text style={legacyProviderMapStyles.actionTitle}>{available ? "استقبال الطلبات مفعّل" : "جاهز تستقبل طلبات؟"}</Text>
+        <Text style={legacyProviderMapStyles.actionSubtitle}>{available ? "موقعك يتحدث على الخريطة" : verified ? "فعّل حالتك حتى تظهر للزبائن القريبين" : "أكمل توثيق حسابك أولاً"}</Text>
       </View>
       <TouchableOpacity
         accessibilityRole="button"
@@ -1162,13 +1512,14 @@ function ProviderAvailabilityDock({
         disabled={!verified || availabilitySaving}
         onPress={toggleAvailable}
         activeOpacity={0.86}
-        style={[providerMapStyles.powerButton, available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff, (!verified || availabilitySaving) && { opacity: 0.55 }]}
+        style={[legacyProviderMapStyles.powerButton, available ? legacyProviderMapStyles.powerButtonOn : legacyProviderMapStyles.powerButtonOff, (!verified || availabilitySaving) && { opacity: 0.55 }]}
       >
-        <Text style={providerMapStyles.powerButtonText}>{availabilitySaving ? "..." : available ? "متصل" : "ابدأ"}</Text>
+        <Text style={legacyProviderMapStyles.powerButtonText}>{availabilitySaving ? "..." : available ? "متصل" : "ابدأ"}</Text>
       </TouchableOpacity>
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.pageCanvas },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.xl, paddingTop: 52, paddingBottom: 14, zIndex: 30, elevation: 12 },

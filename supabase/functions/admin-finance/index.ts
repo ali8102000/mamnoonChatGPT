@@ -429,12 +429,23 @@ Deno.serve(async (req: Request) => {
             (typeof body.expires_at !== "string" || !Number.isFinite(Date.parse(body.expires_at))))) {
         return json({ error: "invalid_request" }, 400);
       }
+      const applicableRequestTypes = Array.isArray(body.applicable_request_types) ? body.applicable_request_types : ["taxi"];
+      const applicableVehicleCategories = Array.isArray(body.applicable_vehicle_categories) ? body.applicable_vehicle_categories : ["economy","premium","luxury","large"];
+      const applicableServiceSlugs = Array.isArray(body.applicable_service_slugs) ? body.applicable_service_slugs : [];
+      if (!applicableRequestTypes.length || applicableRequestTypes.some((v: unknown) => !["taxi","service"].includes(String(v))) ||
+          applicableVehicleCategories.some((v: unknown) => !["economy","premium","luxury","large"].includes(String(v))) ||
+          applicableServiceSlugs.some((v: unknown) => typeof v !== "string" || v.length < 1 || v.length > 100)) {
+        return json({ error: "invalid_coupon_service_targeting" }, 400);
+      }
       await requirePermission("promotions.manage");
-      return await rpc("admin_save_coupon", {
+      return await rpc("admin_save_coupon_v2", {
         p_id: body.id ?? null, p_code: body.code.trim().toUpperCase(),
         p_type: body.type, p_value: body.value, p_max_uses: body.max_uses,
         p_expires_at: body.expires_at ?? null, p_active: body.active,
         p_min_amount: body.min_amount,
+        p_applicable_request_types: applicableRequestTypes,
+        p_applicable_vehicle_categories: applicableVehicleCategories,
+        p_applicable_service_slugs: applicableServiceSlugs,
       });
     }
 
