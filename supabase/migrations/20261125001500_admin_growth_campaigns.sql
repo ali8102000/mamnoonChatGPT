@@ -101,13 +101,13 @@ begin
     raise exception 'invalid_growth_campaign';
   end if;
   if p_campaign_type='provider_wallet_signup' then
-    if p_provider_type not in ('all','driver','large_driver','worker')
+    if p_provider_type is null or p_provider_type not in ('all','driver','large_driver','worker')
        or coalesce(p_delay_days,0)<>0
        or (p_service_slug is not null and p_provider_type not in ('worker','all')) then
       raise exception 'invalid_provider_signup_campaign';
     end if;
   elsif p_provider_type is not null or p_service_slug is not null
-        or p_delay_days not between 1 and 3650
+        or p_delay_days is null or p_delay_days not between 1 and 3650
         or p_coupon_valid_days not between 0 and 3650 then
     raise exception 'invalid_customer_coupon_campaign';
   end if;
