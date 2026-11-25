@@ -306,6 +306,20 @@ export default function HomeScreen() {
     Vibration.vibrate(35);
     try {
       if (next) {
+        const { data: walletData, error: walletError } = await (supabase as any).rpc("get_my_account_wallet");
+        if (walletError) {
+          Alert.alert("تعذر التحقق من المحفظة", "ما نكدر نشغّل استقبال الطلبات قبل ما نتأكد من رصيدك. حاول مرة ثانية.");
+          return;
+        }
+        const currentWalletBalance = Number(walletData?.wallet?.balance_iqd);
+        if (!Number.isFinite(currentWalletBalance)) {
+          Alert.alert("المحفظة غير متاحة", "تعذر قراءة رصيدك الحقيقي. حاول بعد قليل.");
+          return;
+        }
+        if (currentWalletBalance <= -5000) {
+          Alert.alert("استقبال الطلبات متوقف", "وصل رصيدك إلى -5,000 دينار. اشحن محفظتك حتى تقدر تستقبل طلبات جديدة.");
+          return;
+        }
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
           Alert.alert("إذن الموقع مطلوب", "اسمح لممنون باستخدام موقعك أثناء استعمال التطبيق قبل استقبال الطلبات.");
