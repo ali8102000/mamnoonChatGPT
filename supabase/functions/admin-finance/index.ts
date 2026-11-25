@@ -367,23 +367,39 @@ Deno.serve(async (req: Request) => {
       await requirePermission("finance.read");
       await requirePermission("promotions.read");
       const [transactions, coupons] = await Promise.all([
-        admin.from("transactions").select("*, profiles!inner(full_name,phone)")
+        admin.from("account_wallet_transactions").select("*, profiles!inner(full_name,phone)")
           .order("created_at", { ascending: false }).limit(200),
         admin.from("coupons").select("*").order("created_at", { ascending: false }).limit(200),
       ]);
       if (transactions.error || coupons.error) return json({ error: "finance_data_load_failed" }, 500);
-      return json({ transactions: transactions.data ?? [], coupons: coupons.data ?? [] });
+      const walletTransactions = (transactions.data ?? []).map((row: any) => ({
+        ...row,
+        type: row.transaction_type,
+        amount: row.amount_iqd,
+        balance_after: row.balance_after_iqd,
+        note: row.description,
+        currency: "IQD",
+      }));
+      return json({ transactions: walletTransactions, coupons: coupons.data ?? [] });
     }
 
     if (body.action === "list_transactions") {
       await requireStrictPermission("finance.read");
       const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(200, body.limit)) : 100;
-      const { data, error } = await admin.from("transactions")
+      const { data, error } = await admin.from("account_wallet_transactions")
         .select("*, profiles!inner(full_name,phone)")
         .order("created_at", { ascending: false })
         .limit(limit);
       if (error) return json({ error: "transactions_load_failed" }, 500);
-      return json({ transactions: data ?? [] });
+      const walletTransactions = (data ?? []).map((row: any) => ({
+        ...row,
+        type: row.transaction_type,
+        amount: row.amount_iqd,
+        balance_after: row.balance_after_iqd,
+        note: row.description,
+        currency: "IQD",
+      }));
+      return json({ transactions: walletTransactions });
     }
 
     if (body.action === "list_coupons") {
