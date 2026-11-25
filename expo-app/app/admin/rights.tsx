@@ -11,7 +11,7 @@ const durations=[{value:"1",label:"يوم"},{value:"7",label:"أسبوع"},{valu
 const govs=["baghdad","basra","nineveh","erbil","sulaymaniyah","duhok","kirkuk","najaf","karbala","babil","anbar","diyala","saladin","wasit","dhiqar","maysan","muthanna","qadisiyah"];
 const revenueLabel:Record<string,string>={taxi_commission:"عمولة التكسي",service_commission:"عمولة الفني",order_commission:"عمولة طلب شريك",complaint_deduction:"استقطاع شكوى",wallet_debt_collection:"تحصيل دين المحفظة",admin_credit_reversal:"تسوية إدارية"};
 const scopeLabel:Record<string,string>={global:"كل العراق",governorate:"محافظة",role:"فئة",governorate_role:"فئة داخل محافظة"};
-const eventLabel:Record<string,string>={taxi_acceptance:"قبول رحلة تكسي",service_acceptance:"قبول طلب فني",order_acceptance:"قبول طلب شريك",all_acceptance:"كل العمليات"};
+const eventLabel:Record<string,string>={taxi_acceptance:"عند وصول/بدء رحلة التكسي",service_acceptance:"عند وصول/بدء الخدمة",order_acceptance:"قبول طلب شريك",all_acceptance:"كل العمليات"};
 const formatScopeKey=(p:any)=>{
  if(p.scope_type==="global")return "كل العراق";
  const roles:Record<string,string>={driver:"أصحاب التكسي",large_driver:"التكسي الكبير",worker:"الفنيون",restaurant:"المطاعم",hotel:"الفنادق",store:"المتاجر"};
@@ -82,7 +82,7 @@ export default function AdminRightsScreen(){
     {scope==="governorate_role"&&<View style={s.rowWrap}>{govs.map(g=><TouchableOpacity key={g} onPress={()=>setScopeKey(g+":"+(scopeKey.split(":")[1]||"driver"))} style={[s.choice,scopeKey.startsWith(g+":")&&s.active]}><Text style={[s.tabText,scopeKey.startsWith(g+":")&&s.activeText]}>{govLabel[g]}</Text></TouchableOpacity>)}</View>}
     <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" placeholder="نسبة عمولة ممنون من الأجرة %" style={s.input}/>
     <TextInput value={chargeRate} onChangeText={setChargeRate} keyboardType="decimal-pad" placeholder="نسبة تحصيل العمولة %" style={s.input}/>
-    <View style={s.rowWrap}>{[["taxi_acceptance","قبول رحلة"],["service_acceptance","قبول خدمة"],["order_acceptance","قبول طلب متجر"],["all_acceptance","كل العمليات"]].map(([k,l])=><TouchableOpacity key={k} onPress={()=>setEvent(k)} style={[s.choice,event===k&&s.active]}><Text style={[s.tabText,event===k&&s.activeText]}>{l}</Text></TouchableOpacity>)}</View>
+    <View style={s.rowWrap}>{[["taxi_acceptance","وصول/بدء الرحلة"],["service_acceptance","وصول/بدء الخدمة"],["order_acceptance","قبول طلب متجر"],["all_acceptance","كل العمليات"]].map(([k,l])=><TouchableOpacity key={k} onPress={()=>setEvent(k)} style={[s.choice,event===k&&s.active]}><Text style={[s.tabText,event===k&&s.activeText]}>{l}</Text></TouchableOpacity>)}</View>
     <TouchableOpacity onPress={()=>setTrial(v=>!v)} style={s.row}><Text style={s.muted}>إعفاء من العمولة</Text><Text style={s.cardTitle}>{trial?"مفعّلة":"متوقفة"}</Text></TouchableOpacity>
     <TextInput value={trialDays} onChangeText={setTrialDays} keyboardType="number-pad" placeholder="أيام الإعفاء" style={s.input}/>
     <Text style={s.muted}>تبدأ الفترة من تاريخ تسجيل المستخدم الجديد وتستمر له حتى نهايتها حتى لو أوقفت العرض.</Text>
