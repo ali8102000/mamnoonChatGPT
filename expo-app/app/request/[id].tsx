@@ -52,6 +52,13 @@ import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { showContactOptions } from "@/lib/contact-actions";
 
 const QUICK_REPLIES_CUSTOMER = ["وصلت!", "كم دقيقة؟", "أين أنت؟", "شكراً جزيلاً", "هل أنت قريب؟"];
+function normalizeCashDigits(value: string) {
+  return value
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[^0-9]/g, "");
+}
+
 const QUICK_REPLIES_PROVIDER = [
   "قادم إليك",
   "وصلت للموقع",
@@ -1311,7 +1318,7 @@ export default function RequestDetail() {
 
   async function submitCashSettlement() {
     if (!request || transitionBusy) return;
-    const digits = cashReceivedInput.replace(/[^0-9]/g, "");
+    const digits = normalizeCashDigits(cashReceivedInput);
     const amount = digits === "" ? NaN : Number(digits);
     if (!Number.isSafeInteger(amount) || amount < 0 || amount > 100000000) {
       Alert.alert("المبلغ غير صحيح", "اكتب المبلغ النقدي الذي استلمته من الزبون.");
@@ -1338,7 +1345,11 @@ export default function RequestDetail() {
       );
       await loadRequest();
     } catch (error: any) {
-      Alert.alert("تعذر إنهاء الطلب", error?.message || "تعذّر تسجيل المبلغ وتسوية الباقي.");
+      const raw = String(error?.message ?? "");
+      const message = raw.includes("provider_wallet_debt_limit_exceeded")
+        ? "رصيد محفظتك وصل حد المديونية. رجّع الباقي نقداً للزبون، ثم سجّل الأجرة التي احتفظت بها."
+        : raw || "تعذّر تسجيل المبلغ وتسوية الباقي.";
+      Alert.alert("تعذر إنهاء الطلب", message);
     } finally {
       setTransitionBusy(false);
     }
@@ -2037,7 +2048,7 @@ export default function RequestDetail() {
                   <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "800", textAlign: "right" }}>كم استلمت من الزبون نقداً؟</Text>
                   <TextInput
                     value={cashReceivedInput}
-                    onChangeText={(value) => setCashReceivedInput(value.replace(/[^0-9]/g, ""))}
+                    onChangeText={(value) => setCashReceivedInput(normalizeCashDigits(value))}
                     keyboardType="number-pad"
                     placeholder="مثلاً 5000"
                     placeholderTextColor={palette.muted}
