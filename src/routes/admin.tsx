@@ -2260,7 +2260,7 @@ function CouponsSection() {
       </div>
       <div className="glass rounded-2xl p-3 mb-4 space-y-2">
         <div className="text-xs font-bold">توزيع الكوبون إلى الزبائن فقط</div>
-        <p className="text-[11px] text-muted-foreground">الكوبون يُستخدم لطلبات التكسي العادي فقط ولا يشمل الفنيين أو سيارات الكيا الكبيرة.</p>
+        <p className="text-[11px] text-muted-foreground">حدد الخدمات وفئات المركبات التي يسمح لهذا الكوبون باستخدامها. يتحقق النظام من الشروط عند إنشاء الطلب.</p>
         <select
           value={distributionTarget}
           onChange={(e) => setDistributionTarget(e.target.value as any)}
@@ -2370,6 +2370,9 @@ function CouponModal({ coupon, onSave, onClose }: any) {
     expires_at: coupon?.expires_at ?? null,
     active: coupon?.active ?? true,
     min_amount: coupon?.min_amount ?? 0,
+    applicable_request_types: coupon?.applicable_request_types ?? ["taxi"],
+    applicable_vehicle_categories: coupon?.applicable_vehicle_categories ?? ["economy","premium","luxury","large"],
+    applicable_service_slugs: coupon?.applicable_service_slugs ?? [],
   });
   return (
     <div className="fixed inset-0 z-50 bg-black/50 grid place-items-center p-4">
@@ -2405,6 +2408,14 @@ function CouponModal({ coupon, onSave, onClose }: any) {
                 className="w-full glass rounded-xl px-4 py-2.5 text-sm"
               />
             </div>
+          </div>
+          <div className="rounded-xl border p-3 space-y-3">
+            <div className="text-xs font-black">الخدمات المسموح بها</div>
+            <div className="flex flex-wrap gap-3 text-xs">
+              {[["taxi","التكسي"],["service","خدمات الفنيين"]].map(([v,l])=><label key={v} className="flex items-center gap-2"><input type="checkbox" checked={form.applicable_request_types.includes(v)} onChange={e=>setForm({...form,applicable_request_types:e.target.checked?[...form.applicable_request_types,v]:form.applicable_request_types.filter((x:string)=>x!==v)})}/>{l}</label>)}
+            </div>
+            {form.applicable_request_types.includes("taxi")&&<div className="space-y-2"><div className="text-xs font-bold">فئات التكسي</div><div className="flex flex-wrap gap-3 text-xs">{[["economy","اقتصادي"],["premium","مميز"],["luxury","فاخر"],["large","سيارات كبيرة"]].map(([v,l])=><label key={v} className="flex items-center gap-2"><input type="checkbox" checked={form.applicable_vehicle_categories.includes(v)} onChange={e=>setForm({...form,applicable_vehicle_categories:e.target.checked?[...form.applicable_vehicle_categories,v]:form.applicable_vehicle_categories.filter((x:string)=>x!==v)})}/>{l}</label>)}</div></div>}
+            {form.applicable_request_types.includes("service")&&<label className="block text-xs font-bold">تخصصات الفنيين (رموز مفصولة بفواصل، فارغ = كل التخصصات)<input value={form.applicable_service_slugs.join(",")} onChange={e=>setForm({...form,applicable_service_slugs:e.target.value.split(",").map((x:string)=>x.trim()).filter(Boolean)})} placeholder="electrician,plumbing" className="mt-1 w-full glass rounded-xl px-4 py-2.5 text-sm"/></label>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
