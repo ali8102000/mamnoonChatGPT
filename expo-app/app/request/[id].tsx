@@ -1348,7 +1348,9 @@ export default function RequestDetail() {
       const raw = String(error?.message ?? "");
       const message = raw.includes("provider_wallet_debt_limit_exceeded")
         ? "رصيد محفظتك وصل حد المديونية. رجّع الباقي نقداً للزبون، ثم سجّل الأجرة التي احتفظت بها."
-        : raw || "تعذّر تسجيل المبلغ وتسوية الباقي.";
+        : raw.includes("cash_received_less_than_fare")
+          ? "المبلغ المستلم أقل من أجرة الطلب. تأكد من استلام الأجرة كاملة قبل الإكمال."
+          : raw || "تعذّر تسجيل المبلغ وتسوية الباقي.";
       Alert.alert("تعذر إنهاء الطلب", message);
     } finally {
       setTransitionBusy(false);
