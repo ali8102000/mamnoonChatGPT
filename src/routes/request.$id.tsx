@@ -44,6 +44,13 @@ const VEHICLE_CAT_META: Record<string, { label: string; emoji: string; gradient:
   luxury: { label: "ممنون فاخر", emoji: "🏎️", gradient: "from-amber-400 to-orange-500" },
 };
 
+function normalizeCashDigits(value: string) {
+  return value
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[^0-9]/g, "");
+}
+
 export const Route = createFileRoute("/request/$id")({
   ssr: false,
   head: () => ({
@@ -448,7 +455,7 @@ function RequestDetail() {
 
   async function submitCashSettlement() {
     if (!req || cashSettlementBusy) return;
-    const digits = cashReceivedInput.replace(/[^0-9]/g, "");
+    const digits = normalizeCashDigits(cashReceivedInput);
     const amount = digits === "" ? NaN : Number(digits);
     if (!Number.isSafeInteger(amount) || amount < 0 || amount > 100000000) {
       toast.error("اكتب المبلغ النقدي المستلم بشكل صحيح");
@@ -467,7 +474,11 @@ function RequestDetail() {
         : "تم إنهاء الطلب بنجاح");
       await loadAll();
     } catch (e: any) {
-      toast.error(e.message ?? "تعذّر إنهاء الطلب وتسوية الباقي");
+      const raw = String(e?.message ?? "");
+      const message = raw.includes("provider_wallet_debt_limit_exceeded")
+        ? "رصيد محفظتك وصل حد المديونية. رجّع الباقي نقداً للزبون، ثم سجّل الأجرة التي احتفظت بها."
+        : raw || "تعذّر إنهاء الطلب وتسوية الباقي";
+      toast.error(message);
     } finally {
       setCashSettlementBusy(false);
     }
@@ -875,7 +886,7 @@ function RequestDetail() {
                           min="0"
                           max="100000000"
                           value={cashReceivedInput}
-                          onChange={(event) => setCashReceivedInput(event.target.value)}
+                          onChange={(event) => setCashReceivedInput(normalizeCashDigits(event.target.value))}
                           placeholder="مثلاً 5000"
                           className="w-full rounded-xl border border-border bg-background p-3 text-sm font-bold outline-none focus:border-primary"
                         />
