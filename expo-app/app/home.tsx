@@ -1320,7 +1320,7 @@ function ProviderHome({
             <Text style={{ fontSize: 15 }}>⏻ </Text>{availabilitySaving ? "..." : isOnline ? "متصل" : "مغلق"}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/coupons")} style={providerMapStyles.footerAction} accessibilityRole="button">
+        <TouchableOpacity onPress={() => router.push("/provider-rewards")} style={providerMapStyles.footerAction} accessibilityRole="button">
           <Text style={providerMapStyles.footerActionText}>المكافآت</Text>
         </TouchableOpacity>
       </View>
