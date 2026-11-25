@@ -9,6 +9,8 @@ create table if not exists public.mamnoon_growth_campaigns (
   service_slug text,
   target_governorates text[] not null default '{}'::text[],
   amount_iqd bigint not null check (amount_iqd between 1 and 100000000),
+  budget_iqd bigint not null default 100000000 check (budget_iqd between 1 and 1000000000000),
+  spent_iqd bigint not null default 0 check (spent_iqd >= 0 and spent_iqd <= budget_iqd),
   delay_days integer not null default 0 check (delay_days between 0 and 3650),
   coupon_valid_days integer not null default 0 check (coupon_valid_days between 0 and 3650),
   max_awards integer not null default 100000 check (max_awards between 1 and 1000000),
@@ -20,6 +22,7 @@ create table if not exists public.mamnoon_growth_campaigns (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint mamnoon_growth_campaign_window check (ends_at > starts_at),
+  constraint mamnoon_growth_campaign_budget check (budget_iqd >= amount_iqd),
   constraint mamnoon_growth_provider_type check (
     (campaign_type='provider_wallet_signup' and provider_type in ('all','driver','large_driver','worker'))
     or (campaign_type='customer_delayed_coupon' and provider_type is null)
@@ -68,6 +71,7 @@ create or replace function public.admin_save_growth_campaign(
   p_service_slug text,
   p_target_governorates text[],
   p_amount_iqd bigint,
+  p_budget_iqd bigint,
   p_delay_days integer,
   p_coupon_valid_days integer,
   p_max_awards integer,
@@ -93,6 +97,7 @@ begin
   if p_campaign_type not in ('provider_wallet_signup','customer_delayed_coupon')
      or length(btrim(coalesce(p_title,''))) not between 3 and 120
      or p_amount_iqd not between 1 and 100000000
+     or p_budget_iqd is null or p_budget_iqd not between p_amount_iqd and 1000000000000
      or p_max_awards not between 1 and 1000000
      or p_starts_at is null or p_ends_at is null or p_ends_at<=p_starts_at
      or coalesce(cardinality(p_target_governorates),0)>18
@@ -128,11 +133,11 @@ begin
 
   if p_campaign_id is null then
     insert into public.mamnoon_growth_campaigns(
-      campaign_type,title,provider_type,service_slug,target_governorates,amount_iqd,
+      campaign_type,title,provider_type,service_slug,target_governorates,amount_iqd,budget_iqd,
       delay_days,coupon_valid_days,max_awards,starts_at,ends_at,active,created_by
     ) values (
       p_campaign_type,btrim(p_title),p_provider_type,p_service_slug,
-      coalesce(p_target_governorates,'{}'::text[]),p_amount_iqd,
+      coalesce(p_target_governorates,'{}'::text[]),p_amount_iqd,p_budget_iqd,
       coalesce(p_delay_days,0),coalesce(p_coupon_valid_days,0),p_max_awards,
       p_starts_at,p_ends_at,coalesce(p_active,false),auth.uid()
     ) returning id into v_id;
@@ -147,7 +152,7 @@ begin
     update public.mamnoon_growth_campaigns set
       campaign_type=p_campaign_type,title=btrim(p_title),provider_type=p_provider_type,service_slug=p_service_slug,
       target_governorates=coalesce(p_target_governorates,'{}'::text[]),
-      amount_iqd=p_amount_iqd,delay_days=coalesce(p_delay_days,0),
+      amount_iqd=p_amount_iqd,budget_iqd=p_budget_iqd,delay_days=coalesce(p_delay_days,0),
       coupon_valid_days=coalesce(p_coupon_valid_days,0),max_awards=p_max_awards,
       starts_at=p_starts_at,ends_at=p_ends_at,active=coalesce(p_active,false),updated_at=now()
     where id=v_id;
@@ -156,20 +161,20 @@ begin
   perform public.log_admin_action(
     case when p_campaign_id is null then 'create_growth_campaign' else 'update_growth_campaign' end,
     'growth_campaign',v_id::text,
-    jsonb_build_object('campaign_type',p_campaign_type,'amount_iqd',p_amount_iqd,
+    jsonb_build_object('campaign_type',p_campaign_type,'amount_iqd',p_amount_iqd,'budget_iqd',p_budget_iqd,
       'delay_days',p_delay_days,'governorates',coalesce(p_target_governorates,'{}'::text[]),
       'provider_type',p_provider_type,'active',p_active)
   );
   return v_id;
 end;
 $function$;
-revoke all on function public.admin_save_growth_campaign(uuid,text,text,text,text,text[],bigint,integer,integer,integer,timestamptz,timestamptz,boolean) from public,anon;
+revoke all on function public.admin_save_growth_campaign(uuid,text,text,text,text,text[],bigint,bigint,integer,integer,integer,timestamptz,timestamptz,boolean) from public,anon;
 grant execute on function public.admin_save_growth_campaign(uuid,text,text,text,text,text[],bigint,integer,integer,integer,timestamptz,timestamptz,boolean) to authenticated;
 
 create or replace function public.admin_list_growth_campaigns()
 returns table(
   campaign_id uuid,campaign_type text,title text,provider_type text,service_slug text,
-  target_governorates text[],amount_iqd bigint,delay_days integer,coupon_valid_days integer,
+  target_governorates text[],amount_iqd bigint,budget_iqd bigint,spent_iqd bigint,delay_days integer,coupon_valid_days integer,
   max_awards integer,issued_count integer,starts_at timestamptz,ends_at timestamptz,active boolean,
   created_at timestamptz
 )
@@ -183,7 +188,7 @@ begin
   ) then raise exception 'missing_promotions_manage_permission'; end if;
   return query
     select c.id,c.campaign_type,c.title,c.provider_type,c.service_slug,c.target_governorates,
-      c.amount_iqd,c.delay_days,c.coupon_valid_days,c.max_awards,c.issued_count,
+      c.amount_iqd,c.budget_iqd,c.spent_iqd,c.delay_days,c.coupon_valid_days,c.max_awards,c.issued_count,
       c.starts_at,c.ends_at,c.active,c.created_at
     from public.mamnoon_growth_campaigns c
     order by c.created_at desc;
@@ -245,7 +250,7 @@ begin
     where campaign_type='provider_wallet_signup' and active=true
       and v_profile.created_at between starts_at and ends_at
       and (cardinality(target_governorates)=0 or v_profile.governorate_key=any(target_governorates))
-      and issued_count<max_awards
+      and issued_count<max_awards and spent_iqd+amount_iqd<=budget_iqd
     order by created_at
     for update
   loop
@@ -281,7 +286,7 @@ begin
     ) returning id into v_tx_id;
     update public.account_wallets set balance_iqd=v_next_balance,updated_at=now() where user_id=p_user_id;
     update public.mamnoon_growth_campaign_awards set wallet_transaction_id=v_tx_id where id=v_award_id;
-    update public.mamnoon_growth_campaigns set issued_count=issued_count+1,updated_at=now() where id=v_campaign.id;
+    update public.mamnoon_growth_campaigns set issued_count=issued_count+1,spent_iqd=spent_iqd+v_campaign.amount_iqd,updated_at=now() where id=v_campaign.id;
     insert into public.notifications(user_id,type,title,body,link,data)
     values(
       p_user_id,'wallet_bonus','مبروك! وصلتك مكافأة التسجيل 🎉',
@@ -340,7 +345,7 @@ begin
   for v_campaign in
     select * from public.mamnoon_growth_campaigns
     where campaign_type='customer_delayed_coupon' and active=true
-      and starts_at<=now() and issued_count<max_awards
+      and starts_at<=now() and issued_count<max_awards and spent_iqd+amount_iqd<=budget_iqd
     order by created_at
   loop
     for v_profile in
@@ -354,7 +359,7 @@ begin
       order by p.created_at
       limit 500
     loop
-      exit when v_campaign.issued_count>=v_campaign.max_awards;
+      exit when v_campaign.issued_count>=v_campaign.max_awards or v_campaign.spent_iqd+v_campaign.amount_iqd>v_campaign.budget_iqd;
       insert into public.mamnoon_growth_campaign_awards(campaign_id,user_id,award_type,amount_iqd)
       values(v_campaign.id,v_profile.id,'customer_coupon',v_campaign.amount_iqd)
       on conflict(campaign_id,user_id) do nothing returning id into v_award_id;
@@ -368,8 +373,9 @@ begin
       insert into public.coupon_assignments(coupon_id,user_id,assigned_by)
       values(v_coupon_id,v_profile.id,null);
       update public.mamnoon_growth_campaign_awards set coupon_id=v_coupon_id where id=v_award_id;
-      update public.mamnoon_growth_campaigns set issued_count=issued_count+1,updated_at=now() where id=v_campaign.id;
+      update public.mamnoon_growth_campaigns set issued_count=issued_count+1,spent_iqd=spent_iqd+v_campaign.amount_iqd,updated_at=now() where id=v_campaign.id;
       v_campaign.issued_count:=v_campaign.issued_count+1;
+      v_campaign.spent_iqd:=v_campaign.spent_iqd+v_campaign.amount_iqd;
       insert into public.notifications(user_id,type,title,body,link,data)
       values(
         v_profile.id,'coupon_received','مبروك! وصلك خصم من ممنون 🎁',
