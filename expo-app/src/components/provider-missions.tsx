@@ -47,7 +47,7 @@ export function ProviderMissions(){
         <View style={[styles.node,{backgroundColor:completed?"#10B981":progress>0?"#D4A017":"#CBD5E1",borderColor:completed?"#A7F3D0":"#E2E8F0"}]}>
          <Text style={styles.nodeText}>{completed?"✓":String(index+1)}</Text>
         </View>
-        {index<items.length-1&&<View style={[styles.connector,{backgroundColor:completed?"#10B981":"#D8DEE7"}]}/>}
+        {index<wonItems.length-1&&<View style={[styles.connector,{backgroundColor:completed?"#10B981":"#D8DEE7"}]}/>}
        </View>
        <View style={styles.card}>
         <View style={styles.titleRow}>
