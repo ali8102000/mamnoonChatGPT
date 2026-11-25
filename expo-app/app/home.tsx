@@ -160,6 +160,11 @@ export default function HomeScreen() {
       return;
     }
     const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
+    // worker_profiles does not contain vehicle_type; requesting that missing
+    // column makes the whole profile query fail and leaves technicians offline.
+    const profileColumns = selectedRole === "worker"
+      ? "available, status"
+      : "available, status, vehicle_type";
     // Verification is role-specific: an approved large-driver account must
     // not be blocked by a separate pending worker verification on the same user.
     // provider_verifications is the authoritative per-role review record; the
@@ -167,7 +172,7 @@ export default function HomeScreen() {
     Promise.all([
       supabase
         .from(table)
-        .select("available, status, vehicle_type")
+        .select(profileColumns)
         .eq("user_id", user.id)
         .maybeSingle(),
       (supabase as any)
@@ -191,7 +196,7 @@ export default function HomeScreen() {
         ? roleVerificationStatus === "approved"
         : profileStatus === "approved";
       setAvailable(Boolean(profileResult.data?.available));
-      const savedVehicleType = profileResult.data?.vehicle_type;
+      const savedVehicleType = selectedRole === "worker" ? null : profileResult.data?.vehicle_type;
       setProviderVehicleType(savedVehicleType === "kia_cargo" || savedVehicleType === "kia_passenger" || savedVehicleType === "bus" ? savedVehicleType : null);
       setVerified(isApproved);
       setVerificationStatus(status);
