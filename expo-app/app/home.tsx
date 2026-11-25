@@ -374,6 +374,7 @@ export default function HomeScreen() {
       <ProviderHome
         role={selectedRole}
         profile={profile}
+        userId={user?.id ?? null}
         available={available}
         availabilitySaving={availabilitySaving}
         verified={verified}
@@ -1062,6 +1063,7 @@ function scaleSize(size: number): number {
 function ProviderHome({
   role,
   profile,
+  userId,
   available,
   availabilitySaving,
   verified,
@@ -1072,6 +1074,7 @@ function ProviderHome({
 }: {
   role: "driver" | "large_driver" | "worker";
   profile: { full_name?: string | null; avatar_url?: string | null } | null;
+  userId: string | null;
   available: boolean;
   availabilitySaving: boolean;
   verified: boolean;
@@ -1086,11 +1089,43 @@ function ProviderHome({
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number; heading?: number | null } | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
+  const [walletOffline, setWalletOffline] = useState(false);
   const roleConfig = role === "large_driver"
     ? { title: "سائق السيارة الكبيرة", short: "نقل وحمولات", emoji: "🚚" }
     : role === "driver"
       ? { title: "الكابتن", short: "طلبات التكسي", emoji: "🚕" }
       : { title: "الفني", short: "الخدمات المنزلية", emoji: "🛠️" };
+
+  useEffect(() => {
+    let active = true;
+    const loadWallet = async () => {
+      if (!userId) {
+        if (active) { setWalletBalance(null); setWalletOffline(true); setWalletLoading(false); }
+        return;
+      }
+      try {
+        const { data, error } = await (supabase as any).rpc("get_my_account_wallet");
+        if (error) throw error;
+        const balance = Number(data?.wallet?.balance_iqd);
+        if (!Number.isFinite(balance)) throw new Error("wallet_balance_unavailable");
+        if (!active) return;
+        setWalletBalance(balance);
+        setWalletOffline(false);
+      } catch (error) {
+        console.warn("[provider-home] authoritative wallet unavailable:", error);
+        if (!active) return;
+        setWalletBalance(null);
+        setWalletOffline(true);
+      } finally {
+        if (active) setWalletLoading(false);
+      }
+    };
+    void loadWallet();
+    const refreshTimer = setInterval(() => { void loadWallet(); }, 15000);
+    return () => { active = false; clearInterval(refreshTimer); };
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
@@ -1127,13 +1162,18 @@ function ProviderHome({
     }, { duration: 700 });
   }, [mapReady, currentCoords]);
 
-  const statusLabel = !verified
-    ? "حسابك بانتظار التوثيق"
-    : availabilitySaving
-      ? "جارٍ تحديث الحالة"
-      : available
-        ? "متصل — تستقبل الطلبات"
-        : "غير متصل — الطلبات متوقفة";
+  const walletBlocked = walletBalance !== null && walletBalance <= -5000;
+  const statusLabel = walletBlocked
+    ? "رصيد المحفظة وصل -5,000 د.ع — استقبال الطلبات متوقف"
+    : walletOffline && walletBalance === null
+      ? "تعذر التحقق من رصيد المحفظة"
+      : !verified
+        ? "حسابك بانتظار التوثيق"
+        : availabilitySaving
+          ? "جارٍ تحديث الحالة"
+          : available
+            ? "متصل — تستقبل الطلبات"
+            : "غير متصل — الطلبات متوقفة";
 
   const recenter = async () => {
     if (currentCoords) {
@@ -1200,8 +1240,15 @@ function ProviderHome({
             <Text numberOfLines={1} style={providerMapStyles.personName}>{profile?.full_name?.split(" ")[0] || "أهلاً بيك"}</Text>
             <Text numberOfLines={1} style={providerMapStyles.roleCaption}>{roleConfig.title}</Text>
           </View>
+          <View style={providerMapStyles.walletBalance}>
+            <Text style={providerMapStyles.walletBalanceLabel}>المحفظة</Text>
+            <Text numberOfLines={1} style={[providerMapStyles.walletBalanceValue, walletBlocked && { color: "#DC2626" }]}>
+              {walletBalance === null ? (walletLoading ? "..." : "—") : walletBalance.toLocaleString("en")}
+            </Text>
+            <Text style={providerMapStyles.walletBalanceCurrency}>د.ع</Text>
+          </View>
           <View style={providerMapStyles.requestCount}>
-            <Text style={providerMapStyles.requestCountNumber}>{incoming.length}</Text>
+            <Text style={providerMapStyles.requestCountNumber}>{walletBlocked ? 0 : incoming.length}</Text>
             <Text style={providerMapStyles.requestCountLabel}>طلبات</Text>
           </View>
         </TouchableOpacity>
@@ -1232,10 +1279,10 @@ function ProviderHome({
       </TouchableOpacity>
 
       <View style={[providerMapStyles.bottomPanel, { bottom: bottomOffset + 84 }]}>
-        {!available && (
+        {(!available || walletBlocked) && (
           <View style={providerMapStyles.offlineNotice}>
-            <Text style={providerMapStyles.offlineNoticeTitle}>أنت غير متصل حالياً</Text>
-            <Text style={providerMapStyles.offlineNoticeText}>فعّل استقبال الطلبات حتى توصلك طلبات {roleConfig.short} القريبة.</Text>
+            <Text style={providerMapStyles.offlineNoticeTitle}>{walletBlocked ? "استقبال الطلبات متوقف بسبب رصيد المحفظة" : "أنت غير متصل حالياً"}</Text>
+            <Text style={providerMapStyles.offlineNoticeText}>{walletBlocked ? "اشحن محفظتك حتى يرجع بإمكانك استقبال الطلبات." : `فعّل استقبال الطلبات حتى توصلك طلبات ${roleConfig.short} القريبة.`}</Text>
           </View>
         )}
         <View style={providerMapStyles.panelHeader}>
@@ -1247,9 +1294,13 @@ function ProviderHome({
             <Text style={{ color: "#17324D", fontSize: 18 }}>↻</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView style={{ maxHeight: scaleSize(190) }} contentContainerStyle={{ paddingBottom: 6 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-          <IncomingRequestList incoming={incoming} />
-        </ScrollView>
+        {walletBlocked ? (
+          <Text style={providerMapStyles.walletBlockedMessage}>ما تگدر تقبل أو تستلم طلبات جديدة قبل ما تشحن المحفظة وتتجاوز حد المديونية.</Text>
+        ) : (
+          <ScrollView style={{ maxHeight: scaleSize(190) }} contentContainerStyle={{ paddingBottom: 6 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+            <IncomingRequestList incoming={incoming} />
+          </ScrollView>
+        )}
         <View style={providerMapStyles.bottomActions}>
           <TouchableOpacity onPress={() => router.push("/coupons")} style={providerMapStyles.secondaryAction}>
             <Text style={providerMapStyles.secondaryActionText}>🎁 المكافآت</Text>
@@ -1260,10 +1311,10 @@ function ProviderHome({
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "بدء استقبال الطلبات"}
-            disabled={!verified || availabilitySaving}
+            disabled={!verified || availabilitySaving || (walletBlocked && !available)}
             onPress={toggleAvailable}
             activeOpacity={0.85}
-            style={[providerMapStyles.powerButton, available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff, (!verified || availabilitySaving) && { opacity: 0.5 }]}
+            style={[providerMapStyles.powerButton, available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff, (!verified || availabilitySaving || (walletBlocked && !available)) && { opacity: 0.5 }]}
           >
             <Text style={providerMapStyles.powerButtonText}>{availabilitySaving ? "..." : available ? "متصل" : "ابدأ"}</Text>
           </TouchableOpacity>
@@ -1284,6 +1335,11 @@ const providerMapStyles = StyleSheet.create({
   avatarFallback: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E8F1FF", alignItems: "center", justifyContent: "center" },
   personName: { color: "#17324D", fontSize: 13, fontWeight: "900", textAlign: "right" },
   roleCaption: { color: "#64748B", fontSize: 10, fontWeight: "700", textAlign: "right", marginTop: 2 },
+  walletBalance: { minWidth: 72, maxWidth: 86, alignItems: "center", borderRadius: 12, backgroundColor: "#F0FDF4", paddingVertical: 5, paddingHorizontal: 6 },
+  walletBalanceLabel: { color: "#64748B", fontSize: 8, fontWeight: "800" },
+  walletBalanceValue: { color: "#166534", fontSize: 11, fontWeight: "900", marginTop: 2 },
+  walletBalanceCurrency: { color: "#64748B", fontSize: 7, fontWeight: "700" },
+  walletBlockedMessage: { color: "#B91C1C", backgroundColor: "#FEF2F2", borderRadius: 12, padding: 12, fontSize: 10, fontWeight: "800", textAlign: "right" },
   requestCount: { minWidth: 42, alignItems: "center", borderRadius: 12, backgroundColor: "#EFF6FF", paddingVertical: 5, paddingHorizontal: 6 },
   requestCountNumber: { color: "#1D4ED8", fontSize: 14, fontWeight: "900" },
   requestCountLabel: { color: "#64748B", fontSize: 8, fontWeight: "800" },
