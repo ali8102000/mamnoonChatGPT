@@ -400,6 +400,7 @@ export default function HomeScreen() {
     return (
       <ProviderHome
         role={selectedRole}
+        vehicleType={providerVehicleType}
         profile={profile}
         userId={user?.id ?? null}
         available={available}
@@ -1095,6 +1096,7 @@ const ROLE_CONFIG = {
 
 function ProviderHome({
   role,
+  vehicleType,
   profile,
   userId,
   available,
@@ -1104,6 +1106,7 @@ function ProviderHome({
   incoming,
 }: {
   role: "driver" | "large_driver" | "worker";
+  vehicleType: "kia_cargo" | "kia_passenger" | "bus" | null;
   profile: { full_name?: string | null; avatar_url?: string | null } | null;
   userId: string | null;
   available: boolean;
@@ -1235,7 +1238,7 @@ function ProviderHome({
         {currentCoords ? (
           <ProviderLocationMarker
             role={role === "driver" ? "captain" : role === "large_driver" ? "carrier" : "usta"}
-            vehicleType={role === "large_driver" ? providerVehicleType : null}
+            vehicleType={role === "large_driver" ? vehicleType : null}
             coordinate={{ latitude: currentCoords.latitude, longitude: currentCoords.longitude }}
             heading={currentCoords.heading}
             title={roleConfig.title}
