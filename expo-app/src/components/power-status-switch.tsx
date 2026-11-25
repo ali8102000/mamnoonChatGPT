@@ -21,10 +21,10 @@ export function PowerStatusSwitch({
   onToggle,
   disabled = false,
 }: Props) {
-  const width = scaleFn(184);
-  const height = scaleFn(58);
+  const width = scaleFn(196);
+  const height = scaleFn(62);
   const padding = scaleFn(6);
-  const knobSize = scaleFn(46);
+  const knobSize = scaleFn(50);
   const travelDistance = width - knobSize - padding * 2;
   const progress = useRef(new Animated.Value(isOnline ? 1 : 0)).current;
   const rotation = useRef(new Animated.Value(0)).current;
@@ -80,13 +80,13 @@ export function PowerStatusSwitch({
           width,
           height,
           borderRadius: height / 2,
-          backgroundColor: isOnline ? "#E8F8EE" : "#F1F5F9",
-          borderColor: isOnline ? activeColor : "#DCE3EC",
+          backgroundColor: isOnline ? activeColor : "#64748B",
+          borderColor: isOnline ? "#99F6E4" : "#CBD5E1",
           opacity: disabled ? 0.58 : 1,
         },
       ]}
     >
-      <Text numberOfLines={1} style={[styles.label, { color: isOnline ? activeColor : "#64748B" }]}>
+      <Text numberOfLines={1} style={[styles.label, { color: "#FFFFFF" }]}>
         {isOnline ? onlineText : offlineText}
       </Text>
       <Animated.View
@@ -98,7 +98,7 @@ export function PowerStatusSwitch({
             borderRadius: knobSize / 2,
             left: padding,
             transform: [{ translateX: knobTranslateX }],
-            borderColor: isOnline ? activeColor : "#CBD5E1",
+            borderColor: isOnline ? "#CCFBF1" : "#E2E8F0",
           },
         ]}
       >
@@ -109,7 +109,7 @@ export function PowerStatusSwitch({
         </Animated.View>
         <View style={styles.powerGlyph}>
           <Svg width={scaleFn(21)} height={scaleFn(21)} viewBox="0 0 24 24">
-            <Path d="M12 2.8v9.1M6.2 5.8a8 8 0 1 0 11.6 0" fill="none" stroke={isOnline ? activeColor : "#64748B"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M12 2.8v9.1M6.2 5.8a8 8 0 1 0 11.6 0" fill="none" stroke={isOnline ? activeColor : "#475569"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </View>
       </Animated.View>
@@ -124,14 +124,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 3,
     shadowColor: "#0F172A",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 3 },
+    transform: [{ translateY: -6 }],
   },
-  label: { fontSize: 12, fontWeight: "900", paddingHorizontal: 54 },
+  label: { fontSize: 13, fontWeight: "900", paddingHorizontal: 60 },
   knob: {
     position: "absolute",
-    top: 5,
+    top: 6,
     backgroundColor: "#FFFFFF",
     borderWidth: 1.5,
     alignItems: "center",
