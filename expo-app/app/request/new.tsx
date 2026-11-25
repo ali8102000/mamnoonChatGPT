@@ -1726,7 +1726,7 @@ export default function NewRequest() {
                   </View>
                 )}
 
-                {!isLargeVehicle && (
+                {(
                   <View style={styles.taxiCouponPanel}>
                     <Text style={styles.taxiFieldLabel}>🎁 عندك كوبون خصم؟</Text>
                     <View style={styles.taxiSearchRow}>
@@ -2128,7 +2128,7 @@ export default function NewRequest() {
               )}
             </View>
           )}
-          {isTaxi && !isLargeVehicle && (
+          {isTaxi && (
                   <View style={{ marginTop: 18, marginBottom: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: "#F59E0B80", backgroundColor: palette.goldSoft }}>
                     <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "900", marginBottom: 9 }}>🎁 عندك كوبون خصم؟</Text>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -2295,6 +2295,18 @@ export default function NewRequest() {
         </>
       )}
 
+
+      {!isTaxi && (
+        <View style={styles.taxiCouponPanel}>
+          <Text style={styles.taxiFieldLabel}>🎁 عندك كوبون خصم؟</Text>
+          <View style={styles.taxiSearchRow}>
+            <TextInput style={[styles.taxiSearchInput, { flex: 1 }]} value={couponCode} onChangeText={(value) => { setCouponCode(value.toUpperCase()); setCouponPreview(null); setCouponError(""); }} placeholder="اكتب رمز الكوبون" placeholderTextColor={palette.muted} autoCapitalize="characters" />
+            <TouchableOpacity style={styles.taxiCouponButton} onPress={previewCoupon} disabled={couponLoading}>{couponLoading ? <ActivityIndicator color={palette.white} /> : <Text style={styles.taxiCouponButtonText}>تحقق</Text>}</TouchableOpacity>
+          </View>
+          {!!couponError && <Text style={styles.taxiErrorText}>{couponError}</Text>}
+          {couponPreview && <View style={styles.taxiCouponResult}><Text style={styles.taxiSuccessText}>تم التحقق من الكوبون</Text><Text style={styles.taxiCouponText}>قيمة الخصم: {couponPreview.discount.toLocaleString("ar-IQ")} د.ع</Text><Text style={styles.taxiCouponText}>المبلغ بعد الخصم: {couponPreview.payable.toLocaleString("ar-IQ")} د.ع</Text></View>}
+        </View>
+      )}
 
       {showRequestPhoto && (
         <View style={{ marginTop: 18, padding: 14, borderRadius: 16, borderWidth: 1, borderStyle: "dashed", borderColor: palette.gold, backgroundColor: palette.surface }}>
