@@ -246,6 +246,7 @@ export default function RequestDetail() {
   const [largeOfferMessage, setLargeOfferMessage] = useState("");
   const [largeOfferBusy, setLargeOfferBusy] = useState(false);
   const [acceptingLargeOffer, setAcceptingLargeOffer] = useState<string | null>(null);
+  const [acceptingLargeRequest, setAcceptingLargeRequest] = useState(false);
   const [retryingLargeOffers, setRetryingLargeOffers] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
@@ -1219,25 +1220,71 @@ export default function RequestDetail() {
   }
 
   async function sendLargeVehicleOffer() {
-    if (!user) return;
-    const amount = Number(largeOfferPrice.replace(/[^0-9]/g, ""));
-    if (!Number.isSafeInteger(amount) || amount < 250 || amount % 250 !== 0) {
-      Alert.alert("السعر غير صحيح", "اكتب سعراً لا يقل عن 250 ديناراً ومن مضاعفات 250.");
+    if (!user || largeOfferBusy) return;
+    const digits = normalizeCashDigits(largeOfferPrice);
+    const amount = digits ? Number(digits) : NaN;
+    if (!Number.isSafeInteger(amount) || amount < 250 || amount > 50000 || amount % 250 !== 0) {
+      Alert.alert("السعر غير صحيح", "اكتب أجرتك من 250 إلى 50,000 دينار، ويكون المبلغ من مضاعفات 250.");
       return;
     }
     setLargeOfferBusy(true);
-    const { error } = await (supabase as any).rpc("submit_large_vehicle_offer", {
-      _request_id: id,
-      _price: amount,
-      _message: largeOfferMessage.trim() || null,
-    });
-    setLargeOfferBusy(false);
-    if (error) {
-      Alert.alert("تعذر إرسال العرض", error.message);
-      return;
+    try {
+      const { error } = await (supabase as any).rpc("submit_large_vehicle_offer", {
+        _request_id: id,
+        _price: amount,
+        _message: largeOfferMessage.trim() || null,
+      });
+      if (error) {
+        const raw = String(error.message || "");
+        const message = raw.includes("request_offer_expired") || raw.includes("request_offer_unavailable")
+          ? "انتهت صلاحية استقبال العروض لهذا الطلب. حدّث الطلب أو انتظر طلباً جديداً."
+          : raw.includes("driver_vehicle_not_eligible") || raw.includes("large_driver_no_longer_eligible")
+            ? "سيارتك غير متاحة حالياً أو بياناتها غير مطابقة لهذا الطلب. تأكد أن حالة السيارة متاح وأن اعتمادها مكتمل."
+            : raw.includes("provider_has_active_request")
+              ? "عندك طلب آخر قيد التنفيذ. أكمله أولاً حتى ترسل عرضاً جديداً."
+              : raw.includes("invalid_offer_price")
+                ? "الأجرة لازم تكون بين 250 و50,000 دينار ومن مضاعفات 250."
+                : raw;
+        Alert.alert("تعذر إرسال العرض", message || "صار خلل أثناء إرسال العرض. حاول مرة ثانية.");
+        return;
+      }
+      Alert.alert("تم إرسال عرضك", "وصل السعر للزبون. راح يگدر يشوف عرضك ويوافق عليه أو يختار عرضاً آخر.");
+      await loadRequest();
+    } catch (error: any) {
+      Alert.alert("تعذر إرسال العرض", error?.message || "تحقق من الإنترنت وحاول مرة ثانية.");
+    } finally {
+      setLargeOfferBusy(false);
     }
-    Alert.alert("تم إرسال العرض", "وصل سعرك للزبون، وتكدر تنتظر موافقته.");
-    await loadRequest();
+  }
+
+  async function acceptLargeVehicleRequest() {
+    if (!request || acceptingLargeRequest) return;
+    setAcceptingLargeRequest(true);
+    try {
+      const { error } = await (supabase as any).rpc("accept_large_vehicle_request", { _request_id: id });
+      if (error) {
+        const raw = String(error.message || "");
+        const message = raw.includes("customer_price_missing")
+          ? "الزبون ما محدد أجرة للطلب، استخدم إرسال عرض السعر بدلاً من القبول المباشر."
+          : raw.includes("request_offer_unavailable")
+            ? "هذا الطلب ما عاد ضمن الطلبات المرسلة إلك. حدّث قائمة الطلبات وحاول بطلب متاح."
+            : raw.includes("large_driver_no_longer_eligible")
+              ? "تأكد أن سيارتك الكبيرة معتمدة وحالتها متاح."
+              : raw.includes("provider_has_active_request")
+                ? "عندك طلب آخر قيد التنفيذ."
+                : raw.includes("request_unavailable")
+                  ? "الطلب انقبل من سائق آخر أو انتهت صلاحيته."
+                  : raw;
+        Alert.alert("تعذر قبول الطلب", message || "حاول مرة ثانية بعد تحديث الطلبات.");
+        return;
+      }
+      Alert.alert("تم قبول الطلب", "تم تثبيت أجرة الزبون وفتح المحادثة. تگدر هسه تتواصل وياه وتتوجه لموقعه.");
+      await Promise.all([loadRequest(), loadChat()]);
+    } catch (error: any) {
+      Alert.alert("تعذر قبول الطلب", error?.message || "تحقق من الإنترنت وحاول مرة ثانية.");
+    } finally {
+      setAcceptingLargeRequest(false);
+    }
   }
 
   async function acceptLargeOffer(offerId: string) {
@@ -1897,27 +1944,59 @@ export default function RequestDetail() {
         )}
         {request.vehicle_category === "large" && !isCustomer && roles.includes("large_driver") && ["pending", "searching"].includes(request.status) && (
           <View style={styles.largeOffersCard}>
-            <Text style={styles.largeOffersTitle}>أرسل عرض سعرك</Text>
-            {request.customer_price ? <Text style={styles.largeOffersEmpty}>ميزانية الزبون: {Number(request.customer_price).toLocaleString("en")} د.ع</Text> : <Text style={styles.largeOffersEmpty}>الزبون ينتظر عروض الأسعار</Text>}
-            {myLargeOffer?.proposed_price ? <Text style={styles.largeOffersEmpty}>عرضك الحالي: {Number(myLargeOffer.proposed_price).toLocaleString("en")} د.ع — تكدر تعدله وترسله من جديد</Text> : null}
+            <Text style={styles.largeOffersTitle}>🚚 طلب سيارة كبيرة</Text>
+            <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right", lineHeight: 20, marginBottom: 10 }}>
+              اختَر الطريقة المناسبة: اقبل أجرة الزبون مباشرة إذا تناسبك، أو اكتب أجرتك وأرسل عرضاً جديداً.
+            </Text>
+            {Number(request.customer_price ?? request.customer_payable ?? request.price_estimate ?? 0) > 0 ? (
+              <View style={{ backgroundColor: palette.goldSoft, borderWidth: 1, borderColor: palette.gold, borderRadius: 14, padding: 12, marginBottom: 10 }}>
+                <Text style={{ color: palette.muted, fontSize: 11, textAlign: "right" }}>الأجرة التي حددها الزبون</Text>
+                <Text style={{ color: palette.brand, fontSize: 22, fontWeight: "900", textAlign: "right", marginTop: 3 }}>
+                  {Number(request.customer_price ?? request.customer_payable ?? request.price_estimate).toLocaleString("en")} د.ع
+                </Text>
+                <TouchableOpacity
+                  style={[styles.largeOfferAccept, { marginTop: 10, backgroundColor: palette.success, opacity: acceptingLargeRequest ? 0.55 : 1 }]}
+                  disabled={acceptingLargeRequest || largeOfferBusy}
+                  onPress={acceptLargeVehicleRequest}
+                >
+                  <Text style={styles.largeOfferAcceptText}>{acceptingLargeRequest ? "جارٍ قبول الطلب..." : "قبول الطلب بهذه الأجرة"}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={styles.largeOffersEmpty}>الزبون ما محدد أجرة؛ تگدر ترسل أجرتك المقترحة أدناه.</Text>
+            )}
+            {myLargeOffer?.proposed_price ? (
+              <Text style={styles.largeOffersEmpty}>عرضك الحالي: {Number(myLargeOffer.proposed_price).toLocaleString("en")} د.ع — تگدر تعدله وترسله من جديد.</Text>
+            ) : null}
+            <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900", textAlign: "right", marginTop: 5 }}>أجرتك المقترحة (دينار عراقي)</Text>
             <TextInput
               style={styles.largeOfferInput}
               value={largeOfferPrice}
-              onChangeText={(value) => setLargeOfferPrice(value.replace(/[^0-9]/g, ""))}
-              placeholder="أجرتك بالدينار"
+              onChangeText={(value) => setLargeOfferPrice(normalizeCashDigits(value))}
+              placeholder="مثال: 25000"
               placeholderTextColor="#94a3b8"
-              keyboardType="numeric"
+              keyboardType="number-pad"
+              editable={!largeOfferBusy && !acceptingLargeRequest}
             />
+            <Text style={{ color: palette.muted, fontSize: 10, textAlign: "right", marginTop: 5 }}>
+              من 250 إلى 50,000 دينار، ويكون من مضاعفات 250.
+            </Text>
+            <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900", textAlign: "right", marginTop: 12 }}>ملاحظة للزبون (اختياري)</Text>
             <TextInput
-              style={[styles.largeOfferInput, { minHeight: 72 }]}
+              style={[styles.largeOfferInput, { minHeight: 76, textAlignVertical: "top" }]}
               value={largeOfferMessage}
               onChangeText={setLargeOfferMessage}
-              placeholder="ملاحظة للزبون (اختياري)"
+              placeholder="مثلاً: أگدر أوصل خلال نصف ساعة"
               placeholderTextColor="#94a3b8"
               multiline
+              editable={!largeOfferBusy && !acceptingLargeRequest}
             />
-            <TouchableOpacity style={styles.largeOfferAccept} disabled={largeOfferBusy} onPress={sendLargeVehicleOffer}>
-              <Text style={styles.largeOfferAcceptText}>{largeOfferBusy ? "جارٍ إرسال العرض..." : myLargeOffer?.proposed_price ? "تحديث عرض السعر" : "إرسال عرض السعر"}</Text>
+            <TouchableOpacity
+              style={[styles.largeOfferAccept, { opacity: largeOfferBusy || acceptingLargeRequest ? 0.55 : 1 }]}
+              disabled={largeOfferBusy || acceptingLargeRequest}
+              onPress={sendLargeVehicleOffer}
+            >
+              <Text style={styles.largeOfferAcceptText}>{largeOfferBusy ? "جارٍ إرسال العرض..." : myLargeOffer?.proposed_price ? "تحديث وإرسال العرض" : "إرسال عرض السعر للزبون"}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -2006,6 +2085,15 @@ export default function RequestDetail() {
           {["pending", "searching"].includes(request.status) && canAccept && request.vehicle_category !== "large" && (
             <TouchableOpacity style={styles.actionBtn} onPress={acceptRequest}>
               <Text style={styles.actionBtnText}>قبول الطلب</Text>
+            </TouchableOpacity>
+          )}
+          {["pending", "searching"].includes(request.status) && canAccept && request.vehicle_category === "large" && !isCustomer && Number(request.customer_price ?? request.customer_payable ?? request.price_estimate ?? 0) > 0 && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: palette.success, opacity: acceptingLargeRequest ? 0.55 : 1 }]}
+              onPress={acceptLargeVehicleRequest}
+              disabled={acceptingLargeRequest || largeOfferBusy}
+            >
+              <Text style={styles.actionBtnText}>{acceptingLargeRequest ? "جارٍ قبول الطلب..." : "قبول بأجرة الزبون"}</Text>
             </TouchableOpacity>
           )}
           {request.status === "accepted" && isProvider &&
