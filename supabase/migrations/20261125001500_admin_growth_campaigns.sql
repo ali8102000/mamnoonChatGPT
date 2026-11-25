@@ -169,7 +169,7 @@ begin
 end;
 $function$;
 revoke all on function public.admin_save_growth_campaign(uuid,text,text,text,text,text[],bigint,bigint,integer,integer,integer,timestamptz,timestamptz,boolean) from public,anon;
-grant execute on function public.admin_save_growth_campaign(uuid,text,text,text,text,text[],bigint,integer,integer,integer,timestamptz,timestamptz,boolean) to authenticated;
+grant execute on function public.admin_save_growth_campaign(uuid,text,text,text,text,text[],bigint,bigint,integer,integer,integer,timestamptz,timestamptz,boolean) to authenticated;
 
 create or replace function public.admin_list_growth_campaigns()
 returns table(
@@ -347,6 +347,7 @@ begin
     where campaign_type='customer_delayed_coupon' and active=true
       and starts_at<=now() and issued_count<max_awards and spent_iqd+amount_iqd<=budget_iqd
     order by created_at
+    for update
   loop
     for v_profile in
       select p.id,p.created_at,p.governorate_key,p.full_name
