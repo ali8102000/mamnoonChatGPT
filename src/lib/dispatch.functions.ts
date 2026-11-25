@@ -124,15 +124,18 @@ export const startRide = async ({ data }: { data: { requestId: string } }) => {
   return { ok: true };
 };
 
-/** Complete a ride. */
-export const completeRide = async ({ data }: { data: { requestId: string } }) => {
-  const input = z.object({ requestId: z.string().min(1) }).parse(data);
-  const { error, data: transitioned } = await (supabase as any).rpc("transition_service_request", {
-    _request_id: input.requestId, _status: "completed", _reason: null,
+/** Complete a ride/service and atomically settle any cash change into the customer's wallet. */
+export const completeRide = async ({ data }: { data: { requestId: string; cashReceivedIqd: number } }) => {
+  const input = z.object({
+    requestId: z.string().uuid(),
+    cashReceivedIqd: z.number().int().min(0).max(100000000),
+  }).parse(data);
+  const { error, data: settlement } = await (supabase as any).rpc("complete_service_request_with_cash", {
+    _request_id: input.requestId,
+    _cash_received_iqd: input.cashReceivedIqd,
   });
   if (error) throw new Error(error.message);
-  if (!transitioned) throw new Error("تعذّر إكمال الطلب");
-  return { ok: true };
+  return { ok: true, changeIqd: Number(settlement?.change_iqd ?? 0) };
 };
 
 export type ProviderPin = {

@@ -52,6 +52,13 @@ import { callMamnoonMapsApi } from "@/lib/maps-api";
 import { showContactOptions } from "@/lib/contact-actions";
 
 const QUICK_REPLIES_CUSTOMER = ["وصلت!", "كم دقيقة؟", "أين أنت؟", "شكراً جزيلاً", "هل أنت قريب؟"];
+function normalizeCashDigits(value: string) {
+  return value
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[^0-9]/g, "");
+}
+
 const QUICK_REPLIES_PROVIDER = [
   "قادم إليك",
   "وصلت للموقع",
@@ -94,6 +101,7 @@ type RequestRecord = {
   customer_payable?: number | null;
   payment_method?: string | null;
   customer_price: number | null;
+  cash_change_iqd?: number | null;
   pricing_mode: string | null;
   work_hours: number | null;
   work_description: string | null;
@@ -276,6 +284,8 @@ export default function RequestDetail() {
   const [reportBusy, setReportBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [transitionBusy, setTransitionBusy] = useState(false);
+  const [cashSettlementOpen, setCashSettlementOpen] = useState(false);
+  const [cashReceivedInput, setCashReceivedInput] = useState("");
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   const [dispatchClock, setDispatchClock] = useState(Date.now());
   const [urgencyAllowed, setUrgencyAllowed] = useState(false);
@@ -423,7 +433,7 @@ export default function RequestDetail() {
     const { data, error } = await supabase
       .from("service_requests")
       .select(
-        "id, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, provider_arrived_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount, staffing_search_paused_at",
+        "id, provider_id, customer_id, status, type, pickup_text, dest_text, price_estimate, customer_payable, payment_method, customer_price, pricing_mode, work_hours, work_description, workers_count, taxi_urgency_enabled, taxi_urgency_percent, services(name_ar, slug), pickup_lat, pickup_lng, dest_lat, dest_lng, vehicle_category, vehicle_type, notes, attachment_path, created_at, searching_started_at, provider_arrived_at, cancellation_reason, distance_km, urgency_base_price, urgency_multiplier, urgency_percent, urgency_amount, staffing_search_paused_at, cash_change_iqd",
       )
       .eq("id", id)
       .maybeSingle();
@@ -1299,17 +1309,49 @@ export default function RequestDetail() {
     }
   }
 
-  async function completeRide() {
+  function completeRide() {
     if (!request || !isProvider || request.status !== "in_progress" || transitionBusy) return;
+    const fare = Number(request.customer_payable ?? request.customer_price ?? request.price_estimate ?? 0);
+    setCashReceivedInput(request.payment_method === "zaincash" ? "0" : String(Math.max(0, Math.round(fare))));
+    setCashSettlementOpen(true);
+  }
+
+  async function submitCashSettlement() {
+    if (!request || transitionBusy) return;
+    const digits = normalizeCashDigits(cashReceivedInput);
+    const amount = digits === "" ? NaN : Number(digits);
+    if (!Number.isSafeInteger(amount) || amount < 0 || amount > 100000000) {
+      Alert.alert("المبلغ غير صحيح", "اكتب المبلغ النقدي الذي استلمته من الزبون.");
+      return;
+    }
+    if (request.payment_method === "zaincash" && amount !== 0) {
+      Alert.alert("الدفع إلكتروني", "هذا الطلب مدفوع إلكترونياً؛ لا تدخل مبلغاً نقدياً.");
+      return;
+    }
     setTransitionBusy(true);
     try {
-      const { error } = await supabase.rpc("transition_service_request", {
+      const { data, error } = await (supabase as any).rpc("complete_service_request_with_cash", {
         _request_id: id,
-        _status: "completed",
-        _reason: null,
+        _cash_received_iqd: amount,
       });
-      if (error) Alert.alert("تعذر إنهاء الطلب", error.message || "حاول مرة ثانية.");
-      else await loadRequest();
+      if (error) throw error;
+      setCashSettlementOpen(false);
+      const change = Number(data?.change_iqd ?? 0);
+      Alert.alert(
+        "تم إنهاء الطلب",
+        change > 0
+          ? `تمت إضافة ${change.toLocaleString("ar-IQ")} د.ع إلى محفظة الزبون كفرق الباقي.`
+          : "تم تسجيل إكمال الطلب بنجاح.",
+      );
+      await loadRequest();
+    } catch (error: any) {
+      const raw = String(error?.message ?? "");
+      const message = raw.includes("provider_wallet_debt_limit_exceeded")
+        ? "رصيد محفظتك وصل حد المديونية. رجّع الباقي نقداً للزبون، ثم سجّل الأجرة التي احتفظت بها."
+        : raw.includes("cash_received_less_than_fare")
+          ? "المبلغ المستلم أقل من أجرة الطلب. تأكد من استلام الأجرة كاملة قبل الإكمال."
+          : raw || "تعذّر تسجيل المبلغ وتسوية الباقي.";
+      Alert.alert("تعذر إنهاء الطلب", message);
     } finally {
       setTransitionBusy(false);
     }
@@ -1979,14 +2021,58 @@ export default function RequestDetail() {
                 <Text style={styles.actionBtnText}>{transitionBusy ? "جارٍ البدء..." : request.type === "taxi" ? "ركب الزبون" : "بدء تنفيذ الخدمة"}</Text>
               </TouchableOpacity>
           )}
-          {isActive && isProvider && (
+          {request.status === "in_progress" && isProvider && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: palette.success }]}
               onPress={completeRide}
               disabled={transitionBusy}
             >
-              <Text style={styles.actionBtnText}>{transitionBusy ? "جارٍ التحديث..." : "إنهاء"}</Text>
+              <Text style={styles.actionBtnText}>تأكيد الإكمال</Text>
             </TouchableOpacity>
+          )}
+          {cashSettlementOpen && request.status === "in_progress" && isProvider && (
+            <View style={{ backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.line, borderRadius: radius.lg, padding: 14, gap: 10 }}>
+              <Text style={{ color: palette.ink, fontSize: 15, fontWeight: "900", textAlign: "right" }}>تسوية المبلغ النقدي</Text>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ color: palette.muted, fontSize: 12 }}>الأجرة المطلوبة</Text>
+                <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "900" }}>{Number(request.customer_payable ?? request.customer_price ?? request.price_estimate ?? 0).toLocaleString("ar-IQ")} د.ع</Text>
+              </View>
+              {request.payment_method === "zaincash" ? (
+                <Text style={{ color: palette.muted, fontSize: 12, textAlign: "right" }}>الطلب مدفوع إلكترونياً؛ لا يوجد مبلغ نقدي مستلم.</Text>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    onPress={() => setCashReceivedInput(String(Math.max(0, Math.round(Number(request.customer_payable ?? request.customer_price ?? request.price_estimate ?? 0)))))}
+                    style={{ borderWidth: 1, borderColor: palette.brand, borderRadius: 10, padding: 11, alignItems: "center" }}
+                  >
+                    <Text style={{ color: palette.brand, fontWeight: "900", fontSize: 12 }}>استلمت الأجرة بالضبط</Text>
+                  </TouchableOpacity>
+                  <Text style={{ color: palette.ink, fontSize: 12, fontWeight: "800", textAlign: "right" }}>كم استلمت من الزبون نقداً؟</Text>
+                  <TextInput
+                    value={cashReceivedInput}
+                    onChangeText={(value) => setCashReceivedInput(normalizeCashDigits(value))}
+                    keyboardType="number-pad"
+                    placeholder="مثلاً 5000"
+                    placeholderTextColor={palette.muted}
+                    style={{ borderWidth: 1, borderColor: palette.line, borderRadius: 10, padding: 12, color: palette.ink, textAlign: "right", fontWeight: "900" }}
+                  />
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ color: palette.muted, fontSize: 12 }}>الباقي للزبون</Text>
+                    <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900" }}>{Math.max(0, (Number(cashReceivedInput) || 0) - Number(request.customer_payable ?? request.customer_price ?? request.price_estimate ?? 0)).toLocaleString("ar-IQ")} د.ع</Text>
+                  </View>
+                </>
+              )}
+              <TouchableOpacity
+                onPress={() => void submitCashSettlement()}
+                disabled={transitionBusy}
+                style={[styles.actionBtn, { backgroundColor: palette.success, opacity: transitionBusy ? 0.55 : 1 }]}
+              >
+                <Text style={styles.actionBtnText}>{transitionBusy ? "جارٍ تسجيل المبلغ..." : "تأكيد المبلغ وإنهاء الطلب"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setCashSettlementOpen(false)} disabled={transitionBusy} style={{ padding: 8, alignItems: "center" }}>
+                <Text style={{ color: palette.muted, fontWeight: "800", fontSize: 12 }}>رجوع</Text>
+              </TouchableOpacity>
+            </View>
           )}
           {(isCustomer || (isProvider && request.type === "service")) &&
             request.status !== "cancelled" &&
@@ -2028,7 +2114,15 @@ export default function RequestDetail() {
           </View>
         )}
         {!["completed", "cancelled"].includes(request.status) ? null : (
-          <View style={styles.chatClosed}><Text style={styles.chatClosedTitle}>{request.status === "completed" ? "اكتمل الطلب" : "تم إلغاء الطلب"}</Text><Text style={styles.chatClosedText}>انتهت المحادثة وتم إخفاء بيانات الطرف الآخر.</Text></View>
+          <View style={styles.chatClosed}>
+            <Text style={styles.chatClosedTitle}>{request.status === "completed" ? "اكتمل الطلب" : "تم إلغاء الطلب"}</Text>
+            <Text style={styles.chatClosedText}>انتهت المحادثة وتم إخفاء بيانات الطرف الآخر.</Text>
+            {isCustomer && Number(request.cash_change_iqd ?? 0) > 0 ? (
+              <Text style={{ color: palette.brand, fontSize: 12, fontWeight: "900", textAlign: "center", marginTop: 8 }}>
+                تم إرجاع باقي المبلغ إلى محفظتك: {Number(request.cash_change_iqd).toLocaleString("ar-IQ")} د.ع
+              </Text>
+            ) : null}
+          </View>
         )}
         </ScrollView>
         {showCancelSheet && (

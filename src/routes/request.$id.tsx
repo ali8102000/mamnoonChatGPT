@@ -44,6 +44,13 @@ const VEHICLE_CAT_META: Record<string, { label: string; emoji: string; gradient:
   luxury: { label: "ممنون فاخر", emoji: "🏎️", gradient: "from-amber-400 to-orange-500" },
 };
 
+function normalizeCashDigits(value: string) {
+  return value
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[^0-9]/g, "");
+}
+
 export const Route = createFileRoute("/request/$id")({
   ssr: false,
   head: () => ({
@@ -88,6 +95,9 @@ function RequestDetail() {
   const [reportReason, setReportReason] = useState("مشكلة أثناء الرحلة أو الخدمة");
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
+  const [cashSettlementOpen, setCashSettlementOpen] = useState(false);
+  const [cashReceivedInput, setCashReceivedInput] = useState("");
+  const [cashSettlementBusy, setCashSettlementBusy] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentGatewayEnabled, setPaymentGatewayEnabled] = useState(false);
   const [taxiUrgencyBusy, setTaxiUrgencyBusy] = useState(false);
@@ -436,12 +446,43 @@ function RequestDetail() {
     }
   }
 
-  async function markCompleted() {
+  function markCompleted() {
+    if (!req || myRole !== "provider" || req.status !== "in_progress") return;
+    const fare = Number(req.customer_payable ?? req.customer_price ?? req.price_estimate ?? 0);
+    setCashReceivedInput(req.payment_method === "zaincash" ? "0" : String(Math.max(0, Math.round(fare))));
+    setCashSettlementOpen(true);
+  }
+
+  async function submitCashSettlement() {
+    if (!req || cashSettlementBusy) return;
+    const digits = normalizeCashDigits(cashReceivedInput);
+    const amount = digits === "" ? NaN : Number(digits);
+    if (!Number.isSafeInteger(amount) || amount < 0 || amount > 100000000) {
+      toast.error("اكتب المبلغ النقدي المستلم بشكل صحيح");
+      return;
+    }
+    if (req.payment_method === "zaincash" && amount !== 0) {
+      toast.error("هذا الطلب مدفوع إلكترونياً؛ لا تدخل مبلغاً نقدياً");
+      return;
+    }
+    setCashSettlementBusy(true);
     try {
-      await runCompleteRide({ data: { requestId: id } });
-      toast.success("تم إنهاء الطلب");
+      const result = await runCompleteRide({ data: { requestId: id, cashReceivedIqd: amount } });
+      setCashSettlementOpen(false);
+      toast.success(result.changeIqd > 0
+        ? `تم إنهاء الطلب وإضافة ${result.changeIqd.toLocaleString("ar-IQ")} د.ع إلى محفظة الزبون`
+        : "تم إنهاء الطلب بنجاح");
+      await loadAll();
     } catch (e: any) {
-      toast.error(e.message ?? "تعذّر إنهاء الطلب");
+      const raw = String(e?.message ?? "");
+      const message = raw.includes("provider_wallet_debt_limit_exceeded")
+        ? "رصيد محفظتك وصل حد المديونية. رجّع الباقي نقداً للزبون، ثم سجّل الأجرة التي احتفظت بها."
+        : raw.includes("cash_received_less_than_fare")
+          ? "المبلغ المستلم أقل من أجرة الطلب. تأكد من استلام الأجرة كاملة قبل الإكمال."
+          : raw || "تعذّر إنهاء الطلب وتسوية الباقي";
+      toast.error(message);
+    } finally {
+      setCashSettlementBusy(false);
     }
   }
 
@@ -820,10 +861,50 @@ function RequestDetail() {
                 {req.status === "in_progress" && myRole === "provider" && (
                   <button
                     onClick={markCompleted}
-                    className="w-full min-h-14 rounded-2xl bg-success text-success-foreground font-black text-base shadow-md active:scale-[0.99] transition"
+                    disabled={cashSettlementBusy}
+                    className="w-full min-h-14 rounded-2xl bg-success text-success-foreground font-black text-base shadow-md active:scale-[0.99] transition disabled:opacity-50"
                   >
                     {req.type === "taxi" ? "تأكيد إكمال الرحلة" : "تأكيد إكمال الطلب"}
                   </button>
+                )}
+                {cashSettlementOpen && req.status === "in_progress" && myRole === "provider" && (
+                  <div className="rounded-2xl border border-primary/25 bg-card p-4 space-y-3">
+                    <div className="font-black text-sm">تسوية المبلغ النقدي</div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">الأجرة المطلوبة</span>
+                      <strong>{Number(req.customer_payable ?? req.customer_price ?? req.price_estimate ?? 0).toLocaleString("ar-IQ")} د.ع</strong>
+                    </div>
+                    {req.payment_method === "zaincash" ? (
+                      <p className="text-xs text-muted-foreground">الطلب مدفوع إلكترونياً؛ لا يوجد مبلغ نقدي مستلم.</p>
+                    ) : (
+                      <>
+                        <button type="button" onClick={() => setCashReceivedInput(String(Math.max(0, Math.round(Number(req.customer_payable ?? req.customer_price ?? req.price_estimate ?? 0)))))} className="w-full rounded-xl border border-primary/30 p-3 text-xs font-black text-primary">
+                          استلمت الأجرة بالضبط
+                        </button>
+                        <label className="block text-xs font-bold">كم استلمت من الزبون نقداً؟</label>
+                        <input
+                          inputMode="numeric"
+                          type="text"
+                          pattern="[0-9]*"
+                          maxLength={9}
+                          value={cashReceivedInput}
+                          onChange={(event) => setCashReceivedInput(normalizeCashDigits(event.target.value))}
+                          placeholder="مثلاً 5000"
+                          className="w-full rounded-xl border border-border bg-background p-3 text-sm font-bold outline-none focus:border-primary"
+                        />
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">الباقي للزبون</span>
+                          <strong className="text-primary">{Math.max(0, (Number(cashReceivedInput) || 0) - Number(req.customer_payable ?? req.customer_price ?? req.price_estimate ?? 0)).toLocaleString("ar-IQ")} د.ع</strong>
+                        </div>
+                      </>
+                    )}
+                    <button type="button" disabled={cashSettlementBusy} onClick={() => void submitCashSettlement()} className="w-full rounded-xl bg-success p-3 text-sm font-black text-success-foreground disabled:opacity-50">
+                      {cashSettlementBusy ? "جارٍ تسجيل المبلغ..." : "تأكيد المبلغ وإنهاء الطلب"}
+                    </button>
+                    <button type="button" disabled={cashSettlementBusy} onClick={() => setCashSettlementOpen(false)} className="w-full rounded-xl border border-border p-3 text-xs font-bold">
+                      رجوع
+                    </button>
+                  </div>
                 )}
                 {["pending", "searching", "accepted"].includes(req.status as string) &&
                   !req.provider_arrived_at && (
@@ -845,6 +926,11 @@ function RequestDetail() {
             <div>
               <div className="font-black text-base text-emerald-700 dark:text-emerald-300">{req.type === "taxi" ? "اكتملت الرحلة" : "اكتملت الخدمة"}</div>
               <div className="text-xs text-muted-foreground mt-1">{myRole === "customer" ? (req.type === "taxi" ? "أكد السائق إكمال الرحلة. تگدر هسه تقيّمه." : "أكد الفني إكمال الطلب. تگدر هسه تقيّمه.") : "تم تسجيل الإكمال بنجاح."}</div>
+              {myRole === "customer" && Number(req.cash_change_iqd ?? 0) > 0 && (
+                <div className="mt-2 rounded-xl bg-primary/10 px-3 py-2 text-xs font-black text-primary">
+                  تم إرجاع باقي المبلغ إلى محفظتك: {Number(req.cash_change_iqd).toLocaleString("ar-IQ")} د.ع
+                </div>
+              )}
             </div>
           </div>
         )}
