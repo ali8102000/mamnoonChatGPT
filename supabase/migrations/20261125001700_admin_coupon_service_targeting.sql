@@ -30,7 +30,6 @@ begin
  where id=v_id;
  return v_id;
 end;
-$function$
-
+$function$;
 revoke all on function public.admin_save_coupon_v2(uuid,text,text,numeric,integer,timestamptz,boolean,numeric,text[],text[],text[]) from public,anon;
 grant execute on function public.admin_save_coupon_v2(uuid,text,text,numeric,integer,timestamptz,boolean,numeric,text[],text[],text[]) to authenticated;
