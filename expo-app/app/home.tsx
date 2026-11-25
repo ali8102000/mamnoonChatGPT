@@ -32,8 +32,10 @@ import { HomeCategoryCarousel } from "@/components/home-category-carousel";
 import { ServiceIconPanorama } from "@/components/service-icon-panorama";
 import { HomeCampaignPopups } from "@/components/home-campaign-popups";
 import { ProviderMissions } from "@/components/provider-missions";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ProviderLocationMarker } from "@/components/provider-location-marker";
+import { PowerStatusSwitch } from "@/components/power-status-switch";
 
 const HOME_GRID_GAP = 12;
 
@@ -1111,6 +1113,7 @@ function ProviderHome({
   const bottomOffset = Math.max(insets.bottom, 8);
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [followUser, setFollowUser] = useState(true);
   const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number; heading?: number | null } | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
@@ -1169,22 +1172,23 @@ function ProviderHome({
   }, []);
 
   useEffect(() => {
-    if (!mapReady || !currentCoords) return;
+    if (!mapReady || !currentCoords || !followUser) return;
     mapRef.current?.animateCamera({
       center: { latitude: currentCoords.latitude, longitude: currentCoords.longitude },
-      heading: currentCoords.heading ?? undefined,
+      heading: 0,
       pitch: 0,
       zoom: 17,
     }, { duration: 700 });
-  }, [mapReady, currentCoords]);
+  }, [mapReady, currentCoords, followUser]);
 
   const walletBlocked = walletBalance !== null && walletBalance <= -5000;
   const isOnline = available && verified && !walletBlocked;
   const recenter = async () => {
+    setFollowUser(true);
     if (currentCoords) {
       mapRef.current?.animateCamera({
         center: { latitude: currentCoords.latitude, longitude: currentCoords.longitude },
-        heading: currentCoords.heading ?? undefined,
+        heading: 0,
         pitch: 0,
         zoom: 17,
       }, { duration: 500 });
@@ -1219,21 +1223,18 @@ function ProviderHome({
         showsUserLocation={false}
         showsCompass={false}
         onMapReady={() => setMapReady(true)}
+        onPanDrag={() => setFollowUser(false)}
         toolbarEnabled={false}
         loadingEnabled
         moveOnMarkerPress={false}
       >
         {currentCoords ? (
-          <Marker
+          <ProviderLocationMarker
+            role={role === "driver" ? "captain" : role === "large_driver" ? "carrier" : "usta"}
             coordinate={{ latitude: currentCoords.latitude, longitude: currentCoords.longitude }}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
-            title="موقعك الحالي"
-          >
-            <View style={[providerMapStyles.vehicleMarker, { transform: [{ rotate: `${currentCoords.heading ?? 0}deg` }] }]}>
-              <Text style={providerMapStyles.vehicleMarkerText}>{roleConfig.emoji}</Text>
-            </View>
-          </Marker>
+            heading={currentCoords.heading}
+            title={roleConfig.title}
+          />
         ) : null}
       </MapView>
 
@@ -1312,22 +1313,15 @@ function ProviderHome({
         <TouchableOpacity onPress={() => router.push("/support-chat")} style={providerMapStyles.footerAction} accessibilityRole="button">
           <Text style={providerMapStyles.footerActionText}>مساعدة</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel={available ? "إيقاف استقبال الطلبات" : "تفعيل استقبال الطلبات"}
+        <PowerStatusSwitch
+          isOnline={isOnline}
+          offlineText={availabilitySaving ? "جارٍ التحديث..." : "غير متصل"}
+          onlineText="متصل"
+          activeColor="#059669"
+          scaleFn={scaleSize}
           disabled={!verified || availabilitySaving || (walletBlocked && !available)}
-          onPress={toggleAvailable}
-          activeOpacity={0.85}
-          style={[
-            providerMapStyles.powerButton,
-            isOnline ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff,
-            (!verified || availabilitySaving || (walletBlocked && !available)) && { opacity: 0.55 },
-          ]}
-        >
-          <Text style={[providerMapStyles.powerButtonText, !isOnline && providerMapStyles.powerButtonTextOff]}>
-            <Text style={{ fontSize: 15 }}>⏻ </Text>{availabilitySaving ? "..." : isOnline ? "متصل" : "مغلق"}
-          </Text>
-        </TouchableOpacity>
+          onToggle={toggleAvailable}
+        />
         <TouchableOpacity onPress={() => router.push("/provider-rewards")} style={providerMapStyles.footerAction} accessibilityRole="button">
           <Text style={providerMapStyles.footerActionText}>المكافآت</Text>
         </TouchableOpacity>
