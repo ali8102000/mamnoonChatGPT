@@ -91,6 +91,7 @@ import AdminPeakWeatherControl from "@/components/admin-peak-weather-control";
 import AdminCategoryPeakPricing from "@/components/admin-category-peak-pricing";
 import AdminDispatchZones from "@/components/admin-dispatch-zones";
 import AdminProviderMissions from "@/components/admin-provider-missions";
+import AdminGrowthCampaigns from "@/components/admin-growth-campaigns";
 import { toast } from "@/lib/toast";
 import { ContactOptions } from "@/components/contact-options";
 import AdminImageStudio from "@/components/admin-image-studio";
@@ -139,6 +140,7 @@ type Section =
   | "driverTiers"
   | "dispatchZones"
   | "missions"
+  | "growth"
   | "imageStudio"
   | "controlCenter";
 
@@ -206,6 +208,7 @@ const NAV_ITEMS: { key: Section; label: string; icon: any; roles: string[] }[] =
   { key: "driverTiers", label: "رتب أداء السائقين", icon: Car, roles: ["super_admin", "admin"] },
   { key: "dispatchZones", label: "نطاقات توزيع الطلبات", icon: MapPin, roles: ["super_admin", "admin"] },
   { key: "missions", label: "المهمات والمكافآت", icon: ListChecks, roles: ["super_admin", "admin"] },
+  { key: "growth", label: "عروض التسجيل والمكافآت التلقائية", icon: Tag, roles: ["super_admin", "admin"] },
   { key: "roles", label: "الصلاحيات", icon: Settings, roles: ["super_admin"] },
   { key: "staff", label: "الموظفون والصلاحيات والموافقات", icon: Users, roles: ["super_admin", "rank:general_manager", "rank:department_manager", "rank:supervisor", "governance_access"] },
   { key: "company", label: "إعدادات الشركة", icon: Settings, roles: ["super_admin"] },
@@ -219,7 +222,7 @@ const NAV_GROUPS: { title: string; keys: Section[] }[] = [
   { title: "الإحصائيات والمحافظات", keys: ["stats", "regions"] },
   { title: "المستخدمون والمجتمع والدعم", keys: ["users", "providers", "requests", "chat", "friends", "reports", "map"] },
   { title: "المالية وحقوق ممنون", keys: ["rights", "coupons", "wallet"] },
-  { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones", "missions"] },
+  { title: "التشغيل والتسعير", keys: ["pricing", "driverTiers", "dispatchZones", "missions", "growth"] },
   { title: "إعدادات المنصة والمحتوى", keys: ["notifications", "controlCenter", "imageStudio"] },
   { title: "الموظفون والأمان", keys: ["roles", "staff", "audit"] },
 ];
@@ -461,6 +464,7 @@ function AdminPage() {
           {section === "driverTiers" && <DriverPerformanceTierSettings />}
           {section === "dispatchZones" && <AdminDispatchZones />}
           {section === "missions" && <AdminProviderMissions />}
+          {section === "growth" && <AdminGrowthCampaigns />}
           {section === "roles" && <RolesSection />}
           {section === "staff" && <StaffHierarchySection />}
           {section === "controlCenter" && <AdminControlCenter />}
