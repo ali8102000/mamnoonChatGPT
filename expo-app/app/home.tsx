@@ -1171,6 +1171,7 @@ function ProviderHome({
   }, [mapReady, currentCoords]);
 
   const walletBlocked = walletBalance !== null && walletBalance <= -5000;
+  const isOnline = available && verified && !walletBlocked;
   const recenter = async () => {
     if (currentCoords) {
       mapRef.current?.animateCamera({
@@ -1277,7 +1278,7 @@ function ProviderHome({
       <TouchableOpacity
         onPress={() => void recenter()}
         activeOpacity={0.85}
-        style={[providerMapStyles.recenterButton, { bottom: bottomOffset + (available ? 88 : 146) }]}
+        style={[providerMapStyles.recenterButton, { bottom: bottomOffset + (isOnline ? 88 : 146) }]}
         accessibilityRole="button"
         accessibilityLabel="إعادة التمركز على موقعي"
       >
@@ -1291,7 +1292,7 @@ function ProviderHome({
 
       <Text pointerEvents="none" style={[providerMapStyles.mapAttribution, { bottom: bottomOffset + 70 }]}>© Google</Text>
 
-      {!available && (
+      {!isOnline && (
         <View style={[providerMapStyles.offlineNotice, { bottom: bottomOffset + 12 }]}>
           <Text numberOfLines={1} style={providerMapStyles.offlineNoticeText}>
             {walletBlocked ? "اشحن رصيدك حتى تعود لاستقبال الطلبات" : !verified ? "أكمل توثيق حسابك لتفعيل استقبال الطلبات" : "فعّل حالتك حتى تصلك الطلبات القريبة"}
@@ -1311,12 +1312,12 @@ function ProviderHome({
           activeOpacity={0.85}
           style={[
             providerMapStyles.powerButton,
-            available ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff,
+            isOnline ? providerMapStyles.powerButtonOn : providerMapStyles.powerButtonOff,
             (!verified || availabilitySaving || (walletBlocked && !available)) && { opacity: 0.55 },
           ]}
         >
-          <Text style={[providerMapStyles.powerButtonText, !available && providerMapStyles.powerButtonTextOff]}>
-            <Text style={{ fontSize: 15 }}>⏻ </Text>{availabilitySaving ? "..." : available ? "متصل" : "مغلق"}
+          <Text style={[providerMapStyles.powerButtonText, !isOnline && providerMapStyles.powerButtonTextOff]}>
+            <Text style={{ fontSize: 15 }}>⏻ </Text>{availabilitySaving ? "..." : isOnline ? "متصل" : "مغلق"}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/coupons")} style={providerMapStyles.footerAction} accessibilityRole="button">
