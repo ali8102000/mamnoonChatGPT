@@ -49,10 +49,6 @@ create table if not exists public.mamnoon_growth_campaign_awards (
   coupon_id uuid references public.coupons(id),
   created_at timestamptz not null default now(),
   unique(campaign_id,user_id),
-  constraint mamnoon_growth_award_reference check (
-    (award_type='wallet_credit' and wallet_transaction_id is not null and coupon_id is null)
-    or (award_type='customer_coupon' and coupon_id is not null and wallet_transaction_id is null)
-  )
 );
 
 create index if not exists mamnoon_growth_campaigns_active_window_idx
@@ -148,7 +144,7 @@ begin
       raise exception 'cannot_change_campaign_type_or_amount_after_awards';
     end if;
     update public.mamnoon_growth_campaigns set
-      title=btrim(p_title),provider_type=p_provider_type,service_slug=p_service_slug,
+      campaign_type=p_campaign_type,title=btrim(p_title),provider_type=p_provider_type,service_slug=p_service_slug,
       target_governorates=coalesce(p_target_governorates,'{}'::text[]),
       amount_iqd=p_amount_iqd,delay_days=coalesce(p_delay_days,0),
       coupon_valid_days=coalesce(p_coupon_valid_days,0),max_awards=p_max_awards,
