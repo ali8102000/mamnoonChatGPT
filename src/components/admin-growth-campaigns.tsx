@@ -8,6 +8,7 @@ type Campaign = {
   service_slug: string | null; target_governorates: string[]; amount_iqd: number; budget_iqd: number; spent_iqd: number;
   delay_days: number; coupon_valid_days: number; max_awards: number; issued_count: number;
   starts_at: string; ends_at: string; active: boolean; created_at: string;
+  coupon_request_types: string[]; coupon_vehicle_categories: string[]; coupon_service_slugs: string[];
 };
 type Award = {
   award_id: string; campaign_title: string; full_name: string | null; phone: string | null;
