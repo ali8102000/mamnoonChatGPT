@@ -1251,11 +1251,11 @@ function ProviderHome({
         </TouchableOpacity>
 
         <View style={providerMapStyles.topCenter}>
-          <TouchableOpacity onPress={() => router.push("/coupons")} activeOpacity={0.9} style={providerMapStyles.walletBalance}>
+          <View style={providerMapStyles.walletBalance}>
             <Text style={providerMapStyles.walletBalanceText}>
               الرصيد: {walletBalance === null ? (walletLoading ? "..." : "—") : walletBalance.toLocaleString("ar-IQ")} دينار
             </Text>
-          </TouchableOpacity>
+          </View>
           <TouchableOpacity onPress={() => router.push("/messages")} activeOpacity={0.9} style={providerMapStyles.messagesBanner}>
             <View style={providerMapStyles.messagesIcon}><Text style={{ color: "#1D4ED8", fontSize: 17 }}>✉</Text></View>
             <Text numberOfLines={1} style={providerMapStyles.messagesTitle}>عروضك وإشعاراتك الجديدة</Text>
@@ -1284,16 +1284,12 @@ function ProviderHome({
         <Text style={{ color: "#17324D", fontSize: 22 }}>◎</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => router.push("/request/new")}
-        activeOpacity={0.9}
-        style={[providerMapStyles.destinationButton, { bottom: bottomOffset + (available ? 88 : 146) }]}
-        accessibilityRole="button"
-        accessibilityLabel="الوجهة"
-      >
+      <View style={[providerMapStyles.destinationButton, { bottom: bottomOffset + (available ? 88 : 146) }]}>
         <Text style={providerMapStyles.destinationStar}>★</Text>
         <Text numberOfLines={1} style={providerMapStyles.destinationText}>{roleConfig.destination}</Text>
-      </TouchableOpacity>
+      </View>
+
+      <Text pointerEvents="none" style={[providerMapStyles.mapAttribution, { bottom: bottomOffset + 70 }]}>© Google</Text>
 
       {!available && (
         <View style={[providerMapStyles.offlineNotice, { bottom: bottomOffset + 12 }]}>
@@ -1355,6 +1351,7 @@ const providerMapStyles = StyleSheet.create({
   destinationButton: { position: "absolute", right: 14, height: 42, maxWidth: "62%", minWidth: 132, paddingHorizontal: 13, borderRadius: 21, backgroundColor: "#FFFFFF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, elevation: 6 },
   destinationStar: { color: "#F4B400", fontSize: 18, fontWeight: "900" },
   destinationText: { color: "#17324D", fontSize: 11, fontWeight: "900", flexShrink: 1 },
+  mapAttribution: { position: "absolute", left: 8, color: "#334155", backgroundColor: "rgba(255,255,255,0.82)", paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, fontSize: 9, fontWeight: "800", zIndex: 3 },
   offlineNotice: { position: "absolute", left: 12, right: 12, height: 44, borderRadius: 22, backgroundColor: "#1D4ED8", alignItems: "center", justifyContent: "center", paddingHorizontal: 14, elevation: 5 },
   offlineNoticeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", textAlign: "center" },
   bottomBar: { position: "absolute", left: 0, right: 0, height: 66, direction: "ltr", backgroundColor: "#FFFFFF", borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", elevation: 12, shadowColor: "#0F172A", shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: -3 } },
