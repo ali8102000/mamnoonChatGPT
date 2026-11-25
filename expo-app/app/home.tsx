@@ -170,7 +170,7 @@ export default function HomeScreen() {
     // provider_verifications is the authoritative per-role review record; the
     // profile status remains a compatibility fallback for legacy accounts.
     Promise.all([
-      supabase
+      (supabase as any)
         .from(table)
         .select(profileColumns)
         .eq("user_id", user.id)
