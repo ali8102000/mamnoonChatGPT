@@ -91,12 +91,15 @@ export default function HomeScreen() {
       return;
     }
     const isDriver = selectedRole === "driver" || selectedRole === "large_driver";
-    const { data: offerRows, error: offersError } = await (supabase as any)
+    let offerQuery = (supabase as any)
       .from("request_offers")
       .select("request_id, expires_at, sent_at, distance_km")
       .eq("provider_id", user.id)
-      .eq("status", "pending")
-      .gt("expires_at", new Date().toISOString());
+      .eq("status", "pending");
+    if (selectedRole !== "large_driver") {
+      offerQuery = offerQuery.gt("expires_at", new Date().toISOString());
+    }
+    const { data: offerRows, error: offersError } = await offerQuery;
     if (offersError) {
       console.warn("[incoming-requests] Offer lookup failed:", offersError.message);
       setIncoming((current) => current.length ? [] : current);
@@ -1026,8 +1029,9 @@ function IncomingRequestList({ incoming }: { incoming: IncomingRequest[] }) {
           const remaining = req.my_offer?.expires_at
             ? Math.max(0, Math.ceil((Date.parse(req.my_offer.expires_at) - dispatchClock) / 1000))
             : 0;
+          const expired = remaining <= 0;
           const timeLabel = `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
-          const urgent = remaining <= 10;
+          const urgent = remaining <= 10 && !expired;
           const urgentFlash = urgent && Math.floor(dispatchClock / 1000) % 2 === 0;
           return (
             <TouchableOpacity
@@ -1050,12 +1054,12 @@ function IncomingRequestList({ incoming }: { incoming: IncomingRequest[] }) {
                   {(req.customer_price ?? req.customer_payable ?? req.price_estimate) != null ? `${Number(req.customer_price ?? req.customer_payable ?? req.price_estimate).toLocaleString("en")} د.ع` : req.vehicle_category === "large" ? "بانتظار عروض الأسعار" : "السعر قيد التحديد"}
                 </Text>
                 <Text style={{ color: urgentFlash ? "#dc2626" : palette.muted, fontSize: 10, fontWeight: "900", textAlign: "right" }}>
-                  {urgent ? "انتبه، ينتهي العرض الآن" : "ينتهي العرض خلال"}
+                  {expired ? "الطلب ما زال مفتوحاً — افتحه للقبول أو إرسال عرض" : urgent ? "انتبه، قرب ينتهي وقت التنبيه" : "ينتهي وقت التنبيه خلال"}
                 </Text>
               </View>
               <View style={{ width: 62, height: 62, borderRadius: 31, borderWidth: 5, borderColor: urgentFlash ? "#dc2626" : palette.gold, alignItems: "center", justifyContent: "center", backgroundColor: palette.surface }}>
-                <Text style={{ color: urgentFlash ? "#dc2626" : palette.ink, fontSize: 14, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{timeLabel}</Text>
-                <Text style={{ color: palette.muted, fontSize: 8, fontWeight: "800" }}>قبول</Text>
+                <Text style={{ color: urgentFlash ? "#dc2626" : palette.ink, fontSize: expired ? 12 : 14, fontWeight: "900", fontVariant: ["tabular-nums"] }}>{expired ? "مفتوح" : timeLabel}</Text>
+                <Text style={{ color: palette.muted, fontSize: 8, fontWeight: "800" }}>{expired ? "طلب متاح" : "قبول"}</Text>
               </View>
               <Text style={styles.requestArrow}>←</Text>
             </TouchableOpacity>
