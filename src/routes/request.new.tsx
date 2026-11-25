@@ -346,7 +346,7 @@ function NewRequest() {
       return serverTaxiFare;
     }
     if (pricingMode === "negotiable") return null;
-    const amount = Number(customerPrice);
+    const amount = Number(serviceTotalPrice);
     return Number.isFinite(amount) && amount > 0 ? amount : null;
   };
 
@@ -380,7 +380,7 @@ function NewRequest() {
     setCouponError("");
     setCouponPreview(null);
     try {
-      const { data, error } = await (supabase as any).rpc("preview_my_coupon", { p_code: code, p_amount: amount });
+      const { data, error } = await (supabase as any).rpc("preview_my_coupon_for_request", { p_code: code, p_amount: amount, p_request_type: type, p_vehicle_category: type === "taxi" ? vehicleCategory : null, p_service_slug: type === "service" ? selectedService?.slug ?? null : null });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
       if (!row) throw new Error("الكوبون غير متاح");
@@ -667,12 +667,13 @@ function NewRequest() {
         verifiedRouteKm = routeKm;
         priceEstimate = serverTaxiFare;
       }
-      if (type === "taxi" && vehicle !== "large" && couponCode.trim()) {
+      if (couponCode.trim()) {
         const amount = priceEstimate;
         if (!amount || amount <= 0) throw new Error("حدد سعر الطلب أولاً حتى نطبق الكوبون");
-        const { data: couponData, error: couponCheckError } = await (supabase as any).rpc("preview_my_coupon", {
-          p_code: couponCode.trim(),
-          p_amount: amount,
+        const { data: couponData, error: couponCheckError } = await (supabase as any).rpc("preview_my_coupon_for_request", {
+          p_code: couponCode.trim(), p_amount: amount, p_request_type: type,
+          p_vehicle_category: type === "taxi" ? vehicleCategory : null,
+          p_service_slug: type === "service" ? selectedService?.slug ?? null : null,
         });
         if (couponCheckError) throw couponCheckError;
         if (!couponData || !couponData.length) throw new Error("الكوبون غير متاح لهذا الطلب");
@@ -698,7 +699,7 @@ function NewRequest() {
         .insert({
           customer_id: session.user.id,
           governorate_key: govKey ?? (pickupCoords ? governorateOf(pickupCoords).key : null),
-          coupon_code: type === "taxi" && vehicle !== "large" ? couponCode.trim() || null : null,
+          coupon_code: couponCode.trim() || null,
           type,
           status: "pending",
           service_id: type === "service" ? serviceId : null,
@@ -1301,7 +1302,7 @@ function NewRequest() {
               </div>
             )}
             {requestAttachmentPanel}
-            {vehicle !== "large" ? couponPanel : null}
+            {couponPanel}
 
             {vehicle === "large" && (
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات إضافية (اختياري) — اكتب الوجهة أو أي تفاصيل تريدها" rows={2} className="w-full resize-none bg-white dark:bg-black dark:text-slate-100 dark:border-slate-700 border border-orange-200 rounded-xl px-4 py-3 text-sm font-medium outline-none" />
