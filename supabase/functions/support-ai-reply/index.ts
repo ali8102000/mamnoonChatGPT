@@ -82,7 +82,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: prompt }] },
         contents: [{ role: "user", parts: [{ text: message.body }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 450, responseMimeType: "application/json" },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 280, responseMimeType: "application/json", ...(model.includes("2.5") ? { thinkingConfig: { thinkingBudget: 0 } } : {}) },
       }),
     });
     if (!upstream.ok) {
