@@ -5,6 +5,7 @@ PKG="com.mamnoon.app"
 LOG="/tmp/mamnoon-navigation-log.txt"
 UI="/tmp/mamnoon-window.xml"
 REMOTE_UI="/data/local/tmp/mamnoon-window.xml"
+APP_PIDS=()
 
 dump_ui() {
   # Android 15 restricts pulling files directly from shared storage on some
@@ -22,8 +23,21 @@ print("UI hierarchy nodes:", len(nodes))
 PY
 }
 
+record_app_pids() {
+  local current_pids
+  current_pids="$(adb shell pidof "$PKG" 2>/dev/null | tr -d '\\r' || true)"
+  [ -n "$current_pids" ] || return 1
+  local pid
+  for pid in $current_pids; do
+    case " ${APP_PIDS[*]} " in
+      *" $pid "*) ;;
+      *) APP_PIDS+=("$pid") ;;
+    esac
+  done
+}
+
 assert_alive() {
-  adb shell pidof "$PKG" >/dev/null || {
+  record_app_pids || {
     adb logcat -d -t 2500
     echo "Mamnoon process exited during navigation test."
     exit 1
@@ -86,6 +100,9 @@ for node in root.iter("node"):
 all_text = " ".join(labels).lower()
 print("Visible UI labels:", " | ".join(labels[:30]))
 gate_terms = ("المحافظة", "اختر المحافظة", "تسجيل الدخول", "رقم الهاتف", "دخول", "governorate", "sign in", "log in")
+if "system ui isn't responding" in all_text:
+    print("BLOCKED: Android System UI became unresponsive before app navigation could be inspected.")
+    raise SystemExit(3)
 if any(term in all_text for term in gate_terms):
     raise SystemExit(2)
 if "الطلبات" not in labels and not any("الطلبات" in item for item in labels):
@@ -96,6 +113,9 @@ set -e
 if [ "$gate_status" -eq 2 ]; then
   echo "BLOCKED: emulator is at governorate/login gate; provide a test session before navigation can be verified."
   exit 2
+elif [ "$gate_status" -eq 3 ]; then
+  echo "BLOCKED: Android System UI is unresponsive; this run cannot determine whether app navigation is working."
+  exit 1
 elif [ "$gate_status" -ne 0 ]; then
   echo "FAIL: bottom navigation is absent and no known startup gate was detected."
   exit 1
@@ -125,9 +145,17 @@ sleep 2
 assert_alive
 open_route "home"
 
-adb logcat -d -t 5000 > "$LOG"
+# Only inspect Mamnoon's own process logs. Emulator system processes (for
+# example Bluetooth) can crash independently and must not fail the app smoke test.
+: > "$LOG"
+if [ "${#APP_PIDS[@]}" -eq 0 ]; then
+  record_app_pids || { echo "Could not identify the Mamnoon process for crash inspection."; exit 1; }
+fi
+for pid in "${APP_PIDS[@]}"; do
+  adb logcat -d --pid="$pid" -t 5000 >> "$LOG"
+done
 if grep -E -i "app-boundary.*Unhandled render error|Unhandled render error.*app-boundary|FATAL EXCEPTION|Fatal signal" "$LOG"; then
-  echo "A render boundary or native crash signature appeared during navigation."
+  echo "A render boundary or native crash signature appeared in Mamnoon's process."
   exit 1
 fi
 
