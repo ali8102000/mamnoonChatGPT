@@ -25,7 +25,7 @@ PY
 
 record_app_pids() {
   local current_pids
-  current_pids="$(adb shell pidof "$PKG" 2>/dev/null | tr -d '\\r' || true)"
+  current_pids="$(adb shell pidof "$PKG" 2>/dev/null | tr -d '\r' || true)"
   [ -n "$current_pids" ] || return 1
   local pid
   for pid in $current_pids; do
