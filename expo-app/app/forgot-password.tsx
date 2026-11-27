@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import { View, Text, StyleSheet, Alert } from "react-native";
-import { supabase } from "@/lib/supabase";
+import { authProxy } from "@/lib/supabase";
 import { Button, RealInput } from "@/components/ui";
 import { palette } from "@/styles/theme";
 
@@ -17,11 +17,21 @@ export default function ForgotPassword() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(value);
-      if (error) throw error;
+      const result = await authProxy<{ ok?: boolean; error?: string }>("/reset", {
+        identifier: value,
+      });
+      if (result.ok !== true) {
+        throw new Error(result.error || "reset_unavailable");
+      }
       router.push({ pathname: "/reset-password", params: { email: value } });
     } catch (error: unknown) {
-      Alert.alert("تعذّر إرسال الرمز", error instanceof Error ? error.message : "حدث خطأ. حاول مرة أخرى.");
+      const message = error instanceof Error ? error.message : "";
+      Alert.alert(
+        "تعذّر إرسال الرمز",
+        message === "too_many_attempts"
+          ? "طلبت رمزاً عدة مرات. انتظر قليلاً ثم حاول مجدداً."
+          : "تعذّر إرسال رمز الاستعادة حالياً. تحقق من البريد وحاول لاحقاً.",
+      );
     } finally {
       setBusy(false);
     }
