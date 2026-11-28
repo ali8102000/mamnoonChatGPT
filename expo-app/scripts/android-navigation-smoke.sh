@@ -100,8 +100,13 @@ for node in root.iter("node"):
 all_text = " ".join(labels).lower()
 print("Visible UI labels:", " | ".join(labels[:30]))
 gate_terms = ("المحافظة", "اختر المحافظة", "تسجيل الدخول", "رقم الهاتف", "دخول", "governorate", "sign in", "log in")
-if "system ui isn't responding" in all_text:
-    print("BLOCKED: Android System UI became unresponsive before app navigation could be inspected.")
+system_blocker_terms = (
+    "system ui isn't responding",
+    "settings isn't responding",
+    "system process isn't responding",
+)
+if any(term in all_text for term in system_blocker_terms):
+    print("BLOCKED: Android system UI or Settings became unresponsive before app navigation could be inspected.")
     raise SystemExit(3)
 if any(term in all_text for term in gate_terms):
     raise SystemExit(2)
@@ -114,7 +119,7 @@ if [ "$gate_status" -eq 2 ]; then
   echo "BLOCKED: emulator is at governorate/login gate; provide a test session before navigation can be verified."
   exit 2
 elif [ "$gate_status" -eq 3 ]; then
-  echo "BLOCKED: Android System UI is unresponsive; this run cannot determine whether app navigation is working."
+  echo "BLOCKED: Android System UI or Settings is unresponsive; this run cannot determine whether app navigation is working."
   exit 1
 elif [ "$gate_status" -ne 0 ]; then
   echo "FAIL: bottom navigation is absent and no known startup gate was detected."
