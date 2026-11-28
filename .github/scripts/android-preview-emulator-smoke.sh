@@ -30,4 +30,19 @@ if grep -E -i "app-boundary.*Unhandled render error|Unhandled render error.*app-
   exit 1
 fi
 
-bash expo-app/scripts/android-navigation-smoke.sh
+if ! bash expo-app/scripts/android-navigation-smoke.sh; then
+  echo "::group::Mamnoon Android navigation failure diagnostics"
+  echo "App process:"
+  adb shell pidof com.mamnoon.app || true
+  echo "Focused activity and window:"
+  adb shell dumpsys activity activities | tail -n 80 || true
+  adb shell dumpsys window | grep -E -i "mCurrentFocus|mFocusedApp|not responding|ANR" | tail -n 40 || true
+  echo "Relevant Android and Mamnoon logcat:"
+  adb logcat -d -v threadtime -t 4000 | grep -E -i "ANR in|am_anr|not responding|FATAL EXCEPTION|AndroidRuntime|ReactNativeJS|Expo|com\\.mamnoon\\.app" | tail -n 300 || true
+  if [ -s /tmp/mamnoon-window.xml ]; then
+    echo "Captured UI hierarchy:"
+    sed -n '1,160p' /tmp/mamnoon-window.xml
+  fi
+  echo "::endgroup::"
+  exit 1
+fi
