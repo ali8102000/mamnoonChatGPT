@@ -159,23 +159,26 @@ export default function HomeScreen() {
       setProviderVehicleType(null);
       return;
     }
-    const table = (selectedRole === "driver" || selectedRole === "large_driver") ? "driver_profiles" : "worker_profiles";
-    // worker_profiles does not contain vehicle_type; requesting that missing
-    // column makes the whole profile query fail and leaves technicians offline.
-    const profileColumns = selectedRole === "worker"
-      ? "available, status"
-      : "available, status, vehicle_type";
+    // worker_profiles does not contain vehicle_type; use explicit table
+    // queries so TypeScript can validate each table's selected columns.
+    const profileQuery = selectedRole === "worker"
+      ? supabase
+          .from("worker_profiles")
+          .select("available, status")
+          .eq("user_id", user.id)
+          .maybeSingle()
+      : supabase
+          .from("driver_profiles")
+          .select("available, status, vehicle_type")
+          .eq("user_id", user.id)
+          .maybeSingle();
     // Verification is role-specific: an approved large-driver account must
     // not be blocked by a separate pending worker verification on the same user.
     // provider_verifications is the authoritative per-role review record; the
     // profile status remains a compatibility fallback for legacy accounts.
     Promise.all([
-      (supabase as any)
-        .from(table)
-        .select(profileColumns)
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      (supabase as any)
+      profileQuery,
+      supabase
         .from("provider_verifications")
         .select("status")
         .eq("user_id", user.id)
@@ -196,7 +199,12 @@ export default function HomeScreen() {
         ? roleVerificationStatus === "approved"
         : profileStatus === "approved";
       setAvailable(Boolean(profileResult.data?.available));
-      const savedVehicleType = selectedRole === "worker" ? null : profileResult.data?.vehicle_type;
+      const savedVehicleType =
+        selectedRole === "worker" ||
+        !profileResult.data ||
+        !("vehicle_type" in profileResult.data)
+          ? null
+          : profileResult.data.vehicle_type;
       setProviderVehicleType(savedVehicleType === "kia_cargo" || savedVehicleType === "kia_passenger" || savedVehicleType === "bus" ? savedVehicleType : null);
       setVerified(isApproved);
       setVerificationStatus(status);
